@@ -141,8 +141,9 @@ Implemented now:
   to user conversions without upgrading their evidence kind, resolvable locally or from
   revision-pinned `hf://` references; prepared releases package their bundle automatically;
 - a registry-derived support matrix (`support-matrix`) listing every family and tier;
-- prior-based per-layer KV-cache precision planning (`--kv-cache prior`) with AX Engine runtime
-  metadata and an advisory MLX-LM fallback.
+- per-layer KV-cache precision planning: prior-based (`--kv-cache prior`) and measured
+  (`analyze-kv` + `plan --kv-cache measured`, with the plan digest-bound to its sensitivity
+  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
@@ -153,7 +154,8 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
 - validated conversion evidence for additional LLM families;
 - dedicated quantization of external MTP sidecars;
-- measured KV-cache sensitivity probing (current KV planning is architecture-prior only);
+- release validation gates for measured KV-cache quality claims (KV probe output is
+  development evidence);
 - VLM and MoE expert-level planning.
 
 Release discipline (gate order, dual-profile metric completeness, no rewrite of formal roots) is
@@ -304,6 +306,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `calibrate` | Validate calibration input and record provenance | Implemented |
 | `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
 | `analyze` | Measure resumable affine/DWQ/BF16 sensitivity, including targeted refinement | Implemented |
+| `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit reviewed precision recipe | Implemented for development |
 | `quantize` | One-command development conversion (inspect → prior/recipe plan → convert) | Implemented; output is always development evidence |

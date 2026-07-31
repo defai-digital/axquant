@@ -1,0 +1,212 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, ClassVar
+
+import numpy as np
+import pytest
+
+from axquant.activation_cache import tokenize_calibration
+from axquant.errors import PlanningError, ProbeError
+from axquant.inspector import inspect_model
+from axquant.kv_probe import measure_kv_sensitivity
+from axquant.planner import allocate_kv_cache_measured
+from axquant.schema import (
+    CalibrationManifest,
+    EvidenceKind,
+    KvSensitivityReport,
+    ModelIdentity,
+    ProfileName,
+)
+from axquant.serde import stable_sha256, write_data
+
+
+class _FakeTokenizer:
+    pad_token_id = 0
+    eos_token_id = 2
+    special_tokens_map: ClassVar[dict[str, str]] = {}
+
+    def get_vocab(self) -> dict[str, int]:
+        return {"<pad>": 0, "</s>": 2}
+
+    def encode(
+        self,
+        text: str,
+        *,
+        add_special_tokens: bool,
+        truncation: bool,
+        max_length: int,
+    ) -> list[int]:
+        del add_special_tokens, truncation
+        return ([ord(character) % 13 + 3 for character in text] + [2])[:max_length]
+
+
+class _FakeKvBackend:
+    """Deterministic backend: layer 0 is far more KV-sensitive than the rest."""
+
+    backend_id = "fake-kv"
+
+    def __init__(self) -> None:
+        self.loaded: Path | None = None
+
+    def load_model(self, model_dir: Path) -> None:
+        assert model_dir.is_dir()
+        self.loaded = model_dir
+
+    def forward_logits(
+        self,
+        input_ids: Any,
+        *,
+        layer_bits: dict[int, int] | None,
+        group_size: int,
+    ) -> Any:
+        assert group_size == 64
+        ids = np.asarray(input_ids, dtype=np.int64).reshape(-1)
+        positions = max(1, len(ids) - 1)
+        logits = np.zeros((1, positions, 16), dtype=np.float32)
+        targets = ids[1 : positions + 1] % 16
+        for position, target in enumerate(targets):
+            logits[0, position, target] = 4.0
+        if layer_bits:
+            ((layer, bits),) = layer_bits.items()
+            weight = 4.0 if layer == 0 else 0.01
+            logits[..., 0] += weight * (16 - bits) / 16
+        return logits
+
+
+def _calibration_cache(tmp_path: Path, identity: ModelIdentity) -> Path:
+    dataset = tmp_path / "calibration.jsonl"
+    dataset.write_text(
+        "\n".join(
+            [
+                json.dumps({"text": "repair this function"}),
+                json.dumps({"text": "return valid JSON"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cache = tmp_path / "cache"
+    calibration = CalibrationManifest(
+        model=identity,
+        profile=ProfileName.AGENT_CODING,
+        dataset_id=str(dataset),
+        dataset_sha256="",
+        samples=2,
+        domains=[],
+        sequence_length=32,
+        random_seed=11,
+        calibration_evaluation_separation_attested=True,
+    )
+    cache_manifest = tokenize_calibration(
+        model=identity,
+        dataset_path=dataset,
+        output_dir=cache,
+        profile=ProfileName.AGENT_CODING,
+        sequence_length=32,
+        random_seed=11,
+        tokenizer=_FakeTokenizer(),
+        calibration_manifest_sha256=stable_sha256(
+            calibration.model_dump(mode="json", exclude={"created_at"})
+        ),
+        separation_attested=True,
+    )
+    calibration.dataset_sha256 = cache_manifest.dataset_sha256
+    calibration.domains = cache_manifest.domains
+    write_data(cache / "calibration_manifest.json", calibration)
+    cache_manifest.calibration_manifest_sha256 = stable_sha256(
+        calibration.model_dump(mode="json", exclude={"created_at"})
+    )
+    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
+    return cache
+
+
+def _measured_report(qwen36_model_dir: Path, tmp_path: Path) -> KvSensitivityReport:
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    cache = _calibration_cache(tmp_path, identity)
+    return measure_kv_sensitivity(
+        inventory,
+        model_dir=qwen36_model_dir,
+        calibration_cache=cache,
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 8),
+        token_budget=32,
+        backend=_FakeKvBackend(),
+    )
+
+
+def test_measure_kv_sensitivity_covers_layers_with_monotone_metrics(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    assert report.evidence_kind is EvidenceKind.MEASURED_DEVELOPMENT
+    assert report.probe_backend == "fake-kv"
+    assert report.calibration is not None
+    assert report.text_layer_count == 64
+    assert len(report.entries) == 64
+    sensitive = next(entry for entry in report.entries if entry.layer_index == 0)
+    four_bit = next(candidate for candidate in sensitive.candidates if candidate.bits == 4)
+    eight_bit = next(candidate for candidate in sensitive.candidates if candidate.bits == 8)
+    bf16 = next(candidate for candidate in sensitive.candidates if candidate.bits == 16)
+    assert four_bit.metrics.output_kl > eight_bit.metrics.output_kl > 0.0
+    assert bf16.metrics.output_kl == 0.0
+    assert four_bit.measured_tokens > 0
+    interior = next(entry for entry in report.entries if entry.layer_index == 5)
+    interior_four = next(candidate for candidate in interior.candidates if candidate.bits == 4)
+    assert interior_four.metrics.output_kl < four_bit.metrics.output_kl
+
+
+def test_measured_kv_allocation_spends_bits_on_sensitive_layers(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    interior = next(entry for entry in report.entries if entry.layer_index == 5)
+    interior_four = next(candidate for candidate in interior.candidates if candidate.bits == 4)
+    budget = interior_four.metrics.output_kl * 2
+    plan = allocate_kv_cache_measured(report, max_output_kl=budget)
+    assert plan.allocation_basis == "measured"
+    assert plan.sensitivity_sha256 == stable_sha256(report)
+    by_layer = {layer.layer_index: layer for layer in plan.layers}
+    assert by_layer[0].bits == 16  # sensitive layer exceeds the budget at 4 and 8 bit
+    assert by_layer[5].bits == 4
+    assert "measured output KL" in by_layer[5].reason
+    assert "no quantized KV candidate met" in by_layer[0].reason
+    assert len(plan.layers) == report.text_layer_count
+
+
+def test_measured_kv_allocation_rejects_prior_reports_and_bad_budget(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    with pytest.raises(PlanningError, match="budget must be positive"):
+        allocate_kv_cache_measured(report, max_output_kl=0.0)
+    prior = report.model_copy(update={"evidence_kind": EvidenceKind.ARCHITECTURE_PRIOR})
+    with pytest.raises(PlanningError, match="measured sensitivity report"):
+        allocate_kv_cache_measured(prior)
+
+
+def test_measure_kv_sensitivity_requires_pinned_revision(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory = inspect_model(qwen36_model_dir, model_id="Qwen/Qwen3.6-27B")
+    with pytest.raises(ProbeError, match="revision-pinned"):
+        measure_kv_sensitivity(
+            inventory,
+            model_dir=qwen36_model_dir,
+            calibration_cache=tmp_path / "missing",
+            profile=ProfileName.AGENT_CODING,
+            backend=_FakeKvBackend(),
+        )

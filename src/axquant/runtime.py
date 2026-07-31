@@ -378,10 +378,9 @@ def assert_qwen36_conversion_scope(plan: QuantizationPlan) -> None:
     if profile.optimization_scope != OptimizationScope.TEXT_PATH:
         raise ArtifactError("this Qwen 3.6 checkpoint is inventory-only and cannot be converted")
     if plan.kv_cache is not None:
-        if plan.kv_cache.allocation_basis != "architecture-prior":
+        if plan.kv_cache.allocation_basis == "measured" and not plan.kv_cache.sensitivity_sha256:
             raise ArtifactError(
-                "measured KV-cache allocation is not yet supported; the measured basis is "
-                "reserved for future KV sensitivity probing (AXQ-021)"
+                "a measured KV-cache plan must bind its sensitivity report digest (AXQ-024)"
             )
         if (
             profile.text_layer_count is not None

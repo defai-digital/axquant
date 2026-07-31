@@ -34,6 +34,7 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-021 | Plan KV-cache precision per layer, prior-based first and measured later | Accepted |
 | AXQ-022 | Compete with mlx-optiq by measured merit under clean-room guardrails | Accepted |
 | AXQ-023 | Resolve remote recipe bundles only from revision-pinned Hub references | Accepted |
+| AXQ-024 | Measure per-layer KV-cache sensitivity and bind measured KV plans to their report | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -771,6 +772,52 @@ plan change after review, defeating the checksum discipline the bundle exists to
 - A bespoke bundle registry service (new infrastructure and trust root without added integrity;
   the Hub plus checksums already provide content addressing).
 
+## AXQ-024: Measured per-layer KV-cache sensitivity
+
+**Status:** Accepted
+
+### Context
+
+AXQ-021 shipped prior-based KV-cache allocation and reserved the `measured` basis until a
+measurement path existed. Without measurement, KV planning cannot claim quality, and conversion
+rejects measured KV plans outright. The weight path already has the required machinery: verified
+tokenized calibration caches, a backend protocol with an MLX implementation, deterministic
+metrics, and evidence-kind discipline.
+
+### Decision
+
+- A KV probe backend runs forward passes with per-layer KV-cache quantization (selected layers
+  at candidate bits, all others BF16) over the same verified tokenized calibration caches the
+  weight probe uses, and compares logits against the all-BF16 baseline (output KL and token
+  disagreement at fixed metric positions).
+- Results are recorded as `axquant.kv-sensitivity.v1`: model identity, inventory digest, probe
+  backend, group size, complete per-layer candidate coverage (`0..text_layer_count-1`, no gaps),
+  and calibration provenance. Measured reports without calibration provenance are invalid.
+- `allocate_kv_cache_measured` selects, per layer, the lowest candidate bit-width whose measured
+  output KL stays within an explicit budget (falling back to BF16), floors included, and emits a
+  `KvCachePlan` with `allocation_basis="measured"` bound to the report by its semantic digest
+  (`sensitivity_sha256`).
+- Conversion accepts a measured KV plan only when that digest is present; a measured basis
+  without its bound report digest fails closed. Prior-based plans are unchanged.
+- Like the weight path, probe output is development evidence by default. Release-grade KV
+  quality claims and their validation gates remain a deferred decision; nothing in this decision
+  permits a KV quality claim in release wording.
+
+### Consequences
+
+- KV planning gains a real measurement path with the same calibration and evidence discipline
+  as weight planning, closing the last functional gap against per-layer KV allocation in
+  competing tooling.
+- The digest binding makes a measured KV plan reproducible or loudly broken, exactly like
+  measured weight plans.
+- Release gating for KV claims can be designed later without schema breakage.
+
+### Rejected alternatives
+
+- Reusing the weight `SensitivityReport` for KV entries (conflates two different measurement
+  protocols under one evidence object).
+- Accepting `measured` basis without a bound report (unverifiable claims).
+
 ## Deferred decisions
 
 The following require later ADR updates:
@@ -781,7 +828,7 @@ The following require later ADR updates:
 - integrated versus external MTP quantization beyond byte preservation;
 - MoE expert allocation;
 - VLM calibration and vision precision;
-- measured KV-cache sensitivity probing and validation gates (extends AXQ-021);
+- release validation gates for measured KV-cache quality claims (extends AXQ-024);
 - LoRA rank guidance derived from sensitivity artifacts;
 - additional bit formats and group/column granularity.
 

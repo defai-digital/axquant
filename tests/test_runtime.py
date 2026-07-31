@@ -302,7 +302,7 @@ def test_runtime_metadata_without_kv_plan_is_unchanged(
     assert metadata.memory_policy["kv_cache_precision"] == "runtime-default"
 
 
-def test_conversion_scope_rejects_measured_kv_basis(qwen36_model_dir: Path) -> None:
+def test_conversion_scope_rejects_unbound_measured_kv_basis(qwen36_model_dir: Path) -> None:
     from axquant.planner import allocate_kv_cache
 
     plan = _qwen_plan(qwen36_model_dir)
@@ -310,8 +310,12 @@ def test_conversion_scope_rejects_measured_kv_basis(qwen36_model_dir: Path) -> N
     assert layer_count is not None
     kv = allocate_kv_cache(layer_count, default_bits=4)
     plan.kv_cache = kv.model_copy(update={"allocation_basis": "measured"})
-    with pytest.raises(ArtifactError, match="measured KV-cache allocation is not yet supported"):
+    with pytest.raises(ArtifactError, match="bind its sensitivity report digest"):
         assert_qwen36_conversion_scope(plan)
+    plan.kv_cache = kv.model_copy(
+        update={"allocation_basis": "measured", "sensitivity_sha256": "a" * 64}
+    )
+    assert_qwen36_conversion_scope(plan)
 
 
 def test_conversion_scope_rejects_kv_layer_count_mismatch(qwen36_model_dir: Path) -> None:

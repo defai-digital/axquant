@@ -28,7 +28,8 @@ This specification defines the contracts for:
 | `axquant quantize` one-command pipeline | | ✅ | | | |
 | Recipe bundle schema + local resolution | | | ✅ | | |
 | Remote `hf://` resolution + release bundle packaging + `support-matrix` | | | ✅ | | |
-| KV plan section + prior allocator + AX metadata | | | | ✅ | measured KV probes |
+| KV plan section + prior allocator + AX metadata | | | | ✅ | |
+| Measured KV probing + digest-bound measured allocation (AXQ-024) | | | | ✅ | release KV gates |
 | Tier gate in `publish` | ✅ | | | | |
 
 ## 2. Tiered family support
@@ -301,6 +302,22 @@ metadata: the per-layer table, `allocation_basis`, and an advisory MLX-LM
 fallback (`kv_bits` = the modal planned bits, `kv_group_size` = the modal
 group size) marked `advisory: true`. MLX-LM behavior is unchanged; the
 fallback is documentation for operators, not an executed contract.
+
+### 6.4 Measured KV sensitivity (AXQ-024)
+
+`kv_probe.py` measures per-layer KV sensitivity: for each text layer and
+candidate bit-width, a forward pass runs with only that layer's KV quantized
+(`QuantizedKVCache`; all other layers BF16) over the same verified tokenized
+calibration cache the weight probe uses, comparing logits against the all-BF16
+baseline (output KL and token disagreement at fixed metric positions). Results
+are recorded as `axquant.kv-sensitivity.v1` with complete layer coverage and
+calibration provenance; output is development evidence
+(`measured_development`). `analyze-kv` is the CLI entry;
+`plan --kv-cache measured --kv-analysis R [--kv-max-kl B]` allocates the
+lowest per-layer bits within the KL budget via `allocate_kv_cache_measured`,
+binding the plan to the report by `sensitivity_sha256`. Conversion accepts a
+measured KV plan only with that digest present. Release validation gates for
+KV quality claims remain deferred.
 
 ## 7. Testing
 

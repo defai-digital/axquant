@@ -10,9 +10,11 @@ pass and the full quality gates (`pytest`, `ruff check`, `ruff format --check`,
 
 Status summary (2026-07-31): E0–E4 are implemented, including the wave-2
 toolkit items (release bundle packaging, remote `hf://` resolution per
-AXQ-023, `support-matrix`), and green under the full quality gates (`pytest`
-342 passing, `ruff check`, `ruff format --check`, `mypy src` strict). E5/E6
-certification waves are evidence programs and remain open.
+AXQ-023, `support-matrix`) and the wave-3 measured KV probing path (AXQ-024),
+all green under the full quality gates (`pytest` 346 passing, `ruff check`,
+`ruff format --check`, `mypy src` strict). E5/E6 certification waves are
+evidence programs and remain open; the only deferred toolkit decision left is
+release gating for KV quality claims.
 
 ## Phase E0 — Governance (complete)
 
@@ -66,7 +68,12 @@ Work items:
 Exit criteria: measured-evidence inheritance and tamper detection covered by
 tests; a bundle exported from release evidence replays into an identical plan.
 
-## Phase E4 — KV-cache groundwork (complete)
+## Phase E4 — KV-cache groundwork (complete, including measured probing)
+
+Wave 3 (2026-07-31) shipped AXQ-024: `analyze-kv` measured per-layer KV
+sensitivity over verified calibration caches, `allocate_kv_cache_measured`
+with digest-bound plans, and conversion acceptance of bound measured KV plans.
+Release validation gates for KV quality claims remain deferred.
 
 Work items:
 

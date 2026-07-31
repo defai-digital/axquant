@@ -586,6 +586,45 @@ class PlanRequest(StrictModel):
         return self
 
 
+class KvLayerSensitivity(StrictModel):
+    layer_index: int = Field(ge=0)
+    candidates: list[CandidateMeasurement]
+
+    @model_validator(mode="after")
+    def unique_candidates(self) -> KvLayerSensitivity:
+        keys = [(candidate.bits, candidate.method) for candidate in self.candidates]
+        if len(keys) != len(set(keys)):
+            raise ValueError(f"duplicate KV candidates for layer {self.layer_index}")
+        return self
+
+
+class KvSensitivityReport(StrictModel):
+    """Measured per-layer KV-cache sensitivity (AXQ-024)."""
+
+    schema_version: Literal["axquant.kv-sensitivity.v1"] = "axquant.kv-sensitivity.v1"
+    model: ModelIdentity
+    architecture_profile: ArchitectureProfile = Field(default_factory=ArchitectureProfile)
+    profile: ProfileName
+    evidence_kind: EvidenceKind
+    inventory_sha256: str
+    probe_backend: str
+    group_size: int = Field(ge=1)
+    text_layer_count: int = Field(ge=1)
+    entries: list[KvLayerSensitivity]
+    calibration: CalibrationEvidence | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def complete_and_provenanced(self) -> KvSensitivityReport:
+        indices = sorted(entry.layer_index for entry in self.entries)
+        if indices != list(range(self.text_layer_count)):
+            raise ValueError("KV sensitivity entries must cover every text layer exactly once")
+        if self.evidence_kind != EvidenceKind.ARCHITECTURE_PRIOR and self.calibration is None:
+            raise ValueError("measured KV sensitivity requires calibration provenance")
+        return self
+
+
 class KvLayerAllocation(StrictModel):
     layer_index: int = Field(ge=0)
     bits: int = Field(ge=2, le=16)
@@ -597,8 +636,8 @@ class KvCachePlan(StrictModel):
     """Optional per-layer KV-cache precision plan (AXQ-021).
 
     Absence of this section preserves weight-only planning exactly. The measured
-    allocation basis is reserved for future KV sensitivity probing; conversion
-    rejects it until that evidence path exists.
+    allocation basis requires the semantic digest of its producing
+    KvSensitivityReport (AXQ-024); conversion rejects an unbound measured plan.
     """
 
     schema_version: Literal["axquant.kv-plan.v1"] = "axquant.kv-plan.v1"
@@ -606,6 +645,9 @@ class KvCachePlan(StrictModel):
     min_bits: int = Field(default=4, ge=2, le=16)
     default_bits: int = Field(ge=2, le=16)
     default_group_size: int = Field(default=64, ge=1)
+    # Semantic digest of the producing KvSensitivityReport; required for the
+    # measured basis (AXQ-024) and absent for architecture priors.
+    sensitivity_sha256: str | None = None
     layers: list[KvLayerAllocation]
     warnings: list[str] = Field(default_factory=list)
 

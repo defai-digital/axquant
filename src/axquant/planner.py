@@ -8,8 +8,10 @@ from axquant.schema import (
     Allocation,
     ArchitectureSupportLevel,
     CandidateMeasurement,
+    EvidenceKind,
     KvCachePlan,
     KvLayerAllocation,
+    KvSensitivityReport,
     MetricVector,
     PlanningConstraints,
     PlanRequest,
@@ -100,6 +102,66 @@ def allocate_kv_cache(
         min_bits=min_bits,
         default_bits=default_bits,
         default_group_size=group_size,
+        layers=layers,
+    )
+
+
+def allocate_kv_cache_measured(
+    report: KvSensitivityReport,
+    *,
+    max_output_kl: float = 0.005,
+    min_bits: int = 4,
+) -> KvCachePlan:
+    """Allocate per-layer KV precision from a measured sensitivity report (AXQ-024).
+
+    Each layer receives the lowest candidate bit-width whose measured output KL
+    stays within ``max_output_kl``; layers with no passing quantized candidate
+    keep BF16 KV. The plan is bound to the producing report by semantic digest.
+    """
+    if report.evidence_kind == EvidenceKind.ARCHITECTURE_PRIOR:
+        raise PlanningError("measured KV allocation requires a measured sensitivity report")
+    if max_output_kl <= 0.0:
+        raise PlanningError("the KV output-KL budget must be positive")
+    layers: list[KvLayerAllocation] = []
+    chosen_bits: list[int] = []
+    for entry in sorted(report.entries, key=lambda item: item.layer_index):
+        quantized = sorted(
+            (
+                candidate
+                for candidate in entry.candidates
+                if candidate.bits < 16 and candidate.bits >= min_bits and candidate.supported
+            ),
+            key=lambda candidate: candidate.bits,
+        )
+        selected: KvLayerAllocation | None = None
+        for candidate in quantized:
+            if candidate.metrics.output_kl <= max_output_kl:
+                selected = KvLayerAllocation(
+                    layer_index=entry.layer_index,
+                    bits=candidate.bits,
+                    group_size=candidate.group_size or report.group_size,
+                    reason=(
+                        f"measured output KL {candidate.metrics.output_kl:.6f} at "
+                        f"{candidate.bits}-bit within budget {max_output_kl}"
+                    ),
+                )
+                break
+        if selected is None:
+            selected = KvLayerAllocation(
+                layer_index=entry.layer_index,
+                bits=16,
+                group_size=report.group_size,
+                reason=f"no quantized KV candidate met the output-KL budget {max_output_kl}",
+            )
+        layers.append(selected)
+        chosen_bits.append(selected.bits)
+    default_bits = min(chosen_bits)
+    return KvCachePlan(
+        allocation_basis="measured",
+        min_bits=min_bits,
+        default_bits=default_bits,
+        default_group_size=report.group_size,
+        sensitivity_sha256=stable_sha256(report),
         layers=layers,
     )
 

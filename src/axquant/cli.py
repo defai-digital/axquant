@@ -25,7 +25,7 @@ from axquant.inspector import inspect_model
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
-from axquant.planner import allocate_kv_cache, plan_quantization
+from axquant.planner import allocate_kv_cache, allocate_kv_cache_measured, plan_quantization
 from axquant.profiles import implemented_profiles, thresholds_for
 from axquant.publisher import publish_model
 from axquant.quantize import DEVELOPMENT_NOTE, quick_convert
@@ -40,6 +40,7 @@ from axquant.schema import (
     EvaluationBundle,
     HardwareProfile,
     Inventory,
+    KvSensitivityReport,
     ManualPlanRecipe,
     ModelIdentity,
     MtpPolicy,
@@ -246,6 +247,25 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("--output", default="sensitivity_map.json")
     analyze_parser.add_argument("--allow-download", action="store_true")
 
+    analyze_kv_parser = subparsers.add_parser(
+        "analyze-kv",
+        help="Measure per-layer KV-cache sensitivity over a tokenized calibration cache",
+    )
+    analyze_kv_parser.add_argument("--model", required=True)
+    analyze_kv_parser.add_argument("--model-id")
+    analyze_kv_parser.add_argument("--revision")
+    analyze_kv_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    analyze_kv_parser.add_argument("--calibration", required=True)
+    analyze_kv_parser.add_argument("--bits", type=_bits, default=(4, 6, 8))
+    analyze_kv_parser.add_argument("--group-size", type=int, default=64)
+    analyze_kv_parser.add_argument("--token-budget", type=int, default=2048)
+    analyze_kv_parser.add_argument("--metric-positions", type=int, default=32)
+    analyze_kv_parser.add_argument("--output", default="kv_sensitivity.json")
+
     plan_parser = subparsers.add_parser("plan")
     plan_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
     plan_parser.add_argument("--target-bpw", type=float, default=4.8)
@@ -275,8 +295,10 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--mtp-bits", type=_bits, default=(8, 16))
     plan_parser.add_argument("--mtp-min-bits", type=int, default=8)
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
-    plan_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
+    plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
     plan_parser.add_argument("--kv-default-bits", type=int, default=4)
+    plan_parser.add_argument("--kv-analysis", help="KV sensitivity report for --kv-cache measured")
+    plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
     plan_parser.add_argument("--output", default="quantization-plans")
 
     manual_plan_parser = subparsers.add_parser("plan-manual")
@@ -885,6 +907,33 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "analyze-kv":
+        from axquant.kv_probe import measure_kv_sensitivity
+
+        inventory = inspect_model(
+            args.model,
+            model_id=args.model_id,
+            revision=args.revision,
+        )
+        kv_report = measure_kv_sensitivity(
+            inventory,
+            model_dir=args.model,
+            calibration_cache=args.calibration,
+            profile=args.profile,
+            candidate_bits=args.bits,
+            group_size=args.group_size,
+            token_budget=args.token_budget,
+            metric_positions=args.metric_positions,
+        )
+        write_data(args.output, kv_report)
+        log.warning(
+            "kv_sensitivity_created",
+            output=str(args.output),
+            layers=kv_report.text_layer_count,
+            evidence=kv_report.evidence_kind.value,
+        )
+        return 0
+
     if args.command == "plan":
         analysis_report = load_model(args.analysis, SensitivityReport)
         request = PlanRequest(
@@ -916,6 +965,16 @@ def _run(args: argparse.Namespace) -> int:
                 layer_count,
                 default_bits=args.kv_default_bits,
                 group_size=args.group_size,
+            )
+        elif args.kv_cache == "measured":
+            if not args.kv_analysis:
+                raise PlanningError("--kv-cache measured requires --kv-analysis")
+            kv_report = load_model(args.kv_analysis, KvSensitivityReport)
+            if kv_report.model.model_id != plan.source_model.model_id:
+                raise PlanningError("KV sensitivity report model does not match the plan model")
+            plan.kv_cache = allocate_kv_cache_measured(
+                kv_report,
+                max_output_kl=args.kv_max_kl,
             )
         output = _output_json(args.output, "plan-01.json")
         write_data(output, plan)
