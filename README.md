@@ -88,13 +88,28 @@ that a formal Hub release candidate has passed MTP speed, size, dual-profile val
 `release-audit`. Host/candidate certification remains evidence-gated; there is **no** certified
 public AXQuant model release claimed here.
 
-AXQuant is deliberately scoped to the validated Qwen 3.6 path; it is not a universal quantizer.
+AXQuant records an evidence-backed **support tier** for every recognized model family
+(`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
+tier; tier promotion requires recorded promotion evidence, and certification requires the full
+release audit. The current tier matrix:
+
+| Family | Adapter | Tier |
+| --- | --- | --- |
+| Qwen 3.6 (27B language path) | `qwen36-v1` | `convertible` (certification pending the formal release audit) |
+| Qwen 3.5 dense | `qwen35-dense-v1` | `inspect-only` |
+| Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` |
+| MiniCPM5 dense | `minicpm5-dense-v1` | `inspect-only` |
+| Nemotron 3 dense | `nemotron3-dense-v1` | `inspect-only` |
+
+New dense families are added as declarative adapter specifications and start at `inspect-only`
+until their promotion evidence exists (see the expansion program documents under `.internal/`).
 
 | Area | Current support |
 | --- | --- |
 | Platform | Apple Silicon with MLX |
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
 | Conversion target | Qwen3.6-27B language path |
+| Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16; measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
@@ -117,7 +132,17 @@ Implemented now:
 - identical-checkpoint AX Engine MTP off/on benchmarking with greedy-output equality;
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
-- guarded Hugging Face publication.
+- guarded Hugging Face publication;
+- tiered family support with declarative dense-family adapters (Qwen 3.5, Gemma-4, MiniCPM5,
+  and Nemotron 3 at `inspect-only`);
+- `axquant quantize`: one-command development conversion with explicit development-evidence
+  labeling;
+- checksummed recipe bundles (`recipe-export`, `quantize --recipe`) that bind published plans
+  to user conversions without upgrading their evidence kind, resolvable locally or from
+  revision-pinned `hf://` references; prepared releases package their bundle automatically;
+- a registry-derived support matrix (`support-matrix`) listing every family and tier;
+- prior-based per-layer KV-cache precision planning (`--kv-cache prior`) with AX Engine runtime
+  metadata and an advisory MLX-LM fallback.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
@@ -125,9 +150,11 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   (or a governed size exception only after non-size gates pass); formal cand-002/003 failed;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
-- validated conversion adapters for additional LLM families;
+- tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
+- validated conversion evidence for additional LLM families;
 - dedicated quantization of external MTP sidecars;
-- KV-cache, VLM, and MoE expert-level planning.
+- measured KV-cache sensitivity probing (current KV planning is architecture-prior only);
+- VLM and MoE expert-level planning.
 
 Release discipline (gate order, dual-profile metric completeness, no rewrite of formal roots) is
 recorded in `.internal/product/release-best-practices.md`.
@@ -159,10 +186,34 @@ For development, install the test and lint tools as well:
 python -m pip install -e ".[dev,mlx]"
 ```
 
-## Quick start: development conversion
+## Quick start: one-command development conversion
 
-The currently available end-to-end path uses the reviewed manual recipe. This proves the
-conversion workflow, but its output remains unmeasured development evidence.
+For a family at the `convertible` tier or better, a single command inspects the checkpoint,
+plans from architecture priors (or a supplied recipe bundle), converts, and optionally runs a
+runtime smoke:
+
+```bash
+axquant quantize \
+  --model /models/Qwen3.6-27B-bf16 \
+  --model-id Qwen/Qwen3.6-27B \
+  --revision REVISION_SHA \
+  --output AX-Qwen3.6-27B-MLX-AXQuant-dev \
+  --runtime-smoke mlx-lm \
+  --json quantize-summary.json
+```
+
+The command prints the support tier, evidence kind, and measured BPW, and always labels its
+output as development evidence: quick mode cannot produce release claims, satisfy any release
+gate, or publish. To reuse published planning evidence, pass a checksummed recipe bundle with
+`--recipe` — either a local path or a revision-pinned Hub reference such as
+`--recipe hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@COMMIT_SHA/recipe/axquant_recipe_bundle.json`
+(the revision pin is mandatory and the payload checksum is always verified). To add prior-based
+per-layer KV-cache metadata, pass `--kv-cache prior`.
+
+## Staged development conversion
+
+The staged path below uses the reviewed manual recipe. This proves the
+conversion workflow stage by stage, but its output remains unmeasured development evidence.
 
 ### 1. Inspect the source checkpoint
 
@@ -255,6 +306,9 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze` | Measure resumable affine/DWQ/BF16 sensitivity, including targeted refinement | Implemented |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit reviewed precision recipe | Implemented for development |
+| `quantize` | One-command development conversion (inspect → prior/recipe plan → convert) | Implemented; output is always development evidence |
+| `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
+| `support-matrix` | List every registered model family with its declared support tier | Implemented |
 | `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for supported Qwen 3.6 scope |
 | `runtime-check` | Run AX Engine readiness or actual MLX-LM generation | Implemented |
 | `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |

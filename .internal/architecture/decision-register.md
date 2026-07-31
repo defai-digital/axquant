@@ -1,8 +1,8 @@
 # AXQuant Architecture Decision Register
 
 **Document status:** Accepted decision set  
-**Applies to:** AXQuant v0.x and v1  
-**Last reviewed:** 2026-07-30
+**Applies to:** AXQuant v0.x, v1, and the expansion program (v1.1–v2.0)  
+**Last reviewed:** 2026-07-31
 
 This document consolidates the product and architecture decisions that constrain AXQuant
 implementation. Each decision remains in force until explicitly superseded here.
@@ -27,6 +27,13 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-014 | Use versioned artifacts and fail-closed boundaries | Accepted |
 | AXQ-015 | Convert atomically and publish only through release gates | Accepted |
 | AXQ-016 | Certify every official dense Qwen 3.6 size present at release time | Accepted |
+| AXQ-017 | Tier family support as certified / convertible / inspect-only | Accepted |
+| AXQ-018 | Drive dense-family adapters from declarative specifications | Accepted |
+| AXQ-019 | Ship one-command quick conversion with unweakened evidence labeling | Accepted |
+| AXQ-020 | Publish checksummed recipe bundles that bind measured planning to user conversions | Accepted |
+| AXQ-021 | Plan KV-cache precision per layer, prior-based first and measured later | Accepted |
+| AXQ-022 | Compete with mlx-optiq by measured merit under clean-room guardrails | Accepted |
+| AXQ-023 | Resolve remote recipe bundles only from revision-pinned Hub references | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -512,6 +519,258 @@ development history and cannot authorize a release.
   automatically becomes required.
 - MoE and arbitrary Qwen generations remain outside the v1 conversion boundary.
 
+## AXQ-017: Tiered family support
+
+**Status:** Accepted
+
+### Context
+
+AXQ-002 deliberately narrowed v0.x/v1 to Qwen 3.6, and the release gates make every supported
+family expensive. Competing catalogs win adoption through breadth. Coupling "the adapter can
+convert this family" to "this family passed M0–M8" makes breadth impossible; decoupling them
+without labels would make breadth dishonest.
+
+### Decision
+
+Family support is recorded as one of three tiers, carried in the architecture profile, the
+inventory, and every downstream manifest:
+
+- **inspect-only** — inventory and tensor classification; `convert` and `quantize` refuse;
+- **convertible** — conversion permitted; every artifact is development evidence until the family
+  is certified; official-catalog publication refuses;
+- **certified** — at least one size of the family passed the full M0–M8 audit; release claims
+  follow the existing gates.
+
+Tier promotion is evidence-bound and monotonic per release: `convertible` requires adapter unit
+tests plus one real-checkpoint conversion smoke with full coverage and integrity checks;
+`certified` requires the existing release audit. Public wording must always include the tier.
+
+### Consequences
+
+- Breadth can grow at adapter speed while certification grows at evidence speed.
+- The support matrix becomes a first-class, truthful artifact instead of a README table.
+- `publish` gains a tier gate in addition to its existing evidence gates.
+
+### Rejected alternatives
+
+- Certifying every family before exposing it (kills breadth; the v1 status quo).
+- A single "supported" flag (dishonest breadth; indistinguishable claims).
+
+## AXQ-018: Declarative dense-family adapter specifications
+
+**Status:** Accepted
+
+### Context
+
+`Qwen36Adapter` hand-codes matching, profiling, and tensor-role classification. Most dense
+transformer families differ only in config `model_type` values, reference naming, layer-count
+location, and a small set of tensor-name conventions. Hand-writing each adapter repeats
+protection-critical classification logic and multiplies review cost per family.
+
+### Decision
+
+- A declarative `DenseFamilySpec` (family id, product family, accepted `model_type` values,
+  reference patterns, config extraction rules, default support tier, extra classification
+  patterns, notes) drives a shared `DenseFamilyAdapter` implementing the existing
+  `ArchitectureAdapter` protocol.
+- Shared classification remains fail-closed: a tensor no rule classifies stays unclassified and
+  blocks conversion, exactly as today.
+- Families with bespoke needs (MTP layouts, unusual sidecars, non-dense paths) implement the
+  protocol directly; Qwen 3.6 keeps its dedicated adapter.
+- The registry resolves adapters in declared order; two adapters matching the same checkpoint is
+  an error, not a silent pick.
+- New family specs start at `inspect-only` unless their promotion evidence exists.
+
+### Consequences
+
+- A new dense family is data plus tests, typically without new classification code.
+- Protection semantics are reviewed once, in the shared classifier.
+- The registry stays deterministic and regression-testable as it grows.
+
+### Rejected alternatives
+
+- One hand-written adapter per family (per-family review of protection logic; drift risk).
+- Config-file-only adapters loaded at runtime (schema and supply-chain surface without need).
+
+## AXQ-019: One-command quick conversion with unweakened evidence labeling
+
+**Status:** Accepted
+
+### Context
+
+The release pipeline UX is today the only UX, and it is producer-grade: many commands, many
+artifacts. Self-converters compare AXQuant to mlx-optiq's single command and leave. The evidence
+taxonomy (AXQ-008) must not be weakened to fix this.
+
+### Decision
+
+- `axquant quantize` performs inspect → plan → convert (→ optional runtime smoke) in one
+  command with working defaults.
+- Quick mode may only run at tier `convertible` or `certified`.
+- Quick-mode planning without a measured recipe bundle uses architecture priors or a reviewed
+  family default recipe; the resulting plan and artifact carry development evidence kinds, and
+  the CLI summary states this in its final output.
+- Quick mode cannot publish, cannot emit release claims, and cannot satisfy any M-gate; it is a
+  front end over the existing stage implementations, not a parallel pipeline.
+- The development-only spelling `--allow-unmeasured` remains for the staged commands; quick mode
+  subsumes its role for end users with explicit labeling instead of an unlock flag.
+
+### Consequences
+
+- End-user effort reaches parity with mlx-optiq without any new claim surface.
+- The staged pipeline remains the only path to release evidence.
+- Documentation gains a clean split: "convert your model" (quick) vs "release a model" (gated).
+
+### Rejected alternatives
+
+- Lowering release gates to make the full pipeline shorter (destroys the differentiator).
+- A separate "lite" tool (forks behavior and the evidence taxonomy).
+
+## AXQ-020: Published measured recipe bundles
+
+**Status:** Accepted
+
+### Context
+
+Measured planning is AXQuant's quality edge but is expensive to produce. Users converting their
+own copy of a base model would each re-pay the measurement cost, so in practice they would fall
+back to priors — losing the edge exactly where adoption happens.
+
+### Decision
+
+- A **recipe bundle** is a versioned, checksummed artifact binding: source model identity
+  (model id, revision), a plan or manual recipe, its evidence kind, lineage digests of the
+  producing sensitivity/calibration artifacts, and the producing AXQuant version.
+- Bundles exported from measured release evidence retain the measured evidence kind; bundles
+  from priors are labeled as prior-derived. A bundle never upgrades the evidence kind of its
+  inputs.
+- `axquant quantize --recipe BUNDLE` verifies bundle checksums and model identity (id and
+  revision) before use and records bundle lineage in the artifact manifest; identity mismatch
+  fails closed.
+- Bundles are published alongside certified models; resolution is local-path first, with remote
+  (Hugging Face) resolution as a later, integrity-checked phase.
+
+### Consequences
+
+- One measurement pays for every user conversion of that base model — a structural advantage no
+  breadth-only competitor has.
+- The evidence chain extends to user machines without trusting user claims.
+- Publication tooling gains one more artifact type with existing checksum discipline.
+
+### Rejected alternatives
+
+- Shipping measured plans inside the wheel (stale immediately; wrong granularity).
+- Unverified recipe URLs (supply-chain surface; unattributable evidence).
+
+## AXQ-021: Per-layer KV-cache precision planning
+
+**Status:** Accepted
+
+### Context
+
+On unified memory, long-context serving cost is dominated by the KV cache, which weight-only
+planning ignores. v1 listed runtime KV-cache quantization as a non-goal; the competing catalog
+already allocates KV precision per layer. AX Engine is AXQuant's primary runtime and can consume
+richer KV metadata than stock MLX-LM exposes.
+
+### Decision
+
+- The quantization plan gains an optional per-layer KV-cache precision section (bits and group
+  size per layer, with policy floors and a recorded allocation basis).
+- Phase one allocates KV precision from architecture priors and is labeled prior-based;
+  measured KV sensitivity probing is a scheduled follow-up, and no measured-quality KV claim is
+  permitted until it exists.
+- Converted artifacts emit KV-cache metadata in the AX Engine runtime metadata; MLX-LM
+  compatibility guidance (uniform fallback settings derived from the plan) is advisory metadata
+  only.
+- A plan without the KV section behaves exactly as today; the section is additive and optional.
+
+### Consequences
+
+- Deployment-cost planning covers the real memory bill, not just weight bytes.
+- AX Engine gains a runtime feature surface competitors on stock runtimes cannot match.
+- The evidence taxonomy extends naturally: prior-based KV now, measured KV later.
+
+### Rejected alternatives
+
+- Runtime-only uniform KV flags (ignores per-layer sensitivity; no planning value).
+- Waiting for measured KV probes before any schema work (blocks the metadata contract AX Engine
+  needs first).
+
+## AXQ-022: Compete with mlx-optiq by measured merit
+
+**Status:** Accepted
+
+### Context
+
+The expansion program's explicit goal is to win the audience mlx-optiq serves today. That goal
+creates pressure to imitate, to over-claim, or to describe AXQuant as a successor — each of which
+AXQ-001 already forbids in part; this decision makes the competitive posture explicit.
+
+### Decision
+
+- AXQuant competes on: certified evidence chains, MTP-aware conversion, KV-cache planning,
+  reproduction recipes, and measured head-to-head results — never on imitation or naming.
+- Every certified model publication includes the mandatory comparison set (BF16, uniform-4,
+  uniform-6, AXQuant candidate) and, where an attributed OptiQ checkpoint of the same base
+  exists, that checkpoint as an external baseline under AXQ-001's standard-load-contract rules.
+- AXQuant never claims to be a successor, replacement, or affiliate of mlx-optiq; public wording
+  is "an independent alternative with published evidence".
+- Head-to-head publications state the exact revisions, hosts, and suites; a comparison AXQuant
+  loses is published with the same prominence as one it wins.
+
+### Consequences
+
+- The replacement ambition becomes a measurable program (catalog coverage plus published
+  comparisons) instead of a marketing posture.
+- Publishing unfavorable results preserves the credibility that is AXQuant's actual moat.
+
+### Rejected alternatives
+
+- Silent benchmarking (unfalsifiable claims; reputational risk exceeds any upside).
+- Successor positioning (forbidden by AXQ-001 and legally fraught).
+
+## AXQ-023: Revision-pinned remote recipe-bundle resolution
+
+**Status:** Accepted
+
+### Context
+
+AXQ-020 shipped local recipe-bundle resolution and deferred the remote trust model. Bundles are
+most valuable when users can reference the published bundle next to a Hugging Face model, but a
+mutable remote reference (a branch name, `main`, or an unpinned repo) would let the resolved
+plan change after review, defeating the checksum discipline the bundle exists to provide.
+
+### Decision
+
+- `quantize --recipe` additionally accepts `hf://OWNER/REPO@REVISION[/PATH]`.
+- The revision pin is mandatory: an `hf://` reference without `@REVISION` fails closed with an
+  actionable message. The revision should be an immutable commit SHA; AXQuant records exactly
+  what was requested.
+- `PATH` defaults to the standard bundle location (`axquant_recipe_bundle.json` at the repo
+  root); when given, it names the bundle record file inside the repo.
+- Resolution downloads the bundle record and its payload through the public `huggingface_hub`
+  download API at the pinned revision, then applies the **unchanged** local verification chain:
+  strict schema parse, payload checksum, source-model identity and revision match, and
+  evidence-kind consistency. Remote origin grants no trust; it only supplies bytes.
+- No credentials are ever written to logs or manifests (existing policy). Download failures,
+  missing files, and checksum mismatches surface as artifact errors naming the reference.
+
+### Consequences
+
+- Published bundles become directly consumable
+  (`--recipe hf://AutomatosX/AX-...@<commit-sha>`), completing the AXQ-020 supply chain.
+- A tampered or force-pushed repo cannot silently change a conversion: the pin plus payload
+  checksum makes the resolved plan reproducible or loudly broken.
+- Mirroring or vendoring bundles stays possible because local resolution is unchanged.
+
+### Rejected alternatives
+
+- Accepting unpinned references with a warning (mutable supply chain; warnings do not survive
+  automation).
+- A bespoke bundle registry service (new infrastructure and trust root without added integrity;
+  the Hub plus checksums already provide content addressing).
+
 ## Deferred decisions
 
 The following require later ADR updates:
@@ -522,7 +781,8 @@ The following require later ADR updates:
 - integrated versus external MTP quantization beyond byte preservation;
 - MoE expert allocation;
 - VLM calibration and vision precision;
-- runtime KV-cache recommendation schema;
+- measured KV-cache sensitivity probing and validation gates (extends AXQ-021);
+- LoRA rank guidance derived from sensitivity artifacts;
 - additional bit formats and group/column granularity.
 
 ## Supersession policy

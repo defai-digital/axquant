@@ -9,9 +9,7 @@ from pathlib import Path
 from axquant import __version__
 from axquant.schema import SoftwareVersions
 
-_VERSION_DIRECTORY = re.compile(
-    r"^v?(?P<version>\d+\.\d+\.\d+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)$"
-)
+_VERSION_DIRECTORY = re.compile(r"^v?(?P<version>\d+\.\d+\.\d+(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?)$")
 
 
 def _version(package: str) -> str | None:

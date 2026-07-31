@@ -106,6 +106,19 @@ class ArchitectureSupportLevel(StrEnum):
     UNSUPPORTED = "unsupported"
 
 
+class SupportTier(StrEnum):
+    """Evidence-backed permission tier for a model family (AXQ-017).
+
+    ``support_level`` states what the adapter can do mechanically; the tier states
+    what the recorded promotion evidence permits. Artifacts from versions that
+    predate the tier field load as ``inspect-only`` and fail closed.
+    """
+
+    CERTIFIED = "certified"
+    CONVERTIBLE = "convertible"
+    INSPECT_ONLY = "inspect-only"
+
+
 class OptimizationScope(StrEnum):
     TEXT_PATH = "text-path"
     FULL_MODEL = "full-model"
@@ -125,12 +138,22 @@ class ArchitectureProfile(StrictModel):
     product_family: str = "unknown"
     config_model_type: str | None = None
     support_level: ArchitectureSupportLevel = ArchitectureSupportLevel.INVENTORY_ONLY
+    support_tier: SupportTier = SupportTier.INSPECT_ONLY
     optimization_scope: OptimizationScope = OptimizationScope.INVENTORY_ONLY
     dense: bool | None = None
     text_layer_count: int | None = Field(default=None, ge=1)
     mtp_declared: bool = False
     vision_present: bool = False
     notes: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def tier_requires_supported_level(self) -> ArchitectureProfile:
+        if (
+            self.support_tier is not SupportTier.INSPECT_ONLY
+            and self.support_level is not ArchitectureSupportLevel.SUPPORTED
+        ):
+            raise ValueError("a convertible or certified tier requires a supported architecture")
+        return self
 
 
 class TensorSpec(StrictModel):
@@ -375,6 +398,21 @@ class AxEngineOptimizationMetadata(StrictModel):
     kernel_evidence: Literal["unmeasured", "measured"] = "unmeasured"
 
 
+class KvCacheRuntimeMetadata(StrictModel):
+    """Per-layer KV-cache precision table consumed by AX Engine (AXQ-021).
+
+    The MLX-LM fallback values are advisory operator documentation derived from
+    the plan's modal allocation; stock MLX-LM behavior is unchanged.
+    """
+
+    allocation_basis: Literal["architecture-prior", "measured"]
+    layer_bits: list[int]
+    layer_group_sizes: list[int]
+    advisory_mlx_lm_kv_bits: int = Field(ge=2, le=16)
+    advisory_mlx_lm_kv_group_size: int = Field(ge=1)
+    advisory: Literal[True] = True
+
+
 class RuntimeMetadata(StrictModel):
     schema_version: Literal["axquant.runtime.v1"] = "axquant.runtime.v1"
     primary_runtime: RuntimeProfile
@@ -382,6 +420,7 @@ class RuntimeMetadata(StrictModel):
     optimization_scope: OptimizationScope
     mtp: MtpRuntimeMetadata
     ax_engine: AxEngineOptimizationMetadata
+    kv_cache: KvCacheRuntimeMetadata | None = None
     memory_policy: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -547,6 +586,41 @@ class PlanRequest(StrictModel):
         return self
 
 
+class KvLayerAllocation(StrictModel):
+    layer_index: int = Field(ge=0)
+    bits: int = Field(ge=2, le=16)
+    group_size: int = Field(ge=1)
+    reason: str
+
+
+class KvCachePlan(StrictModel):
+    """Optional per-layer KV-cache precision plan (AXQ-021).
+
+    Absence of this section preserves weight-only planning exactly. The measured
+    allocation basis is reserved for future KV sensitivity probing; conversion
+    rejects it until that evidence path exists.
+    """
+
+    schema_version: Literal["axquant.kv-plan.v1"] = "axquant.kv-plan.v1"
+    allocation_basis: Literal["architecture-prior", "measured"]
+    min_bits: int = Field(default=4, ge=2, le=16)
+    default_bits: int = Field(ge=2, le=16)
+    default_group_size: int = Field(default=64, ge=1)
+    layers: list[KvLayerAllocation]
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def complete_and_floored(self) -> KvCachePlan:
+        indices = [layer.layer_index for layer in self.layers]
+        if not indices:
+            raise ValueError("KV-cache plan requires at least one layer")
+        if sorted(indices) != list(range(len(indices))):
+            raise ValueError("KV-cache layers must cover 0..n-1 without gaps or duplicates")
+        if any(layer.bits < self.min_bits for layer in self.layers):
+            raise ValueError("KV-cache layer bits cannot fall below the policy floor")
+        return self
+
+
 class Allocation(StrictModel):
     tensor: str
     module_path: str
@@ -593,8 +667,73 @@ class QuantizationPlan(StrictModel):
     assignments: list[Allocation]
     weight_distribution: dict[str, PrecisionShare]
     mtp_distribution: dict[str, PrecisionShare]
+    kv_cache: KvCachePlan | None = None
     created_at: datetime = Field(default_factory=utc_now)
     warnings: list[str] = Field(default_factory=list)
+
+
+class SupportMatrixEntry(StrictModel):
+    adapter_id: str
+    product_family: str
+    support_tier: SupportTier
+    notes: list[str] = Field(default_factory=list)
+
+
+class SupportMatrix(StrictModel):
+    """Registry-derived family support matrix (AXQ-017)."""
+
+    schema_version: Literal["axquant.support-matrix.v1"] = "axquant.support-matrix.v1"
+    axquant_version: str
+    entries: list[SupportMatrixEntry]
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class RecipeBundle(StrictModel):
+    """Checksummed, publishable planning artifact (AXQ-020).
+
+    A bundle binds a plan or manual recipe to a pinned source model so user
+    conversions can reuse published planning evidence without re-measuring. A
+    bundle never upgrades the evidence kind of its payload.
+    """
+
+    schema_version: Literal["axquant.recipe-bundle.v1"] = "axquant.recipe-bundle.v1"
+    bundle_id: str = Field(min_length=1)
+    source_model: ModelIdentity
+    evidence_kind: EvidenceKind
+    payload_kind: Literal["plan", "manual-recipe"]
+    payload_file: str = Field(min_length=1)
+    payload_sha256: str = Field(min_length=64, max_length=64)
+    lineage: dict[str, str] = Field(default_factory=dict)
+    axquant_version: str
+    notes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def source_revision_is_pinned(self) -> RecipeBundle:
+        if not self.source_model.revision:
+            raise ValueError("a recipe bundle must pin the source model revision")
+        return self
+
+
+class QuickConversionSummary(StrictModel):
+    """Result of the one-command `axquant quantize` development conversion (AXQ-019)."""
+
+    schema_version: Literal["axquant.quantize-summary.v1"] = "axquant.quantize-summary.v1"
+    source_model: ModelIdentity
+    product_family: str
+    support_tier: SupportTier
+    evidence_kind: EvidenceKind
+    plan_source: Literal["architecture-prior", "recipe-bundle"] = "architecture-prior"
+    recipe_bundle_id: str | None = None
+    profile: ProfileName
+    target_bpw: float = Field(gt=0.0, le=16.0)
+    measured_total_bpw: float = Field(gt=0.0)
+    output_path: str
+    runtime_smoke: Literal["none", "mlx-lm", "ax-engine"] = "none"
+    runtime_smoke_passed: bool | None = None
+    development_evidence: bool
+    notes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class ArtifactFile(StrictModel):

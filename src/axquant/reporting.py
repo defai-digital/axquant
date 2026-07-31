@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from axquant.errors import ArtifactError, ValidationGateError
+from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
 from axquant.schema import (
     ArtifactFile,
@@ -24,6 +25,7 @@ from axquant.schema import (
     ReproductionCommand,
     ReproductionRecipe,
     RuntimeName,
+    SupportTier,
     ValidationReport,
 )
 from axquant.serde import (
@@ -281,6 +283,8 @@ def plan_markdown(plan: QuantizationPlan) -> str:
 | Source | `{plan.source_model.model_id}` |
 | Revision | `{plan.source_model.revision or "unrecorded"}` |
 | Profile | `{plan.profile.value}` |
+| Family | `{plan.architecture_profile.product_family}` |
+| Support tier | `{plan.architecture_profile.support_tier.value}` |
 | Target class | `{plan.target_class}` |
 | Target BPW | {plan.target_bpw:.4f} |
 | Nominal BPW | {plan.nominal_bpw:.4f} |
@@ -357,6 +361,30 @@ def validation_markdown(report: ValidationReport) -> str:
 """
 
 
+def _package_recipe_bundle(
+    *,
+    directory: Path,
+    plan_file: Path,
+    repo_id: str,
+    lineage: dict[str, str],
+) -> Path:
+    """Package the release plan as a recipe bundle (AXQ-020); idempotent on re-prepare."""
+    recipe_dir = directory / "recipe"
+    bundle_record = recipe_dir / RECIPE_BUNDLE_FILE
+    if bundle_record.exists():
+        record, _ = load_recipe_bundle(bundle_record)
+        if file_sha256(plan_file) != record.payload_sha256:
+            raise ValidationGateError("packaged recipe bundle does not match the packaged plan")
+        return bundle_record
+    return export_recipe_bundle(
+        plan=plan_file,
+        output_dir=recipe_dir,
+        bundle_id=f"{repo_id.rsplit('/', 1)[-1]}-recipe",
+        lineage=lineage,
+        notes=["Exported from prepared release evidence (AXQ-020)."],
+    )
+
+
 def prepare_publication(
     *,
     model_dir: str | Path,
@@ -370,6 +398,11 @@ def prepare_publication(
         raise ArtifactError(f"model directory does not exist: {directory}")
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
     plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    if plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY:
+        raise ValidationGateError(
+            "publication requires at least the convertible support tier; the packaged plan "
+            "records an inspect-only family (AXQ-017)"
+        )
     validation_index_source = Path(validation_index_path).expanduser().resolve()
     validation_index = load_model(validation_index_source, ReleaseValidationIndex)
     if not validation_index.release_ready:
@@ -624,6 +657,17 @@ def prepare_publication(
     quantization_plan = directory / "quantization_plan.json"
     reproduction_recipe = directory / "reproduction_recipe.yaml"
     write_data(quantization_plan, plan)
+    _package_recipe_bundle(
+        directory=directory,
+        plan_file=quantization_plan,
+        repo_id=repo_id,
+        lineage={
+            "plan": manifest.plan_sha256,
+            "calibration_manifest": file_sha256(calibration_path),
+            "agent_coding_validation": file_sha256(benchmark_json),
+            "general_validation": file_sha256(general_benchmark_json),
+        },
+    )
     source_revision = plan.source_model.revision
     assert source_revision is not None
     mtp_sidecar_path = directory / "mtp.safetensors"

@@ -12,6 +12,7 @@ from typing import Any
 from axquant.errors import ArtifactError, BackendUnavailableError
 from axquant.schema import (
     AxEngineOptimizationMetadata,
+    KvCacheRuntimeMetadata,
     ModelIdentity,
     MtpRuntimeMetadata,
     OptimizationScope,
@@ -21,6 +22,7 @@ from axquant.schema import (
     RuntimeName,
     RuntimeProfile,
     RuntimeSupportLevel,
+    SupportTier,
 )
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
@@ -301,6 +303,19 @@ def build_runtime_metadata(
         if match:
             precision = f"{match.group(1)}bit"
     mtp_detected = sidecar.is_file() or bool(plan.mtp_distribution)
+    kv_metadata: KvCacheRuntimeMetadata | None = None
+    if plan.kv_cache is not None:
+        kv = plan.kv_cache
+        ordered = sorted(kv.layers, key=lambda layer: layer.layer_index)
+        bit_values = [layer.bits for layer in ordered]
+        group_values = [layer.group_size for layer in ordered]
+        kv_metadata = KvCacheRuntimeMetadata(
+            allocation_basis=kv.allocation_basis,
+            layer_bits=bit_values,
+            layer_group_sizes=group_values,
+            advisory_mlx_lm_kv_bits=max(set(bit_values), key=bit_values.count),
+            advisory_mlx_lm_kv_group_size=max(set(group_values), key=group_values.count),
+        )
     return RuntimeMetadata(
         primary_runtime=RuntimeProfile(
             name=RuntimeName.AX_ENGINE,
@@ -341,8 +356,9 @@ def build_runtime_metadata(
             decode_kernel=None,
             kernel_evidence="unmeasured",
         ),
+        kv_cache=kv_metadata,
         memory_policy={
-            "kv_cache_precision": "runtime-default",
+            "kv_cache_precision": ("planned-per-layer" if kv_metadata else "runtime-default"),
             "prefix_cache": "runtime-managed",
             "mtp_buffers": "preallocate-when-enabled" if mtp_detected else "not-required",
             "unified_memory_safety_margin": "benchmark-required",
@@ -352,7 +368,23 @@ def build_runtime_metadata(
 
 def assert_qwen36_conversion_scope(plan: QuantizationPlan) -> None:
     profile = plan.architecture_profile
+    if profile.support_tier is SupportTier.INSPECT_ONLY:
+        raise ArtifactError(
+            f"the {profile.product_family} family is inspect-only; conversion requires the "
+            "convertible or certified tier and its promotion evidence (AXQ-017)"
+        )
     if profile.product_family != "qwen3.6":
         raise ArtifactError("AXQuant conversion is restricted to Qwen 3.6")
     if profile.optimization_scope != OptimizationScope.TEXT_PATH:
         raise ArtifactError("this Qwen 3.6 checkpoint is inventory-only and cannot be converted")
+    if plan.kv_cache is not None:
+        if plan.kv_cache.allocation_basis != "architecture-prior":
+            raise ArtifactError(
+                "measured KV-cache allocation is not yet supported; the measured basis is "
+                "reserved for future KV sensitivity probing (AXQ-021)"
+            )
+        if (
+            profile.text_layer_count is not None
+            and len(plan.kv_cache.layers) != profile.text_layer_count
+        ):
+            raise ArtifactError("the KV-cache plan does not cover the text layer count")

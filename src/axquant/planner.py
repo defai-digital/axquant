@@ -8,6 +8,8 @@ from axquant.schema import (
     Allocation,
     ArchitectureSupportLevel,
     CandidateMeasurement,
+    KvCachePlan,
+    KvLayerAllocation,
     MetricVector,
     PlanningConstraints,
     PlanRequest,
@@ -55,6 +57,51 @@ def storage_bpw(bits: int, group_size: int | None) -> float:
     if group_size is None:
         raise PlanningError("quantized precision is missing a group size")
     return bits + 32.0 / group_size
+
+
+def allocate_kv_cache(
+    layer_count: int,
+    *,
+    default_bits: int = 4,
+    min_bits: int = 4,
+    group_size: int = 64,
+) -> KvCachePlan:
+    """Prior-based per-layer KV-cache precision allocation (AXQ-021 phase one).
+
+    Boundary layers receive at least 8-bit KV because they carry
+    disproportionate attention mass under the same architecture priors the
+    weight path uses. This allocator exists to establish the plan and metadata
+    contract; it makes no measured-quality claim.
+    """
+    if layer_count < 1:
+        raise PlanningError("KV-cache planning requires a positive text layer count")
+    if default_bits < min_bits:
+        raise PlanningError("KV-cache default bits cannot fall below the policy floor")
+    boundary = max(1, -(-layer_count // 10))
+    layers: list[KvLayerAllocation] = []
+    for index in range(layer_count):
+        is_boundary = index < boundary or index >= layer_count - boundary
+        bits = max(8, default_bits) if is_boundary else default_bits
+        reason = (
+            "architecture prior: boundary layers keep at least 8-bit KV"
+            if is_boundary
+            else "architecture prior: interior layer at the default KV precision"
+        )
+        layers.append(
+            KvLayerAllocation(
+                layer_index=index,
+                bits=bits,
+                group_size=group_size,
+                reason=reason,
+            )
+        )
+    return KvCachePlan(
+        allocation_basis="architecture-prior",
+        min_bits=min_bits,
+        default_bits=default_bits,
+        default_group_size=group_size,
+        layers=layers,
+    )
 
 
 def _loss(metrics: MetricVector, weights: dict[str, float]) -> float:

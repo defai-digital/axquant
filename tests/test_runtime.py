@@ -270,5 +270,56 @@ def test_conversion_scope_rejects_generic_inventory(tiny_model_dir: Path) -> Non
             allow_unmeasured=True,
         ),
     )
-    with pytest.raises(ArtifactError, match=r"restricted to Qwen 3\.6"):
+    with pytest.raises(ArtifactError, match=r"inspect-only"):
+        assert_qwen36_conversion_scope(plan)
+
+
+def test_runtime_metadata_emits_kv_cache_table(qwen36_model_dir: Path, tmp_path: Path) -> None:
+    from axquant.planner import allocate_kv_cache
+
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.kv_cache = allocate_kv_cache(20, default_bits=4, group_size=plan.group_size)
+    output = tmp_path / "artifact"
+    output.mkdir()
+    metadata = build_runtime_metadata(plan, output)
+    assert metadata.kv_cache is not None
+    assert metadata.kv_cache.allocation_basis == "architecture-prior"
+    assert len(metadata.kv_cache.layer_bits) == 20
+    assert metadata.kv_cache.advisory_mlx_lm_kv_bits == 4
+    assert metadata.kv_cache.advisory_mlx_lm_kv_group_size == plan.group_size
+    assert metadata.kv_cache.advisory is True
+    assert metadata.memory_policy["kv_cache_precision"] == "planned-per-layer"
+
+
+def test_runtime_metadata_without_kv_plan_is_unchanged(
+    qwen36_model_dir: Path, tmp_path: Path
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    output = tmp_path / "artifact"
+    output.mkdir()
+    metadata = build_runtime_metadata(plan, output)
+    assert metadata.kv_cache is None
+    assert metadata.memory_policy["kv_cache_precision"] == "runtime-default"
+
+
+def test_conversion_scope_rejects_measured_kv_basis(qwen36_model_dir: Path) -> None:
+    from axquant.planner import allocate_kv_cache
+
+    plan = _qwen_plan(qwen36_model_dir)
+    layer_count = plan.architecture_profile.text_layer_count
+    assert layer_count is not None
+    kv = allocate_kv_cache(layer_count, default_bits=4)
+    plan.kv_cache = kv.model_copy(update={"allocation_basis": "measured"})
+    with pytest.raises(ArtifactError, match="measured KV-cache allocation is not yet supported"):
+        assert_qwen36_conversion_scope(plan)
+
+
+def test_conversion_scope_rejects_kv_layer_count_mismatch(qwen36_model_dir: Path) -> None:
+    from axquant.planner import allocate_kv_cache
+
+    plan = _qwen_plan(qwen36_model_dir)
+    layer_count = plan.architecture_profile.text_layer_count
+    assert layer_count is not None
+    plan.kv_cache = allocate_kv_cache(layer_count + 1, default_bits=4)
+    with pytest.raises(ArtifactError, match="does not cover the text layer count"):
         assert_qwen36_conversion_scope(plan)

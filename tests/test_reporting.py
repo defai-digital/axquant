@@ -694,6 +694,16 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
         "mtp.safetensors",
     ]
     assert (candidate / "axquant_conversion_manifest.json").is_file()
+    from axquant.recipes import load_recipe_bundle
+
+    bundle_record, bundle_payload = load_recipe_bundle(candidate / "recipe")
+    assert bundle_record.bundle_id == "candidate-recipe"
+    assert bundle_record.source_model == plan.source_model
+    assert bundle_record.lineage["plan"] == manifest.plan_sha256
+    assert bundle_record.lineage["calibration_manifest"] == file_sha256(
+        candidate / "calibration_manifest.json"
+    )
+    assert file_sha256(bundle_payload) == file_sha256(candidate / "quantization_plan.json")
     repeated_files = prepare_publication(
         model_dir=candidate,
         repo_id="AutomatosX/candidate",
@@ -702,6 +712,7 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
         pareto_report_path=pareto,
     )
     assert candidate / "README.md" in repeated_files
+    assert load_recipe_bundle(candidate / "recipe")[0] == bundle_record
 
 
 def test_publication_snapshots_hardware_manifest_before_runtime_updates(

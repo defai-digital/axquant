@@ -139,3 +139,48 @@ def test_infeasible_protection_budget_fails() -> None:
     )
     with pytest.raises(PlanningError, match="infeasible"):
         plan_quantization(report, _request(target_bpw=4.0))
+
+
+def test_kv_cache_allocator_covers_layers_with_boundary_floor() -> None:
+    from axquant.planner import allocate_kv_cache
+
+    plan = allocate_kv_cache(20, default_bits=4, group_size=64)
+    assert plan.allocation_basis == "architecture-prior"
+    assert [layer.layer_index for layer in plan.layers] == list(range(20))
+    boundary = 2  # ceil(20 / 10)
+    for layer in plan.layers:
+        expected = 8 if layer.layer_index < boundary or layer.layer_index >= 20 - boundary else 4
+        assert layer.bits == expected
+        assert layer.group_size == 64
+        assert layer.reason
+    assert all(layer.bits >= plan.min_bits for layer in plan.layers)
+
+
+def test_kv_cache_allocator_rejects_invalid_inputs() -> None:
+    from axquant.planner import allocate_kv_cache
+
+    with pytest.raises(PlanningError, match="positive text layer count"):
+        allocate_kv_cache(0)
+    with pytest.raises(PlanningError, match="policy floor"):
+        allocate_kv_cache(8, default_bits=4, min_bits=6)
+
+
+def test_kv_cache_plan_schema_rejects_gaps_and_floor_violations() -> None:
+    from axquant.schema import KvCachePlan, KvLayerAllocation
+
+    def layer(index: int, bits: int = 8) -> KvLayerAllocation:
+        return KvLayerAllocation(layer_index=index, bits=bits, group_size=64, reason="test")
+
+    with pytest.raises(ValueError, match="without gaps"):
+        KvCachePlan(
+            allocation_basis="architecture-prior",
+            default_bits=4,
+            layers=[layer(0), layer(2)],
+        )
+    with pytest.raises(ValueError, match="policy floor"):
+        KvCachePlan(
+            allocation_basis="architecture-prior",
+            min_bits=6,
+            default_bits=6,
+            layers=[layer(0, bits=4)],
+        )

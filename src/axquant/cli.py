@@ -9,6 +9,7 @@ import structlog
 from pydantic import ValidationError
 
 from axquant.analyzer import architecture_prior_report
+from axquant.architectures.registry import support_matrix
 from axquant.benchmark import (
     parse_runtime_env_items,
     result_to_evaluation_bundle,
@@ -18,15 +19,17 @@ from axquant.benchmark import (
 )
 from axquant.calibration import prepare_calibration
 from axquant.converter import convert_model
-from axquant.errors import AxquantError
+from axquant.errors import AxquantError, PlanningError
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
 from axquant.inspector import inspect_model
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
-from axquant.planner import plan_quantization
+from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.profiles import implemented_profiles, thresholds_for
 from axquant.publisher import publish_model
+from axquant.quantize import DEVELOPMENT_NOTE, quick_convert
+from axquant.recipes import export_recipe_bundle
 from axquant.reporting import plan_markdown, prepare_publication, validation_markdown
 from axquant.reproduction import verify_reproduction
 from axquant.runtime import check_ax_engine, check_mlx_lm_generation, check_mlx_lm_static
@@ -272,6 +275,8 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--mtp-bits", type=_bits, default=(8, 16))
     plan_parser.add_argument("--mtp-min-bits", type=int, default=8)
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
+    plan_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
+    plan_parser.add_argument("--kv-default-bits", type=int, default=4)
     plan_parser.add_argument("--output", default="quantization-plans")
 
     manual_plan_parser = subparsers.add_parser("plan-manual")
@@ -300,6 +305,63 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
     convert_parser.add_argument("--output", required=True)
+
+    quantize_parser = subparsers.add_parser(
+        "quantize",
+        help="One-command development conversion: inspect, plan from priors, convert",
+    )
+    quantize_parser.add_argument("--model", required=True)
+    quantize_parser.add_argument("--model-id")
+    quantize_parser.add_argument("--revision")
+    quantize_parser.add_argument("--output", required=True)
+    quantize_parser.add_argument(
+        "--profile",
+        choices=[profile.value for profile in implemented_profiles()],
+        default=ProfileName.GENERAL.value,
+    )
+    quantize_parser.add_argument("--target-bpw", type=float, default=4.8)
+    quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
+    quantize_parser.add_argument(
+        "--recipe",
+        help="Recipe bundle file or directory; replaces prior-based planning",
+    )
+    quantize_parser.add_argument("--calibration-manifest")
+    quantize_parser.add_argument("--mtp-sidecar")
+    quantize_parser.add_argument(
+        "--runtime-smoke",
+        choices=["none", "mlx-lm", "ax-engine"],
+        default="none",
+    )
+    quantize_parser.add_argument("--ax-engine", default="ax-engine")
+    quantize_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
+    quantize_parser.add_argument(
+        "--ax-engine-manifest",
+        choices=["required", "if-available", "skip"],
+        default="if-available",
+    )
+    quantize_parser.add_argument("--json", dest="json_output")
+
+    recipe_export_parser = subparsers.add_parser(
+        "recipe-export",
+        help="Export a plan as a checksummed recipe bundle",
+    )
+    recipe_export_parser.add_argument("--plan", required=True)
+    recipe_export_parser.add_argument("--bundle-id", required=True)
+    recipe_export_parser.add_argument("--output-dir", required=True)
+    recipe_export_parser.add_argument(
+        "--lineage",
+        action="append",
+        default=[],
+        metavar="NAME=SHA256",
+        help="Digest of a producing evidence artifact; repeatable",
+    )
+    recipe_export_parser.add_argument("--note", action="append", default=[])
+
+    support_matrix_parser = subparsers.add_parser(
+        "support-matrix",
+        help="List every registered model family with its declared support tier",
+    )
+    support_matrix_parser.add_argument("--output", help="Optional JSON output path")
 
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--reference-evaluation", required=True)
@@ -846,6 +908,15 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         plan = plan_quantization(analysis_report, request)
+        if args.kv_cache == "prior":
+            layer_count = analysis_report.architecture_profile.text_layer_count
+            if layer_count is None:
+                raise PlanningError("KV-cache planning requires a known text layer count")
+            plan.kv_cache = allocate_kv_cache(
+                layer_count,
+                default_bits=args.kv_default_bits,
+                group_size=args.group_size,
+            )
         output = _output_json(args.output, "plan-01.json")
         write_data(output, plan)
         log.info(
@@ -853,6 +924,7 @@ def _run(args: argparse.Namespace) -> int:
             output=str(output),
             effective_bpw=round(plan.effective_bpw, 6),
             evidence=plan.evidence_kind.value,
+            kv_cache=(plan.kv_cache.allocation_basis if plan.kv_cache else "off"),
         )
         return 0
 
@@ -883,6 +955,75 @@ def _run(args: argparse.Namespace) -> int:
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,
+        )
+        return 0
+
+    if args.command == "quantize":
+        summary = quick_convert(
+            model=args.model,
+            output=args.output,
+            model_id=args.model_id,
+            revision=args.revision,
+            profile=ProfileName(args.profile),
+            target_bpw=args.target_bpw,
+            kv_cache=args.kv_cache,
+            recipe=args.recipe,
+            calibration_manifest=args.calibration_manifest,
+            mtp_sidecar=args.mtp_sidecar,
+            runtime_smoke=args.runtime_smoke,
+            ax_engine=args.ax_engine,
+            mlx_lm=args.mlx_lm,
+            ax_engine_manifest=args.ax_engine_manifest,
+        )
+        if args.json_output:
+            write_data(args.json_output, summary)
+        log.info(
+            "quantize_completed",
+            output=summary.output_path,
+            family=summary.product_family,
+            tier=summary.support_tier.value,
+            evidence=summary.evidence_kind.value,
+            plan_source=summary.plan_source,
+            measured_bpw=round(summary.measured_total_bpw, 4),
+            runtime_smoke=summary.runtime_smoke,
+            runtime_smoke_passed=summary.runtime_smoke_passed,
+        )
+        if summary.development_evidence:
+            log.warning("development_evidence", note=DEVELOPMENT_NOTE)
+        return 0 if summary.runtime_smoke_passed is not False else 1
+
+    if args.command == "support-matrix":
+        families = support_matrix()
+        for family_entry in families.entries:
+            log.info(
+                "support_matrix_entry",
+                adapter=family_entry.adapter_id,
+                family=family_entry.product_family,
+                tier=family_entry.support_tier.value,
+            )
+        if args.output:
+            write_data(args.output, families)
+            log.info("support_matrix_written", output=str(args.output))
+        return 0
+
+    if args.command == "recipe-export":
+        lineage: dict[str, str] = {}
+        for item in args.lineage:
+            name, separator, digest = item.partition("=")
+            if not separator or not name or not digest:
+                raise ValueError(f"lineage entries use NAME=SHA256 form, got {item!r}")
+            lineage[name] = digest
+        bundle_path = export_recipe_bundle(
+            plan=args.plan,
+            output_dir=args.output_dir,
+            bundle_id=args.bundle_id,
+            lineage=lineage,
+            notes=args.note,
+        )
+        log.info(
+            "recipe_bundle_exported",
+            bundle=str(bundle_path),
+            bundle_id=args.bundle_id,
         )
         return 0
 
