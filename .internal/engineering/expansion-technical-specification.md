@@ -29,7 +29,8 @@ This specification defines the contracts for:
 | Recipe bundle schema + local resolution | | | ✅ | | |
 | Remote `hf://` resolution + release bundle packaging + `support-matrix` | | | ✅ | | |
 | KV plan section + prior allocator + AX metadata | | | | ✅ | |
-| Measured KV probing + digest-bound measured allocation (AXQ-024) | | | | ✅ | release KV gates |
+| Measured KV probing + digest-bound measured allocation (AXQ-024) | | | | ✅ | |
+| Measured-KV release chain + head-to-head renderer (AXQ-025, AXQ-022) | | | | ✅ | |
 | Tier gate in `publish` | ✅ | | | | |
 
 ## 2. Tiered family support
@@ -315,9 +316,21 @@ calibration provenance; output is development evidence
 (`measured_development`). `analyze-kv` is the CLI entry;
 `plan --kv-cache measured --kv-analysis R [--kv-max-kl B]` allocates the
 lowest per-layer bits within the KL budget via `allocate_kv_cache_measured`,
-binding the plan to the report by `sensitivity_sha256`. Conversion accepts a
-measured KV plan only with that digest present. Release validation gates for
-KV quality claims remain deferred.
+binding the plan to the report by `sensitivity_sha256` and recording the
+selection budget as `max_output_kl`. The release chain (AXQ-025):
+`convert --kv-sensitivity` verifies the report digest against the plan binding
+and packages it as `kv_sensitivity.json`; a measured KV plan without the
+report fails closed. `prepare_publication` re-verifies the packaged report and
+re-runs the allocator with the recorded budget and floors, requiring the exact
+packaged per-layer allocation to reproduce. This gate proves provenance and
+reproducibility; KV quality claims still require ordinary dual-profile
+evaluation evidence.
+
+`head_to_head.py` renders the AXQ-022 comparison page (`head-to-head`
+command) from a bound benchmark evidence index: every value is loaded from a
+checksum-verified evaluation bundle, external baselines are labeled as
+attributed, unavailable mandatory baselines are always listed with their
+recorded reasons, and results render with equal prominence either way.
 
 ## 7. Testing
 

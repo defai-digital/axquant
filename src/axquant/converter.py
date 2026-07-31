@@ -27,6 +27,7 @@ from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
     CalibrationManifest,
+    KvSensitivityReport,
     MtpSidecarLayout,
     ProtectedTensorSidecarManifest,
     QuantizationPlan,
@@ -180,6 +181,35 @@ def _validated_calibration_source(
         raise PlanningError("calibration manifest contents do not match the plan evidence")
     if not manifest.calibration_evaluation_separation_attested:
         raise PlanningError("calibration manifest lacks evaluation-separation attestation")
+    return source
+
+
+def _validated_kv_sensitivity_source(
+    plan: QuantizationPlan,
+    kv_sensitivity: str | Path | None,
+) -> Path | None:
+    kv = plan.kv_cache
+    if kv is None or kv.allocation_basis != "measured":
+        if kv_sensitivity is not None:
+            raise PlanningError(
+                "the plan has no measured KV-cache section to bind the supplied report"
+            )
+        return None
+    if kv_sensitivity is None:
+        raise PlanningError(
+            "a measured KV-cache plan requires --kv-sensitivity with its bound report (AXQ-025)"
+        )
+    source = Path(kv_sensitivity).expanduser().resolve()
+    if not source.is_file():
+        raise ArtifactError(f"KV sensitivity report does not exist: {source}")
+    report = load_model(source, KvSensitivityReport)
+    if stable_sha256(report) != kv.sensitivity_sha256:
+        raise PlanningError("KV sensitivity report digest does not match the plan binding")
+    if (
+        report.model.model_id != plan.source_model.model_id
+        or report.model.revision != plan.source_model.revision
+    ):
+        raise PlanningError("KV sensitivity report source model does not match the plan")
     return source
 
 
@@ -509,6 +539,7 @@ def convert_model(
     mtp_sidecar: str | Path | None = None,
     mtp_layout: MtpSidecarLayout = MtpSidecarLayout.BYTE_PRESERVED,
     calibration_manifest: str | Path | None = None,
+    kv_sensitivity: str | Path | None = None,
     awq_activations: Mapping[str, Any] | None = None,
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
@@ -520,6 +551,7 @@ def convert_model(
         )
     calibration_source = _validated_calibration_source(plan, calibration_manifest)
     assert_qwen36_conversion_scope(plan)
+    kv_sensitivity_source = _validated_kv_sensitivity_source(plan, kv_sensitivity)
     quantized_allocations = [allocation for allocation in plan.assignments if allocation.bits < 16]
     if not quantized_allocations:
         raise PlanningError("conversion plan contains no quantized assignments")
@@ -620,6 +652,8 @@ def convert_model(
                 raise PlanningError(f"unsupported MTP sidecar layout: {mtp_layout}")
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
+        if kv_sensitivity_source is not None:
+            _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
         if ax_engine_manifest == "required":
             require_ax_engine_manifest(staging_dir, executable=ax_engine_bench)

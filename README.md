@@ -143,7 +143,12 @@ Implemented now:
 - a registry-derived support matrix (`support-matrix`) listing every family and tier;
 - per-layer KV-cache precision planning: prior-based (`--kv-cache prior`) and measured
   (`analyze-kv` + `plan --kv-cache measured`, with the plan digest-bound to its sensitivity
-  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback.
+  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback;
+- a fail-closed measured-KV release chain: conversion packages the bound `kv_sensitivity.json`
+  (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
+  per-layer allocation from the packaged report;
+- an AXQ-022-compliant head-to-head page renderer that loads only checksum-verified evaluation
+  bundles and always lists unavailable mandatory baselines with their reasons.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
@@ -154,8 +159,8 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
 - validated conversion evidence for additional LLM families;
 - dedicated quantization of external MTP sidecars;
-- release validation gates for measured KV-cache quality claims (KV probe output is
-  development evidence);
+- measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and
+  reproducibility; quality claims still require ordinary dual-profile evaluation evidence);
 - VLM and MoE expert-level planning.
 
 Release discipline (gate order, dual-profile metric completeness, no rewrite of formal roots) is
@@ -312,6 +317,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `quantize` | One-command development conversion (inspect → prior/recipe plan → convert) | Implemented; output is always development evidence |
 | `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
 | `support-matrix` | List every registered model family with its declared support tier | Implemented |
+| `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
 | `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for supported Qwen 3.6 scope |
 | `runtime-check` | Run AX Engine readiness or actual MLX-LM generation | Implemented |
 | `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |

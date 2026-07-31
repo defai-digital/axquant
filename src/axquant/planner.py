@@ -162,6 +162,7 @@ def allocate_kv_cache_measured(
         default_bits=default_bits,
         default_group_size=report.group_size,
         sensitivity_sha256=stable_sha256(report),
+        max_output_kl=max_output_kl,
         layers=layers,
     )
 

@@ -35,6 +35,7 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-022 | Compete with mlx-optiq by measured merit under clean-room guardrails | Accepted |
 | AXQ-023 | Resolve remote recipe bundles only from revision-pinned Hub references | Accepted |
 | AXQ-024 | Measure per-layer KV-cache sensitivity and bind measured KV plans to their report | Accepted |
+| AXQ-025 | Gate measured KV plans at release by packaged report and deterministic reallocation | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -818,6 +819,48 @@ metrics, and evidence-kind discipline.
   protocols under one evidence object).
 - Accepting `measured` basis without a bound report (unverifiable claims).
 
+## AXQ-025: Release gating for measured KV-cache plans
+
+**Status:** Accepted
+
+### Context
+
+AXQ-024 deferred release gating for KV quality claims. Without a gate, a release artifact could
+carry a measured KV plan whose digest points at a report nobody packaged, or whose per-layer
+choices silently diverge from what the report supports. The repository's existing discipline for
+exactly this problem is: package the evidence with the artifact, verify it by digest, and prove
+the derived result can be recomputed from the packaged evidence.
+
+### Decision
+
+- `allocate_kv_cache_measured` records its selection budget on the plan
+  (`KvCachePlan.max_output_kl`), so a measured KV plan is a pure function of
+  (report, budget, floors).
+- Conversion of a plan whose KV basis is `measured` requires the producing
+  `KvSensitivityReport`: `convert` (and `quantize`) accept `--kv-sensitivity`; the converter
+  verifies the report's semantic digest equals `kv_cache.sensitivity_sha256` and packages it as
+  `kv_sensitivity.json` in the artifact. A measured KV plan without the report fails closed.
+- Publication preparation re-verifies the chain: the packaged `kv_sensitivity.json` must parse,
+  its digest must equal the plan binding, and re-running the allocator with the recorded budget
+  and floors must reproduce the packaged plan's per-layer allocation exactly.
+- Prior-based KV plans package nothing and are unaffected.
+- Quality claims about KV-quantized serving still require ordinary evaluation evidence through
+  the existing dual-profile validation; this gate proves plan provenance and reproducibility, it
+  does not by itself authorize a KV quality claim in release wording.
+
+### Consequences
+
+- A measured KV plan in a published artifact is reproducible from packaged evidence or loudly
+  broken — identical discipline to `quantization_plan.json` and the calibration manifest.
+- The deferred-decision list for KV planning is now empty; future work is evidence collection,
+  not contract design.
+
+### Rejected alternatives
+
+- Gating only on digest presence (proves binding, not that the allocation follows the report).
+- Blocking release whenever a KV section exists (would punish the prior-based path that AXQ-021
+  explicitly allows).
+
 ## Deferred decisions
 
 The following require later ADR updates:
@@ -828,7 +871,6 @@ The following require later ADR updates:
 - integrated versus external MTP quantization beyond byte preservation;
 - MoE expert allocation;
 - VLM calibration and vision precision;
-- release validation gates for measured KV-cache quality claims (extends AXQ-024);
 - LoRA rank guidance derived from sensitivity artifacts;
 - additional bit formats and group/column granularity.
 

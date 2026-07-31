@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from axquant.errors import ArtifactError, ValidationGateError
+from axquant.planner import allocate_kv_cache_measured
 from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
 from axquant.schema import (
@@ -15,6 +16,7 @@ from axquant.schema import (
     CalibrationManifest,
     EvaluationBundle,
     HardwareProfileRegistry,
+    KvSensitivityReport,
     MtpSidecarLayout,
     ParetoReport,
     PreparedMtpSidecarManifest,
@@ -361,6 +363,32 @@ def validation_markdown(report: ValidationReport) -> str:
 """
 
 
+def _verify_measured_kv_plan(directory: Path, plan: QuantizationPlan) -> None:
+    """Prove a measured KV plan reproduces from its packaged report (AXQ-025)."""
+    kv = plan.kv_cache
+    if kv is None or kv.allocation_basis != "measured":
+        return
+    report_path = directory / "kv_sensitivity.json"
+    if not report_path.is_file():
+        raise ValidationGateError(
+            "a measured KV-cache plan requires the packaged kv_sensitivity.json report"
+        )
+    report = load_model(report_path, KvSensitivityReport)
+    if stable_sha256(report) != kv.sensitivity_sha256:
+        raise ValidationGateError("packaged KV sensitivity report does not match the plan binding")
+    if kv.max_output_kl is None:
+        raise ValidationGateError("a measured KV-cache plan must record its selection budget")
+    reproduced = allocate_kv_cache_measured(
+        report,
+        max_output_kl=kv.max_output_kl,
+        min_bits=kv.min_bits,
+    )
+    if reproduced.layers != kv.layers:
+        raise ValidationGateError(
+            "the measured KV-cache allocation cannot be reproduced from its packaged report"
+        )
+
+
 def _package_recipe_bundle(
     *,
     directory: Path,
@@ -403,6 +431,7 @@ def prepare_publication(
             "publication requires at least the convertible support tier; the packaged plan "
             "records an inspect-only family (AXQ-017)"
         )
+    _verify_measured_kv_plan(directory, plan)
     validation_index_source = Path(validation_index_path).expanduser().resolve()
     validation_index = load_model(validation_index_source, ReleaseValidationIndex)
     if not validation_index.release_ready:

@@ -210,3 +210,101 @@ def test_measure_kv_sensitivity_requires_pinned_revision(
             profile=ProfileName.AGENT_CODING,
             backend=_FakeKvBackend(),
         )
+
+
+def test_converter_binds_measured_kv_report(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.analyzer import architecture_prior_report
+    from axquant.converter import _validated_kv_sensitivity_source
+    from axquant.planner import plan_quantization
+    from axquant.schema import PlanRequest
+
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+    )
+    prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(
+        prior,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=14.0,
+            allow_unmeasured=True,
+        ),
+    )
+    plan.kv_cache = allocate_kv_cache_measured(report, max_output_kl=10.0)
+    report_path = tmp_path / "kv_sensitivity.json"
+    write_data(report_path, report)
+
+    with pytest.raises(PlanningError, match="requires --kv-sensitivity"):
+        _validated_kv_sensitivity_source(plan, None)
+    assert _validated_kv_sensitivity_source(plan, report_path) == report_path.resolve()
+
+    tampered = report.model_copy(update={"probe_backend": "someone-else"})
+    tampered_path = tmp_path / "tampered.json"
+    write_data(tampered_path, tampered)
+    with pytest.raises(PlanningError, match="digest does not match"):
+        _validated_kv_sensitivity_source(plan, tampered_path)
+
+    plan.kv_cache = None
+    with pytest.raises(PlanningError, match="no measured KV-cache section"):
+        _validated_kv_sensitivity_source(plan, report_path)
+
+
+def test_publication_gate_reproduces_measured_kv_allocation(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.analyzer import architecture_prior_report
+    from axquant.errors import ValidationGateError
+    from axquant.planner import plan_quantization
+    from axquant.reporting import _verify_measured_kv_plan
+    from axquant.schema import PlanRequest
+
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+    )
+    prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(
+        prior,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=14.0,
+            allow_unmeasured=True,
+        ),
+    )
+    plan.kv_cache = allocate_kv_cache_measured(report, max_output_kl=10.0)
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+
+    with pytest.raises(ValidationGateError, match=r"packaged kv_sensitivity\.json"):
+        _verify_measured_kv_plan(artifact, plan)
+
+    write_data(artifact / "kv_sensitivity.json", report)
+    _verify_measured_kv_plan(artifact, plan)
+
+    assert plan.kv_cache is not None
+    drifted = plan.kv_cache.model_copy(
+        update={
+            "layers": [
+                layer.model_copy(update={"bits": 16, "reason": "hand-edited"})
+                for layer in plan.kv_cache.layers
+            ]
+        }
+    )
+    plan.kv_cache = drifted
+    with pytest.raises(ValidationGateError, match="cannot be reproduced"):
+        _verify_measured_kv_plan(artifact, plan)
+
+    plan.kv_cache = allocate_kv_cache_measured(report, max_output_kl=10.0).model_copy(
+        update={"max_output_kl": None}
+    )
+    with pytest.raises(ValidationGateError, match="selection budget"):
+        _verify_measured_kv_plan(artifact, plan)

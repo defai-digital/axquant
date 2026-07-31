@@ -648,6 +648,9 @@ class KvCachePlan(StrictModel):
     # Semantic digest of the producing KvSensitivityReport; required for the
     # measured basis (AXQ-024) and absent for architecture priors.
     sensitivity_sha256: str | None = None
+    # Selection budget used by the measured allocator so publication can
+    # reproduce the allocation from the packaged report (AXQ-025).
+    max_output_kl: float | None = Field(default=None, gt=0.0)
     layers: list[KvLayerAllocation]
     warnings: list[str] = Field(default_factory=list)
 

@@ -10,11 +10,12 @@ pass and the full quality gates (`pytest`, `ruff check`, `ruff format --check`,
 
 Status summary (2026-07-31): E0–E4 are implemented, including the wave-2
 toolkit items (release bundle packaging, remote `hf://` resolution per
-AXQ-023, `support-matrix`) and the wave-3 measured KV probing path (AXQ-024),
-all green under the full quality gates (`pytest` 346 passing, `ruff check`,
-`ruff format --check`, `mypy src` strict). E5/E6 certification waves are
-evidence programs and remain open; the only deferred toolkit decision left is
-release gating for KV quality claims.
+AXQ-023, `support-matrix`), the wave-3 measured KV probing path (AXQ-024),
+and the wave-4 measured-KV release chain plus head-to-head renderer
+(AXQ-025, AXQ-022), all green under the full quality gates (`pytest` 351
+passing, `ruff check`, `ruff format --check`, `mypy src` strict). Every
+KV-planning contract decision is resolved; E5/E6 certification waves are
+evidence programs and remain the only open work.
 
 ## Phase E0 — Governance (complete)
 
@@ -73,7 +74,10 @@ tests; a bundle exported from release evidence replays into an identical plan.
 Wave 3 (2026-07-31) shipped AXQ-024: `analyze-kv` measured per-layer KV
 sensitivity over verified calibration caches, `allocate_kv_cache_measured`
 with digest-bound plans, and conversion acceptance of bound measured KV plans.
-Release validation gates for KV quality claims remain deferred.
+Wave 4 (2026-07-31) shipped AXQ-025: `convert --kv-sensitivity` packages the
+bound report; publication re-verifies the digest and reproduces the exact
+allocation from packaged evidence. It also shipped the AXQ-022 `head-to-head`
+comparison-page renderer for E-T7.
 
 Work items:
 

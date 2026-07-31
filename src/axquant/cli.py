@@ -319,6 +319,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="External MTP handling; transformed Qwen 3.6 layout requires explicit opt-in",
     )
     convert_parser.add_argument("--calibration-manifest")
+    convert_parser.add_argument(
+        "--kv-sensitivity",
+        help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
+    )
     convert_parser.add_argument("--allow-unmeasured", action="store_true")
     convert_parser.add_argument(
         "--ax-engine-manifest",
@@ -384,6 +388,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="List every registered model family with its declared support tier",
     )
     support_matrix_parser.add_argument("--output", help="Optional JSON output path")
+
+    head_to_head_parser = subparsers.add_parser(
+        "head-to-head",
+        help="Render the public comparison page from a bound benchmark evidence index",
+    )
+    head_to_head_parser.add_argument("--benchmark-index", required=True)
+    head_to_head_parser.add_argument("--title")
+    head_to_head_parser.add_argument("--output", default="head-to-head.md")
 
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--reference-evaluation", required=True)
@@ -1011,6 +1023,7 @@ def _run(args: argparse.Namespace) -> int:
             mtp_sidecar=args.mtp_sidecar,
             mtp_layout=MtpSidecarLayout(args.mtp_layout),
             calibration_manifest=args.calibration_manifest,
+            kv_sensitivity=args.kv_sensitivity,
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,
@@ -1050,6 +1063,14 @@ def _run(args: argparse.Namespace) -> int:
         if summary.development_evidence:
             log.warning("development_evidence", note=DEVELOPMENT_NOTE)
         return 0 if summary.runtime_smoke_passed is not False else 1
+
+    if args.command == "head-to-head":
+        from axquant.head_to_head import render_head_to_head
+
+        page = render_head_to_head(args.benchmark_index, title=args.title)
+        write_text(args.output, page)
+        log.info("head_to_head_written", output=str(args.output))
+        return 0
 
     if args.command == "support-matrix":
         families = support_matrix()
