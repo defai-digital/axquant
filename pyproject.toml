@@ -1,0 +1,83 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "axquant"
+version = "1.0.0"
+description = "CLI toolkit for converting supported MLX LLM checkpoints into AXQuant models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "AutomatosX" }]
+keywords = ["mlx", "quantization", "apple-silicon", "mtp", "ptq"]
+classifiers = [
+    # Toolkit API and CLI are feature-complete and tested; formal host/candidate Hub
+    # certification (MTP speed, size floor, release-audit) remains evidence-gated.
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "huggingface-hub>=0.24",
+    "pydantic>=2.8,<3",
+    "pyyaml>=6.0",
+    "safetensors>=0.4.5",
+    "structlog>=24.2",
+]
+
+[project.optional-dependencies]
+mlx = [
+    "mlx>=0.29",
+    "mlx-lm>=0.31",
+]
+dev = [
+    "mypy>=1.11",
+    "numpy>=2.0,<2.4",
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+axquant = "axquant.cli:entrypoint"
+
+[project.urls]
+Repository = "https://github.com/defai-digital/axquant"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/axquant"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+packages = ["axquant"]
+
+[tool.coverage.run]
+source = ["axquant"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

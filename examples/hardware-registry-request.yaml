@@ -1,0 +1,18 @@
+schema_version: axquant.hardware-registry-request.v3
+registry_id: qwen36-apple-silicon-v1
+measurement_set_file: run/measurements.json
+deterministic_tolerance: 0.0
+candidates:
+  - entry_id: cand-20260728-000-m3-max
+    candidate_id: cand-20260728-000
+    measurement_id: cand-20260728-000
+    plan_file: run/candidates/cand-20260728-000/plan.json
+    artifact_manifest_file: run/candidates/cand-20260728-000/artifact/axquant_manifest.json
+    sensitivity_file: run/qwen36-sensitivity.json
+    quality_comparison_file: run/candidates/cand-20260728-000/quality-comparison.json
+    validation_file: run/candidates/cand-20260728-000/validation.json
+    direct_evaluation_file: run/candidates/cand-20260728-000/benchmark-ab/evaluation_mtp_off.json
+    mtp_evaluation_file: run/candidates/cand-20260728-000/benchmark-ab/evaluation_mtp_on.json
+    direct_benchmark_result_file: run/candidates/cand-20260728-000/benchmark-ab/mtp-off/benchmark_raw_log.json
+    mtp_benchmark_result_file: run/candidates/cand-20260728-000/benchmark-ab/mtp-on/benchmark_raw_log.json
+    quantizer_execution_file: run/candidates/cand-20260728-000/artifact/axquant_quantizer_execution.json

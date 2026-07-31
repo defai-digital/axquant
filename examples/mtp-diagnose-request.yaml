@@ -1,0 +1,50 @@
+# Example M2 kill-switch diagnostic request (development evidence).
+# Run after the release sensitivity probe frees MLX resources:
+#
+#   axquant mtp-diagnose \
+#     --model .internal/tmp/qwen36-manual-v0.1-artifact-v3 \
+#     --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+#     --revision candidate-revision \
+#     --prompts .internal/tmp/benchmark-suite-v2/ax-engine-prompts-v2.jsonl \
+#     --draft-depth 1 \
+#     --trials 5 \
+#     --warmup 1 \
+#     --max-tokens 64 \
+#     --output-dir .internal/tmp/mtp-diagnose-v1 \
+#     --output mtp_diagnostic_report.json
+#
+# Profiles exercised by default:
+#   - baseline
+#   - disable-post-input-metal
+#   - disable-la-decode-metal
+#
+# Exit code 0 only when some profile is exact AND meets --minimum-mtp-speedup.
+# A passing kill-switch profile is still development evidence until bound into
+# release A/B + benchmark-index on a supported host.
+#
+# A byte-preserved raw Qwen 3.6 sidecar can require an explicit, positive gate
+# below the runtime default before it proposes drafts. Keep the value positive
+# so AX Engine uses greedy drafting, and retain AXQuant's exact-output gate:
+#
+#     --runtime-env AX_MLX_MTP_DRAFT_MIN_CONFIDENCE=0.000001
+#
+# If route telemetry shows high aggregate acceptance but
+# `ax_mtp_direct_fallback_steps` begins exactly at the default eight-sample
+# bypass window, isolate the EWMA bypass with either:
+#
+#     --runtime-env AX_MLX_MTP_BYPASS_MIN_SAMPLES=1000
+#     --runtime-env AX_MLX_MTP_BYPASS_THRESHOLD=0
+#
+# These are diagnostic controls, not release defaults. Both arms retain the
+# same environment and exact-output comparison.
+
+schema_version: axquant.mtp-diagnose-request.v1
+profiles:
+  - baseline
+  - disable-post-input-metal
+  - disable-la-decode-metal
+minimum_mtp_speedup: 1.20
+draft_depth: 1
+notes: >
+  Soft-compares MTP off/on for each profile. Does not waive M2. Optimistic MTP
+  is never used.

@@ -1,0 +1,8 @@
+schema_version: axquant.release-validation-request.v1
+entries:
+  - profile: agent-coding
+    validation_file: evidence/agent-coding/validation.json
+    benchmark_index_file: evidence/agent-coding/benchmark-evidence-index.json
+  - profile: general
+    validation_file: evidence/general/validation.json
+    benchmark_index_file: evidence/general/benchmark-evidence-index.json

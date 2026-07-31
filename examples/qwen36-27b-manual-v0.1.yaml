@@ -1,0 +1,35 @@
+schema_version: axquant.manual-recipe.v1
+profile: agent-coding
+target_bpw: 7.0
+default_bits: 4
+default_method: affine
+group_size: 64
+allow_unmatched_rules: false
+rules:
+  - rule_id: preserve-mtp-bf16
+    bits: 16
+    method: bf16
+    roles:
+      - mtp_projection
+      - mtp_block
+      - mtp_output
+    reason: Preserve MTP tensors in the unmeasured v0.1 vertical slice.
+  - rule_id: attention-6bit
+    bits: 6
+    method: affine
+    roles:
+      - attention
+    reason: Exercise mixed precision without making a measured sensitivity claim.
+mtp:
+  mode: protected
+  candidate_bits:
+    - 8
+    - 16
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true
+target_mode: balanced
+primary_runtime: ax-engine
+random_seed: 0

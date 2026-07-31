@@ -1,0 +1,20 @@
+schema_version: axquant.compatibility-request.v2
+family: Qwen 3.6
+scope_policy: all-official-dense-sizes-at-release
+official_catalog_url: https://huggingface.co/collections/Qwen/qwen36
+catalog_verified_at: "2026-07-30T00:00:00Z"
+required_dense_models:
+  - model_id: Qwen/Qwen3.6-27B
+    parameter_size: 27B
+required_profiles:
+  - agent-coding
+  - general
+candidates:
+  - artifact_directory: releases/qwen36-27b
+    ax_engine_check: evidence/qwen36-27b/ax-engine-runtime.json
+    mlx_lm_check: evidence/qwen36-27b/mlx-lm-runtime.json
+    validation_report: evidence/qwen36-27b/validation-agent-coding.json
+  - artifact_directory: releases/qwen36-27b
+    ax_engine_check: evidence/qwen36-27b/ax-engine-runtime.json
+    mlx_lm_check: evidence/qwen36-27b/mlx-lm-runtime.json
+    validation_report: evidence/qwen36-27b/validation-general.json

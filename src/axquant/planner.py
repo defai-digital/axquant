@@ -1,0 +1,291 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from axquant.errors import PlanningError
+from axquant.profiles import objective_for
+from axquant.schema import (
+    Allocation,
+    ArchitectureSupportLevel,
+    CandidateMeasurement,
+    MetricVector,
+    PlanningConstraints,
+    PlanRequest,
+    PrecisionShare,
+    QuantizationPlan,
+    SensitivityReport,
+    TensorRole,
+    TensorSensitivity,
+)
+from axquant.serde import stable_sha256
+from axquant.versioning import collect_versions
+
+_PROTECTED_MIN_BITS = {
+    TensorRole.EMBEDDING: 8,
+    TensorRole.NORM: 16,
+    TensorRole.LM_HEAD: 16,
+    TensorRole.ROUTER: 8,
+    TensorRole.VISION: 16,
+}
+
+
+@dataclass(frozen=True)
+class _Option:
+    measurement: CandidateMeasurement
+    loss: float
+    storage_bpw: float
+
+
+@dataclass
+class _Choice:
+    entry: TensorSensitivity
+    options: list[_Option]
+    index: int = 0
+    upgraded: bool = False
+    policy_reason: str | None = None
+
+    @property
+    def selected(self) -> _Option:
+        return self.options[self.index]
+
+
+def storage_bpw(bits: int, group_size: int | None) -> float:
+    if bits == 16:
+        return 16.0
+    if group_size is None:
+        raise PlanningError("quantized precision is missing a group size")
+    return bits + 32.0 / group_size
+
+
+def _loss(metrics: MetricVector, weights: dict[str, float]) -> float:
+    values = metrics.model_dump()
+    return sum(float(values[key]) * weight for key, weight in weights.items())
+
+
+def _external_mtp_sidecar(entry: TensorSensitivity) -> bool:
+    return entry.tensor.role.is_mtp
+
+
+def _minimum_bits(entry: TensorSensitivity, request: PlanRequest) -> tuple[int, str | None]:
+    role = entry.tensor.role
+    if not entry.tensor.quantizable:
+        return 16, "non-quantizable tensor preserved"
+    if _external_mtp_sidecar(entry) and request.mtp.preserve_external_sidecar:
+        return 16, "external MTP sidecar preserved byte-for-byte"
+    if role.is_mtp and request.mtp.mode == "protected":
+        return request.mtp.min_bits, "protected MTP policy"
+    minimum = _PROTECTED_MIN_BITS.get(role, min(request.candidate_bits))
+    reason = f"protected {role.value} policy" if role in _PROTECTED_MIN_BITS else None
+    return minimum, reason
+
+
+def _options_for(
+    entry: TensorSensitivity,
+    request: PlanRequest,
+    weights: dict[str, float],
+) -> tuple[list[_Option], str | None]:
+    minimum_bits, reason = _minimum_bits(entry, request)
+    allowed_bits = set(request.candidate_bits)
+    if entry.tensor.role.is_mtp and request.mtp.mode != "disabled":
+        allowed_bits &= set(request.mtp.candidate_bits)
+        if minimum_bits == 16:
+            allowed_bits.add(16)
+    candidates = [
+        candidate
+        for candidate in entry.candidates
+        if candidate.supported
+        and candidate.bits in allowed_bits
+        and candidate.bits >= minimum_bits
+        and candidate.bits in request.hardware.supported_bits
+        and candidate.method in request.hardware.supported_methods
+        and (candidate.bits == 16 or candidate.group_size in request.hardware.supported_group_sizes)
+    ]
+    if not candidates:
+        raise PlanningError(
+            f"{entry.tensor.name} has no candidate satisfying the precision and hardware policy"
+        )
+    best_by_bits: dict[int, _Option] = {}
+    for candidate in candidates:
+        option = _Option(
+            measurement=candidate,
+            loss=_loss(candidate.metrics, weights),
+            storage_bpw=storage_bpw(candidate.bits, candidate.group_size),
+        )
+        current = best_by_bits.get(candidate.bits)
+        if current is None or option.loss < current.loss:
+            best_by_bits[candidate.bits] = option
+    return [best_by_bits[bits] for bits in sorted(best_by_bits)], reason
+
+
+def _distribution(
+    choices: list[_Choice],
+    *,
+    mtp_only: bool = False,
+) -> dict[str, PrecisionShare]:
+    selected = [choice for choice in choices if not mtp_only or choice.entry.tensor.role.is_mtp]
+    total = sum(choice.entry.tensor.parameters for choice in selected)
+    if total == 0:
+        return {}
+    parameters_by_precision: dict[str, int] = {}
+    for choice in selected:
+        bits = choice.selected.measurement.bits
+        label = "bf16" if bits == 16 else f"{bits}bit"
+        parameters_by_precision[label] = (
+            parameters_by_precision.get(label, 0) + choice.entry.tensor.parameters
+        )
+    return {
+        label: PrecisionShare(parameters=parameters, fraction=parameters / total)
+        for label, parameters in sorted(parameters_by_precision.items())
+    }
+
+
+def plan_quantization(
+    report: SensitivityReport,
+    request: PlanRequest,
+) -> QuantizationPlan:
+    if request.candidate_count > 1:
+        # Top-N generation is handled by the refinement module;
+        # the planner itself always produces a single deterministic plan.
+        # Accept candidate_count > 1 but only produce one plan here.
+        pass
+    if report.profile != request.profile:
+        raise PlanningError(
+            f"analysis profile {report.profile} does not match plan profile {request.profile}"
+        )
+    if request.hardware.runtime != request.primary_runtime:
+        raise PlanningError("hardware profile runtime does not match the primary runtime")
+    if not report.evidence_kind.release_quality and not request.allow_unmeasured:
+        raise PlanningError(
+            f"{report.evidence_kind.value} evidence is not release quality; "
+            "pass --allow-unmeasured "
+            "only for development dry runs"
+        )
+    if (
+        report.architecture_profile.support_level != ArchitectureSupportLevel.SUPPORTED
+        and not request.allow_unmeasured
+    ):
+        raise PlanningError(
+            "AXQuant release planning supports validated Qwen 3.6 dense checkpoints only"
+        )
+    weights_model = objective_for(request.profile)
+    weights = weights_model.normalized()
+    choices: list[_Choice] = []
+    for entry in report.entries:
+        options, reason = _options_for(entry, request, weights)
+        choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
+    total_parameters = sum(choice.entry.tensor.parameters for choice in choices)
+    if total_parameters <= 0:
+        raise PlanningError("analysis report contains no parameters")
+
+    target_storage_bits = request.target_bpw * total_parameters
+
+    def current_storage_bits() -> float:
+        return sum(
+            choice.selected.storage_bpw * choice.entry.tensor.parameters for choice in choices
+        )
+
+    minimum_storage_bits = current_storage_bits()
+    if minimum_storage_bits > target_storage_bits + 1e-6:
+        minimum_bpw = minimum_storage_bits / total_parameters
+        raise PlanningError(
+            f"target {request.target_bpw:.4f} BPW is infeasible; policy minimum is "
+            f"{minimum_bpw:.4f} BPW"
+        )
+
+    while True:
+        best: tuple[float, int, float] | None = None
+        for choice_index, choice in enumerate(choices):
+            if choice.index + 1 >= len(choice.options):
+                continue
+            current = choice.options[choice.index]
+            upgraded = choice.options[choice.index + 1]
+            delta_storage = (
+                upgraded.storage_bpw - current.storage_bpw
+            ) * choice.entry.tensor.parameters
+            if delta_storage <= 0:
+                continue
+            if current_storage_bits() + delta_storage > target_storage_bits + 1e-6:
+                continue
+            benefit = current.loss - upgraded.loss
+            if benefit <= 0:
+                continue
+            efficiency = benefit * choice.entry.tensor.parameters / delta_storage
+            candidate = (efficiency, choice_index, delta_storage)
+            if best is None or candidate > best:
+                best = candidate
+        if best is None:
+            break
+        choice = choices[best[1]]
+        choice.index += 1
+        choice.upgraded = True
+
+    allocations: list[Allocation] = []
+    for choice in choices:
+        selected = choice.selected
+        measurement = selected.measurement
+        if choice.policy_reason:
+            reason = choice.policy_reason
+        elif choice.upgraded:
+            reason = "selected by marginal quality gain per storage bit"
+        else:
+            reason = "minimum storage candidate"
+        allocations.append(
+            Allocation(
+                tensor=choice.entry.tensor.name,
+                module_path=choice.entry.tensor.module_path,
+                role=choice.entry.tensor.role,
+                parameters=choice.entry.tensor.parameters,
+                bits=measurement.bits,
+                method=measurement.method,
+                group_size=measurement.group_size,
+                predicted_loss=selected.loss,
+                metrics=measurement.metrics,
+                reason=reason,
+            )
+        )
+
+    nominal_bpw = (
+        sum(choice.selected.measurement.bits * choice.entry.tensor.parameters for choice in choices)
+        / total_parameters
+    )
+    effective_bpw = current_storage_bits() / total_parameters
+    quantized_bits = [bits for bits in request.candidate_bits if bits < 16]
+    target_class = f"{min(quantized_bits)}bit" if quantized_bits else "bf16"
+    warnings = list(report.warnings)
+    if not report.evidence_kind.release_quality:
+        warnings.append(
+            f"Plan uses non-release {report.evidence_kind.value} evidence and requires "
+            "complete-model validation."
+        )
+    return QuantizationPlan(
+        source_model=report.model,
+        architecture_profile=report.architecture_profile,
+        profile=request.profile,
+        target_class=target_class,
+        target_bpw=request.target_bpw,
+        nominal_bpw=nominal_bpw,
+        effective_bpw=effective_bpw,
+        candidate_bits=request.candidate_bits,
+        group_size=request.group_size,
+        objective=weights_model,
+        hardware=request.hardware,
+        mtp=request.mtp,
+        constraints=PlanningConstraints(
+            effective_bpw_limit=request.target_bpw,
+            max_model_size_ratio_to_uniform4=request.max_model_size_ratio_to_uniform4,
+            minimum_quality_retention=request.minimum_quality_retention,
+            minimum_mtp_acceptance_retention=request.minimum_mtp_acceptance_retention,
+            minimum_mtp_speedup=request.minimum_mtp_speedup,
+        ),
+        target_mode=request.target_mode,
+        primary_runtime=request.primary_runtime,
+        random_seed=request.random_seed,
+        software_versions=collect_versions(),
+        analysis_sha256=stable_sha256(report),
+        evidence_kind=report.evidence_kind,
+        calibration=report.calibration,
+        assignments=allocations,
+        weight_distribution=_distribution(choices),
+        mtp_distribution=_distribution(choices, mtp_only=True),
+        warnings=warnings,
+    )

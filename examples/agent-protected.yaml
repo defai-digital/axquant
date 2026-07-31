@@ -1,0 +1,43 @@
+schema_version: axquant.plan-request.v1
+profile: agent-coding
+target_bpw: 4.8
+candidate_bits:
+  - 4
+  - 6
+  - 8
+  - 16
+group_size: 64
+allow_unmeasured: false
+candidate_count: 1
+random_seed: 0
+target_mode: balanced
+primary_runtime: ax-engine
+max_model_size_ratio_to_uniform4: 1.1
+minimum_quality_retention: 0.98
+minimum_mtp_acceptance_retention: 0.95
+minimum_mtp_speedup: 1.2
+hardware:
+  name: ax-engine-apple-silicon-affine
+  runtime: ax-engine
+  supported_bits:
+    - 4
+    - 6
+    - 8
+    - 16
+  supported_methods:
+    - affine
+    - bf16
+  supported_group_sizes:
+    - 32
+    - 64
+    - 128
+mtp:
+  mode: protected
+  candidate_bits:
+    - 8
+    - 16
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

@@ -1,0 +1,24 @@
+schema_version: axquant.refinement-execution-request.v2
+refinement_file: run/refinement.json
+source_model: models/Qwen3.6-27B
+mtp_sidecar: models/Qwen3.6-27B/mtp.safetensors
+calibration_manifest: run/calibration_manifest.json
+quality_dataset: evidence/agent-coding-quality.jsonl
+reference_quality: evidence/uniform-6bit-quality.json
+reference_evaluation: evidence/uniform-6bit-evaluation.json
+benchmark_prompts: evidence/ax-engine-prompts.jsonl
+size_reference: evidence/uniform-4bit-size.json
+candidate_repository_prefix: AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant
+profile: agent-coding
+quality_max_sequence_length: 2048
+quality_max_tokens: 256
+quality_max_samples: null
+benchmark_trials: 5
+benchmark_warmup: 2
+benchmark_max_tokens: 512
+benchmark_draft_depth: 1
+benchmark_power_mode: AC power; automatic mode; no thermal throttling observed
+benchmark_timeout_seconds: 300.0
+random_seed: 20260728
+axquant_executable: axquant
+ax_engine_executable: ax-engine-bench

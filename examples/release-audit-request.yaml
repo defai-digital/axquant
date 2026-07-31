@@ -1,0 +1,19 @@
+schema_version: axquant.release-audit-request.v4
+artifact_directory: release/AX-Qwen3.6-27B-MLX-AXQuant
+feasibility_report: evidence/feasibility_report.json
+sensitivity_report: evidence/qwen36-sensitivity.json
+sensitivity_lineage:
+  - evidence/qwen36-sensitivity-affine-base.json
+refinement_result: evidence/selected-refinement.json
+release_validation_index: release/AX-Qwen3.6-27B-MLX-AXQuant/release_validation_index.json
+hardware_registry: release/AX-Qwen3.6-27B-MLX-AXQuant/hardware_profile_registry.json
+pareto_report: release/AX-Qwen3.6-27B-MLX-AXQuant/pareto_report.json
+compatibility_matrix: evidence/compatibility_matrix.json
+compatibility_request: qwen36-compatibility-request.yaml
+reproduction_recipe: release/AX-Qwen3.6-27B-MLX-AXQuant/reproduction_recipe.yaml
+reproduction_verification: evidence/reproduction_verification.json
+ax_engine_check: evidence/runtime_check_ax_engine.json
+mlx_lm_check: evidence/runtime_check_mlx_lm.json
+toolkit_wheel: dist/axquant-1.0.0-py3-none-any.whl
+required_toolkit_version: 1.0.0
+required_dense_checkpoints: 1

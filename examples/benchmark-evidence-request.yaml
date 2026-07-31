@@ -1,0 +1,27 @@
+schema_version: axquant.benchmark-evidence-request.v1
+profile: agent-coding
+entries:
+  - kind: bf16
+    status: available
+    evaluation_file: evidence/bf16.json
+  - kind: uniform-4bit
+    status: available
+    evaluation_file: evidence/uniform-4bit.json
+  - kind: uniform-6bit
+    status: available
+    evaluation_file: evidence/uniform-6bit.json
+  - kind: mixed-precision
+    status: unavailable
+    unavailable_reason: No attributed compatible evaluation bundle is available.
+  - kind: awq
+    status: unavailable
+    unavailable_reason: No compatible MLX AWQ baseline is available.
+  - kind: dwq
+    status: unavailable
+    unavailable_reason: No compatible MLX DWQ baseline is available.
+  - kind: axquant-mtp-off
+    status: available
+    evaluation_file: evidence/axquant-mtp-off.json
+  - kind: axquant-mtp-on
+    status: available
+    evaluation_file: evidence/axquant-mtp-on.json
