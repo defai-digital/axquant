@@ -176,3 +176,13 @@ def test_analyze_with_calibration_fails_until_probe_backend_exists(
         ]
     )
     assert result == 2
+
+
+def test_validate_calibration_dataset_passes_on_bundled_data() -> None:
+    result = main(["validate-calibration-dataset"])
+    assert result == 0
+
+
+def test_validate_calibration_dataset_fails_on_missing_file(tmp_path: Path) -> None:
+    result = main(["validate-calibration-dataset", "--path", str(tmp_path / "nope.jsonl")])
+    assert result == 2

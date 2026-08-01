@@ -170,6 +170,10 @@ Implemented now:
   `validate-calibration-dataset` command, so a user without their own domain-representative
   calibration text can still run the full measured pipeline; an integration test proves the
   complete chain (inspect → tokenize-calibration → analyze → plan) closes end to end on it.
+- a bundled evaluation task suite (`data/eval/`) with 60 clean-room-authored tasks across four
+  categories (coding, reasoning, json-tool, instruction) for `evaluate-quality` and
+  `compare-quality`, covering python-syntax, JSON validity, exact match, regex, and token-F1
+  scoring.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
