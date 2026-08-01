@@ -114,6 +114,22 @@ Qwen3.6-27B source (`6a9e13bd…`), artifacts under `.internal/tmp/`:
   KV caches because this mlx-lm version does not execute the packed
   QuantizedKVCache path for this family.
 
+- Second real KV report (`qwen36-kv-sensitivity-general-v1.json`, general
+  profile, 24 samples): same 16 attention layers; 4-bit KL median 0.0094 —
+  ~15× lower than agent-coding, with the last layer most sensitive instead of
+  the earliest. Workload-dependent KV sensitivity is measured fact.
+- Full one-command real conversion (`quantize --recipe`): the r2 bundle
+  (measured weights + measured KV) converted the BF16 source into a 19 GiB
+  artifact at measured 6.0001 BPW (plan 6.0000), byte-identical MTP sidecar,
+  packaged `kv_sensitivity.json`, per-layer KV table in the runtime metadata,
+  and a passing real `mlx_lm.generate` smoke. The AXQ-025 gate reproduced the
+  KV allocation from the packaged report on the real artifact.
+- The failed first attempts were themselves evidence: the stale-tier refusal
+  and the missing `quantize --kv-sensitivity` flag were found by real runs
+  and fixed in commit 84a720e; the legacy raw MTP sidecar (old-format
+  provenance) is presented without a provenance file, which the converter
+  documents as the development-conversion path.
+
 Remaining blockers are unchanged and external to the toolkit: the M2 MTP
 speed floor (AX Engine runtime) and the named-approval size exception.
 
