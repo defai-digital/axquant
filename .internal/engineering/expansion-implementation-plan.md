@@ -377,13 +377,40 @@ conversion smoke with full coverage and integrity checks) is satisfied on
 - Both artifacts are development evidence; protection floors are untouched
   (low bits reach ordinary trunk tensors only). Release claims still require
   the ordinary measured quality/runtime gates.
-- Remaining breadth gaps versus the competitive reference, recorded
-  honestly: **MoE expert-level planning** (the deferred-scope decision
-  stands; the public reference reaches MoE conversion by patching MLX-LM
-  internals, which AXQ-001/AXQ-004 forbid — an AXQuant MoE path needs its
-  own fused-expert module-coverage design and a real MoE checkpoint smoke)
-  and **per-layer KV runtime execution** (plans and provenance exist; AX
-  Engine has no quantized KV cache yet — scoped engine project).
+- Remaining breadth gap versus the competitive reference, recorded
+  honestly: **per-layer KV runtime execution** (plans and provenance exist;
+  AX Engine has no quantized KV cache yet — scoped engine project).
+
+### MoE conversion support (2026-08-01, same session)
+
+The deferred-scope assumption fell to a real run: MLX-LM 0.31.3 natively
+supports `qwen3_5_moe` through its public API (module
+`mlx_lm.models.qwen3_5_moe`; its sanitize splits the packed
+`experts.gate_up_proj` stack into fused `switch_mlp.gate_proj`/`up_proj`
+modules) — no MLX-LM patching of the kind the competitive reference uses is
+required, so AXQ-001/AXQ-004 stay intact. Implementation, all evidence on
+the official catalog MoE size
+`Qwen/Qwen3.6-35B-A3B@995ad96eacd98c81ed38be0c5b274b04031597b0` (67 GB
+BF16):
+
+- Classification: `mlp.gate` routers (distinct from `gate_proj`), packed
+  3-D expert stacks, MoE MTP head, and vision — **1045/1045 tensors
+  classified** after three real fixes (`qwen3_5_moe` model type accepted by
+  the Qwen 3.6 adapter; `.mlp.gate.` router pattern; 3-D expert stacks are
+  quantizable — MLX-LM quantizes them as fused switch modules).
+- Planning: routers hold their 8-bit floor (40/40 at 8-bit), packed expert
+  stacks take mixed 4/6/8-bit (78/144/18), policy minimum 5.1350 BPW, plan
+  at 5.25 effective. Per-expert layouts additionally get fused-group
+  uniformity (predicate fails closed on mixed precisions inside one switch
+  group; planner normalizes groups budget-safely).
+- Module identity: packed `experts.gate_up_proj` aliases both fused MLX
+  switch halves from one allocation; `experts.down_proj` aliases its fused
+  module — recorded in `module_paths.py` as the public-sanitize contract.
+- Real conversion: **measured 5.2501 total BPW** (plan 5.2500), 20 files,
+  22 GiB artifact, byte-preserved integrated-MTP extraction (19 tensors,
+  MoE draft head included) and vision sidecar, passing **AX Engine doctor**
+  and the MLX-LM generation smoke. Development evidence; certification
+  follows the ordinary gates.
 
 ## Phase E6 — Certification wave 2
 

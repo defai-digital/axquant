@@ -88,6 +88,10 @@ def classify_dense_tensor(
         return TensorRole.EMBEDDING
     if "router" in value:
         return TensorRole.ROUTER
+    if ".mlp.gate." in value:
+        # Qwen-style MoE routers are named `mlp.gate` (distinct from the
+        # `gate_proj` expert/MLP projections, which carry the `_proj` suffix).
+        return TensorRole.ROUTER
     if "expert" in value:
         return TensorRole.EXPERT
     if any(token in value for token in _ATTENTION_TOKENS):

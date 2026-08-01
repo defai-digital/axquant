@@ -41,8 +41,9 @@ The intended user journey is:
 ### Input
 
 AXQuant converts revision-pinned, unquantized Safetensors checkpoints of families at the
-`convertible` tier or above (currently the Qwen 3.6 27B language path, Qwen 3.5 dense, and
-MiniCPM5 dense checkpoints) through MLX-LM. The checkpoint must use the expected configuration and indexed
+`convertible` tier or above (currently the Qwen 3.6 27B dense and 35B-A3B MoE language paths,
+Qwen 3.5 dense, and MiniCPM5 dense checkpoints) through MLX-LM. MoE expert stacks quantize as
+fused switch modules with a uniform per-group precision and routers keep an 8-bit floor. The checkpoint must use the expected configuration and indexed
 Safetensors layout. Every other recognized family can be inspected but is not yet accepted for
 conversion.
 
@@ -103,7 +104,7 @@ release audit. The current tier matrix:
 
 | Family | Adapter | Tier |
 | --- | --- | --- |
-| Qwen 3.6 (27B language path) | `qwen36-v1` | `convertible` (certification pending the formal release audit) |
+| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible` (certification pending the formal release audit; the 35B-A3B MoE path converted 2026-08-01 with fused-expert planning — measured 5.2501 BPW, routers at the 8-bit floor, passing MLX-LM and AX Engine smokes) |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence: full 775-tensor classification, complete 7.0-BPW conversion with integrated-MTP and vision sidecars, passing MLX-LM and AX Engine smokes) |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence: full 219-tensor classification, complete 7.5-BPW conversion, passing MLX-LM and AX Engine smokes) |
 | Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` — real google/gemma-4-12b inspection fully classifies all 677 tensors, but the pinned MLX-LM cannot convert `gemma4_unified`, so the required conversion smoke is blocked |
@@ -116,7 +117,7 @@ until their promotion evidence exists (see the expansion program documents under
 | --- | --- |
 | Platform | Apple Silicon with MLX |
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
-| Conversion targets | Qwen 3.6 27B language path; Qwen 3.5 dense and MiniCPM5 dense (development evidence) |
+| Conversion targets | Qwen 3.6 27B dense and 35B-A3B MoE language paths; Qwen 3.5 dense and MiniCPM5 dense (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -178,7 +179,9 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 - dedicated quantization of external MTP sidecars;
 - measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and
   reproducibility; quality claims still require ordinary dual-profile evaluation evidence);
-- VLM and MoE expert-level planning.
+- VLM optimization (vision towers are preserved, not optimized);
+- per-expert (unfused) MoE precision: packed expert stacks quantize as fused switch modules
+  with one precision per group — finer per-expert splits would need MLX-LM-side support.
 
 Release discipline (gate order, dual-profile metric completeness, no rewrite of formal roots) is
 recorded in `.internal/product/release-best-practices.md`.

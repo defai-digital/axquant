@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
+from axquant.module_paths import fused_expert_module
 from axquant.profiles import objective_for
 from axquant.schema import (
     Allocation,
@@ -359,6 +360,22 @@ def plan_quantization(
         choice = choices[best[1]]
         choice.index += 1
         choice.upgraded = True
+
+    # Fused MoE experts quantize as one MLX-LM switch module, so every member
+    # of a group must share one precision. Normalize each group to its
+    # minimum selected storage option: strictly budget-safe (storage can only
+    # shrink) and deterministic.
+    expert_groups: dict[str, list[_Choice]] = {}
+    for choice in choices:
+        fused = fused_expert_module(choice.entry.tensor.module_path)
+        if fused is not None:
+            expert_groups.setdefault(fused, []).append(choice)
+    for members in expert_groups.values():
+        floor_index = min(member.index for member in members)
+        for member in members:
+            if member.index != floor_index:
+                member.index = floor_index
+                member.upgraded = floor_index > 0
 
     allocations: list[Allocation] = []
     for choice in choices:

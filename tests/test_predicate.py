@@ -208,3 +208,47 @@ def test_portable_awq_refinement_matches_plugin_contract() -> None:
     assert len(metadata["awq_channel_scales"]) == 64
     # AWQ refinement stays near the source matrix after unscaled reconstruction.
     assert float(np.mean((weight - refined) ** 2)) < float(np.mean(weight**2))
+
+
+def test_fused_expert_group_requires_uniform_precision() -> None:
+    """Per-expert allocations fuse into one MLX switch module (AXQ MoE v1)."""
+    from axquant.module_paths import fused_expert_module
+
+    assert (
+        fused_expert_module("model.language_model.layers.3.mlp.experts.17.gate_proj")
+        == "model.language_model.layers.3.mlp.switch_mlp.gate_proj"
+    )
+    assert fused_expert_module("model.language_model.layers.3.mlp.gate_proj") is None
+
+    plan = _mlp_plan()
+    template = plan.assignments[0]
+    members = []
+    for index in (0, 1):
+        members.append(
+            template.model_copy(
+                update={
+                    "tensor": (
+                        f"model.language_model.layers.0.mlp.experts.{index}.gate_proj.weight"
+                    ),
+                    "module_path": (f"model.language_model.layers.0.mlp.experts.{index}.gate_proj"),
+                    "role": TensorRole.EXPERT,
+                    "bits": 4,
+                    "method": QuantMethod.AFFINE,
+                    "group_size": 64,
+                }
+            )
+        )
+    uniform = plan.model_copy(update={"assignments": [*plan.assignments, *members]})
+    predicate = build_quant_predicate(uniform, execute_refinement=False)
+    # Visiting the fused MLX module marks every member expert as covered.
+    result = predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
+    assert isinstance(result, dict) and result["bits"] == 4
+    assert not {member.module_path for member in members} - predicate.matched
+
+    mixed_members = [
+        members[0],
+        members[1].model_copy(update={"bits": 8}),
+    ]
+    mixed = plan.model_copy(update={"assignments": [*plan.assignments, *mixed_members]})
+    with pytest.raises(PlanningError, match="mixes precisions"):
+        build_quant_predicate(mixed, execute_refinement=False)

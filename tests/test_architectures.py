@@ -227,3 +227,36 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     assert main(["support-matrix", "--output", str(output)]) == 0
     loaded = load_model(output, SupportMatrix)
     assert loaded.entries == matrix.entries
+
+
+def test_moe_router_and_expert_classification() -> None:
+    """Qwen-style MoE names: `mlp.gate` is the router, `experts.*` the experts."""
+    adapter = Qwen36Adapter()
+    cases = {
+        "model.language_model.layers.3.mlp.gate.weight": TensorRole.ROUTER,
+        "model.language_model.layers.3.mlp.experts.17.gate_proj.weight": TensorRole.EXPERT,
+        "model.language_model.layers.3.mlp.experts.17.down_proj.weight": TensorRole.EXPERT,
+        "model.language_model.layers.3.mlp.shared_expert.up_proj.weight": TensorRole.EXPERT,
+        "model.language_model.layers.3.mlp.shared_expert_gate.weight": TensorRole.EXPERT,
+        "model.language_model.layers.3.mlp.gate_proj.weight": TensorRole.MLP,
+    }
+    for name, expected in cases.items():
+        assert adapter.classify_tensor(name, "model.safetensors") is expected
+
+
+def test_qwen36_moe_catalog_size_is_supported() -> None:
+    config = {
+        "model_type": "qwen3_5",
+        "_name_or_path": "Qwen/Qwen3.6-35B-A3B",
+        "text_config": {
+            "num_hidden_layers": 48,
+            "num_experts": 128,
+            "num_experts_per_tok": 8,
+        },
+    }
+    profile = Qwen36Adapter().profile("Qwen/Qwen3.6-35B-A3B", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    # A non-catalog MoE reference stays fail-closed.
+    other = Qwen36Adapter().profile("Qwen/Qwen3.6-99B-A9B", config)
+    assert other.support_tier is SupportTier.INSPECT_ONLY

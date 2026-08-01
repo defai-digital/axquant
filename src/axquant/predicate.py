@@ -6,7 +6,7 @@ from typing import Any
 from axquant.awq import apply_mlx_awq_scale as _apply_awq_scale
 from axquant.dwq import apply_mlx_dwq_clip as _apply_dwq_clip
 from axquant.errors import PlanningError
-from axquant.module_paths import mlx_module_aliases
+from axquant.module_paths import fused_expert_module, mlx_module_aliases
 from axquant.schema import Allocation, QuantizationPlan
 
 _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq"})
@@ -30,11 +30,43 @@ class PlanPredicate:
         }
         if len(self._assignments) != len(plan.assignments):
             raise PlanningError("plan contains duplicate module paths")
+        # Per-expert allocations fuse into one MLX-LM switch module that is
+        # quantized as a single unit, so every member of a fused group must
+        # agree on precision and every member counts as visited when the
+        # fused module is quantized.
+        self._fused_members: dict[str, list[Allocation]] = {}
+        for module_path, allocation in self._assignments.items():
+            fused = fused_expert_module(module_path)
+            if fused is not None:
+                self._fused_members.setdefault(fused, []).append(allocation)
+        for fused, members in self._fused_members.items():
+            signatures = {
+                (member.bits, member.method.value, member.group_size) for member in members
+            }
+            if len(signatures) > 1:
+                raise PlanningError(
+                    f"fused expert module {fused} mixes precisions {sorted(signatures)}; "
+                    "every expert in a switch group must share one assignment"
+                )
+            if members[0].bits < 16 and members[0].method.value != "affine":
+                raise PlanningError(
+                    f"fused expert module {fused} requires the affine method; "
+                    f"got {members[0].method.value}"
+                )
         self._aliases: dict[str, Allocation] = {}
         for module_path, allocation in self._assignments.items():
-            for alias in mlx_module_aliases(module_path):
+            aliases = set(mlx_module_aliases(module_path))
+            fused = fused_expert_module(module_path)
+            if fused is not None:
+                for fused_alias in mlx_module_aliases(fused):
+                    aliases.add(fused_alias)
+            for alias in aliases:
                 existing = self._aliases.get(alias)
                 if existing is not None and existing.module_path != allocation.module_path:
+                    if fused is not None and fused_expert_module(existing.module_path) == fused:
+                        # Members of one fused group intentionally share the
+                        # fused alias; keep the first representative.
+                        continue
                     raise PlanningError(f"plan module alias is ambiguous: {alias}")
                 self._aliases[alias] = allocation
         self.matched: set[str] = set()
@@ -84,6 +116,11 @@ class PlanPredicate:
         if allocation is None:
             return False
         self.matched.add(allocation.module_path)
+        fused = fused_expert_module(allocation.module_path)
+        if fused is not None:
+            # Quantizing the fused switch module covers every member expert.
+            for member in self._fused_members.get(fused, ()):
+                self.matched.add(member.module_path)
         if allocation.bits == 16:
             return False
         if allocation.method.value == "dwq" and self._execute_refinement:

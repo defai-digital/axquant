@@ -22,7 +22,9 @@ class Qwen36Adapter:
     declared_tier = SupportTier.CONVERTIBLE
 
     def matches(self, model_reference: str, config: dict[str, Any]) -> bool:
-        if config.get("model_type") != "qwen3_5":
+        # The official catalog ships the dense sizes as `qwen3_5` and the MoE
+        # size as `qwen3_5_moe`; both carry the Qwen 3.6 product reference.
+        if config.get("model_type") not in ("qwen3_5", "qwen3_5_moe"):
             return False
         references = [model_reference, str(config.get("_name_or_path", ""))]
         return any(_QWEN36.search(reference) for reference in references)
@@ -46,12 +48,24 @@ class Qwen36Adapter:
             and text_config.get("hidden_size") == 5120
             and text_config.get("intermediate_size") == 17408
         )
-        supported = dense and (reference_is_27b or signature_is_27b)
+        # The official catalog's MoE size. Expert tensors quantize as fused
+        # MLX-LM switch modules with a uniform per-group precision; the
+        # router keeps its 8-bit floor. Conversion evidence for this path is
+        # development-only until the family certifies.
+        reference_is_35b_a3b = "35b-a3b" in model_reference.lower()
+        supported = (dense and (reference_is_27b or signature_is_27b)) or (
+            not dense and reference_is_35b_a3b
+        )
         vision_present = isinstance(config.get("vision_config"), dict)
         notes = [
             "AXQuant optimizes the Qwen 3.6 language path only.",
             "Vision tensors are preserved at BF16 and VLM quality is not claimed.",
         ]
+        if supported and not dense:
+            notes.append(
+                "MoE experts quantize as fused switch modules with uniform per-group "
+                "precision; artifacts are development evidence until certified."
+            )
         if not supported:
             notes.append("This Qwen 3.6 checkpoint is inventory-only until explicitly validated.")
         return ArchitectureProfile(

@@ -322,8 +322,12 @@ def inspect_model(
                         if current_bits is not None
                         else dtype.lower()
                     )
+                    # Packed MoE expert stacks are 3-D ([experts, out, in]);
+                    # MLX-LM quantizes them as fused switch modules with the
+                    # same per-group affine layout as 2-D linears, so they are
+                    # quantizable. Every other non-2-D tensor stays preserved.
                     quantizable = (
-                        len(shape) == 2
+                        (len(shape) == 2 or (len(shape) == 3 and role == TensorRole.EXPERT))
                         and dtype in _FLOAT_DTYPES
                         and role != TensorRole.NORM
                         and not quantization_metadata
