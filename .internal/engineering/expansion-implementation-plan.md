@@ -377,9 +377,30 @@ conversion smoke with full coverage and integrity checks) is satisfied on
 - Both artifacts are development evidence; protection floors are untouched
   (low bits reach ordinary trunk tensors only). Release claims still require
   the ordinary measured quality/runtime gates.
-- Remaining breadth gap versus the competitive reference, recorded
-  honestly: **per-layer KV runtime execution** (plans and provenance exist;
-  AX Engine has no quantized KV cache yet — scoped engine project).
+- KV runtime execution now has a real compatibility-path implementation
+  (below); AX Engine-native per-layer execution remains the scoped engine
+  project for the primary runtime.
+
+### KV-cache runtime execution, compatibility path (2026-08-01, same session)
+
+- The MLX-LM generation smoke now executes a planned artifact's advisory KV
+  quantization instead of ignoring it: `check_mlx_lm_generation` reads
+  `advisory_mlx_lm_kv_bits`/`_group_size` from `axquant_runtime.json` and
+  passes `--kv-bits/--kv-group-size` to `mlx_lm.generate`, which runs the
+  public `QuantizedKVCache` path. The runtime-check report records the
+  executed KV parameters; BF16 advisories keep the runtime default.
+- Real evidence: the MiniCPM5-1B artifact rebuilt with `--kv-cache prior`
+  (advisory 4-bit/group-64) passes generation **with quantized KV actually
+  executing** — the recorded command carries `--kv-bits 4 --kv-group-size
+  64` and the report binds the source as the artifact's advisory values.
+- Honest scope notes: MLX-LM's public path applies one global KV precision
+  (the advisory values exist for exactly this), so the per-layer table
+  executes fully only on the future AX Engine native path; and for the
+  hybrid Qwen 3.6 family MLX-LM's packed quantized-KV path does not run
+  (E5 log) — standard-attention families like MiniCPM5/Qwen 3.5 dense are
+  the compatibility-path beneficiaries today. AX Engine-native per-layer
+  quantized KV (cache storage, append/read, MTP-clone interplay) remains
+  the scoped engine project.
 
 ### MoE conversion support (2026-08-01, same session)
 

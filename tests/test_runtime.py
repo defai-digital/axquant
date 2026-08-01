@@ -257,6 +257,51 @@ def test_mlx_lm_generation_check_requires_successful_output(
     assert result.check_kind == "generation-smoke"
     assert result.model == identity
     assert result.report["scope"] == "load-and-generation"
+    assert result.report["kv_cache_execution"] == "runtime-default"
+
+
+def test_generation_smoke_executes_advisory_kv_quantization(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """A planned KV artifact runs its advisory bits through QuantizedKVCache."""
+    import json as json_module
+
+    (qwen36_model_dir / "axquant_runtime.json").write_text(
+        json_module.dumps(
+            {
+                "kv_cache": {
+                    "allocation_basis": "architecture-prior",
+                    "advisory_mlx_lm_kv_bits": 4,
+                    "advisory_mlx_lm_kv_group_size": 64,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    executable = tmp_path / "mlx_lm.generate"
+    executable.write_text("#!/bin/sh\necho OK\n", encoding="utf-8")
+    executable.chmod(0o755)
+    seen: list[list[str]] = []
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        seen.append(list(command))
+        return subprocess.CompletedProcess(list(command), 0, stdout="OK", stderr="")
+
+    result = check_mlx_lm_generation(
+        qwen36_model_dir,
+        executable=str(executable),
+        runner=runner,
+    )
+    assert result.passed
+    command = seen[0]
+    assert command[command.index("--kv-bits") + 1] == "4"
+    assert command[command.index("--kv-group-size") + 1] == "64"
+    assert result.report["kv_cache_execution"] == {
+        "kv_bits": 4,
+        "kv_group_size": 64,
+        "source": "axquant_runtime.json advisory values",
+    }
 
 
 def test_conversion_scope_rejects_generic_inventory(tiny_model_dir: Path) -> None:

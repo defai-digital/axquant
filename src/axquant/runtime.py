@@ -259,6 +259,16 @@ def check_mlx_lm_generation(
         "--verbose",
         "false",
     ]
+    kv_execution = _advisory_kv_execution(directory)
+    if kv_execution is not None:
+        command.extend(
+            [
+                "--kv-bits",
+                str(kv_execution[0]),
+                "--kv-group-size",
+                str(kv_execution[1]),
+            ]
+        )
     completed = runner(command)
     output = completed.stdout.strip()
     return RuntimeCheck(
@@ -274,9 +284,45 @@ def check_mlx_lm_generation(
             "standard_inference": completed.returncode == 0 and bool(output),
             "output_characters": len(output),
             "mtp": "runtime-dependent",
+            "kv_cache_execution": (
+                {
+                    "kv_bits": kv_execution[0],
+                    "kv_group_size": kv_execution[1],
+                    "source": "axquant_runtime.json advisory values",
+                }
+                if kv_execution is not None
+                else "runtime-default"
+            ),
         },
         stderr=completed.stderr,
     )
+
+
+def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
+    """Read the artifact's advisory MLX-LM KV quantization, if planned.
+
+    Artifacts converted with a per-layer KV-cache plan record advisory
+    global values for MLX-LM (`advisory_mlx_lm_kv_bits`/`_group_size`).
+    Passing them to `mlx_lm.generate` executes the plan's KV quantization
+    through the public `QuantizedKVCache` path, so the smoke exercises the
+    same KV precision the plan declared instead of silently ignoring it.
+    BF16 advisories (16-bit) keep the runtime default.
+    """
+    runtime_path = directory / "axquant_runtime.json"
+    if not runtime_path.is_file():
+        return None
+    try:
+        payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    kv = payload.get("kv_cache")
+    if not isinstance(kv, dict):
+        return None
+    bits = kv.get("advisory_mlx_lm_kv_bits")
+    group = kv.get("advisory_mlx_lm_kv_group_size")
+    if not isinstance(bits, int) or not isinstance(group, int) or bits >= 16:
+        return None
+    return bits, group
 
 
 def build_runtime_metadata(

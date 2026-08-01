@@ -153,7 +153,10 @@ Implemented now:
 - a registry-derived support matrix (`support-matrix`) listing every family and tier;
 - per-layer KV-cache precision planning: prior-based (`--kv-cache prior`) and measured
   (`analyze-kv` + `plan --kv-cache measured`, with the plan digest-bound to its sensitivity
-  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback;
+  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback — and the
+  MLX-LM runtime smoke **executes** the advisory KV quantization through the public
+  `QuantizedKVCache` path on standard-attention families (per-layer execution in AX Engine
+  is the scoped native-runtime project);
 - a fail-closed measured-KV release chain: conversion packages the bound `kv_sensitivity.json`
   (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
   per-layer allocation from the packaged report;
