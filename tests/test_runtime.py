@@ -11,7 +11,7 @@ from axquant.errors import ArtifactError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
 from axquant.runtime import (
-    assert_qwen36_conversion_scope,
+    assert_conversion_scope,
     build_runtime_metadata,
     check_ax_engine,
     check_mlx_lm_generation,
@@ -271,7 +271,7 @@ def test_conversion_scope_rejects_generic_inventory(tiny_model_dir: Path) -> Non
         ),
     )
     with pytest.raises(ArtifactError, match=r"inspect-only"):
-        assert_qwen36_conversion_scope(plan)
+        assert_conversion_scope(plan)
 
 
 def test_runtime_metadata_emits_kv_cache_table(qwen36_model_dir: Path, tmp_path: Path) -> None:
@@ -311,11 +311,11 @@ def test_conversion_scope_rejects_unbound_measured_kv_basis(qwen36_model_dir: Pa
     kv = allocate_kv_cache(layer_count, default_bits=4)
     plan.kv_cache = kv.model_copy(update={"allocation_basis": "measured"})
     with pytest.raises(ArtifactError, match="bind its sensitivity report digest"):
-        assert_qwen36_conversion_scope(plan)
+        assert_conversion_scope(plan)
     plan.kv_cache = kv.model_copy(
         update={"allocation_basis": "measured", "sensitivity_sha256": "a" * 64}
     )
-    assert_qwen36_conversion_scope(plan)
+    assert_conversion_scope(plan)
 
 
 def test_conversion_scope_rejects_kv_layer_count_mismatch(qwen36_model_dir: Path) -> None:
@@ -326,4 +326,4 @@ def test_conversion_scope_rejects_kv_layer_count_mismatch(qwen36_model_dir: Path
     assert layer_count is not None
     plan.kv_cache = allocate_kv_cache(layer_count + 1, default_bits=4)
     with pytest.raises(ArtifactError, match="does not cover the text layer count"):
-        assert_qwen36_conversion_scope(plan)
+        assert_conversion_scope(plan)

@@ -66,7 +66,8 @@ def test_registry_resolves_qwen36_without_ambiguity() -> None:
     assert adapter.adapter_id == "qwen36-v1"
 
 
-def test_registry_resolves_qwen35_family_as_inspect_only() -> None:
+def test_registry_resolves_qwen35_family_as_convertible() -> None:
+    """AXQ-017 promotion (2026-08-01): real Qwen3.5-9B evidence in the E5 log."""
     config = {
         "model_type": "qwen3_5",
         "_name_or_path": "Qwen/Qwen3.5-9B",
@@ -76,9 +77,22 @@ def test_registry_resolves_qwen35_family_as_inspect_only() -> None:
     assert adapter is not None
     assert adapter.adapter_id == "qwen35-dense-v1"
     profile = adapter.profile("Qwen/Qwen3.5-9B", config)
-    assert profile.support_tier is SupportTier.INSPECT_ONLY
+    assert profile.support_tier is SupportTier.CONVERTIBLE
     assert profile.product_family == "qwen3.5"
     assert profile.text_layer_count == 36
+
+
+def test_qwen35_moe_or_missing_layers_stays_inspect_only() -> None:
+    """The convertible tier applies to dense checkpoints only (fail closed)."""
+    moe_config = {
+        "model_type": "qwen3_5",
+        "_name_or_path": "Qwen/Qwen3.5-35B-A3B",
+        "text_config": {"num_hidden_layers": 36, "num_experts": 64},
+    }
+    adapter = adapter_for("Qwen/Qwen3.5-35B-A3B", moe_config)
+    assert adapter is not None
+    profile = adapter.profile("Qwen/Qwen3.5-35B-A3B", moe_config)
+    assert profile.support_tier is SupportTier.INSPECT_ONLY
 
 
 def test_qwen35_spec_declines_qwen36_references() -> None:
@@ -194,7 +208,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     tiers = {entry.adapter_id: entry.support_tier for entry in matrix.entries}
     assert tiers == {
         "qwen36-v1": SupportTier.CONVERTIBLE,
-        "qwen35-dense-v1": SupportTier.INSPECT_ONLY,
+        "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         "gemma4-dense-v1": SupportTier.INSPECT_ONLY,
         "minicpm5-dense-v1": SupportTier.INSPECT_ONLY,
         "nemotron3-dense-v1": SupportTier.INSPECT_ONLY,

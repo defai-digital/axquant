@@ -40,9 +40,10 @@ The intended user journey is:
 
 ### Input
 
-AXQuant currently converts a revision-pinned, unquantized Qwen3.6-27B Safetensors
-checkpoint through MLX-LM. The checkpoint must use the expected configuration and indexed
-Safetensors layout. Other model families can be inspected, but they are not yet accepted for
+AXQuant converts revision-pinned, unquantized Safetensors checkpoints of families at the
+`convertible` tier or above (currently the Qwen 3.6 27B language path and Qwen 3.5 dense
+checkpoints) through MLX-LM. The checkpoint must use the expected configuration and indexed
+Safetensors layout. Every other recognized family can be inspected but is not yet accepted for
 conversion.
 
 ### Output
@@ -101,7 +102,7 @@ release audit. The current tier matrix:
 | Family | Adapter | Tier |
 | --- | --- | --- |
 | Qwen 3.6 (27B language path) | `qwen36-v1` | `convertible` (certification pending the formal release audit) |
-| Qwen 3.5 dense | `qwen35-dense-v1` | `inspect-only` |
+| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence: full 775-tensor classification, complete 7.0-BPW conversion with integrated-MTP and vision sidecars, passing MLX-LM and AX Engine smokes) |
 | Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `inspect-only` |
 | Nemotron 3 dense | `nemotron3-dense-v1` | `inspect-only` |
@@ -113,7 +114,7 @@ until their promotion evidence exists (see the expansion program documents under
 | --- | --- |
 | Platform | Apple Silicon with MLX |
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
-| Conversion target | Qwen3.6-27B language path |
+| Conversion targets | Qwen 3.6 27B language path; Qwen 3.5 dense (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16; measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -138,8 +139,9 @@ Implemented now:
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
 - guarded Hugging Face publication;
-- tiered family support with declarative dense-family adapters (Qwen 3.5, Gemma-4, MiniCPM5,
-  and Nemotron 3 at `inspect-only`);
+- tiered family support with declarative dense-family adapters (Qwen 3.5 dense at
+  `convertible`; Gemma-4, MiniCPM5, and Nemotron 3 at `inspect-only`), including byte-preserving
+  extraction of integrated MTP heads and protected vision into canonical checksummed sidecars;
 - `axquant quantize`: one-command development conversion with explicit development-evidence
   labeling;
 - checksummed recipe bundles (`recipe-export`, `quantize --recipe`) that bind published plans
@@ -169,7 +171,7 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   artifact defect. Formal validation/hardware/audit evidence then follows on the supported host;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
-- tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
+- tier promotion evidence for the remaining family adapters (Gemma-4, MiniCPM5, Nemotron 3 start `inspect-only`; Qwen 3.5 dense promoted to `convertible` on 2026-08-01);
 - validated conversion evidence for additional LLM families;
 - dedicated quantization of external MTP sidecars;
 - measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and

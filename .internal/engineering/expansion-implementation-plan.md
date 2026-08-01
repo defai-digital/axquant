@@ -306,6 +306,35 @@ certify remaining official dense Qwen 3.6 sizes (AXQ-016 scope); publish the
 first head-to-head evidence page (27B) per AXQ-022. Requires supported-host
 hardware time; runs on the existing refine-run/release-audit tooling.
 
+### qwen35-dense-v1 promotion evidence (2026-08-01, Apple M3 Max)
+
+The AXQ-017 `convertible` contract (adapter unit tests + one real-checkpoint
+conversion smoke with full coverage and integrity checks) is satisfied on
+`Qwen/Qwen3.5-9B@c20223623576` (19.3 GB BF16 download):
+
+- Real inspect: all 775 tensors classified (224 attention, 96 MLP, 105 norm,
+  333 vision, 15 integrated MTP, embedding, LM head), dense, 32 text layers,
+  MTP and vision detected — zero unclassified tensors.
+- One-command `quantize` at target 7.0 BPW (policy minimum for this
+  vision+MTP-heavy 9.65B model is 6.9675): measured **7.0001** total BPW,
+  atomic output, AX Engine `model-manifest.json` generated, prior-based
+  per-layer KV metadata, and a **passing MLX-LM generation smoke** plus a
+  passing AX Engine doctor runtime check.
+- The real run drove three genuine breadth fixes, each with regression
+  tests: the pre-AXQ-017 hard-coded "restricted to Qwen 3.6" conversion
+  gate is now tier-based (`assert_conversion_scope`); the external-sidecar
+  requirement no longer fires for integrated-MTP sources; and the protected
+  vision extraction generalized into a role-parameterized sidecar extractor
+  that byte-copies **integrated MTP** (Qwen 3.5's 15-tensor, 243,290,624-
+  parameter head, which the MLX-LM text mapping drops — caught by the
+  fail-closed coverage check) into the canonical `mtp.safetensors` with a
+  checksummed `axquant_mtp_sidecar_manifest.json` and the
+  `mtp_norm_layout: raw_hf_delta` declaration, giving every artifact one
+  MTP layout regardless of source packaging.
+- Registry flip: `qwen35-dense-v1` → `SupportTier.CONVERTIBLE` (dense-only;
+  MoE and missing-layer configs stay fail-closed inspect-only). All
+  artifacts remain development evidence until the family is certified.
+
 ## Phase E6 — Certification wave 2
 
 Promote and certify the first non-Qwen families (Gemma-4 first); schedule

@@ -18,7 +18,7 @@ from axquant.inspector import inspect_model
 from axquant.mtp_sidecar import prepare_qwen36_mtp_sidecar
 from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.runtime import (
-    assert_qwen36_conversion_scope,
+    assert_conversion_scope,
     build_runtime_metadata,
     generate_ax_engine_manifest,
     require_ax_engine_manifest,
@@ -114,6 +114,21 @@ def _validate_mtp_sidecar_provenance(source: Path) -> None:
         raise ArtifactError("MTP sidecar provenance size does not match the sidecar")
     if not isinstance(expected_sha256, str) or file_sha256(source) != expected_sha256.lower():
         raise ArtifactError("MTP sidecar provenance checksum does not match the sidecar")
+
+
+def _source_has_external_mtp_sidecar(model: str | Path) -> bool:
+    """True when the source checkpoint ships MTP weights as a root sidecar file.
+
+    Families like Qwen 3.6 externalise the MTP head into ``mtp.safetensors``,
+    which byte-preservation must copy explicitly. Families like Qwen 3.5 store
+    the MTP tensors inside the indexed shards, where the planner's 16-bit
+    logical preservation carries them through conversion with no sidecar input.
+    A non-directory source (hub reference) keeps the fail-closed requirement.
+    """
+    root = Path(model).expanduser()
+    if not root.is_dir():
+        return True
+    return any((root / name).is_file() for name in ("mtp.safetensors", "mtp_head.safetensors"))
 
 
 def _copy_external_mtp_bundle(sidecar: Path, output_dir: Path) -> None:
@@ -347,13 +362,62 @@ def _extract_protected_vision(
     plan: QuantizationPlan,
     output_dir: Path,
 ) -> ProtectedTensorSidecarManifest | None:
-    allocations = [
-        allocation for allocation in plan.assignments if allocation.role == TensorRole.VISION
-    ]
+    return _extract_protected_sidecar(
+        model_dir,
+        plan,
+        output_dir,
+        role_label="vision",
+        output_name="vision.safetensors",
+        manifest_name="axquant_vision_sidecar_manifest.json",
+        allocations=[
+            allocation for allocation in plan.assignments if allocation.role == TensorRole.VISION
+        ],
+    )
+
+
+def _extract_protected_integrated_mtp(
+    model_dir: Path,
+    plan: QuantizationPlan,
+    output_dir: Path,
+) -> ProtectedTensorSidecarManifest | None:
+    """Extract integrated MTP tensors into the canonical external sidecar.
+
+    Families like Qwen 3.5 store the MTP head inside the indexed shards; the
+    MLX-LM text-model mapping does not carry those tensors, so without this
+    extraction the fail-closed parameter-coverage check aborts conversion.
+    Byte-copying them into ``mtp.safetensors`` preserves the raw HF payloads
+    exactly (the same contract as a byte-preserved external sidecar) and gives
+    every converted artifact one MTP layout regardless of how the source
+    packaged the head.
+    """
+    manifest = _extract_protected_sidecar(
+        model_dir,
+        plan,
+        output_dir,
+        role_label="mtp",
+        output_name="mtp.safetensors",
+        manifest_name="axquant_mtp_sidecar_manifest.json",
+        allocations=[allocation for allocation in plan.assignments if allocation.role.is_mtp],
+    )
+    if manifest is not None:
+        _declare_raw_mtp_norm_layout(output_dir)
+    return manifest
+
+
+def _extract_protected_sidecar(
+    model_dir: Path,
+    plan: QuantizationPlan,
+    output_dir: Path,
+    *,
+    role_label: str,
+    output_name: str,
+    manifest_name: str,
+    allocations: list[Any],
+) -> ProtectedTensorSidecarManifest | None:
     if not allocations:
         return None
     if any(allocation.bits != 16 for allocation in allocations):
-        raise PlanningError("protected vision tensors must remain at reference precision")
+        raise PlanningError(f"protected {role_label} tensors must remain at reference precision")
     weight_map = _source_weight_map(model_dir)
     selected: list[tuple[str, Path, str, tuple[int, ...], int, int, int]] = []
     headers: dict[Path, tuple[int, dict[str, Any]]] = {}
@@ -361,7 +425,7 @@ def _extract_protected_vision(
         source_file = weight_map.get(allocation.tensor)
         if source_file is None or not source_file.is_file():
             raise ArtifactError(
-                f"protected vision tensor is missing from source: {allocation.tensor}"
+                f"protected {role_label} tensor is missing from source: {allocation.tensor}"
             )
         if source_file not in headers:
             headers[source_file] = _safetensor_header(source_file)
@@ -396,7 +460,7 @@ def _extract_protected_vision(
     output_header: dict[str, Any] = {
         "__metadata__": {
             "format": "mlx",
-            "axquant_role": "protected-vision",
+            "axquant_role": f"protected-{role_label}",
             "source_revision": plan.source_model.revision or "unknown",
         }
     }
@@ -417,7 +481,7 @@ def _extract_protected_vision(
         separators=(",", ":"),
     ).encode("utf-8")
     header_bytes += b" " * ((-len(header_bytes)) % 8)
-    output_path = output_dir / "vision.safetensors"
+    output_path = output_dir / output_name
     descriptor, temporary_name = tempfile.mkstemp(
         prefix=f".{output_path.name}.",
         dir=output_dir,
@@ -450,11 +514,11 @@ def _extract_protected_vision(
     verified_names = sorted(name for name in verified_header if name != "__metadata__")
     expected_names = [entry[0] for entry in selected]
     if verified_names != expected_names:
-        raise ArtifactError("protected vision sidecar tensor coverage mismatch")
+        raise ArtifactError(f"protected {role_label} sidecar tensor coverage mismatch")
     source_files = sorted({entry[1] for entry in selected})
     manifest = ProtectedTensorSidecarManifest(
         source_model=plan.source_model,
-        role="vision",
+        role=role_label,
         tensor_count=len(selected),
         parameters=sum(allocation.parameters for allocation in allocations),
         dtypes=tuple(sorted({entry[2] for entry in selected})),
@@ -473,7 +537,7 @@ def _extract_protected_vision(
             sha256=file_sha256(output_path),
         ),
     )
-    write_data(output_dir / "axquant_vision_sidecar_manifest.json", manifest)
+    write_data(output_dir / manifest_name, manifest)
     return manifest
 
 
@@ -580,7 +644,7 @@ def convert_model(
             "conversion requires measured evidence; pass --allow-unmeasured only for dry runs"
         )
     calibration_source = _validated_calibration_source(plan, calibration_manifest)
-    assert_qwen36_conversion_scope(plan)
+    assert_conversion_scope(plan)
     kv_sensitivity_source = _validated_kv_sensitivity_source(plan, kv_sensitivity)
     quantized_allocations = [allocation for allocation in plan.assignments if allocation.bits < 16]
     if not quantized_allocations:
@@ -589,6 +653,7 @@ def convert_model(
         plan.mtp.preserve_external_sidecar
         and any(allocation.role.is_mtp for allocation in plan.assignments)
         and mtp_sidecar is None
+        and _source_has_external_mtp_sidecar(model)
     ):
         raise PlanningError("MTP sidecar preservation requires --mtp-sidecar")
     output_dir = Path(output).expanduser().resolve()
@@ -680,6 +745,16 @@ def convert_model(
                 )
             else:
                 raise PlanningError(f"unsupported MTP sidecar layout: {mtp_layout}")
+        elif (
+            plan.mtp.preserve_external_sidecar
+            and any(allocation.role.is_mtp for allocation in plan.assignments)
+            and source_model_dir.is_dir()
+            and not _source_has_external_mtp_sidecar(source_model_dir)
+        ):
+            # Integrated MTP (e.g. Qwen 3.5): the MLX-LM text mapping drops the
+            # in-shard MTP tensors, so byte-copy them into the canonical
+            # external sidecar before the parameter-coverage check runs.
+            _extract_protected_integrated_mtp(source_model_dir, plan, staging_dir)
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
         if kv_sensitivity_source is not None:

@@ -193,7 +193,12 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         model_types=("qwen3_5",),
         reference_pattern=r"qwen[._-]?3[._-]?5",
         exclude_reference_pattern=_QWEN36_REFERENCE,
-        support_tier=SupportTier.INSPECT_ONLY,
+        # AXQ-017 promotion (2026-08-01): real-checkpoint evidence on
+        # Qwen/Qwen3.5-9B@c20223623576 — full 775-tensor classification
+        # (integrated MTP + vision protected), a complete one-command
+        # development conversion, and passing MLX-LM/AX Engine runtime
+        # smokes. Recorded in the expansion implementation plan's E5 log.
+        support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=("Qwen 3.5 dense checkpoints share the Qwen 3.6 tensor conventions.",),
     ),

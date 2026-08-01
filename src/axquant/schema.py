@@ -1056,7 +1056,7 @@ class ProtectedTensorSidecarManifest(StrictModel):
         "axquant.protected-tensor-sidecar.v1"
     )
     source_model: ModelIdentity
-    role: Literal["vision"]
+    role: Literal["vision", "mtp"]
     tensor_count: int = Field(ge=1)
     parameters: int = Field(ge=1)
     dtypes: tuple[str, ...]

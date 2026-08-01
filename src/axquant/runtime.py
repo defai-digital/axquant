@@ -366,17 +366,24 @@ def build_runtime_metadata(
     )
 
 
-def assert_qwen36_conversion_scope(plan: QuantizationPlan) -> None:
+def assert_conversion_scope(plan: QuantizationPlan) -> None:
+    """Fail closed unless the family's tier and scope permit conversion.
+
+    The tier system (AXQ-017) is the conversion gate: `convertible` requires
+    recorded promotion evidence and `certified` requires the release audit,
+    so a hard-coded family allowlist would only duplicate — and drift from —
+    the registry's declared tiers.
+    """
     profile = plan.architecture_profile
     if profile.support_tier is SupportTier.INSPECT_ONLY:
         raise ArtifactError(
             f"the {profile.product_family} family is inspect-only; conversion requires the "
             "convertible or certified tier and its promotion evidence (AXQ-017)"
         )
-    if profile.product_family != "qwen3.6":
-        raise ArtifactError("AXQuant conversion is restricted to Qwen 3.6")
     if profile.optimization_scope != OptimizationScope.TEXT_PATH:
-        raise ArtifactError("this Qwen 3.6 checkpoint is inventory-only and cannot be converted")
+        raise ArtifactError(
+            f"this {profile.product_family} checkpoint is inventory-only and cannot be converted"
+        )
     if plan.kv_cache is not None:
         if plan.kv_cache.allocation_basis == "measured" and not plan.kv_cache.sensitivity_sha256:
             raise ArtifactError(
