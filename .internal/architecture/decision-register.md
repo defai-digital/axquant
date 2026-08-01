@@ -891,8 +891,9 @@ quality risk is the lowest of the four options.
 
 ### Consequences
 
-- A ~5.13-BPW-class candidate satisfying the 110% size gate becomes plannable from measured
-  evidence; the next probe run must add the LM-head 8-bit measurement before such a plan audits.
+- A ~5.23-BPW-class candidate satisfying the 110% size gate (modeled ratio ~107.5%) becomes
+  plannable from measured evidence; the next probe run must add the LM-head 8-bit measurement
+  before such a plan audits.
 - Default behavior is byte-identical to AXQ-007 floors; old plans deserialize with floor 16.
 
 ### Rejected alternatives
