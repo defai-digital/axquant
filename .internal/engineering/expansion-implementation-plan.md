@@ -168,7 +168,28 @@ are development evidence pending the formal supported-host suite.
   uniform-4 reference 16,903,941,980 — ratio **1.088826**, the first candidate
   to pass the 110% size gate.
 - AX Engine doctor and MLX-LM generation smoke both pass on the real artifact.
-- Still open for this candidate: dual-profile quality/validation bundles, MTP
+- Dual-profile development quality on the real artifact (same datasets, seeds,
+  and generation contract as the BF16 references):
+  - agent-coding (52 tasks): aggregate retention **1.0099** (candidate 0.9776
+    vs BF16 0.9679), perplexity ratio 0.9991, `json_validity` 0.95 = reference,
+    `syntax_validity` 0.90 vs 0.80 — every category at or above BF16.
+  - general (new 16-task suite with the governed structured pairs, evaluated
+    on both BF16 and the candidate): aggregate retention **1.0000** with
+    identical per-task scores, perplexity ratio 0.9702, and `json_validity` =
+    `syntax_validity` = 1.0 on both sides. This is the first measurement of
+    the general structured-output coverage the 2026-07-31 formal audit
+    flagged as missing (BF16 reference:
+    `qwen36-bf16-general16-quality.json`).
+- End-to-end MTP A/B smoke on the AX Engine HEAD build (post 1de301bd, the
+  per-sidecar norm decision + `mtp_norm_layout` contract): depth 1, greedy,
+  2 trials, exact profile. **Exactness passes with zero divergent trials and
+  acceptance is 0.9381** (45.5 average accepted tokens, zero kernel
+  fallbacks) on the byte-preserved raw sidecar that 6.11.1 loaded at 0/40
+  acceptance — the declarative layout contract is proven on the real
+  artifact, and the 8-bit LM head does not degrade the MTP verify path.
+  The 0.816x smoke speed is a busy-interactive-host number with no formal
+  standing; the 1.20x M2 gate is measured only on the idle formal host.
+- Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite. Note the structural tension: a smaller candidate has
   faster direct decode, which raises the bar for the MTP speed ratio.
