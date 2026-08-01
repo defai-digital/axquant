@@ -289,6 +289,12 @@ are development evidence pending the formal supported-host suite.
   flag; remaining headroom (the ~1.9 ms of verify build not covered by the
   draft overlap, deeper cross-cycle pipelining, compile-hostable kernels)
   stays scoped for the next engine round.
+- Async-draft robustness matrix (local M3, 120-token greedy): all six
+  configurations — flag off/on × {depth-1 prepared, depth-2 view, depth-1
+  byte-preserved} — produce byte-identical output (one shared output hash)
+  with identical accepted/drafted counts per configuration. The overlap
+  holds exactness across both sidecar layouts and both admitted draft
+  depths.
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite.
