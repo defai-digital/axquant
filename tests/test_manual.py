@@ -143,3 +143,31 @@ def test_plan_manual_cli_emits_plan_and_report(
     plan = load_model(plan_path, QuantizationPlan)
     assert plan.evidence_kind == EvidenceKind.ARCHITECTURE_PRIOR
     assert "# AXQuant Plan Report" in markdown_path.read_text(encoding="utf-8")
+
+
+def test_manual_axq026_lm_head_floor_requires_explicit_opt_in(
+    qwen36_model_dir: Path,
+) -> None:
+    head_rule = ManualPrecisionRule(
+        rule_id="lm-head-8bit",
+        bits=8,
+        method=QuantMethod.AFFINE,
+        roles=(TensorRole.LM_HEAD,),
+        reason="AXQ-026 size-gate path",
+    )
+    # Without the governed opt-in the BF16 floor still rejects the rule.
+    with pytest.raises(PlanningError, match="protected minimum"):
+        manual_quantization_plan(
+            _inventory(qwen36_model_dir),
+            _recipe(rules=[head_rule]),
+        )
+
+    plan = manual_quantization_plan(
+        _inventory(qwen36_model_dir),
+        _recipe(rules=[head_rule], lm_head_min_bits=8),
+    )
+    head = next(
+        allocation for allocation in plan.assignments if allocation.role == TensorRole.LM_HEAD
+    )
+    assert head.bits == 8
+    assert plan.constraints.lm_head_min_bits == 8

@@ -54,6 +54,12 @@ def _minimum_bits(tensor: TensorSpec, recipe: ManualPlanRecipe) -> tuple[int, st
         return recipe.mtp.min_bits, "protected MTP policy"
     minimum = _PROTECTED_MIN_BITS.get(tensor.role, 2)
     reason = f"protected {tensor.role.value} policy" if tensor.role in _PROTECTED_MIN_BITS else None
+    if tensor.role == TensorRole.LM_HEAD and recipe.lm_head_min_bits < minimum:
+        minimum = recipe.lm_head_min_bits
+        reason = (
+            "protected lm_head floor lowered to 8-bit under AXQ-026; "
+            "release certification requires measured quality evidence"
+        )
     return minimum, reason
 
 
@@ -240,6 +246,7 @@ def manual_quantization_plan(
             minimum_quality_retention=recipe.minimum_quality_retention,
             minimum_mtp_acceptance_retention=recipe.minimum_mtp_acceptance_retention,
             minimum_mtp_speedup=recipe.minimum_mtp_speedup,
+            lm_head_min_bits=recipe.lm_head_min_bits,
         ),
         target_mode=recipe.target_mode,
         primary_runtime=recipe.primary_runtime,

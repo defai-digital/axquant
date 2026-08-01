@@ -1064,6 +1064,10 @@ def _required_sensitivity_bits(tensor: TensorSpec, plan: QuantizationPlan) -> se
         minimum_bits = plan.mtp.min_bits
     else:
         minimum_bits = _RELEASE_PROBE_MIN_BITS.get(tensor.role, min(plan.candidate_bits))
+        if tensor.role == TensorRole.LM_HEAD:
+            # AXQ-026: an explicitly lowered LM-head floor widens the choice
+            # set, so every reachable precision must be measured.
+            minimum_bits = plan.constraints.lm_head_min_bits
     return {bits for bits in allowed if bits >= minimum_bits}
 
 

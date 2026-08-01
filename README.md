@@ -152,8 +152,10 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- a **new** release candidate cycle that clears dual-profile MTP speed (≥1.20×), quality, and size
-  (or a governed size exception only after non-size gates pass); formal cand-002/003 failed;
+- a **new** release candidate cycle that clears dual-profile MTP speed (≥1.20×), quality, and size;
+  formal cand-002/003 failed. The approved size direction is the AXQ-026 governed 8-bit LM-head
+  floor (`plan --lm-head-floor 8bit`), which needs a probe run adding the measured 8-bit LM-head
+  candidate;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
@@ -267,7 +269,9 @@ If the plan preserves MTP as an external bundle, conversion requires:
 --mtp-sidecar /models/Qwen3.6-27B-bf16/mtp.safetensors
 ```
 
-The default `--mtp-layout byte-preserved` path never changes tensor payloads. The explicit
+The default `--mtp-layout byte-preserved` path never changes tensor payloads; the copied bundle's
+`mtplx_runtime.json` declares `mtp_norm_layout: raw_hf_delta` so AX Engine converts every MTP
+norm deterministically at load time instead of guessing from tensor statistics. The explicit
 development path:
 
 ```bash
@@ -378,6 +382,11 @@ axquant plan \
   --mtp protected \
   --output quantization-plans
 ```
+
+`--lm-head-floor 8bit` is the AXQ-026 governed size-gate path: it lowers the LM-head weight
+floor from BF16 to 8-bit for that plan only, records the deviation in
+`constraints.lm_head_min_bits`, and requires a measured 8-bit LM-head sensitivity candidate
+before the release audit accepts the plan. The default floor stays BF16.
 
 Validate externally collected benchmark bundles:
 

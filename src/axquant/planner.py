@@ -211,6 +211,12 @@ def _minimum_bits(entry: TensorSensitivity, request: PlanRequest) -> tuple[int, 
         return request.mtp.min_bits, "protected MTP policy"
     minimum = _PROTECTED_MIN_BITS.get(role, min(request.candidate_bits))
     reason = f"protected {role.value} policy" if role in _PROTECTED_MIN_BITS else None
+    if role == TensorRole.LM_HEAD and request.lm_head_min_bits < minimum:
+        minimum = request.lm_head_min_bits
+        reason = (
+            "protected lm_head floor lowered to 8-bit under AXQ-026; "
+            "release certification requires measured quality evidence"
+        )
     return minimum, reason
 
 
@@ -411,6 +417,7 @@ def plan_quantization(
             minimum_quality_retention=request.minimum_quality_retention,
             minimum_mtp_acceptance_retention=request.minimum_mtp_acceptance_retention,
             minimum_mtp_speedup=request.minimum_mtp_speedup,
+            lm_head_min_bits=request.lm_head_min_bits,
         ),
         target_mode=request.target_mode,
         primary_runtime=request.primary_runtime,

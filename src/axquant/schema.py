@@ -354,6 +354,10 @@ class PlanningConstraints(StrictModel):
     minimum_quality_retention: float = Field(default=0.98, ge=0.0, le=1.0)
     minimum_mtp_acceptance_retention: float = Field(default=0.95, ge=0.0, le=1.0)
     minimum_mtp_speedup: float = Field(default=1.20, ge=0.0)
+    # AXQ-026: the LM-head weight floor may be lowered from BF16 to 8-bit as
+    # the approved size-gate path. The default stays BF16; a lowered floor is
+    # recorded here so audits and validation see the governed deviation.
+    lm_head_min_bits: Literal[8, 16] = 16
 
 
 class SoftwareVersions(StrictModel):
@@ -528,6 +532,8 @@ class ManualPlanRecipe(StrictModel):
     minimum_quality_retention: float = Field(default=0.98, ge=0.0, le=1.0)
     minimum_mtp_acceptance_retention: float = Field(default=0.95, ge=0.0, le=1.0)
     minimum_mtp_speedup: float = Field(default=1.20, ge=0.0)
+    # AXQ-026 opt-in: 8 lowers the LM-head weight floor for this recipe only.
+    lm_head_min_bits: Literal[8, 16] = 16
     target_mode: Literal["balanced", "quality", "low-memory", "speed"] = "balanced"
     primary_runtime: RuntimeName = RuntimeName.AX_ENGINE
     random_seed: int = Field(default=0, ge=0)
@@ -563,6 +569,8 @@ class PlanRequest(StrictModel):
     minimum_quality_retention: float = Field(default=0.98, ge=0.0, le=1.0)
     minimum_mtp_acceptance_retention: float = Field(default=0.95, ge=0.0, le=1.0)
     minimum_mtp_speedup: float = Field(default=1.20, ge=0.0)
+    # AXQ-026 opt-in: 8 lowers the LM-head weight floor for this plan only.
+    lm_head_min_bits: Literal[8, 16] = 16
     hardware: HardwareProfile = Field(default_factory=HardwareProfile)
     mtp: MtpPolicy = Field(default_factory=MtpPolicy)
 

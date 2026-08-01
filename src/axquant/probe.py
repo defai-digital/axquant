@@ -56,7 +56,10 @@ _PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v4"
 _PROBE_MIN_BITS = {
     TensorRole.EMBEDDING: 8,
     TensorRole.NORM: 16,
-    TensorRole.LM_HEAD: 16,
+    # AXQ-026: probe down to the lowest floor any governed plan may use, so an
+    # 8-bit LM-head choice is backed by a measurement instead of being
+    # unmeasurable by construction. The planner default floor stays BF16.
+    TensorRole.LM_HEAD: 8,
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
 }

@@ -208,3 +208,35 @@ def test_plan_refreshes_stale_tier_from_current_registry_policy() -> None:
     unknown_report = report.model_copy(update={"architecture_profile": unknown_profile})
     unknown_plan = plan_quantization(unknown_report, _request())
     assert unknown_plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY
+
+
+def test_axq026_lm_head_floor_default_stays_bf16_and_fails_closed() -> None:
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.AGENT_CODING,
+    )
+    # 4.70 BPW is below the BF16-LM-head policy minimum for this inventory
+    # (4.7054), so the default floor must fail closed rather than downgrade.
+    with pytest.raises(PlanningError, match="policy minimum"):
+        plan_quantization(report, _request(target_bpw=4.7))
+
+
+def test_axq026_lowered_lm_head_floor_is_explicit_and_recorded() -> None:
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.AGENT_CODING,
+    )
+    plan = plan_quantization(report, _request(target_bpw=4.7, lm_head_min_bits=8))
+    head = next(
+        allocation for allocation in plan.assignments if allocation.role == TensorRole.LM_HEAD
+    )
+    assert head.bits == 8
+    assert "AXQ-026" in head.reason
+    assert "measured quality evidence" in head.reason
+    assert plan.constraints.lm_head_min_bits == 8
+    # The lowered floor never drops below 8-bit even under budget pressure.
+    assert all(
+        allocation.bits >= 8
+        for allocation in plan.assignments
+        if allocation.role == TensorRole.LM_HEAD
+    )

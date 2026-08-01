@@ -294,6 +294,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plan_parser.add_argument("--mtp-bits", type=_bits, default=(8, 16))
     plan_parser.add_argument("--mtp-min-bits", type=int, default=8)
+    plan_parser.add_argument(
+        "--lm-head-floor",
+        choices=["bf16", "8bit"],
+        default="bf16",
+        help="AXQ-026 governed size-gate path: 8bit lowers the LM-head weight "
+        "floor for this plan; release certification still requires measured "
+        "quality evidence",
+    )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
     plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
     plan_parser.add_argument("--kv-default-bits", type=int, default=4)
@@ -966,6 +974,7 @@ def _run(args: argparse.Namespace) -> int:
             minimum_quality_retention=args.minimum_quality,
             minimum_mtp_acceptance_retention=args.minimum_mtp_retention,
             minimum_mtp_speedup=args.minimum_mtp_speedup,
+            lm_head_min_bits=8 if args.lm_head_floor == "8bit" else 16,
             mtp=MtpPolicy(
                 mode=args.mtp,
                 candidate_bits=args.mtp_bits,

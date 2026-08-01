@@ -464,5 +464,7 @@ def test_probe_role_floors_keep_embedding_measurable(
     head = mlp.model_copy(update={"role": TensorRole.LM_HEAD, "protected_recommendation": True})
     assert embedding.protected_recommendation is True
     assert _candidate_bits_for_tensor(embedding, config) == (8, 16)
-    assert _candidate_bits_for_tensor(head, config) == (16,)
+    # AXQ-026: the probe measures the LM head down to 8-bit so the governed
+    # lowered floor is backed by measurement; the planner default stays BF16.
+    assert _candidate_bits_for_tensor(head, config) == (8, 16)
     assert _candidate_bits_for_tensor(mlp, config) == (4, 6, 8, 16)

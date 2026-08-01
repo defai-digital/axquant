@@ -8,7 +8,7 @@
 **Primary runtime:** AX Engine  
 **Compatibility runtime:** MLX-LM  
 **Initial platform:** Apple Silicon with MLX  
-**Last reviewed:** 2026-07-29
+**Last reviewed:** 2026-08-01
 
 ## 1. Executive summary
 
@@ -575,13 +575,13 @@ hardware evidence and the approval-bound size decision remain unresolved.
 | ---: | --- | --- | --- |
 | 1 | M0 | Complete | None |
 | 2 | M1 | Complete | The manual artifact is development evidence; the selected measured artifact replaces it for release |
-| 3 | M2 | Harness, layout backend, and phase profiler complete; current speed evidence failed | The actual candidate repeats exact output but measures 0.960388x; bypass-disabled profiling still gives only 0.967637x and requires ~9.96 ms/output-token of combined draft/verifier/rollback savings, so fix AX Engine or adopt a passing upstream runtime before supported-host certification |
+| 3 | M2 | Harness, layout backend, and phase profiler complete; the notarized 6.12.1 recovered runtime passes the gate on uniform-6 but not on the candidates | The 2026-07-31 formal M5 suite measured uniform-6 at 1.2347x/1.2346x (agent-coding/general), proving the runtime and gate are satisfiable; candidate-002 measures 1.1620x on agent-coding and candidate-003 fails both profiles, so M2 closes with a new candidate whose MTP path passes 1.20x on both workloads |
 | 4 | M3 | Complete | The resumable 4/6/8/BF16 probe produced 1,199 measured tensor entries and a bound measured plan; the 4.8-BPW target and the 5.35-BPW size-gate equivalent are infeasible under hard protection floors, whose measured policy-floor plan is 5.5770 BPW |
 | 5 | M4 | Conversion, dedicated MTP layout, and dual-profile candidate quality complete | The 5.5770-BPW provenance-bound candidate passes MLX-LM generation, AX Engine doctor, and MTP acceptance/exactness at depth 1; the strict speed result is 0.960388x, so M4 release certification waits on M2 plus the size decision |
 | 6 | M5 | Scope amendment and compatibility tooling complete | Reverify the official catalog at release time and bind the selected artifact to passing `agent-coding` and `general` evidence |
 | 7 | M6 | Measured development refinement complete | The earlier grouped `cand-20260729-004` preserves every parent task score while improving agent-coding/general perplexity by 7.44%/2.02%; the current monotonic release lineage is `cand-20260729-002` → `cand-20260729-003` and still requires passing MTP, validation, hardware, and Pareto bindings |
 | 8 | M7 | Registry/Pareto tooling complete | Record release-ready measurements on the named supported Apple Silicon host set |
-| 9 | M8 | Audit/publication tooling complete | Resolve the size floor, pass M0–M7, build the exact 1.0.0 wheel, run the final audit, then publish only with explicit authorization |
+| 9 | M8 | Audit/publication tooling complete | The size-floor direction is resolved by AXQ-026 (governed 8-bit LM-head floor, approved 2026-08-01); plan and validate a candidate on that floor with measured LM-head evidence, pass M0–M7, build the exact wheel, run the final audit, then publish only with explicit authorization |
 
 The critical path is:
 
@@ -801,27 +801,31 @@ are recorded in `.internal/tmp/ax-engine-v6.11.1-mtp-greedy-exactness-investigat
 `.internal/tmp/qwen36-v1-mtp-sidecar-layout-investigation.md`. This diagnosis does not change the
 failed milestone or authorize optimistic/approximate MTP.
 
-AX Engine 6.11.1 is both the installed build and the latest published upstream release as of
-2026-07-29; both configured Homebrew taps report no newer formula, so there is no runtime upgrade
-to retry yet. A separate public Qwen 3.6 MTP report in llama.cpp also documents deterministic
-committed-token divergence at higher draft depth
+The 6.11.1 findings above are superseded at runtime level: upstream published v6.12.0 on
+2026-07-29 (the Homebrew formula still serves 6.11.1), and the 2026-07-31 formal M5 suite ran on
+a notarized 6.12.1 build ("Harden Qwen linear-attention MTP exact depth-one path") whose
+depth-one profile is exact on every measured arm and takes uniform-6 past the 1.20x gate on both
+workloads; the remaining M2 shortfall is candidate-specific (see the milestone table and
+`.internal/tmp/qwen36-v1-release-continuation-20260730.md`). A separate public Qwen 3.6 MTP
+report in llama.cpp also documents deterministic committed-token divergence at higher draft depth
 ([issue #23302](https://github.com/ggml-org/llama.cpp/issues/23302)). That report is corroborating
 runtime context only, not AXQuant implementation evidence; AXQuant continues to fail closed on
 its own AX Engine A/B results.
 
-One PRD feasibility conflict still requires resolution before v1; the former M5 scope conflict is
-resolved:
+Both former PRD feasibility conflicts now have accepted resolutions:
 
-1. After correcting the probe so the declared 8-bit embedding floor is measurable rather than
-   incorrectly BF16-only, the hard BF16 vision/MTP/norm/head and 8-bit embedding floors produce a
-   planner policy minimum of 5.5770 BPW, about 114.6% of the audited uniform-4-bit size. This still
-   cannot simultaneously meet
-   the 110% size gate or 4.3–4.8 search band without a documented Pareto exception, excluding
-   protected vision from the shipped language artifact, or validating a lower-precision protected
-   sidecar backend. The exact byte accounting and policy alternatives are recorded in
-   `.internal/tmp/qwen36-v1-size-decision-analysis.md`; a language-only artifact must use an
-   explicitly approved comparison denominator because removing the same BF16 vision bytes from
-   both candidate and reference does not improve the ratio.
+1. **Resolved in direction by AXQ-026 on 2026-08-01.** The hard BF16 vision/MTP/norm/head and
+   8-bit embedding floors produce a planner policy minimum of 5.5770 BPW, about 114.6% of the
+   audited uniform-4-bit size — incompatible with the 110% size gate. Of the four options in
+   `.internal/tmp/qwen36-v1-size-decision-analysis.md`, the workspace owner approved the governed
+   8-bit LM-head floor: a modeled 1,191,936,000-byte saving that fits the gate with
+   419,276,754 bytes of margin. The floor is lowered per plan only
+   (`plan --lm-head-floor 8bit`, recorded in `constraints.lm_head_min_bits`), the probe now
+   measures the LM head at 8-bit so the choice is measurement-backed, and the release audit
+   requires the measured 8-bit LM-head candidate before such a plan can certify. Release
+   certification still requires full dual-profile quality, MTP, size, and hardware evidence on
+   the complete candidate; the exception machinery remains available only if the measured
+   LM-head evidence fails.
 2. **Resolved by AXQ-016 on 2026-07-30.** The official
    [Qwen 3.6 catalog](https://huggingface.co/collections/Qwen/qwen36) contains one dense parameter
    size (27B, plus a same-size FP8 representation) and one MoE size (35B-A3B). M5 now requires

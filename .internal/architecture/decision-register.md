@@ -2,7 +2,7 @@
 
 **Document status:** Accepted decision set  
 **Applies to:** AXQuant v0.x, v1, and the expansion program (v1.1–v2.0)  
-**Last reviewed:** 2026-07-31
+**Last reviewed:** 2026-08-01
 
 This document consolidates the product and architecture decisions that constrain AXQuant
 implementation. Each decision remains in force until explicitly superseded here.
@@ -36,6 +36,7 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-023 | Resolve remote recipe bundles only from revision-pinned Hub references | Accepted |
 | AXQ-024 | Measure per-layer KV-cache sensitivity and bind measured KV plans to their report | Accepted |
 | AXQ-025 | Gate measured KV plans at release by packaged report and deterministic reallocation | Accepted |
+| AXQ-026 | Resolve the size gate through a governed 8-bit LM-head floor | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -860,6 +861,47 @@ the derived result can be recomputed from the packaged evidence.
 - Gating only on digest presence (proves binding, not that the allocation follows the report).
 - Blocking release whenever a KV section exists (would punish the prior-based path that AXQ-021
   explicitly allows).
+
+## AXQ-026: Resolve the size gate through a governed 8-bit LM-head floor
+
+**Status:** Accepted (named approval by the workspace owner, 2026-08-01)
+
+### Context
+
+The measured policy floor for Qwen3.6-27B is 5.5770 BPW — 114.57% of the audited uniform-4
+reference, 772,659,246 bytes over the 110% size gate. The size-decision analysis
+(`.internal/tmp/qwen36-v1-size-decision-analysis.md`) quantified four resolutions; lowering the
+LM-head weight floor from BF16 to 8-bit/group-64 saves a modeled 1,191,936,000 bytes and fits the
+gate with 419,276,754 bytes of margin — the only single-change option with meaningful headroom.
+8-bit output heads are established practice in production quantization stacks, so the expected
+quality risk is the lowest of the four options.
+
+### Decision
+
+- The LM-head protection floor may be lowered from BF16 to 8-bit **per plan**, never globally:
+  `PlanRequest.lm_head_min_bits` / `ManualPlanRecipe.lm_head_min_bits` (default 16) must be set
+  to 8 explicitly (`plan --lm-head-floor 8bit`), and the plan records the deviation in
+  `constraints.lm_head_min_bits` with an AXQ-026 allocation reason.
+- The measurement probe measures the LM head down to 8-bit so the lowered floor is backed by a
+  per-tensor measurement instead of being unmeasurable by construction.
+- The release audit widens the LM head's required measured-candidate set to the plan's recorded
+  floor: an 8-bit LM-head plan needs measured 8-bit and BF16 LM-head sensitivity or it fails.
+- Release certification is unchanged: dual-profile quality, MTP, size, and hardware gates must
+  pass on the complete candidate. This decision authorizes the search direction, not a claim.
+
+### Consequences
+
+- A ~5.13-BPW-class candidate satisfying the 110% size gate becomes plannable from measured
+  evidence; the next probe run must add the LM-head 8-bit measurement before such a plan audits.
+- Default behavior is byte-identical to AXQ-007 floors; old plans deserialize with floor 16.
+
+### Rejected alternatives
+
+- A permanent ≥114.57% size exception (weakest competitive posture; exception machinery remains
+  available if measured LM-head quality evidence fails).
+- 8-bit vision + external-MTP sidecar backend (57 MB margin only, touches the fragile MTP
+  exactness path, and requires a new validated backend).
+- Language-only artifact scope (the ratio worsens to ~115.41% under a consistent denominator).
 
 ## Deferred decisions
 
