@@ -7,12 +7,25 @@ from axquant.architectures.dense_family import DENSE_FAMILY_SPECS, DenseFamilyAd
 from axquant.architectures.qwen36 import Qwen36Adapter
 from axquant.architectures.types import ArchitectureAdapter
 from axquant.errors import ArtifactError
-from axquant.schema import SupportMatrix, SupportMatrixEntry
+from axquant.schema import SupportMatrix, SupportMatrixEntry, SupportTier
 
 _ADAPTERS: tuple[ArchitectureAdapter, ...] = (
     Qwen36Adapter(),
     *(DenseFamilyAdapter(spec) for spec in DENSE_FAMILY_SPECS),
 )
+
+
+def declared_tier_for(adapter_id: str) -> SupportTier | None:
+    """The current policy tier for a registered adapter id (AXQ-017).
+
+    Tier is evidence-backed permission and lives in code, so artifacts written
+    before a promotion (or before the tier field existed) resolve their tier
+    from the current registry rather than from recorded history.
+    """
+    for adapter in _ADAPTERS:
+        if adapter.adapter_id == adapter_id:
+            return adapter.declared_tier
+    return None
 
 
 def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:

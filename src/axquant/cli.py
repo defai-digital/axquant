@@ -352,6 +352,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Recipe bundle file or directory; replaces prior-based planning",
     )
     quantize_parser.add_argument("--calibration-manifest")
+    quantize_parser.add_argument(
+        "--kv-sensitivity",
+        help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
+    )
     quantize_parser.add_argument("--mtp-sidecar")
     quantize_parser.add_argument(
         "--runtime-smoke",
@@ -1041,6 +1045,7 @@ def _run(args: argparse.Namespace) -> int:
             kv_cache=args.kv_cache,
             recipe=args.recipe,
             calibration_manifest=args.calibration_manifest,
+            kv_sensitivity=args.kv_sensitivity,
             mtp_sidecar=args.mtp_sidecar,
             runtime_smoke=args.runtime_smoke,
             ax_engine=args.ax_engine,

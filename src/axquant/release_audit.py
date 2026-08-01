@@ -1544,7 +1544,12 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         m3_issues.append("plan does not bind the measured sensitivity report")
     if sensitivity.model != plan.source_model or sensitivity.profile != plan.profile:
         m3_issues.append("sensitivity report and plan identity/profile differ")
-    if sensitivity.architecture_profile != plan.architecture_profile:
+    # The support tier is current registry policy, not recorded evidence: a plan
+    # legitimately carries a newer tier than the report it was built from
+    # (AXQ-017), so profile equality excludes it.
+    if sensitivity.architecture_profile.model_dump(
+        exclude={"support_tier"}
+    ) != plan.architecture_profile.model_dump(exclude={"support_tier"}):
         m3_issues.append("sensitivity and plan architecture profiles differ")
     m3_issues.extend(_sensitivity_measurement_issues(sensitivity, plan))
     m3_issues.extend(_sensitivity_lineage_issues(sensitivity, sensitivity_lineage))

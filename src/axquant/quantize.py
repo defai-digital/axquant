@@ -62,6 +62,7 @@ def quick_convert(
     kv_cache: Literal["off", "prior"] = "off",
     recipe: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
+    kv_sensitivity: str | Path | None = None,
     mtp_sidecar: str | Path | None = None,
     runtime_smoke: RuntimeSmoke = "none",
     ax_engine: str = "ax-engine",
@@ -112,6 +113,7 @@ def quick_convert(
         revision=revision,
         mtp_sidecar=sidecar,
         calibration_manifest=calibration_manifest,
+        kv_sensitivity=kv_sensitivity,
         allow_unmeasured=True,
         ax_engine_manifest=ax_engine_manifest,
     )

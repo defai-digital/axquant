@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
 from axquant.profiles import objective_for
 from axquant.schema import (
     Allocation,
+    ArchitectureProfile,
     ArchitectureSupportLevel,
     CandidateMeasurement,
     EvidenceKind,
@@ -51,6 +53,22 @@ class _Choice:
     @property
     def selected(self) -> _Option:
         return self.options[self.index]
+
+
+def _current_policy_profile(profile: ArchitectureProfile) -> ArchitectureProfile:
+    """Stamp the registry's current tier onto a recorded profile (AXQ-017).
+
+    Sensitivity reports are immutable evidence, but the tier is current policy:
+    a plan built today from an older report carries today's declared tier for
+    the same adapter, not the tier (or its absence) recorded before promotion.
+    Unsupported profiles and unknown adapters stay fail-closed.
+    """
+    if profile.support_level != ArchitectureSupportLevel.SUPPORTED:
+        return profile
+    current = declared_tier_for(profile.adapter_id)
+    if current is None or current == profile.support_tier:
+        return profile
+    return profile.model_copy(update={"support_tier": current})
 
 
 def storage_bpw(bits: int, group_size: int | None) -> float:
@@ -376,7 +394,7 @@ def plan_quantization(
         )
     return QuantizationPlan(
         source_model=report.model,
-        architecture_profile=report.architecture_profile,
+        architecture_profile=_current_policy_profile(report.architecture_profile),
         profile=request.profile,
         target_class=target_class,
         target_bpw=request.target_bpw,

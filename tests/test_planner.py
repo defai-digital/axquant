@@ -184,3 +184,27 @@ def test_kv_cache_plan_schema_rejects_gaps_and_floor_violations() -> None:
             default_bits=6,
             layers=[layer(0, bits=4)],
         )
+
+
+def test_plan_refreshes_stale_tier_from_current_registry_policy() -> None:
+    from axquant.schema import ArchitectureSupportLevel, SupportTier
+
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.AGENT_CODING,
+    )
+    stale_profile = report.architecture_profile.model_copy(
+        update={
+            "adapter_id": "qwen36-v1",
+            "support_level": ArchitectureSupportLevel.SUPPORTED,
+            "support_tier": SupportTier.INSPECT_ONLY,
+        }
+    )
+    stale_report = report.model_copy(update={"architecture_profile": stale_profile})
+    plan = plan_quantization(stale_report, _request())
+    assert plan.architecture_profile.support_tier is SupportTier.CONVERTIBLE
+
+    unknown_profile = stale_profile.model_copy(update={"adapter_id": "unknown-adapter"})
+    unknown_report = report.model_copy(update={"architecture_profile": unknown_profile})
+    unknown_plan = plan_quantization(unknown_report, _request())
+    assert unknown_plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY
