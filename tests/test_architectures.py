@@ -102,22 +102,24 @@ def test_qwen35_spec_declines_qwen36_references() -> None:
 
 
 @pytest.mark.parametrize(
-    ("reference", "model_type", "expected_adapter"),
+    ("reference", "model_type", "expected_adapter", "expected_tier"),
     [
-        ("google/gemma-4-12b", "gemma4", "gemma4-dense-v1"),
-        ("openbmb/MiniCPM5-8B", "minicpm5", "minicpm5-dense-v1"),
-        ("nvidia/Nemotron-3-22B", "nemotron3", "nemotron3-dense-v1"),
+        ("google/gemma-4-12b", "gemma4", "gemma4-dense-v1", SupportTier.INSPECT_ONLY),
+        ("google/gemma-4-12b", "gemma4_unified", "gemma4-dense-v1", SupportTier.INSPECT_ONLY),
+        ("openbmb/MiniCPM5-8B", "minicpm5", "minicpm5-dense-v1", SupportTier.CONVERTIBLE),
+        ("openbmb/MiniCPM5-1B", "llama", "minicpm5-dense-v1", SupportTier.CONVERTIBLE),
+        ("nvidia/Nemotron-3-22B", "nemotron3", "nemotron3-dense-v1", SupportTier.INSPECT_ONLY),
     ],
 )
 def test_registry_resolves_new_dense_families(
-    reference: str, model_type: str, expected_adapter: str
+    reference: str, model_type: str, expected_adapter: str, expected_tier: SupportTier
 ) -> None:
     config = {"model_type": model_type, "num_hidden_layers": 40}
     adapter = adapter_for(reference, config)
     assert adapter is not None
     assert adapter.adapter_id == expected_adapter
     profile = adapter.profile(reference, config)
-    assert profile.support_tier is SupportTier.INSPECT_ONLY
+    assert profile.support_tier is expected_tier
     assert profile.dense is True
     assert profile.text_layer_count == 40
 
@@ -209,8 +211,13 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     assert tiers == {
         "qwen36-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
+        # Real google/gemma-4-12b inspection classifies fully, but the pinned
+        # MLX-LM cannot convert gemma4_unified, so the AXQ-017 conversion
+        # smoke is blocked and the tier stays inspect-only.
         "gemma4-dense-v1": SupportTier.INSPECT_ONLY,
-        "minicpm5-dense-v1": SupportTier.INSPECT_ONLY,
+        "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
+        # The public Nemotron 3 catalog ships MoE checkpoints only; the dense
+        # adapter has no real checkpoint to satisfy the promotion contract.
         "nemotron3-dense-v1": SupportTier.INSPECT_ONLY,
     }
     families = [entry.product_family for entry in matrix.entries]

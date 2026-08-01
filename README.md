@@ -41,8 +41,8 @@ The intended user journey is:
 ### Input
 
 AXQuant converts revision-pinned, unquantized Safetensors checkpoints of families at the
-`convertible` tier or above (currently the Qwen 3.6 27B language path and Qwen 3.5 dense
-checkpoints) through MLX-LM. The checkpoint must use the expected configuration and indexed
+`convertible` tier or above (currently the Qwen 3.6 27B language path, Qwen 3.5 dense, and
+MiniCPM5 dense checkpoints) through MLX-LM. The checkpoint must use the expected configuration and indexed
 Safetensors layout. Every other recognized family can be inspected but is not yet accepted for
 conversion.
 
@@ -103,9 +103,9 @@ release audit. The current tier matrix:
 | --- | --- | --- |
 | Qwen 3.6 (27B language path) | `qwen36-v1` | `convertible` (certification pending the formal release audit) |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence: full 775-tensor classification, complete 7.0-BPW conversion with integrated-MTP and vision sidecars, passing MLX-LM and AX Engine smokes) |
-| Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` |
-| MiniCPM5 dense | `minicpm5-dense-v1` | `inspect-only` |
-| Nemotron 3 dense | `nemotron3-dense-v1` | `inspect-only` |
+| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence: full 219-tensor classification, complete 7.5-BPW conversion, passing MLX-LM and AX Engine smokes) |
+| Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` — real google/gemma-4-12b inspection fully classifies all 677 tensors, but the pinned MLX-LM cannot convert `gemma4_unified`, so the required conversion smoke is blocked |
+| Nemotron 3 dense | `nemotron3-dense-v1` | `inspect-only` — the public Nemotron 3 catalog ships MoE checkpoints only, so no real dense checkpoint can satisfy the promotion contract |
 
 New dense families are added as declarative adapter specifications and start at `inspect-only`
 until their promotion evidence exists (see the expansion program documents under `.internal/`).
@@ -114,7 +114,7 @@ until their promotion evidence exists (see the expansion program documents under
 | --- | --- |
 | Platform | Apple Silicon with MLX |
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
-| Conversion targets | Qwen 3.6 27B language path; Qwen 3.5 dense (development evidence) |
+| Conversion targets | Qwen 3.6 27B language path; Qwen 3.5 dense and MiniCPM5 dense (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16; measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -139,8 +139,8 @@ Implemented now:
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
 - guarded Hugging Face publication;
-- tiered family support with declarative dense-family adapters (Qwen 3.5 dense at
-  `convertible`; Gemma-4, MiniCPM5, and Nemotron 3 at `inspect-only`), including byte-preserving
+- tiered family support with declarative dense-family adapters (Qwen 3.5 dense and MiniCPM5
+  at `convertible`; Gemma-4 and Nemotron 3 at `inspect-only`), including byte-preserving
   extraction of integrated MTP heads and protected vision into canonical checksummed sidecars;
 - `axquant quantize`: one-command development conversion with explicit development-evidence
   labeling;
@@ -171,7 +171,7 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   artifact defect. Formal validation/hardware/audit evidence then follows on the supported host;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
-- tier promotion evidence for the remaining family adapters (Gemma-4, MiniCPM5, Nemotron 3 start `inspect-only`; Qwen 3.5 dense promoted to `convertible` on 2026-08-01);
+- tier promotion for the two remaining `inspect-only` adapters: Gemma-4 dense (blocked on MLX-LM `gemma4_unified` conversion support) and Nemotron 3 dense (no public dense checkpoint; the current catalog is MoE-only);
 - validated conversion evidence for additional LLM families;
 - dedicated quantization of external MTP sidecars;
 - measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and

@@ -23,7 +23,13 @@ from axquant.schema import (
 )
 
 _MTP = re.compile(r"(^|[./_-])(mtp|multi[_-]?token)([./_-]|$)")
-_MOE_CONFIG_KEYS = ("num_experts", "num_experts_per_tok", "moe_intermediate_size")
+_MOE_CONFIG_KEYS = (
+    "num_experts",
+    "num_experts_per_tok",
+    "moe_intermediate_size",
+    "enable_moe_block",
+    "top_k_experts",
+)
 
 _MTP_OUTPUT_TOKENS = ("output_head", "lm_head", "vocab_head")
 _MTP_PROJECTION_TOKENS = ("proj", "projection", ".fc.")
@@ -142,7 +148,10 @@ class DenseFamilyAdapter:
 
     def profile(self, model_reference: str, config: dict[str, Any]) -> ArchitectureProfile:
         scope = self._text_scope(config)
-        dense = not any(key in scope for key in _MOE_CONFIG_KEYS)
+        # Key presence alone is not MoE: unified configs (e.g. Gemma 4 12B)
+        # ship `num_experts: null` / `enable_moe_block: false` on dense
+        # checkpoints. Only a truthy value marks the checkpoint as MoE.
+        dense = not any(scope.get(key) for key in _MOE_CONFIG_KEYS)
         layer_count: int | None = None
         for key in self.spec.layer_count_keys:
             value = scope.get(key)
@@ -194,7 +203,7 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         reference_pattern=r"qwen[._-]?3[._-]?5",
         exclude_reference_pattern=_QWEN36_REFERENCE,
         # AXQ-017 promotion (2026-08-01): real-checkpoint evidence on
-        # Qwen/Qwen3.5-9B@c20223623576 — full 775-tensor classification
+        # Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a — full 775-tensor classification
         # (integrated MTP + vision protected), a complete one-command
         # development conversion, and passing MLX-LM/AX Engine runtime
         # smokes. Recorded in the expansion implementation plan's E5 log.
@@ -205,16 +214,43 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
     DenseFamilySpec(
         adapter_id="gemma4-dense-v1",
         product_family="gemma-4",
-        model_types=("gemma4", "gemma4_text"),
+        # The public google/gemma-4-12b checkpoint declares `gemma4_unified`
+        # (vision+text unified architecture); keep the earlier spellings for
+        # text-only exports.
+        model_types=("gemma4", "gemma4_text", "gemma4_unified"),
         reference_pattern=r"gemma[._-]?4",
+        # Real-checkpoint inspection on
+        # google/gemma-4-12b@023679ed352de9bb66cc873c9009ce3482585c08 fully
+        # classifies all 677 tensors (layer_scalar and audio-embedder patterns
+        # below came from that inventory), but the AXQ-017 `convertible`
+        # promotion is blocked: the pinned MLX-LM (0.31.3) does not support
+        # `gemma4_unified`, so the required real conversion smoke cannot run.
+        # The tier stays inspect-only until an admitted MLX-LM version
+        # converts this family.
         support_tier=SupportTier.INSPECT_ONLY,
+        text_config_key="text_config",
+        extra_role_patterns=(
+            # Per-layer residual scale scalars: norm-class protected weights.
+            ("layer_scalar", TensorRole.NORM),
+            # Audio embedder projection: protected non-text modality, handled
+            # like the vision tower (BF16-preserved sidecar extraction).
+            ("embed_audio", TensorRole.VISION),
+        ),
     ),
     DenseFamilySpec(
         adapter_id="minicpm5-dense-v1",
         product_family="minicpm5",
-        model_types=("minicpm5",),
+        # The public openbmb/MiniCPM5-1B checkpoint is a plain Llama-arch
+        # export (`model_type: llama`); the reference pattern keeps the match
+        # scoped to MiniCPM5-named checkpoints.
+        model_types=("minicpm5", "llama"),
         reference_pattern=r"minicpm[._-]?5",
-        support_tier=SupportTier.INSPECT_ONLY,
+        # AXQ-017 promotion (2026-08-01): real-checkpoint evidence on
+        # openbmb/MiniCPM5-1B@4e9de7a0778dc1c362e983e6858f0e77542cbdca — full
+        # 219-tensor classification, a complete one-command development
+        # conversion, and passing runtime smokes. Recorded in the expansion
+        # implementation plan's E5 log.
+        support_tier=SupportTier.CONVERTIBLE,
     ),
     DenseFamilySpec(
         adapter_id="nemotron3-dense-v1",

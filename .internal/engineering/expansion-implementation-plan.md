@@ -310,7 +310,7 @@ hardware time; runs on the existing refine-run/release-audit tooling.
 
 The AXQ-017 `convertible` contract (adapter unit tests + one real-checkpoint
 conversion smoke with full coverage and integrity checks) is satisfied on
-`Qwen/Qwen3.5-9B@c20223623576` (19.3 GB BF16 download):
+`Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a` (19.3 GB BF16 download):
 
 - Real inspect: all 775 tensors classified (224 attention, 96 MLP, 105 norm,
   333 vision, 15 integrated MTP, embedding, LM head), dense, 32 text layers,
@@ -334,6 +334,31 @@ conversion smoke with full coverage and integrity checks) is satisfied on
 - Registry flip: `qwen35-dense-v1` → `SupportTier.CONVERTIBLE` (dense-only;
   MoE and missing-layer configs stay fail-closed inspect-only). All
   artifacts remain development evidence until the family is certified.
+
+### Breadth wave 2 (2026-08-01, same session)
+
+- **minicpm5-dense-v1 → `convertible`** on
+  `openbmb/MiniCPM5-1B@4e9de7a0778dc1c362e983e6858f0e77542cbdca`: the public
+  checkpoint is a plain Llama-arch export (`model_type: llama`, spec extended
+  with the reference-scoped type), all 219 tensors classify, and the
+  one-command conversion measures **7.4999 BPW** (policy minimum 7.3772 for
+  a 1.08B model) with passing MLX-LM generation and AX Engine doctor smokes.
+- **gemma4-dense-v1 stays `inspect-only`, now with full real inspection**:
+  `google/gemma-4-12b@023679ed352d` declares `gemma4_unified` (spec
+  extended); the real inventory drove two classifier fixes — MoE config keys
+  present with null/false values no longer mark a checkpoint non-dense, and
+  `layer_scalar` / `embed_audio` patterns classify the remaining 49 tensors
+  (677/677 classified, dense=true). Promotion is blocked honestly: the
+  pinned MLX-LM 0.31.3 cannot convert `gemma4_unified`, so the AXQ-017
+  conversion smoke cannot run until an admitted MLX-LM version supports the
+  family.
+- **nemotron3-dense-v1 stays `inspect-only`**: the current public Nemotron 3
+  catalog (Nano-30B-A3B, Super-120B-A12B, Ultra-550B-A55B, embed models) is
+  MoE-only — there is no real dense checkpoint that can satisfy the
+  promotion contract. MoE planning remains deferred scope.
+- Sources are revision-pinned `snapshot_download` trees under
+  `/Volumes/Ext4T/` (plain local_dir materialization, not the HF cache
+  snapshot layout); dev-smoke artifacts sit alongside them.
 
 ## Phase E6 — Certification wave 2
 
