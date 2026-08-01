@@ -72,7 +72,9 @@ they do not.
 
 Its design centers on:
 
-- **mixed precision:** 4-bit, 6-bit, 8-bit, and BF16 assignments;
+- **mixed precision:** 4-bit, 6-bit, 8-bit, and BF16 assignments, with an experimental
+  2/3-bit range for robust trunk tensors (AX Engine gates them behind
+  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`);
 - **quality protection:** hard precision floors for sensitive model components;
 - **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
 - **workload awareness:** separate objectives for general and agent/coding workloads;
@@ -116,7 +118,7 @@ until their promotion evidence exists (see the expansion program documents under
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
 | Conversion targets | Qwen 3.6 27B language path; Qwen 3.5 dense and MiniCPM5 dense (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
-| Precision choices | 4-bit, 6-bit, 8-bit, and BF16; measured affine, DWQ-clipped affine, and portable AWQ |
+| Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
 | Primary runtime | AX Engine |

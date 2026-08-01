@@ -337,9 +337,14 @@ class MtpPolicy(StrictModel):
 
 
 class HardwareProfile(StrictModel):
-    name: str = "ax-engine-apple-silicon-affine-dwq-v1"
+    # v2 adds the experimental low-bit range: MLX affine kernels execute 2-
+    # and 3-bit natively, and AX Engine admits them behind the documented
+    # AX_ENGINE_2BIT_EXPERIMENTAL=1 / AX_ENGINE_3BIT_EXPERIMENTAL=1 gates.
+    # Low-bit artifacts are development evidence; release certification
+    # still runs the ordinary quality/runtime gates.
+    name: str = "ax-engine-apple-silicon-affine-dwq-v2"
     runtime: RuntimeName = RuntimeName.AX_ENGINE
-    supported_bits: tuple[int, ...] = (4, 6, 8, 16)
+    supported_bits: tuple[int, ...] = (2, 3, 4, 6, 8, 16)
     supported_methods: tuple[QuantMethod, ...] = (
         QuantMethod.AFFINE,
         QuantMethod.DWQ,

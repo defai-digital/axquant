@@ -360,6 +360,31 @@ conversion smoke with full coverage and integrity checks) is satisfied on
   `/Volumes/Ext4T/` (plain local_dir materialization, not the HF cache
   snapshot layout); dev-smoke artifacts sit alongside them.
 
+### Low-bit range (2026-08-01, same session)
+
+- Hardware profile `ax-engine-apple-silicon-affine-dwq-v2` extends the
+  precision range to **2/3/4/6/8/BF16**. MLX affine kernels execute 2- and
+  3-bit natively; AX Engine admits them behind documented experimental
+  gates (3-bit pre-existing; 2-bit added in engine commit 93b9cbb2 with the
+  same rejected-by-default contract).
+- Real 3-bit evidence (MiniCPM5-1B, prior plan, 106 tensors at 3-bit):
+  measured **6.8504** total BPW, passing MLX-LM generation smoke and AX
+  Engine doctor under `AX_ENGINE_3BIT_EXPERIMENTAL=1`.
+- Real 2-bit evidence (MiniCPM5-1B, prior plan, 64 tensors at 2-bit):
+  measured **6.5495** total BPW, passing MLX-LM generation smoke and AX
+  Engine doctor under `AX_ENGINE_2BIT_EXPERIMENTAL=1` with the new engine
+  build.
+- Both artifacts are development evidence; protection floors are untouched
+  (low bits reach ordinary trunk tensors only). Release claims still require
+  the ordinary measured quality/runtime gates.
+- Remaining breadth gaps versus the competitive reference, recorded
+  honestly: **MoE expert-level planning** (the deferred-scope decision
+  stands; the public reference reaches MoE conversion by patching MLX-LM
+  internals, which AXQ-001/AXQ-004 forbid — an AXQuant MoE path needs its
+  own fused-expert module-coverage design and a real MoE checkpoint smoke)
+  and **per-layer KV runtime execution** (plans and provenance exist; AX
+  Engine has no quantized KV cache yet — scoped engine project).
+
 ## Phase E6 — Certification wave 2
 
 Promote and certify the first non-Qwen families (Gemma-4 first); schedule
