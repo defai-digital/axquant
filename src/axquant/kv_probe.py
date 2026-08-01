@@ -37,7 +37,7 @@ from axquant.serde import stable_sha256
 
 _LOG = structlog.get_logger()
 
-_KV_PROBE_BACKEND_VERSION = "kv-probe-v1"
+_KV_PROBE_BACKEND_VERSION = "kv-probe-v2-fake-quant"
 
 
 class KvProbeBackend(Protocol):
@@ -45,6 +45,10 @@ class KvProbeBackend(Protocol):
 
     def load_model(self, model_dir: Path) -> None:
         """Load the source model into memory."""
+        ...
+
+    def quantizable_layers(self) -> set[int]:
+        """Layer indices whose KV cache supports quantization."""
         ...
 
     def forward_logits(
@@ -57,8 +61,8 @@ class KvProbeBackend(Protocol):
         """Run a forward pass with the given per-layer KV quantization.
 
         ``layer_bits`` maps text-layer indices to KV bit-widths; unlisted layers
-        (and ``None``) use BF16 KV. Returns logits as a numpy-compatible array
-        of shape ``(1, positions, vocab)``.
+        (and ``None``) use the model's default cache. Returns logits as a
+        numpy-compatible array of shape ``(1, positions, vocab)``.
         """
         ...
 
@@ -92,6 +96,61 @@ class MlxKvProbeBackend:
         self._ensure_mlx()
         self._model, _ = self._load(str(model_dir))
 
+    def _prompt_caches(self) -> list[Any]:
+        return list(self._cache_module.make_prompt_cache(self._model))
+
+    def quantizable_layers(self) -> set[int]:
+        """Layer indices whose default cache is a standard KV cache.
+
+        Hybrid architectures (e.g. Qwen 3.6 gated-delta linear attention) use
+        recurrent state caches on most layers; KV quantization applies only to
+        the standard-attention layers.
+        """
+        if self._model is None:
+            raise ProbeError("KV probe backend has no loaded model")
+        kv_cache_type = self._cache_module.KVCache
+        return {
+            index
+            for index, cache in enumerate(self._prompt_caches())
+            if type(cache) is kv_cache_type
+        }
+
+    def _fake_quant_cache(self, bits: int, group_size: int) -> Any:
+        """A KVCache that round-trips K/V through quantize→dequantize.
+
+        Hybrid attention implementations do not all execute the packed
+        `QuantizedKVCache` path, so sensitivity probing measures the numerical
+        effect of KV quantization directly while keeping the standard
+        attention kernels. The runtime kernel path (AX Engine) differs either
+        way; the probe's subject is precision loss, not kernel throughput.
+        """
+        mx = self._mlx
+        base = self._cache_module.KVCache
+
+        def fake_quant(array: Any) -> Any:
+            shape = array.shape
+            dtype = array.dtype
+            if shape[-1] % group_size != 0:
+                raise ProbeError(
+                    f"KV head dimension {shape[-1]} is not divisible by group size {group_size}"
+                )
+            flat = array.reshape(-1, shape[-1])
+            packed, scales, biases = mx.quantize(flat, group_size=group_size, bits=bits)
+            restored = mx.dequantize(
+                packed,
+                scales,
+                biases,
+                group_size=group_size,
+                bits=bits,
+            )
+            return restored.reshape(shape).astype(dtype)
+
+        class FakeQuantKVCache(base):  # type: ignore[misc, valid-type]
+            def update_and_fetch(self, keys: Any, values: Any) -> Any:
+                return super().update_and_fetch(fake_quant(keys), fake_quant(values))
+
+        return FakeQuantKVCache()
+
     def forward_logits(
         self,
         input_ids: Any,
@@ -111,14 +170,16 @@ class MlxKvProbeBackend:
             tokens = tokens[None, :]
         if tokens.shape[1] < 2:
             raise ProbeError("KV probes require at least two tokens")
-        layers = getattr(self._model, "layers", None) or self._model.model.layers
-        caches = []
-        for index in range(len(layers)):
-            bits = (layer_bits or {}).get(index)
-            if bits is None or bits >= 16:
-                caches.append(self._cache_module.KVCache())
-            else:
-                caches.append(self._cache_module.QuantizedKVCache(group_size=group_size, bits=bits))
+        caches = self._prompt_caches()
+        quantizable = self.quantizable_layers()
+        for index, bits in (layer_bits or {}).items():
+            if bits >= 16:
+                continue
+            if index not in quantizable:
+                raise ProbeError(
+                    f"layer {index} does not use a standard KV cache and cannot be quantized"
+                )
+            caches[index] = self._fake_quant_cache(bits, group_size)
         logits = self._model(tokens, cache=caches)
         mx.eval(logits)
         return np.asarray(logits.astype(mx.float32))
@@ -194,6 +255,7 @@ def measure_kv_sensitivity(
         raise ProbeError("calibration cache profile does not match the probe profile")
 
     backend.load_model(Path(model_dir).expanduser().resolve())
+    quantizable = backend.quantizable_layers()
     baseline = [
         backend.forward_logits(batch, layer_bits=None, group_size=group_size) for batch in batches
     ]
@@ -202,6 +264,19 @@ def measure_kv_sensitivity(
     for layer_index in range(layer_count):
         candidates: list[CandidateMeasurement] = []
         for bits in quantized_bits:
+            if layer_index not in quantizable:
+                candidates.append(
+                    CandidateMeasurement(
+                        bits=bits,
+                        method=QuantMethod.AFFINE,
+                        group_size=group_size,
+                        metrics=MetricVector(),
+                        supported=False,
+                        measured_tokens=0,
+                        note="layer uses a non-KV recurrent cache; KV quantization not applicable",
+                    )
+                )
+                continue
             candidate_logits = [
                 backend.forward_logits(
                     batch,
@@ -234,7 +309,12 @@ def measure_kv_sensitivity(
             )
         )
         entries.append(KvLayerSensitivity(layer_index=layer_index, candidates=candidates))
-        _LOG.info("kv_layer_probed", layer=layer_index, candidates=len(candidates))
+        _LOG.info(
+            "kv_layer_probed",
+            layer=layer_index,
+            quantizable=layer_index in quantizable,
+            candidates=len(candidates),
+        )
 
     calibration = CalibrationEvidence(
         dataset_id=_calibration_dataset_id(cache_path, cache_manifest),

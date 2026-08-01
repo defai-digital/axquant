@@ -47,12 +47,16 @@ class _FakeKvBackend:
 
     backend_id = "fake-kv"
 
-    def __init__(self) -> None:
+    def __init__(self, *, quantizable: set[int] | None = None) -> None:
         self.loaded: Path | None = None
+        self._quantizable = quantizable
 
     def load_model(self, model_dir: Path) -> None:
         assert model_dir.is_dir()
         self.loaded = model_dir
+
+    def quantizable_layers(self) -> set[int]:
+        return set(range(64)) if self._quantizable is None else self._quantizable
 
     def forward_logits(
         self,
@@ -308,3 +312,41 @@ def test_publication_gate_reproduces_measured_kv_allocation(
     )
     with pytest.raises(ValidationGateError, match="selection budget"):
         _verify_measured_kv_plan(artifact, plan)
+
+
+def test_hybrid_architecture_marks_non_kv_layers_unsupported(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    cache = _calibration_cache(tmp_path, identity)
+    # Only layers 3 and 7 have standard KV caches (hybrid linear-attention model).
+    report = measure_kv_sensitivity(
+        inventory,
+        model_dir=qwen36_model_dir,
+        calibration_cache=cache,
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 8),
+        token_budget=32,
+        backend=_FakeKvBackend(quantizable={3, 7}),
+    )
+    recurrent = next(entry for entry in report.entries if entry.layer_index == 0)
+    assert all(not candidate.supported for candidate in recurrent.candidates if candidate.bits < 16)
+    attention = next(entry for entry in report.entries if entry.layer_index == 3)
+    assert all(candidate.supported for candidate in attention.candidates)
+
+    plan = allocate_kv_cache_measured(report, max_output_kl=10.0)
+    by_layer = {layer.layer_index: layer for layer in plan.layers}
+    assert by_layer[0].bits == 16
+    assert "not quantizable" in by_layer[0].reason
+    assert by_layer[3].bits == 4
+    assert by_layer[7].bits == 4

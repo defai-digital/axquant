@@ -147,11 +147,18 @@ def allocate_kv_cache_measured(
                 )
                 break
         if selected is None:
+            any_supported = any(
+                candidate.bits < 16 and candidate.supported for candidate in entry.candidates
+            )
             selected = KvLayerAllocation(
                 layer_index=entry.layer_index,
                 bits=16,
                 group_size=report.group_size,
-                reason=f"no quantized KV candidate met the output-KL budget {max_output_kl}",
+                reason=(
+                    f"no quantized KV candidate met the output-KL budget {max_output_kl}"
+                    if any_supported
+                    else "layer KV is not quantizable (non-KV recurrent cache)"
+                ),
             )
         layers.append(selected)
         chosen_bits.append(selected.bits)
