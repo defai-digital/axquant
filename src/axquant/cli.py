@@ -502,8 +502,10 @@ def _build_parser() -> argparse.ArgumentParser:
     runtime_parser.add_argument("--revision")
     runtime_parser.add_argument(
         "--runtime",
-        choices=[runtime.value for runtime in RuntimeName],
+        choices=[*(runtime.value for runtime in RuntimeName), "mlx-lm-kv"],
         default=RuntimeName.AX_ENGINE.value,
+        help="mlx-lm-kv executes the artifact's planned per-layer KV-cache "
+        "precision table through the public MLX-LM prompt-cache API",
     )
     runtime_parser.add_argument("--ax-engine", default="ax-engine")
     runtime_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
@@ -1395,13 +1397,26 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "runtime-check":
-        runtime = RuntimeName(args.runtime)
         runtime_model_path = Path(args.model).expanduser()
         runtime_model = ModelIdentity(
             model_id=args.model_id or args.model,
             revision=args.revision,
             local_path=(str(runtime_model_path.resolve()) if runtime_model_path.is_dir() else None),
         )
+        if args.runtime == "mlx-lm-kv":
+            from axquant.runtime import check_mlx_lm_kv_layered
+
+            result = check_mlx_lm_kv_layered(args.model, model_identity=runtime_model)
+            write_data(args.output, result)
+            log_method = log.info if result.passed else log.warning
+            log_method(
+                "runtime_check_completed",
+                runtime="mlx-lm-kv",
+                passed=result.passed,
+                output=str(args.output),
+            )
+            return 0 if result.passed else 1
+        runtime = RuntimeName(args.runtime)
         result = (
             check_ax_engine(
                 args.model,

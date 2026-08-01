@@ -438,7 +438,13 @@ class RuntimeCheck(StrictModel):
     schema_version: Literal["axquant.runtime-check.v2"] = "axquant.runtime-check.v2"
     model: ModelIdentity
     runtime: RuntimeName
-    check_kind: Literal["manifest", "doctor", "static-compatibility", "generation-smoke"]
+    check_kind: Literal[
+        "manifest",
+        "doctor",
+        "static-compatibility",
+        "generation-smoke",
+        "kv-layered-generation-smoke",
+    ]
     available: bool
     passed: bool
     command: list[str] = Field(default_factory=list)

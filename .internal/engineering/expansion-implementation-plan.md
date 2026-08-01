@@ -393,14 +393,22 @@ conversion smoke with full coverage and integrity checks) is satisfied on
   (advisory 4-bit/group-64) passes generation **with quantized KV actually
   executing** — the recorded command carries `--kv-bits 4 --kv-group-size
   64` and the report binds the source as the artifact's advisory values.
-- Honest scope notes: MLX-LM's public path applies one global KV precision
-  (the advisory values exist for exactly this), so the per-layer table
-  executes fully only on the future AX Engine native path; and for the
-  hybrid Qwen 3.6 family MLX-LM's packed quantized-KV path does not run
-  (E5 log) — standard-attention families like MiniCPM5/Qwen 3.5 dense are
-  the compatibility-path beneficiaries today. AX Engine-native per-layer
-  quantized KV (cache storage, append/read, MTP-clone interplay) remains
-  the scoped engine project.
+- **Per-layer execution landed the same session**: `axquant.kv_exec` builds
+  one cache object per layer from the plan's table (`QuantizedKVCache` for
+  quantized layers, the model's own cache otherwise) and generates through
+  MLX-LM's public `prompt_cache` API, whose attention helper dispatches per
+  cache object — the plan's exact per-layer precisions execute at runtime
+  with zero private interfaces. `runtime-check --runtime mlx-lm-kv` wraps
+  it with a typed report. Real evidence on the MiniCPM5-1B KV artifact:
+  all 24 quantized layer caches active, executed bits == planned bits
+  (6 layers at 8-bit, 18 at 4-bit), generation passing.
+- Honest scope notes: the hybrid Qwen 3.6 family fails closed in this path
+  (MLX-LM's quantized-SDPA shape handling rejects the family's attention —
+  reproduced: broadcast error at prefill; consistent with the E5 log), so
+  its per-layer KV awaits AX Engine-native quantized KV (cache storage,
+  append/read, MTP-clone interplay) — the one remaining scoped engine
+  project. Standard-attention families (MiniCPM5, Qwen 3.5 dense) have
+  full per-layer KV execution today.
 
 ### MoE conversion support (2026-08-01, same session)
 

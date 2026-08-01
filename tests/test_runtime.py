@@ -372,3 +372,38 @@ def test_conversion_scope_rejects_kv_layer_count_mismatch(qwen36_model_dir: Path
     plan.kv_cache = allocate_kv_cache(layer_count + 1, default_bits=4)
     with pytest.raises(ArtifactError, match="does not cover the text layer count"):
         assert_conversion_scope(plan)
+
+
+def test_kv_layered_check_parses_execution_report(qwen36_model_dir: Path) -> None:
+    from axquant.runtime import check_mlx_lm_kv_layered
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        assert command[1:3] == ["-m", "axquant.kv_exec"]
+        return subprocess.CompletedProcess(
+            list(command),
+            0,
+            stdout=(
+                '{"ok": true, "output_characters": 4, '
+                '"planned_layer_bits": [8, 4], "executed_layer_bits": [8, 4], '
+                '"quantized_layers_active": 2, "per_layer_execution": true}'
+            ),
+            stderr="",
+        )
+
+    result = check_mlx_lm_kv_layered(qwen36_model_dir, runner=runner)
+    assert result.passed
+    assert result.check_kind == "kv-layered-generation-smoke"
+    assert result.report["executed_layer_bits"] == [8, 4]
+    assert result.report["per_layer_execution"] is True
+
+    def failing_runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            list(command),
+            1,
+            stdout='{"ok": false, "error": "no layer accepted a quantized KV cache"}',
+            stderr="",
+        )
+
+    failed = check_mlx_lm_kv_layered(qwen36_model_dir, runner=failing_runner)
+    assert not failed.passed
+    assert "no layer accepted" in failed.report["error"]

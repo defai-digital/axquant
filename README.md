@@ -151,12 +151,15 @@ Implemented now:
   to user conversions without upgrading their evidence kind, resolvable locally or from
   revision-pinned `hf://` references; prepared releases package their bundle automatically;
 - a registry-derived support matrix (`support-matrix`) listing every family and tier;
-- per-layer KV-cache precision planning: prior-based (`--kv-cache prior`) and measured
-  (`analyze-kv` + `plan --kv-cache measured`, with the plan digest-bound to its sensitivity
-  report), emitting AX Engine runtime metadata and an advisory MLX-LM fallback — and the
-  MLX-LM runtime smoke **executes** the advisory KV quantization through the public
-  `QuantizedKVCache` path on standard-attention families (per-layer execution in AX Engine
-  is the scoped native-runtime project);
+- per-layer KV-cache precision planning **and runtime execution**: prior-based
+  (`--kv-cache prior`) and measured (`analyze-kv` + `plan --kv-cache measured`, digest-bound
+  to the sensitivity report) planning, and `runtime-check --runtime mlx-lm-kv` executes the
+  plan's exact per-layer table at runtime — one cache object per layer through MLX-LM's
+  public `prompt_cache`/`QuantizedKVCache` API, with per-layer mixed precisions (e.g.
+  8-bit boundary + 4-bit interior layers) verified active on real artifacts. The ordinary
+  generation smoke also applies the advisory global KV values. Families whose attention
+  implementation rejects quantized caches fail closed (the hybrid Qwen 3.6 path awaits
+  AX Engine-native KV, the scoped engine project);
 - a fail-closed measured-KV release chain: conversion packages the bound `kv_sensitivity.json`
   (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
   per-layer allocation from the packaged report;

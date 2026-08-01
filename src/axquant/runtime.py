@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
@@ -440,3 +441,51 @@ def assert_conversion_scope(plan: QuantizationPlan) -> None:
             and len(plan.kv_cache.layers) != profile.text_layer_count
         ):
             raise ArtifactError("the KV-cache plan does not cover the text layer count")
+
+
+def check_mlx_lm_kv_layered(
+    model_dir: str | Path,
+    *,
+    runner: CommandRunner = _run,
+    model_identity: ModelIdentity | None = None,
+) -> RuntimeCheck:
+    """Execute the artifact's planned per-layer KV precisions through MLX-LM.
+
+    Runs ``python -m axquant.kv_exec``, which builds one cache object per
+    layer from the planned table (``QuantizedKVCache`` for quantized layers,
+    the model's own cache otherwise) and generates through the public
+    ``prompt_cache`` API — the compatibility runtime's true per-layer KV
+    execution path. Families whose attention implementation rejects
+    quantized caches fail closed with the runtime's own error.
+    """
+    directory = Path(model_dir).expanduser().resolve()
+    model = _model_identity(directory, model_identity)
+    command = [
+        sys.executable,
+        "-m",
+        "axquant.kv_exec",
+        "--model",
+        str(directory),
+        "--max-tokens",
+        "16",
+    ]
+    completed = runner(command)
+    report: dict[str, Any] = {"scope": "per-layer-kv-generation"}
+    try:
+        payload = json.loads(completed.stdout.strip().splitlines()[-1])
+        if isinstance(payload, dict):
+            report.update(payload)
+    except (json.JSONDecodeError, IndexError):
+        report["error"] = "kv_exec produced no parseable report"
+    passed = completed.returncode == 0 and bool(report.get("ok"))
+    return RuntimeCheck(
+        model=model,
+        runtime=RuntimeName.MLX_LM,
+        check_kind="kv-layered-generation-smoke",
+        available=True,
+        passed=passed,
+        command=command,
+        exit_code=completed.returncode,
+        report=report,
+        stderr=completed.stderr,
+    )
