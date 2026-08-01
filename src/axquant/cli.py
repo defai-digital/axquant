@@ -623,6 +623,12 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="KEY=VALUE",
         help="Allowlisted AX Engine env control applied to both arms (repeatable)",
     )
+    benchmark_ab_parser.add_argument(
+        "--qwen36-exact-profile",
+        action="store_true",
+        help="Apply the complete Qwen 3.6 exact-MTP measurement contract "
+        "(the formal-suite env set); explicit --runtime-env values win",
+    )
     benchmark_ab_parser.add_argument("--output-dir", default="benchmark-ab")
     benchmark_ab_parser.add_argument("--quality-evaluation")
 
@@ -1494,6 +1500,10 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         runtime_env = parse_runtime_env_items(args.runtime_env)
+        if args.qwen36_exact_profile:
+            from axquant.benchmark import QWEN36_EXACT_MTP_PROFILE_ENV
+
+            runtime_env = {**QWEN36_EXACT_MTP_PROFILE_ENV, **runtime_env}
         config_direct = BenchmarkConfig(
             model=model_identity,
             mtp_enabled=False,

@@ -744,3 +744,34 @@ class TestMtpDiagnostics:
         )
         with pytest.raises(InvariantViolationError, match="runtime_env"):
             validate_ab_invariant(base_config, mtp_config)
+
+
+def test_qwen36_exact_profile_env_is_complete_and_allowlisted(
+    base_config: BenchmarkConfig,
+) -> None:
+    """The exact flag alone is not the measurement contract (AXQ M2 discipline).
+
+    The 2026-08-01 M5 discriminator measured the same artifact/binary/host at
+    0.8925x with only the exact flag and 1.0969x under the full profile, so
+    the profile constant must carry every formal-suite member and validate
+    through the BenchmarkConfig allowlist unchanged.
+    """
+    from axquant.benchmark import QWEN36_EXACT_MTP_PROFILE_ENV
+
+    config = base_config.model_copy(update={"runtime_env": dict(QWEN36_EXACT_MTP_PROFILE_ENV)})
+    assert config.runtime_env == dict(sorted(QWEN36_EXACT_MTP_PROFILE_ENV.items()))
+    assert QWEN36_EXACT_MTP_PROFILE_ENV["AX_MLX_QWEN_LINEAR_MTP_EXACT"] == "1"
+    for member in (
+        "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS",
+        "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT",
+        "AX_MLX_SPECULATIVE_SPLIT_FFN",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL",
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE",
+    ):
+        assert member in QWEN36_EXACT_MTP_PROFILE_ENV
+    # Explicit user overrides must win over the profile defaults.
+    merged = {**QWEN36_EXACT_MTP_PROFILE_ENV, **{"AX_MLX_MTP_BYPASS_MIN_SAMPLES": "8"}}
+    assert merged["AX_MLX_MTP_BYPASS_MIN_SAMPLES"] == "8"

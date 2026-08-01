@@ -198,10 +198,43 @@ are development evidence pending the formal supported-host suite.
   0.9381 acceptance and zero kernel fallbacks. Both formal-path options are
   therefore verified — prepared layout + notarized 6.12.1, or byte-preserved
   + a future release carrying the `mtp_norm_layout` loader.
+- First M5 formal-host speed measurement attempt (2026-08-01, idle Apple M5
+  Max, notarized 6.12.1, 18 agent prompts, 512 tokens, depth 1, only
+  `AX_MLX_QWEN_LINEAR_MTP_EXACT=1`): exactness passed with acceptance 0.9615
+  but the ratio was 0.8925, with rollback wall averaging ~22 ms/cycle. The
+  follow-up investigation proved this measurement was **not protocol-valid**:
+  same-artifact/same-binary/same-host discriminator runs showed the formal
+  cand-002 tree also degrades to ~26 ms/cycle rollback without the formal
+  runner's full environment, and recovers to ~0.9 ms/cycle with it. The
+  formal exact-profile contract requires the full eight-variable set from
+  `run_qwen36_v1_recovered_fast_formal.zsh` (`AX_MLX_MTP_BYPASS_MIN_SAMPLES`,
+  `AX_MLX_MTP_DRAFT_MIN_CONFIDENCE`, `AX_MLX_MTP_LINEAR_EXACT_REPLAY`,
+  `AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL`,
+  `AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS`,
+  `AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS=all`,
+  `AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT`,
+  `AX_MLX_SPECULATIVE_SPLIT_FFN`), not the exact flag alone — without them
+  the verifier falls off the invariant-projection graph and every cycle pays
+  an expensive adoption path.
+- With the full formal environment, per-cycle discriminator costs on M5 are
+  **better for axq026 than for cand-002**: rollback 0.5 vs 0.9 ms, draft 4.2
+  vs 6.2 ms, verify-eval 34.0 vs 37.0 ms.
+- The authoritative formal-protocol A/B on M5 (full env contract, 5 agent
+  prompts, 2 warmups + 5 trials, 512 tokens, seed 20260728, notarized
+  6.12.1): **speedup 1.0969** (direct 32.68 tok/s, MTP 35.85), exactness
+  passes with zero divergence, acceptance 0.8955, rollback 0.6 ms/cycle.
+  Reading: axq026's absolute MTP throughput (35.85) exceeds cand-002's
+  (35.22) — the verify pipeline is healthy — but the smaller model's faster
+  direct decode (32.68 vs 30.31) lowers the ratio. Reaching 1.20x needs the
+  MTP cycle to shed ~4.6 ms (verify-eval 35.0 ms/cycle is the dominant
+  target), or the exact contract extended past depth 1; both are AX Engine
+  runtime work, now precisely quantified with no configuration confusion.
+- Toolkit hardening from this incident: `benchmark-ab --qwen36-exact-profile`
+  injects the complete measurement contract (explicit `--runtime-env` wins),
+  so a future runner cannot silently drop contract members again.
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
-  supported-host suite. Note the structural tension: a smaller candidate has
-  faster direct decode, which raises the bar for the MTP speed ratio.
+  supported-host suite.
 
 ## Phase E5 — Certification wave 1 (evidence work, not toolkit work)
 
