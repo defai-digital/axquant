@@ -162,10 +162,11 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   already measures, on real hardware: size ratio **1.0888** (inside the 110% gate), dual-profile
   quality above the 0.98 floor (agent-coding retention 1.0099, general 1.0000, governed
   json/syntax validity pairs at 1.0), and MTP greedy **exactness with zero divergence** at
-  0.90–0.96 draft acceptance. Its measured MTP speedup under the formal protocol is **1.0969×**
-  against the required 1.20×; the gap is a scoped AX Engine runtime optimization (removing the
-  per-cycle CPU verify-graph build, modeled to ~1.24×), not a planner or artifact defect. Formal
-  validation/hardware/audit evidence then follows on the supported host;
+  0.90–0.96 draft acceptance. Its measured MTP speedup under the formal protocol is **1.1912×**
+  against the required 1.20× (AX Engine's new async-draft overlap lifted it from 1.0969×, with
+  byte-identical output) — within single-run variance of the gate, pending the formal suite on a
+  runtime release carrying the flag. The residual gap is engine pipelining work, not a planner or
+  artifact defect. Formal validation/hardware/audit evidence then follows on the supported host;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);

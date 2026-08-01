@@ -274,6 +274,21 @@ are development evidence pending the formal supported-host suite.
   compile-hostable, or restructure the MTP cycle to overlap graph build
   with GPU execution (the direct path's double-buffer pattern applied to
   the verifier).
+- The overlap restructure **landed the same day** (AX Engine b2d6afdd,
+  `AX_MLX_MTP_ASYNC_DRAFT`, default off): the greedy zero-gate draft is
+  scheduled with `async_eval` and the verifier chains directly on the lazy
+  draft-token arrays through a new ids-taking forward variant, so the
+  verify graph builds while the draft head's GPU forward runs and one eval
+  batch materialises both. Exactness is preserved by construction and
+  verified: byte-identical greedy output on M3 and M5 with unchanged
+  acceptance (0.8955), draft wall 4.2 → 0.2 ms/cycle, M3 end-to-end −9.3%.
+  The M5 formal-protocol depth-1 measurement improves from 1.0969x to
+  **1.1912x** (direct 32.56 tok/s, MTP 38.79) — within ~0.75% (~0.2
+  ms/cycle) of the 1.20x gate, i.e. inside single-run variance. The formal
+  decision needs the formal suite on a notarized runtime carrying the
+  flag; remaining headroom (the ~1.9 ms of verify build not covered by the
+  draft overlap, deeper cross-cycle pipelining, compile-hostable kernels)
+  stays scoped for the next engine round.
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite.
