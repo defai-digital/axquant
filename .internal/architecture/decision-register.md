@@ -37,6 +37,7 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-024 | Measure per-layer KV-cache sensitivity and bind measured KV plans to their report | Accepted |
 | AXQ-025 | Gate measured KV plans at release by packaged report and deterministic reallocation | Accepted |
 | AXQ-026 | Resolve the size gate through a governed 8-bit LM-head floor | Accepted |
+| AXQ-027 | Document independent algorithm derivation sources for clean-room provenance | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -916,6 +917,24 @@ The following require later ADR updates:
 - VLM calibration and vision precision;
 - LoRA rank guidance derived from sensitivity artifacts;
 - additional bit formats and group/column granularity.
+
+## AXQ-027: Document independent algorithm derivation sources for clean-room provenance
+
+**Status:** Accepted (2026-08-01)
+
+Every core algorithm in the toolkit traces to published academic literature rather than any
+competitor's implementation. ADR 0006 records the specific sources:
+
+- Greedy marginal-efficiency allocation: fractional knapsack (Cormen et al.), rate-distortion
+  optimization (Shannon 1948, Cover & Thomas).
+- KL divergence sensitivity: Kullback & Leibler 1951; standard in PTQ (Dettmers 2022, Frantar 2022).
+- Isolated-module probing: layer-wise reconstruction (Li et al. 2016), per-layer sensitivity
+  (Dong et al. 2019).
+- Fake-quant KV probing: quantize-dequantize round-trip (Jacob et al. 2018).
+- Cosine distance and token disagreement: standard distributional metrics.
+- Atomic staging conversion: POSIX rename(2) semantics.
+
+Future algorithms must record their derivation source in ADR 0006 or a supplementary ADR.
 
 ## Supersession policy
 
