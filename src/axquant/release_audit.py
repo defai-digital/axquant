@@ -422,8 +422,8 @@ def _wheel_identity(path: Path) -> tuple[str | None, list[str]]:
                 issues.append("toolkit wheel does not declare the py3-none-any tag")
             required_members = {
                 "axquant/__init__.py",
-                "axquant/cli.py",
-                "axquant/schema.py",
+                "axquant/cli/__init__.py",
+                "axquant/schema/__init__.py",
                 "axquant/release_audit.py",
                 "axquant/release_exceptions.py",
                 "axquant/hardware_registry.py",

@@ -1,0 +1,688 @@
+from __future__ import annotations
+
+import argparse
+from datetime import datetime
+
+from axquant.profiles import implemented_profiles
+from axquant.schema import MtpSidecarLayout, ProfileName, QuantMethod, RuntimeName
+
+
+def _bits(value: str) -> tuple[int, ...]:
+    parsed: list[int] = []
+    for item in value.split(","):
+        normalized = item.strip().lower()
+        if normalized == "bf16":
+            parsed.append(16)
+            continue
+        try:
+            parsed.append(int(normalized))
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid precision {item!r}") from exc
+    result = tuple(sorted(set(parsed)))
+    if not result:
+        raise argparse.ArgumentTypeError("at least one precision is required")
+    return result
+
+
+def _domains(value: str) -> list[str]:
+    result = [item.strip() for item in value.split(",") if item.strip()]
+    if not result:
+        raise argparse.ArgumentTypeError("at least one calibration domain is required")
+    return result
+
+
+def _methods(value: str) -> tuple[QuantMethod, ...]:
+    parsed: list[QuantMethod] = []
+    for item in value.split(","):
+        try:
+            parsed.append(QuantMethod(item.strip().lower()))
+        except ValueError as exc:
+            choices = ", ".join(method.value for method in QuantMethod)
+            raise argparse.ArgumentTypeError(
+                f"quantization method must be one of {choices}"
+            ) from exc
+    result = tuple(sorted(set(parsed), key=lambda method: method.value))
+    if not result:
+        raise argparse.ArgumentTypeError("at least one quantization method is required")
+    return result
+
+
+def _probe_methods(value: str) -> tuple[QuantMethod, ...]:
+    result = _methods(value)
+    unsupported = set(result) - {QuantMethod.AFFINE, QuantMethod.DWQ}
+    if unsupported:
+        names = ", ".join(sorted(method.value for method in unsupported))
+        raise argparse.ArgumentTypeError(f"measured probing cannot execute methods: {names}")
+    return result
+
+
+def _profile(value: str) -> ProfileName:
+    try:
+        profile = ProfileName(value)
+    except ValueError as exc:
+        choices = ", ".join(item.value for item in implemented_profiles())
+        raise argparse.ArgumentTypeError(f"profile must be one of {choices}") from exc
+    if profile not in implemented_profiles():
+        choices = ", ".join(item.value for item in implemented_profiles())
+        raise argparse.ArgumentTypeError(f"profile must be one of {choices}")
+    return profile
+
+
+def _iso_datetime(value: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("timestamp must be ISO 8601") from exc
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError("timestamp must include a timezone")
+    return parsed
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="axquant",
+        description="Plan, convert, and validate supported LLM checkpoints for MLX and AX Engine",
+    )
+    parser.add_argument("--verbose", action="store_true")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    feasibility_parser = subparsers.add_parser("feasibility")
+    feasibility_parser.add_argument("--reference-4bit", required=True)
+    feasibility_parser.add_argument("--reference-4bit-id")
+    feasibility_parser.add_argument("--reference-4bit-revision")
+    feasibility_parser.add_argument("--reference-6bit", required=True)
+    feasibility_parser.add_argument("--reference-6bit-id")
+    feasibility_parser.add_argument("--reference-6bit-revision")
+    feasibility_parser.add_argument("--mixed-baseline")
+    feasibility_parser.add_argument("--mixed-baseline-id")
+    feasibility_parser.add_argument("--mixed-baseline-revision")
+    feasibility_parser.add_argument("--source-bf16")
+    feasibility_parser.add_argument("--source-bf16-id")
+    feasibility_parser.add_argument("--source-bf16-revision")
+    feasibility_parser.add_argument("--run-runtime-checks", action="store_true")
+    feasibility_parser.add_argument("--ax-engine", default="ax-engine")
+    feasibility_parser.add_argument("--require-ready", action="store_true")
+    feasibility_parser.add_argument("--output", default="feasibility_report.json")
+    feasibility_parser.add_argument(
+        "--markdown-output",
+        default="feasibility_report.md",
+    )
+
+    inspect_parser = subparsers.add_parser("inspect")
+    inspect_parser.add_argument("--model", required=True)
+    inspect_parser.add_argument("--model-id")
+    inspect_parser.add_argument("--revision")
+    inspect_parser.add_argument("--output", default="architecture_report.json")
+    inspect_parser.add_argument("--allow-download", action="store_true")
+    inspect_parser.add_argument("--allow-quantized", action="store_true")
+
+    calibrate_parser = subparsers.add_parser("calibrate")
+    calibrate_parser.add_argument("--model", required=True)
+    calibrate_parser.add_argument("--model-id")
+    calibrate_parser.add_argument("--revision")
+    calibrate_parser.add_argument("--tokenizer-revision")
+    calibrate_parser.add_argument("--dataset", required=True)
+    calibrate_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    calibrate_parser.add_argument("--domains", type=_domains, default=["general"])
+    calibrate_parser.add_argument("--max-seq-length", type=int, default=2048)
+    calibrate_parser.add_argument("--seed", type=int, default=0)
+    calibrate_parser.add_argument("--attest-calibration-eval-separation", action="store_true")
+    calibrate_parser.add_argument("--manifest-only", action="store_true")
+    calibrate_parser.add_argument("--output", default="calibration-cache")
+
+    analyze_parser = subparsers.add_parser("analyze")
+    analyze_parser.add_argument("--model", required=True)
+    analyze_parser.add_argument("--model-id")
+    analyze_parser.add_argument("--revision")
+    analyze_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    analyze_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
+    analyze_parser.add_argument(
+        "--methods",
+        type=_probe_methods,
+        default=(QuantMethod.AFFINE,),
+    )
+    analyze_parser.add_argument("--group-size", type=int, default=64)
+    analyze_parser.add_argument("--calibration")
+    analyze_parser.add_argument("--base-sensitivity")
+    analyze_parser.add_argument("--target-tensor", action="append", default=[])
+    analyze_parser.add_argument("--token-budget", type=int, default=2048)
+    analyze_parser.add_argument("--replay-batch-size", type=int, default=1)
+    analyze_parser.add_argument("--metric-positions", type=int, default=32)
+    analyze_parser.add_argument("--long-context-min-tokens", type=int, default=1024)
+    analyze_parser.add_argument("--warmup-replays", type=int, default=1)
+    analyze_parser.add_argument("--state")
+    analyze_parser.add_argument("--output", default="sensitivity_map.json")
+    analyze_parser.add_argument("--allow-download", action="store_true")
+
+    analyze_kv_parser = subparsers.add_parser(
+        "analyze-kv",
+        help="Measure per-layer KV-cache sensitivity over a tokenized calibration cache",
+    )
+    analyze_kv_parser.add_argument("--model", required=True)
+    analyze_kv_parser.add_argument("--model-id")
+    analyze_kv_parser.add_argument("--revision")
+    analyze_kv_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    analyze_kv_parser.add_argument("--calibration", required=True)
+    analyze_kv_parser.add_argument("--bits", type=_bits, default=(4, 6, 8))
+    analyze_kv_parser.add_argument("--group-size", type=int, default=64)
+    analyze_kv_parser.add_argument("--token-budget", type=int, default=2048)
+    analyze_kv_parser.add_argument("--metric-positions", type=int, default=32)
+    analyze_kv_parser.add_argument("--output", default="kv_sensitivity.json")
+
+    plan_parser = subparsers.add_parser("plan")
+    plan_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
+    plan_parser.add_argument("--target-bpw", type=float, default=4.8)
+    plan_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
+    plan_parser.add_argument(
+        "--methods",
+        type=_methods,
+        default=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.BF16),
+    )
+    plan_parser.add_argument("--group-size", type=int, default=64)
+    plan_parser.add_argument("--minimum-quality", type=float, default=0.98)
+    plan_parser.add_argument("--minimum-mtp-retention", type=float, default=0.95)
+    plan_parser.add_argument("--minimum-mtp-speedup", type=float, default=1.20)
+    plan_parser.add_argument("--max-size-ratio", type=float, default=1.10)
+    plan_parser.add_argument("--candidates", type=int, default=1)
+    plan_parser.add_argument(
+        "--mode",
+        choices=["balanced", "quality", "low-memory", "speed"],
+        default="balanced",
+    )
+    plan_parser.add_argument("--seed", type=int, default=0)
+    plan_parser.add_argument(
+        "--mtp",
+        choices=["protected", "adaptive", "disabled"],
+        default="protected",
+    )
+    plan_parser.add_argument("--mtp-bits", type=_bits, default=(8, 16))
+    plan_parser.add_argument("--mtp-min-bits", type=int, default=8)
+    plan_parser.add_argument(
+        "--lm-head-floor",
+        choices=["bf16", "8bit"],
+        default="bf16",
+        help="AXQ-026 governed size-gate path: 8bit lowers the LM-head weight "
+        "floor for this plan; release certification still requires measured "
+        "quality evidence",
+    )
+    plan_parser.add_argument("--allow-unmeasured", action="store_true")
+    plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
+    plan_parser.add_argument("--kv-default-bits", type=int, default=4)
+    plan_parser.add_argument("--kv-analysis", help="KV sensitivity report for --kv-cache measured")
+    plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
+    plan_parser.add_argument("--output", default="quantization-plans")
+
+    manual_plan_parser = subparsers.add_parser("plan-manual")
+    manual_plan_parser.add_argument("--inventory", required=True)
+    manual_plan_parser.add_argument("--recipe", required=True)
+    manual_plan_parser.add_argument("--output", default="manual-plan.json")
+    manual_plan_parser.add_argument("--markdown-output")
+
+    convert_parser = subparsers.add_parser("convert")
+    convert_parser.add_argument("--model", required=True)
+    convert_parser.add_argument("--revision")
+    convert_parser.add_argument("--plan", required=True)
+    convert_parser.add_argument("--mtp-sidecar")
+    convert_parser.add_argument(
+        "--mtp-layout",
+        choices=tuple(layout.value for layout in MtpSidecarLayout),
+        default=MtpSidecarLayout.BYTE_PRESERVED.value,
+        help="External MTP handling; transformed Qwen 3.6 layout requires explicit opt-in",
+    )
+    convert_parser.add_argument("--calibration-manifest")
+    convert_parser.add_argument(
+        "--kv-sensitivity",
+        help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
+    )
+    convert_parser.add_argument("--allow-unmeasured", action="store_true")
+    convert_parser.add_argument(
+        "--ax-engine-manifest",
+        choices=["required", "if-available", "skip"],
+        default="required",
+    )
+    convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
+    convert_parser.add_argument("--output", required=True)
+
+    quantize_parser = subparsers.add_parser(
+        "quantize",
+        help="One-command development conversion: inspect, plan from priors, convert",
+    )
+    quantize_parser.add_argument("--model", required=True)
+    quantize_parser.add_argument("--model-id")
+    quantize_parser.add_argument("--revision")
+    quantize_parser.add_argument("--output", required=True)
+    quantize_parser.add_argument(
+        "--profile",
+        choices=[profile.value for profile in implemented_profiles()],
+        default=ProfileName.GENERAL.value,
+    )
+    quantize_parser.add_argument("--target-bpw", type=float, default=4.8)
+    quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
+    quantize_parser.add_argument(
+        "--recipe",
+        help="Recipe bundle file or directory; replaces prior-based planning",
+    )
+    quantize_parser.add_argument("--calibration-manifest")
+    quantize_parser.add_argument(
+        "--kv-sensitivity",
+        help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
+    )
+    quantize_parser.add_argument("--mtp-sidecar")
+    quantize_parser.add_argument(
+        "--runtime-smoke",
+        choices=["none", "mlx-lm", "ax-engine"],
+        default="none",
+    )
+    quantize_parser.add_argument("--ax-engine", default="ax-engine")
+    quantize_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
+    quantize_parser.add_argument(
+        "--ax-engine-manifest",
+        choices=["required", "if-available", "skip"],
+        default="if-available",
+    )
+    quantize_parser.add_argument("--json", dest="json_output")
+
+    recipe_export_parser = subparsers.add_parser(
+        "recipe-export",
+        help="Export a plan as a checksummed recipe bundle",
+    )
+    recipe_export_parser.add_argument("--plan", required=True)
+    recipe_export_parser.add_argument("--bundle-id", required=True)
+    recipe_export_parser.add_argument("--output-dir", required=True)
+    recipe_export_parser.add_argument(
+        "--lineage",
+        action="append",
+        default=[],
+        metavar="NAME=SHA256",
+        help="Digest of a producing evidence artifact; repeatable",
+    )
+    recipe_export_parser.add_argument("--note", action="append", default=[])
+
+    support_matrix_parser = subparsers.add_parser(
+        "support-matrix",
+        help="List every registered model family with its declared support tier",
+    )
+    support_matrix_parser.add_argument("--output", help="Optional JSON output path")
+
+    head_to_head_parser = subparsers.add_parser(
+        "head-to-head",
+        help="Render the public comparison page from a bound benchmark evidence index",
+    )
+    head_to_head_parser.add_argument("--benchmark-index", required=True)
+    head_to_head_parser.add_argument("--title")
+    head_to_head_parser.add_argument("--output", default="head-to-head.md")
+
+    validate_parser = subparsers.add_parser("validate")
+    validate_parser.add_argument("--reference-evaluation", required=True)
+    validate_parser.add_argument("--candidate-direct-evaluation", required=True)
+    validate_parser.add_argument("--candidate-evaluation", required=True)
+    validate_parser.add_argument("--calibration-manifest")
+    validate_parser.add_argument("--size-reference")
+    validate_parser.add_argument("--candidate-size")
+    validate_parser.add_argument("--plan")
+    validate_parser.add_argument("--release-exception")
+    validate_parser.add_argument(
+        "--exception-evidence",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+    )
+    validate_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    validate_parser.add_argument("--output", default="benchmark_report.json")
+
+    size_parser = subparsers.add_parser("size-evidence")
+    size_parser.add_argument("--artifact-manifest")
+    size_parser.add_argument("--feasibility-report")
+    size_parser.add_argument("--model-id")
+    size_parser.add_argument("--revision")
+    size_parser.add_argument("--output", default="artifact_size_evidence.json")
+
+    exception_parser = subparsers.add_parser("release-exception")
+    exception_parser.add_argument("--exception-id", required=True)
+    exception_parser.add_argument("--plan", required=True)
+    exception_parser.add_argument("--candidate-size", required=True)
+    exception_parser.add_argument("--size-reference", required=True)
+    exception_parser.add_argument("--tradeoff-evidence", required=True)
+    exception_parser.add_argument(
+        "--evidence",
+        action="append",
+        default=[],
+        metavar="NAME=PATH",
+    )
+    exception_parser.add_argument("--max-weight-size-ratio", type=float, default=1.10)
+    exception_parser.add_argument("--minimum-measured-bpw", type=float, default=4.3)
+    exception_parser.add_argument("--maximum-measured-bpw", type=float, default=4.8)
+    exception_parser.add_argument("--measured-tradeoff", required=True)
+    exception_parser.add_argument("--owner", required=True)
+    exception_parser.add_argument("--approved-by", required=True)
+    exception_parser.add_argument("--approval-reference", required=True)
+    exception_parser.add_argument("--approved-at", type=_iso_datetime, required=True)
+    exception_parser.add_argument("--expires-at", type=_iso_datetime, required=True)
+    exception_parser.add_argument("--output", default="release_exception.json")
+
+    report_parser = subparsers.add_parser("report")
+    report_parser.add_argument("--plan", required=True)
+    report_parser.add_argument("--validation")
+    report_parser.add_argument("--output", default="benchmark_report.md")
+
+    prepare_parser = subparsers.add_parser("publish-prepare")
+    prepare_parser.add_argument("--model", required=True)
+    prepare_parser.add_argument("--repo", required=True)
+    prepare_parser.add_argument("--validation-index", required=True)
+    prepare_parser.add_argument("--hardware-registry", required=True)
+    prepare_parser.add_argument("--pareto-report", required=True)
+
+    publish_parser = subparsers.add_parser("publish")
+    publish_parser.add_argument("--model", required=True)
+    publish_parser.add_argument("--repo", required=True)
+    publish_parser.add_argument("--validation-index", required=True)
+    publish_parser.add_argument("--hardware-registry", required=True)
+    publish_parser.add_argument("--pareto-report", required=True)
+    publish_parser.add_argument("--release-audit")
+    publish_parser.add_argument("--release-audit-request")
+    publish_parser.add_argument("--private", action="store_true")
+    publish_parser.add_argument("--yes", action="store_true")
+
+    reproduction_parser = subparsers.add_parser("verify-reproduction")
+    reproduction_parser.add_argument("--recipe", required=True)
+    reproduction_parser.add_argument("--artifact", required=True)
+    reproduction_parser.add_argument("--output", default="reproduction_verification.json")
+
+    name_parser = subparsers.add_parser("name")
+    name_parser.add_argument("--base", required=True)
+    name_parser.add_argument("--target-class", default="4bit")
+    name_parser.add_argument("--owner", default="AutomatosX")
+    name_parser.add_argument("--mtp-suffix", action="store_true")
+    name_parser.add_argument("--no-mlx", action="store_true")
+
+    runtime_parser = subparsers.add_parser("runtime-check")
+    runtime_parser.add_argument("--model", required=True)
+    runtime_parser.add_argument("--model-id")
+    runtime_parser.add_argument("--revision")
+    runtime_parser.add_argument(
+        "--runtime",
+        choices=[*(runtime.value for runtime in RuntimeName), "mlx-lm-kv"],
+        default=RuntimeName.AX_ENGINE.value,
+        help="mlx-lm-kv executes the artifact's planned per-layer KV-cache "
+        "precision table through the public MLX-LM prompt-cache API",
+    )
+    runtime_parser.add_argument("--ax-engine", default="ax-engine")
+    runtime_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
+    runtime_parser.add_argument("--static-only", action="store_true")
+    runtime_parser.add_argument("--output", default="runtime_check.json")
+
+    benchmark_parser = subparsers.add_parser("benchmark")
+    benchmark_parser.add_argument("--model", required=True)
+    benchmark_parser.add_argument("--model-id")
+    benchmark_parser.add_argument("--revision")
+    benchmark_parser.add_argument("--prompts", required=True)
+    benchmark_parser.add_argument("--workload", default="agent-coding")
+    benchmark_parser.add_argument("--mtp", action="store_true", default=False)
+    benchmark_parser.add_argument(
+        "--baseline-kind",
+        default="candidate",
+        choices=[
+            "bf16",
+            "uniform-4bit",
+            "uniform-6bit",
+            "mixed-precision",
+            "awq",
+            "dwq",
+            "axquant-mtp-off",
+            "axquant-mtp-on",
+            "candidate",
+        ],
+    )
+    benchmark_parser.add_argument("--trials", type=int, default=5)
+    benchmark_parser.add_argument("--warmup", type=int, default=2)
+    benchmark_parser.add_argument("--max-tokens", type=int, default=512)
+    benchmark_parser.add_argument("--temperature", type=float, default=0.0)
+    benchmark_parser.add_argument("--draft-depth", type=int)
+    benchmark_parser.add_argument("--power-mode")
+    benchmark_parser.add_argument("--quantizer")
+    benchmark_parser.add_argument("--quantizer-version")
+    benchmark_parser.add_argument("--seed", type=int, default=0)
+    benchmark_parser.add_argument("--timeout", type=float, default=300.0)
+    benchmark_parser.add_argument("--ax-engine", default="ax-engine-bench")
+    benchmark_parser.add_argument(
+        "--runtime-env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Allowlisted AX Engine env control (repeatable), e.g. "
+        "AX_MLX_QWEN_LINEAR_ATTENTION_DECODE_POST_INPUT_METAL=0",
+    )
+    benchmark_parser.add_argument("--output", default="evaluation_bundle.json")
+    benchmark_parser.add_argument("--log-dir")
+    benchmark_parser.add_argument("--quality-evaluation")
+
+    benchmark_ab_parser = subparsers.add_parser("benchmark-ab")
+    benchmark_ab_parser.add_argument("--model", required=True)
+    benchmark_ab_parser.add_argument("--model-id")
+    benchmark_ab_parser.add_argument("--revision")
+    benchmark_ab_parser.add_argument("--prompts", required=True)
+    benchmark_ab_parser.add_argument("--workload", default="agent-coding")
+    benchmark_ab_parser.add_argument(
+        "--direct-baseline-kind",
+        default="axquant-mtp-off",
+        choices=[
+            "bf16",
+            "uniform-4bit",
+            "uniform-6bit",
+            "mixed-precision",
+            "awq",
+            "dwq",
+            "axquant-mtp-off",
+            "axquant-mtp-on",
+            "candidate",
+        ],
+    )
+    benchmark_ab_parser.add_argument(
+        "--mtp-baseline-kind",
+        default="axquant-mtp-on",
+        choices=[
+            "bf16",
+            "uniform-4bit",
+            "uniform-6bit",
+            "mixed-precision",
+            "awq",
+            "dwq",
+            "axquant-mtp-off",
+            "axquant-mtp-on",
+            "candidate",
+        ],
+    )
+    benchmark_ab_parser.add_argument("--trials", type=int, default=5)
+    benchmark_ab_parser.add_argument("--warmup", type=int, default=2)
+    benchmark_ab_parser.add_argument("--max-tokens", type=int, default=512)
+    benchmark_ab_parser.add_argument("--temperature", type=float, default=0.0)
+    benchmark_ab_parser.add_argument("--draft-depth", type=int)
+    benchmark_ab_parser.add_argument(
+        "--minimum-speedup",
+        type=float,
+        default=1.20,
+        help="Fail closed unless MTP median throughput is at least this multiple of direct",
+    )
+    benchmark_ab_parser.add_argument(
+        "--record-failed-speedup",
+        action="store_true",
+        help=(
+            "Write complete A/B evidence when only the speed gate fails, then return status 1; "
+            "exactness and matched-control invariants remain fail-closed"
+        ),
+    )
+    benchmark_ab_parser.add_argument("--power-mode")
+    benchmark_ab_parser.add_argument("--quantizer")
+    benchmark_ab_parser.add_argument("--quantizer-version")
+    benchmark_ab_parser.add_argument("--seed", type=int, default=0)
+    benchmark_ab_parser.add_argument("--timeout", type=float, default=300.0)
+    benchmark_ab_parser.add_argument("--ax-engine", default="ax-engine-bench")
+    benchmark_ab_parser.add_argument(
+        "--runtime-env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Allowlisted AX Engine env control applied to both arms (repeatable)",
+    )
+    benchmark_ab_parser.add_argument(
+        "--qwen36-exact-profile",
+        action="store_true",
+        help="Apply the complete Qwen 3.6 exact-MTP measurement contract "
+        "(the formal-suite env set); explicit --runtime-env values win",
+    )
+    benchmark_ab_parser.add_argument("--output-dir", default="benchmark-ab")
+    benchmark_ab_parser.add_argument("--quality-evaluation")
+
+    mtp_diagnose_parser = subparsers.add_parser(
+        "mtp-diagnose",
+        help="Run M2 kill-switch matrix (soft exactness) and write a diagnostic report",
+    )
+    mtp_diagnose_parser.add_argument("--model", required=True)
+    mtp_diagnose_parser.add_argument("--model-id")
+    mtp_diagnose_parser.add_argument("--revision")
+    mtp_diagnose_parser.add_argument("--prompts", required=True)
+    mtp_diagnose_parser.add_argument("--workload", default="agent-coding")
+    mtp_diagnose_parser.add_argument("--trials", type=int, default=5)
+    mtp_diagnose_parser.add_argument("--warmup", type=int, default=2)
+    mtp_diagnose_parser.add_argument("--max-tokens", type=int, default=64)
+    mtp_diagnose_parser.add_argument("--temperature", type=float, default=0.0)
+    mtp_diagnose_parser.add_argument("--draft-depth", type=int, default=1)
+    mtp_diagnose_parser.add_argument("--power-mode")
+    mtp_diagnose_parser.add_argument("--quantizer")
+    mtp_diagnose_parser.add_argument("--quantizer-version")
+    mtp_diagnose_parser.add_argument("--seed", type=int, default=0)
+    mtp_diagnose_parser.add_argument("--timeout", type=float, default=300.0)
+    mtp_diagnose_parser.add_argument("--ax-engine", default="ax-engine-bench")
+    mtp_diagnose_parser.add_argument(
+        "--profile",
+        action="append",
+        default=[],
+        dest="profiles",
+        help="Diagnostic profile name (repeatable). Default: baseline, "
+        "disable-post-input-metal, disable-la-decode-metal",
+    )
+    mtp_diagnose_parser.add_argument(
+        "--runtime-env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Extra allowlisted env applied to every profile (repeatable)",
+    )
+    mtp_diagnose_parser.add_argument(
+        "--minimum-mtp-speedup",
+        type=float,
+        default=1.20,
+        help="Release speedup floor used for release_ready scoring (default 1.20)",
+    )
+    mtp_diagnose_parser.add_argument("--output-dir", default="mtp-diagnose")
+    mtp_diagnose_parser.add_argument("--output", default="mtp_diagnostic_report.json")
+
+    quality_parser = subparsers.add_parser("evaluate-quality")
+    quality_parser.add_argument("--model", required=True)
+    quality_parser.add_argument("--model-id")
+    quality_parser.add_argument("--revision")
+    quality_parser.add_argument("--dataset", required=True)
+    quality_parser.add_argument("--max-seq-length", type=int, default=2048)
+    quality_parser.add_argument("--max-tokens", type=int, default=256)
+    quality_parser.add_argument("--max-samples", type=int)
+    quality_parser.add_argument("--seed", type=int, default=0)
+    quality_parser.add_argument("--output", default="quality_evaluation.json")
+
+    quality_compare_parser = subparsers.add_parser("compare-quality")
+    quality_compare_parser.add_argument("--reference", required=True)
+    quality_compare_parser.add_argument("--candidate", required=True)
+    quality_compare_parser.add_argument("--output", default="quality_comparison.json")
+
+    tokenize_parser = subparsers.add_parser("tokenize-calibration")
+    tokenize_parser.add_argument("--model", required=True)
+    tokenize_parser.add_argument("--model-id")
+    tokenize_parser.add_argument("--revision")
+    tokenize_parser.add_argument("--dataset", required=True)
+    tokenize_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    tokenize_parser.add_argument("--max-seq-length", type=int, default=2048)
+    tokenize_parser.add_argument("--seed", type=int, default=0)
+    tokenize_parser.add_argument("--domains", type=_domains, default=["general"])
+    suite_parser = subparsers.add_parser("prepare-suite")
+    suite_parser.add_argument("--output-dir", required=True)
+    suite_parser.add_argument("--seed", type=int, default=20260728)
+    tokenize_parser.add_argument("--tokenizer-revision")
+    tokenize_parser.add_argument("--attest-calibration-eval-separation", action="store_true")
+    tokenize_parser.add_argument("--output", default="calibration-cache")
+
+    refine_parser = subparsers.add_parser("refine")
+    refine_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
+    refine_parser.add_argument("--target-bpw", type=float, default=4.5)
+    refine_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
+    refine_parser.add_argument("--group-size", type=int, default=64)
+    refine_parser.add_argument("--top-n", type=int, default=3)
+    refine_parser.add_argument("--max-iterations", type=int, default=10)
+    refine_parser.add_argument("--eval-budget", type=int, default=50)
+    refine_parser.add_argument("--wall-clock", type=float, default=86400.0)
+    refine_parser.add_argument("--convergence", type=float, default=0.001)
+    refine_parser.add_argument("--swap-radius", type=int, default=5)
+    refine_parser.add_argument("--seed", type=int, default=0)
+    refine_parser.add_argument("--allow-unmeasured", action="store_true")
+    refine_parser.add_argument("--output", default="refinement_result.json")
+    refine_select_parser = subparsers.add_parser("refine-select")
+    refine_select_parser.add_argument("--refinement", required=True)
+    refine_select_parser.add_argument("--measurements", required=True)
+    refine_select_parser.add_argument("--output", default="refinement_selected.json")
+    refine_measure_parser = subparsers.add_parser("refine-measure")
+    refine_measure_parser.add_argument("--refinement", required=True)
+    refine_measure_parser.add_argument("--candidate-id", required=True)
+    refine_measure_parser.add_argument("--measurement-id")
+    refine_measure_parser.add_argument("--artifact-manifest", required=True)
+    refine_measure_parser.add_argument("--quality-comparison", required=True)
+    refine_measure_parser.add_argument("--validation", required=True)
+    refine_measure_parser.add_argument("--existing")
+    refine_measure_parser.add_argument("--output", default="refinement_measurements.json")
+    refine_export_parser = subparsers.add_parser("refine-export")
+    refine_export_parser.add_argument("--refinement", required=True)
+    refine_export_parser.add_argument("--output-dir", required=True)
+    refine_run_parser = subparsers.add_parser("refine-run")
+    refine_run_parser.add_argument("--request", required=True)
+    refine_run_parser.add_argument("--output-dir", required=True)
+    refine_run_parser.add_argument("--execute", action="store_true")
+    pareto_parser = subparsers.add_parser("pareto")
+    pareto_parser.add_argument("--measurements", required=True)
+    pareto_parser.add_argument("--output", default="pareto_report.json")
+    hardware_registry_parser = subparsers.add_parser("hardware-registry")
+    hardware_registry_parser.add_argument("--request", required=True)
+    hardware_registry_parser.add_argument("--output", default="hardware_profile_registry.json")
+    compatibility_parser = subparsers.add_parser("compatibility-matrix")
+    compatibility_parser.add_argument("--request", required=True)
+    compatibility_parser.add_argument("--output", default="compatibility_matrix.json")
+    evidence_parser = subparsers.add_parser("benchmark-index")
+    evidence_parser.add_argument("--request", required=True)
+    evidence_parser.add_argument("--output", default="benchmark_evidence_index.json")
+    validation_index_parser = subparsers.add_parser("validation-index")
+    validation_index_parser.add_argument("--request", required=True)
+    validation_index_parser.add_argument("--output", default="release_validation_index.json")
+    release_audit_parser = subparsers.add_parser("release-audit")
+    release_audit_parser.add_argument("--request", required=True)
+    release_audit_parser.add_argument("--output", default="release_audit.json")
+
+    validate_dataset_parser = subparsers.add_parser("validate-calibration-dataset")
+    validate_dataset_parser.add_argument("--path", default=None)
+
+    return parser

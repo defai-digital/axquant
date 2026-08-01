@@ -218,8 +218,8 @@ def _write_wheel(path: Path, version: str, *, production_classifier: bool = True
         "axquant/__init__.py": f'__version__ = "{version}"\n'.encode(),
     }
     for module in (
-        "cli.py",
-        "schema.py",
+        "cli/__init__.py",
+        "schema/__init__.py",
         "release_audit.py",
         "release_exceptions.py",
         "hardware_registry.py",
@@ -1784,7 +1784,7 @@ def test_release_audit_rejects_wheel_member_with_stale_record_hash(tmp_path: Pat
     wheel_path = Path(request.toolkit_wheel)
     with zipfile.ZipFile(wheel_path) as wheel:
         members = {name: wheel.read(name) for name in wheel.namelist()}
-    members["axquant/schema.py"] = b"# tampered after RECORD generation\n"
+    members["axquant/schema/__init__.py"] = b"# tampered after RECORD generation\n"
     with zipfile.ZipFile(wheel_path, "w") as wheel:
         for name, data in members.items():
             wheel.writestr(name, data)
@@ -1793,7 +1793,7 @@ def test_release_audit_rejects_wheel_member_with_stale_record_hash(tmp_path: Pat
 
     assert not audit.release_ready
     assert any(
-        "toolkit wheel RECORD hash mismatch for 'axquant/schema.py'" in issue
+        "toolkit wheel RECORD hash mismatch for 'axquant/schema/__init__.py'" in issue
         for issue in audit.blockers
     )
 
