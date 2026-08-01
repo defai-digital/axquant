@@ -164,7 +164,12 @@ Implemented now:
   (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
   per-layer allocation from the packaged report;
 - an AXQ-022-compliant head-to-head page renderer that loads only checksum-verified evaluation
-  bundles and always lists unavailable mandatory baselines with their reasons.
+  bundles and always lists unavailable mandatory baselines with their reasons;
+- a bundled, clean-room-authored reference calibration dataset (160 samples across 7 domains —
+  coding, json, tool, multilingual, long-context, reasoning, general) with a
+  `validate-calibration-dataset` command, so a user without their own domain-representative
+  calibration text can still run the full measured pipeline; an integration test proves the
+  complete chain (inspect → tokenize-calibration → analyze → plan) closes end to end on it.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
@@ -337,6 +342,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
 | `inspect` | Inventory tensors, architecture, quantization, and MTP | Implemented |
 | `calibrate` | Validate calibration input and record provenance | Implemented |
+| `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
 | `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
 | `analyze` | Measure resumable affine/DWQ/BF16 sensitivity, including targeted refinement | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
