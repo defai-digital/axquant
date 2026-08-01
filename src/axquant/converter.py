@@ -126,6 +126,36 @@ def _copy_external_mtp_bundle(sidecar: Path, output_dir: Path) -> None:
         companion = source.parent / companion_name
         if companion.is_file():
             _copy_verified(companion, output_dir / companion_name)
+    _declare_raw_mtp_norm_layout(output_dir)
+
+
+def _declare_raw_mtp_norm_layout(output_dir: Path) -> None:
+    """Declare the byte-preserved sidecar's norm representation for AX Engine.
+
+    Byte preservation keeps the raw HF zero-centred norm deltas. AX Engine
+    reads ``mtp_norm_layout`` from ``mtplx_runtime.json`` and applies the
+    ``+1.0`` HF-delta conversion to every norm at load time; without the
+    declaration it must guess from tensor statistics. Only the sidecar tensor
+    payloads are byte-preserved; the runtime contract is AXQuant metadata, so
+    adding the declaration does not touch preserved bytes. An explicit layout
+    declaration copied from the source bundle always wins.
+    """
+    runtime_path = output_dir / "mtplx_runtime.json"
+    contract: dict[str, Any] = {
+        "schema_version": "axquant.mtp-runtime.v1",
+        "mtp_depth_max": 1,
+    }
+    if runtime_path.is_file():
+        try:
+            value = json.loads(runtime_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ArtifactError(f"copied mtplx_runtime.json is unreadable: {runtime_path}") from exc
+        if not isinstance(value, dict):
+            raise ArtifactError("copied mtplx_runtime.json must be a JSON object")
+        contract = value
+    if "mtp_norm_layout" not in contract:
+        contract["mtp_norm_layout"] = "raw_hf_delta"
+        write_data(runtime_path, contract)
 
 
 def _validated_calibration_source(

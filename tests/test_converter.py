@@ -443,6 +443,47 @@ def test_mtp_sidecar_provenance_binds_byte_preserved_bundle(tmp_path: Path) -> N
     converter._copy_external_mtp_bundle(sidecar, output)
 
     assert (output / "mtp.safetensors").read_bytes() == b"mtp"
+    # The byte-preserved sidecar keeps raw HF norm deltas; the copied bundle
+    # must declare that layout so AX Engine shifts every norm deterministically
+    # instead of guessing from tensor statistics.
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+
+
+def test_byte_preserved_bundle_preserves_explicit_norm_layout(tmp_path: Path) -> None:
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    source = sidecar / "mtp.safetensors"
+    source.write_bytes(b"mtp")
+    (sidecar / "ax_mtp_sidecar_manifest.json").write_text(
+        json.dumps(
+            {
+                "output": {
+                    "mtp": {
+                        "path": "mtp.safetensors",
+                        "sha256": file_sha256(source),
+                        "size_bytes": source.stat().st_size,
+                    }
+                },
+                "transform": {"mode": "byte_preserved"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (sidecar / "mtplx_runtime.json").write_text(
+        json.dumps({"mtp_depth_max": 2, "mtp_norm_layout": "mlx_multiplier"}),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+
+    converter._copy_external_mtp_bundle(sidecar, output)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    # An explicit declaration from the source bundle always wins over the
+    # byte-preserved default.
+    assert runtime["mtp_norm_layout"] == "mlx_multiplier"
+    assert runtime["mtp_depth_max"] == 2
 
 
 def test_conversion_rejects_plan_without_quantized_assignments(

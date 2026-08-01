@@ -159,6 +159,7 @@ def test_prepare_qwen36_mtp_sidecar_transforms_only_norms(tmp_path: Path) -> Non
         assert record.sha256 == record.source_sha256
     runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
     assert runtime["layout"] == "ax-engine-qwen36-v1"
+    assert runtime["mtp_norm_layout"] == "mlx_multiplier"
     assert runtime["mtp_depth_max"] == 1
     assert runtime["release_status"] == "development-only"
     assert manifest.transform.transformed_tensors == sorted(QWEN36_MTP_NORM_TENSORS)

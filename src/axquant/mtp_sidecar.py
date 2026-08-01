@@ -316,6 +316,9 @@ def _runtime_contract(source_model: ModelIdentity) -> dict[str, Any]:
         "schema_version": "axquant.mtp-runtime.v1",
         "arch_id": "qwen3-next-mtp",
         "layout": QWEN36_MTP_LAYOUT,
+        # The prepared layout has already applied the +1.0 HF-delta -> MLX
+        # multiplier shift; AX Engine must not shift the norms again.
+        "mtp_norm_layout": "mlx_multiplier",
         "mtp_depth_max": 1,
         "mtp_tensor_count": len(QWEN36_MTP_TENSORS),
         "recommended_draft_sampler": {
