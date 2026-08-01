@@ -133,6 +133,46 @@ Qwen3.6-27B source (`6a9e13bd…`), artifacts under `.internal/tmp/`:
 Remaining blockers are unchanged and external to the toolkit: the M2 MTP
 speed floor (AX Engine runtime) and the named-approval size exception.
 
+### AXQ-026 candidate evidence log (2026-08-01, Apple M3 Max, 128 GB)
+
+The size direction was resolved the same day: the workspace owner approved the
+governed 8-bit LM-head floor (AXQ-026), and the first size-gate-passing
+candidate was produced end-to-end with the shipped tooling. All results below
+are development evidence pending the formal supported-host suite.
+
+- Targeted probe extension on the pinned BF16 source added the missing
+  `lm_head.weight` 8-bit/group-64 measurement to the release lineage
+  (`qwen36-sensitivity-release-lmhead8-v1.json`, base
+  `qwen36-sensitivity-release-dwq-v1.json`, same 8,192-token protocol):
+  measured output-KL **0.000097**, task-loss delta 0.003977 — far below
+  ordinarily accepted trunk-tensor sensitivities, directly supporting the
+  AXQ-026 quality thesis. Evidence kind stays `measured`.
+- The real run surfaced two probe defects the synthetic fixtures could not,
+  both fixed with regression tests: (1) the base-report architecture contract
+  treated `support_tier` as evidence, so any base probed before a tier
+  promotion was rejected (AXQ-017 violation — the tier is current policy);
+  (2) pre-AXQ-017 reports hash an inventory serialization with no
+  `support_tier` key, so the historical-hash reconstruction failed on every
+  pre-expansion report; the loader now reproduces that exact legacy byte
+  contract before failing closed.
+- `plan --lm-head-floor 8bit --kv-cache measured` at target 5.30 produced the
+  first release-lineage plan under the size gate: effective 5.2999933 BPW,
+  `constraints.lm_head_min_bits=8`, LM head at 8-bit with the AXQ-026 reason,
+  measured KV allocation identical to the E5 run (5×4-bit / 5×6-bit / 54×BF16).
+- Atomic conversion to `/Volumes/Ext4T/qwen36-v1-axq026-candidate`: 22 files,
+  measured **5.3000740** total BPW (plan drift +0.00008), byte-preserved MTP
+  sidecar with the new `mtp_norm_layout: raw_hf_delta` declaration, packaged
+  `kv_sensitivity.json`, per-layer KV table in the runtime metadata, and a
+  generated AX Engine manifest.
+- Real size evidence: **18,405,453,035** weight bytes against the audited
+  uniform-4 reference 16,903,941,980 — ratio **1.088826**, the first candidate
+  to pass the 110% size gate.
+- AX Engine doctor and MLX-LM generation smoke both pass on the real artifact.
+- Still open for this candidate: dual-profile quality/validation bundles, MTP
+  A/B speed (the 1.20x M2 gate on both workloads), and the formal
+  supported-host suite. Note the structural tension: a smaller candidate has
+  faster direct decode, which raises the bar for the MTP speed ratio.
+
 ## Phase E5 — Certification wave 1 (evidence work, not toolkit work)
 
 Promote `qwen35-dense-v1` to `convertible` with a real-checkpoint smoke;

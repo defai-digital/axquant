@@ -153,9 +153,11 @@ Implemented now:
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
 - a **new** release candidate cycle that clears dual-profile MTP speed (≥1.20×), quality, and size;
-  formal cand-002/003 failed. The approved size direction is the AXQ-026 governed 8-bit LM-head
-  floor (`plan --lm-head-floor 8bit`), which needs a probe run adding the measured 8-bit LM-head
-  candidate;
+  formal cand-002/003 failed. Under the approved AXQ-026 8-bit LM-head floor
+  (`plan --lm-head-floor 8bit`, measured lm_head 8-bit output-KL 0.000097), the 2026-08-01
+  development candidate measures 5.3000 BPW at size ratio 1.0888 — the first candidate inside the
+  110% gate — and still needs dual-profile quality bundles, MTP speed, and the formal
+  supported-host suite;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
