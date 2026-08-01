@@ -89,6 +89,34 @@ Work items:
 Exit criteria: plans without the section byte-identical to today; measured
 basis rejected; metadata emission tested.
 
+### E5 evidence log (2026-08-01, Apple M3 Max, 128 GB)
+
+Real-evidence runs performed with the shipped tooling against the pinned BF16
+Qwen3.6-27B source (`6a9e13bd…`), artifacts under `.internal/tmp/`:
+
+- Three head-to-head pages rendered from checksum-verified bound benchmark
+  evidence indexes (`head-to-head-{agent-coding,general,agent-cand002}-v1.md`).
+- First real recipe bundle `qwen36-27b-measured-r1` exported from the
+  measured selection plan (6.0293 BPW) and round-trip verified against the
+  real source inventory.
+- First real KV sensitivity report (`qwen36-kv-sensitivity-agent-v1.json`,
+  agent-coding, 144 samples): exactly 16 of 64 layers are standard attention
+  (indices 3, 7, …, 63); measured 4-bit output-KL median 0.139 (max 0.560 at
+  layer 3), 6-bit median 0.022. Early attention layers are the most
+  sensitive. Caveat: single-batch measurement; per-layer 6/8-bit ordering is
+  noisy — raise the token budget before drawing per-layer conclusions.
+- First digest-bound measured KV plan (budget 0.05): early attention layers
+  keep BF16 KV, mid layers 6-bit, late layers 4-bit; the AXQ-025 publication
+  gate reproduced the allocation from the packaged report.
+- The real run also surfaced and fixed a hybrid-architecture defect the
+  synthetic fixtures could not (commit 9c5379d): recurrent-cache layers are
+  now fail-closed unsupported, and quantized-KV forwards use fake-quant
+  KV caches because this mlx-lm version does not execute the packed
+  QuantizedKVCache path for this family.
+
+Remaining blockers are unchanged and external to the toolkit: the M2 MTP
+speed floor (AX Engine runtime) and the named-approval size exception.
+
 ## Phase E5 — Certification wave 1 (evidence work, not toolkit work)
 
 Promote `qwen35-dense-v1` to `convertible` with a real-checkpoint smoke;
