@@ -645,8 +645,15 @@ def _validated_base_entries(
         return {}
     if base_report.model != inventory.model or base_report.profile != config.profile:
         raise ProbeError("base sensitivity report does not match the probe inventory/profile")
-    current_architecture = inventory.architecture_profile.model_dump(exclude={"notes"})
-    base_architecture = base_report.architecture_profile.model_dump(exclude={"notes"})
+    # AXQ-017: the support tier is current registry policy, not recorded
+    # measurement evidence — a base report probed before a tier promotion is
+    # still the same measured contract, so the tier is excluded like notes.
+    current_architecture = inventory.architecture_profile.model_dump(
+        exclude={"notes", "support_tier"}
+    )
+    base_architecture = base_report.architecture_profile.model_dump(
+        exclude={"notes", "support_tier"}
+    )
     if current_architecture != base_architecture:
         raise ProbeError("base sensitivity architecture contract differs from the inventory")
     if base_report.inventory_sha256 != inventory_sha256:
@@ -656,11 +663,14 @@ def _validated_base_entries(
                 "warnings": list(base_report.architecture_profile.notes),
             }
         )
-        historical_sha256 = stable_sha256(
-            historical_inventory.model_dump(mode="json", exclude={"created_at"})
-        )
-        if historical_sha256 != base_report.inventory_sha256:
-            raise ProbeError("base sensitivity inventory hash cannot be reproduced")
+        historical_dump = historical_inventory.model_dump(mode="json", exclude={"created_at"})
+        if stable_sha256(historical_dump) != base_report.inventory_sha256:
+            # Reports recorded before AXQ-017 serialized no support tier, so
+            # their inventory hash covers a dump without that key. Reproduce
+            # that exact historical byte contract before failing closed.
+            historical_dump["architecture_profile"].pop("support_tier", None)
+            if stable_sha256(historical_dump) != base_report.inventory_sha256:
+                raise ProbeError("base sensitivity inventory hash cannot be reproduced")
     if base_report.evidence_kind == EvidenceKind.ARCHITECTURE_PRIOR:
         raise ProbeError("method refinement requires measured base sensitivity")
     if base_report.calibration is None:

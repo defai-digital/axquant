@@ -32,6 +32,7 @@ from axquant.schema import (
     ProbeProgress,
     ProfileName,
     QuantMethod,
+    SupportTier,
     TensorRole,
 )
 from axquant.serde import load_model, stable_sha256, write_data
@@ -438,6 +439,71 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         entry for entry in report.entries if entry.tensor.name == untouched.tensor.name
     )
     assert untouched == base_untouched
+
+    # AXQ-017: a tier promotion after the base probe must not invalidate the
+    # measured contract — the tier is registry policy, not evidence. Rebuild
+    # the base as it would have been recorded before promotion and extend it
+    # against the current (promoted) inventory.
+    stale_profile = report.architecture_profile.model_copy(
+        update={"support_tier": SupportTier.INSPECT_ONLY}
+    )
+    stale_inventory = inventory.model_copy(
+        update={
+            "architecture_profile": stale_profile,
+            "warnings": list(stale_profile.notes),
+        }
+    )
+    stale_report = report.model_copy(
+        update={
+            "architecture_profile": stale_profile,
+            "inventory_sha256": stable_sha256(
+                stale_inventory.model_dump(mode="json", exclude={"created_at"})
+            ),
+        }
+    )
+    promoted = probe_tensor_sensitivity(
+        inventory,
+        config=config.model_copy(
+            update={
+                "candidate_bits": (4,),
+                "candidate_methods": (QuantMethod.DWQ,),
+                "target_tensors": (target_tensor,),
+            }
+        ),
+        backend=_MeasuredFakeBackend(),
+        state_path=tmp_path / "stale-tier-progress.json",
+        base_report=stale_report,
+    )
+    promoted_entry = next(entry for entry in promoted.entries if entry.tensor.name == target_tensor)
+    assert any(
+        candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        for candidate in promoted_entry.candidates
+    )
+
+    # Reports recorded before AXQ-017 hashed an inventory serialization with
+    # no support_tier key at all; the legacy reconstruction must accept them.
+    legacy_dump = stale_inventory.model_dump(mode="json", exclude={"created_at"})
+    legacy_dump["architecture_profile"].pop("support_tier", None)
+    legacy_report = stale_report.model_copy(update={"inventory_sha256": stable_sha256(legacy_dump)})
+    legacy = probe_tensor_sensitivity(
+        inventory,
+        config=config.model_copy(
+            update={
+                "candidate_bits": (4,),
+                "candidate_methods": (QuantMethod.DWQ,),
+                "target_tensors": (target_tensor,),
+            }
+        ),
+        backend=_MeasuredFakeBackend(),
+        state_path=tmp_path / "legacy-hash-progress.json",
+        base_report=legacy_report,
+    )
+    assert any(
+        candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        for entry in legacy.entries
+        if entry.tensor.name == target_tensor
+        for candidate in entry.candidates
+    )
 
 
 def test_probe_role_floors_keep_embedding_measurable(
