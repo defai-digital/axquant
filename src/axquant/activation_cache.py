@@ -81,11 +81,6 @@ def _shard_path(directory: Path, index: int) -> Path:
     return directory / f"{_SHARD_PREFIX}{index:04d}{_SHARD_SUFFIX}"
 
 
-def verify_shard(shard: Path) -> bool:
-    """Verify a shard file exists and is non-empty."""
-    return shard.is_file() and shard.stat().st_size > 0
-
-
 def verify_cache_integrity(cache_dir: Path, manifest: TokenizedCacheManifest) -> list[str]:
     """Verify all shards in the cache directory against the manifest.
 
