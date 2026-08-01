@@ -189,6 +189,15 @@ are development evidence pending the formal supported-host suite.
   artifact, and the 8-bit LM head does not degrade the MTP verify path.
   The 0.816x smoke speed is a busy-interactive-host number with no formal
   standing; the 1.20x M2 gate is measured only on the idle formal host.
+- A second conversion of the same plan with `--mtp-layout ax-engine-qwen36-v1`
+  (`/Volumes/Ext4T/qwen36-v1-axq026-candidate-prepared`, identical
+  5.3000740 BPW, provenance v3, `mtp_norm_layout: mlx_multiplier`) gives the
+  formal host a path that works on the **existing notarized 6.12.1 runtime**
+  without waiting for an AX Engine release: doctor passes and the depth-1
+  greedy A/B smoke on that runtime passes exactness with the identical
+  0.9381 acceptance and zero kernel fallbacks. Both formal-path options are
+  therefore verified — prepared layout + notarized 6.12.1, or byte-preserved
+  + a future release carrying the `mtp_norm_layout` loader.
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite. Note the structural tension: a smaller candidate has
