@@ -232,6 +232,21 @@ are development evidence pending the formal supported-host suite.
 - Toolkit hardening from this incident: `benchmark-ab --qwen36-exact-profile`
   injects the complete measurement contract (explicit `--runtime-env` wins),
   so a future runner cannot silently drop contract members again.
+- Depth-2 exact experiment (AX Engine 08df0fdd, development evidence): the
+  exact profile's eligibility gate was extended to serve drafts up to depth
+  3 through the committed-prefix checkpoint (the invariant contract already
+  covers a 1-4 token verifier). Depth 2 is **exact for the first time** —
+  zero divergent trials on both the local M3 smoke and the M5
+  formal-protocol run — at 2.59 emitted tokens/cycle, but measures 0.8684x
+  because verify-eval scales ~linearly with verifier length (35 ms/cycle at
+  2 tokens → 47 ms at 3; each extra verify token costs ~12 ms ≈ 0.39 direct
+  steps on M5). Depth-2 M5 counters: acceptance 0.794/token, 301/423 full
+  accepts, rollback 11.9 ms/cycle (partial-accept prefix recomputes).
+  Conclusion: deeper drafts lose until the multi-token verify path
+  approaches bandwidth-bound scaling; the M2 speed lever is now singular
+  and precisely quantified — cut ~4.6 ms/cycle from the depth-1 verify
+  (35.0 → ~30.4 ms) or make verify-token increments cheap enough for
+  depth 2 to win.
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite.
