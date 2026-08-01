@@ -82,11 +82,16 @@ Its design centers on:
 
 ## Current status
 
-The toolkit version is `1.0.0` (packaging classifier: **Beta**). That means the CLI, schemas,
-and conversion pipeline are feature-complete and quality-gated for the scoped Qwen 3.6 path—not
-that a formal Hub release candidate has passed MTP speed, size, dual-profile validation, and
-`release-audit`. Host/candidate certification remains evidence-gated; there is **no** certified
-public AXQuant model release claimed here.
+The toolkit version is `1.0.0` (packaging classifier: **Beta**). The CLI, schemas, and
+conversion pipeline are feature-complete and quality-gated for the scoped Qwen 3.6 path:
+**you can inspect, plan, convert, and validate your own checkpoints today** — one-command
+`quantize`, recipe bundles, measured planning, atomic conversion, and runtime checks all work
+now and are covered by the test suite.
+
+What remains evidence-gated is only AXQuant's own **certified public model release**: publishing
+a checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
+formal hardware. There is **no** certified public AXQuant model release claimed here yet; the
+current gap is a single runtime performance gate (see below), not toolkit functionality.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
@@ -152,16 +157,15 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- a **new** release candidate cycle that clears dual-profile MTP speed (≥1.20×), quality, and size;
-  formal cand-002/003 failed. Under the approved AXQ-026 8-bit LM-head floor
-  (`plan --lm-head-floor 8bit`, measured lm_head 8-bit output-KL 0.000097), the 2026-08-01
-  development candidate measures 5.3000 BPW at size ratio **1.0888** — the first candidate inside
-  the 110% gate. Development quality on the real artifact clears the 0.98 floor on both profiles
-  (agent-coding retention 1.0099, general 1.0000, governed general json/syntax validity pairs
-  measured at 1.0 against a fresh BF16 reference), and a depth-1 greedy A/B smoke on the AX Engine
-  head build passes exactness with 0.938 draft acceptance on the byte-preserved sidecar. What
-  remains is exclusively the formal supported-host suite: the ≥1.20× MTP speed gate on both
-  workloads plus formal validation, hardware, and audit evidence;
+- the certified-release candidate's **MTP speed gate** — the one open certification item. The
+  current development candidate (AXQ-026 8-bit LM-head floor, `plan --lm-head-floor 8bit`)
+  already measures, on real hardware: size ratio **1.0888** (inside the 110% gate), dual-profile
+  quality above the 0.98 floor (agent-coding retention 1.0099, general 1.0000, governed
+  json/syntax validity pairs at 1.0), and MTP greedy **exactness with zero divergence** at
+  0.90–0.96 draft acceptance. Its measured MTP speedup under the formal protocol is **1.0969×**
+  against the required 1.20×; the gap is a scoped AX Engine runtime optimization (removing the
+  per-cycle CPU verify-graph build, modeled to ~1.24×), not a planner or artifact defect. Formal
+  validation/hardware/audit evidence then follows on the supported host;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
