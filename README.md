@@ -155,9 +155,13 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 - a **new** release candidate cycle that clears dual-profile MTP speed (≥1.20×), quality, and size;
   formal cand-002/003 failed. Under the approved AXQ-026 8-bit LM-head floor
   (`plan --lm-head-floor 8bit`, measured lm_head 8-bit output-KL 0.000097), the 2026-08-01
-  development candidate measures 5.3000 BPW at size ratio 1.0888 — the first candidate inside the
-  110% gate — and still needs dual-profile quality bundles, MTP speed, and the formal
-  supported-host suite;
+  development candidate measures 5.3000 BPW at size ratio **1.0888** — the first candidate inside
+  the 110% gate. Development quality on the real artifact clears the 0.98 floor on both profiles
+  (agent-coding retention 1.0099, general 1.0000, governed general json/syntax validity pairs
+  measured at 1.0 against a fresh BF16 reference), and a depth-1 greedy A/B smoke on the AX Engine
+  head build passes exactness with 0.938 draft acceptance on the byte-preserved sidecar. What
+  remains is exclusively the formal supported-host suite: the ≥1.20× MTP speed gate on both
+  workloads plus formal validation, hardware, and audit evidence;
 - complete-candidate interaction optimization driven by measured holdout results on that candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes;
 - tier promotion evidence for the non-Qwen 3.6 family adapters (all start `inspect-only`);
