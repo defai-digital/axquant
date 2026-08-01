@@ -253,12 +253,27 @@ are development evidence pending the formal supported-host suite.
   (≈ the ~32 ms weight-read floor for the 17.6 GB trunk at M5 bandwidth),
   rollback 0.6, accept/other ≈ 0.4; generation-loop overhead outside the
   step region measures only ~2.6 ms/token. The one clean lever left is the
-  5.1 ms CPU build: AX Engine already carries per-layer compile
-  infrastructure (`per_layer_compile.rs`, Track C2) that the verify forward
-  does not use. Eliminating the build cost models to
-  1.0969 × (45.0/39.9) ≈ **1.24x** — past the gate — and is scoped as the
-  next AX Engine project (shapeless compile across the 64-layer hybrid
-  stack with cache-mutation safety, reused for the 2-4 token verifier).
+  5.1 ms CPU build: eliminating it models to 1.0969 × (45.0/39.9) ≈
+  **1.24x** — past the gate.
+- Two cheap variants of that lever were tested on 2026-08-01 and ruled out
+  with measurements:
+  1. Draft-confidence gating (dropping `AX_MLX_MTP_DRAFT_MIN_CONFIDENCE=0`)
+     is not a legal knob on 6.12.1 — removing it also reverts the verifier
+     to the expensive non-contract path (rollback 22.4 ms/cycle signature),
+     and even modeled with the cheap path it reaches only ~1.19x.
+  2. Extending the default-on dense-FFN decode compile
+     (`AX_MLX_DENSE_FFN_COMPILE`) from seq==1 to the verifier's seq 2-4
+     microbatch (seq-keyed closure cache) measured **no verify cost change**
+     (verify-eval 53.0 vs 53.9 ms/cycle on M3, build unchanged) — the
+     exact profile's invariant-projection custom Metal kernels do not
+     benefit inside `mlx_compile`, and the build cost is dominated by the
+     48 linear-attention layers, not the FFN. The change was reverted per
+     the no-unproven-performance-changes discipline.
+  The remaining implementation of the lever is therefore genuine engine
+  engineering: either make the invariant/gated-delta custom kernels
+  compile-hostable, or restructure the MTP cycle to overlap graph build
+  with GPU execution (the direct path's double-buffer pattern applied to
+  the verifier).
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite.
