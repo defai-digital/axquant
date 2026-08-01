@@ -247,6 +247,18 @@ are development evidence pending the formal supported-host suite.
   and precisely quantified — cut ~4.6 ms/cycle from the depth-1 verify
   (35.0 → ~30.4 ms) or make verify-token increments cheap enough for
   depth 2 to win.
+- Final cycle accounting (M5, depth 1, full contract): the 45.0 ms cycle is
+  draft 4.2 (near its ~3 ms bandwidth floor: 849 MB BF16 MTP head + 8-bit
+  lm_head), verify-graph build 5.1 (pure CPU, GPU idle), verify-eval 35.0
+  (≈ the ~32 ms weight-read floor for the 17.6 GB trunk at M5 bandwidth),
+  rollback 0.6, accept/other ≈ 0.4; generation-loop overhead outside the
+  step region measures only ~2.6 ms/token. The one clean lever left is the
+  5.1 ms CPU build: AX Engine already carries per-layer compile
+  infrastructure (`per_layer_compile.rs`, Track C2) that the verify forward
+  does not use. Eliminating the build cost models to
+  1.0969 × (45.0/39.9) ≈ **1.24x** — past the gate — and is scoped as the
+  next AX Engine project (shapeless compile across the 64-layer hybrid
+  stack with cache-mutation safety, reused for the 2-4 token verifier).
 - Still open for this candidate: formal dual-profile validation bundles, MTP
   A/B speed (the 1.20x M2 gate on both workloads), and the formal
   supported-host suite.
