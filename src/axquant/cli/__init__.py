@@ -342,7 +342,9 @@ def _run(args: argparse.Namespace) -> int:
             candidate_count=args.candidates,
             random_seed=args.seed,
             target_mode=args.mode,
-            hardware=HardwareProfile(supported_methods=methods),
+            hardware=HardwareProfile(
+                supported_methods=tuple(set(methods) | {QuantMethod.BF16})
+            ),
             max_model_size_ratio_to_uniform4=args.max_size_ratio,
             minimum_quality_retention=args.minimum_quality,
             minimum_mtp_acceptance_retention=args.minimum_mtp_retention,

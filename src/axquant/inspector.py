@@ -72,7 +72,17 @@ def classify_tensor(name: str, source_file: str = "") -> TensorRole:
         if any(token in value for token in ("proj", "projection")):
             return TensorRole.MTP_PROJECTION
         return TensorRole.MTP_BLOCK
-    if any(token in value for token in ("vision", "visual", "image", "multimodal")):
+    if any(
+        token in value
+        for token in (
+            "vision",
+            "visual",
+            "image",
+            "multimodal",
+            "multi_modal",  # Mistral3 multi_modal_projector (underscore form)
+            "patch_merger",
+        )
+    ):
         return TensorRole.VISION
     if "norm" in value:
         return TensorRole.NORM
@@ -326,16 +336,25 @@ def inspect_model(
                     # MLX-LM quantizes them as fused switch modules with the
                     # same per-group affine layout as 2-D linears, so they are
                     # quantizable. Every other non-2-D tensor stays preserved.
+                    module_path = module_path_for(name)
                     quantizable = (
                         (len(shape) == 2 or (len(shape) == 3 and role == TensorRole.EXPERT))
                         and dtype in _FLOAT_DTYPES
                         and role != TensorRole.NORM
                         and not quantization_metadata
+                        # Nemotron-H MoEGate is a custom Module with a raw weight
+                        # matrix and no to_quantized(); MLX-LM never visits it.
+                        # Mark non-quantizable so plans stay BF16 (fail-closed
+                        # coverage would otherwise abort convert).
+                        and not (
+                            module_path.endswith(".mixer.gate")
+                            or ".mixer.gate." in module_path
+                        )
                     )
                     tensors.append(
                         TensorSpec(
                             name=name,
-                            module_path=module_path_for(name),
+                            module_path=module_path,
                             shape=shape,
                             dtype=dtype,
                             parameters=parameters,

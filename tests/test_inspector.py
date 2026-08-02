@@ -19,6 +19,13 @@ def test_classifies_supported_tensor_roles() -> None:
     assert classify_tensor("model.layers.1.block.weight", "mtp.safetensors") == TensorRole.MTP_BLOCK
     assert classify_tensor("mtp.projection.weight") == TensorRole.MTP_PROJECTION
     assert classify_tensor("mtp.output_head.weight") == TensorRole.MTP_OUTPUT
+    # Mistral3 shells use multi_modal_projector (underscore); must be VISION so
+    # MLX-LM sanitize stripping does not break fail-closed plan coverage.
+    assert classify_tensor("multi_modal_projector.linear_1.weight") == TensorRole.VISION
+    assert classify_tensor("multi_modal_projector.linear_2.weight") == TensorRole.VISION
+    assert classify_tensor("vision_tower.transformer.layers.0.attention.q_proj.weight") == (
+        TensorRole.VISION
+    )
 
 
 def test_inventory_detects_mtp_ties_and_protection(tiny_model_dir: Path) -> None:
@@ -70,6 +77,60 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert convolution.role == TensorRole.ATTENTION
     assert convolution.quantizable is False
     assert vision.protected_recommendation is True
+
+
+def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
+    """Nemotron-H MoEGate has no MLX to_quantized(); keep it BF16 in plans."""
+    import json
+
+    import numpy as np
+    from safetensors.numpy import save_file
+
+    model_dir = tmp_path / "Nemotron-3-Nano-30B-A3B"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["NemotronHForCausalLM"],
+                "model_type": "nemotron_h",
+                "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+                "num_hidden_layers": 2,
+                "hidden_size": 16,
+                "n_routed_experts": 4,
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "backbone.embeddings.weight": np.zeros((32, 16), dtype=np.float32),
+            "backbone.layers.0.mixer.gate.weight": np.zeros((4, 16), dtype=np.float32),
+            "backbone.layers.0.mixer.gate.e_score_correction_bias": np.zeros(
+                (4,), dtype=np.float32
+            ),
+            "backbone.layers.0.mixer.experts.0.up_proj.weight": np.zeros(
+                (8, 16), dtype=np.float32
+            ),
+            "backbone.layers.0.mixer.out_proj.weight": np.zeros((16, 16), dtype=np.float32),
+            "lm_head.weight": np.zeros((32, 16), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+    inventory = inspect_model(
+        model_dir,
+        model_id="nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+        revision="test",
+    )
+    gate = next(t for t in inventory.tensors if t.name.endswith("mixer.gate.weight"))
+    bias = next(t for t in inventory.tensors if "e_score_correction_bias" in t.name)
+    expert = next(t for t in inventory.tensors if "experts.0.up_proj" in t.name)
+    out_proj = next(t for t in inventory.tensors if t.name.endswith("out_proj.weight"))
+    assert gate.role == TensorRole.ROUTER
+    assert gate.quantizable is False
+    assert bias.quantizable is False
+    assert expert.role == TensorRole.EXPERT
+    assert expert.quantizable is True
+    assert out_proj.quantizable is True
 
 
 def test_quantized_inventory_reconstructs_logical_parameters(

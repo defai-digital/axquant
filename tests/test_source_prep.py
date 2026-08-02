@@ -104,3 +104,29 @@ def test_prepare_rejects_wrong_type(tmp_path: Path) -> None:
     (model_dir / "config.json").write_text(json.dumps({"model_type": "gemma4"}), encoding="utf-8")
     with pytest.raises(ArtifactError, match="gemma4_unified"):
         prepare_gemma4_unified_source(model_dir, work_dir=tmp_path / "work")
+
+
+def test_needs_tekken_tokenizer_prep(tmp_path: Path) -> None:
+    from axquant.source_prep import needs_tekken_tokenizer_prep
+
+    model_dir = tmp_path / "devstral"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(json.dumps({"model_type": "mistral"}), encoding="utf-8")
+    (model_dir / "tekken.json").write_text("{}", encoding="utf-8")
+    assert needs_tekken_tokenizer_prep(model_dir)
+    (model_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+    assert not needs_tekken_tokenizer_prep(model_dir)
+
+
+def test_resolve_tekken_tokenizer_repo_for_devstral(tmp_path: Path) -> None:
+    from axquant.source_prep import _resolve_tekken_tokenizer_repo
+
+    model_dir = tmp_path / "Devstral-Small-2505-bf16"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(json.dumps({"model_type": "mistral"}), encoding="utf-8")
+    repo = _resolve_tekken_tokenizer_repo(
+        model_dir,
+        model_id="mistralai/Devstral-Small-2505",
+        config={"model_type": "mistral"},
+    )
+    assert repo == "mlx-community/Devstral-Small-2505-bf16"

@@ -43,6 +43,11 @@ _VISION_TOKENS = (
     "embed_audio",
     "patch_embed",
     "merger.",
+    # Mistral3 multimodal shell (underscore form); must win over the generic
+    # "norm" rule so multi_modal_projector.* lands in the vision sidecar.
+    "multi_modal",
+    "multimodal",
+    "patch_merger",
 )
 _LM_HEAD_TOKENS = ("lm_head", "output.weight", "output_layer")
 _EMBEDDING_TOKENS = ("embed_tokens", "token_embedding")

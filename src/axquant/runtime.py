@@ -247,19 +247,23 @@ def check_mlx_lm_generation(
             report={"static_check_passed": False},
             stderr="static MLX-LM compatibility check failed",
         )
-    command = [
-        resolved,
-        "--model",
-        str(directory),
-        "--prompt",
-        "Reply with OK.",
-        "--max-tokens",
-        "2",
-        "--temp",
-        "0",
-        "--verbose",
-        "false",
-    ]
+    command = [resolved]
+    if Path(resolved).name == "mlx_lm":
+        command.append("generate")
+    command.extend(
+        [
+            "--model",
+            str(directory),
+            "--prompt",
+            "Reply with OK.",
+            "--max-tokens",
+            "2",
+            "--temp",
+            "0",
+            "--verbose",
+            "false",
+        ]
+    )
     kv_execution = _advisory_kv_execution(directory)
     if kv_execution is not None:
         command.extend(

@@ -676,7 +676,11 @@ def convert_model(
     convert_revision = revision
     try:
         prepared = (
-            prepare_conversion_source(original_source_dir, work_dir=prep_dir)
+            prepare_conversion_source(
+                original_source_dir,
+                work_dir=prep_dir,
+                model_id=plan.source_model.model_id,
+            )
             if original_source_dir.is_dir()
             else None
         )

@@ -417,7 +417,10 @@ def plan_quantization(
             choice.selected.storage_bpw * choice.entry.tensor.parameters for choice in choices
         )
 
-    minimum_storage_bits = current_storage_bits()
+    # Keep a running total so the upgrade search stays O(options) per pass, not
+    # O(tensors) inside the inner loop (critical for hybrid MoE with 6k+ tensors).
+    running_storage_bits = current_storage_bits()
+    minimum_storage_bits = running_storage_bits
     if minimum_storage_bits > target_storage_bits + 1e-6:
         minimum_bpw = minimum_storage_bits / total_parameters
         raise PlanningError(
@@ -437,7 +440,7 @@ def plan_quantization(
             ) * choice.entry.tensor.parameters
             if delta_storage <= 0:
                 continue
-            if current_storage_bits() + delta_storage > target_storage_bits + 1e-6:
+            if running_storage_bits + delta_storage > target_storage_bits + 1e-6:
                 continue
             # Use ranking_loss so measured role preferences influence upgrade order (QP1).
             benefit = current.ranking_loss - upgraded.ranking_loss
@@ -452,6 +455,7 @@ def plan_quantization(
         choice = choices[best[1]]
         choice.index += 1
         choice.upgraded = True
+        running_storage_bits += best[2]
 
     # Fused MoE experts quantize as one MLX-LM switch module, so every member
     # of a group must share one precision. Normalize each group to its

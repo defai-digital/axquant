@@ -138,11 +138,18 @@ Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
 | MiniCPM5 | `openbmb/MiniCPM5-1B` | `4e9de7a0…` | 7.5 | **7.5003** | pass | dense llama-export |
 | Qwen 3.5 | `Qwen/Qwen3.5-9B` | `c2022362…` | 7.0 | **7.0001** | pass | vision + MTP sidecars |
 | Gemma-4 | `google/gemma-4-12b` | `023679ed…` | 5.0* | **5.0001** | pass | `gemma4_unified` prep; vision sidecar |
+| Devstral | `mistralai/Devstral-Small-2505` | `c2a9d81a…` | 4.95* | **4.9500** | pass | tekken→tokenizer prep; dense mistral |
+| Nemotron 3 Nano | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` | `2d59de1c…` | 4.8 | **4.7892** | pass | hybrid MoE; MoEGate stays BF16 (no MLX `to_quantized`) |
+| Mistral 3 | `mistralai/Mistral-Small-3.1-24B-Instruct-2503` | `68faf511…` | 5.15* | **5.1500** | pass | language path + vision sidecar; floors raise 4.8→5.15 |
 
-\*Default 4.8 BPW is **infeasible** on Gemma-4 because protection floors raise the
-policy minimum (~4.89). Simple convert **auto-raises once** to the policy floor
-(verified on this host: target raised 4.80 → 4.89, measured BPW **4.8900**, MLX-LM
-smoke pass). Prefer an explicit `--target-bpw ≥ 5.0` when you want a fixed budget.
+\*Default 4.8 BPW is **infeasible** when protection floors raise the policy
+minimum (Gemma-4 ≈4.89, Devstral ≈4.94, Mistral3 ≈5.14). Simple convert
+**auto-raises once** to the policy floor (verified on this host for Gemma-4:
+target raised 4.80 → 4.89, measured BPW **4.8900**, MLX-LM smoke pass). Prefer an
+explicit `--target-bpw` at or above the floor when you want a fixed budget.
+
+Qwen 3.6 smokes are tracked separately on `mbp-m5` (certification path), not on
+this host.
 
 Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
 

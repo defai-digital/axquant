@@ -49,6 +49,24 @@ def needs_gemma4_unified_prep(config: dict[str, Any]) -> bool:
     return str(config.get("model_type", "")) == "gemma4_unified"
 
 
+def needs_tekken_tokenizer_prep(source_dir: str | Path) -> bool:
+    """Mistral/Devstral tekken-only exports lack transformers tokenizer.json."""
+    source = Path(source_dir).expanduser().resolve()
+    return (source / "tekken.json").is_file() and not (source / "tokenizer.json").is_file()
+
+
+# Known HF packs that already ship a transformers-compatible tokenizer for
+# tekken-based Mistral/Devstral releases (used only when the base export has
+# tekken.json but no tokenizer.json).
+_TEKKEN_TOKENIZER_PACKS: tuple[tuple[str, str], ...] = (
+    ("devstral-small-2505", "mlx-community/Devstral-Small-2505-bf16"),
+    ("devstral-small-2507", "lmstudio-community/Devstral-Small-2507-MLX-bf16"),
+    ("devstral-small-2-24b", "mlx-community/Devstral-Small-2-24B-Instruct-2512-bf16"),
+    ("mistral-small-3.1", "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16"),
+    ("mistral-small-3", "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16"),
+)
+
+
 def needs_conversion_prep(model_dir: str | Path) -> bool:
     """True when the checkpoint requires a prepared MLX text-path view."""
     directory = Path(model_dir).expanduser().resolve()
@@ -129,10 +147,113 @@ def prepare_gemma4_unified_source(
     return prepared
 
 
+def _resolve_tekken_tokenizer_repo(
+    source: Path,
+    *,
+    model_id: str | None,
+    config: dict[str, Any],
+) -> str:
+    blob = " ".join(
+        [
+            model_id or "",
+            str(config.get("_name_or_path", "")),
+            source.name,
+        ]
+    ).lower()
+    for needle, repo in _TEKKEN_TOKENIZER_PACKS:
+        if needle in blob:
+            return repo
+    # Last resort: mlx-community mirror of the model id basename.
+    if model_id and "/" in model_id:
+        base = model_id.split("/")[-1]
+        return f"mlx-community/{base}-bf16"
+    raise ArtifactError(
+        "tekken.json source has no tokenizer.json and no known tokenizer pack; "
+        "pass a model id that matches Devstral/Mistral packs or place tokenizer.json "
+        "next to the weights"
+    )
+
+
+def prepare_tekken_tokenizer_source(
+    source_dir: str | Path,
+    *,
+    work_dir: str | Path,
+    model_id: str | None = None,
+) -> Path:
+    """Build a convert view that adds transformers tokenizer files for tekken exports.
+
+    Weights/config are hard-linked or symlinked from the source; only tokenizer
+    sidecars are fetched from a known-good pack so MLX-LM can load.
+    """
+    source = Path(source_dir).expanduser().resolve()
+    if not needs_tekken_tokenizer_prep(source):
+        raise ArtifactError("tekken tokenizer prep requires tekken.json without tokenizer.json")
+    config = _read_config(source)
+    repo = _resolve_tekken_tokenizer_repo(source, model_id=model_id, config=config)
+
+    root = Path(work_dir).expanduser().resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    prepared = root / "tekken-tokenizer-path"
+    if prepared.exists():
+        shutil.rmtree(prepared)
+    prepared.mkdir(parents=True)
+
+    # Link all source files (weights, config, tekken) into the prepared tree.
+    for item in source.iterdir():
+        if item.name.startswith("."):
+            continue
+        target = prepared / item.name
+        try:
+            target.symlink_to(item)
+        except OSError:
+            if item.is_file():
+                shutil.copy2(item, target)
+            else:
+                shutil.copytree(item, target)
+
+    try:
+        from huggingface_hub import hf_hub_download
+    except ModuleNotFoundError as exc:
+        raise ArtifactError(
+            "tekken tokenizer prep requires huggingface_hub to fetch tokenizer.json"
+        ) from exc
+
+    for filename in (
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja",
+    ):
+        try:
+            downloaded = hf_hub_download(repo_id=repo, filename=filename)
+        except Exception:
+            if filename == "tokenizer.json":
+                raise ArtifactError(
+                    f"cannot download tokenizer.json from {repo} for tekken source {source}"
+                ) from None
+            continue
+        dest = prepared / filename
+        if dest.is_symlink() or dest.exists():
+            dest.unlink()
+        shutil.copy2(downloaded, dest)
+
+    if not (prepared / "tokenizer.json").is_file():
+        raise ArtifactError(f"tokenizer.json missing after tekken prep from {repo}")
+
+    log.info(
+        "tekken_tokenizer_source_prepared",
+        source=str(source),
+        prepared=str(prepared),
+        tokenizer_repo=repo,
+    )
+    return prepared
+
+
 def prepare_conversion_source(
     source_dir: str | Path,
     *,
     work_dir: str | Path,
+    model_id: str | None = None,
 ) -> Path | None:
     """Return a prepared directory when required, else ``None`` (use source as-is)."""
     source = Path(source_dir).expanduser().resolve()
@@ -141,6 +262,8 @@ def prepare_conversion_source(
     config = _read_config(source)
     if needs_gemma4_unified_prep(config):
         return prepare_gemma4_unified_source(source, work_dir=work_dir)
+    if needs_tekken_tokenizer_prep(source):
+        return prepare_tekken_tokenizer_source(source, work_dir=work_dir, model_id=model_id)
     return None
 
 
