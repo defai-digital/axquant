@@ -180,6 +180,9 @@ Naming: `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last**; MLX-style bit 
 
 Investment policy: `axquant support-policy` (primary = Qwen 3.6 cert; Nemotron = thin Nano only).
 
+Dual-Mac factory/control layout (Studio Ext4T SSD + M5 publish): see
+`.internal/engineering/ops-dual-mac.md`.
+
 Implemented now:
 
 - indexed Safetensors inspection and logical parameter reconstruction;
