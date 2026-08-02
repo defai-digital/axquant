@@ -205,7 +205,11 @@ def render_development_model_card(
     )
     precision_tag = product_class.replace("bit", "-bit")
     family_tag = product_family.replace(" ", "-").lower()
+    is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
+    pipeline_tag = "feature-extraction" if is_embedding_pack else "text-generation"
     optional_tags = [family_tag, product_class, precision_tag]
+    if is_embedding_pack:
+        optional_tags.extend(("embedding", "sentence-similarity"))
     if has_mtp:
         optional_tags.append("mtp")
     if has_vision:
@@ -304,7 +308,7 @@ license: apache-2.0
 library_name: mlx
 base_model: {source.model_id}
 base_model_relation: quantized
-pipeline_tag: text-generation
+pipeline_tag: {pipeline_tag}
 tags:
 {tag_block}
 ---

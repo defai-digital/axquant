@@ -78,6 +78,46 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not treat architecture-prior quants as certified releases.",),
     ),
     FamilySupportPolicy(
+        product_family="qwen3-next",
+        adapter_id="qwen3-next-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=11,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Qwen3-Next hybrid MoE coding path (Coder-Next); fused-expert convert, "
+            "development evidence only."
+        ),
+        do=(
+            "Ship AXQ Coder-Next packs to close the OptiQ coding catalog gap.",
+            "Keep MoE convert fail-closed for non-catalog qwen3_next refs without evidence.",
+        ),
+        do_not=(
+            "Do not claim coding-bench scores from architecture-prior converts.",
+            "Do not treat Next MoE as Qwen 3.6 cert track.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="qwen3",
+        adapter_id="qwen3-dense-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=12,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Base Qwen3 dense (model_type=qwen3), including Embedding-0.6B/4B/8B retrieval "
+            "backbones."
+        ),
+        do=(
+            "Publish AXQ embedding packs for catalog parity with uniform/OptiQ Hub rows.",
+            "Label embedding packs as feature-extraction; use embedding evals for quality.",
+        ),
+        do_not=(
+            "Do not claim generative chat quality or MTP metrics for embedding checkpoints.",
+            "Do not match Qwen 3.5 / 3.6 / Next under this adapter.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="mistral-devstral",
         adapter_id="mistral-devstral-dense-v1",
         investment_posture=InvestmentPosture.SECONDARY,
@@ -95,7 +135,10 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         priority=16,
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
-        summary="Mistral3 multimodal shell: language path convertible; vision not optimized.",
+        summary=(
+            "Mistral3 multimodal shell (incl. Ministral-3): language path convertible; "
+            "vision not optimized."
+        ),
         do=("Optimize text path; preserve vision only when present as protected tensors.",),
         do_not=("Do not claim VLM optimization for Mistral3 vision towers.",),
     ),

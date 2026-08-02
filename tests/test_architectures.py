@@ -120,6 +120,24 @@ def test_qwen35_spec_declines_qwen36_references() -> None:
             "mistral3-dense-v1",
             SupportTier.CONVERTIBLE,
         ),
+        (
+            "mistralai/Ministral-3-8B-Instruct-2512",
+            "mistral3",
+            "mistral3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
+        (
+            "Qwen/Qwen3-Embedding-0.6B",
+            "qwen3",
+            "qwen3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
+        (
+            "Qwen/Qwen3-8B",
+            "qwen3",
+            "qwen3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
     ],
 )
 def test_registry_resolves_new_dense_families(
@@ -140,6 +158,33 @@ def test_registry_resolves_new_dense_families(
     assert profile.text_layer_count == 40
 
 
+def test_qwen3_dense_does_not_claim_qwen35_or_qwen36() -> None:
+    """model_type=qwen3 adapter must not match 3.5/3.6 product names."""
+    config = {"model_type": "qwen3", "num_hidden_layers": 36}
+    assert adapter_for("Qwen/Qwen3.5-9B", config) is None
+    assert adapter_for("Qwen/Qwen3.6-27B", config) is None
+
+
+def test_qwen3_next_coder_is_convertible_moe() -> None:
+    config = {
+        "model_type": "qwen3_next",
+        "architectures": ["Qwen3NextForCausalLM"],
+        "num_hidden_layers": 48,
+        "num_experts": 512,
+        "num_experts_per_tok": 10,
+        "moe_intermediate_size": 512,
+        "full_attention_interval": 4,
+    }
+    adapter = adapter_for("Qwen/Qwen3-Coder-Next", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen3-next-v1"
+    profile = adapter.profile("Qwen/Qwen3-Coder-Next", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.text_layer_count == 48
+    assert any("MoE" in note or "fused" in note for note in profile.notes)
+
+
 def test_dense_family_tier_fails_closed_for_moe_and_missing_layers() -> None:
     spec = DenseFamilySpec(
         adapter_id="test-dense-v1",
@@ -157,6 +202,22 @@ def test_dense_family_tier_fails_closed_for_moe_and_missing_layers() -> None:
     assert (
         adapter.profile("org/testfam-7b", missing_layers).support_tier is SupportTier.INSPECT_ONLY
     )
+
+
+def test_dense_family_allow_moe_opt_in() -> None:
+    spec = DenseFamilySpec(
+        adapter_id="test-moe-v1",
+        product_family="testmoe",
+        model_types=("testmoe",),
+        reference_pattern=r"testmoe",
+        support_tier=SupportTier.CONVERTIBLE,
+        allow_moe=True,
+    )
+    adapter = DenseFamilyAdapter(spec)
+    moe_config = {"model_type": "testmoe", "num_hidden_layers": 12, "num_experts": 8}
+    profile = adapter.profile("org/testmoe-x", moe_config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
 
 
 def test_registry_rejects_ambiguous_adapters(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,6 +289,8 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen36-v1": SupportTier.CONVERTIBLE,
         "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
+        "qwen3-next-v1": SupportTier.CONVERTIBLE,
+        "qwen3-dense-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,

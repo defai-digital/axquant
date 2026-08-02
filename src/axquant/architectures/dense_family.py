@@ -124,6 +124,9 @@ class DenseFamilySpec:
     exclude_reference_pattern: str | None = None
     extra_role_patterns: tuple[tuple[str, TensorRole], ...] = ()
     notes: tuple[str, ...] = ()
+    # When False (default), any truthy MoE config key forces inspect-only.
+    # Set True only for families with an explicit MoE convert path (e.g. Qwen3-Next).
+    allow_moe: bool = False
 
 
 class DenseFamilyAdapter:
@@ -173,12 +176,17 @@ class DenseFamilyAdapter:
             if isinstance(value, int):
                 layer_count = value
                 break
-        # Fail closed: a non-dense checkpoint or a missing layer count downgrades
-        # the family's default tier to inventory-only regardless of the spec.
-        eligible = dense and layer_count is not None
+        # Fail closed: missing layer count always downgrades. MoE checkpoints stay
+        # inventory-only unless the spec explicitly allows MoE convert (AXQ-017).
+        eligible = layer_count is not None and (dense or self.spec.allow_moe)
         tier = self.spec.support_tier if eligible else SupportTier.INSPECT_ONLY
         supported = tier is not SupportTier.INSPECT_ONLY
         notes = list(self.spec.notes)
+        if supported and not dense and self.spec.allow_moe:
+            notes.append(
+                "MoE experts quantize as fused switch modules with uniform per-group "
+                "precision; artifacts are development evidence until certified."
+            )
         if not supported:
             notes.append(
                 f"The {self.spec.product_family} family is inventory-only until its "
@@ -211,6 +219,36 @@ class DenseFamilyAdapter:
 _QWEN36_REFERENCE = r"qwen[._-]?3[._-]?6"
 
 DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
+    DenseFamilySpec(
+        adapter_id="qwen3-next-v1",
+        product_family="qwen3-next",
+        model_types=("qwen3_next",),
+        # Coder-Next and other qwen3_next hybrid MoE coding checkpoints.
+        reference_pattern=r"(qwen3[._-]?next|coder[._-]?next)",
+        support_tier=SupportTier.CONVERTIBLE,
+        allow_moe=True,
+        notes=(
+            "Qwen3-Next hybrid MoE (e.g. Qwen3-Coder-Next): fused experts via MLX-LM.",
+            "Development convert only; no coding-bench quality claim from architecture priors.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="qwen3-dense-v1",
+        product_family="qwen3",
+        model_types=("qwen3",),
+        # Base Qwen3 causal and embedding backbones (model_type=qwen3).
+        # Exclude 3.5 / 3.6 product names and Next/Coder-Next (different model_types).
+        reference_pattern=r"qwen[._-]?3",
+        exclude_reference_pattern=(
+            r"qwen[._-]?3[._-]?([56]|next)|qwen3_5|qwen3_next|coder[._-]?next"
+        ),
+        support_tier=SupportTier.CONVERTIBLE,
+        notes=(
+            "Qwen3 dense (model_type=qwen3), including Qwen3-Embedding retrieval models.",
+            "Embedding checkpoints share the causal backbone layout; use embedding runtimes "
+            "for retrieval quality — do not claim generative or MTP metrics.",
+        ),
+    ),
     DenseFamilySpec(
         adapter_id="qwen35-dense-v1",
         product_family="qwen3.5",
@@ -292,13 +330,14 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # Mistral Small 3.x multimodal shells use model_type=mistral3 with a
         # nested text_config (language model_type often still ``mistral``).
         model_types=("mistral3",),
-        reference_pattern=r"(mistral|devstral)",
+        # Include Ministral product names explicitly (not only org=mistralai).
+        reference_pattern=r"(mistral|devstral|ministral)",
         text_config_key="text_config",
         support_tier=SupportTier.CONVERTIBLE,
         notes=(
-            "Mistral3 multimodal shells: language path is optimized; vision "
-            "tower is stripped by MLX-LM sanitize and preserved only when "
-            "present as protected tensors in the source inventory.",
+            "Mistral3 multimodal shells (including Ministral-3): language path is "
+            "optimized; vision tower is stripped by MLX-LM sanitize and preserved "
+            "only when present as protected tensors in the source inventory.",
         ),
     ),
 )

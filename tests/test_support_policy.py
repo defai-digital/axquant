@@ -87,6 +87,8 @@ def test_convertible_adapters_match_macstudio_smoke_coverage() -> None:
     expected = {
         "qwen36-v1",
         "qwen35-dense-v1",
+        "qwen3-next-v1",
+        "qwen3-dense-v1",
         "minicpm5-dense-v1",
         "gemma4-dense-v1",
         "mistral-devstral-dense-v1",
