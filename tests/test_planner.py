@@ -76,6 +76,69 @@ def test_storage_cost_includes_affine_metadata() -> None:
     assert storage_bpw(4, 64) == 4.5
     assert storage_bpw(6, 64) == 6.5
     assert storage_bpw(16, None) == 16.0
+    assert storage_bpw(4, 32) == 5.0
+    assert storage_bpw(4, 128) == 4.25
+
+
+def test_multi_group_prior_emits_group_grid_and_strategy_metadata() -> None:
+    """AXQ-028: multi-group priors + strategy labels on allocations."""
+    from axquant.schema import OutlierStrategy, ScaleStrategy
+
+    inventory = _inventory()
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+        candidate_group_sizes=(32, 64, 128),
+    )
+    mlp = next(entry for entry in report.entries if entry.tensor.role == TensorRole.MLP)
+    groups = {candidate.group_size for candidate in mlp.candidates if candidate.bits == 4}
+    assert groups == {32, 64, 128}
+    kl_by_gs = {
+        candidate.group_size: candidate.metrics.output_kl
+        for candidate in mlp.candidates
+        if candidate.bits == 4
+    }
+    assert kl_by_gs[32] < kl_by_gs[64] < kl_by_gs[128]
+
+    # Near the policy floor: cheapest storage options (largest group at 4-bit for trunk).
+    plan = plan_quantization(
+        report,
+        _request(target_bpw=4.5, candidate_group_sizes=(32, 64, 128)),
+    )
+    assert plan.candidate_group_sizes == (32, 64, 128)
+    mlp_alloc = next(item for item in plan.assignments if item.role == TensorRole.MLP)
+    assert mlp_alloc.bits == 4
+    assert mlp_alloc.group_size == 128  # coarsest group = lowest storage BPW
+    assert mlp_alloc.scale_strategy == ScaleStrategy.GROUP_AFFINE
+    assert mlp_alloc.outlier_strategy == OutlierStrategy.NONE
+    assert "storage_bpw" in mlp_alloc.strategy_metadata
+    head = next(item for item in plan.assignments if item.role == TensorRole.LM_HEAD)
+    assert head.scale_strategy == ScaleStrategy.NONE
+    assert head.bits == 16
+
+
+def test_extra_budget_upgrades_toward_finer_group() -> None:
+    """Extra BPW budget upgrades trunk tensors off the coarsest 4-bit/gs128 option."""
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.AGENT_CODING,
+        candidate_group_sizes=(32, 64, 128),
+    )
+    floor = plan_quantization(
+        report,
+        _request(target_bpw=4.5, candidate_group_sizes=(32, 64, 128)),
+    )
+    richer = plan_quantization(
+        report,
+        _request(target_bpw=6.0, candidate_group_sizes=(32, 64, 128)),
+    )
+    floor_mlp = next(item for item in floor.assignments if item.role == TensorRole.MLP)
+    rich_mlp = next(item for item in richer.assignments if item.role == TensorRole.MLP)
+    assert floor_mlp.group_size == 128
+    assert rich_mlp.predicted_loss <= floor_mlp.predicted_loss
+    assert (rich_mlp.bits, rich_mlp.group_size) != (floor_mlp.bits, floor_mlp.group_size) or (
+        rich_mlp.bits > floor_mlp.bits
+    )
 
 
 def test_planner_respects_budget_and_external_mtp_protection() -> None:

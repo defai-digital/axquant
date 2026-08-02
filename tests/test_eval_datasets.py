@@ -24,11 +24,7 @@ def test_eval_dataset_validates_against_schema(dataset: Path) -> None:
 
 @pytest.mark.parametrize("dataset", DATASETS, ids=lambda p: p.stem)
 def test_eval_dataset_has_unique_task_ids(dataset: Path) -> None:
-    ids = [
-        json.loads(line)["task_id"]
-        for line in dataset.read_text().splitlines()
-        if line.strip()
-    ]
+    ids = [json.loads(line)["task_id"] for line in dataset.read_text().splitlines() if line.strip()]
     assert len(ids) == len(set(ids))
 
 

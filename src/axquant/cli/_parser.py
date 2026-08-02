@@ -24,6 +24,26 @@ def _bits(value: str) -> tuple[int, ...]:
     return result
 
 
+def _group_sizes(value: str) -> tuple[int, ...]:
+    """Parse comma-separated group sizes for multi-group planning (AXQ-028)."""
+    parsed: list[int] = []
+    for item in value.split(","):
+        normalized = item.strip()
+        if not normalized:
+            continue
+        try:
+            size = int(normalized)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid group size {item!r}") from exc
+        if size < 1:
+            raise argparse.ArgumentTypeError(f"group size must be positive: {size}")
+        parsed.append(size)
+    result = tuple(sorted(set(parsed)))
+    if not result:
+        raise argparse.ArgumentTypeError("at least one group size is required")
+    return result
+
+
 def _domains(value: str) -> list[str]:
     result = [item.strip() for item in value.split(",") if item.strip()]
     if not result:
@@ -145,6 +165,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     analyze_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
     analyze_parser.add_argument(
+        "--candidate-group-sizes",
+        type=_group_sizes,
+        default=(),
+        help="optional multi-group probe/prior grid (e.g. 32,64,128); empty uses --group-size",
+    )
+    analyze_parser.add_argument(
         "--methods",
         type=_probe_methods,
         default=(QuantMethod.AFFINE,),
@@ -186,9 +212,15 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--target-bpw", type=float, default=4.8)
     plan_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
     plan_parser.add_argument(
+        "--candidate-group-sizes",
+        type=_group_sizes,
+        default=(),
+        help="optional multi-group planner grid (e.g. 32,64,128); empty uses --group-size",
+    )
+    plan_parser.add_argument(
         "--methods",
         type=_methods,
-        default=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.BF16),
+        default=(QuantMethod.AFFINE, QuantMethod.AWQ, QuantMethod.DWQ, QuantMethod.BF16),
     )
     plan_parser.add_argument("--group-size", type=int, default=64)
     plan_parser.add_argument("--minimum-quality", type=float, default=0.98)
@@ -642,7 +674,33 @@ def _build_parser() -> argparse.ArgumentParser:
     refine_parser.add_argument("--swap-radius", type=int, default=5)
     refine_parser.add_argument("--seed", type=int, default=0)
     refine_parser.add_argument("--allow-unmeasured", action="store_true")
+    refine_parser.add_argument(
+        "--holdout-digest",
+        dest="holdout_measurement_set_sha256",
+        default=None,
+        help="optional expected sha256 of a holdout RefinementMeasurementSet (QP1)",
+    )
     refine_parser.add_argument("--output", default="refinement_result.json")
+
+    recover_parser = subparsers.add_parser(
+        "recover",
+        help="optional post-PTQ recovery with provenance (never required by convert/quantize)",
+    )
+    recover_parser.add_argument("--artifact", required=True, help="source converted checkpoint")
+    recover_parser.add_argument("--plan", required=True, help="quantization plan JSON")
+    recover_parser.add_argument("--calibration-dataset-id", required=True)
+    recover_parser.add_argument("--calibration-dataset-sha256", required=True)
+    recover_parser.add_argument("--output", required=True)
+    recover_parser.add_argument("--seed", type=int, default=0)
+    recover_parser.add_argument("--steps", type=int, default=1)
+    recover_parser.add_argument("--learning-rate", type=float, default=None)
+    recover_parser.add_argument(
+        "--scope",
+        default="scales-and-biases",
+        choices=["scales", "biases", "scales-and-biases", "lora-merged"],
+    )
+    recover_parser.add_argument("--quality-before-sha256", default=None)
+    recover_parser.add_argument("--quality-after-sha256", default=None)
     refine_select_parser = subparsers.add_parser("refine-select")
     refine_select_parser.add_argument("--refinement", required=True)
     refine_select_parser.add_argument("--measurements", required=True)

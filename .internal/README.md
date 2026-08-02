@@ -7,9 +7,14 @@ This directory is the internal source of truth for AXQuant product and engineeri
 | Area | Document | Authority |
 | --- | --- | --- |
 | Product | [Product requirements](product/requirements.md) | Scope, claims, requirements, milestones, and acceptance gates |
+| Product | [Expansion PRD](product/expansion-prd.md) | Family breadth, quantize UX, recipe bundles, KV planning |
+| Product | [Quant philosophy PRD](product/quant-philosophy-prd.md) | bits×group×method, NVFP4 lessons, fine-tune boundary, recovery phases |
 | Product | [Release best practices](product/release-best-practices.md) | Gate order, dual-profile completeness, candidate-cycle discipline |
 | Architecture | [Decision register](architecture/decision-register.md) | Accepted decisions and rejected alternatives |
 | Engineering | [Technical specification](engineering/technical-specification.md) | Normative interfaces, schemas, algorithms, runtime contracts, and test strategy |
+| Engineering | [Expansion technical specification](engineering/expansion-technical-specification.md) | Tiers, adapters, quantize, recipes, KV contracts |
+| Engineering | [Quant philosophy technical specification](engineering/quant-philosophy-technical-specification.md) | 3-D planner, strategy metadata, probe grid, recovery contracts |
+| Engineering | [Quant philosophy implementation plan](engineering/quant-philosophy-implementation-plan.md) | QP0–QP3 phases, status, next slices |
 | Policy | [Independent implementation](policies/clean-room.md) | Clean-room inputs, evidence, and attribution requirements |
 
 ## Directory layout

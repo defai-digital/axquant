@@ -10,6 +10,15 @@ from axquant.schema.enums import EvidenceKind, ProfileName, QuantMethod
 from axquant.schema.inventory import ArchitectureProfile, ModelIdentity, TensorSpec
 
 
+def candidate_key(
+    bits: int,
+    method: QuantMethod,
+    group_size: int | None,
+) -> tuple[int, str, int | None]:
+    """Unique identity for a sensitivity candidate (AXQ-028)."""
+    return (bits, method.value, None if bits == 16 else group_size)
+
+
 class MetricVector(StrictModel):
     output_kl: float = Field(default=0.0, ge=0.0)
     hidden_state_error: float = Field(default=0.0, ge=0.0)
@@ -76,7 +85,10 @@ class TensorSensitivity(StrictModel):
 
     @model_validator(mode="after")
     def unique_candidates(self) -> TensorSensitivity:
-        keys = [(candidate.bits, candidate.method) for candidate in self.candidates]
+        keys = [
+            candidate_key(candidate.bits, candidate.method, candidate.group_size)
+            for candidate in self.candidates
+        ]
         if len(keys) != len(set(keys)):
             raise ValueError(f"duplicate candidates for {self.tensor.name}")
         return self
@@ -110,6 +122,9 @@ class ProbeConfig(StrictModel):
     candidate_methods: tuple[QuantMethod, ...] = (QuantMethod.AFFINE,)
     target_tensors: tuple[str, ...] = ()
     group_size: int = Field(default=64, ge=1)
+    # Empty means use ``group_size`` only (backward compatible). Non-empty expands
+    # the measured grid to bits x methods x group sizes (AXQ-028 / QP0).
+    candidate_group_sizes: tuple[int, ...] = ()
     token_budget_per_candidate: int = Field(default=2048, ge=1)
     replay_batch_size: int = Field(default=1, ge=1)
     metric_positions_per_sample: int = Field(default=32, ge=1)
@@ -140,12 +155,26 @@ class ProbeConfig(StrictModel):
             raise ValueError("probe methods must contain only affine and/or dwq")
         return normalized
 
+    @field_validator("candidate_group_sizes")
+    @classmethod
+    def valid_probe_group_sizes(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        if not value:
+            return ()
+        normalized = tuple(sorted(set(value)))
+        if any(size < 1 for size in normalized):
+            raise ValueError("probe candidate group sizes must be positive")
+        return normalized
+
     @field_validator("target_tensors")
     @classmethod
     def unique_target_tensors(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         if any(not tensor.strip() for tensor in value):
             raise ValueError("probe target tensor names must be non-empty")
         return tuple(sorted(set(value)))
+
+    def effective_group_sizes(self) -> tuple[int, ...]:
+        """Group sizes measured for quantized candidates."""
+        return self.candidate_group_sizes or (self.group_size,)
 
 
 class TokenizedCacheManifest(StrictModel):

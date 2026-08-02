@@ -39,6 +39,7 @@ from axquant.schema import (
     TensorSpec,
     TokenizedCacheManifest,
 )
+from axquant.schema.sensitivity import candidate_key
 from axquant.serde import load_model, stable_sha256, write_data
 
 log = structlog.get_logger()
@@ -881,20 +882,27 @@ def probe_tensor_sensitivity(
             continue
 
         probe_candidates = list(base_entry.candidates) if base_entry is not None else []
-        existing_keys = {(candidate.bits, candidate.method) for candidate in probe_candidates}
-        cheaper_loss: dict[QuantMethod, float] = {}
+        existing_keys = {
+            candidate_key(candidate.bits, candidate.method, candidate.group_size)
+            for candidate in probe_candidates
+        }
+        # Early-termination tracks cheapest loss per (method, group_size).
+        cheaper_loss: dict[tuple[QuantMethod, int], float] = {}
         for candidate in probe_candidates:
-            if candidate.bits < 16 and candidate.supported:
-                previous = cheaper_loss.get(candidate.method)
-                cheaper_loss[candidate.method] = (
+            if candidate.bits < 16 and candidate.supported and candidate.group_size is not None:
+                loss_track = (candidate.method, candidate.group_size)
+                previous = cheaper_loss.get(loss_track)
+                cheaper_loss[loss_track] = (
                     candidate.metrics.output_kl
                     if previous is None
                     else min(previous, candidate.metrics.output_kl)
                 )
 
+        effective_group_sizes = config.effective_group_sizes()
         for bits in tensor_candidate_bits:
             if bits == 16:
-                if (16, QuantMethod.BF16) not in existing_keys:
+                bf16_key = candidate_key(16, QuantMethod.BF16, None)
+                if bf16_key not in existing_keys:
                     probe_candidates.append(
                         CandidateMeasurement(
                             bits=16,
@@ -905,101 +913,114 @@ def probe_tensor_sensitivity(
                             note="reference precision",
                         )
                     )
+                    existing_keys.add(bf16_key)
                 continue
 
-            for method in config.candidate_methods:
-                if (bits, method) in existing_keys:
-                    continue
-                try:
-                    backend.quantize_module(
-                        tensor.module_path,
-                        bits,
-                        config.group_size,
-                        method,
-                    )
-                    for _ in range(config.warmup_replays):
-                        backend.forward(calibration_inputs[0])
-                    metrics = _measure_candidate(
-                        backend,
-                        calibration_inputs,
-                        references,
-                        require_hidden_states="hidden" in config.capture_points,
-                        long_context_min_tokens=config.long_context_min_tokens,
-                    )
-                    packing_control = next(
-                        (
-                            candidate
-                            for candidate in probe_candidates
-                            if candidate.bits == bits
-                            and candidate.method == QuantMethod.AFFINE
-                            and candidate.group_size == config.group_size
-                        ),
-                        None,
-                    )
-                    if method == QuantMethod.DWQ and packing_control is not None:
-                        metrics = metrics.model_copy(
-                            update={
-                                "peak_memory_cost": packing_control.metrics.peak_memory_cost,
-                                "prefill_latency_cost": (
-                                    packing_control.metrics.prefill_latency_cost
-                                ),
-                                "decode_latency_cost": (
-                                    packing_control.metrics.decode_latency_cost
-                                ),
-                            }
+            for group_size in effective_group_sizes:
+                for method in config.candidate_methods:
+                    cand_key = candidate_key(bits, method, group_size)
+                    if cand_key in existing_keys:
+                        continue
+                    try:
+                        backend.quantize_module(
+                            tensor.module_path,
+                            bits,
+                            group_size,
+                            method,
                         )
-                    previous_loss = cheaper_loss.get(method)
-                    dominated = (
-                        previous_loss is not None
-                        and metrics.output_kl > previous_loss * config.early_termination_factor
-                    )
-                    note_parts: list[str] = []
-                    if method == QuantMethod.DWQ:
-                        note_parts.append(
-                            "sampled 0.1/99.9-percentile clipping followed by affine packing"
+                        for _ in range(config.warmup_replays):
+                            backend.forward(calibration_inputs[0])
+                        metrics = _measure_candidate(
+                            backend,
+                            calibration_inputs,
+                            references,
+                            require_hidden_states="hidden" in config.capture_points,
+                            long_context_min_tokens=config.long_context_min_tokens,
                         )
-                        if packing_control is not None:
-                            note_parts.append(
-                                "hardware costs normalized to the identical affine packing control"
+                        packing_control = next(
+                            (
+                                candidate
+                                for candidate in probe_candidates
+                                if candidate.bits == bits
+                                and candidate.method == QuantMethod.AFFINE
+                                and candidate.group_size == group_size
+                            ),
+                            None,
+                        )
+                        if method == QuantMethod.DWQ and packing_control is not None:
+                            metrics = metrics.model_copy(
+                                update={
+                                    "peak_memory_cost": packing_control.metrics.peak_memory_cost,
+                                    "prefill_latency_cost": (
+                                        packing_control.metrics.prefill_latency_cost
+                                    ),
+                                    "decode_latency_cost": (
+                                        packing_control.metrics.decode_latency_cost
+                                    ),
+                                }
                             )
-                    if dominated:
-                        note_parts.append(
-                            "dominated by cheaper "
-                            f"{method.value} candidate at "
-                            f"{config.early_termination_factor}x bound"
+                        loss_key = (method, group_size)
+                        previous_loss = cheaper_loss.get(loss_key)
+                        dominated = (
+                            previous_loss is not None
+                            and metrics.output_kl > previous_loss * config.early_termination_factor
                         )
-                    probe_candidates.append(
-                        CandidateMeasurement(
-                            bits=bits,
-                            method=method,
-                            group_size=config.group_size,
-                            metrics=metrics,
-                            supported=not dominated,
-                            measured_tokens=measured_tokens,
-                            note="; ".join(note_parts) or None,
+                        note_parts: list[str] = []
+                        if method == QuantMethod.DWQ:
+                            note_parts.append(
+                                "sampled 0.1/99.9-percentile clipping followed by affine packing"
+                            )
+                            if packing_control is not None:
+                                note_parts.append(
+                                    "hardware costs normalized to the identical "
+                                    "affine packing control"
+                                )
+                        if dominated:
+                            note_parts.append(
+                                "dominated by cheaper "
+                                f"{method.value} candidate at "
+                                f"{config.early_termination_factor}x bound"
+                            )
+                        probe_candidates.append(
+                            CandidateMeasurement(
+                                bits=bits,
+                                method=method,
+                                group_size=group_size,
+                                metrics=metrics,
+                                supported=not dominated,
+                                measured_tokens=measured_tokens,
+                                note="; ".join(note_parts) or None,
+                            )
                         )
-                    )
-                    cheaper_loss[method] = (
-                        metrics.output_kl
-                        if previous_loss is None
-                        else min(previous_loss, metrics.output_kl)
-                    )
-                except ProbeError as exc:
-                    probe_candidates.append(
-                        CandidateMeasurement(
-                            bits=bits,
-                            method=method,
-                            group_size=config.group_size,
-                            metrics=MetricVector(),
-                            supported=False,
-                            measured_tokens=0,
-                            note=f"probe failed: {exc}",
+                        existing_keys.add(cand_key)
+                        cheaper_loss[loss_key] = (
+                            metrics.output_kl
+                            if previous_loss is None
+                            else min(previous_loss, metrics.output_kl)
                         )
-                    )
-                finally:
-                    backend.restore_module(tensor.module_path)
+                    except ProbeError as exc:
+                        probe_candidates.append(
+                            CandidateMeasurement(
+                                bits=bits,
+                                method=method,
+                                group_size=group_size,
+                                metrics=MetricVector(),
+                                supported=False,
+                                measured_tokens=0,
+                                note=f"probe failed: {exc}",
+                            )
+                        )
+                        existing_keys.add(cand_key)
+                    finally:
+                        backend.restore_module(tensor.module_path)
 
-        probe_candidates.sort(key=lambda candidate: (candidate.bits, candidate.method.value))
+        probe_candidates.sort(
+            key=lambda candidate: (
+                candidate.bits,
+                candidate.group_size or 0,
+                candidate.method.value,
+            )
+        )
         state.record_tensor(tensor.name, probe_candidates)
         entries.append(TensorSensitivity(tensor=tensor, candidates=probe_candidates))
         if progress_path is not None:

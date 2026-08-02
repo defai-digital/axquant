@@ -230,6 +230,7 @@ def _run(args: argparse.Namespace) -> int:
                     candidate_methods=args.methods,
                     target_tensors=tuple(args.target_tensor),
                     group_size=args.group_size,
+                    candidate_group_sizes=getattr(args, "candidate_group_sizes", ()),
                     token_budget_per_candidate=args.token_budget,
                     replay_batch_size=args.replay_batch_size,
                     metric_positions_per_sample=args.metric_positions,
@@ -249,6 +250,7 @@ def _run(args: argparse.Namespace) -> int:
                 profile=args.profile,
                 candidate_bits=args.bits,
                 group_size=args.group_size,
+                candidate_group_sizes=getattr(args, "candidate_group_sizes", ()),
             )
         write_data(args.output, analysis_report)
         log_method = log.info if analysis_report.evidence_kind.release_quality else log.warning
@@ -294,6 +296,7 @@ def _run(args: argparse.Namespace) -> int:
             target_bpw=args.target_bpw,
             candidate_bits=args.bits,
             group_size=args.group_size,
+            candidate_group_sizes=getattr(args, "candidate_group_sizes", ()),
             allow_unmeasured=args.allow_unmeasured,
             candidate_count=args.candidates,
             random_seed=args.seed,
@@ -1073,6 +1076,7 @@ def _run(args: argparse.Namespace) -> int:
             convergence_threshold=args.convergence,
             swap_radius=args.swap_radius,
             random_seed=args.seed,
+            holdout_measurement_set_sha256=getattr(args, "holdout_measurement_set_sha256", None),
         )
         refine_result = refine_candidates(analysis_report, request, refine_config)
         write_data(args.output, refine_result)
@@ -1082,6 +1086,33 @@ def _run(args: argparse.Namespace) -> int:
             iterations=refine_result.iterations_used,
             evaluations=refine_result.evaluations_used,
             converged=refine_result.converged,
+            evidence_label=refine_result.evidence_label,
+        )
+        return 0
+
+    if args.command == "recover":
+        from axquant.recovery import ParameterUpdateScope, RecoveryRequest, recover_checkpoint
+
+        recovery_request = RecoveryRequest(
+            source_artifact=args.artifact,
+            plan_path=args.plan,
+            calibration_dataset_id=args.calibration_dataset_id,
+            calibration_dataset_sha256=args.calibration_dataset_sha256,
+            output=args.output,
+            random_seed=args.seed,
+            steps=args.steps,
+            learning_rate=args.learning_rate,
+            parameter_update_scope=ParameterUpdateScope(args.scope),
+            quality_before_sha256=args.quality_before_sha256,
+            quality_after_sha256=args.quality_after_sha256,
+        )
+        recovery_manifest = recover_checkpoint(recovery_request)
+        log.info(
+            "recovery_completed",
+            output=str(args.output),
+            claim=recovery_manifest.claim,
+            algorithm_id=recovery_manifest.algorithm_id,
+            development_evidence=recovery_manifest.development_evidence,
         )
         return 0
 

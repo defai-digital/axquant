@@ -4,8 +4,10 @@ from dataclasses import dataclass
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
+from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.module_paths import fused_expert_module
 from axquant.profiles import objective_for
+from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
     Allocation,
     ArchitectureProfile,
@@ -16,10 +18,13 @@ from axquant.schema import (
     KvLayerAllocation,
     KvSensitivityReport,
     MetricVector,
+    OutlierStrategy,
     PlanningConstraints,
     PlanRequest,
     PrecisionShare,
     QuantizationPlan,
+    QuantMethod,
+    ScaleStrategy,
     SensitivityReport,
     TensorRole,
     TensorSensitivity,
@@ -41,6 +46,7 @@ class _Option:
     measurement: CandidateMeasurement
     loss: float
     storage_bpw: float
+    ranking_loss: float
 
 
 @dataclass
@@ -221,14 +227,63 @@ def _minimum_bits(entry: TensorSensitivity, request: PlanRequest) -> tuple[int, 
     return minimum, reason
 
 
+def strategy_for_measurement(
+    measurement: CandidateMeasurement,
+) -> tuple[ScaleStrategy, OutlierStrategy]:
+    """Map packing method to recorded scale/outlier strategy (AXQ-028)."""
+    if measurement.bits == 16 or measurement.method == QuantMethod.BF16:
+        return ScaleStrategy.NONE, OutlierStrategy.NONE
+    if measurement.method == QuantMethod.AWQ:
+        return ScaleStrategy.CHANNEL_AWQ, OutlierStrategy.NONE
+    if measurement.method == QuantMethod.DWQ:
+        return ScaleStrategy.GROUP_AFFINE, OutlierStrategy.PERCENTILE_CLIP_DWQ
+    return ScaleStrategy.GROUP_AFFINE, OutlierStrategy.NONE
+
+
+def _pareto_options(options: list[_Option]) -> list[_Option]:
+    """Keep storage-ordered non-dominated options (lower storage, lower loss)."""
+    ordered = sorted(
+        options,
+        key=lambda option: (
+            option.storage_bpw,
+            option.loss,
+            option.measurement.bits,
+            option.measurement.group_size or 0,
+            option.measurement.method.value,
+        ),
+    )
+    frontier: list[_Option] = []
+    best_loss = float("inf")
+    for option in ordered:
+        if option.loss < best_loss - 1e-15:
+            frontier.append(option)
+            best_loss = option.loss
+        elif abs(option.loss - best_loss) <= 1e-15 and (
+            not frontier or option.storage_bpw < frontier[-1].storage_bpw - 1e-15
+        ):
+            # Equal loss at strictly lower storage should replace the prior point.
+            if frontier and abs(frontier[-1].loss - option.loss) <= 1e-15:
+                frontier[-1] = option
+            else:
+                frontier.append(option)
+            best_loss = option.loss
+    return frontier
+
+
 def _options_for(
     entry: TensorSensitivity,
     request: PlanRequest,
     weights: dict[str, float],
+    *,
+    evidence_kind: EvidenceKind,
 ) -> tuple[list[_Option], str | None]:
+    """Build a bits x group x method option ladder under hard floors (AXQ-028/QP1)."""
     minimum_bits, reason = _minimum_bits(entry, request)
     allowed_bits = set(request.candidate_bits)
-    if entry.tensor.role.is_mtp and request.mtp.mode != "disabled":
+    allowed_groups = set(request.effective_group_sizes())
+    method_filter = set(request.candidate_methods)
+    role = entry.tensor.role
+    if role.is_mtp and request.mtp.mode != "disabled":
         allowed_bits &= set(request.mtp.candidate_bits)
         if minimum_bits == 16:
             allowed_bits.add(16)
@@ -240,23 +295,59 @@ def _options_for(
         and candidate.bits >= minimum_bits
         and candidate.bits in request.hardware.supported_bits
         and candidate.method in request.hardware.supported_methods
-        and (candidate.bits == 16 or candidate.group_size in request.hardware.supported_group_sizes)
+        and (
+            candidate.bits == 16
+            or (
+                candidate.group_size in request.hardware.supported_group_sizes
+                and candidate.group_size in allowed_groups
+            )
+        )
+        and (
+            not method_filter
+            or candidate.method in method_filter
+            or candidate.method == QuantMethod.BF16
+        )
     ]
     if not candidates:
         raise PlanningError(
             f"{entry.tensor.name} has no candidate satisfying the precision and hardware policy"
         )
-    best_by_bits: dict[int, _Option] = {}
+    # Collapse same storage key (bits, group_size) with role-aware method preference.
+    options_by_key: dict[tuple[int, int | None], list[_Option]] = {}
     for candidate in candidates:
+        raw_loss = _loss(candidate.metrics, weights)
         option = _Option(
             measurement=candidate,
-            loss=_loss(candidate.metrics, weights),
+            loss=raw_loss,
             storage_bpw=storage_bpw(candidate.bits, candidate.group_size),
+            ranking_loss=ranking_loss(
+                loss=raw_loss,
+                role=role,
+                method=candidate.method,
+                group_size=candidate.group_size,
+                evidence_kind=evidence_kind,
+            ),
         )
-        current = best_by_bits.get(candidate.bits)
-        if current is None or option.loss < current.loss:
-            best_by_bits[candidate.bits] = option
-    return [best_by_bits[bits] for bits in sorted(best_by_bits)], reason
+        key = (candidate.bits, candidate.group_size)
+        options_by_key.setdefault(key, []).append(option)
+
+    best_by_storage_key: dict[tuple[int, int | None], _Option] = {}
+    for key, options in options_by_key.items():
+        best_loss = min(option.loss for option in options)
+        selected = options[0]
+        for option in options[1:]:
+            if prefer_method_on_tie(
+                role,
+                current_method=selected.measurement.method,
+                current_loss=selected.loss,
+                candidate_method=option.measurement.method,
+                candidate_loss=option.loss,
+                evidence_kind=evidence_kind,
+                best_loss_at_key=best_loss,
+            ):
+                selected = option
+        best_by_storage_key[key] = selected
+    return _pareto_options(list(best_by_storage_key.values())), reason
 
 
 def _distribution(
@@ -313,7 +404,7 @@ def plan_quantization(
     weights = weights_model.normalized()
     choices: list[_Choice] = []
     for entry in report.entries:
-        options, reason = _options_for(entry, request, weights)
+        options, reason = _options_for(entry, request, weights, evidence_kind=report.evidence_kind)
         choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
     total_parameters = sum(choice.entry.tensor.parameters for choice in choices)
     if total_parameters <= 0:
@@ -348,7 +439,8 @@ def plan_quantization(
                 continue
             if current_storage_bits() + delta_storage > target_storage_bits + 1e-6:
                 continue
-            benefit = current.loss - upgraded.loss
+            # Use ranking_loss so measured role preferences influence upgrade order (QP1).
+            benefit = current.ranking_loss - upgraded.ranking_loss
             if benefit <= 0:
                 continue
             efficiency = benefit * choice.entry.tensor.parameters / delta_storage
@@ -387,6 +479,7 @@ def plan_quantization(
             reason = "selected by marginal quality gain per storage bit"
         else:
             reason = "minimum storage candidate"
+        scale_strategy, outlier_strategy = strategy_for_measurement(measurement)
         allocations.append(
             Allocation(
                 tensor=choice.entry.tensor.name,
@@ -399,6 +492,12 @@ def plan_quantization(
                 predicted_loss=selected.loss,
                 metrics=measurement.metrics,
                 reason=reason,
+                scale_strategy=scale_strategy,
+                outlier_strategy=outlier_strategy,
+                strategy_metadata={
+                    "storage_bpw": selected.storage_bpw,
+                    "selected_from_candidates": len(choice.options),
+                },
             )
         )
 
@@ -415,7 +514,7 @@ def plan_quantization(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "
             "complete-model validation."
         )
-    return QuantizationPlan(
+    plan = QuantizationPlan(
         source_model=report.model,
         architecture_profile=_current_policy_profile(report.architecture_profile),
         profile=request.profile,
@@ -425,6 +524,7 @@ def plan_quantization(
         effective_bpw=effective_bpw,
         candidate_bits=request.candidate_bits,
         group_size=request.group_size,
+        candidate_group_sizes=request.effective_group_sizes(),
         objective=weights_model,
         hardware=request.hardware,
         mtp=request.mtp,
@@ -448,3 +548,4 @@ def plan_quantization(
         mtp_distribution=_distribution(choices, mtp_only=True),
         warnings=warnings,
     )
+    return annotate_experimental_low_bit_plan(plan)

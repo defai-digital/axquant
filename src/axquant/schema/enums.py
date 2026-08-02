@@ -34,6 +34,21 @@ class QuantMethod(StrEnum):
     BF16 = "bf16"
 
 
+class ScaleStrategy(StrEnum):
+    """How scales are formed for a quantized allocation (AXQ-028)."""
+
+    NONE = "none"
+    GROUP_AFFINE = "group-affine"
+    CHANNEL_AWQ = "channel-awq"
+
+
+class OutlierStrategy(StrEnum):
+    """How weight outliers are handled before packing (AXQ-028)."""
+
+    NONE = "none"
+    PERCENTILE_CLIP_DWQ = "percentile-clip-dwq"
+
+
 class EvidenceKind(StrEnum):
     MEASURED = "measured"
     MEASURED_DEVELOPMENT = "measured_development"

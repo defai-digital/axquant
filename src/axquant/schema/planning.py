@@ -8,9 +8,11 @@ from pydantic import Field, field_validator, model_validator
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
 from axquant.schema.enums import (
     EvidenceKind,
+    OutlierStrategy,
     ProfileName,
     QuantMethod,
     RuntimeName,
+    ScaleStrategy,
     TensorRole,
 )
 from axquant.schema.inventory import ArchitectureProfile, ModelIdentity
@@ -74,6 +76,7 @@ class HardwareProfile(StrictModel):
     supported_bits: tuple[int, ...] = (2, 3, 4, 6, 8, 16)
     supported_methods: tuple[QuantMethod, ...] = (
         QuantMethod.AFFINE,
+        QuantMethod.AWQ,
         QuantMethod.DWQ,
         QuantMethod.BF16,
     )
@@ -159,6 +162,10 @@ class PlanRequest(StrictModel):
     target_bpw: float = Field(gt=0.0, le=16.0)
     candidate_bits: tuple[int, ...] = (4, 6, 8, 16)
     group_size: int = Field(default=64, ge=1)
+    # Empty means use ``group_size`` only. Non-empty expands the planner grid (AXQ-028).
+    candidate_group_sizes: tuple[int, ...] = ()
+    # Empty means no extra method filter beyond hardware support.
+    candidate_methods: tuple[QuantMethod, ...] = ()
     allow_unmeasured: bool = False
     candidate_count: int = Field(default=1, ge=1)
     random_seed: int = Field(default=0, ge=0)
@@ -181,6 +188,26 @@ class PlanRequest(StrictModel):
             raise ValueError("candidate bits must be within [2, 16]")
         return normalized
 
+    @field_validator("candidate_group_sizes")
+    @classmethod
+    def valid_candidate_group_sizes(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        if not value:
+            return ()
+        normalized = tuple(sorted(set(value)))
+        if any(size < 1 for size in normalized):
+            raise ValueError("candidate group sizes must be positive")
+        return normalized
+
+    @field_validator("candidate_methods")
+    @classmethod
+    def valid_candidate_methods(cls, value: tuple[QuantMethod, ...]) -> tuple[QuantMethod, ...]:
+        if not value:
+            return ()
+        return tuple(sorted(set(value), key=lambda method: method.value))
+
+    def effective_group_sizes(self) -> tuple[int, ...]:
+        return self.candidate_group_sizes or (self.group_size,)
+
     @model_validator(mode="after")
     def supported_configuration(self) -> PlanRequest:
         if self.primary_runtime != RuntimeName.AX_ENGINE:
@@ -188,8 +215,18 @@ class PlanRequest(StrictModel):
         unsupported = set(self.candidate_bits) - set(self.hardware.supported_bits)
         if unsupported:
             raise ValueError(f"hardware profile does not support bits {sorted(unsupported)}")
-        if self.group_size not in self.hardware.supported_group_sizes:
-            raise ValueError(f"hardware profile does not support group size {self.group_size}")
+        for size in self.effective_group_sizes():
+            if size not in self.hardware.supported_group_sizes:
+                raise ValueError(f"hardware profile does not support group size {size}")
+        if self.candidate_methods:
+            unsupported_methods = set(self.candidate_methods) - set(self.hardware.supported_methods)
+            # BF16 is always allowed for 16-bit candidates even if omitted from the filter.
+            unsupported_methods.discard(QuantMethod.BF16)
+            if unsupported_methods:
+                raise ValueError(
+                    "hardware profile does not support methods "
+                    f"{sorted(method.value for method in unsupported_methods)}"
+                )
         return self
 
 
@@ -199,7 +236,12 @@ class KvLayerSensitivity(StrictModel):
 
     @model_validator(mode="after")
     def unique_candidates(self) -> KvLayerSensitivity:
-        keys = [(candidate.bits, candidate.method) for candidate in self.candidates]
+        from axquant.schema.sensitivity import candidate_key
+
+        keys = [
+            candidate_key(candidate.bits, candidate.method, candidate.group_size)
+            for candidate in self.candidates
+        ]
         if len(keys) != len(set(keys)):
             raise ValueError(f"duplicate KV candidates for layer {self.layer_index}")
         return self
@@ -284,6 +326,10 @@ class Allocation(StrictModel):
     predicted_loss: float = Field(ge=0.0)
     metrics: MetricVector
     reason: str
+    # AXQ-028: first-class scale / outlier strategy (additive; old plans default).
+    scale_strategy: ScaleStrategy = ScaleStrategy.GROUP_AFFINE
+    outlier_strategy: OutlierStrategy = OutlierStrategy.NONE
+    strategy_metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
 
 class PrecisionShare(StrictModel):
@@ -304,6 +350,8 @@ class QuantizationPlan(StrictModel):
     effective_bpw: float
     candidate_bits: tuple[int, ...]
     group_size: int
+    # Effective group-size grid used when planning (AXQ-028). Empty on legacy plans.
+    candidate_group_sizes: tuple[int, ...] = ()
     objective: ObjectiveWeights
     hardware: HardwareProfile
     mtp: MtpPolicy

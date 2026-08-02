@@ -1084,6 +1084,9 @@ class RefinementConfig(StrictModel):
     convergence_threshold: float = Field(default=0.001, ge=0.0)
     swap_radius: int = Field(default=5, ge=1)
     random_seed: int = Field(default=0, ge=0)
+    # QP1: optional expected digest of a holdout RefinementMeasurementSet.
+    # When set, select_complete_candidate requires a matching measurement set.
+    holdout_measurement_set_sha256: str | None = Field(default=None, min_length=64, max_length=64)
 
 
 class RefinementResult(StrictModel):
@@ -1095,6 +1098,10 @@ class RefinementResult(StrictModel):
     selected_plan: QuantizationPlan
     selected_plan_sha256: str
     selection_basis: Literal["proxy", "complete-model"]
+    # QP1: proxy-only runs are always development evidence.
+    evidence_label: Literal["proxy-development", "holdout-bound"] = "proxy-development"
+    holdout_measurement_set_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    warnings: list[str] = Field(default_factory=list)
     iterations_used: int = Field(ge=0)
     evaluations_used: int = Field(ge=0)
     converged: bool

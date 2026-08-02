@@ -589,6 +589,16 @@ def refine_candidates(
         if entry.candidate_id != final_best.candidate_id and entry.state == "pending":
             entry.state = "rejected"
 
+    proxy_warning = (
+        "Proxy-only refinement is development evidence and cannot satisfy release "
+        "selection without holdout-bound complete-candidate measurements (QP1)."
+    )
+    warnings = [proxy_warning]
+    if config.holdout_measurement_set_sha256:
+        warnings.append(
+            "holdout_measurement_set_sha256 is configured; call select_complete_candidate "
+            "with a matching RefinementMeasurementSet to bind holdout evidence."
+        )
     return RefinementResult(
         config=config,
         history=history,
@@ -597,6 +607,9 @@ def refine_candidates(
         selected_plan=final_best.plan,
         selected_plan_sha256=selected_sha,
         selection_basis="proxy",
+        evidence_label="proxy-development",
+        holdout_measurement_set_sha256=config.holdout_measurement_set_sha256,
+        warnings=warnings,
         iterations_used=iterations_used,
         evaluations_used=evaluations_used,
         converged=converged,
@@ -608,6 +621,16 @@ def select_complete_candidate(
     measurements: RefinementMeasurementSet,
 ) -> RefinementResult:
     """Select a candidate only from checksum-bound complete-model evidence."""
+    measurement_digest = stable_sha256(measurements)
+    expected_holdout = (
+        refinement.config.holdout_measurement_set_sha256
+        or refinement.holdout_measurement_set_sha256
+    )
+    if expected_holdout is not None and measurement_digest != expected_holdout:
+        raise RefinementError(
+            "holdout measurement set digest does not match refinement binding: "
+            f"expected {expected_holdout}, got {measurement_digest}"
+        )
     candidates_by_id = refinement.candidate_plans
     history_by_id = {entry.candidate_id: entry for entry in refinement.history}
     measurements_by_candidate: dict[str, list[CompleteCandidateMeasurement]] = {}
@@ -666,6 +689,12 @@ def select_complete_candidate(
             )
         )
     selected_plan = candidates_by_id[selected_candidate_id]
+    warnings = [
+        warning for warning in refinement.warnings if "Proxy-only refinement" not in warning
+    ]
+    warnings.append(
+        f"Selection bound to holdout complete-candidate measurements (digest {measurement_digest})."
+    )
     return refinement.model_copy(
         update={
             "history": updated_history,
@@ -673,6 +702,9 @@ def select_complete_candidate(
             "selected_plan": selected_plan,
             "selected_plan_sha256": stable_sha256(selected_plan),
             "selection_basis": "complete-model",
+            "evidence_label": "holdout-bound",
+            "holdout_measurement_set_sha256": measurement_digest,
+            "warnings": warnings,
         }
     )
 

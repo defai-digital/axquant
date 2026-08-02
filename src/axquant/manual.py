@@ -3,11 +3,13 @@ from __future__ import annotations
 from fnmatch import fnmatchcase
 
 from axquant.errors import PlanningError
-from axquant.planner import storage_bpw
+from axquant.experimental_bits import annotate_experimental_low_bit_plan
+from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
 from axquant.schema import (
     Allocation,
     ArchitectureSupportLevel,
+    CandidateMeasurement,
     EvidenceKind,
     Inventory,
     ManualPlanRecipe,
@@ -176,6 +178,13 @@ def manual_quantization_plan(
         if matching is not None:
             matched_rules.add(matching.rule_id)
         bits, method, group_size, reason = _precision(tensor, recipe, matching)
+        measurement = CandidateMeasurement(
+            bits=bits,
+            method=method,
+            group_size=group_size,
+            metrics=MetricVector(),
+        )
+        scale_strategy, outlier_strategy = strategy_for_measurement(measurement)
         allocations.append(
             Allocation(
                 tensor=tensor.name,
@@ -188,6 +197,12 @@ def manual_quantization_plan(
                 predicted_loss=0.0,
                 metrics=MetricVector(),
                 reason=reason,
+                scale_strategy=scale_strategy,
+                outlier_strategy=outlier_strategy,
+                strategy_metadata={
+                    "storage_bpw": storage_bpw(bits, group_size),
+                    "selected_from_candidates": 1,
+                },
             )
         )
     unmatched = [rule.rule_id for rule in recipe.rules if rule.rule_id not in matched_rules]
@@ -227,7 +242,7 @@ def manual_quantization_plan(
     ]
     if unmatched:
         warnings.append(f"Unmatched manual rules were allowed: {unmatched}")
-    return QuantizationPlan(
+    plan = QuantizationPlan(
         source_model=inventory.model,
         architecture_profile=inventory.architecture_profile,
         profile=recipe.profile,
@@ -259,3 +274,4 @@ def manual_quantization_plan(
         mtp_distribution=_distribution(allocations, mtp_only=True),
         warnings=warnings,
     )
+    return annotate_experimental_low_bit_plan(plan)

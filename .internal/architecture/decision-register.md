@@ -38,6 +38,8 @@ implementation. Each decision remains in force until explicitly superseded here.
 | AXQ-025 | Gate measured KV plans at release by packaged report and deterministic reallocation | Accepted |
 | AXQ-026 | Resolve the size gate through a governed 8-bit LM-head floor | Accepted |
 | AXQ-027 | Document independent algorithm derivation sources for clean-room provenance | Accepted |
+| AXQ-028 | Learn NVFP4 scale philosophy via bits×group×method; never adopt NVFP4 format | Accepted |
+| AXQ-029 | Keep pure PTQ as default; forbid domain fine-tune; allow optional recovery later | Accepted |
 
 ## AXQ-001: Independent clean-room implementation
 
@@ -905,18 +907,77 @@ quality risk is the lowest of the four options.
   exactness path, and requires a new validated backend).
 - Language-only artifact scope (the ratio worsens to ~115.41% under a consistent denominator).
 
+## AXQ-028: NVFP4-inspired configuration space without NVFP4 format
+
+**Status:** Accepted (2026-08-01)
+
+### Context
+
+NVFP4 shows that fine-grained block scales and two-level dynamic-range handling can preserve
+accuracy near 4-bit on Blackwell. Copying the E2M1 format onto MLX would break portable MLX
+weights (AXQ-004) and has no native Tensor Core on Apple Silicon.
+
+### Decision
+
+- Do **not** implement NVFP4/MXFP4/E2M1 as an AXQuant weight format.
+- Expand PTQ planning and probing to a first-class grid of
+  `(bits, method, group_size)` with Pareto storage ladders and allocation strategy metadata
+  (`scale_strategy`, `outlier_strategy`).
+- Translate NVFP4 ideas as: smaller groups for sensitive tensors, group/channel/tensor scale
+  strategies under affine/AWQ/DWQ, mixed precision for near-4-bit fidelity.
+
+Full narrative: [`decisions/0007-quant-philosophy-nvfp4-and-recovery.md`](decisions/0007-quant-philosophy-nvfp4-and-recovery.md).
+Program: [quant-philosophy PRD](../product/quant-philosophy-prd.md),
+[tech spec](../engineering/quant-philosophy-technical-specification.md).
+
+### Consequences
+
+- Probe cost multiplies with the grid; defaults remain single-group unless opted in.
+- AXQ-007 floors and MLX packing remain authoritative.
+
+### Rejected alternatives
+
+- Software-emulated NVFP4 packing on MLX.
+- Bit-only candidate collapse that discards group/method diversity.
+
+## AXQ-029: Pure PTQ default; optional recovery; no domain fine-tune
+
+**Status:** Accepted (2026-08-01)
+
+### Context
+
+mlx-optiq includes fine-tune as a product feature. AXQuant’s claim is deployment efficiency
+without adding learned capabilities. Full SFT/QAT would explode provenance and product scope.
+
+### Decision
+
+- Default `convert` / `quantize` / release paths remain **pure PTQ**.
+- Domain SFT, DPO, chat/coding fine-tune, and default full-network QAT are **out of scope**.
+- Optional **quantization recovery** (calibration-only scale/bias or merged low-rank updates)
+  may ship in program phase QP2 with a dedicated recovery manifest and retention-only claims.
+
+### Consequences
+
+- README non-training language stays true.
+- Recovery cannot be implied by quick conversion.
+
+### Rejected alternatives
+
+- Mainline fine-tune / Lab-style training UX.
+- Silent weight mutation during convert without recovery provenance.
+
 ## Deferred decisions
 
 The following require later ADR updates:
 
-- AWQ and DWQ plugin interfaces and fallback ordering;
-- top-N candidate algorithm and global refinement budget;
+- AWQ and DWQ plugin interfaces and fallback ordering (partially addressed by strategy metadata);
+- top-N candidate algorithm and global refinement budget (QP1 holdout binding);
 - hardware profile registry and tolerance model;
 - integrated versus external MTP quantization beyond byte preservation;
-- MoE expert allocation;
+- MoE expert allocation beyond fused-group harmonization;
 - VLM calibration and vision precision;
 - LoRA rank guidance derived from sensitivity artifacts;
-- additional bit formats and group/column granularity.
+- recovery algorithm selection and QAT research path (QP2 boundary only).
 
 ## AXQ-027: Document independent algorithm derivation sources for clean-room provenance
 
@@ -935,6 +996,12 @@ competitor's implementation. ADR 0006 records the specific sources:
 - Atomic staging conversion: POSIX rename(2) semantics.
 
 Future algorithms must record their derivation source in ADR 0006 or a supplementary ADR.
+
+Program QP (AXQ-028) adds classical **Pareto dominance filtering** over storage BPW versus
+proxy loss when building per-tensor option ladders. Independent source: multi-objective
+Pareto efficiency (economics / operations research; see also rate-distortion trade-off curves in
+Cover & Thomas). Group-size noise scaling in architecture priors is an AXQuant development
+heuristic only and is never release evidence.
 
 ## Supersession policy
 
