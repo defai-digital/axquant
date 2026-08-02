@@ -17,4 +17,4 @@ dist/
 *.npz
 .env
 credentials.json
-.internal/tmp/
+.internal/
