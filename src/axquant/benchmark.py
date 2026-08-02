@@ -1027,6 +1027,7 @@ def compare_mtp_ab_results(
         and not any(
             issue.startswith("hardware chip differs")
             or issue.startswith("AX Engine version differs")
+            or issue.startswith("runtime_env differs")
             for issue in issues
         )
     )

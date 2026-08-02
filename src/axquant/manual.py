@@ -49,6 +49,11 @@ def _minimum_bits(tensor: TensorSpec, recipe: ManualPlanRecipe) -> tuple[int, st
         return 16, "external MTP sidecar preserved byte-for-byte"
     if tensor.role.is_mtp and recipe.mtp.mode == "protected":
         return recipe.mtp.min_bits, "protected MTP policy"
+    # Unlike planner.py's automatic search, manual recipes have no
+    # `candidate_bits` search space to respect -- each rule states its bits
+    # explicitly, already schema-validated to >=2 (ManualPrecisionRule.bits),
+    # so `2` here is a harmless floor for unprotected roles, not a policy
+    # choice that needs to mirror planner.py's `min(candidate_bits)`.
     minimum = _PROTECTED_MIN_BITS.get(tensor.role, 2)
     reason = f"protected {tensor.role.value} policy" if tensor.role in _PROTECTED_MIN_BITS else None
     if tensor.role == TensorRole.LM_HEAD and recipe.lm_head_min_bits < minimum:

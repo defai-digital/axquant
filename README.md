@@ -86,11 +86,15 @@ Its design centers on:
 
 ## Current status
 
-The toolkit version is `1.0.0` (packaging classifier: **Beta**). The CLI, schemas, and
+The toolkit version is `1.0.1` (packaging classifier: **Beta**). The CLI, schemas, and
 conversion pipeline are feature-complete and quality-gated for the scoped Qwen 3.6 path:
 **you can inspect, plan, convert, and validate your own checkpoints today** — one-command
 `quantize`, recipe bundles, measured planning, atomic conversion, and runtime checks all work
-now and are covered by the test suite.
+now and are covered by the test suite. `v1.0.1` is a maintenance release: it strengthens
+fail-closed guarantees across planning, release auditing, and artifact hashing (protection
+floors and release-gate thresholds are now re-verified at load time, not just at construction
+time) with no change in scope or CLI surface — see the
+[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.0.1) for detail.
 
 What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
 checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
@@ -171,10 +175,22 @@ Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
 
 | Pack | Measured BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | floors raised 4.8→5.58 |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | quality class |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~5.14 | MoE; floors raised 4.8→5.14 |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~6.00 | MoE quality class |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | primary; floors raised 4.8→5.58 |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | primary quality class |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~5.14 | primary MoE; floors raised |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~6.00 | primary MoE quality class |
+| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | ~6.97 | secondary; floors dominate 4/6 labels |
+| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | ~6.97 | secondary; same floor as 4bit-class |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | secondary |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | ~4.95 | secondary coding/agent |
+| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | ~5.15 | secondary; vision sidecar preserved |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | ~7.38 | secondary fixture; floors dominate |
+| [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | ~7.38 | secondary fixture |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | ~4.79 | thin Nano only; no AX Engine manifest yet |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | ~5.98 | thin Nano only |
 
 Naming: `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last**; MLX-style bit labels, not GGUF `q4`).
 

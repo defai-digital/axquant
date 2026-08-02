@@ -621,6 +621,32 @@ class TestMtpDiagnostics:
         assert comparison.speedup_pass is True
         assert comparison.release_ready is True
 
+    def test_compare_rejects_release_ready_on_mismatched_runtime_env(
+        self, base_config: BenchmarkConfig
+    ) -> None:
+        # compare_mtp_ab_results is a public function; run_mtp_ab's own
+        # validate_ab_invariant pre-guarantees equal runtime_env before ever
+        # calling it, but this function must not silently certify
+        # release_ready on its own if called with mismatched envs directly
+        # -- an unfair A/B comparison invalidates both the exactness and
+        # speedup claims, not just something to note in passing.
+        direct_config = base_config
+        mtp_config = base_config.model_copy(
+            update={
+                "mtp_enabled": True,
+                "baseline_kind": "axquant-mtp-on",
+                "runtime_env": {"AX_NO_SPEC": "1"},
+            }
+        )
+        tokens = {0: [1, 2, 3], 1: [4, 5, 6]}
+        direct = self._result_with_tokens(direct_config, tokens, tps=10.0)
+        mtp = self._result_with_tokens(mtp_config, tokens, tps=13.0, mtp_active=True)
+
+        comparison = compare_mtp_ab_results(direct, mtp, minimum_speedup=1.20)
+
+        assert "runtime_env differs between direct and MTP results" in comparison.issues
+        assert comparison.release_ready is False
+
     def test_compare_summarizes_mtp_phase_timings(
         self,
         base_config: BenchmarkConfig,
