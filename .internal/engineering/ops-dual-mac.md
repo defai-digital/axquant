@@ -18,11 +18,15 @@ Do **not** run identical full convert jobs on both hosts for the same pack. Do *
 | HF hub cache | `~/.cache/huggingface` → `/Volumes/Ext4T-02/hf-data` |
 | BF16 sources | `~/models/<name>` → `/Volumes/Ext4T-02/axquant/models/<name>` |
 | AXQ outputs | `~/axquant-artifacts/axq-publish` → `/Volumes/Ext4T-02/axquant/axq-publish` |
-| Logs | `~/axquant-artifacts/logs` → `/Volumes/Ext4T-02/axquant/logs` (or local small logs) |
+| Dev smokes | `~/axquant-artifacts/*-dev-smoke` → `/Volumes/Ext4T-02/axquant/smokes/*` |
+| Logs | `~/axquant-artifacts/logs` → `/Volumes/Ext4T-02/axquant/logs` |
 | Prep work | `/Volumes/Ext4T-02/axquant/work` |
 | Code | `~/code/axquant` (rsync from M5 git) |
 
 Internal Data is for OS, conda, code, and small files. **Large weights stay on Ext4T-02.**
+
+Verified: models + axq-publish + logs migrated 2026-08-02; all `*-dev-smoke` trees
+live under `smokes/` on Ext4T (qwen36 copies completed after an interrupted rsync was discarded).
 
 ### NAS
 
