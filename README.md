@@ -140,8 +140,9 @@ Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
 | Gemma-4 | `google/gemma-4-12b` | `023679ed…` | 5.0* | **5.0001** | pass | `gemma4_unified` prep; vision sidecar |
 
 \*Default 4.8 BPW is **infeasible** on Gemma-4 because protection floors raise the
-policy minimum (~4.89). Simple convert now auto-raises once to the policy floor
-(and records a plan warning). Prefer an explicit `--target-bpw ≥ 5.0` for this family.
+policy minimum (~4.89). Simple convert **auto-raises once** to the policy floor
+(verified on this host: target raised 4.80 → 4.89, measured BPW **4.8900**, MLX-LM
+smoke pass). Prefer an explicit `--target-bpw ≥ 5.0` when you want a fixed budget.
 
 Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
 

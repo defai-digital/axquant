@@ -196,6 +196,11 @@ def quick_convert(
         f"Convert ladder: {ladder_name}.",
         f"Requested target BPW: {effective_target}.",
     ]
+    notes.extend(
+        warning
+        for warning in plan.warnings
+        if "raised from" in warning or "protection floors" in warning
+    )
     if bundle_id is not None:
         notes.append(f"Plan bound from recipe bundle {bundle_id}.")
     if plan.candidate_group_sizes:
