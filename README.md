@@ -107,8 +107,8 @@ release audit. The current tier matrix:
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible` (certification pending the formal release audit; the 35B-A3B MoE path converted 2026-08-01 with fused-expert planning — measured 5.2501 BPW, routers at the 8-bit floor, passing MLX-LM and AX Engine smokes) |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence: full 775-tensor classification, complete 7.0-BPW conversion with integrated-MTP and vision sidecars, passing MLX-LM and AX Engine smokes) |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence: full 219-tensor classification, complete 7.5-BPW conversion, passing MLX-LM and AX Engine smokes) |
-| Gemma-4 dense | `gemma4-dense-v1` | `inspect-only` — real google/gemma-4-12b inspection fully classifies all 677 tensors, but the pinned MLX-LM cannot convert `gemma4_unified`, so the required conversion smoke is blocked |
-| Nemotron 3 dense | `nemotron3-dense-v1` | `inspect-only` — the public Nemotron 3 catalog ships MoE checkpoints only, so no real dense checkpoint can satisfy the promotion contract |
+| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` sources are prepared at convert time (`model_type` → `gemma4`, multimodal tensors filtered for MLX-LM; original vision/audio restored as protected sidecars). Real inspect: 677/677 tensors on google/gemma-4-12b |
+| Nemotron 3 | `nemotron3-dense-v1` | `inspect-only` — public generative catalog is **MoE-only** (Nano/Super/Ultra); no dense checkpoint for the dense promotion contract. MoE convert path still deferred |
 
 New dense families are added as declarative adapter specifications and start at `inspect-only`
 until their promotion evidence exists (see the expansion program documents under `.internal/`).
@@ -228,29 +228,57 @@ For development, install the test and lint tools as well:
 python -m pip install -e ".[dev,mlx]"
 ```
 
-## Quick start: one-command development conversion
+## Quick start: simple development convert (OptiQ-like)
 
-For a family at the `convertible` tier or better, a single command inspects the checkpoint,
-plans from architecture priors (or a supplied recipe bundle), converts, and optionally runs a
-runtime smoke:
+AXQuant uses a **two-door** model:
+
+| Door | When | Command |
+| --- | --- | --- |
+| **Simple (dev)** | local trials, fit-check, smoke | `axquant quantize MODEL --target-bpw 4.8` |
+| **Release** | public quality/speed claims | staged analyze → plan → convert → validate → scoreboard |
+
+Simple convert is **always development evidence**. It never upgrades to a certified claim.
+
+### Minimal commands
 
 ```bash
+# Local BF16 checkpoint — closest to OptiQ simplicity
+axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8
+
+# Explicit flags still work
 axquant quantize \
   --model /models/Qwen3.6-27B-bf16 \
   --model-id Qwen/Qwen3.6-27B \
   --revision REVISION_SHA \
-  --output AX-Qwen3.6-27B-MLX-AXQuant-dev \
+  --target-bpw 4.8 \
   --runtime-smoke mlx-lm \
   --json quantize-summary.json
+
+# Hub id (download opt-in; pin a revision for reproducibility)
+axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision REVISION_SHA
 ```
 
-The command prints the support tier, evidence kind, and measured BPW, and always labels its
-output as development evidence: quick mode cannot produce release claims, satisfy any release
-gate, or publish. To reuse published planning evidence, pass a checksummed recipe bundle with
-`--recipe` — either a local path or a revision-pinned Hub reference such as
+Defaults on the simple path:
+
+- ladder `prior` with multi-group grid `(32, 64)`;
+- output directory `./AX-<model>-MLX-AXQuant-4bit` when `--output` is omitted;
+- development-evidence banner in logs and summary notes;
+- family tier gates (inspect-only still fails closed).
+
+```bash
+axquant simple-convert-help          # two-door best practices
+axquant ladders --markdown-output convert-ladders.md
+axquant probe-capacity --inventory architecture_report.json --output probe-capacity.json
+axquant scoreboard --plan plan-01.json --output scoreboard.json --markdown-output scoreboard.md
+```
+
+To reuse published planning evidence, pass a checksummed recipe bundle with `--recipe` — either a
+local path or a revision-pinned Hub reference such as
 `--recipe hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@COMMIT_SHA/recipe/axquant_recipe_bundle.json`
-(the revision pin is mandatory and the payload checksum is always verified). To add prior-based
-per-layer KV-cache metadata, pass `--kv-cache prior`.
+(the revision pin is mandatory and the payload checksum is always verified). Expert memory-tier
+development recipes live under `examples/expert-memory-tier-v0.1.yaml` (2-bit fused experts, 8-bit
+routers; requires AX Engine experimental 2-bit flags). To add prior-based per-layer KV-cache
+metadata, pass `--kv-cache prior`.
 
 ## Staged development conversion
 
@@ -352,7 +380,14 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit reviewed precision recipe | Implemented for development |
-| `quantize` | One-command development conversion (inspect → prior/recipe plan → convert) | Implemented; output is always development evidence |
+| `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
+| `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
+| `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
+| `probe-capacity` | Recommend sensitivity probe mode under host memory (bf16-full / measured-lite / streaming / prior-only) | Implemented |
+| `scoreboard` | Certification scoreboard from plan + optional size/quality/MTP evidence (MTP speed owned by AX Engine) | Implemented |
+| `bind-sensitivity` | Bind weight (+ optional KV) sensitivity digests into one lineage artifact | Implemented |
+| `recovery-rank` | Rank quantized tensors for opt-in recovery by sensitivity (not implied by convert) | Implemented |
+| `deferred-features` | List fail-closed deferred expansion features (VLM quant, per-expert unfused, domain LoRA) | Implemented |
 | `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
 | `support-matrix` | List every registered model family with its declared support tier | Implemented |
 | `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |

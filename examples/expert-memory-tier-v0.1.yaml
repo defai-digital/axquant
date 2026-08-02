@@ -1,0 +1,77 @@
+# Expert memory tier recipe (P1).
+# Development evidence only — requires AX_ENGINE_2BIT_EXPERIMENTAL=1 for 2-bit experts.
+# Policy: routers stay at the 8-bit floor; fused experts use 2-bit affine/group-32;
+# attention prefers 4-bit; protected norms/lm_head/embeddings/MTP/vision stay high-bit.
+#
+# target_bpw is intentionally loose so protected tensors do not make the recipe
+# infeasible on small fixtures. On full MoE trunks measured BPW falls much lower.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 4
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit (expert-memory tier)
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: Vision tensors stay BF16 (VLM optimization deferred)
+  - rule_id: protect-mtp
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: MTP stays protected in memory-tier recipes
+  - rule_id: attention-4bit
+    roles: [attention]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Attention stays at standard 4-bit (not ultra-low)
+  - rule_id: mlp-4bit
+    roles: [mlp]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Dense MLP trunk at 4-bit
+  - rule_id: experts-2bit
+    roles: [expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Fused experts at experimental 2-bit for memory tier (development evidence)
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

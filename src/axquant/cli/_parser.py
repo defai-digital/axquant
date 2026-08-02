@@ -4,7 +4,13 @@ import argparse
 from datetime import datetime
 
 from axquant.profiles import implemented_profiles
-from axquant.schema import MtpSidecarLayout, ProfileName, QuantMethod, RuntimeName
+from axquant.schema import (
+    ConvertLadderName,
+    MtpSidecarLayout,
+    ProfileName,
+    QuantMethod,
+    RuntimeName,
+)
 
 
 def _bits(value: str) -> tuple[int, ...]:
@@ -86,6 +92,14 @@ def _profile(value: str) -> ProfileName:
         choices = ", ".join(item.value for item in implemented_profiles())
         raise argparse.ArgumentTypeError(f"profile must be one of {choices}")
     return profile
+
+
+def _ladder(value: str) -> ConvertLadderName:
+    try:
+        return ConvertLadderName(value)
+    except ValueError as exc:
+        choices = ", ".join(item.value for item in ConvertLadderName)
+        raise argparse.ArgumentTypeError(f"ladder must be one of {choices}") from exc
 
 
 def _iso_datetime(value: str) -> datetime:
@@ -209,20 +223,34 @@ def _build_parser() -> argparse.ArgumentParser:
 
     plan_parser = subparsers.add_parser("plan")
     plan_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
-    plan_parser.add_argument("--target-bpw", type=float, default=4.8)
-    plan_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
+    plan_parser.add_argument(
+        "--ladder",
+        type=_ladder,
+        help="apply a convert-ladder preset for bits/groups/methods/target BPW defaults (P1)",
+    )
+    plan_parser.add_argument("--target-bpw", type=float, default=None)
+    plan_parser.add_argument("--bits", type=_bits, default=None)
     plan_parser.add_argument(
         "--candidate-group-sizes",
         type=_group_sizes,
-        default=(),
+        default=None,
         help="optional multi-group planner grid (e.g. 32,64,128); empty uses --group-size",
     )
     plan_parser.add_argument(
         "--methods",
         type=_methods,
-        default=(QuantMethod.AFFINE, QuantMethod.AWQ, QuantMethod.DWQ, QuantMethod.BF16),
+        default=None,
     )
-    plan_parser.add_argument("--group-size", type=int, default=64)
+    plan_parser.add_argument("--group-size", type=int, default=None)
+    plan_parser.add_argument(
+        "--bind-kv-sensitivity",
+        help="optional KV sensitivity JSON; writes unified sensitivity binding alongside the plan",
+    )
+    plan_parser.add_argument(
+        "--unified-binding-output",
+        default="unified-sensitivity.json",
+        help="where to write the unified weight+KV sensitivity binding when binding",
+    )
     plan_parser.add_argument("--minimum-quality", type=float, default=0.98)
     plan_parser.add_argument("--minimum-mtp-retention", type=float, default=0.95)
     plan_parser.add_argument("--minimum-mtp-speedup", type=float, default=1.20)
@@ -289,18 +317,45 @@ def _build_parser() -> argparse.ArgumentParser:
 
     quantize_parser = subparsers.add_parser(
         "quantize",
-        help="One-command development conversion: inspect, plan from priors, convert",
+        help=(
+            "Simple development convert (OptiQ-like): MODEL + optional --target-bpw. "
+            "Always development evidence; release claims use the staged pipeline."
+        ),
     )
-    quantize_parser.add_argument("--model", required=True)
+    quantize_parser.add_argument(
+        "model_positional",
+        nargs="?",
+        help="Local BF16 MLX directory or Hub id (org/name)",
+    )
+    quantize_parser.add_argument(
+        "--model",
+        dest="model_option",
+        help="Same as positional MODEL (either form is accepted)",
+    )
     quantize_parser.add_argument("--model-id")
     quantize_parser.add_argument("--revision")
-    quantize_parser.add_argument("--output", required=True)
+    quantize_parser.add_argument(
+        "--output",
+        default=None,
+        help="Output directory (default: ./AX-<model>-MLX-AXQuant-<class>)",
+    )
     quantize_parser.add_argument(
         "--profile",
         choices=[profile.value for profile in implemented_profiles()],
         default=ProfileName.GENERAL.value,
     )
-    quantize_parser.add_argument("--target-bpw", type=float, default=4.8)
+    quantize_parser.add_argument(
+        "--ladder",
+        type=_ladder,
+        default=ConvertLadderName.PRIOR,
+        help="convert ladder (default: prior with multi-group 32,64 grid)",
+    )
+    quantize_parser.add_argument(
+        "--target-bpw",
+        type=float,
+        default=None,
+        help="target average BPW (prior default 4.8)",
+    )
     quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
     quantize_parser.add_argument(
         "--recipe",
@@ -312,6 +367,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
     )
     quantize_parser.add_argument("--mtp-sidecar")
+    quantize_parser.add_argument(
+        "--allow-download",
+        action="store_true",
+        help="Allow Hugging Face Hub download when MODEL is a Hub id (not a local path)",
+    )
     quantize_parser.add_argument(
         "--runtime-smoke",
         choices=["none", "mlx-lm", "ax-engine"],
@@ -325,6 +385,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="if-available",
     )
     quantize_parser.add_argument("--json", dest="json_output")
+
+    simple_help_parser = subparsers.add_parser(
+        "simple-convert-help",
+        help="Print simple-convert best practices (two-door model)",
+    )
+    simple_help_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional markdown file path (default: stdout via log)",
+    )
 
     recipe_export_parser = subparsers.add_parser(
         "recipe-export",
@@ -355,6 +425,84 @@ def _build_parser() -> argparse.ArgumentParser:
     head_to_head_parser.add_argument("--benchmark-index", required=True)
     head_to_head_parser.add_argument("--title")
     head_to_head_parser.add_argument("--output", default="head-to-head.md")
+
+    scoreboard_parser = subparsers.add_parser(
+        "scoreboard",
+        help="Build a certification scoreboard from a plan and optional evidence (P0)",
+    )
+    scoreboard_parser.add_argument("--plan", required=True)
+    scoreboard_parser.add_argument("--profile", type=_profile)
+    scoreboard_parser.add_argument("--title")
+    scoreboard_parser.add_argument("--candidate-size")
+    scoreboard_parser.add_argument("--size-reference")
+    scoreboard_parser.add_argument("--quality-comparison")
+    scoreboard_parser.add_argument("--validation-report")
+    scoreboard_parser.add_argument("--mtp-ab")
+    scoreboard_parser.add_argument("--candidate-evaluation")
+    scoreboard_parser.add_argument("--reference-evaluation")
+    scoreboard_parser.add_argument("--minimum-quality", type=float, default=0.98)
+    scoreboard_parser.add_argument("--max-size-ratio", type=float, default=1.10)
+    scoreboard_parser.add_argument("--minimum-mtp-retention", type=float, default=0.95)
+    scoreboard_parser.add_argument("--minimum-mtp-speedup", type=float, default=1.20)
+    scoreboard_parser.add_argument("--require-complete", action="store_true")
+    scoreboard_parser.add_argument("--output", default="scoreboard.json")
+    scoreboard_parser.add_argument("--markdown-output", default="scoreboard.md")
+
+    probe_capacity_parser = subparsers.add_parser(
+        "probe-capacity",
+        help="Recommend sensitivity probe mode under host memory limits (P0)",
+    )
+    probe_capacity_parser.add_argument("--inventory", help="Inventory JSON from axquant inspect")
+    probe_capacity_parser.add_argument(
+        "--parameter-count",
+        type=int,
+        help="Explicit parameter count when inventory is not provided",
+    )
+    probe_capacity_parser.add_argument("--model-id")
+    probe_capacity_parser.add_argument(
+        "--available-memory-bytes",
+        type=int,
+        help="Override detected unified memory (bytes)",
+    )
+    probe_capacity_parser.add_argument(
+        "--headroom-fraction",
+        type=float,
+        default=0.70,
+        help="Fraction of available memory usable for probes (default 0.70)",
+    )
+    probe_capacity_parser.add_argument("--output", default="probe-capacity.json")
+    probe_capacity_parser.add_argument("--markdown-output", default="probe-capacity.md")
+
+    ladder_parser = subparsers.add_parser(
+        "ladders",
+        help="List convert ladders (prior → measured-lite → measured-full → refine) (P1)",
+    )
+    ladder_parser.add_argument("--output", help="Optional JSON list output")
+    ladder_parser.add_argument("--markdown-output", default="convert-ladders.md")
+
+    deferred_parser = subparsers.add_parser(
+        "deferred-features",
+        help="List fail-closed deferred expansion features (P2)",
+    )
+    deferred_parser.add_argument("--output", help="Optional JSON output")
+
+    recovery_rank_parser = subparsers.add_parser(
+        "recovery-rank",
+        help="Rank quantized tensors for opt-in recovery by sensitivity (P2)",
+    )
+    recovery_rank_parser.add_argument("--plan", required=True)
+    recovery_rank_parser.add_argument("--sensitivity")
+    recovery_rank_parser.add_argument("--limit", type=int)
+    recovery_rank_parser.add_argument("--output", default="recovery-ranking.json")
+
+    bind_parser = subparsers.add_parser(
+        "bind-sensitivity",
+        help="Bind weight (+ optional KV) sensitivity digests into one lineage artifact (P1)",
+    )
+    bind_parser.add_argument("--sensitivity", required=True, help="Weight sensitivity report")
+    bind_parser.add_argument("--kv-sensitivity")
+    bind_parser.add_argument("--plan")
+    bind_parser.add_argument("--output", default="unified-sensitivity.json")
 
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--reference-evaluation", required=True)

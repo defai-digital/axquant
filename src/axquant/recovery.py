@@ -16,7 +16,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from axquant.errors import PlanningError
-from axquant.schema import QuantizationPlan
+from axquant.schema import QuantizationPlan, RecoveryTargetRanking, SensitivityReport
 from axquant.schema._base import StrictModel, utc_now
 from axquant.serde import load_model, stable_sha256, write_data
 
@@ -146,6 +146,71 @@ def build_recovery_manifest(
         notes=[
             "Optional quantization recovery; retention-restore only.",
             "Not domain SFT/DPO; convert/quantize never require this stage.",
+        ],
+    )
+
+
+def rank_recovery_targets(
+    plan: QuantizationPlan | str | Path,
+    *,
+    sensitivity: SensitivityReport | str | Path | None = None,
+    limit: int | None = None,
+) -> RecoveryTargetRanking:
+    """Order quantized tensors by sensitivity / predicted loss for opt-in recovery (P2).
+
+    Higher predicted_loss (or sensitivity output_kl when a report is bound) ranks first.
+    Domain LoRA/SFT is not offered — only scale/bias recovery targets.
+    """
+    plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
+    score_by_tensor: dict[str, float] = {}
+    for allocation in plan_model.assignments:
+        if allocation.bits >= 16:
+            continue
+        score_by_tensor[allocation.tensor] = float(allocation.predicted_loss)
+
+    sens_digest: str | None = None
+    if sensitivity is not None:
+        report = (
+            sensitivity
+            if isinstance(sensitivity, SensitivityReport)
+            else load_model(sensitivity, SensitivityReport)
+        )
+        sens_digest = stable_sha256(report)
+        if report.model.model_id != plan_model.source_model.model_id:
+            raise PlanningError("recovery ranking sensitivity model does not match the plan")
+        by_name = {entry.tensor.name: entry for entry in report.entries}
+        for name in list(score_by_tensor):
+            entry = by_name.get(name)
+            if entry is None:
+                continue
+            # Prefer the max measured KL among quantized candidates under the assigned bits.
+            assigned = next(
+                (a for a in plan_model.assignments if a.tensor == name),
+                None,
+            )
+            if assigned is None:
+                continue
+            matching = [
+                candidate.metrics.output_kl
+                for candidate in entry.candidates
+                if candidate.bits == assigned.bits and candidate.supported
+            ]
+            if matching:
+                score_by_tensor[name] = max(float(value) for value in matching)
+
+    ordered = sorted(score_by_tensor.items(), key=lambda item: (-item[1], item[0]))
+    if limit is not None:
+        if limit < 1:
+            raise PlanningError("recovery ranking limit must be >= 1")
+        ordered = ordered[:limit]
+    return RecoveryTargetRanking(
+        plan_sha256=stable_sha256(plan_model),
+        sensitivity_sha256=sens_digest,
+        targets=[name for name, _ in ordered],
+        scores={name: score for name, score in ordered},
+        notes=[
+            "Opt-in ranking only; convert/quantize never imply recovery.",
+            "Domain LoRA/SFT is deferred (DeferredFeature.LORA_DOMAIN_SFT).",
         ],
     )
 

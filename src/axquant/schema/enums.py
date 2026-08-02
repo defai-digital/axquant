@@ -130,3 +130,30 @@ class OptimizationScope(StrEnum):
 class MtpSidecarLayout(StrEnum):
     BYTE_PRESERVED = "byte-preserved"
     AX_ENGINE_QWEN36_V1 = "ax-engine-qwen36-v1"
+
+
+class ProbeMode(StrEnum):
+    """Recommended sensitivity probe mode under host memory constraints (P0)."""
+
+    BF16_FULL = "bf16-full"
+    MEASURED_LITE = "measured-lite"
+    STREAMING_PARTIAL = "streaming-partial"
+    PRIOR_ONLY = "prior-only"
+
+
+class ConvertLadderName(StrEnum):
+    """Named convert ladders from development prior to measured refine (P1)."""
+
+    PRIOR = "prior"
+    MEASURED_LITE = "measured-lite"
+    MEASURED_FULL = "measured-full"
+    REFINE_AWQ_DWQ = "refine-awq-dwq"
+
+
+class DeferredFeature(StrEnum):
+    """Features intentionally fail-closed until runtime/adapter evidence exists (P2)."""
+
+    VLM_OPTIMIZATION = "vlm-optimization"
+    PER_EXPERT_UNFUSED = "per-expert-unfused"
+    LORA_DOMAIN_SFT = "lora-domain-sft"
+    FAMILY_WITHOUT_PROMOTION = "family-without-promotion"

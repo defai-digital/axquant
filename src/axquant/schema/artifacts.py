@@ -13,6 +13,7 @@ from axquant.schema.enums import (
     EvidenceKind,
     MtpSidecarLayout,
     OptimizationScope,
+    ProbeMode,
     ProfileName,
     QuantMethod,
     RuntimeName,
@@ -207,6 +208,7 @@ class QuickConversionSummary(StrictModel):
     evidence_kind: EvidenceKind
     plan_source: Literal["architecture-prior", "recipe-bundle"] = "architecture-prior"
     recipe_bundle_id: str | None = None
+    convert_ladder: str | None = None
     profile: ProfileName
     target_bpw: float = Field(gt=0.0, le=16.0)
     measured_total_bpw: float = Field(gt=0.0)
@@ -1784,3 +1786,83 @@ class ReleaseAudit(StrictModel):
         if self.release_ready != all(check.passed for check in self.checks):
             raise ValueError("release audit readiness is inconsistent with gate checks")
         return self
+
+
+# ---------------------------------------------------------------------------
+# P0/P1/P2 productization artifacts (probe capacity, scoreboard, unified bind)
+# ---------------------------------------------------------------------------
+
+
+class ProbeCapacityModeAssessment(StrictModel):
+    mode: ProbeMode
+    feasible: bool
+    estimated_bytes: int = Field(ge=0)
+    evidence_kind: EvidenceKind
+    release_quality_eligible: bool
+    reason: str
+    notes: list[str] = Field(default_factory=list)
+
+
+class ProbeCapacityReport(StrictModel):
+    schema_version: Literal["axquant.probe-capacity.v1"] = "axquant.probe-capacity.v1"
+    model: ModelIdentity | None = None
+    parameter_count: int = Field(gt=0)
+    available_memory_bytes: int | None = Field(default=None, gt=0)
+    headroom_fraction: float = Field(gt=0.0, le=1.0)
+    recommended_mode: ProbeMode
+    modes: list[ProbeCapacityModeAssessment]
+    warnings: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class ScoreboardMetricRow(StrictModel):
+    metric_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    status: Literal["available", "pass", "fail", "unavailable"]
+    value: float | str | None = None
+    threshold: float | str | None = None
+    unit: str | None = None
+    owner: str = "axquant"
+    reason: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class ScoreboardReport(StrictModel):
+    schema_version: Literal["axquant.scoreboard.v1"] = "axquant.scoreboard.v1"
+    title: str
+    profile: ProfileName
+    source_model: ModelIdentity
+    plan_sha256: str = Field(min_length=64, max_length=64)
+    evidence_kind: EvidenceKind
+    overall_status: Literal["pass", "fail", "incomplete"]
+    rows: list[ScoreboardMetricRow]
+    missing_mandatory: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class UnifiedSensitivityBinding(StrictModel):
+    """Digest binding that ties weight + KV sensitivity into one plan lineage (P1)."""
+
+    schema_version: Literal["axquant.unified-sensitivity.v1"] = "axquant.unified-sensitivity.v1"
+    source_model: ModelIdentity
+    profile: ProfileName
+    weight_sensitivity_sha256: str = Field(min_length=64, max_length=64)
+    weight_evidence_kind: EvidenceKind
+    kv_sensitivity_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    kv_allocation_basis: Literal["architecture-prior", "measured", "off"] = "off"
+    inventory_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    notes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class RecoveryTargetRanking(StrictModel):
+    """Sensitivity-ordered recovery targets (P2; opt-in, not convert-implied)."""
+
+    schema_version: Literal["axquant.recovery-ranking.v1"] = "axquant.recovery-ranking.v1"
+    plan_sha256: str = Field(min_length=64, max_length=64)
+    sensitivity_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    targets: list[str]
+    scores: dict[str, float] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)

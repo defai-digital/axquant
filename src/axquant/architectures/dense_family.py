@@ -38,6 +38,9 @@ _VISION_TOKENS = (
     ".visual.",
     "vision_tower",
     "vision_model",
+    "vision_embedder",
+    "embed_vision",
+    "embed_audio",
     "patch_embed",
     "merger.",
 )
@@ -223,15 +226,13 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # text-only exports.
         model_types=("gemma4", "gemma4_text", "gemma4_unified"),
         reference_pattern=r"gemma[._-]?4",
-        # Real-checkpoint inspection on
-        # google/gemma-4-12b@023679ed352de9bb66cc873c9009ce3482585c08 fully
-        # classifies all 677 tensors (layer_scalar and audio-embedder patterns
-        # below came from that inventory), but the AXQ-017 `convertible`
-        # promotion is blocked: the pinned MLX-LM (0.31.3) does not support
-        # `gemma4_unified`, so the required real conversion smoke cannot run.
-        # The tier stays inspect-only until an admitted MLX-LM version
-        # converts this family.
-        support_tier=SupportTier.INSPECT_ONLY,
+        # AXQ-017 promotion (2026-08-02): convert-time preparation remaps
+        # gemma4_unified → gemma4 and filters multimodal tensors so pinned
+        # MLX-LM can load/convert the language path. Vision/audio tensors
+        # remain on the original source and are restored as protected
+        # sidecars. Real inspect: 677/677 tensors classified on
+        # google/gemma-4-12b; conversion uses the prepared text-path view.
+        support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         extra_role_patterns=(
             # Per-layer residual scale scalars: norm-class protected weights.
@@ -239,6 +240,10 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             # Audio embedder projection: protected non-text modality, handled
             # like the vision tower (BF16-preserved sidecar extraction).
             ("embed_audio", TensorRole.VISION),
+        ),
+        notes=(
+            "Gemma-4 gemma4_unified sources convert via prepared gemma4 text-path "
+            "(multimodal tensors protected as sidecars).",
         ),
     ),
     DenseFamilySpec(
@@ -259,8 +264,22 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
     DenseFamilySpec(
         adapter_id="nemotron3-dense-v1",
         product_family="nemotron3",
-        model_types=("nemotron3",),
+        # Public Nemotron 3 generative checkpoints are MoE (Nano/Super/Ultra).
+        # Dense remains inspect-only; expand model_types so real configs match
+        # for inventory while conversion stays fail-closed until MoE promotion
+        # evidence exists (AXQ-017).
+        model_types=(
+            "nemotron3",
+            "nemotron_h",
+            "nemotron",
+            "nemotron-nas",
+        ),
         reference_pattern=r"nemotron[._-]?3",
         support_tier=SupportTier.INSPECT_ONLY,
+        notes=(
+            "Nemotron 3 public catalog is MoE-only; dense conversion has no "
+            "promotion checkpoint. MoE convert path is deferred until a real "
+            "Nano/Super conversion smoke lands.",
+        ),
     ),
 )

@@ -14,7 +14,7 @@ from typing import Any, Literal
 import structlog
 
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
-from axquant.inspector import inspect_model
+from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.mtp_sidecar import prepare_qwen36_mtp_sidecar
 from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.runtime import (
@@ -36,6 +36,7 @@ from axquant.schema import (
     TensorRole,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.source_prep import prepare_conversion_source
 
 _LOG = structlog.get_logger()
 
@@ -659,29 +660,53 @@ def convert_model(
     output_dir = Path(output).expanduser().resolve()
     if output_dir.exists():
         raise ArtifactError(f"conversion output already exists: {output_dir}")
-    predicate = build_quant_predicate(
-        plan,
-        execute_refinement=False,
-        awq_activations=awq_activations,
-    )
-    _LOG.info("conversion_preflight_started", model=model)
-    _preflight_coverage(model, revision, predicate)
-    convert, _ = _mlx_api()
-    predicate = build_quant_predicate(plan, awq_activations=awq_activations)
-    default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
+    # Resolve the physical source early so architecture prep (e.g. gemma4_unified
+    # → gemma4 text path) can stage beside the output rather than on /tmp.
+    try:
+        original_source_dir = resolve_model_dir(model, revision=revision, allow_download=False)
+    except Exception:
+        original_source_dir = Path(model).expanduser()
+        if not original_source_dir.is_dir():
+            original_source_dir = Path(plan.source_model.local_path or "").expanduser()
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary_root = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.", dir=output_dir.parent))
     staging_dir = temporary_root / "artifact"
+    prep_dir = temporary_root / "prepared-source"
+    convert_model_ref = model
+    convert_revision = revision
     try:
+        prepared = (
+            prepare_conversion_source(original_source_dir, work_dir=prep_dir)
+            if original_source_dir.is_dir()
+            else None
+        )
+        if prepared is not None:
+            convert_model_ref = str(prepared)
+            convert_revision = None  # local prepared tree; no Hub revision
+            _LOG.info(
+                "conversion_source_prepared",
+                original=str(original_source_dir),
+                prepared=convert_model_ref,
+            )
+        predicate = build_quant_predicate(
+            plan,
+            execute_refinement=False,
+            awq_activations=awq_activations,
+        )
+        _LOG.info("conversion_preflight_started", model=convert_model_ref)
+        _preflight_coverage(convert_model_ref, convert_revision, predicate)
+        convert, _ = _mlx_api()
+        predicate = build_quant_predicate(plan, awq_activations=awq_activations)
+        default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:
             convert(
-                model,
+                convert_model_ref,
                 mlx_path=str(staging_dir),
                 quantize=True,
                 q_group_size=plan.group_size,
                 q_bits=default_quantized_bits,
                 quant_predicate=predicate,
-                revision=revision,
+                revision=convert_revision,
             )
         except Exception as exc:
             raise ArtifactError(f"MLX-LM conversion failed: {exc}") from exc
@@ -719,7 +744,11 @@ def convert_model(
                 records=execution_records,
             ),
         )
-        source_model_dir = Path(model).expanduser().resolve()
+        # Always extract protected tensors from the original checkpoint, not the
+        # prepared MLX text-path view (which filters multimodal weights).
+        source_model_dir = original_source_dir.resolve() if original_source_dir.is_dir() else Path()
+        if not source_model_dir.is_dir():
+            source_model_dir = Path(model).expanduser().resolve()
         if not source_model_dir.is_dir():
             source_model_dir = Path(plan.source_model.local_path or "").expanduser().resolve()
         if any(allocation.role == TensorRole.VISION for allocation in plan.assignments):

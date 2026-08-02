@@ -37,9 +37,10 @@
 
 ```python
 class ScaleStrategy(StrEnum):
-    NONE = "none"                 # BF16 / preserved
-    GROUP_AFFINE = "group-affine" # standard MLX group scales
-    CHANNEL_AWQ = "channel-awq"   # AWQ channel scales then affine pack
+    NONE = "none"  # BF16 / preserved
+    GROUP_AFFINE = "group-affine"  # standard MLX group scales
+    CHANNEL_AWQ = "channel-awq"  # AWQ channel scales then affine pack
+
 
 class OutlierStrategy(StrEnum):
     NONE = "none"

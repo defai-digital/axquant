@@ -28,7 +28,7 @@ from axquant.naming import model_name
 from axquant.planner import allocate_kv_cache, allocate_kv_cache_measured, plan_quantization
 from axquant.profiles import thresholds_for
 from axquant.publisher import publish_model
-from axquant.quantize import DEVELOPMENT_NOTE, quick_convert
+from axquant.quantize import DEVELOPMENT_NOTE
 from axquant.recipes import export_recipe_bundle
 from axquant.reporting import plan_markdown, prepare_publication, validation_markdown
 from axquant.reproduction import verify_reproduction
@@ -49,6 +49,7 @@ from axquant.schema import (
     ProfileName,
     QualityEvaluationResult,
     QuantizationPlan,
+    QuantMethod,
     RuntimeName,
     SensitivityReport,
     ValidationReport,
@@ -290,18 +291,58 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "plan":
+        from axquant.ladders import get_ladder, plan_request_for_ladder
+        from axquant.unified_sensitivity import attach_binding_warning, bind_unified_sensitivity
+
         analysis_report = load_model(args.analysis, SensitivityReport)
+        if args.ladder is not None:
+            ladder = get_ladder(args.ladder)
+            base_request = plan_request_for_ladder(
+                ladder,
+                profile=analysis_report.profile,
+                target_bpw=args.target_bpw,
+                allow_unmeasured=args.allow_unmeasured,
+            )
+            candidate_bits = args.bits if args.bits is not None else base_request.candidate_bits
+            group_size = args.group_size if args.group_size is not None else base_request.group_size
+            candidate_group_sizes = (
+                args.candidate_group_sizes
+                if args.candidate_group_sizes is not None
+                else base_request.candidate_group_sizes
+            )
+            methods = args.methods if args.methods is not None else base_request.candidate_methods
+            target_bpw = args.target_bpw if args.target_bpw is not None else base_request.target_bpw
+            allow_unmeasured = args.allow_unmeasured or base_request.allow_unmeasured
+        else:
+            candidate_bits = args.bits if args.bits is not None else (4, 6, 8, 16)
+            group_size = args.group_size if args.group_size is not None else 64
+            candidate_group_sizes = (
+                args.candidate_group_sizes if args.candidate_group_sizes is not None else ()
+            )
+            methods = (
+                args.methods
+                if args.methods is not None
+                else (
+                    QuantMethod.AFFINE,
+                    QuantMethod.AWQ,
+                    QuantMethod.DWQ,
+                    QuantMethod.BF16,
+                )
+            )
+            target_bpw = args.target_bpw if args.target_bpw is not None else 4.8
+            allow_unmeasured = args.allow_unmeasured
         request = PlanRequest(
             profile=analysis_report.profile,
-            target_bpw=args.target_bpw,
-            candidate_bits=args.bits,
-            group_size=args.group_size,
-            candidate_group_sizes=getattr(args, "candidate_group_sizes", ()),
-            allow_unmeasured=args.allow_unmeasured,
+            target_bpw=target_bpw,
+            candidate_bits=candidate_bits,
+            group_size=group_size,
+            candidate_group_sizes=candidate_group_sizes,
+            candidate_methods=methods,
+            allow_unmeasured=allow_unmeasured,
             candidate_count=args.candidates,
             random_seed=args.seed,
             target_mode=args.mode,
-            hardware=HardwareProfile(supported_methods=args.methods),
+            hardware=HardwareProfile(supported_methods=methods),
             max_model_size_ratio_to_uniform4=args.max_size_ratio,
             minimum_quality_retention=args.minimum_quality,
             minimum_mtp_acceptance_retention=args.minimum_mtp_retention,
@@ -314,6 +355,8 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         plan = plan_quantization(analysis_report, request)
+        if args.ladder is not None:
+            plan.warnings.append(f"convert ladder: {args.ladder.value}")
         if args.kv_cache == "prior":
             layer_count = analysis_report.architecture_profile.text_layer_count
             if layer_count is None:
@@ -321,7 +364,7 @@ def _run(args: argparse.Namespace) -> int:
             plan.kv_cache = allocate_kv_cache(
                 layer_count,
                 default_bits=args.kv_default_bits,
-                group_size=args.group_size,
+                group_size=group_size,
             )
         elif args.kv_cache == "measured":
             if not args.kv_analysis:
@@ -333,6 +376,16 @@ def _run(args: argparse.Namespace) -> int:
                 kv_report,
                 max_output_kl=args.kv_max_kl,
             )
+        if args.bind_kv_sensitivity or args.kv_cache == "measured":
+            kv_path = args.bind_kv_sensitivity or args.kv_analysis
+            binding = bind_unified_sensitivity(
+                analysis_report,
+                kv_sensitivity=kv_path,
+                plan=plan,
+            )
+            attach_binding_warning(plan, binding)
+            write_data(args.unified_binding_output, binding)
+            log.info("unified_sensitivity_bound", output=str(args.unified_binding_output))
         output = _output_json(args.output, "plan-01.json")
         write_data(output, plan)
         log.info(
@@ -376,15 +429,30 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "quantize":
-        summary = quick_convert(
-            model=args.model,
+        from axquant.simple_convert import simple_convert
+
+        model_ref = args.model_option or args.model_positional
+        if not model_ref:
+            raise PlanningError(
+                "quantize requires a model: `axquant quantize MODEL` or `--model PATH|HUB_ID`"
+            )
+        if (
+            args.model_option
+            and args.model_positional
+            and args.model_option != args.model_positional
+        ):
+            raise PlanningError("conflicting positional MODEL and --model values")
+        summary = simple_convert(
+            model_ref,
             output=args.output,
             model_id=args.model_id,
             revision=args.revision,
             profile=ProfileName(args.profile),
             target_bpw=args.target_bpw,
+            ladder=args.ladder,
             kv_cache=args.kv_cache,
             recipe=args.recipe,
+            allow_download=args.allow_download,
             calibration_manifest=args.calibration_manifest,
             kv_sensitivity=args.kv_sensitivity,
             mtp_sidecar=args.mtp_sidecar,
@@ -402,6 +470,7 @@ def _run(args: argparse.Namespace) -> int:
             tier=summary.support_tier.value,
             evidence=summary.evidence_kind.value,
             plan_source=summary.plan_source,
+            ladder=summary.convert_ladder,
             measured_bpw=round(summary.measured_total_bpw, 4),
             runtime_smoke=summary.runtime_smoke,
             runtime_smoke_passed=summary.runtime_smoke_passed,
@@ -410,12 +479,164 @@ def _run(args: argparse.Namespace) -> int:
             log.warning("development_evidence", note=DEVELOPMENT_NOTE)
         return 0 if summary.runtime_smoke_passed is not False else 1
 
+    if args.command == "simple-convert-help":
+        from axquant.simple_convert import simple_convert_help_markdown
+
+        text = simple_convert_help_markdown()
+        if args.output:
+            write_text(args.output, text)
+            log.info("simple_convert_help_written", output=str(args.output))
+        else:
+            print(text)
+        return 0
+
     if args.command == "head-to-head":
         from axquant.head_to_head import render_head_to_head
 
         page = render_head_to_head(args.benchmark_index, title=args.title)
         write_text(args.output, page)
         log.info("head_to_head_written", output=str(args.output))
+        return 0
+
+    if args.command == "scoreboard":
+        from axquant.scoreboard import (
+            build_scoreboard,
+            require_scoreboard_inputs_for_certification,
+            scoreboard_markdown,
+        )
+
+        scoreboard_report = build_scoreboard(
+            plan=args.plan,
+            profile=args.profile,
+            title=args.title,
+            candidate_size=args.candidate_size,
+            size_reference=args.size_reference,
+            quality_comparison=args.quality_comparison,
+            validation_report=args.validation_report,
+            mtp_ab=args.mtp_ab,
+            candidate_evaluation=args.candidate_evaluation,
+            reference_evaluation=args.reference_evaluation,
+            minimum_quality_retention=args.minimum_quality,
+            max_size_ratio_to_uniform4=args.max_size_ratio,
+            minimum_mtp_acceptance_retention=args.minimum_mtp_retention,
+            minimum_mtp_speedup=args.minimum_mtp_speedup,
+        )
+        write_data(args.output, scoreboard_report)
+        write_text(args.markdown_output, scoreboard_markdown(scoreboard_report))
+        log.info(
+            "scoreboard_written",
+            output=str(args.output),
+            overall=scoreboard_report.overall_status,
+            missing=len(scoreboard_report.missing_mandatory),
+        )
+        if args.require_complete:
+            require_scoreboard_inputs_for_certification(scoreboard_report)
+        return 0 if scoreboard_report.overall_status != "fail" else 1
+
+    if args.command == "probe-capacity":
+        from axquant.probe_capacity import (
+            assess_probe_capacity,
+            assess_probe_capacity_from_inventory,
+            probe_capacity_markdown,
+        )
+
+        if args.inventory is None and args.parameter_count is None:
+            raise PlanningError("probe-capacity requires --inventory or --parameter-count")
+        if args.inventory is not None:
+            capacity = assess_probe_capacity_from_inventory(
+                args.inventory,
+                available_memory_bytes=args.available_memory_bytes,
+                headroom_fraction=args.headroom_fraction,
+            )
+        else:
+            capacity = assess_probe_capacity(
+                parameter_count=args.parameter_count,
+                model=(ModelIdentity(model_id=args.model_id) if args.model_id else None),
+                available_memory_bytes=args.available_memory_bytes,
+                headroom_fraction=args.headroom_fraction,
+            )
+        write_data(args.output, capacity)
+        write_text(args.markdown_output, probe_capacity_markdown(capacity))
+        log.info(
+            "probe_capacity_written",
+            output=str(args.output),
+            recommended=capacity.recommended_mode.value,
+        )
+        return 0
+
+    if args.command == "ladders":
+        from axquant.ladders import ladder_markdown, list_ladders
+
+        ladders = list_ladders()
+        write_text(args.markdown_output, ladder_markdown(ladders))
+        if args.output:
+            write_data(
+                args.output,
+                {
+                    "schema_version": "axquant.convert-ladders.v1",
+                    "ladders": [
+                        {
+                            "name": item.name.value,
+                            "evidence_kind": item.evidence_kind.value,
+                            "default_target_bpw": item.default_target_bpw,
+                            "candidate_bits": list(item.candidate_bits),
+                            "candidate_group_sizes": list(item.candidate_group_sizes),
+                            "candidate_methods": [
+                                method.value for method in item.candidate_methods
+                            ],
+                            "estimated_relative_cost": item.estimated_relative_cost,
+                            "requires_calibration": item.requires_calibration,
+                            "description": item.description,
+                        }
+                        for item in ladders
+                    ],
+                },
+            )
+        log.info("ladders_listed", count=len(ladders), markdown=str(args.markdown_output))
+        return 0
+
+    if args.command == "deferred-features":
+        from axquant.deferred import deferred_feature_matrix
+
+        deferred_matrix = deferred_feature_matrix()
+        for entry in deferred_matrix:
+            log.info("deferred_feature", feature=entry["feature"], status=entry["status"])
+        if args.output:
+            write_data(
+                args.output,
+                {
+                    "schema_version": "axquant.deferred-features.v1",
+                    "features": deferred_matrix,
+                },
+            )
+        return 0
+
+    if args.command == "recovery-rank":
+        from axquant.recovery import rank_recovery_targets
+
+        ranking = rank_recovery_targets(
+            args.plan,
+            sensitivity=args.sensitivity,
+            limit=args.limit,
+        )
+        write_data(args.output, ranking)
+        log.info(
+            "recovery_ranking_written",
+            output=str(args.output),
+            targets=len(ranking.targets),
+        )
+        return 0
+
+    if args.command == "bind-sensitivity":
+        from axquant.unified_sensitivity import bind_unified_sensitivity
+
+        binding = bind_unified_sensitivity(
+            args.sensitivity,
+            kv_sensitivity=args.kv_sensitivity,
+            plan=args.plan,
+        )
+        write_data(args.output, binding)
+        log.info("unified_sensitivity_bound", output=str(args.output))
         return 0
 
     if args.command == "support-matrix":

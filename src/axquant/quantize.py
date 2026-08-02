@@ -18,12 +18,13 @@ from axquant.analyzer import architecture_prior_report
 from axquant.converter import convert_model
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
+from axquant.ladders import get_ladder, plan_request_for_ladder
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.recipes import resolve_recipe_plan
 from axquant.runtime import check_ax_engine, check_mlx_lm_generation
 from axquant.schema import (
+    ConvertLadderName,
     ModelIdentity,
-    PlanRequest,
     ProfileName,
     QuickConversionSummary,
     RuntimeCheck,
@@ -58,7 +59,8 @@ def quick_convert(
     model_id: str | None = None,
     revision: str | None = None,
     profile: ProfileName = ProfileName.GENERAL,
-    target_bpw: float = 4.8,
+    target_bpw: float | None = None,
+    ladder: ConvertLadderName | str = ConvertLadderName.PRIOR,
     kv_cache: Literal["off", "prior"] = "off",
     recipe: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
@@ -68,30 +70,60 @@ def quick_convert(
     ax_engine: str = "ax-engine",
     mlx_lm: str = "mlx_lm.generate",
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
+    allow_download: bool = False,
 ) -> QuickConversionSummary:
-    inventory = inspect_model(model, model_id=model_id, revision=revision)
+    inventory = inspect_model(
+        model,
+        model_id=model_id,
+        revision=revision,
+        allow_download=allow_download,
+    )
     architecture = inventory.architecture_profile
     if architecture.support_tier is SupportTier.INSPECT_ONLY:
         raise PlanningError(
             f"the {architecture.product_family} family is inspect-only; quantize requires the "
             "convertible or certified tier and its promotion evidence (AXQ-017)"
         )
+    resolved_ladder = get_ladder(ladder)
+    if recipe is not None and ladder not in {
+        ConvertLadderName.PRIOR,
+        ConvertLadderName.PRIOR.value,
+        "prior",
+    }:
+        raise PlanningError(
+            "quantize --recipe cannot be combined with a non-prior --ladder; "
+            "recipe bundles already encode planning evidence"
+        )
+    if resolved_ladder.requires_measured_sensitivity and recipe is None:
+        raise PlanningError(
+            f"ladder {resolved_ladder.name.value} requires measured sensitivity; "
+            "use the staged analyze → plan → convert pipeline (or a measured recipe bundle)"
+        )
     bundle_id: str | None = None
+    ladder_name = resolved_ladder.name.value
     if recipe is not None:
         bundle, plan = resolve_recipe_plan(recipe, inventory=inventory)
         bundle_id = bundle.bundle_id
         plan_source: Literal["architecture-prior", "recipe-bundle"] = "recipe-bundle"
+        effective_target = target_bpw if target_bpw is not None else plan.target_bpw
     else:
-        report = architecture_prior_report(inventory, profile=profile)
-        plan = plan_quantization(
-            report,
-            PlanRequest(
-                profile=profile,
-                target_bpw=target_bpw,
-                allow_unmeasured=True,
-            ),
+        request = plan_request_for_ladder(
+            resolved_ladder,
+            profile=profile,
+            target_bpw=target_bpw,
+            allow_unmeasured=True,
         )
+        report = architecture_prior_report(
+            inventory,
+            profile=profile,
+            candidate_bits=request.candidate_bits,
+            group_size=request.group_size,
+            candidate_group_sizes=request.candidate_group_sizes,
+        )
+        plan = plan_quantization(report, request)
         plan_source = "architecture-prior"
+        effective_target = request.target_bpw
+        plan.warnings.append(f"convert ladder: {ladder_name}")
     if kv_cache == "prior" and plan.kv_cache is None:
         layer_count = architecture.text_layer_count
         if layer_count is None:
@@ -103,11 +135,19 @@ def quick_convert(
         and plan.mtp.preserve_external_sidecar
         and any(allocation.role.is_mtp for allocation in plan.assignments)
     ):
-        model_dir = Path(model).expanduser()
-        if (model_dir / "mtp.safetensors").is_file():
-            sidecar = model_dir
+        # Prefer inventory local_path (resolved Hub cache) over the raw model string.
+        candidates = [
+            Path(model).expanduser(),
+            Path(inventory.model.local_path) if inventory.model.local_path else None,
+        ]
+        for candidate in candidates:
+            if candidate is not None and (candidate / "mtp.safetensors").is_file():
+                sidecar = candidate
+                break
+    # Convert from the resolved local directory when inventory recorded one.
+    convert_source = inventory.model.local_path or model
     manifest = convert_model(
-        model=model,
+        model=convert_source,
         plan=plan,
         output=output,
         revision=revision,
@@ -126,9 +166,17 @@ def quick_convert(
         mlx_lm=mlx_lm,
     )
     development = not plan.evidence_kind.release_quality
-    notes = [f"Plan derived from {plan.evidence_kind.value} evidence."]
+    notes = [
+        f"Plan derived from {plan.evidence_kind.value} evidence.",
+        f"Convert ladder: {ladder_name}.",
+        f"Requested target BPW: {effective_target}.",
+    ]
     if bundle_id is not None:
         notes.append(f"Plan bound from recipe bundle {bundle_id}.")
+    if plan.candidate_group_sizes:
+        notes.append(
+            "Candidate group sizes: " + ",".join(str(size) for size in plan.candidate_group_sizes)
+        )
     if development:
         notes.append(DEVELOPMENT_NOTE)
     return QuickConversionSummary(
@@ -138,6 +186,7 @@ def quick_convert(
         evidence_kind=plan.evidence_kind,
         plan_source=plan_source,
         recipe_bundle_id=bundle_id,
+        convert_ladder=ladder_name,
         profile=plan.profile,
         target_bpw=plan.target_bpw,
         measured_total_bpw=manifest.measured_total_bpw,
