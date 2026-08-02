@@ -41,11 +41,12 @@ The intended user journey is:
 ### Input
 
 AXQuant converts revision-pinned, unquantized Safetensors checkpoints of families at the
-`convertible` tier or above (currently the Qwen 3.6 27B dense and 35B-A3B MoE language paths,
-Qwen 3.5 dense, and MiniCPM5 dense checkpoints) through MLX-LM. MoE expert stacks quantize as
-fused switch modules with a uniform per-group precision and routers keep an 8-bit floor. The checkpoint must use the expected configuration and indexed
-Safetensors layout. Every other recognized family can be inspected but is not yet accepted for
-conversion.
+`convertible` tier or above through MLX-LM — currently Qwen 3.6 (27B dense + 35B-A3B MoE),
+Qwen 3.5 dense, MiniCPM5 dense, Gemma-4, Mistral/Devstral dense, Mistral3 language shells, and
+Nemotron 3 Nano-30B-A3B (thin). MoE expert stacks quantize as fused switch modules with a
+uniform per-group precision and routers keep an 8-bit floor. The checkpoint must use the
+expected configuration and indexed Safetensors layout. Remaining recognized families (for
+example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
 
 ### Output
 
@@ -166,38 +167,61 @@ status” under incomplete work and
 `.internal/engineering/qwen36-27b-development-evidence-status.md`). Measured E5-style
 work on `mbp-m5` remains a separate lineage.
 
-Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
+Local smoke/dev-convert artifacts on the factory host live under
+`/Volumes/Ext4T-02/axquant/smokes/` and product-named packs under
+`/Volumes/Ext4T-02/axquant/axq-publish/` (development evidence only).
 
 ### AutomatosX Hub catalog (AXQ, development)
 
 Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
-(BF16 source → AXQuant convert; **not** certified releases):
+(BF16 source → `axquant quantize` → Hub upload; **not** certified releases).
+
+Each repo ships a full model card (`README.md`) plus public AXQuant provenance
+(`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
+present). Cards are multi-family aware and state evidence limits explicitly.
 
 | Pack | Measured BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | primary; floors raised 4.8→5.58 |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | primary quality class |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | primary dense; floors raised 4.8→5.58 |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | primary dense quality class |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~5.14 | primary MoE; floors raised |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~6.00 | primary MoE quality class |
 | [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | ~6.97 | secondary; floors dominate 4/6 labels |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | ~6.97 | secondary; same floor as 4bit-class |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | secondary |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | secondary; vision sidecar |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | secondary; vision sidecar |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | ~4.95 | secondary coding/agent |
-| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | ~6.00 | secondary coding/agent |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | ~5.15 | secondary; vision sidecar preserved |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | ~6.00 | secondary |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | ~6.00 | secondary; vision sidecar preserved |
 | [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | ~7.38 | secondary fixture; floors dominate |
 | [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | ~7.38 | secondary fixture |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | ~4.79 | thin Nano only; no AX Engine manifest yet |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | ~4.79 | thin Nano only; no AX Engine `model-manifest` yet |
 | [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | ~5.98 | thin Nano only |
 
-Naming: `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last**; MLX-style bit labels, not GGUF `q4`).
+**Naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last** when present;
+MLX-style bit labels, not GGUF `q4`). The Hub class is a **storage budget**, not a
+claim that every tensor uses that bit width.
 
-Investment policy: `axquant support-policy` (primary = Qwen 3.6 cert; Nemotron = thin Nano only).
+**Quick load (MLX-LM):**
 
-Dual-Mac factory/control layout (Studio Ext4T SSD + M5 publish): see
-`.internal/engineering/ops-dual-mac.md`.
+```bash
+python -m pip install -U mlx-lm
+mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
+  --prompt "Hello" --max-tokens 64 --temp 0.0
+```
+
+**Investment policy:** `axquant support-policy` (primary cert track = Qwen 3.6;
+Nemotron = thin Nano only). Dual-Mac ops: factory convert on Studio Ext4T;
+control/publish as AutomatosX.
+
+Regenerate a public card from a local pack:
+
+```bash
+python scripts/prepare_development_model_card.py \
+  --artifact-dir /path/to/AX-...-MLX-AXQ-6bit-MTP \
+  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-MTP
+```
 
 Implemented now:
 
@@ -215,9 +239,12 @@ Implemented now:
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
 - guarded Hugging Face publication;
-- tiered family support with declarative dense-family adapters (Qwen 3.5 dense and MiniCPM5
-  at `convertible`; Gemma-4 and Nemotron 3 at `inspect-only`), including byte-preserving
-  extraction of integrated MTP heads and protected vision into canonical checksummed sidecars;
+- tiered family support with declarative adapters (Qwen 3.6 primary; Qwen 3.5, MiniCPM5,
+  Gemma-4, Mistral/Devstral, Mistral3, and Nemotron Nano at `convertible`; Nemotron
+  Super/Ultra remain inspect-only), including byte-preserving extraction of integrated MTP
+  heads and protected vision into canonical checksummed sidecars;
+- development Hub model cards (`axquant.model_card` / `scripts/prepare_development_model_card.py`)
+  that sanitize provenance and document evidence limits for public packs;
 - `axquant quantize`: one-command development conversion with explicit development-evidence
   labeling;
 - checksummed recipe bundles (`recipe-export`, `quantize --recipe`) that bind published plans
