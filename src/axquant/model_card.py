@@ -239,11 +239,8 @@ def render_development_model_card(
             "The language path is quantized under AXQuant protection floors "
             "(embeddings, norms, and other protected tensors remain higher precision)."
         )
-    total_bpw_label = (
-        "Measured total BPW, including MTP"
-        if has_mtp
-        else "Measured total BPW"
-    )
+    total_bpw_label = "Measured total BPW, including MTP" if has_mtp else "Measured total BPW"
+    mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
     ax_engine_section = f"""## Serve with AX Engine{" and MTP" if has_mtp else ""}
 
 After installing [AX Engine](https://github.com/defai-digital/ax-engine), download the complete
@@ -253,7 +250,7 @@ repository and serve the local directory:
 ax-engine serve ./{name} --port 31418
 ```
 
-AX Engine is the authority for the AXQ runtime contract{" and native MTP sidecar" if has_mtp else ""}.
+AX Engine is the authority for the AXQ runtime contract{mtp_contract_suffix}.
 This development package does not claim runtime speedups until identical-checkpoint benchmarks are
 published. The artifact records AX Engine version `{ax_engine_version}`. Native
 `model-manifest.json` status: {model_manifest_status}.
@@ -278,8 +275,8 @@ published. The artifact records AX Engine version `{ax_engine_version}`. Native
     provenance_sidecars = []
     if has_mtp:
         provenance_sidecars.append(
-            "- [`axquant_mtp_sidecar_manifest.json`](axquant_mtp_sidecar_manifest.json): MTP tensor "
-            "provenance."
+            "- [`axquant_mtp_sidecar_manifest.json`]"
+            "(axquant_mtp_sidecar_manifest.json): MTP tensor provenance."
         )
     if has_vision:
         provenance_sidecars.append(
@@ -293,6 +290,14 @@ published. The artifact records AX Engine version `{ax_engine_version}`. Native
     provenance_sidecar_block = "\n".join(provenance_sidecars)
     if provenance_sidecar_block:
         provenance_sidecar_block = "\n" + provenance_sidecar_block
+    context_limitation = (
+        "- The configured context window can require substantially more memory as the KV cache "
+        "grows."
+    )
+    runtime_provenance = (
+        "- [`axquant_runtime.json`](axquant_runtime.json): AX Engine and MLX-LM compatibility "
+        "contract."
+    )
 
     return f"""---
 license: apache-2.0
@@ -419,7 +424,7 @@ establish MTP acceleration or vision-language quality.
   KV-cache policy, runtime buffers, and other processes using unified memory.
 - Architecture-prior allocation is not measured sensitivity. It must not be presented as measured
   model quality.
-{mtp_limitation}{vision_limitation}- The configured context window can require substantially more memory as the KV cache grows.
+{mtp_limitation}{vision_limitation}{context_limitation}
 - Upstream capabilities, limitations, biases, and responsible-use guidance still apply.
 
 ## Provenance and audit files
@@ -429,7 +434,7 @@ establish MTP acceleration or vision-language quality.
 - [`axquant_plan.json`](axquant_plan.json): per-tensor precision decisions and planning evidence.
 - [`axquant_quantizer_execution.json`](axquant_quantizer_execution.json): conversion coverage and
   fallback records.
-- [`axquant_runtime.json`](axquant_runtime.json): AX Engine and MLX-LM compatibility contract.{provenance_sidecar_block}
+{runtime_provenance}{provenance_sidecar_block}
 
 All published provenance uses repository-relative paths. Local source paths are stripped before
 publication. The checkpoint was converted from BF16 rather than re-quantized from an OptiQ

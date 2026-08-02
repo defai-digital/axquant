@@ -1,7 +1,7 @@
 # AXQuant
 
-AXQuant is a command-line toolkit that converts a supported standard LLM checkpoint into an
-AXQuant-optimized checkpoint for Apple Silicon.
+AXQuant is a command-line toolkit that converts a supported, unquantized Safetensors checkpoint
+into an AXQuant-optimized MLX checkpoint for Apple Silicon.
 
 It inspects the model, creates an auditable mixed-precision plan, converts the weights through
 public MLX-LM interfaces, and writes the manifests and validation metadata needed by AX Engine.
@@ -16,9 +16,10 @@ multi-token-prediction (MTP) weights.
 ## How it works
 
 ```text
-Revision-pinned BF16 MLX checkpoint
-                 │
-                 ▼
+BF16 Safetensors checkpoint supported by MLX-LM
+        (pin a revision for measured/release evidence)
+                         │
+                         ▼
         inspect → plan → convert → runtime-check / validate
            │                │
            │                └── AXQuant-optimized MLX checkpoint
@@ -40,13 +41,15 @@ The intended user journey is:
 
 ### Input
 
-AXQuant converts revision-pinned, unquantized Safetensors checkpoints of families at the
-`convertible` tier or above through MLX-LM — currently Qwen 3.6 (27B dense + 35B-A3B MoE),
-Qwen 3.5 dense, MiniCPM5 dense, Gemma-4, Mistral/Devstral dense, Mistral3 language shells, and
-Nemotron 3 Nano-30B-A3B (thin). MoE expert stacks quantize as fused switch modules with a
-uniform per-group precision and routers keep an 8-bit floor. The checkpoint must use the
-expected configuration and indexed Safetensors layout. Remaining recognized families (for
-example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
+AXQuant converts unquantized Safetensors checkpoints of families at the `convertible` tier or
+above through MLX-LM — currently Qwen 3.6 (27B dense + 35B-A3B MoE), Qwen 3.5 dense, MiniCPM5
+dense, Gemma-4, Mistral/Devstral dense, Mistral3 language shells, and Nemotron 3 Nano-30B-A3B
+(thin). A pinned source revision is mandatory for measured sensitivity and release evidence; an
+unpinned local source is permitted only for development workflows. MoE expert stacks quantize as
+fused switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The
+checkpoint must use the expected configuration and indexed Safetensors layout. Remaining
+recognized families (for example Nemotron Super/Ultra) stay inspect-only until promotion evidence
+exists.
 
 ### Output
 
@@ -81,30 +84,28 @@ Its design centers on:
 - **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
 - **workload awareness:** separate objectives for general and agent/coding workloads;
 - **real deployment cost:** actual artifact bytes, unified memory, latency, and throughput;
-- **reproducibility:** revision-pinned inputs, deterministic artifacts, checksums, and manifests;
+- **reproducibility:** revision-pinned release inputs, deterministic artifacts, checksums, and
+  manifests;
 - **fail-closed conversion:** incomplete plans or unmatched modules stop conversion;
 - **independent implementation:** public APIs and research without reused quantizer internals.
 
 ## Current status
 
-The toolkit version is `1.0.1` (packaging classifier: **Beta**). The CLI, schemas, and
-conversion pipeline are feature-complete and quality-gated for the scoped Qwen 3.6 path:
-**you can inspect, plan, convert, and validate your own checkpoints today** — one-command
-`quantize`, recipe bundles, measured planning, atomic conversion, and runtime checks all work
-now and are covered by the test suite. `v1.0.1` is a maintenance release: it strengthens
-fail-closed guarantees across planning, release auditing, and artifact hashing (protection
-floors and release-gate thresholds are now re-verified at load time, not just at construction
-time) with no change in scope or CLI surface — see the
+The toolkit version is `1.0.1` (packaging classifier: **Beta**). Its inspection, planning,
+conversion, runtime-check, validation, and publication-gating commands are implemented and
+covered by the test suite. Certification is checkpoint- and evidence-specific; a working command
+does not by itself certify an output. `v1.0.1` is a maintenance release that strengthens
+fail-closed guarantees across planning, release auditing, and artifact hashing, with no change in
+scope or CLI surface from v1.0.0. See the
 [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.0.1) for detail.
 
 What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
 checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
 formal hardware. There is **no** certified public AXQuant model release claimed here yet.
-Qwen 3.6 27B has **development evidence** (measured sensitivity, convert, MLX-LM smoke, and
-candidate-only quality evals on M5), but the release evidence chain is **not closed** — proxy
-refinement, same-candidate dual-profile quality comparison, AX Engine evidence, MTP speed on
-that exact artifact, Pareto/hardware-registry/compatibility matrix, and the full M0–M8 audit
-are still required. Do not treat “MTP speed only” as the sole remaining blocker.
+The public Qwen 3.6 packs are development artifacts, and their release evidence chains are not
+closed. Same-candidate dual-profile quality comparison, AX Engine evidence, MTP speed, Pareto and
+hardware-registry evidence, compatibility coverage, and the full M0–M8 audit remain required. Do
+not treat any single metric as the sole remaining certification blocker.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
@@ -113,21 +114,21 @@ release audit. The current tier matrix:
 
 | Family | Adapter | Tier |
 | --- | --- | --- |
-| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible` (certification pending the formal release audit; the 35B-A3B MoE path converted 2026-08-01 with fused-expert planning — measured 5.2501 BPW, routers at the 8-bit floor, passing MLX-LM and AX Engine smokes) |
-| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence) |
-| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence) |
+| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; primary certification track |
+| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
+| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
-| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path). Investment posture: **thin** — not OptiQ Super parity |
+| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 multimodal shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
 
-New dense families are added as declarative adapter specifications and start at `inspect-only`
-until their promotion evidence exists (see the expansion program documents under `.internal/`).
+New families start at `inspect-only` until promotion evidence exists. Run
+`axquant support-matrix` and `axquant support-policy` for the registry-derived source of truth.
 
 | Area | Current support |
 | --- | --- |
 | Platform | Apple Silicon with MLX |
-| Conversion input | Revision-pinned, unquantized MLX checkpoint |
+| Conversion input | Unquantized Safetensors checkpoint supported by MLX-LM; revision pin required for measured/release evidence |
 | Conversion targets | Qwen 3.6 27B dense + 35B-A3B MoE; Qwen 3.5 dense; MiniCPM5 dense; Gemma-4; Nemotron 3 **Nano-30B-A3B only** (thin); Mistral/Devstral dense and Mistral3 shells (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, and portable AWQ |
@@ -137,39 +138,17 @@ until their promotion evidence exists (see the expansion program documents under
 | Compatibility runtime | MLX-LM standard inference |
 | Output integrity | Atomic conversion, exact parameter coverage, measured BPW, checksums, manifests, and runtime metadata |
 
-### Remote development convert smokes (2026-08-02, macstudio-m2u / M2 Ultra 192 GB)
+### Development evidence
 
-Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
-(Python 3.13, `mlx`/`mlx-lm`), simple convert + MLX-LM generation smoke.
-**Live re-verification (2026-08-02):** all eight converted artifacts below
-re-passed `axquant runtime-check --runtime mlx-lm` (`check_kind=generation-smoke`).
+Conversion and generation smokes establish artifact compatibility, not model quality or release
+certification. The public model cards and manifests record each checkpoint's exact source
+revision, plan, achieved BPW, sidecars, and evidence limits. Keep hardware names, network
+addresses, and local artifact paths in local operational records rather than public docs.
 
-| Family | Source | Revision | Target BPW | Measured BPW | MLX-LM smoke | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| MiniCPM5 | `openbmb/MiniCPM5-1B` | `4e9de7a0…` | 7.5 | **7.5003** | pass | dense llama-export |
-| Qwen 3.5 | `Qwen/Qwen3.5-9B` | `c2022362…` | 7.0 | **7.0001** | pass | vision + MTP sidecars |
-| Gemma-4 | `google/gemma-4-12b` | `023679ed…` | 5.0* | **5.0001** | pass | `gemma4_unified` prep; vision sidecar |
-| Devstral | `mistralai/Devstral-Small-2505` | `c2a9d81a…` | 4.95* | **4.9500** | pass | tekken→tokenizer prep; dense mistral |
-| Nemotron 3 Nano | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` | `2d59de1c…` | 4.8 | **4.7892** | pass | hybrid MoE; MoEGate stays BF16 (no MLX `to_quantized`) |
-| Mistral 3 | `mistralai/Mistral-Small-3.1-24B-Instruct-2503` | `68faf511…` | 5.15* | **5.1500** | pass | language path + vision sidecar; floors raise 4.8→5.15 |
-| **Qwen 3.6 27B** | `Qwen/Qwen3.6-27B` | `6a9e13bd…` | 6.0 | **6.0001** | pass | dense language path; vision+MTP sidecars; **development evidence only** |
-| **Qwen 3.6 35B-A3B** | `Qwen/Qwen3.6-35B-A3B` | `995ad96e…` | 5.25 | **5.2501** | pass | MoE fused experts; vision+MTP sidecars; **development evidence only** |
-
-\*Default 4.8 BPW is **infeasible** when protection floors raise the policy
-minimum (Gemma-4 ≈4.89, Devstral ≈4.94, Mistral3 ≈5.14). Simple convert
-**auto-raises once** to the policy floor (verified on this host for Gemma-4:
-target raised 4.80 → 4.89, measured BPW **4.8900**, MLX-LM smoke pass). Prefer an
-explicit `--target-bpw` at or above the floor when you want a fixed budget.
-
-Qwen 3.6 rows above are **architecture-prior simple convert** smokes on this host.
-They do **not** close formal certification (see “Qwen 3.6 27B development evidence
-status” under incomplete work and
-`.internal/engineering/qwen36-27b-development-evidence-status.md`). Measured E5-style
-work on `mbp-m5` remains a separate lineage.
-
-Local smoke/dev-convert artifacts on the factory host live under
-`/Volumes/Ext4T-02/axquant/smokes/` and product-named packs under
-`/Volumes/Ext4T-02/axquant/axq-publish/` (development evidence only).
+The default 4.8 BPW budget can be infeasible when protection floors raise the policy minimum
+(for example, Gemma-4, Devstral, and Mistral3). The simple `quantize` path raises the requested
+budget once to the computed minimum and records that decision. Use an explicit `--target-bpw` at
+or above the floor when the budget must be fixed.
 
 ### AutomatosX Hub catalog (AXQ, development)
 
@@ -180,14 +159,17 @@ Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
 present). Cards are multi-family aware and state evidence limits explicitly.
 
-| Pack | Measured BPW | Notes |
+The BPW values below are rounded from each current public manifest's `measured_main_bpw`; the
+linked model card and manifest remain authoritative if a pack is rebuilt.
+
+| Pack | Main-model BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | primary dense; floors raised 4.8→5.58 |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | primary dense quality class |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~5.14 | primary MoE; floors raised |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~6.00 | primary MoE quality class |
-| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | ~6.97 | secondary; floors dominate 4/6 labels |
-| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | ~6.97 | secondary; same floor as 4bit-class |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.42 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~5.84 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~4.88 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~5.76 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | ~6.74 | secondary; floors dominate 4/6 labels |
+| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | ~6.74 | secondary; same floor as 4bit-class |
 | [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | secondary; vision sidecar |
 | [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | secondary; vision sidecar |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | ~4.95 | secondary coding/agent |
@@ -197,7 +179,7 @@ present). Cards are multi-family aware and state evidence limits explicitly.
 | [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | ~7.38 | secondary fixture; floors dominate |
 | [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | ~7.38 | secondary fixture |
 | [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | ~4.79 | thin Nano only; no AX Engine `model-manifest` yet |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | ~5.98 | thin Nano only |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | ~5.98 | thin Nano only; no AX Engine `model-manifest` yet |
 
 **Naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last** when present;
 MLX-style bit labels, not GGUF `q4`). The Hub class is a **storage budget**, not a
@@ -211,9 +193,8 @@ mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
   --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
-**Investment policy:** `axquant support-policy` (primary cert track = Qwen 3.6;
-Nemotron = thin Nano only). Dual-Mac ops: factory convert on Studio Ext4T;
-control/publish as AutomatosX.
+**Investment policy:** `axquant support-policy` (primary certification track = Qwen 3.6;
+Nemotron = thin Nano only).
 
 Regenerate a public card from a local pack:
 
@@ -264,46 +245,36 @@ Implemented now:
 - a fail-closed measured-KV release chain: conversion packages the bound `kv_sensitivity.json`
   (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
   per-layer allocation from the packaged report;
-- an AXQ-022-compliant head-to-head page renderer that loads only checksum-verified evaluation
+- an evidence-bound head-to-head page renderer that loads only checksum-verified evaluation
   bundles and always lists unavailable mandatory baselines with their reasons;
 - a bundled, clean-room-authored reference calibration dataset (160 samples across 7 domains —
   coding, json, tool, multilingual, long-context, reasoning, general) with a
   `validate-calibration-dataset` command, so a user without their own domain-representative
   calibration text can still run the full measured pipeline; an integration test proves the
-  complete chain (inspect → tokenize-calibration → analyze → plan) closes end to end on it.
-- a bundled evaluation task suite (`data/eval/`) with 60 clean-room-authored tasks across four
+  complete chain (inspect → tokenize-calibration → analyze → plan) closes end to end on it;
+- a repository evaluation task suite (`data/eval/`) with 60 clean-room-authored tasks across four
   categories (coding, reasoning, json-tool, instruction) for `evaluate-quality` and
   `compare-quality`, covering python-syntax, JSON validity, exact match, regex, and token-F1
   scoring.
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- **Qwen 3.6 27B release lineage (not closed).** Keep these as separate candidates until bound:
-
-  | Lineage slice | What exists today | Not the same as |
-  | --- | --- | --- |
-  | M5 E5 ~6.0 BPW plan → convert | plan effective **5.9999855** BPW; converted measured **6.0000659** BPW; MLX-LM generation smoke pass; feasibility `ready-for-conversion` with `ax_engine_runtime_ready=false` (no `ax-engine-bench` → no AX Engine `model-manifest.json`) | Not the proxy-selected refinement plan |
-  | Proxy refinement | `selection_basis=proxy`, `evidence_label=proxy-development`; selected **6.761280** BPW; all `measured_bpw` / `measured_loss` empty. “Converged” means proxy search stopped, **not** measured refine-measure | Not converted |
-  | Candidate-only quality (6.0 BPW artifact) | Coding **0.9667** (14×1.0 + 1×0.5; syntax-valid **0.9333**); Reasoning / JSON-tool / Instruction **1.0**. **No BF16 reference comparison** → not a formal quality-gate pass | Not dual-profile retention |
-  | AXQ-026 5.3 BPW MTP | Measured MTP speedup **1.1912×** (&lt; 1.20× gate) on the **5.3 BPW** AXQ-026 candidate | **Not** the 6.000066 BPW M5 artifact |
-
-  Formal certification still needs same-candidate refine-measure, dual-profile quality comparison,
-  AX Engine evidence, MTP speed on that exact artifact, Pareto / hardware registry / compatibility
-  matrix, and M0–M8 audit. Prefer the label **“Qwen 3.6 27B development evidence status”** over
-  “E5 complete” (project E5 also covers other official Qwen 3.6 sizes; E6 is first non-Qwen
-  family certification — see `.internal/engineering/expansion-implementation-plan.md`).
+- **Qwen 3.6 certification is not closed.** Public packs are development artifacts. Formal
+  certification still requires same-candidate measured refinement, dual-profile quality
+  comparison, AX Engine evidence, MTP speed on that exact artifact, Pareto and hardware-registry
+  evidence, a compatibility matrix, and a passing M0–M8 audit;
 - complete-candidate interaction optimization driven by measured holdout results on a bound candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
-- validated conversion evidence for additional LLM families (Nemotron Super/Ultra remain inspect-only);
+- certification evidence for secondary families (Nemotron Super/Ultra remain inspect-only);
 - dedicated quantization of external MTP sidecars;
-- measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and
+- measured KV serving-quality evidence (the implemented gate proves plan provenance and
   reproducibility; quality claims still require ordinary dual-profile evaluation evidence);
 - VLM optimization (vision towers are preserved, not optimized);
 - per-expert (unfused) MoE precision: packed expert stacks quantize as fused switch modules
   with one precision per group — finer per-expert splits would need MLX-LM-side support.
 
-Release discipline (gate order, dual-profile metric completeness, no rewrite of formal roots) is
-recorded in `.internal/product/release-best-practices.md`.
+The `validation-index`, `hardware-registry`, `compatibility-matrix`, and `release-audit` commands
+enforce release gate order, dual-profile completeness, and evidence binding.
 
 Architecture-prior analysis, smoke probes, and manual plans are explicitly marked as
 non-release development evidence. They cannot support production-quality or performance claims.
@@ -314,7 +285,7 @@ Requirements:
 
 - Python 3.11 or newer;
 - Apple Silicon for MLX-backed conversion;
-- an unquantized MLX source checkpoint;
+- an unquantized Safetensors source checkpoint supported by MLX-LM;
 - `ax-engine-bench` when AX Engine manifest generation is required.
 
 Create an environment and install AXQuant with the MLX backend:
@@ -332,7 +303,7 @@ For development, install the test and lint tools as well:
 python -m pip install -e ".[dev,mlx]"
 ```
 
-## Quick start: simple development convert (OptiQ-like)
+## Quick start: simple development convert
 
 AXQuant uses a **two-door** model:
 
@@ -346,7 +317,7 @@ Simple convert is **always development evidence**. It never upgrades to a certif
 ### Minimal commands
 
 ```bash
-# Local BF16 checkpoint — closest to OptiQ simplicity
+# Local BF16 checkpoint — one command from source to development artifact
 axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8
 
 # Explicit flags still work
@@ -477,13 +448,13 @@ Run `axquant COMMAND --help` for the full options of any command.
 | --- | --- | --- |
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
 | `inspect` | Inventory tensors, architecture, quantization, and MTP | Implemented |
-| `calibrate` | Validate calibration input and record provenance | Implemented |
+| `calibrate` | Validate calibration input, record provenance, and build a tokenized cache (`--manifest-only` skips tokenization) | Implemented |
 | `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
 | `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
-| `analyze` | Measure resumable affine/DWQ/BF16 sensitivity, including targeted refinement | Implemented |
+| `analyze` | Generate architecture priors or measure resumable affine/DWQ/BF16 sensitivity from a calibration cache | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
-| `plan-manual` | Apply an explicit reviewed precision recipe | Implemented for development |
+| `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
 | `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
@@ -496,16 +467,18 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `support-matrix` | List families with tier, investment posture, priority, and policy notes | Implemented |
 | `support-policy` | Print family investment best practices (primary/secondary/thin) | Implemented |
 | `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
-| `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for supported Qwen 3.6 scope |
+| `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for checkpoints at the `convertible` tier or above |
 | `runtime-check` | Run AX Engine readiness or actual MLX-LM generation | Implemented |
 | `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |
 | `evaluate-quality` | Run MLX perplexity and scored generation tasks | Implemented |
 | `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |
 | `benchmark` | Collect AX Engine runtime evidence | Implemented |
 | `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
+| `mtp-diagnose` | Run the MTP kill-switch diagnostic matrix | Implemented; diagnostic evidence only |
 | `benchmark-index` | Bind every required baseline or record why it is unavailable | Implemented |
 | `validation-index` | Require disjoint passing agent-coding and general evidence | Implemented |
 | `refine` | Generate proxy-ranked bounded precision swaps | Development only |
+| `recover` | Record optional post-PTQ recovery provenance | Implemented as identity-copy provenance; no weight mutation |
 | `refine-measure` | Build checksum-bound complete-candidate evidence | Implemented |
 | `refine-select` | Select only from checksum-bound, validated complete candidates | Implemented |
 | `refine-export` | Export standalone executable plans from a refinement result | Implemented |
@@ -557,7 +530,7 @@ axquant plan \
   --output quantization-plans
 ```
 
-`--lm-head-floor 8bit` is the AXQ-026 governed size-gate path: it lowers the LM-head weight
+`--lm-head-floor 8bit` is the governed size-gate path: it lowers the LM-head weight
 floor from BF16 to 8-bit for that plan only, records the deviation in
 `constraints.lm_head_min_bits`, and requires a measured 8-bit LM-head sensitivity candidate
 before the release audit accepts the plan. The default floor stays BF16.
@@ -685,7 +658,8 @@ objective input, and rewrites the registry to packaged relative paths. Each regi
 identifies the exact measurement ID, allowing one candidate and plan to be certified on multiple
 named hosts.
 
-Prepare the release directory locally, then run the aggregate proof before tagging v1.0:
+Prepare the release directory locally, then run the aggregate proof before publishing a certified
+checkpoint:
 
 ```bash
 axquant publish-prepare \
@@ -792,8 +766,9 @@ axquant compatibility-matrix \
 The request declares the complete official dense catalog as verified at a timezone-qualified
 timestamp. The command returns `1` and still writes the matrix when any declared official dense
 Qwen 3.6 model is absent, uses inconsistent candidate evidence, or lacks a compatible
-`agent-coding` or `general` validation profile. At the current catalog revision, the only official
-dense parameter size is 27B; FP8 is a representation of that size rather than a second size.
+`agent-coding` or `general` validation profile. The checked-in example lists 27B as the only dense
+size in the linked catalog; refresh `catalog_verified_at` and `required_dense_models` before every
+release. FP8 is a representation of a parameter size, not a second model size.
 
 ## Evidence and safety boundaries
 

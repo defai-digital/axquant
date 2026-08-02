@@ -4,9 +4,11 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 
 ## Project Summary
 
-AXQuant is an independent, MLX-native post-training quantization (PTQ) toolkit for Qwen 3.6 on
-Apple Silicon. It plans MTP-aware, workload-aware mixed-precision weight assignments and converts
-them through the public MLX-LM API. It does not reuse mlx-optiq code, data, or metadata.
+AXQuant is an independent, MLX-native post-training quantization (PTQ) toolkit for supported LLM
+checkpoints on Apple Silicon. Qwen 3.6 is the primary certification track; promoted secondary
+adapters cover Qwen 3.5, Gemma-4, MiniCPM5, Mistral/Devstral, Mistral3 language paths, and
+Nemotron 3 Nano. AXQuant plans MTP-aware, workload-aware mixed-precision assignments and converts
+them through public MLX-LM APIs. It does not reuse mlx-optiq code, data, or metadata.
 
 ## Commands
 
@@ -31,46 +33,54 @@ Optional MLX execution backend (Apple Silicon only):
 
 ### Pipeline Stages
 
-The CLI (`cli.py`) orchestrates a linear pipeline; each stage consumes the previous stage's
-JSON artifact and every artifact carries a `schema_version` literal:
+The CLI (`src/axquant/cli/`) orchestrates the core artifact pipeline. Staged release commands
+consume checksum-bound JSON artifacts, and every schema artifact carries a `schema_version`
+literal:
 
 1. **feasibility** — audits reference baselines (4-bit, 6-bit, mixed, BF16 source) and runtime
    availability before any conversion work begins (`feasibility.py`).
 2. **inspect** — reads Safetensors index files directly (no MLX import), reconstructs logical
-   tensors, classifies roles via architecture adapters, detects MTP sidecars, and emits an
-   `Inventory` (`inspector.py`).
-3. **calibrate** — records dataset provenance into a `CalibrationManifest`; the actual MLX
-   forward probe is Phase 2 and raises `BackendUnavailableError` if requested (`calibration.py`).
-4. **analyze** — produces a `SensitivityReport` from architecture priors only; always marked
-   `evidence_kind=architecture_prior` (`analyzer.py`).
+   tensors, classifies roles via architecture adapters, detects protected MTP/vision tensors, and
+   emits an `Inventory` (`inspector.py`).
+3. **calibrate / tokenize-calibration** — records dataset provenance in a
+   `CalibrationManifest` and optionally creates a deterministic tokenized cache
+   (`calibration.py`, `activation_cache.py`).
+4. **analyze / analyze-kv** — without a calibration cache, weight analysis emits explicitly
+   unmeasured architecture priors; with a verified tokenized cache, the lazy MLX backends produce
+   measured weight or KV sensitivity (`analyzer.py`, `probe.py`, `kv_probe.py`).
 5. **plan / plan-manual** — budget-constrained bit allocation. `planner.py` solves from measured
    sensitivity; `manual.py` applies explicit YAML recipes. Both enforce protection floors
-   (norms/LM-head ≥ 16-bit, embeddings/routers ≥ 8-bit, MTP ≥ policy minimum) and emit the same
-   `QuantizationPlan` schema.
+   (norms ≥ 16-bit, embeddings/routers ≥ 8-bit, MTP ≥ policy minimum, and LM-head ≥ 16-bit by
+   default). The governed `--lm-head-floor 8bit` path requires measured support. Both planners emit
+   the same `QuantizationPlan` schema.
 6. **convert** — atomic conversion: preflight verifies plan↔model module coverage via
-   `PlanPredicate`, runs `mlx_lm.convert` into a temp staging dir, byte-copies external MTP
-   sidecars, generates AX Engine manifest + runtime metadata, then renames staging→final so a
-   partial checkpoint never appears at the output path (`converter.py`, `predicate.py`,
-   `runtime.py`).
-7. **validate** — gates release on profile-specific thresholds comparing reference vs candidate
-   evaluation bundles (`validator.py`, `profiles.py`).
-8. **publish** — guarded Hugging Face upload; dry-run unless `--yes` (`publisher.py`,
-   `reporting.py`).
+   `PlanPredicate`, runs `mlx_lm.convert` into a temp staging dir, preserves protected MTP/vision
+   sidecars (or applies the explicit validated Qwen 3.6 MTP transform), generates AX Engine
+   manifest + runtime metadata, then renames staging→final so a partial checkpoint never appears
+   at the output path (`converter.py`, `predicate.py`, `runtime.py`).
+7. **runtime / evaluate / benchmark / validate** — collects runtime, quality, size, and MTP
+   evidence and applies profile-specific thresholds to matched reference/candidate bundles
+   (`runtime.py`, `quality.py`, `benchmark.py`, `validator.py`, `profiles.py`).
+8. **publish-prepare / release-audit / publish** — assembles checksum-bound release evidence,
+   proves M0–M8, and performs a guarded Hugging Face upload; `publish` is a preview unless `--yes`
+   is supplied (`reporting.py`, `release_audit.py`, `publisher.py`).
 
 ### Key Design Patterns
 
-- **schema.py is the single source of truth**: all Pydantic models use `extra="forbid"` via
+- **`schema/` is the single source of truth**: all Pydantic models use `extra="forbid"` via
   `StrictModel`. Artifact cross-references use `stable_sha256` (canonical sorted-key JSON) from
   `serde.py`.
-- **Architecture adapters** (`architectures/`): a `Protocol`-based registry; `Qwen36Adapter`
-  matches by config `model_type`/`architectures`, classifies tensor roles, and declares
-  optimization scope. Non-Qwen checkpoints are inventory-only.
+- **Architecture adapters** (`architectures/`): a `Protocol`-based registry covers Qwen 3.6,
+  promoted declarative dense families, and thin Nemotron 3 Nano support. An adapter profile
+  declares optimization scope and a `certified` / `convertible` / `inspect-only` tier; unmatched
+  or out-of-scope checkpoints remain inventory-only.
 - **Evidence gating**: `EvidenceKind.ARCHITECTURE_PRIOR` blocks `plan` and `convert` unless
   `--allow-unmeasured` is passed. This is intentional — never weaken it.
 - **Fail-closed conversion**: `PlanPredicate` tracks which plan modules MLX-LM actually visited;
   unmatched quantized modules abort the conversion.
-- **MLX is a lazy optional dependency**: imported only inside `converter.py` via `importlib`;
-  everything else runs without it. Tests never require MLX.
+- **MLX is a lazy optional dependency**: execution backends import it only inside conversion,
+  sensitivity, quality, and runtime paths. Inspection, planning, reporting, and tests do not
+  require MLX.
 - **serde.py writes atomically**: temp file + `os.replace`; JSON output is deterministic
   (sorted keys, 2-space indent) so artifact diffs are stable.
 - **profiles.py** maps `ProfileName` → planner `ObjectiveWeights` and validation

@@ -3,8 +3,8 @@
 AXQuant is an independent implementation. It does not vendor third-party quantizer source code,
 tests, calibration data, model weights, or generated sensitivity metadata.
 
-AXQuant itself is distributed under the MIT License. Runtime dependencies retain their own
-licenses:
+AXQuant itself is distributed under the MIT License. Direct runtime and optional MLX dependencies
+retain their own licenses:
 
 - MLX: <https://github.com/ml-explore/mlx>
 - MLX-LM: <https://github.com/ml-explore/mlx-lm>
@@ -13,6 +13,8 @@ licenses:
 - Pydantic: <https://github.com/pydantic/pydantic>
 - PyYAML: <https://github.com/yaml/pyyaml>
 - structlog: <https://github.com/hynek/structlog>
+- NumPy (used by measured probes and learned-quantization helpers):
+  <https://github.com/numpy/numpy>
 
 Research and public-method references:
 
@@ -22,6 +24,9 @@ Research and public-method references:
   <https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/LEARNED_QUANTS.md>
 - CLP and multi-token prediction accuracy limits: <https://arxiv.org/abs/2606.10935>
 - MXSens and mixed 4/6/8-bit sensitivity allocation: <https://arxiv.org/abs/2607.17733>
+
+These references provide research context. Their inclusion does not claim implementation
+equivalence, reproduced results, or endorsement.
 
 mlx-optiq is an externally attributed comparison baseline only. AXQuant does not copy, translate,
 decompile, or repackage its implementation, tests, prose, calibration data, or generated
