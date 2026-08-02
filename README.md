@@ -809,11 +809,11 @@ Tests use small synthetic Safetensors fixtures and do not require real model wei
 
 ## Documentation
 
-- [Product requirements](.internal/product/requirements.md)
-- [Architecture decision register](.internal/architecture/decision-register.md)
-- [Technical specification](.internal/engineering/technical-specification.md)
-- [Independent implementation policy](.internal/policies/clean-room.md)
 - [Third-party notices and research references](THIRD_PARTY_NOTICES.md)
+
+Product requirements, the architecture decision register, technical specifications, and the
+independent-implementation policy are maintained internally and are not published in this
+repository.
 
 ## License
 
