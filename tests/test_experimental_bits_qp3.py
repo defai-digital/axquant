@@ -19,12 +19,10 @@ from axquant.schema import (
     HardwareProfile,
     Inventory,
     ManualPlanRecipe,
-    ManualPrecisionRule,
     ModelIdentity,
     OptimizationScope,
     PlanRequest,
     ProfileName,
-    QuantMethod,
     TensorRole,
     TensorSpec,
 )
