@@ -102,6 +102,20 @@ export HF_TOKEN="$(cat ~/.cache/huggingface/token)"  # on machine that is Automa
 ssh macstudio-m2u "export HF_TOKEN='$HF_TOKEN'; ..."
 ```
 
+## Finalize / repair layout (Studio)
+
+After reboot, unplug, or interrupted rsync, run on **macstudio-m2u**:
+
+```bash
+bash ~/code/axquant/scripts/studio-finalize-ext4t-layout.sh
+# or from M5 / laptop:
+ssh macstudio-m2u 'bash -s' < scripts/studio-finalize-ext4t-layout.sh
+```
+
+The script: ensures Ext4T trees, re-links `axq-publish`/`logs`, migrates any real
+`~/models/*` or smoke dirs still on internal disk, and **discards incomplete**
+`smokes/qwen36-*` copies (too few safetensors / too small) before re-sync.
+
 ## Failure modes
 
 | Symptom | Fix |
@@ -111,6 +125,7 @@ ssh macstudio-m2u "export HF_TOKEN='$HF_TOKEN'; ..."
 | Hub 403 under AutomatosX | Wrong token identity |
 | SMB NAS slow convert | Move source to Ext4T |
 | Dual upload race | Single publisher host only |
+| Studio SSH timeout | Fix LAN; M5 can still QA local 27B packs and hold git |
 
 ## Related
 
