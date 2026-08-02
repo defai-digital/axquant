@@ -108,9 +108,7 @@ def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
             "backbone.layers.0.mixer.gate.e_score_correction_bias": np.zeros(
                 (4,), dtype=np.float32
             ),
-            "backbone.layers.0.mixer.experts.0.up_proj.weight": np.zeros(
-                (8, 16), dtype=np.float32
-            ),
+            "backbone.layers.0.mixer.experts.0.up_proj.weight": np.zeros((8, 16), dtype=np.float32),
             "backbone.layers.0.mixer.out_proj.weight": np.zeros((16, 16), dtype=np.float32),
             "lm_head.weight": np.zeros((32, 16), dtype=np.float32),
         },

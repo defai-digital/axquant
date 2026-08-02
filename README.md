@@ -92,10 +92,14 @@ conversion pipeline are feature-complete and quality-gated for the scoped Qwen 3
 `quantize`, recipe bundles, measured planning, atomic conversion, and runtime checks all work
 now and are covered by the test suite.
 
-What remains evidence-gated is only AXQuant's own **certified public model release**: publishing
-a checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
-formal hardware. There is **no** certified public AXQuant model release claimed here yet; the
-current gap is a single runtime performance gate (see below), not toolkit functionality.
+What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
+checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
+formal hardware. There is **no** certified public AXQuant model release claimed here yet.
+Qwen 3.6 27B has **development evidence** (measured sensitivity, convert, MLX-LM smoke, and
+candidate-only quality evals on M5), but the release evidence chain is **not closed** — proxy
+refinement, same-candidate dual-profile quality comparison, AX Engine evidence, MTP speed on
+that exact artifact, Pareto/hardware-registry/compatibility matrix, and the full M0–M8 audit
+are still required. Do not treat “MTP speed only” as the sole remaining blocker.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
@@ -141,6 +145,8 @@ Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
 | Devstral | `mistralai/Devstral-Small-2505` | `c2a9d81a…` | 4.95* | **4.9500** | pass | tekken→tokenizer prep; dense mistral |
 | Nemotron 3 Nano | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` | `2d59de1c…` | 4.8 | **4.7892** | pass | hybrid MoE; MoEGate stays BF16 (no MLX `to_quantized`) |
 | Mistral 3 | `mistralai/Mistral-Small-3.1-24B-Instruct-2503` | `68faf511…` | 5.15* | **5.1500** | pass | language path + vision sidecar; floors raise 4.8→5.15 |
+| **Qwen 3.6 27B** | `Qwen/Qwen3.6-27B` | `6a9e13bd…` | 6.0 | **6.0001** | pass | dense language path; vision+MTP sidecars; **development evidence only** |
+| **Qwen 3.6 35B-A3B** | `Qwen/Qwen3.6-35B-A3B` | `995ad96e…` | 5.25 | **5.2501** | pass | MoE fused experts; vision+MTP sidecars; **development evidence only** |
 
 \*Default 4.8 BPW is **infeasible** when protection floors raise the policy
 minimum (Gemma-4 ≈4.89, Devstral ≈4.94, Mistral3 ≈5.14). Simple convert
@@ -148,8 +154,11 @@ minimum (Gemma-4 ≈4.89, Devstral ≈4.94, Mistral3 ≈5.14). Simple convert
 target raised 4.80 → 4.89, measured BPW **4.8900**, MLX-LM smoke pass). Prefer an
 explicit `--target-bpw` at or above the floor when you want a fixed budget.
 
-Qwen 3.6 smokes are tracked separately on `mbp-m5` (certification path), not on
-this host.
+Qwen 3.6 rows above are **architecture-prior simple convert** smokes on this host.
+They do **not** close formal certification (see “Qwen 3.6 27B development evidence
+status” under incomplete work and
+`.internal/engineering/qwen36-27b-development-evidence-status.md`). Measured E5-style
+work on `mbp-m5` remains a separate lineage.
 
 Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
 
@@ -207,20 +216,23 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- the certified-release candidate's **MTP speed gate** — the one open certification item. The
-  current development candidate (AXQ-026 8-bit LM-head floor, `plan --lm-head-floor 8bit`)
-  already measures, on real hardware: size ratio **1.0888** (inside the 110% gate), dual-profile
-  quality above the 0.98 floor (agent-coding retention 1.0099, general 1.0000, governed
-  json/syntax validity pairs at 1.0), and MTP greedy **exactness with zero divergence** at
-  0.90–0.96 draft acceptance. Its measured MTP speedup under the formal protocol is **1.1912×**
-  against the required 1.20× (AX Engine's new async-draft overlap lifted it from 1.0969×, with
-  byte-identical output) — within single-run variance of the gate, pending the formal suite on a
-  runtime release carrying the flag. The residual gap is engine pipelining work, not a planner or
-  artifact defect. Formal validation/hardware/audit evidence then follows on the supported host;
-- complete-candidate interaction optimization driven by measured holdout results on that candidate;
-- validated conversion evidence for any future official dense Qwen 3.6 sizes;
-- tier promotion for the two remaining `inspect-only` adapters: Gemma-4 dense (blocked on MLX-LM `gemma4_unified` conversion support) and Nemotron 3 dense (no public dense checkpoint; the current catalog is MoE-only);
-- validated conversion evidence for additional LLM families;
+- **Qwen 3.6 27B release lineage (not closed).** Keep these as separate candidates until bound:
+
+  | Lineage slice | What exists today | Not the same as |
+  | --- | --- | --- |
+  | M5 E5 ~6.0 BPW plan → convert | plan effective **5.9999855** BPW; converted measured **6.0000659** BPW; MLX-LM generation smoke pass; feasibility `ready-for-conversion` with `ax_engine_runtime_ready=false` (no `ax-engine-bench` → no AX Engine `model-manifest.json`) | Not the proxy-selected refinement plan |
+  | Proxy refinement | `selection_basis=proxy`, `evidence_label=proxy-development`; selected **6.761280** BPW; all `measured_bpw` / `measured_loss` empty. “Converged” means proxy search stopped, **not** measured refine-measure | Not converted |
+  | Candidate-only quality (6.0 BPW artifact) | Coding **0.9667** (14×1.0 + 1×0.5; syntax-valid **0.9333**); Reasoning / JSON-tool / Instruction **1.0**. **No BF16 reference comparison** → not a formal quality-gate pass | Not dual-profile retention |
+  | AXQ-026 5.3 BPW MTP | Measured MTP speedup **1.1912×** (&lt; 1.20× gate) on the **5.3 BPW** AXQ-026 candidate | **Not** the 6.000066 BPW M5 artifact |
+
+  Formal certification still needs same-candidate refine-measure, dual-profile quality comparison,
+  AX Engine evidence, MTP speed on that exact artifact, Pareto / hardware registry / compatibility
+  matrix, and M0–M8 audit. Prefer the label **“Qwen 3.6 27B development evidence status”** over
+  “E5 complete” (project E5 also covers other official Qwen 3.6 sizes; E6 is first non-Qwen
+  family certification — see `.internal/engineering/expansion-implementation-plan.md`).
+- complete-candidate interaction optimization driven by measured holdout results on a bound candidate;
+- validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
+- validated conversion evidence for additional LLM families (Nemotron Super/Ultra remain inspect-only);
 - dedicated quantization of external MTP sidecars;
 - measured KV serving-quality evidence (the AXQ-025 gate proves plan provenance and
   reproducibility; quality claims still require ordinary dual-profile evaluation evidence);

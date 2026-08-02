@@ -57,13 +57,35 @@ def needs_tekken_tokenizer_prep(source_dir: str | Path) -> bool:
 
 # Known HF packs that already ship a transformers-compatible tokenizer for
 # tekken-based Mistral/Devstral releases (used only when the base export has
-# tekken.json but no tokenizer.json).
-_TEKKEN_TOKENIZER_PACKS: tuple[tuple[str, str], ...] = (
-    ("devstral-small-2505", "mlx-community/Devstral-Small-2505-bf16"),
-    ("devstral-small-2507", "lmstudio-community/Devstral-Small-2507-MLX-bf16"),
-    ("devstral-small-2-24b", "mlx-community/Devstral-Small-2-24B-Instruct-2512-bf16"),
-    ("mistral-small-3.1", "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16"),
-    ("mistral-small-3", "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16"),
+# tekken.json but no tokenizer.json). Each entry pins a Hub commit so prep is
+# revision-reproducible (fail closed: never download from floating main).
+# (match needle, repo_id, revision sha)
+_TEKKEN_TOKENIZER_PACKS: tuple[tuple[str, str, str], ...] = (
+    (
+        "devstral-small-2505",
+        "mlx-community/Devstral-Small-2505-bf16",
+        "32aa4f5a17b8f7d302677d5d7e5f8b50351de159",
+    ),
+    (
+        "devstral-small-2507",
+        "lmstudio-community/Devstral-Small-2507-MLX-bf16",
+        "7add794afc502cde50f3a536d91a12b987d15f8d",
+    ),
+    (
+        "devstral-small-2-24b",
+        "mlx-community/Devstral-Small-2-24B-Instruct-2512-bf16",
+        "5cc5ba993ad5220ec4cbac1ab7126cd80189094a",
+    ),
+    (
+        "mistral-small-3.1",
+        "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16",
+        "93f1ae32cb76d99ec94c12ab00e759b2465f2cf6",
+    ),
+    (
+        "mistral-small-3",
+        "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-bf16",
+        "93f1ae32cb76d99ec94c12ab00e759b2465f2cf6",
+    ),
 )
 
 
@@ -147,12 +169,13 @@ def prepare_gemma4_unified_source(
     return prepared
 
 
-def _resolve_tekken_tokenizer_repo(
+def _resolve_tekken_tokenizer_pack(
     source: Path,
     *,
     model_id: str | None,
     config: dict[str, Any],
-) -> str:
+) -> tuple[str, str]:
+    """Return ``(repo_id, revision)`` for a pinned tokenizer pack."""
     blob = " ".join(
         [
             model_id or "",
@@ -160,18 +183,25 @@ def _resolve_tekken_tokenizer_repo(
             source.name,
         ]
     ).lower()
-    for needle, repo in _TEKKEN_TOKENIZER_PACKS:
+    for needle, repo, revision in _TEKKEN_TOKENIZER_PACKS:
         if needle in blob:
-            return repo
-    # Last resort: mlx-community mirror of the model id basename.
-    if model_id and "/" in model_id:
-        base = model_id.split("/")[-1]
-        return f"mlx-community/{base}-bf16"
+            return repo, revision
     raise ArtifactError(
-        "tekken.json source has no tokenizer.json and no known tokenizer pack; "
+        "tekken.json source has no tokenizer.json and no revision-pinned tokenizer pack; "
         "pass a model id that matches Devstral/Mistral packs or place tokenizer.json "
-        "next to the weights"
+        "next to the weights (floating Hub main is not allowed for provenance)"
     )
+
+
+# Back-compat alias used by unit tests.
+def _resolve_tekken_tokenizer_repo(
+    source: Path,
+    *,
+    model_id: str | None,
+    config: dict[str, Any],
+) -> str:
+    repo, _revision = _resolve_tekken_tokenizer_pack(source, model_id=model_id, config=config)
+    return repo
 
 
 def prepare_tekken_tokenizer_source(
@@ -189,7 +219,7 @@ def prepare_tekken_tokenizer_source(
     if not needs_tekken_tokenizer_prep(source):
         raise ArtifactError("tekken tokenizer prep requires tekken.json without tokenizer.json")
     config = _read_config(source)
-    repo = _resolve_tekken_tokenizer_repo(source, model_id=model_id, config=config)
+    repo, revision = _resolve_tekken_tokenizer_pack(source, model_id=model_id, config=config)
 
     root = Path(work_dir).expanduser().resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -218,6 +248,7 @@ def prepare_tekken_tokenizer_source(
             "tekken tokenizer prep requires huggingface_hub to fetch tokenizer.json"
         ) from exc
 
+    fetched: dict[str, str] = {}
     for filename in (
         "tokenizer.json",
         "tokenizer_config.json",
@@ -225,26 +256,45 @@ def prepare_tekken_tokenizer_source(
         "chat_template.jinja",
     ):
         try:
-            downloaded = hf_hub_download(repo_id=repo, filename=filename)
+            downloaded = hf_hub_download(
+                repo_id=repo,
+                filename=filename,
+                revision=revision,
+            )
         except Exception:
             if filename == "tokenizer.json":
                 raise ArtifactError(
-                    f"cannot download tokenizer.json from {repo} for tekken source {source}"
+                    f"cannot download tokenizer.json from {repo}@{revision} "
+                    f"for tekken source {source}"
                 ) from None
             continue
         dest = prepared / filename
         if dest.is_symlink() or dest.exists():
             dest.unlink()
         shutil.copy2(downloaded, dest)
+        fetched[filename] = revision
 
     if not (prepared / "tokenizer.json").is_file():
-        raise ArtifactError(f"tokenizer.json missing after tekken prep from {repo}")
+        raise ArtifactError(f"tokenizer.json missing after tekken prep from {repo}@{revision}")
+
+    provenance = {
+        "schema_version": "axquant.tekken-tokenizer-prep.v1",
+        "source_dir": str(source),
+        "tokenizer_repo": repo,
+        "tokenizer_revision": revision,
+        "fetched_files": sorted(fetched),
+    }
+    (prepared / "axquant_tekken_tokenizer_provenance.json").write_text(
+        json.dumps(provenance, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     log.info(
         "tekken_tokenizer_source_prepared",
         source=str(source),
         prepared=str(prepared),
         tokenizer_repo=repo,
+        tokenizer_revision=revision,
     )
     return prepared
 

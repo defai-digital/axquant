@@ -343,7 +343,13 @@ def _run(args: argparse.Namespace) -> int:
             random_seed=args.seed,
             target_mode=args.mode,
             hardware=HardwareProfile(
-                supported_methods=tuple(set(methods) | {QuantMethod.BF16})
+                # Sort by method value so plan digests stay stable across PYTHONHASHSEED.
+                supported_methods=tuple(
+                    sorted(
+                        set(methods) | {QuantMethod.BF16},
+                        key=lambda method: method.value,
+                    )
+                )
             ),
             max_model_size_ratio_to_uniform4=args.max_size_ratio,
             minimum_quality_retention=args.minimum_quality,

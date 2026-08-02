@@ -119,7 +119,10 @@ def test_needs_tekken_tokenizer_prep(tmp_path: Path) -> None:
 
 
 def test_resolve_tekken_tokenizer_repo_for_devstral(tmp_path: Path) -> None:
-    from axquant.source_prep import _resolve_tekken_tokenizer_repo
+    from axquant.source_prep import (
+        _resolve_tekken_tokenizer_pack,
+        _resolve_tekken_tokenizer_repo,
+    )
 
     model_dir = tmp_path / "Devstral-Small-2505-bf16"
     model_dir.mkdir()
@@ -130,3 +133,11 @@ def test_resolve_tekken_tokenizer_repo_for_devstral(tmp_path: Path) -> None:
         config={"model_type": "mistral"},
     )
     assert repo == "mlx-community/Devstral-Small-2505-bf16"
+    pack_repo, revision = _resolve_tekken_tokenizer_pack(
+        model_dir,
+        model_id="mistralai/Devstral-Small-2505",
+        config={"model_type": "mistral"},
+    )
+    assert pack_repo == repo
+    assert len(revision) == 40
+    assert revision.isalnum()

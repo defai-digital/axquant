@@ -347,8 +347,7 @@ def inspect_model(
                         # Mark non-quantizable so plans stay BF16 (fail-closed
                         # coverage would otherwise abort convert).
                         and not (
-                            module_path.endswith(".mixer.gate")
-                            or ".mixer.gate." in module_path
+                            module_path.endswith(".mixer.gate") or ".mixer.gate." in module_path
                         )
                     )
                     tensors.append(
