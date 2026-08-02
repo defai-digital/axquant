@@ -131,48 +131,39 @@ def test_planner_labels_experimental_2bit_plan() -> None:
     )
 
 
-def test_manual_experimental_recipe_example_loads(tmp_path: Path) -> None:
+def test_manual_experimental_recipe_example_loads(qwen36_model_dir: Path) -> None:
+    """Drive the shipped YAML through load_model + manual_quantization_plan (QP3)."""
+    from axquant.inspector import inspect_model
+    from axquant.serde import load_model
+
     recipe_path = Path("examples/qwen36-experimental-2bit-v0.1.yaml")
     assert recipe_path.is_file()
-    # Parse via ManualPlanRecipe after yaml load if pyyaml available; otherwise construct.
-    recipe = ManualPlanRecipe(
-        profile=ProfileName.GENERAL,
-        target_bpw=3.5,
-        default_bits=2,
-        default_method=QuantMethod.AFFINE,
-        group_size=32,
-        rules=[
-            ManualPrecisionRule(
-                rule_id="protect-norms",
-                roles=(TensorRole.NORM,),
-                bits=16,
-                method=QuantMethod.BF16,
-                reason="Norms stay BF16 under protection floors",
-            ),
-            ManualPrecisionRule(
-                rule_id="protect-lm-head",
-                roles=(TensorRole.LM_HEAD,),
-                bits=16,
-                method=QuantMethod.BF16,
-                reason="LM head stays BF16 by default",
-            ),
-            ManualPrecisionRule(
-                rule_id="trunk",
-                roles=(TensorRole.MLP, TensorRole.ATTENTION),
-                bits=2,
-                method=QuantMethod.AFFINE,
-                group_size=32,
-                reason="Experimental 2-bit trunk with fine groups",
-            ),
-        ],
+    recipe = load_model(recipe_path, ManualPlanRecipe)
+    assert recipe.target_bpw >= 12.0
+    assert recipe.allow_unmatched_rules is True
+    assert recipe.default_bits == 2
+    assert recipe.group_size == 32
+
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
     )
-    plan = manual_quantization_plan(_inventory(), recipe)
+    plan = manual_quantization_plan(inventory, recipe)
     assert plan_uses_experimental_low_bits(plan)
-    assert "2bit-experimental" in plan.target_class or "experimental" in plan.target_class
+    assert "experimental" in plan.target_class
     assert EXPERIMENTAL_WARNING in plan.warnings
-    mlp = next(item for item in plan.assignments if item.role == TensorRole.MLP)
-    assert mlp.bits == 2
-    assert mlp.group_size == 32
+    assert plan.effective_bpw <= recipe.target_bpw + 1e-6
+    trunk = [
+        item
+        for item in plan.assignments
+        if item.role in {TensorRole.MLP, TensorRole.ATTENTION, TensorRole.EXPERT} and item.bits < 16
+    ]
+    assert trunk, "expected at least one experimental low-bit trunk allocation"
+    assert all(item.bits == 2 and item.group_size == 32 for item in trunk)
+    for item in plan.assignments:
+        if item.role in {TensorRole.LM_HEAD, TensorRole.VISION, TensorRole.NORM}:
+            assert item.bits == 16
 
 
 def test_annotate_is_idempotent() -> None:

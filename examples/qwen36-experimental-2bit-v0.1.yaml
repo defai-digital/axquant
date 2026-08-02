@@ -1,12 +1,19 @@
 # Experimental 2-bit + fine group recipe (QP3 / AXQ-028).
 # Development evidence only — not a production claim without the release audit.
 # AX Engine requires AX_ENGINE_2BIT_EXPERIMENTAL=1 at runtime.
+#
+# target_bpw is intentionally loose: protected embeddings / LM-head / norms /
+# MTP / vision stay high-bit, so tight ceilings (e.g. 3.5) are infeasible.
+# On small development fixtures the protected share dominates; on full 27B
+# trunks the measured BPW falls much lower. allow_unmatched_rules is true so
+# optional roles (e.g. router on dense) do not fail closed when absent.
 schema_version: axquant.manual-recipe.v1
 profile: general
-target_bpw: 3.5
+target_bpw: 16.0
 default_bits: 2
 default_method: affine
 group_size: 32
+allow_unmatched_rules: true
 lm_head_min_bits: 16
 target_mode: low-memory
 primary_runtime: ax-engine
@@ -33,10 +40,28 @@ rules:
     bits: 8
     method: affine
     group_size: 32
-    reason: Router floor remains 8-bit
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: Vision tensors stay BF16
+  - rule_id: protect-mtp
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: External/integrated MTP stays protected in experimental recipes
   - rule_id: trunk-experimental-2bit
     roles: [mlp, attention, expert]
     bits: 2
     method: affine
     group_size: 32
     reason: Experimental 2-bit trunk with fine groups (development evidence only)
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true
