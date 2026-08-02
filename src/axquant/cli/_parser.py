@@ -337,7 +337,7 @@ def _build_parser() -> argparse.ArgumentParser:
     quantize_parser.add_argument(
         "--output",
         default=None,
-        help="Output directory (default: ./AX-<model>-MLX-AXQuant-<class>)",
+        help="Output directory (default: ./AX-<model>-MLX-AXQ-<class>)",
     )
     quantize_parser.add_argument(
         "--profile",

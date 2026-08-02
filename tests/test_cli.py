@@ -13,7 +13,7 @@ from axquant.serde import load_model
 def test_name_command_uses_product_naming(capsys) -> None:
     result = main(["name", "--base", "Qwen/Qwen3.6-27B"])
     assert result == 0
-    assert capsys.readouterr().out.strip() == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit"
+    assert capsys.readouterr().out.strip() == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit"
 
 
 def test_benchmark_ab_defaults_to_release_speedup_gate() -> None:

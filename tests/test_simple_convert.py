@@ -38,7 +38,7 @@ def test_target_class_and_default_output() -> None:
     assert target_class_for_bpw(6.0) == "6bit"
     assert target_class_for_bpw(5.5) == "5p5bpw"
     out = default_output_dir("Qwen/Qwen3.6-27B", target_bpw=4.8, parent="/tmp")
-    assert out.name == "AX-Qwen3.6-27B-MLX-AXQuant-4bit"
+    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-4bit"
 
 
 def test_download_policy() -> None:
@@ -67,7 +67,7 @@ def test_simple_convert_default_output(
     assert summary.evidence_kind is EvidenceKind.ARCHITECTURE_PRIOR
     assert summary.support_tier is SupportTier.CONVERTIBLE
     assert Path(summary.output_path).is_dir()
-    assert "AX-Qwen3.6-27B-MLX-AXQuant" in summary.output_path
+    assert "AX-Qwen3.6-27B-MLX-AXQ" in summary.output_path
     assert any("Simple convert path" in note for note in summary.notes)
     assert any("development evidence" in note.lower() for note in summary.notes)
 

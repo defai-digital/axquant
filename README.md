@@ -164,6 +164,20 @@ work on `mbp-m5` remains a separate lineage.
 
 Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
 
+### AutomatosX Hub catalog (AXQ, development)
+
+Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
+(BF16 source → AXQuant convert; **not** certified releases):
+
+| Pack | Measured BPW | Notes |
+| --- | --- | --- |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.58 | floors raised 4.8→5.58 |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~6.00 | quality class |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~5.14 | MoE; floors raised 4.8→5.14 |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~6.00 | MoE quality class |
+
+Naming: `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last**; MLX-style bit labels, not GGUF `q4`).
+
 Investment policy: `axquant support-policy` (primary = Qwen 3.6 cert; Nemotron = thin Nano only).
 
 Implemented now:
@@ -305,7 +319,7 @@ axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision R
 Defaults on the simple path:
 
 - ladder `prior` with multi-group grid `(32, 64)`;
-- output directory `./AX-<model>-MLX-AXQuant-4bit` when `--output` is omitted;
+- output directory `./AX-<model>-MLX-AXQ-4bit` when `--output` is omitted;
 - development-evidence banner in logs and summary notes;
 - family tier gates (inspect-only still fails closed).
 
@@ -318,7 +332,7 @@ axquant scoreboard --plan plan-01.json --output scoreboard.json --markdown-outpu
 
 To reuse published planning evidence, pass a checksummed recipe bundle with `--recipe` — either a
 local path or a revision-pinned Hub reference such as
-`--recipe hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@COMMIT_SHA/recipe/axquant_recipe_bundle.json`
+`--recipe hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit@COMMIT_SHA/recipe/axquant_recipe_bundle.json`
 (the revision pin is mandatory and the payload checksum is always verified). Expert memory-tier
 development recipes live under `examples/expert-memory-tier-v0.1.yaml` (2-bit fused experts, 8-bit
 routers; requires AX Engine experimental 2-bit flags). To add prior-based per-layer KV-cache
@@ -365,7 +379,7 @@ axquant convert \
   --plan manual-plan.json \
   --allow-unmeasured \
   --ax-engine-manifest if-available \
-  --output AX-Qwen3.6-27B-MLX-AXQuant-4bit
+  --output AX-Qwen3.6-27B-MLX-AXQ-4bit
 ```
 
 If the plan preserves MTP as an external bundle, conversion requires:
@@ -399,8 +413,8 @@ provenance against the plan and packages it with the artifact.
 
 ```bash
 axquant runtime-check \
-  --model AX-Qwen3.6-27B-MLX-AXQuant-4bit \
-  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
+  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
   --revision candidate-revision \
   --runtime ax-engine \
   --output runtime-check.json
@@ -507,7 +521,7 @@ Validate externally collected benchmark bundles:
 ```bash
 axquant size-evidence \
   --artifact-manifest candidate/axquant_manifest.json \
-  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
   --revision candidate-revision \
   --output candidate-size-evidence.json
 
@@ -629,8 +643,8 @@ Prepare the release directory locally, then run the aggregate proof before taggi
 
 ```bash
 axquant publish-prepare \
-  --model AX-Qwen3.6-27B-MLX-AXQuant-4bit \
-  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
+  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
   --validation-index release-validation-index.json \
   --hardware-registry hardware-profile-registry.json \
   --pareto-report pareto-report.json
@@ -676,8 +690,8 @@ rerun from current evidence:
 
 ```bash
 axquant publish \
-  --model AX-Qwen3.6-27B-MLX-AXQuant-4bit \
-  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
+  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
   --validation-index release-validation-index.json \
   --hardware-registry hardware-profile-registry.json \
   --pareto-report pareto-report.json \
@@ -751,13 +765,13 @@ dense parameter size is 27B; FP8 is a representation of that size rather than a 
 Recommended model names use:
 
 ```text
-OWNER/AX-BASE-MODEL-MLX-AXQuant-TARGET
+OWNER/AX-BASE-MODEL-MLX-AXQ-TARGET
 ```
 
 For example:
 
 ```text
-AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit
+AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit
 ```
 
 The target suffix describes the checkpoint class, not a claim that every tensor uses that bit

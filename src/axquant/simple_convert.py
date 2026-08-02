@@ -85,7 +85,7 @@ def default_output_dir(
     mtp: bool = False,
     parent: str | Path = ".",
 ) -> Path:
-    """Derive ``./AX-<base>-MLX-AXQuant-<class>`` under *parent*."""
+    """Derive ``./AX-<base>-MLX-AXQ-<class>`` under *parent*."""
     base = model_id or model
     name = model_name(base, target_class=target_class_for_bpw(target_bpw), mtp=mtp)
     if not _SAFE_DIR.fullmatch(name):
@@ -242,7 +242,7 @@ axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8 --kv-cache prior --ru
 ```
 
 Defaults: ladder `prior` (groups 32,64), auto output name
-`AX-<model>-MLX-AXQuant-4bit`, development evidence banner.
+`AX-<model>-MLX-AXQ-4bit`, development evidence banner.
 
 ## Do not
 

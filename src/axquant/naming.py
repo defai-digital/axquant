@@ -6,9 +6,13 @@ from axquant.errors import ArtifactError
 
 _VALID_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _QUANT_SUFFIX = re.compile(
-    r"-(?:MLX-)?(?:OptiQ|AXQuant|AWQ|GPTQ|DWQ)-[^/]+$",
+    r"-(?:MLX-)?(?:OptiQ|AXQ|AXQuant|AWQ|GPTQ|DWQ)-[^/]+$",
     re.IGNORECASE,
 )
+
+# Hub / filesystem brand for converted checkpoints (short). The toolkit remains
+# "AXQuant"; published model ids use AXQ so users can search MLX-AXQ packs.
+_DEFAULT_QUANT_BRAND = "AXQ"
 
 
 def model_name(
@@ -18,6 +22,7 @@ def model_name(
     mtp: bool = False,
     prefix: str = "AX-",
     include_mlx: bool = True,
+    quant_brand: str = _DEFAULT_QUANT_BRAND,
 ) -> str:
     base = base_model.rstrip("/").split("/")[-1]
     base = _QUANT_SUFFIX.sub("", base)
@@ -26,7 +31,7 @@ def model_name(
     parts = [f"{prefix}{base}"]
     if include_mlx:
         parts.append("MLX")
-    parts.extend(["AXQuant", target_class])
+    parts.extend([quant_brand, target_class])
     if mtp:
         parts.append("MTP")
     return "-".join(parts)
