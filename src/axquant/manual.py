@@ -7,6 +7,9 @@ from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
 from axquant.schema import (
+    PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
+)
+from axquant.schema import (
     Allocation,
     ArchitectureSupportLevel,
     CandidateMeasurement,
@@ -24,14 +27,6 @@ from axquant.schema import (
 )
 from axquant.serde import stable_sha256
 from axquant.versioning import collect_versions
-
-_PROTECTED_MIN_BITS = {
-    TensorRole.EMBEDDING: 8,
-    TensorRole.NORM: 16,
-    TensorRole.LM_HEAD: 16,
-    TensorRole.ROUTER: 8,
-    TensorRole.VISION: 16,
-}
 
 
 def _matches(rule: ManualPrecisionRule, tensor: TensorSpec) -> bool:

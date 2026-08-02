@@ -482,6 +482,23 @@ def test_mtp_sidecar_provenance_binds_alternate_filename(tmp_path: Path) -> None
     assert (output / "mtp.safetensors").read_bytes() == b"mtp"
 
 
+def test_resolve_external_mtp_sidecar_file_prefers_canonical_name_deterministically(
+    tmp_path: Path,
+) -> None:
+    # When a sidecar directory ships both recognized filenames, the choice
+    # must be deterministic (a fixed preference order), not dependent on
+    # Python's per-process string-hash randomization of set/frozenset
+    # iteration order.
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    (sidecar / "mtp.safetensors").write_bytes(b"canonical")
+    (sidecar / "mtp_head.safetensors").write_bytes(b"alternate")
+
+    resolved = converter._resolve_external_mtp_sidecar_file(sidecar)
+
+    assert resolved == sidecar / "mtp.safetensors"
+
+
 def test_byte_preserved_bundle_preserves_explicit_norm_layout(tmp_path: Path) -> None:
     sidecar = tmp_path / "sidecar"
     sidecar.mkdir()

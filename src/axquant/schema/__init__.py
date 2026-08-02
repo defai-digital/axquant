@@ -128,6 +128,7 @@ from axquant.schema.inventory import (
     TensorSpec,
 )
 from axquant.schema.planning import (
+    PROTECTED_MIN_BITS,
     Allocation,
     HardwareProfile,
     KvCachePlan,
@@ -142,6 +143,7 @@ from axquant.schema.planning import (
     PlanRequest,
     PrecisionShare,
     QuantizationPlan,
+    protected_floor_bits,
 )
 from axquant.schema.sensitivity import (
     CalibrationEvidence,
@@ -157,6 +159,7 @@ from axquant.schema.sensitivity import (
 
 __all__ = [
     "ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS",
+    "PROTECTED_MIN_BITS",
     "Allocation",
     "ArchitectureProfile",
     "ArchitectureSupportLevel",
@@ -303,5 +306,6 @@ __all__ = [
     "ValidationIssue",
     "ValidationReport",
     "ValidationThresholds",
+    "protected_floor_bits",
     "utc_now",
 ]

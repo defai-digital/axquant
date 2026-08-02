@@ -142,7 +142,7 @@ refinement remains development evidence.
 ### R-QP-009 — Optional recovery (QP2)
 
 A recovery stage MAY update scales/biases or merged low-rank adapters on a converted checkpoint
-using calibration-only data. It MUST write `axquant.recovery.v1` with full provenance. Domain
+using calibration-only data. It MUST write `axquant.recovery.v2` with full provenance. Domain
 task fine-tune is out of scope.
 
 ### R-QP-010 — No default training

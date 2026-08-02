@@ -3,6 +3,15 @@
 Provides a plugin system for quantization methods (affine, AWQ, DWQ).
 Each plugin declares its capabilities and can be registered/looked up
 by method ID.  MLX is a lazy optional dependency.
+
+NOT WIRED INTO CONVERSION: this module is a standalone, numpy-only reference
+implementation kept for its algorithmic documentation and its own test
+coverage (`tests/test_quantizers.py`). The real conversion path quantizes
+through MLX-LM's `quant_predicate` (`predicate.py`/`converter.py`), and real
+AWQ/DWQ refinement lives in `awq.py`/`dwq.py`. Nothing outside this module
+and its test imports `AffinePlugin`/`AwqPlugin`/`DwqPlugin` or the plugin
+registry; do not assume registering a plugin here makes it reachable from
+`axquant convert`.
 """
 
 from __future__ import annotations

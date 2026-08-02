@@ -27,14 +27,16 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, load_model, write_data
 
-# Recognized root-level filenames for an externally-shipped MTP head sidecar.
-# Kept as one canonical constant because callers across the pipeline (inspect,
-# convert, probe, release audit) must agree on every recognized name, or a
-# checkpoint shipped under an alternate name is silently mishandled by
-# whichever caller falls out of sync.
-EXTERNAL_MTP_SIDECAR_FILENAMES: frozenset[str] = frozenset(
-    {"mtp.safetensors", "mtp_head.safetensors"}
-)
+# Recognized root-level filenames for an externally-shipped MTP head sidecar,
+# in preference order. Kept as one canonical constant because callers across
+# the pipeline (inspect, convert, probe, release audit) must agree on every
+# recognized name, or a checkpoint shipped under an alternate name is
+# silently mishandled by whichever caller falls out of sync. A tuple (not a
+# frozenset) is required: `converter._resolve_external_mtp_sidecar_file`
+# picks the first match when a sidecar directory ships both names, and
+# Python's per-process string-hash randomization would otherwise make that
+# choice non-deterministic across runs.
+EXTERNAL_MTP_SIDECAR_FILENAMES: tuple[str, ...] = ("mtp.safetensors", "mtp_head.safetensors")
 
 QWEN36_MTP_NORM_TENSORS = frozenset(
     {

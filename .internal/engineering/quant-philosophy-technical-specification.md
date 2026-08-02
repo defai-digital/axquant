@@ -188,7 +188,7 @@ runs stay development evidence (existing).
 ### 8.1 Recovery artifact
 
 ```text
-schema_version: axquant.recovery.v1
+schema_version: axquant.recovery.v2
 source_artifact_sha256
 plan_sha256
 calibration digests
@@ -196,6 +196,7 @@ algorithm_id
 steps, seed, hyperparameters
 parameter_update_scope  # scales | biases | lora-merged
 quality_before / quality_after refs
+weight_mutation_applied  # v2: explicit disclosure, no longer implied
 ```
 
 ### 8.2 CLI

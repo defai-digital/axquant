@@ -12,6 +12,7 @@ from axquant.schema import (
     MtpPolicy,
     PlanRequest,
     ProfileName,
+    QuantizationPlan,
     TensorRole,
     TensorSpec,
 )
@@ -311,3 +312,23 @@ def test_mtp_policy_rejects_a_floor_below_the_protected_minimum() -> None:
     # never be silently lowered below the documented 8-bit MTP minimum.
     with pytest.raises(ValidationError):
         MtpPolicy(min_bits=2)
+
+
+def test_plan_rejects_a_loaded_allocation_below_its_protection_floor() -> None:
+    # `plan_quantization` always emits a compliant plan, so this exercises
+    # the defense-in-depth backstop on `QuantizationPlan` itself: a plan
+    # loaded from disk (e.g. hand-edited JSON fed to `axquant convert`) with
+    # a protected role pushed below its floor must fail to validate, not
+    # silently reach conversion.
+    report = architecture_prior_report(_inventory(), profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(report, _request(target_bpw=6.5))
+    lm_head_index = next(
+        index
+        for index, allocation in enumerate(plan.assignments)
+        if allocation.role == TensorRole.LM_HEAD
+    )
+    payload = plan.model_dump(mode="json")
+    payload["assignments"][lm_head_index]["bits"] = 4
+
+    with pytest.raises(ValidationError, match="violates protection floors"):
+        QuantizationPlan.model_validate(payload)

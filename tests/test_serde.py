@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 
+import pytest
+
+from axquant.errors import ArtifactError
 from axquant.schema import Inventory, ModelIdentity, TensorRole, TensorSpec
-from axquant.serde import stable_sha256
+from axquant.serde import load_model, stable_sha256, write_data
 
 
 def _tensor() -> TensorSpec:
@@ -57,3 +62,24 @@ def test_stable_sha256_strips_created_at_at_any_nesting_depth() -> None:
 
     nested_changed = {"outer": {"created_at": "2020-01-01T00:00:00Z", "value": 2}}
     assert stable_sha256(nested_early) != stable_sha256(nested_changed)
+
+
+def test_load_model_accepts_an_artifact_with_its_schema_version(tmp_path: Path) -> None:
+    path = tmp_path / "inventory.json"
+    write_data(path, _inventory())
+    loaded = load_model(path, Inventory)
+    assert loaded.schema_version == _inventory().schema_version
+
+
+def test_load_model_rejects_an_artifact_missing_schema_version(tmp_path: Path) -> None:
+    # `schema_version` defaults for construction convenience in-repo, but a
+    # persisted artifact that omits it entirely must not silently validate
+    # as "current schema" -- that's the one guarantee AGENTS.md's "every
+    # artifact carries a schema_version" promises.
+    payload = json.loads(_inventory().model_dump_json())
+    del payload["schema_version"]
+    path = tmp_path / "inventory.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match="missing required 'schema_version'"):
+        load_model(path, Inventory)

@@ -315,6 +315,51 @@ class KvCachePlan(StrictModel):
         return self
 
 
+# Protection-floor policy (AXQ-007 / AXQ-026): the single source of truth for
+# "norms/LM-head >= 16-bit, embeddings/routers >= 8-bit". `planner.py` and
+# `manual.py` apply it while building a plan; `QuantizationPlan`'s own
+# validator below re-derives it from role plus the plan's own `mtp` policy
+# and `constraints.lm_head_min_bits` so a plan loaded from disk -- e.g. a
+# hand-edited JSON fed to `axquant convert` -- cannot smuggle an
+# under-floor allocation past load time. It intentionally does not reproduce
+# the `quantizable`-tensor exception (some tensors are 16-bit-only for shape
+# reasons unrelated to role), which is not recoverable from a persisted
+# Allocation and is not part of the role-protection invariant.
+PROTECTED_MIN_BITS: dict[TensorRole, int] = {
+    TensorRole.EMBEDDING: 8,
+    TensorRole.NORM: 16,
+    TensorRole.LM_HEAD: 16,
+    TensorRole.ROUTER: 8,
+    TensorRole.VISION: 16,
+}
+
+
+def protected_floor_bits(
+    role: TensorRole,
+    *,
+    mtp: MtpPolicy,
+    lm_head_min_bits: int,
+) -> int | None:
+    """Policy floor for ``role``, or ``None`` when the role has no protection floor.
+
+    Mirrors the precedence in ``planner._minimum_bits`` / ``manual._minimum_bits``:
+    an MTP role is floored at 16-bit whenever the sidecar is preserved (the
+    default), otherwise at ``mtp.min_bits`` only in ``protected`` mode; every
+    other protected role uses ``PROTECTED_MIN_BITS``, with the AXQ-026 opt-in
+    lowering the LM-head floor to 8-bit when configured.
+    """
+    if role.is_mtp:
+        if mtp.preserve_external_sidecar:
+            return 16
+        return mtp.min_bits if mtp.mode == "protected" else None
+    minimum = PROTECTED_MIN_BITS.get(role)
+    if minimum is None:
+        return None
+    if role == TensorRole.LM_HEAD and lm_head_min_bits < minimum:
+        return lm_head_min_bits
+    return minimum
+
+
 class Allocation(StrictModel):
     tensor: str
     module_path: str
@@ -370,3 +415,33 @@ class QuantizationPlan(StrictModel):
     kv_cache: KvCachePlan | None = None
     created_at: datetime = Field(default_factory=utc_now)
     warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def protection_floors_hold(self) -> QuantizationPlan:
+        """Fail closed on any assignment below its role's protection floor.
+
+        `plan_quantization` and `manual_quantization_plan` always emit a
+        compliant plan, but this also runs on every `QuantizationPlan.model_validate`
+        -- including `load_model`, used by `convert`, `recipes.py`,
+        `release_audit.py`, and every other loader -- so a hand-edited or
+        otherwise corrupted plan JSON can never reach conversion with an
+        under-floor protected tensor.
+        """
+        lm_head_min_bits = self.constraints.lm_head_min_bits
+        violations = []
+        for allocation in self.assignments:
+            floor = protected_floor_bits(
+                allocation.role,
+                mtp=self.mtp,
+                lm_head_min_bits=lm_head_min_bits,
+            )
+            if floor is not None and allocation.bits < floor:
+                violations.append(
+                    f"{allocation.tensor} ({allocation.role.value}) is {allocation.bits}-bit, "
+                    f"below the protected floor of {floor}-bit"
+                )
+        if violations:
+            preview = violations[:10]
+            suffix = "" if len(violations) <= 10 else f" and {len(violations) - 10} more"
+            raise ValueError(f"plan violates protection floors: {preview}{suffix}")
+        return self

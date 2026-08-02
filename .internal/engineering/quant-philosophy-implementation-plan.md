@@ -51,7 +51,8 @@ axquant plan --analysis sensitivity.json --allow-unmeasured \
 
 ## QP2 — completed checklist
 
-- [x] `RecoveryManifest` / `RecoveryRequest` (`axquant.recovery.v1`)
+- [x] `RecoveryManifest` / `RecoveryRequest` (`axquant.recovery.v2`; v1 lacked an
+      explicit `weight_mutation_applied` disclosure field)
 - [x] `axquant recover` CLI (opt-in; convert/quantize untouched)
 - [x] Fail-closed incomplete provenance
 - [x] Retention-restore-only claim language

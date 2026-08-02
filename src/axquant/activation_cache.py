@@ -17,13 +17,13 @@ from typing import Any
 
 import structlog
 
-from axquant.errors import BackendUnavailableError, CacheError
+from axquant.errors import ArtifactError, BackendUnavailableError, CacheError
 from axquant.schema import (
     ModelIdentity,
     ProfileName,
     TokenizedCacheManifest,
 )
-from axquant.serde import file_sha256, stable_sha256, write_data
+from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.versioning import collect_versions
 
 log = structlog.get_logger()
@@ -232,9 +232,8 @@ def load_cache_manifest(cache_dir: Path) -> TokenizedCacheManifest | None:
     if not manifest_path.is_file():
         return None
     try:
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-        return TokenizedCacheManifest.model_validate(data)
-    except (json.JSONDecodeError, OSError, ValueError):
+        return load_model(manifest_path, TokenizedCacheManifest)
+    except (ArtifactError, ValueError):
         return None
 
 

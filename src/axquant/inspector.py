@@ -429,8 +429,22 @@ def inspect_model(
     if adapter is None:
         warnings.append("No supported Qwen 3.6 adapter matched; this report is inventory-only.")
     warnings.extend(architecture_profile.notes)
-    if any(tensor.role == TensorRole.VISION for tensor in tensors):
+    vision_tensors_present = any(tensor.role == TensorRole.VISION for tensor in tensors)
+    if vision_tensors_present:
         architecture_profile = architecture_profile.model_copy(update={"vision_present": True})
+    elif architecture_profile.vision_present:
+        # The config declares a vision tower (e.g. `vision_config`) but no
+        # tensor classified as VISION. This is the fail-closed backstop for
+        # dense-family vision-token coverage (AXQ-018): a future spec's
+        # vision-tower naming that `_VISION_TOKENS`/`extra_role_patterns`
+        # does not cover would otherwise fall through to a generic
+        # attention/MLP role and quantize inline instead of being routed to
+        # the protected vision sidecar, with no other signal that anything
+        # went wrong.
+        warnings.append(
+            "config declares a vision tower but no tensor classified as vision; "
+            "vision-tower naming may not be covered by the role classifier"
+        )
     weight_bytes = sum(path.stat().st_size for path in tensor_files)
     mtp_weight_bytes = sum(
         path.stat().st_size

@@ -30,7 +30,30 @@ def read_data(path: str | Path) -> Any:
 
 
 def load_model(path: str | Path, model_type: type[ModelT]) -> ModelT:
-    return model_type.model_validate(read_data(path))
+    payload = read_data(path)
+    _require_schema_version(path, model_type, payload)
+    return model_type.model_validate(payload)
+
+
+def _require_schema_version(path: str | Path, model_type: type[ModelT], payload: Any) -> None:
+    """Fail closed when a persisted artifact omits its ``schema_version`` key.
+
+    Every AXQuant model with a ``schema_version`` field declares it as
+    ``Literal["...vN"] = "...vN"`` so in-repo code can construct instances
+    without repeating the literal. That convenience also means Pydantic
+    accepts a JSON payload with the key missing exactly as happily as one
+    with it present -- silently treating an unversioned artifact as the
+    current schema. This re-asserts "every artifact carries a
+    schema_version" specifically for data loaded from disk (the only place
+    the guarantee matters) without touching the many in-repo constructor
+    call sites that rely on the default for construction convenience.
+    """
+    if "schema_version" not in model_type.model_fields:
+        return
+    if not isinstance(payload, dict) or "schema_version" not in payload:
+        raise ArtifactError(
+            f"{path}: missing required 'schema_version' field for {model_type.__name__}"
+        )
 
 
 def _serializable(value: BaseModel | dict[str, Any] | list[Any]) -> Any:

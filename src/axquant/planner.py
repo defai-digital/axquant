@@ -9,6 +9,9 @@ from axquant.module_paths import fused_expert_module
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
+    PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
+)
+from axquant.schema import (
     Allocation,
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -31,14 +34,6 @@ from axquant.schema import (
 )
 from axquant.serde import stable_sha256
 from axquant.versioning import collect_versions
-
-_PROTECTED_MIN_BITS = {
-    TensorRole.EMBEDDING: 8,
-    TensorRole.NORM: 16,
-    TensorRole.LM_HEAD: 16,
-    TensorRole.ROUTER: 8,
-    TensorRole.VISION: 16,
-}
 
 
 @dataclass(frozen=True)

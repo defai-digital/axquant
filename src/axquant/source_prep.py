@@ -356,7 +356,12 @@ def _filter_sharded(source: Path, prepared: Path) -> None:
     shards = sorted({str(value) for value in weight_map.values() if isinstance(value, str)})
     filtered: dict[str, Any] = {}
     for shard_name in shards:
-        shard_path = source / shard_name
+        relative = Path(shard_name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ArtifactError(f"index contains an unsafe shard path: {shard_name}")
+        shard_path = source / relative
+        if shard_path.suffix != ".safetensors":
+            raise ArtifactError(f"index references a non-Safetensors shard: {shard_name}")
         if not shard_path.is_file():
             raise ArtifactError(f"missing shard referenced by index: {shard_name}")
         weights = mx.load(str(shard_path))

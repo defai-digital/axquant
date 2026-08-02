@@ -82,6 +82,45 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert vision.protected_recommendation is True
 
 
+def test_declared_vision_tower_with_uncovered_naming_warns(
+    qwen36_model_dir: Path,
+) -> None:
+    """AXQ-018 fail-closed backstop for vision-token classification coverage.
+
+    A declared vision tower (config `vision_config`) with zero VISION-role
+    tensors -- e.g. a future family whose vision-tower naming `_VISION_TOKENS`
+    does not cover -- must not pass through silently. The misclassified
+    tensor still gets some valid generic role and inspection does not
+    hard-fail, but the mismatch has to leave a signal.
+    """
+    # Rebuild model.safetensors with the vision tensor renamed to naming that
+    # none of `_VISION_TOKENS` cover, landing it in a generic MLP role instead.
+    save_file(
+        {
+            "language_model.model.layers.0.linear_attn.in_proj_qkvz.weight": np.zeros(
+                (8, 8), dtype=np.float32
+            ),
+            "language_model.model.layers.0.linear_attn.conv1d.weight": np.zeros(
+                (8, 4, 1), dtype=np.float32
+            ),
+            "language_model.model.layers.0.mlp.down_proj.weight": np.zeros(
+                (8, 8), dtype=np.float32
+            ),
+            "language_model.lm_head.weight": np.zeros((16, 8), dtype=np.float32),
+            "image_encoder.blocks.0.mlp.fc1.weight": np.zeros((8, 8), dtype=np.float32),
+        },
+        qwen36_model_dir / "model.safetensors",
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="abc123",
+    )
+    assert inventory.architecture_profile.vision_present is True
+    assert not any(tensor.role == TensorRole.VISION for tensor in inventory.tensors)
+    assert any("vision tower" in warning for warning in inventory.warnings)
+
+
 def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
     """Nemotron-H MoEGate has no MLX to_quantized(); keep it BF16 in plans."""
     import json

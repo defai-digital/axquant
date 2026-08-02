@@ -88,6 +88,31 @@ def test_prepare_gemma4_unified_filters_multimodal(
     assert "model.vision_embedder.patch_dense.weight" in original
 
 
+def test_filter_sharded_rejects_path_traversal_in_weight_map(tmp_path: Path) -> None:
+    pytest.importorskip("mlx.core")
+    # A checkpoint's own index.json is semi-trusted (it can come from any Hub
+    # repo). A `weight_map` entry pointing outside the checkpoint directory
+    # must be rejected the same way `inspector.py`'s indexed-shard scan
+    # already rejects it, not silently followed with `mx.load`.
+    source = _write_gemma4_unified_fixture(tmp_path)
+    (source / "model.safetensors").unlink()
+    (source / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "model.language_model.embed_tokens.weight": (
+                        "../../../../etc/evil.safetensors"
+                    ),
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="unsafe shard path"):
+        prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
+
+
 def test_prepare_conversion_source_noop_for_qwen(tmp_path: Path) -> None:
     model_dir = tmp_path / "qwen"
     model_dir.mkdir()
