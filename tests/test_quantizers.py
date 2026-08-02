@@ -198,6 +198,18 @@ class TestDwqPlugin:
         error = np.mean((weight - reconstructed) ** 2)
         assert error < 0.1
 
+        # A correct affine quantizer never has a per-element dequantization
+        # error beyond half a quantization step. A zero-point/round-trip
+        # mismatch between `quantize`'s forward pass and its `zero_point`
+        # (the bug this guards against) can silently exceed that bound even
+        # when the aggregate MSE above still looks acceptable.
+        clip_lower = quantized.metadata["clip_lower"]
+        clip_upper = quantized.metadata["clip_upper"]
+        clipped_weight = np.clip(weight, clip_lower, clip_upper)
+        scale = quantized.scales.astype(np.float32).reshape(weight.shape[0], 1)
+        per_element_error = np.abs(clipped_weight - reconstructed)
+        assert np.all(per_element_error <= scale / 2 + 1e-3)
+
 
 class TestExecutionRecord:
     def test_record_success(self) -> None:

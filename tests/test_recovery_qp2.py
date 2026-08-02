@@ -130,9 +130,11 @@ def test_recover_writes_manifest_and_is_opt_in(tmp_path: Path) -> None:
         random_seed=7,
     )
     manifest = recover_checkpoint(request)
-    assert manifest.schema_version == "axquant.recovery.v1"
+    assert manifest.schema_version == "axquant.recovery.v2"
     assert manifest.claim == "retention-restore-only"
     assert manifest.development_evidence is True
+    assert manifest.weight_mutation_applied is False
+    assert "identity copy" in " ".join(manifest.notes)
     assert manifest.steps == 3
     assert manifest.plan_sha256 == stable_sha256(plan)
     assert (output / "axquant_recovery.json").is_file()
@@ -155,5 +157,6 @@ def test_build_manifest_requires_valid_request(tmp_path: Path) -> None:
         request,
         source_artifact_sha256="e" * 64,
         plan_sha256=stable_sha256(plan),
+        weight_mutation_applied=False,
     )
     assert manifest.algorithm_id.startswith("axquant-")

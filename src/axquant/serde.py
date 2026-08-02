@@ -39,9 +39,26 @@ def _serializable(value: BaseModel | dict[str, Any] | list[Any]) -> Any:
     return value
 
 
+def _strip_created_at(value: Any) -> Any:
+    """Drop ``created_at`` at every nesting depth before hashing.
+
+    Artifact models stamp ``created_at`` with a fresh timestamp on every
+    construction, so two objects with identical semantic content produce
+    different hashes unless creation time is excluded. Several call sites
+    already work around this manually before calling `stable_sha256`; doing
+    it here makes that guarantee hold for every caller, including nested
+    sub-models exposed through `model_dump(mode="json")`.
+    """
+    if isinstance(value, dict):
+        return {key: _strip_created_at(item) for key, item in value.items() if key != "created_at"}
+    if isinstance(value, list):
+        return [_strip_created_at(item) for item in value]
+    return value
+
+
 def stable_sha256(value: BaseModel | dict[str, Any] | list[Any]) -> str:
     payload = json.dumps(
-        _serializable(value),
+        _strip_created_at(_serializable(value)),
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,

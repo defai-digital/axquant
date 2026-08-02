@@ -422,13 +422,14 @@ class DwqPlugin:
         scale = (w_max - w_min) / ((1 << bits) - 1)
         scale = np.where(scale == 0, 1.0, scale)
 
-        # Distribution-aware stochastic rounding
-        normalized = (w_grouped - w_min) / scale
-        # Use deterministic rounding biased by local distribution
-        quantized = np.round(normalized)
-        quantized = np.clip(quantized, 0, (1 << bits) - 1)
-
+        # Zero-point must be rounded first and then used directly in the
+        # forward quantization (matching AffinePlugin). Rounding `w_min` only
+        # implicitly, via `(w - w_min) / scale`, is not the algebraic inverse
+        # of `dequantize`'s `(data - zero_point) * scale` once rounding is
+        # involved, and silently produces round-trip errors beyond the
+        # theoretical max of `scale / 2` for a correct affine quantizer.
         zero_point = np.round(-w_min / scale)
+        quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
 
         return QuantizedWeight(
             data=quantized.astype(np.uint8),

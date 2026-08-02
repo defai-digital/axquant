@@ -12,6 +12,7 @@ from safetensors import safe_open
 
 from axquant.architectures import adapter_for
 from axquant.errors import ArtifactError
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
     ArchitectureProfile,
     Inventory,
@@ -167,9 +168,10 @@ def _tensor_files(model_dir: Path) -> list[Path]:
         if not shard.is_file():
             raise ArtifactError(f"{index_path} references a missing shard: {value}")
         paths.add(shard)
-    mtp_sidecar = model_dir / "mtp.safetensors"
-    if mtp_sidecar.is_file():
-        paths.add(mtp_sidecar)
+    for name in EXTERNAL_MTP_SIDECAR_FILENAMES:
+        mtp_sidecar = model_dir / name
+        if mtp_sidecar.is_file():
+            paths.add(mtp_sidecar)
     vision_sidecar = model_dir / "vision.safetensors"
     if vision_sidecar.is_file():
         paths.add(vision_sidecar)

@@ -450,6 +450,38 @@ def test_mtp_sidecar_provenance_binds_byte_preserved_bundle(tmp_path: Path) -> N
     assert runtime["mtp_norm_layout"] == "raw_hf_delta"
 
 
+def test_mtp_sidecar_provenance_binds_alternate_filename(tmp_path: Path) -> None:
+    """``mtp_head.safetensors`` is a recognized external sidecar filename
+    alongside ``mtp.safetensors`` (converter/probe/release_audit all accept
+    both); a directory that ships only the alternate name must still resolve
+    and copy correctly rather than failing closed with "does not exist"."""
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    source = sidecar / "mtp_head.safetensors"
+    source.write_bytes(b"mtp")
+    (sidecar / "ax_mtp_sidecar_manifest.json").write_text(
+        json.dumps(
+            {
+                "output": {
+                    "mtp": {
+                        "path": "mtp_head.safetensors",
+                        "sha256": file_sha256(source),
+                        "size_bytes": source.stat().st_size,
+                    }
+                },
+                "transform": {"mode": "byte_preserved"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+
+    converter._copy_external_mtp_bundle(sidecar, output)
+
+    assert (output / "mtp.safetensors").read_bytes() == b"mtp"
+
+
 def test_byte_preserved_bundle_preserves_explicit_norm_layout(tmp_path: Path) -> None:
     sidecar = tmp_path / "sidecar"
     sidecar.mkdir()

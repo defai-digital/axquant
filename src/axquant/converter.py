@@ -15,7 +15,7 @@ import structlog
 
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model, resolve_model_dir
-from axquant.mtp_sidecar import prepare_qwen36_mtp_sidecar
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
 from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.runtime import (
     assert_conversion_scope,
@@ -129,11 +129,24 @@ def _source_has_external_mtp_sidecar(model: str | Path) -> bool:
     root = Path(model).expanduser()
     if not root.is_dir():
         return True
-    return any((root / name).is_file() for name in ("mtp.safetensors", "mtp_head.safetensors"))
+    return any((root / name).is_file() for name in EXTERNAL_MTP_SIDECAR_FILENAMES)
+
+
+def _resolve_external_mtp_sidecar_file(sidecar: Path) -> Path:
+    if not sidecar.is_dir():
+        return sidecar
+    for name in EXTERNAL_MTP_SIDECAR_FILENAMES:
+        candidate = sidecar / name
+        if candidate.is_file():
+            return candidate
+    raise ArtifactError(
+        f"MTP sidecar directory {sidecar} does not contain any of "
+        f"{sorted(EXTERNAL_MTP_SIDECAR_FILENAMES)}"
+    )
 
 
 def _copy_external_mtp_bundle(sidecar: Path, output_dir: Path) -> None:
-    source = sidecar / "mtp.safetensors" if sidecar.is_dir() else sidecar
+    source = _resolve_external_mtp_sidecar_file(sidecar)
     if not source.is_file():
         raise ArtifactError(f"MTP sidecar does not exist: {source}")
     _validate_mtp_sidecar_provenance(source)

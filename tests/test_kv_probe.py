@@ -10,7 +10,7 @@ import pytest
 from axquant.activation_cache import tokenize_calibration
 from axquant.errors import PlanningError, ProbeError
 from axquant.inspector import inspect_model
-from axquant.kv_probe import measure_kv_sensitivity
+from axquant.kv_probe import _kv_candidate_metrics, measure_kv_sensitivity
 from axquant.planner import allocate_kv_cache_measured
 from axquant.schema import (
     CalibrationManifest,
@@ -350,3 +350,29 @@ def test_hybrid_architecture_marks_non_kv_layers_unsupported(
     assert "not quantizable" in by_layer[0].reason
     assert by_layer[3].bits == 4
     assert by_layer[7].bits == 4
+
+
+def test_kv_candidate_metrics_applies_softmax_before_kl() -> None:
+    # Real logits are unbounded and signed. `_kv_candidate_metrics` must
+    # soft-max them into probabilities before computing KL — feeding raw
+    # logits into a clip-and-renormalize KL (the pre-fix behavior) silently
+    # floors every negative logit to the same value and produces a
+    # numerically meaningless "measured" sensitivity score.
+    reference_logits = np.array([[[2.0, -1.0, 0.5]]], dtype=np.float32)
+    candidate_logits = np.array([[[2.0, -1.0, -3.0]]], dtype=np.float32)
+
+    metrics = _kv_candidate_metrics(
+        [reference_logits],
+        [candidate_logits],
+        metric_positions=1,
+    )
+
+    def _softmax_kl(ref: np.ndarray, cand: np.ndarray) -> float:
+        ref_p = np.exp(ref - ref.max())
+        ref_p = ref_p / ref_p.sum()
+        cand_p = np.exp(cand - cand.max())
+        cand_p = cand_p / cand_p.sum()
+        return float(np.sum(ref_p * np.log(ref_p / cand_p)))
+
+    expected = _softmax_kl(reference_logits[0, 0], candidate_logits[0, 0])
+    assert metrics.output_kl == pytest.approx(expected, rel=1e-5)

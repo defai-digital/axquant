@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
@@ -303,3 +304,10 @@ def test_axq026_lowered_lm_head_floor_is_explicit_and_recorded() -> None:
         for allocation in plan.assignments
         if allocation.role == TensorRole.LM_HEAD
     )
+
+
+def test_mtp_policy_rejects_a_floor_below_the_protected_minimum() -> None:
+    # AXQ-007: protected floors may be raised by hardware capability but must
+    # never be silently lowered below the documented 8-bit MTP minimum.
+    with pytest.raises(ValidationError):
+        MtpPolicy(min_bits=2)

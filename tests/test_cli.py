@@ -16,6 +16,31 @@ def test_name_command_uses_product_naming(capsys) -> None:
     assert capsys.readouterr().out.strip() == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit"
 
 
+def test_command_failure_shows_traceback_only_when_verbose(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    # A genuine internal bug can surface as any of the caught exception
+    # types (ValueError is common and not exclusive to deliberate user-input
+    # validation). Normal users should see one clean line; --verbose users
+    # need the traceback to actually debug it.
+    def _boom(_args: object) -> int:
+        raise ValueError("synthetic internal failure")
+
+    monkeypatch.setattr(cli_module, "_run", _boom)
+
+    quiet_result = main(["name", "--base", "Qwen/Qwen3.6-27B"])
+    quiet_err = capsys.readouterr().err
+    assert quiet_result == 2
+    assert "synthetic internal failure" in quiet_err
+    assert "Traceback" not in quiet_err
+
+    verbose_result = main(["--verbose", "name", "--base", "Qwen/Qwen3.6-27B"])
+    verbose_err = capsys.readouterr().err
+    assert verbose_result == 2
+    assert "synthetic internal failure" in verbose_err
+    assert "Traceback" in verbose_err
+
+
 def test_benchmark_ab_defaults_to_release_speedup_gate() -> None:
     args = _build_parser().parse_args(
         ["benchmark-ab", "--model", "/model", "--prompts", "/prompts.jsonl"]

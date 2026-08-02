@@ -11,7 +11,9 @@ from math import isfinite
 from pathlib import Path, PurePosixPath
 
 from axquant.errors import ArtifactError, RefinementError, ValidationGateError
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.pareto import build_pareto_report
+from axquant.profiles import thresholds_for
 from axquant.refinement import (
     COMPLETE_OBJECTIVE_VERSION,
     _is_monotonic_precision_refinement,
@@ -78,7 +80,6 @@ _RELEASE_PROBE_MIN_BITS = {
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
 }
-_EXTERNAL_MTP_FILENAMES = {"mtp.safetensors", "mtp_head.safetensors"}
 _REQUIRED_BENCHMARK_KINDS = {
     BenchmarkEvidenceKind.BF16,
     BenchmarkEvidenceKind.UNIFORM_4BIT,
@@ -1053,7 +1054,7 @@ def _required_sensitivity_bits(tensor: TensorSpec, plan: QuantizationPlan) -> se
         return {16}
     if (
         tensor.role.is_mtp
-        and Path(tensor.file).name.lower() in _EXTERNAL_MTP_FILENAMES
+        and Path(tensor.file).name.lower() in EXTERNAL_MTP_SIDECAR_FILENAMES
         and plan.mtp.preserve_external_sidecar
     ):
         return {16}
@@ -1142,7 +1143,7 @@ def _sensitivity_measurement_issues(
         required_bits = _required_sensitivity_bits(entry.tensor, plan)
         external_preserved = (
             entry.tensor.role.is_mtp
-            and Path(entry.tensor.file).name.lower() in _EXTERNAL_MTP_FILENAMES
+            and Path(entry.tensor.file).name.lower() in EXTERNAL_MTP_SIDECAR_FILENAMES
             and plan.mtp.preserve_external_sidecar
         )
         required_scope = "tensor" if entry.tensor.quantizable and not external_preserved else None
@@ -1511,6 +1512,17 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         speedup = validation.comparisons.get("hardware.effective_speedup")
         if not validation.passed:
             m2_issues.append(f"{profile.value} validation did not pass")
+        if validation.thresholds != thresholds_for(profile):
+            m2_issues.append(
+                f"{profile.value} validation does not use the authoritative profile thresholds"
+            )
+        expected_validation_passed = not any(
+            issue.severity == "error" for issue in validation.issues
+        )
+        if validation.passed != expected_validation_passed:
+            m2_issues.append(
+                f"{profile.value} validation pass status is inconsistent with its issues"
+            )
         if not isinstance(acceptance, (int, float)) or float(acceptance) < (
             validation.thresholds.minimum_mtp_acceptance_retention
         ):

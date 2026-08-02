@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant.errors import ArtifactError
 from axquant.inspector import classify_tensor, inspect_model
@@ -148,6 +151,49 @@ def test_quantized_inventory_reconstructs_logical_parameters(
     assert inventory.total_parameters == 136
     assert inventory.precision_parameters == {"4bit": 128, "f32": 8}
     assert inventory.weight_bytes == (packed_model_dir / "model.safetensors").stat().st_size
+
+
+def test_inventory_recognizes_mtp_head_sidecar_filename(tmp_path: Path) -> None:
+    """Indexed checkpoints shipping ``mtp_head.safetensors`` (instead of
+    ``mtp.safetensors``) must still have that sidecar's tensors picked up —
+    converter/probe/release_audit already recognize this alternate filename,
+    and inspect must agree or the sidecar is silently dropped from the
+    Inventory for any checkpoint that uses a ``model.safetensors.index.json``.
+    """
+    model_dir = tmp_path / "indexed-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "model.embed_tokens.weight": np.zeros((16, 8), dtype=np.float32),
+            "lm_head.weight": np.zeros((16, 8), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+    (model_dir / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "model.embed_tokens.weight": "model.safetensors",
+                    "lm_head.weight": "model.safetensors",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {"mtp.projection.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "mtp_head.safetensors",
+    )
+
+    inventory = inspect_model(model_dir)
+
+    assert "mtp_head.safetensors" in inventory.source_files
+    mtp_tensor = next(t for t in inventory.tensors if t.name == "mtp.projection.weight")
+    assert mtp_tensor.role == TensorRole.MTP_PROJECTION
 
 
 def test_inventory_ignores_nested_auxiliary_safetensors(

@@ -22,6 +22,7 @@ from axquant.activation_cache import (
 from axquant.dwq import apply_mlx_dwq_clip
 from axquant.errors import BackendUnavailableError, PlanningError, ProbeError
 from axquant.module_paths import mlx_module_aliases
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
     CalibrationEvidence,
     CalibrationManifest,
@@ -108,10 +109,7 @@ def _candidate_bits_for_tensor(tensor: TensorSpec, config: ProbeConfig) -> tuple
     """Apply role floors without turning every protected recommendation into BF16-only."""
     if not tensor.quantizable:
         return (16,)
-    if tensor.role.is_mtp and Path(tensor.file).name.lower() in {
-        "mtp.safetensors",
-        "mtp_head.safetensors",
-    }:
+    if tensor.role.is_mtp and Path(tensor.file).name.lower() in EXTERNAL_MTP_SIDECAR_FILENAMES:
         return (16,)
     minimum_bits = _PROBE_MIN_BITS.get(tensor.role, 8 if tensor.role.is_mtp else 2)
     candidates = tuple(bits for bits in config.candidate_bits if bits >= minimum_bits)

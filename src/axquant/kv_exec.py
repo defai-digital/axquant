@@ -65,6 +65,32 @@ def _build_layer_caches(model: Any, bits: list[int], groups: list[int]) -> list[
     return caches
 
 
+def _execution_summary(
+    bits: list[int],
+    executed: list[int],
+    quantized_active: int,
+    *,
+    ok: bool,
+    output_characters: int,
+) -> dict[str, Any]:
+    """Build the runtime-fidelity summary from a completed generation run.
+
+    ``per_layer_execution`` must be an exact match against the planned table:
+    a layer that silently reverted to BF16 (e.g. a plan/model layer-index
+    mismatch, or a cache type the family doesn't expose as quantizable) is a
+    real runtime-fidelity failure and must not be masked by any other layer
+    having quantized successfully.
+    """
+    return {
+        "ok": ok,
+        "output_characters": output_characters,
+        "planned_layer_bits": bits,
+        "executed_layer_bits": executed,
+        "quantized_layers_active": quantized_active,
+        "per_layer_execution": executed == [b if b < 16 else 16 for b in bits],
+    }
+
+
 def run(model_dir: str, max_tokens: int) -> dict[str, Any]:
     from mlx_lm import generate, load
 
@@ -85,15 +111,13 @@ def run(model_dir: str, max_tokens: int) -> dict[str, Any]:
     quantized_active = sum(
         1 for cache in caches if hasattr(cache, "bits") and int(getattr(cache, "offset", 0)) > 0
     )
-    return {
-        "ok": bool(text.strip()),
-        "output_characters": len(text.strip()),
-        "planned_layer_bits": bits,
-        "executed_layer_bits": executed,
-        "quantized_layers_active": quantized_active,
-        "per_layer_execution": executed == [b if b < 16 else 16 for b in bits]
-        or quantized_active > 0,
-    }
+    return _execution_summary(
+        bits,
+        executed,
+        quantized_active,
+        ok=bool(text.strip()),
+        output_characters=len(text.strip()),
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

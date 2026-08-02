@@ -29,9 +29,9 @@ class ParameterUpdateScope(StrEnum):
 
 
 class RecoveryManifest(StrictModel):
-    """Provenance for an opt-in recovery stage (`axquant.recovery.v1`)."""
+    """Provenance for an opt-in recovery stage (`axquant.recovery.v2`)."""
 
-    schema_version: Literal["axquant.recovery.v1"] = "axquant.recovery.v1"
+    schema_version: Literal["axquant.recovery.v2"] = "axquant.recovery.v2"
     source_artifact_sha256: str = Field(min_length=64, max_length=64)
     plan_sha256: str = Field(min_length=64, max_length=64)
     algorithm_id: str = Field(default="axquant-scale-bias-recovery-v1", min_length=1)
@@ -45,6 +45,7 @@ class RecoveryManifest(StrictModel):
     quality_after_sha256: str | None = Field(default=None, min_length=64, max_length=64)
     claim: Literal["retention-restore-only"] = "retention-restore-only"
     development_evidence: bool = True
+    weight_mutation_applied: bool
     notes: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
@@ -126,11 +127,18 @@ def build_recovery_manifest(
     *,
     source_artifact_sha256: str,
     plan_sha256: str,
+    weight_mutation_applied: bool,
 ) -> RecoveryManifest:
     """Build a recovery provenance manifest after validating the request."""
     validate_recovery_request(request)
     if len(source_artifact_sha256) != 64 or len(plan_sha256) != 64:
         raise PlanningError("recovery digests must be 64-character hex sha256 values")
+    notes = [
+        "Optional quantization recovery; retention-restore only.",
+        "Not domain SFT/DPO; convert/quantize never require this stage.",
+    ]
+    if not weight_mutation_applied:
+        notes.append("v1 recovery is an identity copy: no weight bytes were modified.")
     return RecoveryManifest(
         source_artifact_sha256=source_artifact_sha256,
         plan_sha256=plan_sha256,
@@ -143,10 +151,8 @@ def build_recovery_manifest(
         parameter_update_scope=request.parameter_update_scope,
         quality_before_sha256=request.quality_before_sha256,
         quality_after_sha256=request.quality_after_sha256,
-        notes=[
-            "Optional quantization recovery; retention-restore only.",
-            "Not domain SFT/DPO; convert/quantize never require this stage.",
-        ],
+        weight_mutation_applied=weight_mutation_applied,
+        notes=notes,
     )
 
 
@@ -263,6 +269,7 @@ def recover_checkpoint(request: RecoveryRequest) -> RecoveryManifest:
         request,
         source_artifact_sha256=source_sha,
         plan_sha256=plan_sha,
+        weight_mutation_applied=False,
     )
     manifest_path = (
         output / "axquant_recovery.json"

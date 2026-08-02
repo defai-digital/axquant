@@ -21,6 +21,7 @@ from axquant.converter import convert_model
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
 from axquant.ladders import get_ladder, plan_request_for_ladder
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.recipes import resolve_recipe_plan
 from axquant.runtime import check_ax_engine, check_mlx_lm_generation
@@ -166,7 +167,9 @@ def quick_convert(
             Path(inventory.model.local_path) if inventory.model.local_path else None,
         ]
         for candidate in candidates:
-            if candidate is not None and (candidate / "mtp.safetensors").is_file():
+            if candidate is not None and any(
+                (candidate / name).is_file() for name in EXTERNAL_MTP_SIDECAR_FILENAMES
+            ):
                 sidecar = candidate
                 break
     # Convert from the resolved local directory when inventory recorded one.

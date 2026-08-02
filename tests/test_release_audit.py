@@ -89,7 +89,6 @@ from axquant.schema import (
     TensorSpec,
     ValidationIssue,
     ValidationReport,
-    ValidationThresholds,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
@@ -483,7 +482,7 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
             candidate_model=candidate,
             profile=profile,
             passed=True,
-            thresholds=ValidationThresholds(),
+            thresholds=thresholds_for(profile),
             issues=[],
             comparisons={
                 "mtp.acceptance_retention": 0.97,
@@ -1595,6 +1594,37 @@ def test_release_audit_rejects_unbound_compatibility_entry(tmp_path: Path) -> No
     assert (
         "M5: compatibility matrix does not certify the release candidate in every "
         "required profile" in audit.blockers
+    )
+
+
+def test_release_audit_rejects_widened_validation_thresholds(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    validation_index_path = Path(request.release_validation_index)
+    validation_index = load_model(validation_index_path, ReleaseValidationIndex)
+    entry = next(e for e in validation_index.entries if e.profile == ProfileName.GENERAL)
+    validation_path = Path(entry.validation_file)
+    validation = load_model(validation_path, ValidationReport)
+
+    # Widen a threshold well past the authoritative profile policy while leaving
+    # `comparisons`/`passed` self-consistent, simulating a tampered or stale
+    # validation report that would otherwise sail through as a real pass.
+    widened_thresholds = validation.thresholds.model_copy(update={"min_effective_speedup": 0.0})
+    tampered = validation.model_copy(update={"thresholds": widened_thresholds})
+    write_data(validation_path, tampered)
+    new_entries = [
+        e.model_copy(update={"validation_sha256": file_sha256(validation_path)})
+        if e.profile == ProfileName.GENERAL
+        else e
+        for e in validation_index.entries
+    ]
+    write_data(validation_index_path, validation_index.model_copy(update={"entries": new_entries}))
+
+    audit = build_release_audit(request_path)
+
+    assert not audit.release_ready
+    assert (
+        "M2: general validation does not use the authoritative profile thresholds" in audit.blockers
     )
 
 

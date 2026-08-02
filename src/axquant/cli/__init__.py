@@ -1356,6 +1356,7 @@ def _run(args: argparse.Namespace) -> int:
             claim=recovery_manifest.claim,
             algorithm_id=recovery_manifest.algorithm_id,
             development_evidence=recovery_manifest.development_evidence,
+            weight_mutation_applied=recovery_manifest.weight_mutation_applied,
         )
         return 0
 
@@ -1619,6 +1620,7 @@ def main(argv: list[str] | None = None) -> int:
             command=args.command,
             error=str(exc),
             error_type=type(exc).__name__,
+            exc_info=args.verbose,
         )
         return 2
 

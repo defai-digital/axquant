@@ -18,8 +18,8 @@ import structlog
 from axquant.errors import BackendUnavailableError, ProbeError
 from axquant.probe import (
     _calibration_dataset_id,
+    _compute_logit_kl,
     _load_calibration_inputs,
-    compute_kl_divergence,
     compute_token_disagreement,
 )
 from axquant.schema import (
@@ -203,7 +203,7 @@ def _kv_candidate_metrics(
         positions = min(metric_positions, reference.shape[-2])
         reference_tail = reference[..., -positions:, :]
         candidate_tail = candidate[..., -positions:, :]
-        kl_values.append(compute_kl_divergence(reference_tail, candidate_tail))
+        kl_values.append(_compute_logit_kl(reference_tail, candidate_tail))
         disagreements.append(
             compute_token_disagreement(
                 reference_tail.argmax(axis=-1),

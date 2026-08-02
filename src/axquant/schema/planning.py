@@ -50,7 +50,7 @@ class ObjectiveWeights(StrictModel):
 class MtpPolicy(StrictModel):
     mode: Literal["protected", "adaptive", "disabled"] = "protected"
     candidate_bits: tuple[int, ...] = (8, 16)
-    min_bits: int = Field(default=8, ge=2, le=16)
+    min_bits: int = Field(default=8, ge=8, le=16)
     preserve_external_sidecar: bool = True
     protect_norms: bool = True
     protect_output_head: bool = True
