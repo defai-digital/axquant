@@ -11,6 +11,8 @@ is bound through the staged release pipeline or a measured recipe bundle
 
 from __future__ import annotations
 
+import math
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -29,6 +31,10 @@ from axquant.schema import (
     QuickConversionSummary,
     RuntimeCheck,
     SupportTier,
+)
+
+_POLICY_MIN_BPW = re.compile(
+    r"target (?P<requested>[0-9.]+) BPW is infeasible; policy minimum is (?P<minimum>[0-9.]+) BPW"
 )
 
 DEVELOPMENT_NOTE = "This artifact is development evidence; it is not a certified AXQuant release."
@@ -120,7 +126,26 @@ def quick_convert(
             group_size=request.group_size,
             candidate_group_sizes=request.candidate_group_sizes,
         )
-        plan = plan_quantization(report, request)
+        try:
+            plan = plan_quantization(report, request)
+        except PlanningError as exc:
+            # Simple-convert UX: protected floors can push the policy minimum
+            # above the user's target (seen on Gemma-4 ~4.89 vs default 4.8).
+            # Raise once to the reported minimum (ceiled to 0.01 BPW).
+            match = _POLICY_MIN_BPW.search(str(exc))
+            if match is None:
+                raise
+            minimum = float(match.group("minimum"))
+            raised = math.ceil(minimum * 100.0 - 1e-12) / 100.0
+            if raised <= request.target_bpw + 1e-9:
+                raise
+            request = request.model_copy(update={"target_bpw": raised})
+            plan = plan_quantization(report, request)
+            plan.warnings.append(
+                f"target BPW raised from {float(match.group('requested')):.4f} to "
+                f"{raised:.4f} to satisfy protection floors (policy minimum "
+                f"{minimum:.4f})"
+            )
         plan_source = "architecture-prior"
         effective_target = request.target_bpw
         plan.warnings.append(f"convert ladder: {ladder_name}")

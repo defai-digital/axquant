@@ -108,13 +108,29 @@ def test_qwen35_spec_declines_qwen36_references() -> None:
         ("google/gemma-4-12b", "gemma4_unified", "gemma4-dense-v1", SupportTier.CONVERTIBLE),
         ("openbmb/MiniCPM5-8B", "minicpm5", "minicpm5-dense-v1", SupportTier.CONVERTIBLE),
         ("openbmb/MiniCPM5-1B", "llama", "minicpm5-dense-v1", SupportTier.CONVERTIBLE),
-        ("nvidia/Nemotron-3-22B", "nemotron3", "nemotron3-dense-v1", SupportTier.INSPECT_ONLY),
+        (
+            "mistralai/Devstral-Small-2505",
+            "mistral",
+            "mistral-devstral-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
+        (
+            "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+            "mistral3",
+            "mistral3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
     ],
 )
 def test_registry_resolves_new_dense_families(
     reference: str, model_type: str, expected_adapter: str, expected_tier: SupportTier
 ) -> None:
-    config = {"model_type": model_type, "num_hidden_layers": 40}
+    config: dict[str, object] = {"model_type": model_type, "num_hidden_layers": 40}
+    if model_type == "mistral3":
+        config = {
+            "model_type": "mistral3",
+            "text_config": {"model_type": "mistral", "num_hidden_layers": 40},
+        }
     adapter = adapter_for(reference, config)
     assert adapter is not None
     assert adapter.adapter_id == expected_adapter
@@ -210,13 +226,13 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     tiers = {entry.adapter_id: entry.support_tier for entry in matrix.entries}
     assert tiers == {
         "qwen36-v1": SupportTier.CONVERTIBLE,
+        "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
-        # The public Nemotron 3 catalog ships MoE checkpoints only; the dense
-        # adapter has no real checkpoint to satisfy the promotion contract.
-        "nemotron3-dense-v1": SupportTier.INSPECT_ONLY,
+        "mistral-devstral-dense-v1": SupportTier.CONVERTIBLE,
+        "mistral3-dense-v1": SupportTier.CONVERTIBLE,
     }
     families = [entry.product_family for entry in matrix.entries]
     assert families[0] == "qwen3.6"
@@ -240,6 +256,70 @@ def test_moe_router_and_expert_classification() -> None:
     }
     for name, expected in cases.items():
         assert adapter.classify_tensor(name, "model.safetensors") is expected
+
+
+def test_nemotron3_catalog_moe_is_convertible() -> None:
+    from axquant.architectures.nemotron3 import Nemotron3Adapter
+
+    config = {
+        "model_type": "nemotron_h",
+        "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+        "num_hidden_layers": 52,
+        "hidden_size": 2688,
+        "n_routed_experts": 128,
+        "num_experts_per_tok": 6,
+        "n_shared_experts": 1,
+        "moe_intermediate_size": 1856,
+    }
+    adapter = Nemotron3Adapter()
+    assert adapter.matches("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", config)
+    profile = adapter.profile("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.text_layer_count == 52
+    # Non-Nano catalog / experimental refs stay fail-closed (thin-support policy).
+    other_cfg = {**config, "_name_or_path": "nvidia/Nemotron-3-experimental"}
+    other = adapter.profile("nvidia/Nemotron-3-experimental", other_cfg)
+    assert other.support_tier is SupportTier.INSPECT_ONLY
+    super_cfg = {
+        **config,
+        "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+    }
+    super_profile = adapter.profile("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", super_cfg)
+    assert super_profile.support_tier is SupportTier.INSPECT_ONLY
+    # Classification for hybrid MoE tensors.
+    cases = {
+        "backbone.layers.3.mixer.experts.14.up_proj.weight": TensorRole.EXPERT,
+        "backbone.layers.3.mixer.experts.14.down_proj.weight": TensorRole.EXPERT,
+        "backbone.layers.3.mixer.shared_experts.up_proj.weight": TensorRole.MLP,
+        "backbone.layers.3.mixer.gate.weight": TensorRole.ROUTER,
+        "backbone.layers.3.mixer.conv1d.weight": TensorRole.ATTENTION,
+        "backbone.layers.3.norm.weight": TensorRole.NORM,
+        "backbone.embeddings.weight": TensorRole.EMBEDDING,
+    }
+    for name, expected in cases.items():
+        assert adapter.classify_tensor(name, "model.safetensors") is expected
+
+
+def test_nemotron_expert_fuses_to_switch_mlp_fc() -> None:
+    from axquant.module_paths import fused_expert_module, mlx_module_aliases
+
+    path = "backbone.layers.8.mixer.experts.20.up_proj"
+    assert fused_expert_module(path) == "backbone.layers.8.mixer.switch_mlp.fc1"
+    assert fused_expert_module("backbone.layers.8.mixer.experts.20.down_proj") == (
+        "backbone.layers.8.mixer.switch_mlp.fc2"
+    )
+    aliases = mlx_module_aliases(path)
+    assert "backbone.layers.8.mixer.switch_mlp.fc1" in aliases
+
+
+def test_mistral_devstral_not_confused_with_minicpm() -> None:
+    config = {"model_type": "llama", "num_hidden_layers": 16}
+    adapter = adapter_for("openbmb/MiniCPM5-1B", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "minicpm5-dense-v1"
+    # Unscoped llama without mistral/devstral/minicpm name does not match a family.
+    assert adapter_for("meta-llama/Llama-3.1-8B", config) is None
 
 
 def test_qwen36_moe_catalog_size_is_supported() -> None:

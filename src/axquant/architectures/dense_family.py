@@ -97,6 +97,9 @@ def classify_dense_tensor(
         return TensorRole.ROUTER
     if "expert" in value:
         return TensorRole.EXPERT
+    # Mamba / hybrid mixer blocks (Nemotron-H) quantize like attention trunks.
+    if ".mixer." in value or value.endswith(".mixer"):
+        return TensorRole.ATTENTION
     if any(token in value for token in _ATTENTION_TOKENS):
         return TensorRole.ATTENTION
     if any(token in value for token in _MLP_TOKENS):
@@ -262,24 +265,35 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         support_tier=SupportTier.CONVERTIBLE,
     ),
     DenseFamilySpec(
-        adapter_id="nemotron3-dense-v1",
-        product_family="nemotron3",
-        # Public Nemotron 3 generative checkpoints are MoE (Nano/Super/Ultra).
-        # Dense remains inspect-only; expand model_types so real configs match
-        # for inventory while conversion stays fail-closed until MoE promotion
-        # evidence exists (AXQ-017).
-        model_types=(
-            "nemotron3",
-            "nemotron_h",
-            "nemotron",
-            "nemotron-nas",
-        ),
-        reference_pattern=r"nemotron[._-]?3",
-        support_tier=SupportTier.INSPECT_ONLY,
+        adapter_id="mistral-devstral-dense-v1",
+        product_family="mistral-devstral",
+        # Devstral and classic Mistral text checkpoints declare model_type
+        # ``mistral`` (MLX-LM remaps to llama). Scope by product reference so
+        # unrelated llama exports are not claimed.
+        model_types=("mistral", "llama"),
+        reference_pattern=r"(mistral|devstral|ministral)",
+        exclude_reference_pattern=r"minicpm",
+        # Convertible dense path: MLX-LM loads mistral via llama remap; synthetic
+        # convert coverage is in tests/test_architectures + family fixtures.
+        support_tier=SupportTier.CONVERTIBLE,
         notes=(
-            "Nemotron 3 public catalog is MoE-only; dense conversion has no "
-            "promotion checkpoint. MoE convert path is deferred until a real "
-            "Nano/Super conversion smoke lands.",
+            "Mistral/Devstral dense text checkpoints (model_type=mistral|llama).",
+            "MLX-LM remaps model_type=mistral to the llama implementation.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="mistral3-dense-v1",
+        product_family="mistral3",
+        # Mistral Small 3.x multimodal shells use model_type=mistral3 with a
+        # nested text_config (language model_type often still ``mistral``).
+        model_types=("mistral3",),
+        reference_pattern=r"(mistral|devstral)",
+        text_config_key="text_config",
+        support_tier=SupportTier.CONVERTIBLE,
+        notes=(
+            "Mistral3 multimodal shells: language path is optimized; vision "
+            "tower is stripped by MLX-LM sanitize and preserved only when "
+            "present as protected tensors in the source inventory.",
         ),
     ),
 )

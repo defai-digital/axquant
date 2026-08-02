@@ -647,10 +647,24 @@ def _run(args: argparse.Namespace) -> int:
                 adapter=family_entry.adapter_id,
                 family=family_entry.product_family,
                 tier=family_entry.support_tier.value,
+                posture=family_entry.investment_posture,
+                priority=family_entry.priority,
+                cert_track=family_entry.cert_track,
             )
         if args.output:
             write_data(args.output, families)
             log.info("support_matrix_written", output=str(args.output))
+        return 0
+
+    if args.command == "support-policy":
+        from axquant.support_policy import support_policy_markdown
+
+        text = support_policy_markdown()
+        if args.output:
+            write_text(args.output, text)
+            log.info("support_policy_written", output=str(args.output))
+        else:
+            print(text)
         return 0
 
     if args.command == "recipe-export":

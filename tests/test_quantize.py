@@ -95,6 +95,34 @@ def test_quick_convert_refuses_inspect_only_families(tiny_model_dir: Path, tmp_p
         )
 
 
+def test_quick_convert_raises_infeasible_target_bpw(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Protected floors can make a low target infeasible; simple convert raises once."""
+    _install_fake_mlx(monkeypatch, qwen36_model_dir)
+    output = tmp_path / "raised-bpw"
+    # Extremely low target forces a raise to the policy minimum.
+    summary = quick_convert(
+        model=str(qwen36_model_dir),
+        output=output,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="source-revision",
+        target_bpw=0.5,
+        ax_engine_manifest="skip",
+    )
+    assert summary.development_evidence
+    # Plan target must be above the impossible 0.5 request.
+    from axquant.schema import QuantizationPlan
+    from axquant.serde import load_model
+
+    plan = load_model(output / "axquant_plan.json", QuantizationPlan)
+    assert plan.target_bpw > 0.5
+    assert any("raised from" in warning for warning in plan.warnings)
+    assert any("protection floors" in warning for warning in plan.warnings)
+
+
 def test_quantize_cli_writes_summary_json(
     qwen36_model_dir: Path,
     tmp_path: Path,

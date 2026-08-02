@@ -159,6 +159,10 @@ class SupportMatrixEntry(StrictModel):
     adapter_id: str
     product_family: str
     support_tier: SupportTier
+    # Investment posture from support_policy (additive; defaults keep old clients happy).
+    investment_posture: str = "secondary"
+    priority: int = Field(default=50, ge=1, le=100)
+    cert_track: bool = False
     notes: list[str] = Field(default_factory=list)
 
 
@@ -168,6 +172,7 @@ class SupportMatrix(StrictModel):
     schema_version: Literal["axquant.support-matrix.v1"] = "axquant.support-matrix.v1"
     axquant_version: str
     entries: list[SupportMatrixEntry]
+    policy_version: Literal["axquant.support-policy.v1"] = "axquant.support-policy.v1"
     created_at: datetime = Field(default_factory=utc_now)
 
 

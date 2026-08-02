@@ -5,6 +5,15 @@ import re
 _EXPERT_MEMBER = re.compile(
     r"^(?P<prefix>.*\.mlp)\.experts\.(?P<index>\d+)\.(?P<proj>gate_proj|up_proj|down_proj)$"
 )
+# Nemotron-H (Nemotron 3 Nano/Super/Ultra): experts live under mixer and fuse
+# into SwitchMLP modules named fc1/fc2 (public mlx_lm.models.nemotron_h sanitize).
+_NEMOTRON_EXPERT_MEMBER = re.compile(
+    r"^(?P<prefix>.*\.mixer)\.experts\.(?P<index>\d+)\.(?P<proj>up_proj|down_proj)$"
+)
+_NEMOTRON_PROJ_TO_SWITCH = {
+    "up_proj": "fc1",
+    "down_proj": "fc2",
+}
 
 
 def fused_expert_module(module_path: str) -> str | None:
@@ -13,12 +22,21 @@ def fused_expert_module(module_path: str) -> str | None:
     Qwen-style MoE checkpoints store one tensor per expert
     (``...mlp.experts.<i>.gate_proj``); MLX-LM stacks every expert of a layer
     into one fused module (``...mlp.switch_mlp.gate_proj``) that is quantized
-    as a single unit. Returns ``None`` for non-expert paths.
+    as a single unit.
+
+    Nemotron-H MoE experts use ``...mixer.experts.<i>.{up,down}_proj`` and fuse
+    into ``...mixer.switch_mlp.{fc1,fc2}``.
+
+    Returns ``None`` for non-expert paths.
     """
     match = _EXPERT_MEMBER.match(module_path)
-    if match is None:
-        return None
-    return f"{match.group('prefix')}.switch_mlp.{match.group('proj')}"
+    if match is not None:
+        return f"{match.group('prefix')}.switch_mlp.{match.group('proj')}"
+    nemo = _NEMOTRON_EXPERT_MEMBER.match(module_path)
+    if nemo is not None:
+        switch = _NEMOTRON_PROJ_TO_SWITCH[nemo.group("proj")]
+        return f"{nemo.group('prefix')}.switch_mlp.{switch}"
+    return None
 
 
 def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
@@ -37,6 +55,13 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     if module_path.endswith(".mlp.experts.down_proj"):
         prefix = module_path.removesuffix(".experts.down_proj")
         return (f"{prefix}.switch_mlp.down_proj",)
+    # Nemotron-H packed forms (if a future export packs experts the same way).
+    if module_path.endswith(".mixer.experts.up_proj"):
+        prefix = module_path.removesuffix(".experts.up_proj")
+        return (f"{prefix}.switch_mlp.fc1",)
+    if module_path.endswith(".mixer.experts.down_proj"):
+        prefix = module_path.removesuffix(".experts.down_proj")
+        return (f"{prefix}.switch_mlp.fc2",)
     return ()
 
 
@@ -53,6 +78,9 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
     """
     base = {module_path}
     base.update(_packed_expert_aliases(module_path))
+    fused = fused_expert_module(module_path)
+    if fused is not None:
+        base.add(fused)
     aliases = set()
     checkpoint_prefix = "model.language_model."
     mlx_prefix = "language_model.model."

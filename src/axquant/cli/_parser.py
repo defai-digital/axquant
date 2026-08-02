@@ -414,9 +414,19 @@ def _build_parser() -> argparse.ArgumentParser:
 
     support_matrix_parser = subparsers.add_parser(
         "support-matrix",
-        help="List every registered model family with its declared support tier",
+        help="List every registered model family with tier, investment posture, and policy notes",
     )
     support_matrix_parser.add_argument("--output", help="Optional JSON output path")
+
+    support_policy_parser = subparsers.add_parser(
+        "support-policy",
+        help="Print family investment best practices (primary/secondary/thin/deferred)",
+    )
+    support_policy_parser.add_argument(
+        "--output",
+        default=None,
+        help="Optional markdown path (default: stdout)",
+    )
 
     head_to_head_parser = subparsers.add_parser(
         "head-to-head",

@@ -105,10 +105,12 @@ release audit. The current tier matrix:
 | Family | Adapter | Tier |
 | --- | --- | --- |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible` (certification pending the formal release audit; the 35B-A3B MoE path converted 2026-08-01 with fused-expert planning — measured 5.2501 BPW, routers at the 8-bit floor, passing MLX-LM and AX Engine smokes) |
-| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence: full 775-tensor classification, complete 7.0-BPW conversion with integrated-MTP and vision sidecars, passing MLX-LM and AX Engine smokes) |
-| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence: full 219-tensor classification, complete 7.5-BPW conversion, passing MLX-LM and AX Engine smokes) |
-| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` sources are prepared at convert time (`model_type` → `gemma4`, multimodal tensors filtered for MLX-LM; original vision/audio restored as protected sidecars). Real inspect: 677/677 tensors on google/gemma-4-12b |
-| Nemotron 3 | `nemotron3-dense-v1` | `inspect-only` — public generative catalog is **MoE-only** (Nano/Super/Ultra); no dense checkpoint for the dense promotion contract. MoE convert path still deferred |
+| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible` (promoted 2026-08-01 on real Qwen3.5-9B evidence) |
+| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible` (promoted 2026-08-01 on real MiniCPM5-1B evidence) |
+| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
+| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path). Investment posture: **thin** — not OptiQ Super parity |
+| **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
+| **Mistral 3 multimodal shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
 
 New dense families are added as declarative adapter specifications and start at `inspect-only`
 until their promotion evidence exists (see the expansion program documents under `.internal/`).
@@ -117,7 +119,7 @@ until their promotion evidence exists (see the expansion program documents under
 | --- | --- |
 | Platform | Apple Silicon with MLX |
 | Conversion input | Revision-pinned, unquantized MLX checkpoint |
-| Conversion targets | Qwen 3.6 27B dense and 35B-A3B MoE language paths; Qwen 3.5 dense and MiniCPM5 dense (development evidence) |
+| Conversion targets | Qwen 3.6 27B dense + 35B-A3B MoE; Qwen 3.5 dense; MiniCPM5 dense; Gemma-4; Nemotron 3 **Nano-30B-A3B only** (thin); Mistral/Devstral dense and Mistral3 shells (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, and portable AWQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -125,6 +127,25 @@ until their promotion evidence exists (see the expansion program documents under
 | Primary runtime | AX Engine |
 | Compatibility runtime | MLX-LM standard inference |
 | Output integrity | Atomic conversion, exact parameter coverage, measured BPW, checksums, manifests, and runtime metadata |
+
+### Remote development convert smokes (2026-08-02, macstudio-m2u / M2 Ultra 192 GB)
+
+Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
+(Python 3.13, `mlx`/`mlx-lm`), simple convert + MLX-LM generation smoke:
+
+| Family | Source | Revision | Target BPW | Measured BPW | MLX-LM smoke | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| MiniCPM5 | `openbmb/MiniCPM5-1B` | `4e9de7a0…` | 7.5 | **7.5003** | pass | dense llama-export |
+| Qwen 3.5 | `Qwen/Qwen3.5-9B` | `c2022362…` | 7.0 | **7.0001** | pass | vision + MTP sidecars |
+| Gemma-4 | `google/gemma-4-12b` | `023679ed…` | 5.0* | **5.0001** | pass | `gemma4_unified` prep; vision sidecar |
+
+\*Default 4.8 BPW is **infeasible** on Gemma-4 because protection floors raise the
+policy minimum (~4.89). Simple convert now auto-raises once to the policy floor
+(and records a plan warning). Prefer an explicit `--target-bpw ≥ 5.0` for this family.
+
+Artifacts on the host under `~/axquant-artifacts/*-dev-smoke` (development evidence only).
+
+Investment policy: `axquant support-policy` (primary = Qwen 3.6 cert; Nemotron = thin Nano only).
 
 Implemented now:
 
@@ -150,7 +171,8 @@ Implemented now:
 - checksummed recipe bundles (`recipe-export`, `quantize --recipe`) that bind published plans
   to user conversions without upgrading their evidence kind, resolvable locally or from
   revision-pinned `hf://` references; prepared releases package their bundle automatically;
-- a registry-derived support matrix (`support-matrix`) listing every family and tier;
+- a registry-derived support matrix (`support-matrix`) with investment posture and
+  `support-policy` best practices (primary Qwen cert track; thin Nemotron Nano only);
 - per-layer KV-cache precision planning **and runtime execution**: prior-based
   (`--kv-cache prior`) and measured (`analyze-kv` + `plan --kv-cache measured`, digest-bound
   to the sensitivity report) planning, and `runtime-check --runtime mlx-lm-kv` executes the
@@ -389,7 +411,8 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `recovery-rank` | Rank quantized tensors for opt-in recovery by sensitivity (not implied by convert) | Implemented |
 | `deferred-features` | List fail-closed deferred expansion features (VLM quant, per-expert unfused, domain LoRA) | Implemented |
 | `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
-| `support-matrix` | List every registered model family with its declared support tier | Implemented |
+| `support-matrix` | List families with tier, investment posture, priority, and policy notes | Implemented |
+| `support-policy` | Print family investment best practices (primary/secondary/thin) | Implemented |
 | `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
 | `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for supported Qwen 3.6 scope |
 | `runtime-check` | Run AX Engine readiness or actual MLX-LM generation | Implemented |
