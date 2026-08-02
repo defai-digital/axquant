@@ -13,6 +13,25 @@ multi-token-prediction (MTP) weights.
 > capabilities. Its goal is to reduce storage and unified-memory cost while preserving important
 > model quality and runtime behavior.
 
+## At a glance
+
+- **What it does:** turns a supported BF16 checkpoint into a mixed-precision MLX checkpoint for
+  Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
+- **One command:**
+  ```bash
+  python -m pip install -e ".[mlx]"
+  axquant quantize /path/to/model-bf16 --target-bpw 4.8
+  ```
+- **Naming isn't the bit budget:** a `4bit` pack name is a storage-class label, not a claim that
+  every tensor is 4-bit — for example the public `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures
+  ~5.42 BPW. Manifests carry the exact per-tensor distribution; see [Model naming](#model-naming).
+- **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next, MiniCPM5,
+  Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano — see the tier matrix under
+  [Current status](#current-status).
+- **Where it stands:** the toolkit is feature-complete and tested, but no checkpoint has yet
+  cleared the full M0–M8 release audit — every public pack today is development evidence, not a
+  certified release. [Current status](#current-status) states exactly what remains open.
+
 ## How it works
 
 ```text
@@ -71,9 +90,10 @@ MLX-LM may ignore that metadata and use ordinary decode.
 
 ## Why AXQuant
 
-Uniform quantization gives every eligible tensor the same precision. AXQuant instead plans
-precision at tensor level so the model can spend more bits where they matter and fewer bits where
-they do not.
+Uniform quantization gives every eligible tensor the same precision; rule-based per-module
+overrides assign precision by name pattern. AXQuant instead allocates precision per tensor from
+a budget-constrained solve over measured sensitivity, so the model spends more bits where the
+measurement shows it matters and fewer where it does not.
 
 Its design centers on:
 
