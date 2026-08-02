@@ -135,7 +135,9 @@ until their promotion evidence exists (see the expansion program documents under
 ### Remote development convert smokes (2026-08-02, macstudio-m2u / M2 Ultra 192 GB)
 
 Apple Silicon host `macstudio-m2u` (`devop@192.168.2.90`), conda env `axquant`
-(Python 3.13, `mlx`/`mlx-lm`), simple convert + MLX-LM generation smoke:
+(Python 3.13, `mlx`/`mlx-lm`), simple convert + MLX-LM generation smoke.
+**Live re-verification (2026-08-02):** all eight converted artifacts below
+re-passed `axquant runtime-check --runtime mlx-lm` (`check_kind=generation-smoke`).
 
 | Family | Source | Revision | Target BPW | Measured BPW | MLX-LM smoke | Notes |
 | --- | --- | --- | --- | --- | --- | --- |

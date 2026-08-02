@@ -71,6 +71,31 @@ def test_support_matrix_includes_posture_and_sorted_priority() -> None:
     assert by_id["mistral-devstral-dense-v1"].investment_posture == "secondary"
 
 
+def test_convertible_adapters_match_macstudio_smoke_coverage() -> None:
+    """Every declared-convertible adapter is in the macstudio-m2u smoke set.
+
+    Keeps the remote family matrix and registry from drifting: if a family is
+    declared convertible it must be named here so operators know to smoke it.
+    """
+    matrix = support_matrix()
+    convertible = {
+        entry.adapter_id
+        for entry in matrix.entries
+        if entry.support_tier is SupportTier.CONVERTIBLE
+    }
+    # One representative smoke per adapter (Qwen 3.6 covers dense + MoE path).
+    expected = {
+        "qwen36-v1",
+        "qwen35-dense-v1",
+        "minicpm5-dense-v1",
+        "gemma4-dense-v1",
+        "mistral-devstral-dense-v1",
+        "mistral3-dense-v1",
+        "nemotron3-v1",
+    }
+    assert convertible == expected
+
+
 def test_support_policy_cli(tmp_path: Path) -> None:
     out = tmp_path / "policy.md"
     assert main(["support-policy", "--output", str(out)]) == 0
