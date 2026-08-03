@@ -31,7 +31,11 @@ def _as_numpy(weight: Any) -> Any:
 
 
 def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, Any]:
-    """Compute per-column scale/zero from the original weight, once."""
+    """Per-group scale/zero from the original weight, kept at group level.
+
+    Returns arrays of shape ``(out_features, in_features // group_size)`` so
+    the caller never materializes full ``(out, in)`` grid copies.
+    """
     try:
         import numpy as np
     except ImportError as exc:
@@ -39,14 +43,12 @@ def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, An
 
     out_features, in_features = weight.shape
     w_grouped = weight.reshape(out_features, in_features // group_size, group_size)
-    w_min = w_grouped.min(axis=-1, keepdims=True)
-    w_max = w_grouped.max(axis=-1, keepdims=True)
+    w_min = w_grouped.min(axis=-1)
+    w_max = w_grouped.max(axis=-1)
     scale = (w_max - w_min) / ((1 << bits) - 1)
     scale = np.where(scale == 0, 1.0, scale)
     zero = np.clip(np.round(-w_min / scale), 0, (1 << bits) - 1)
-    col_scale = np.repeat(scale, group_size, axis=-1).reshape(weight.shape)
-    col_zero = np.repeat(zero, group_size, axis=-1).reshape(weight.shape)
-    return col_scale, col_zero
+    return scale.astype(np.float32), zero.astype(np.float32)
 
 
 def _cholesky_inv_upper(hessian: Any) -> Any:
@@ -57,14 +59,17 @@ def _cholesky_inv_upper(hessian: Any) -> Any:
         raise PlanningError("GPTQ execution requires numpy") from exc
 
     try:
-        lower = np.linalg.cholesky(hessian.astype(np.float32))
+        lower = np.linalg.cholesky(np.asarray(hessian, dtype=np.float32))
     except np.linalg.LinAlgError:
         lower = np.linalg.cholesky(hessian.astype(np.float64))
     lower_inv = np.linalg.inv(lower)
+    del lower
     hessian_inv = lower_inv.T @ lower_inv
+    del lower_inv
     hessian_inv = (hessian_inv + hessian_inv.T) / 2.0
     upper = np.linalg.cholesky(hessian_inv).T
-    return upper.astype(np.float32)
+    del hessian_inv
+    return upper.astype(np.float32, copy=False)
 
 
 def learn_gptq_refined_weight(
@@ -114,27 +119,34 @@ def learn_gptq_refined_weight(
     x = act.reshape(-1, in_features)[:_MAX_CALIBRATION_ROWS]
     calibration_rows = int(x.shape[0])
 
-    # Hessian proxy accumulated in float64; dead columns get a unit diagonal.
-    hessian = (2.0 * x.T.astype(np.float64)) @ x.astype(np.float64)
+    # Hessian proxy accumulated in float32 (float64 only on factorization
+    # retry); dead columns get a unit diagonal. ``x`` is freed as soon as the
+    # Hessian exists.
+    hessian = (2.0 * x.T) @ x
+    del x
     dead = np.diag(hessian) == 0.0
     hessian[dead, dead] = 1.0
 
-    # Damped factorization, escalating damping x10 up to three attempts.
+    # Damped factorization, escalating damping x10 up to three attempts. The
+    # diagonal is damped in place on a copy -- no identity matrix is ever
+    # materialized, keeping peak memory at a few in^2 float32 buffers.
     final_damping = float(damping)
+    mean_diag = float(np.mean(np.diag(hessian)))
     hinv_chol: Any | None = None
     for _ in range(3):
-        damped = hessian + final_damping * float(np.mean(np.diag(hessian))) * np.eye(
-            in_features, dtype=np.float64
-        )
+        damped = hessian.copy()
+        damped[np.diag_indices_from(damped)] += final_damping * mean_diag
         try:
             hinv_chol = _cholesky_inv_upper(damped)
+            del damped
             break
         except np.linalg.LinAlgError:
             final_damping *= 10.0
+    del hessian
     if hinv_chol is None:
         raise PlanningError("GPTQ Hessian factorization failed even after damping escalation")
 
-    col_scale, col_zero = _static_group_grid(w, bits, group_size)
+    group_scale, group_zero = _static_group_grid(w, bits, group_size)
     qmax = (1 << bits) - 1
     working = w.copy()
     refined = np.zeros_like(w)
@@ -143,8 +155,8 @@ def learn_gptq_refined_weight(
         block_errors = np.zeros((out_features, block_end - block_start), dtype=np.float32)
         for j in range(block_start, block_end):
             w_col = working[:, j]
-            scale_col = col_scale[:, j]
-            zero_col = col_zero[:, j]
+            scale_col = group_scale[:, j // group_size]
+            zero_col = group_zero[:, j // group_size]
             q_col = np.clip(np.round(w_col / scale_col) + zero_col, 0, qmax)
             deq_col = (q_col - zero_col) * scale_col
             refined[:, j] = deq_col
@@ -155,10 +167,8 @@ def learn_gptq_refined_weight(
                     err, hinv_chol[j, j + 1 : block_end]
                 ).astype(np.float32)
         if block_end < in_features:
-            working[:, block_end:] -= (
-                block_errors.astype(np.float64)
-                @ hinv_chol[block_start:block_end, block_end:].astype(np.float64)
-            ).astype(np.float32)
+            # float32 throughout: no per-block float64 temporaries.
+            working[:, block_end:] -= block_errors @ hinv_chol[block_start:block_end, block_end:]
 
     metadata: dict[str, float | int] = {
         "gptq_damping": final_damping,
