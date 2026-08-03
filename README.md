@@ -111,13 +111,16 @@ Its design centers on:
 
 ## Current status
 
-The toolkit version is `1.0.2` (packaging classifier: **Beta**). Its inspection, planning,
+The toolkit version is `1.1.0` (packaging classifier: **Beta**). Its inspection, planning,
 conversion, runtime-check, validation, and publication-gating commands are implemented and
 covered by the test suite. Certification is checkpoint- and evidence-specific; a working command
-does not by itself certify an output. `v1.0.2` expands the convertible family matrix (Qwen3
-embeddings, Qwen3-Next/Coder-Next MoE, improved Ministral matching) and ships Hub catalog plus
-model-card tooling for the broader AutomatosX AXQ pack set. See the
-[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.0.2) for detail.
+does not by itself certify an output. `v1.1.0` adds GPTQ Hessian error-compensated quantization
+and wires AWQ end to end: the new `capture-activations` stage records checksum-bound per-module
+calibration activations that feed measured AWQ/GPTQ probing (`analyze
+--calibration-activations`), planner selection with a `gptq-hessian` scale strategy, and
+convert-time refinement (`convert --calibration-activations`) before portable affine packing.
+See the [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.1.0) for
+detail.
 
 What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
 checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on

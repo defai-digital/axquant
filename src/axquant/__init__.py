@@ -2,4 +2,4 @@ from axquant.schema import QuantizationPlan, SensitivityReport
 
 __all__ = ["QuantizationPlan", "SensitivityReport", "__version__"]
 
-__version__ = "1.0.2"
+__version__ = "1.1.0"

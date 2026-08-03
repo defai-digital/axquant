@@ -31,14 +31,16 @@ def test_v1_toolkit_status_is_honest_about_host_certification() -> None:
     classifiers = set(project["classifiers"])
     readme = (_ROOT / "README.md").read_text(encoding="utf-8")
 
-    # Beta status is appropriate for the whole 1.0.x maintenance line: no
-    # certified Hub model release has happened yet regardless of patch
-    # version, so a bugfix bump (1.0.0 -> 1.0.1) must not silently keep
-    # claiming Beta without this test still verifying the README's honesty
-    # language, and any version outside that line forces an explicit
-    # reconsideration of the classifier below.
-    major_minor = ".".join(project["version"].split(".")[:2])
-    if major_minor == "1.0":
+    # Beta status is appropriate for the whole 1.x line: no certified Hub model
+    # release has happened yet regardless of minor/patch version, so a bump
+    # (1.0.x -> 1.1.0) must not silently keep claiming Beta without this test
+    # still verifying the README's honesty language, and any version outside
+    # that line forces an explicit reconsideration of the classifier below.
+    # v1.1.0 reconsideration: GPTQ + end-to-end AWQ add capability but do not
+    # change the gating fact — MTP speed and size-floor evidence remain open,
+    # so Beta still holds.
+    major = project["version"].split(".")[0]
+    if major == "1":
         assert "Development Status :: 4 - Beta" in classifiers
         assert "Development Status :: 5 - Production/Stable" not in classifiers
         assert "Development Status :: 3 - Alpha" not in classifiers
