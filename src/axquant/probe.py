@@ -414,7 +414,7 @@ def compute_cosine_distance(reference: Any, candidate: Any) -> float:
     if norm_ref == 0 or norm_cand == 0:
         return 1.0
     similarity = float(np.dot(ref, cand) / (norm_ref * norm_cand))
-    return 1.0 - similarity
+    return max(0.0, 1.0 - similarity)
 
 
 def compute_token_disagreement(reference_tokens: Any, candidate_tokens: Any) -> float:

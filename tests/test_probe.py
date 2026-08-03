@@ -233,6 +233,16 @@ class TestMetricComputation:
         result = compute_cosine_distance(v, v)
         assert abs(result) < 1e-10
 
+    def test_cosine_distance_identical_high_dimension_clamps_nonnegative(self) -> None:
+        # At high dimension, dot()/  (norm * norm) can round to fractionally above 1.0 for
+        # a vector compared with itself, which would otherwise make 1.0 - similarity
+        # negative (observed in production: -1.665e-16 on a real hidden-state probe).
+        # MetricVector.cosine_distance requires ge=0.0, so the result must clamp to 0.0.
+        np.random.seed(1)
+        v = np.random.randn(8192)
+        result = compute_cosine_distance(v, v)
+        assert result >= 0.0
+
     def test_cosine_distance_orthogonal(self) -> None:
         v1 = np.array([1.0, 0.0])
         v2 = np.array([0.0, 1.0])
