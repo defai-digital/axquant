@@ -29,8 +29,10 @@ class TestPluginRegistry:
     def test_bf16_not_registered(self) -> None:
         assert not is_method_available(QuantMethod.BF16)
 
-    def test_gptq_not_registered(self) -> None:
-        assert not is_method_available(QuantMethod.GPTQ)
+    def test_gptq_registered(self) -> None:
+        assert is_method_available(QuantMethod.GPTQ)
+        plugin = require_plugin(QuantMethod.GPTQ)
+        assert plugin.method_id == QuantMethod.GPTQ
 
     def test_get_plugin(self) -> None:
         plugin = get_plugin(QuantMethod.AFFINE)
@@ -38,7 +40,7 @@ class TestPluginRegistry:
         assert plugin.method_id == QuantMethod.AFFINE
 
     def test_get_missing_plugin(self) -> None:
-        plugin = get_plugin(QuantMethod.GPTQ)
+        plugin = get_plugin(QuantMethod.BF16)
         assert plugin is None
 
     def test_require_plugin(self) -> None:
@@ -47,7 +49,7 @@ class TestPluginRegistry:
 
     def test_require_missing_plugin_raises(self) -> None:
         with pytest.raises(QuantizerError, match="no quantizer plugin registered"):
-            require_plugin(QuantMethod.GPTQ)
+            require_plugin(QuantMethod.BF16)
 
     def test_duplicate_registration_raises(self) -> None:
         fresh_registry = _PluginRegistry()

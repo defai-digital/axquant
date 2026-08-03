@@ -1,6 +1,6 @@
 """Quantizer plugin registry and implementations.
 
-Provides a plugin system for quantization methods (affine, AWQ, DWQ).
+Provides a plugin system for quantization methods (affine, AWQ, DWQ, GPTQ).
 Each plugin declares its capabilities and can be registered/looked up
 by method ID.  MLX is a lazy optional dependency.
 
@@ -9,7 +9,7 @@ implementation kept for its algorithmic documentation and its own test
 coverage (`tests/test_quantizers.py`). The real conversion path quantizes
 through MLX-LM's `quant_predicate` (`predicate.py`/`converter.py`), and real
 AWQ/DWQ refinement lives in `awq.py`/`dwq.py`. Nothing outside this module
-and its test imports `AffinePlugin`/`AwqPlugin`/`DwqPlugin` or the plugin
+and its test imports `AffinePlugin`/`AwqPlugin`/`DwqPlugin`/`GptqPlugin` or the plugin
 registry; do not assume registering a plugin here makes it reachable from
 `axquant convert`.
 """
@@ -359,6 +359,116 @@ class AwqPlugin:
         return dequantized
 
 
+class GptqPlugin:
+    """GPTQ second-order weight refinement plugin.
+
+    Quantizes weight columns left-to-right onto the static per-group affine
+    grid of the original weight, compensating each column's rounding error in
+    the remaining columns via the damped inverse-Hessian Cholesky factor.
+    Requires calibration activations. Shares the portable refinement with
+    convert-time GPTQ refinement in ``axquant.gptq``.
+    """
+
+    @property
+    def method_id(self) -> QuantMethod:
+        return QuantMethod.GPTQ
+
+    @property
+    def supported_bits(self) -> tuple[int, ...]:
+        return (2, 3, 4, 6, 8)
+
+    @property
+    def supported_group_sizes(self) -> tuple[int, ...]:
+        return (32, 64, 128)
+
+    @property
+    def requires_calibration(self) -> bool:
+        return True
+
+    def quantize(
+        self,
+        weight: Any,
+        *,
+        bits: int,
+        group_size: int,
+        calibration: Any | None = None,
+    ) -> QuantizedWeight:
+        if bits not in self.supported_bits:
+            raise QuantizerError(f"GPTQ plugin does not support {bits}-bit quantization")
+        if group_size not in self.supported_group_sizes:
+            raise QuantizerError(f"GPTQ plugin does not support group size {group_size}")
+        if calibration is None:
+            raise QuantizerError("GPTQ requires calibration activations")
+
+        try:
+            import numpy as np
+        except ImportError:
+            raise QuantizerError("GPTQ quantization requires numpy") from None
+
+        from axquant.errors import PlanningError
+        from axquant.gptq import learn_gptq_refined_weight
+
+        w = np.asarray(weight, dtype=np.float32)
+        original_shape = w.shape
+        try:
+            refined, refine_meta = learn_gptq_refined_weight(
+                w,
+                calibration,
+                bits=bits,
+                group_size=group_size,
+            )
+        except PlanningError as exc:
+            raise QuantizerError(str(exc)) from exc
+
+        # The refined weight sits on the static per-group grid of the original
+        # weight, so re-deriving that grid makes the integer codes exact.
+        out_features, in_features = w.shape
+        w_grouped = w.reshape(out_features, in_features // group_size, group_size)
+        w_min = w_grouped.min(axis=-1, keepdims=True)
+        w_max = w_grouped.max(axis=-1, keepdims=True)
+        q_scale = (w_max - w_min) / ((1 << bits) - 1)
+        q_scale = np.where(q_scale == 0, 1.0, q_scale)
+        zero_point = np.clip(np.round(-w_min / q_scale), 0, (1 << bits) - 1)
+        refined_grouped = refined.reshape(out_features, in_features // group_size, group_size)
+        quantized = np.clip(
+            np.round(refined_grouped / q_scale) + zero_point,
+            0,
+            (1 << bits) - 1,
+        )
+
+        return QuantizedWeight(
+            data=quantized.astype(np.uint8),
+            scales=q_scale.astype(np.float16),
+            biases=zero_point.astype(np.float16),
+            bits=bits,
+            group_size=group_size,
+            method=QuantMethod.GPTQ,
+            metadata={
+                "original_shape": list(original_shape),
+                "gptq_damping": float(refine_meta["gptq_damping"]),
+                "calibration_rows": int(refine_meta["calibration_rows"]),
+                "mean_quant_error": float(refine_meta["mean_quant_error"]),
+            },
+        )
+
+    def dequantize(self, quantized: QuantizedWeight) -> Any:
+        try:
+            import numpy as np
+        except ImportError:
+            raise QuantizerError("dequantization requires numpy") from None
+
+        data = np.asarray(quantized.data, dtype=np.float32)
+        scales = np.asarray(quantized.scales, dtype=np.float32)
+        biases = np.asarray(quantized.biases, dtype=np.float32)
+
+        dequantized = (data - biases) * scales
+
+        if quantized.metadata and "original_shape" in quantized.metadata:
+            dequantized = dequantized.reshape(quantized.metadata["original_shape"])
+
+        return dequantized
+
+
 class DwqPlugin:
     """Distribution-Wise (Data-Free) Weight Quantization plugin.
 
@@ -499,6 +609,7 @@ def _register_defaults() -> None:
     registry.register(AffinePlugin())
     registry.register(AwqPlugin())
     registry.register(DwqPlugin())
+    registry.register(GptqPlugin())
 
 
 # Register defaults on module import
