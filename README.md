@@ -153,7 +153,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | Conversion input | Unquantized Safetensors checkpoint supported by MLX-LM; revision pin required for measured/release evidence |
 | Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
-| Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, and portable AWQ |
+| Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
 | Primary runtime | AX Engine |
@@ -242,8 +242,9 @@ Implemented now:
 
 - indexed Safetensors inspection and logical parameter reconstruction;
 - deterministic, provenance-bound tokenized calibration caches;
-- resumable per-tensor MLX probes with 4/6/8/BF16 affine candidates and targeted DWQ refinement;
-- portable AWQ activation-scale search with convert-time refinement and affine packing;
+- resumable per-tensor MLX probes with 4/6/8/BF16 affine candidates and targeted DWQ/AWQ/GPTQ refinement;
+- portable AWQ activation-scale search and GPTQ Hessian error compensation with convert-time refinement and affine packing;
+- checksum-bound per-module activation capture (`capture-activations`) feeding AWQ/GPTQ probes and conversion;
 - Qwen 3.6 tensor classification, MTP detection, and vision protection;
 - auditable manual recipes with mandatory precision floors;
 - mixed-precision planning from compatible sensitivity reports;
@@ -486,7 +487,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
 | `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
 | `capture-activations` | Capture per-module Linear input activations from a verified tokenized cache into a checksum-bound artifact | Implemented |
-| `analyze` | Generate architecture priors or measure resumable affine/DWQ/BF16 sensitivity from a calibration cache | Implemented |
+| `analyze` | Generate architecture priors or measure resumable affine/DWQ/AWQ/GPTQ/BF16 sensitivity from a calibration cache | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |

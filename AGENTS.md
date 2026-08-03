@@ -45,23 +45,28 @@ literal:
 3. **calibrate / tokenize-calibration** — records dataset provenance in a
    `CalibrationManifest` and optionally creates a deterministic tokenized cache
    (`calibration.py`, `activation_cache.py`).
-4. **analyze / analyze-kv** — without a calibration cache, weight analysis emits explicitly
+4. **capture-activations** — replays a verified tokenized cache through the BF16 model and
+   records per-module Linear input activations into a checksum-bound
+   `ActivationCaptureManifest`, the calibration source for AWQ/GPTQ (`capture.py`).
+5. **analyze / analyze-kv** — without a calibration cache, weight analysis emits explicitly
    unmeasured architecture priors; with a verified tokenized cache, the lazy MLX backends produce
-   measured weight or KV sensitivity (`analyzer.py`, `probe.py`, `kv_probe.py`).
-5. **plan / plan-manual** — budget-constrained bit allocation. `planner.py` solves from measured
+   measured weight or KV sensitivity, including AWQ/GPTQ candidates when a capture artifact is
+   supplied via `--calibration-activations` (`analyzer.py`, `probe.py`, `kv_probe.py`).
+6. **plan / plan-manual** — budget-constrained bit allocation. `planner.py` solves from measured
    sensitivity; `manual.py` applies explicit YAML recipes. Both enforce protection floors
    (norms ≥ 16-bit, embeddings/routers ≥ 8-bit, MTP ≥ policy minimum, and LM-head ≥ 16-bit by
    default). The governed `--lm-head-floor 8bit` path requires measured support. Both planners emit
    the same `QuantizationPlan` schema.
-6. **convert** — atomic conversion: preflight verifies plan↔model module coverage via
-   `PlanPredicate`, runs `mlx_lm.convert` into a temp staging dir, preserves protected MTP/vision
+7. **convert** — atomic conversion: preflight verifies plan↔model module coverage via
+   `PlanPredicate`, executes any AWQ/GPTQ weight refinement from `capture-activations` calibration
+   before packing, runs `mlx_lm.convert` into a temp staging dir, preserves protected MTP/vision
    sidecars (or applies the explicit validated Qwen 3.6 MTP transform), generates AX Engine
    manifest + runtime metadata, then renames staging→final so a partial checkpoint never appears
    at the output path (`converter.py`, `predicate.py`, `runtime.py`).
-7. **runtime / evaluate / benchmark / validate** — collects runtime, quality, size, and MTP
+8. **runtime / evaluate / benchmark / validate** — collects runtime, quality, size, and MTP
    evidence and applies profile-specific thresholds to matched reference/candidate bundles
    (`runtime.py`, `quality.py`, `benchmark.py`, `validator.py`, `profiles.py`).
-8. **publish-prepare / release-audit / publish** — assembles checksum-bound release evidence,
+9. **publish-prepare / release-audit / publish** — assembles checksum-bound release evidence,
    proves M0–M8, and performs a guarded Hugging Face upload; `publish` is a preview unless `--yes`
    is supplied (`reporting.py`, `release_audit.py`, `publisher.py`).
 
