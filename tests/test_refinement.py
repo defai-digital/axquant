@@ -371,6 +371,16 @@ class TestRefineCandidates:
         assert result.selection_basis == "proxy"
         assert isinstance(result.converged, bool)
 
+    def test_lm_head_floor_request_propagates_to_selected_plan(self) -> None:
+        # `refine`'s CLI --lm-head-floor threads PlanRequest.lm_head_min_bits through
+        # this function (AXQ-026 governed size-gate path); the search/swap steps must
+        # preserve it into the final selected plan's constraints, not just the seed.
+        report = _make_sensitivity_report()
+        request = _make_request(target_bpw=8.0, lm_head_min_bits=8)
+        config = RefinementConfig(top_n=1, max_iterations=2, random_seed=0)
+        result = refine_candidates(report, request, config)
+        assert result.selected_plan.constraints.lm_head_min_bits == 8
+
     def test_top_n_variants_form_a_monotonic_parent_chain(self) -> None:
         result = refine_candidates(
             _make_sensitivity_report(),

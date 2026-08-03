@@ -1371,6 +1371,7 @@ def _run(args: argparse.Namespace) -> int:
             allow_unmeasured=args.allow_unmeasured,
             candidate_count=args.top_n,
             random_seed=args.seed,
+            lm_head_min_bits=8 if args.lm_head_floor == "8bit" else 16,
         )
         refine_config = RefinementConfig(
             top_n=args.top_n,

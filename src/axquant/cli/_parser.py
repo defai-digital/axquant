@@ -914,6 +914,14 @@ def _build_parser() -> argparse.ArgumentParser:
     refine_parser.add_argument("--seed", type=int, default=0)
     refine_parser.add_argument("--allow-unmeasured", action="store_true")
     refine_parser.add_argument(
+        "--lm-head-floor",
+        choices=["bf16", "8bit"],
+        default="bf16",
+        help="AXQ-026 governed size-gate path: 8bit lowers the LM-head weight "
+        "floor for this search; release certification still requires measured "
+        "quality evidence",
+    )
+    refine_parser.add_argument(
         "--holdout-digest",
         dest="holdout_measurement_set_sha256",
         default=None,
