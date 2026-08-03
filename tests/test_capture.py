@@ -599,3 +599,25 @@ class TestCaptureSharding:
                 output_dir=tmp_path / "out",
                 modules_per_shard=0,
             )
+
+
+class TestActivationRowsF16:
+    """Regression: BF16 checkpoint activations must convert to numpy."""
+
+    def test_bfloat16_mlx_array_converts_to_fp16_rows(self) -> None:
+        mx = pytest.importorskip("mlx.core")
+        from axquant.capture import _activation_rows_f16
+
+        x = mx.array([[1.5, -2.25], [3.0, 4.5]], dtype=mx.bfloat16)
+        rows = _activation_rows_f16(mx, x)
+        assert rows.dtype == np.float16
+        assert rows.shape == (2, 2)
+        np.testing.assert_allclose(rows, [[1.5, -2.25], [3.0, 4.5]], rtol=1e-3)
+
+    def test_bfloat16_direct_numpy_conversion_still_fails(self) -> None:
+        """Guards the regression premise: raw np.asarray on bf16 must stay broken."""
+        mx = pytest.importorskip("mlx.core")
+
+        x = mx.array([[1.0]], dtype=mx.bfloat16)
+        with pytest.raises((RuntimeError, ValueError, TypeError)):
+            np.asarray(x.reshape(-1, 1), dtype=np.float16)

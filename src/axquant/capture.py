@@ -107,6 +107,20 @@ def _parent_and_module(model: Any, module_path: str) -> tuple[Any, str, Any]:
     return current, child_name, _get_child(current, child_name)
 
 
+def _activation_rows_f16(mlx: Any, x: Any) -> Any:
+    """Materialize a module input as an fp16 numpy row matrix.
+
+    The cast happens inside MLX first: numpy's PEP 3118 buffer import rejects
+    bfloat16 mlx arrays ("Item size 2 ... does not match ... item size 1"),
+    which is the native activation dtype of BF16 checkpoints.
+    """
+    import numpy as np
+
+    rows = x.astype(mlx.float16).reshape(-1, x.shape[-1])
+    mlx.eval(rows)
+    return np.asarray(rows)
+
+
 class _RowRecorder:
     """Deterministic fixed-stride row subsampler bounded to ``max_rows``.
 
@@ -369,8 +383,7 @@ def capture_calibration_activations(
             self._recorder = recorder
 
         def __call__(self, x: Any) -> Any:
-            rows = np.asarray(x.reshape(-1, x.shape[-1]), dtype=np.float16)
-            self._recorder.record(rows)
+            self._recorder.record(_activation_rows_f16(mlx, x))
             return self.inner(x)
 
     originals: dict[str, tuple[Any, str, Any]] = {}
