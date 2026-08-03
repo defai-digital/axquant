@@ -671,6 +671,41 @@ def test_mtp_sidecar_provenance_binds_byte_preserved_bundle(tmp_path: Path) -> N
     assert runtime["mtp_norm_layout"] == "raw_hf_delta"
 
 
+def test_mtp_sidecar_contract_gains_structured_bits_from_free_text(tmp_path: Path) -> None:
+    """AX Engine's structured mtp_sidecar_bits beats its free-text heuristic."""
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    source = sidecar / "mtp.safetensors"
+    source.write_bytes(b"mtp")
+    (sidecar / "ax_mtp_sidecar_manifest.json").write_text(
+        json.dumps(
+            {
+                "output": {
+                    "mtp": {
+                        "path": "mtp.safetensors",
+                        "sha256": file_sha256(source),
+                        "size_bytes": source.stat().st_size,
+                    }
+                },
+                "transform": {"mode": "byte_preserved"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (sidecar / "mtplx_runtime.json").write_text(
+        json.dumps({"mtp_sidecar": "Qwen3.6 MTP head INT8 sidecar"}),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+
+    converter._copy_external_mtp_bundle(sidecar, output)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["mtp_sidecar_bits"] == 8
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+
+
 def test_mtp_sidecar_provenance_binds_alternate_filename(tmp_path: Path) -> None:
     """``mtp_head.safetensors`` is a recognized external sidecar filename
     alongside ``mtp.safetensors`` (converter/probe/release_audit all accept

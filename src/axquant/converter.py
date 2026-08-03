@@ -4,6 +4,7 @@ import contextlib
 import importlib
 import json
 import os
+import re
 import shutil
 import struct
 import tempfile
@@ -189,8 +190,20 @@ def _declare_raw_mtp_norm_layout(output_dir: Path) -> None:
         if not isinstance(value, dict):
             raise ArtifactError("copied mtplx_runtime.json must be a JSON object")
         contract = value
+    changed = False
     if "mtp_norm_layout" not in contract:
         contract["mtp_norm_layout"] = "raw_hf_delta"
+        changed = True
+    if "mtp_sidecar_bits" not in contract:
+        sidecar_description = contract.get("mtp_sidecar")
+        if isinstance(sidecar_description, str):
+            match = re.search(r"INT(4|6|8|16)", sidecar_description.upper())
+            if match:
+                # AX Engine prefers this structured field over its free-text
+                # heuristic, which guesses 4-bit for anything non-INT8.
+                contract["mtp_sidecar_bits"] = int(match.group(1))
+                changed = True
+    if changed:
         write_data(runtime_path, contract)
 
 
