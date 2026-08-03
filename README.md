@@ -113,15 +113,19 @@ Its design centers on:
 
 ## Current status
 
-The toolkit version is `1.1.0` (packaging classifier: **Beta**). Its inspection, planning,
+The toolkit version is `1.1.1` (packaging classifier: **Beta**). Its inspection, planning,
 conversion, runtime-check, validation, and publication-gating commands are implemented and
 covered by the test suite. Certification is checkpoint- and evidence-specific; a working command
-does not by itself certify an output. `v1.1.0` adds GPTQ Hessian error-compensated quantization
-and wires AWQ end to end: the new `capture-activations` stage records checksum-bound per-module
+does not by itself certify an output. `v1.1.1` is a stability release: resumable, compressed,
+shardable activation capture; a BF16-activation capture fix; ~30% lower GPTQ peak memory;
+real-hardware integration tests (`pytest -m integration` on Apple Silicon); CI on macOS plus
+signed release artifacts; and a migration guide, environment compatibility matrix, and
+known-issues list under `docs/`. `v1.1.0` added GPTQ Hessian error-compensated quantization and
+wired AWQ end to end: the `capture-activations` stage records checksum-bound per-module
 calibration activations that feed measured AWQ/GPTQ probing (`analyze
 --calibration-activations`), planner selection with a `gptq-hessian` scale strategy, and
 convert-time refinement (`convert --calibration-activations`) before portable affine packing.
-See the [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.1.0) for
+See the [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.1.1) for
 detail.
 
 Further reading: [migration guide (v1.0.x → v1.1.x)](docs/migration-v1.1.md),
