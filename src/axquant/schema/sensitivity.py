@@ -201,6 +201,26 @@ class TokenizedCacheManifest(StrictModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class ActivationCaptureEntry(StrictModel):
+    module_path: str
+    rows: int = Field(ge=0)
+    in_features: int = Field(ge=1)
+    file: str
+    sha256: str
+
+
+class ActivationCaptureManifest(StrictModel):
+    schema_version: Literal["axquant.activation-capture.v1"] = "axquant.activation-capture.v1"
+    model: str
+    revision: str | None = None
+    tokenized_cache_manifest_sha256: str
+    cache_key_sha256: str
+    calibration_dataset_id: str
+    max_rows: int = Field(ge=1)
+    entries: tuple[ActivationCaptureEntry, ...] = ()
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class ProbeProgress(StrictModel):
     schema_version: Literal["axquant.probe-progress.v1"] = "axquant.probe-progress.v1"
     inventory_sha256: str

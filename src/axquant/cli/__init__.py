@@ -21,7 +21,7 @@ from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import AxquantError, PlanningError
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
-from axquant.inspector import inspect_model
+from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
@@ -1294,6 +1294,27 @@ def _run(args: argparse.Namespace) -> int:
             shards=token_manifest.shard_count,
             samples=token_manifest.samples,
             complete=token_manifest.complete,
+        )
+        return 0
+
+    if args.command == "capture-activations":
+        from axquant.capture import CAPTURE_MANIFEST_NAME, capture_calibration_activations
+
+        capture_model_dir = resolve_model_dir(args.model, allow_download=args.allow_download)
+        capture_output = Path(args.output).expanduser().resolve()
+        capture_manifest = capture_calibration_activations(
+            model_dir=capture_model_dir,
+            cache_dir=Path(args.calibration).expanduser().resolve(),
+            output_dir=capture_output,
+            target_modules=tuple(args.target_modules) or None,
+            max_rows=args.max_rows,
+            token_budget=args.token_budget,
+        )
+        log.info(
+            "capture_activations_completed",
+            output=str(capture_output / CAPTURE_MANIFEST_NAME),
+            modules=len(capture_manifest.entries),
+            max_rows=capture_manifest.max_rows,
         )
         return 0
 

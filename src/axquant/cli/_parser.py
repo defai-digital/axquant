@@ -819,6 +819,33 @@ def _build_parser() -> argparse.ArgumentParser:
     tokenize_parser.add_argument("--attest-calibration-eval-separation", action="store_true")
     tokenize_parser.add_argument("--output", default="calibration-cache")
 
+    capture_parser = subparsers.add_parser(
+        "capture-activations",
+        help="Capture per-module calibration input activations into a checksum-bound artifact",
+    )
+    capture_parser.add_argument("--model", required=True)
+    capture_parser.add_argument(
+        "--calibration",
+        required=True,
+        help="Verified tokenized calibration cache directory",
+    )
+    capture_parser.add_argument("--output", default="activation-capture")
+    capture_parser.add_argument("--max-rows", type=int, default=2048)
+    capture_parser.add_argument("--token-budget", type=int)
+    capture_parser.add_argument(
+        "--target-module",
+        action="append",
+        default=[],
+        dest="target_modules",
+        metavar="MODULE",
+        help="Checkpoint-style module path to capture (repeatable); default: every eligible Linear",
+    )
+    capture_parser.add_argument(
+        "--allow-download",
+        action="store_true",
+        help="Allow Hugging Face Hub download when MODEL is a Hub id (not a local path)",
+    )
+
     refine_parser = subparsers.add_parser("refine")
     refine_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
     refine_parser.add_argument("--target-bpw", type=float, default=4.5)

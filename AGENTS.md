@@ -78,6 +78,10 @@ literal:
   `--allow-unmeasured` is passed. This is intentional — never weaken it.
 - **Fail-closed conversion**: `PlanPredicate` tracks which plan modules MLX-LM actually visited;
   unmatched quantized modules abort the conversion.
+- **Activation capture** (`capture.py`): `capture-activations` replays a verified tokenized
+  cache with recording wrappers on eligible `nn.Linear` modules and writes checksum-bound
+  per-module fp16 activations (`ActivationCaptureManifest`) for weight-refinement backends;
+  `load_capture_activations` fails closed on model identity, shape, or checksum drift.
 - **MLX is a lazy optional dependency**: execution backends import it only inside conversion,
   sensitivity, quality, and runtime paths. Inspection, planning, reporting, and tests do not
   require MLX.

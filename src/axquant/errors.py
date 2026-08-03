@@ -38,6 +38,10 @@ class CacheError(AxquantError):
     pass
 
 
+class CaptureError(AxquantError):
+    pass
+
+
 class QuantizerError(AxquantError):
     pass
 

@@ -485,6 +485,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `calibrate` | Validate calibration input, record provenance, and build a tokenized cache (`--manifest-only` skips tokenization) | Implemented |
 | `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
 | `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
+| `capture-activations` | Capture per-module Linear input activations from a verified tokenized cache into a checksum-bound artifact | Implemented |
 | `analyze` | Generate architecture priors or measure resumable affine/DWQ/BF16 sensitivity from a calibration cache | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |

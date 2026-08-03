@@ -146,6 +146,8 @@ from axquant.schema.planning import (
     protected_floor_bits,
 )
 from axquant.schema.sensitivity import (
+    ActivationCaptureEntry,
+    ActivationCaptureManifest,
     CalibrationEvidence,
     CalibrationManifest,
     CandidateMeasurement,
@@ -160,6 +162,8 @@ from axquant.schema.sensitivity import (
 __all__ = [
     "ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS",
     "PROTECTED_MIN_BITS",
+    "ActivationCaptureEntry",
+    "ActivationCaptureManifest",
     "Allocation",
     "ArchitectureProfile",
     "ArchitectureSupportLevel",
