@@ -24,6 +24,7 @@ _EXTERNAL_KINDS = {
     BenchmarkEvidenceKind.MIXED_PRECISION,
     BenchmarkEvidenceKind.AWQ,
     BenchmarkEvidenceKind.DWQ,
+    BenchmarkEvidenceKind.GPTQ,
 }
 
 

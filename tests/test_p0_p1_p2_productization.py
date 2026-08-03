@@ -44,6 +44,7 @@ def test_ladders_progress_and_multi_group() -> None:
     assert 32 in full.candidate_group_sizes
     refine = get_ladder("refine-awq-dwq")
     assert QuantMethod.AWQ in refine.candidate_methods
+    assert QuantMethod.GPTQ in refine.candidate_methods
     request = plan_request_for_ladder(prior, profile=ProfileName.GENERAL)
     assert request.candidate_group_sizes == (32, 64)
     assert request.target_bpw == 4.8

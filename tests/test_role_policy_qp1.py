@@ -8,6 +8,7 @@ from axquant.errors import RefinementError
 from axquant.planner import plan_quantization
 from axquant.refinement import refine_candidates, select_complete_candidate
 from axquant.role_policy import (
+    method_preference_rank,
     prefer_method_on_tie,
     ranking_loss,
     role_preferences_active,
@@ -152,6 +153,13 @@ def test_prefer_awq_within_margin_for_attention() -> None:
     )
 
 
+def test_gptq_preference_rank_follows_awq() -> None:
+    assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.AWQ) == 0
+    assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.GPTQ) == 1
+    assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.AFFINE) == 2
+    assert method_preference_rank(TensorRole.MLP, QuantMethod.GPTQ) == 3
+
+
 def test_measured_plan_prefers_awq_for_attention_when_within_margin() -> None:
     report = _measured_report()
     plan = plan_quantization(
@@ -172,6 +180,44 @@ def test_measured_plan_prefers_awq_for_attention_when_within_margin() -> None:
     # Protection floor still holds for norms.
     norm = next(item for item in plan.assignments if item.role == TensorRole.NORM)
     assert norm.bits == 16
+
+
+def test_measured_plan_selects_gptq_when_clearly_better() -> None:
+    report = _measured_report()
+    mlp_entry = next(entry for entry in report.entries if entry.tensor.role == TensorRole.MLP)
+    for candidate in list(mlp_entry.candidates):
+        if candidate.method != QuantMethod.AFFINE or candidate.bits == 16:
+            continue
+        mlp_entry.candidates.append(
+            CandidateMeasurement(
+                bits=candidate.bits,
+                method=QuantMethod.GPTQ,
+                group_size=candidate.group_size,
+                metrics=candidate.metrics.model_copy(
+                    update={
+                        "output_kl": candidate.metrics.output_kl * 0.5,
+                        "hidden_state_error": candidate.metrics.hidden_state_error * 0.5,
+                        "token_disagreement": candidate.metrics.token_disagreement * 0.5,
+                    }
+                ),
+            )
+        )
+    plan = plan_quantization(
+        report,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=5.5,
+            candidate_bits=(4, 6, 8, 16),
+            candidate_group_sizes=(32, 64, 128),
+            hardware=HardwareProfile(),
+            allow_unmeasured=False,
+        ),
+    )
+    mlp = next(item for item in plan.assignments if item.role == TensorRole.MLP)
+    # GPTQ loss is far outside the AFFINE preference margin, so it wins its key.
+    assert mlp.method == QuantMethod.GPTQ
+    assert mlp.scale_strategy.value == "gptq-hessian"
+    assert mlp.outlier_strategy.value == "none"
 
 
 def test_ranking_loss_discounts_preferred_group() -> None:

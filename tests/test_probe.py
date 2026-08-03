@@ -163,11 +163,21 @@ class TestProbeConfigValidation:
             candidate_methods=(QuantMethod.DWQ, QuantMethod.AFFINE, QuantMethod.DWQ),
         )
         assert config.candidate_methods == (QuantMethod.AFFINE, QuantMethod.DWQ)
+        refined = ProbeConfig(
+            model=ModelIdentity(model_id="m"),
+            calibration_cache="/tmp",
+            candidate_methods=(QuantMethod.GPTQ, QuantMethod.AWQ, QuantMethod.AFFINE),
+        )
+        assert refined.candidate_methods == (
+            QuantMethod.AFFINE,
+            QuantMethod.AWQ,
+            QuantMethod.GPTQ,
+        )
         with pytest.raises(ValueError, match="probe methods"):
             ProbeConfig(
                 model=ModelIdentity(model_id="m"),
                 calibration_cache="/tmp",
-                candidate_methods=(QuantMethod.AWQ,),
+                candidate_methods=(QuantMethod.BF16,),
             )
 
 
@@ -504,6 +514,190 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         if entry.tensor.name == target_tensor
         for candidate in entry.candidates
     )
+
+
+def _base_probe_report(
+    tmp_path: Path,
+    qwen36_model_dir: Path,
+) -> tuple[object, object, object]:
+    """Build a tiny tokenized cache and a base AFFINE probe report for refinement tests."""
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    dataset = tmp_path / "calibration.jsonl"
+    dataset.write_text(
+        "\n".join(
+            [
+                json.dumps({"text": "repair this function"}),
+                json.dumps({"text": "return valid JSON"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cache = tmp_path / "cache"
+    calibration = CalibrationManifest(
+        model=identity,
+        profile=ProfileName.AGENT_CODING,
+        dataset_id=str(dataset),
+        dataset_sha256="",
+        samples=2,
+        domains=[],
+        sequence_length=32,
+        random_seed=11,
+        calibration_evaluation_separation_attested=True,
+    )
+    cache_manifest = tokenize_calibration(
+        model=identity,
+        dataset_path=dataset,
+        output_dir=cache,
+        profile=ProfileName.AGENT_CODING,
+        sequence_length=32,
+        random_seed=11,
+        tokenizer=_FakeTokenizer(),
+        calibration_manifest_sha256=stable_sha256(
+            calibration.model_dump(mode="json", exclude={"created_at"})
+        ),
+        separation_attested=True,
+    )
+    calibration.dataset_sha256 = cache_manifest.dataset_sha256
+    calibration.domains = cache_manifest.domains
+    write_data(cache / "calibration_manifest.json", calibration)
+    cache_manifest.calibration_manifest_sha256 = stable_sha256(
+        calibration.model_dump(mode="json", exclude={"created_at"})
+    )
+    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
+    config = ProbeConfig(
+        model=identity,
+        calibration_cache=str(cache),
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 16),
+        group_size=64,
+        token_budget_per_candidate=32,
+    )
+    report = probe_tensor_sensitivity(
+        inventory,
+        config=config,
+        backend=_MeasuredFakeBackend(),
+        state_path=tmp_path / "probe-progress.json",
+    )
+    return inventory, config, report
+
+
+def test_probe_requires_calibration_activations_for_awq_gptq(
+    qwen36_model_dir: Path,
+) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="revision-pinned",
+    )
+    for method in (QuantMethod.AWQ, QuantMethod.GPTQ):
+        config = ProbeConfig(
+            model=inventory.model,
+            calibration_cache="/nonexistent-cache",
+            candidate_methods=(method,),
+        )
+        with pytest.raises(ProbeError, match="capture-activations"):
+            probe_tensor_sensitivity(inventory, config=config)
+
+
+def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory, config, report = _base_probe_report(tmp_path, qwen36_model_dir)
+    quantized_entry = next(
+        entry
+        for entry in report.entries
+        if any(candidate.bits == 4 for candidate in entry.candidates)
+    )
+    four_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 4)
+    target_tensor = quantized_entry.tensor.name
+    activations = {target_tensor.removesuffix(".weight"): np.zeros((4, 8), dtype=np.float32)}
+
+    for method, note_text in (
+        (QuantMethod.AWQ, "activation-aware channel scaling"),
+        (QuantMethod.GPTQ, "hessian error-compensated rounding"),
+    ):
+        refined = probe_tensor_sensitivity(
+            inventory,
+            config=config.model_copy(
+                update={
+                    "candidate_bits": (4,),
+                    "candidate_methods": (method,),
+                    "target_tensors": (target_tensor,),
+                }
+            ),
+            backend=_MeasuredFakeBackend(),
+            state_path=tmp_path / f"{method.value}-progress.json",
+            base_report=report,
+            calibration_activations=activations,
+        )
+        refined_entry = next(
+            entry for entry in refined.entries if entry.tensor.name == target_tensor
+        )
+        candidate = next(
+            candidate
+            for candidate in refined_entry.candidates
+            if candidate.bits == 4 and candidate.method == method
+        )
+        assert candidate.supported
+        assert candidate.measured_tokens == four_bit.measured_tokens
+        assert candidate.metrics.peak_memory_cost == four_bit.metrics.peak_memory_cost
+        assert candidate.metrics.prefill_latency_cost == four_bit.metrics.prefill_latency_cost
+        assert candidate.note is not None
+        assert note_text in candidate.note
+        assert "hardware costs normalized" in candidate.note
+
+
+class TestMlxProbeBackendRefinement:
+    def test_awq_gptq_quantize_forward_restore(self, tmp_path: Path) -> None:
+        pytest.importorskip("mlx_lm")
+        import test_capture as _tc
+
+        model_dir = tmp_path / "tiny-llama"
+        _tc._write_tiny_llama(model_dir)
+        module_path = "model.layers.0.self_attn.q_proj"
+        rng = np.random.default_rng(0)
+        activations = {module_path: rng.standard_normal((16, 32)).astype(np.float32)}
+        tokens = np.array([[3, 4, 5, 6, 7, 8]], dtype=np.int32)
+
+        for method in (QuantMethod.AWQ, QuantMethod.GPTQ):
+            backend = MlxProbeBackend(calibration_activations=activations)
+            backend.load_model(model_dir)
+            _, _, module = backend._get_parent_and_module(module_path)
+            original_weight = np.asarray(module.weight)
+            reference = backend.forward(tokens)
+            backend.quantize_module(module_path, 4, 32, method)
+            _, _, quantized = backend._get_parent_and_module(module_path)
+            assert quantized is not module
+            measured = backend.forward(tokens)
+            assert measured.loss is not None
+            assert reference.loss is not None
+            backend.restore_module(module_path)
+            _, _, restored = backend._get_parent_and_module(module_path)
+            assert restored is module
+            assert np.array_equal(np.asarray(restored.weight), original_weight)
+
+    def test_awq_gptq_missing_activations_fail_closed(self, tmp_path: Path) -> None:
+        pytest.importorskip("mlx_lm")
+        import test_capture as _tc
+
+        model_dir = tmp_path / "tiny-llama"
+        _tc._write_tiny_llama(model_dir)
+        for method in (QuantMethod.AWQ, QuantMethod.GPTQ):
+            backend = MlxProbeBackend()
+            backend.load_model(model_dir)
+            with pytest.raises(ProbeError, match="capture-activations"):
+                backend.quantize_module("model.layers.0.self_attn.q_proj", 4, 32, method)
+            backend.restore_module("model.layers.0.self_attn.q_proj")
 
 
 def test_probe_role_floors_keep_embedding_measurable(

@@ -230,6 +230,8 @@ def strategy_for_measurement(
         return ScaleStrategy.NONE, OutlierStrategy.NONE
     if measurement.method == QuantMethod.AWQ:
         return ScaleStrategy.CHANNEL_AWQ, OutlierStrategy.NONE
+    if measurement.method == QuantMethod.GPTQ:
+        return ScaleStrategy.GPTQ_HESSIAN, OutlierStrategy.NONE
     if measurement.method == QuantMethod.DWQ:
         return ScaleStrategy.GROUP_AFFINE, OutlierStrategy.PERCENTILE_CLIP_DWQ
     return ScaleStrategy.GROUP_AFFINE, OutlierStrategy.NONE

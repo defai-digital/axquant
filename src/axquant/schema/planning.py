@@ -78,6 +78,7 @@ class HardwareProfile(StrictModel):
         QuantMethod.AFFINE,
         QuantMethod.AWQ,
         QuantMethod.DWQ,
+        QuantMethod.GPTQ,
         QuantMethod.BF16,
     )
     supported_group_sizes: tuple[int, ...] = (32, 64, 128)

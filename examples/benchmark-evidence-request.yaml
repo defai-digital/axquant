@@ -19,6 +19,9 @@ entries:
   - kind: dwq
     status: unavailable
     unavailable_reason: No compatible MLX DWQ baseline is available.
+  - kind: gptq
+    status: unavailable
+    unavailable_reason: No compatible MLX GPTQ baseline is available.
   - kind: axquant-mtp-off
     status: available
     evaluation_file: evidence/axquant-mtp-off.json

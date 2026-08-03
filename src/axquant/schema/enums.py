@@ -40,6 +40,7 @@ class ScaleStrategy(StrEnum):
     NONE = "none"
     GROUP_AFFINE = "group-affine"
     CHANNEL_AWQ = "channel-awq"
+    GPTQ_HESSIAN = "gptq-hessian"
 
 
 class OutlierStrategy(StrEnum):
@@ -98,6 +99,7 @@ class BenchmarkEvidenceKind(StrEnum):
     MIXED_PRECISION = "mixed-precision"
     AWQ = "awq"
     DWQ = "dwq"
+    GPTQ = "gptq"
     AXQUANT_MTP_OFF = "axquant-mtp-off"
     AXQUANT_MTP_ON = "axquant-mtp-on"
 

@@ -211,6 +211,8 @@ def _run(args: argparse.Namespace) -> int:
             raise ValueError(
                 "--base-sensitivity/--target-tensor require measured --calibration probing"
             )
+        if args.calibration_activations and not args.calibration:
+            raise ValueError("--calibration-activations requires measured --calibration probing")
         inventory = inspect_model(
             args.model,
             model_id=args.model_id,
@@ -221,6 +223,15 @@ def _run(args: argparse.Namespace) -> int:
             from axquant.probe import probe_tensor_sensitivity
             from axquant.schema import ProbeConfig
 
+            calibration_activations = None
+            if args.calibration_activations:
+                from axquant.capture import load_capture_activations
+
+                calibration_activations = load_capture_activations(
+                    args.calibration_activations,
+                    model=inventory.model.model_id,
+                    revision=args.revision or inventory.model.revision,
+                )
             analysis_report = probe_tensor_sensitivity(
                 inventory,
                 config=ProbeConfig(
@@ -244,6 +255,7 @@ def _run(args: argparse.Namespace) -> int:
                     if args.base_sensitivity
                     else None
                 ),
+                calibration_activations=calibration_activations,
             )
         else:
             analysis_report = architecture_prior_report(

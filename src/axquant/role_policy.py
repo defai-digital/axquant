@@ -26,7 +26,7 @@ class RolePreference:
 # Sensitive roles favor finer groups and AWQ when measured candidates exist.
 ROLE_PREFERENCES: dict[TensorRole, RolePreference] = {
     TensorRole.ATTENTION: RolePreference(
-        preferred_methods=(QuantMethod.AWQ, QuantMethod.AFFINE, QuantMethod.DWQ),
+        preferred_methods=(QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.AFFINE, QuantMethod.DWQ),
         preferred_max_group_size=32,
     ),
     TensorRole.LM_HEAD: RolePreference(
@@ -42,7 +42,7 @@ ROLE_PREFERENCES: dict[TensorRole, RolePreference] = {
         preferred_max_group_size=64,
     ),
     TensorRole.MLP: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.AWQ),
+        preferred_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ),
         preferred_max_group_size=64,
     ),
     TensorRole.EXPERT: RolePreference(

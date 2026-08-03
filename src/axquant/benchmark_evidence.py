@@ -16,6 +16,7 @@ _OPTIONAL_BASELINES = {
     BenchmarkEvidenceKind.MIXED_PRECISION,
     BenchmarkEvidenceKind.AWQ,
     BenchmarkEvidenceKind.DWQ,
+    BenchmarkEvidenceKind.GPTQ,
 }
 
 _REQUIRED_METADATA = (

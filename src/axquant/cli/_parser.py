@@ -75,7 +75,12 @@ def _methods(value: str) -> tuple[QuantMethod, ...]:
 
 def _probe_methods(value: str) -> tuple[QuantMethod, ...]:
     result = _methods(value)
-    unsupported = set(result) - {QuantMethod.AFFINE, QuantMethod.DWQ}
+    unsupported = set(result) - {
+        QuantMethod.AFFINE,
+        QuantMethod.DWQ,
+        QuantMethod.AWQ,
+        QuantMethod.GPTQ,
+    }
     if unsupported:
         names = ", ".join(sorted(method.value for method in unsupported))
         raise argparse.ArgumentTypeError(f"measured probing cannot execute methods: {names}")
@@ -191,6 +196,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     analyze_parser.add_argument("--group-size", type=int, default=64)
     analyze_parser.add_argument("--calibration")
+    analyze_parser.add_argument(
+        "--calibration-activations",
+        help="path to a capture-activations artifact directory "
+        "(required when --methods includes AWQ or GPTQ)",
+    )
     analyze_parser.add_argument("--base-sensitivity")
     analyze_parser.add_argument("--target-tensor", action="append", default=[])
     analyze_parser.add_argument("--token-budget", type=int, default=2048)
@@ -639,6 +649,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "mixed-precision",
             "awq",
             "dwq",
+            "gptq",
             "axquant-mtp-off",
             "axquant-mtp-on",
             "candidate",
@@ -683,6 +694,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "mixed-precision",
             "awq",
             "dwq",
+            "gptq",
             "axquant-mtp-off",
             "axquant-mtp-on",
             "candidate",
@@ -698,6 +710,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "mixed-precision",
             "awq",
             "dwq",
+            "gptq",
             "axquant-mtp-off",
             "axquant-mtp-on",
             "candidate",

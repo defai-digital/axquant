@@ -150,9 +150,14 @@ class ProbeConfig(StrictModel):
         value: tuple[QuantMethod, ...],
     ) -> tuple[QuantMethod, ...]:
         normalized = tuple(sorted(set(value), key=lambda method: method.value))
-        supported = {QuantMethod.AFFINE, QuantMethod.DWQ}
+        supported = {
+            QuantMethod.AFFINE,
+            QuantMethod.DWQ,
+            QuantMethod.AWQ,
+            QuantMethod.GPTQ,
+        }
         if not normalized or set(normalized) - supported:
-            raise ValueError("probe methods must contain only affine and/or dwq")
+            raise ValueError("probe methods must contain only affine, dwq, awq, and/or gptq")
         return normalized
 
     @field_validator("candidate_group_sizes")

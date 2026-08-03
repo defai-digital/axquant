@@ -1590,7 +1590,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     learned_methods = {
         assignment.method
         for assignment in plan.assignments
-        if assignment.method in {QuantMethod.AWQ, QuantMethod.DWQ}
+        if assignment.method in {QuantMethod.AWQ, QuantMethod.DWQ, QuantMethod.GPTQ}
     }
     if not learned_methods:
         m4_issues.append("selected plan uses no learned refinement method")
@@ -1599,6 +1599,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     method_baseline = {
         QuantMethod.AWQ: BenchmarkEvidenceKind.AWQ,
         QuantMethod.DWQ: BenchmarkEvidenceKind.DWQ,
+        QuantMethod.GPTQ: BenchmarkEvidenceKind.GPTQ,
     }
     missing_method_baselines = sorted(
         method.value

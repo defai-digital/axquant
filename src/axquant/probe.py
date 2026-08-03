@@ -8,6 +8,7 @@ the probe backend is actually invoked.
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
@@ -19,8 +20,10 @@ from axquant.activation_cache import (
     load_cache_manifest,
     verify_cache_integrity,
 )
+from axquant.awq import apply_mlx_awq_scale
 from axquant.dwq import apply_mlx_dwq_clip
 from axquant.errors import BackendUnavailableError, PlanningError, ProbeError
+from axquant.gptq import apply_mlx_gptq_refine
 from axquant.module_paths import mlx_module_aliases
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
@@ -54,7 +57,17 @@ _REQUIRED_AGENT_CODING_DOMAINS = {
     "multilingual",
     "long-context",
 }
-_PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v4"
+_PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v5"
+# Methods that refine the float weight before identical affine packing. They
+# reuse the matching AFFINE candidate as the hardware-cost control.
+_REFINEMENT_METHODS = frozenset({QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ})
+# Methods whose refinement is driven by captured calibration activations.
+_ACTIVATION_DRIVEN_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_REFINEMENT_NOTES = {
+    QuantMethod.DWQ: "sampled 0.1/99.9-percentile clipping followed by affine packing",
+    QuantMethod.AWQ: "activation-aware channel scaling followed by affine packing",
+    QuantMethod.GPTQ: "hessian error-compensated rounding followed by affine packing",
+}
 _PROBE_MIN_BITS = {
     TensorRole.EMBEDDING: 8,
     TensorRole.NORM: 16,
@@ -119,11 +132,12 @@ def _candidate_bits_for_tensor(tensor: TensorSpec, config: ProbeConfig) -> tuple
 class MlxProbeBackend:
     """MLX-based probe backend with lazy imports."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, calibration_activations: Mapping[str, Any] | None = None) -> None:
         self._model: Any = None
         self._original_modules: dict[str, tuple[Any, str, Any]] = {}
         self._mlx: Any = None
         self._mlx_lm: Any = None
+        self._calibration_activations = dict(calibration_activations or {})
         self.metric_positions_per_sample = 32
 
     def _ensure_mlx(self) -> None:
@@ -163,13 +177,29 @@ class MlxProbeBackend:
         to_quantized = getattr(module, "to_quantized", None)
         if not callable(to_quantized):
             raise ProbeError(f"module does not support affine quantization: {resolved_path}")
-        if method not in {QuantMethod.AFFINE, QuantMethod.DWQ}:
+        if method not in {QuantMethod.AFFINE, *_REFINEMENT_METHODS}:
             raise ProbeError(f"probe backend does not support method {method.value}")
         original_weight = getattr(module, "weight", None)
         mutation_installed = False
         try:
             if method == QuantMethod.DWQ:
                 apply_mlx_dwq_clip(module)
+            elif method in _ACTIVATION_DRIVEN_METHODS:
+                activations = self._calibration_for(module_path, resolved_path, method)
+                if method == QuantMethod.AWQ:
+                    apply_mlx_awq_scale(
+                        module,
+                        activations=activations,
+                        bits=bits,
+                        group_size=group_size,
+                    )
+                else:
+                    apply_mlx_gptq_refine(
+                        module,
+                        activations=activations,
+                        bits=bits,
+                        group_size=group_size,
+                    )
             quantized_module = to_quantized(
                 group_size=group_size,
                 bits=bits,
@@ -185,7 +215,7 @@ class MlxProbeBackend:
                 f"cannot quantize {resolved_path} with {method.value} at {bits}-bit: {exc}"
             ) from exc
         finally:
-            if method == QuantMethod.DWQ and original_weight is not None:
+            if method in _REFINEMENT_METHODS and original_weight is not None:
                 module.weight = original_weight
         self._original_modules[module_path] = (parent, child_name, module)
         log.debug(
@@ -269,6 +299,24 @@ class MlxProbeBackend:
                 f"found {len(suffix_matches)} matches"
             )
         return str(suffix_matches[0])
+
+    def _calibration_for(self, module_path: str, resolved_path: str, method: QuantMethod) -> Any:
+        """Resolve captured calibration activations for an inventory module path."""
+        keys = [module_path, resolved_path]
+        for key in (module_path, resolved_path):
+            if key.endswith(".weight"):
+                keys.append(key[: -len(".weight")])
+        for alias in mlx_module_aliases(module_path):
+            keys.append(alias)
+            if alias.endswith(".weight"):
+                keys.append(alias[: -len(".weight")])
+        for key in keys:
+            if key in self._calibration_activations:
+                return self._calibration_activations[key]
+        raise ProbeError(
+            f"{method.value} probing requires calibration activations for module "
+            f"{module_path}; run capture-activations to produce them"
+        )
 
     def _get_parent_and_module(self, module_path: str) -> tuple[Any, str, Any]:
         parts = module_path.split(".")
@@ -691,6 +739,7 @@ def probe_tensor_sensitivity(
     state: ProbeState | None = None,
     state_path: str | Path | None = None,
     base_report: SensitivityReport | None = None,
+    calibration_activations: Mapping[str, Any] | None = None,
 ) -> SensitivityReport:
     """Probe per-tensor sensitivity using forward passes.
 
@@ -713,8 +762,15 @@ def probe_tensor_sensitivity(
             "module-group probing is not available in the tensor-isolation backend; "
             "disable it rather than relabelling representative tensor results"
         )
+    if _ACTIVATION_DRIVEN_METHODS & set(config.candidate_methods) and (
+        calibration_activations is None
+    ):
+        raise ProbeError(
+            "AWQ/GPTQ measured probing requires captured calibration activations; "
+            "run capture-activations and pass the artifact via --calibration-activations"
+        )
     if backend is None:
-        backend = MlxProbeBackend()
+        backend = MlxProbeBackend(calibration_activations=calibration_activations)
     if isinstance(backend, MlxProbeBackend):
         backend.metric_positions_per_sample = config.metric_positions_per_sample
 
@@ -945,7 +1001,7 @@ def probe_tensor_sensitivity(
                             ),
                             None,
                         )
-                        if method == QuantMethod.DWQ and packing_control is not None:
+                        if method in _REFINEMENT_METHODS and packing_control is not None:
                             metrics = metrics.model_copy(
                                 update={
                                     "peak_memory_cost": packing_control.metrics.peak_memory_cost,
@@ -964,10 +1020,9 @@ def probe_tensor_sensitivity(
                             and metrics.output_kl > previous_loss * config.early_termination_factor
                         )
                         note_parts: list[str] = []
-                        if method == QuantMethod.DWQ:
-                            note_parts.append(
-                                "sampled 0.1/99.9-percentile clipping followed by affine packing"
-                            )
+                        refinement_note = _REFINEMENT_NOTES.get(method)
+                        if refinement_note is not None:
+                            note_parts.append(refinement_note)
                             if packing_control is not None:
                                 note_parts.append(
                                     "hardware costs normalized to the identical "

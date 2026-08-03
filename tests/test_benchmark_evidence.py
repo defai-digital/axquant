@@ -134,6 +134,7 @@ def test_benchmark_evidence_index_is_complete_and_checksum_bound(tmp_path: Path)
         BenchmarkEvidenceKind.MIXED_PRECISION,
         BenchmarkEvidenceKind.AWQ,
         BenchmarkEvidenceKind.DWQ,
+        BenchmarkEvidenceKind.GPTQ,
     }
 
 

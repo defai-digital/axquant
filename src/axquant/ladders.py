@@ -115,6 +115,7 @@ _LADDERS: dict[ConvertLadderName, ConvertLadder] = {
             QuantMethod.AFFINE,
             QuantMethod.AWQ,
             QuantMethod.DWQ,
+            QuantMethod.GPTQ,
             QuantMethod.BF16,
         ),
         requires_calibration=True,

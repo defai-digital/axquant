@@ -95,7 +95,7 @@ def _index(tmp_path: Path) -> Path:
                 mtp_enabled=bundle.mtp_enabled,
             )
         )
-    for kind in (BenchmarkEvidenceKind.AWQ, BenchmarkEvidenceKind.DWQ):
+    for kind in (BenchmarkEvidenceKind.AWQ, BenchmarkEvidenceKind.DWQ, BenchmarkEvidenceKind.GPTQ):
         entries.append(
             BenchmarkEvidenceEntry(
                 kind=kind,
