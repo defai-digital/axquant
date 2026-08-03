@@ -212,6 +212,9 @@ class ActivationCaptureEntry(StrictModel):
     in_features: int = Field(ge=1)
     file: str
     sha256: str
+    # None = legacy whole-file ``x_rows`` layout; otherwise the npz array key
+    # holding this module's rows inside a shared shard archive.
+    array_key: str | None = None
 
 
 class ActivationCaptureManifest(StrictModel):
@@ -223,6 +226,35 @@ class ActivationCaptureManifest(StrictModel):
     calibration_dataset_id: str
     max_rows: int = Field(ge=1)
     entries: tuple[ActivationCaptureEntry, ...] = ()
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class CaptureProgressModule(StrictModel):
+    """Per-module row-accounting state for a resumable activation capture."""
+
+    seen: int = Field(ge=0)
+    kept: int = Field(ge=0)
+
+
+class CaptureProgress(StrictModel):
+    """Checkpoint state for a segmented, resumable activation capture replay.
+
+    The binding fields (model identity through ``target_modules``) must match
+    the current invocation exactly for a resume to proceed; a mismatch means
+    the output directory belongs to a different capture.
+    """
+
+    schema_version: Literal["axquant.capture-progress.v1"] = "axquant.capture-progress.v1"
+    model: str
+    revision: str | None = None
+    cache_key_sha256: str
+    max_rows: int = Field(ge=1)
+    stride: int = Field(ge=1)
+    token_budget: int = Field(ge=1)
+    segment_batches: int = Field(ge=1)
+    target_modules: list[str]
+    segments_completed: int = Field(ge=0)
+    modules: dict[str, CaptureProgressModule] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
 
 

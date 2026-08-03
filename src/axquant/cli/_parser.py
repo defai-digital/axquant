@@ -851,6 +851,19 @@ def _build_parser() -> argparse.ArgumentParser:
     capture_parser.add_argument("--max-rows", type=int, default=2048)
     capture_parser.add_argument("--token-budget", type=int)
     capture_parser.add_argument(
+        "--segment-batches",
+        type=int,
+        default=8,
+        help="Batches per resumable replay segment (checkpoint written after each)",
+    )
+    capture_parser.add_argument(
+        "--modules-per-shard",
+        type=int,
+        default=1,
+        help="Group this many modules per shared shard-NNNN.npz archive "
+        "(default: one npz per module)",
+    )
+    capture_parser.add_argument(
         "--target-module",
         action="append",
         default=[],

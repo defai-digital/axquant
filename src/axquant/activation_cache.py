@@ -205,13 +205,16 @@ def _tokenizer_sha256(tokenizer: Any) -> str:
     )
 
 
-def _write_npz_atomic(path: Path, **arrays: Any) -> None:
+def _write_npz_atomic(path: Path, *, compressed: bool = False, **arrays: Any) -> None:
     import numpy as np
 
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     try:
         with os.fdopen(descriptor, "wb") as destination:
-            np.savez_compressed(destination, **arrays)
+            if compressed:
+                np.savez_compressed(destination, **arrays)
+            else:
+                np.savez(destination, **arrays)
             destination.flush()
             os.fsync(destination.fileno())
         os.replace(temporary_name, path)
@@ -391,6 +394,7 @@ def tokenize_calibration(
         shard_file = _shard_path(tokenized_dir, shard_index)
         _write_npz_atomic(
             shard_file,
+            compressed=True,
             input_ids=input_ids,
             attention_mask=attention_mask,
             sample_indices=sample_indices,

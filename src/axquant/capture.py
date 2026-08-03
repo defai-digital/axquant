@@ -4,8 +4,16 @@ AWQ/GPTQ-style refinement needs per-module INPUT activations collected from a
 forward replay of a verified tokenized calibration cache.  MLX has no forward
 hooks, so capture swaps each target ``nn.Linear`` with a recording wrapper
 installed on its parent module (the same child-replacement mechanics as the
-probe backend), replays the calibration batches, and writes one
-checksum-bound npz per module plus an ``ActivationCaptureManifest``.
+probe backend), replays the calibration batches, and writes checksum-bound
+npz activations plus an ``ActivationCaptureManifest``.
+
+The replay is segmented: after each segment the newly captured rows are
+flushed to per-segment chunk files under ``activations/.partial/`` and a
+``capture_progress.json`` checkpoint is rewritten, so an interrupted capture
+resumes from the last completed segment instead of losing everything.  On
+full completion the chunks are concatenated into the final per-module (or
+sharded) npz files, the partial state is removed, and a ``completion.json``
+marker is written; ``load_capture_activations`` refuses partial captures.
 
 MLX is a lazy optional dependency imported only when capture runs; loading a
 capture artifact back (``load_capture_activations``) does not require MLX.
@@ -13,18 +21,26 @@ capture artifact back (``load_capture_activations``) does not require MLX.
 
 from __future__ import annotations
 
+import json
 import math
 import re
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from pydantic import ValidationError
 
 from axquant.activation_cache import _write_npz_atomic, load_cache_manifest
-from axquant.errors import BackendUnavailableError, CaptureError
+from axquant.errors import ArtifactError, BackendUnavailableError, CaptureError
 from axquant.module_paths import mlx_module_aliases
 from axquant.probe import _calibration_dataset_id, _load_calibration_inputs
-from axquant.schema import ActivationCaptureEntry, ActivationCaptureManifest
+from axquant.schema import (
+    ActivationCaptureEntry,
+    ActivationCaptureManifest,
+    CaptureProgress,
+    CaptureProgressModule,
+)
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 if TYPE_CHECKING:
@@ -34,6 +50,10 @@ log = structlog.get_logger()
 
 CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 CAPTURE_ACTIVATIONS_DIR = "activations"
+CAPTURE_PROGRESS_NAME = "capture_progress.json"
+CAPTURE_COMPLETION_MARKER = "completion.json"
+_PARTIAL_DIRNAME = ".partial"
+_LEGACY_ARRAY_KEY = "x_rows"
 
 
 def _ensure_mlx() -> tuple[Any, Any, Any]:
@@ -50,6 +70,10 @@ def _ensure_mlx() -> tuple[Any, Any, Any]:
 
 def _sanitize_filename(module_path: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]", "-", module_path)
+
+
+def _shard_array_key(module_path: str) -> str:
+    return f"rows::{module_path}"
 
 
 def _get_child(parent: Any, child_name: str) -> Any:
@@ -153,6 +177,86 @@ def _discover_targets(
     return resolved
 
 
+def _replay_segment(model: Any, mlx: Any, batches: list[Any]) -> None:
+    """Replay one segment of calibration batches through the wrapped model."""
+    import numpy as np
+
+    for batch in batches:
+        tokens = mlx.array(np.asarray(batch, dtype=np.int32))
+        if tokens.ndim == 1:
+            tokens = tokens[None, :]
+        language_model = getattr(model, "language_model", None)
+        text_backbone = getattr(language_model, "model", None)
+        if language_model is not None and callable(text_backbone):
+            output = text_backbone(tokens)
+        else:
+            output = model(tokens)
+        mlx.eval(output)
+
+
+def _flush_segment(
+    partial_dir: Path,
+    sorted_names: list[str],
+    recorders: dict[str, _RowRecorder],
+    segment_index: int,
+) -> None:
+    """Flush each recorder's newly accumulated rows to a per-segment chunk file."""
+    import numpy as np
+
+    for index, name in enumerate(sorted_names):
+        recorder = recorders[name]
+        if not recorder.chunks:
+            continue
+        rows = np.concatenate(recorder.chunks, axis=0).astype(np.float16, copy=False)
+        recorder.chunks = []
+        filename = f"{index:04d}-{_sanitize_filename(name)}.seg-{segment_index:04d}.npz"
+        _write_npz_atomic(partial_dir / filename, x_rows=rows)
+
+
+def _write_completion_marker(
+    capture_dir: Path,
+    *,
+    cache_key_sha256: str,
+    modules: int,
+    rows: int,
+) -> None:
+    """Write the capture completion marker (mirrors the calibration cache convention)."""
+    marker_data = {
+        "complete": True,
+        "cache_key_sha256": cache_key_sha256,
+        "modules": modules,
+        "rows": rows,
+    }
+    marker_path = capture_dir / CAPTURE_COMPLETION_MARKER
+    marker_path.write_text(
+        json.dumps(marker_data, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+
+def _load_resume_progress(
+    progress_path: Path,
+    binding: dict[str, Any],
+) -> CaptureProgress | None:
+    """Load and bind-check an existing progress checkpoint, or None if absent."""
+    if not progress_path.is_file():
+        return None
+    try:
+        progress = load_model(progress_path, CaptureProgress)
+    except (ArtifactError, ValidationError, ValueError) as exc:
+        raise CaptureError(
+            f"capture progress checkpoint is unreadable: {exc}; use a fresh output directory"
+        ) from exc
+    resumed_binding = progress.model_dump(mode="json", include=set(binding))
+    if resumed_binding != binding:
+        raise CaptureError(
+            "existing capture progress does not match this invocation "
+            "(model, revision, cache, max_rows, stride, token budget, segment_batches, "
+            "or target modules differ); use a fresh output directory"
+        )
+    return progress
+
+
 def capture_calibration_activations(
     *,
     model_dir: str | Path,
@@ -161,6 +265,8 @@ def capture_calibration_activations(
     target_modules: tuple[str, ...] | list[str] | None = None,
     max_rows: int = 2048,
     token_budget: int | None = None,
+    segment_batches: int = 8,
+    modules_per_shard: int = 1,
 ) -> ActivationCaptureManifest:
     """Capture per-module Linear input activations over a verified cache.
 
@@ -168,14 +274,25 @@ def capture_calibration_activations(
     recording wrappers on every eligible ``nn.Linear`` (embeddings, LM head,
     and fused MoE SwitchLinears are excluded), subsamples each module's input
     rows with a fixed stride so positions spread across the replay, and writes
-    one fp16 npz per module plus the checksum-bound manifest.  ``token_budget``
+    fp16 npz activations plus the checksum-bound manifest.  ``token_budget``
     defaults to the full cache.
+
+    The replay runs in segments of ``segment_batches`` batches with a
+    checkpoint after each; rerunning with identical inputs resumes from the
+    last completed segment and produces a byte-identical artifact.  With
+    ``modules_per_shard`` above one, modules are grouped into shared
+    ``shard-NNNN.npz`` archives keyed ``rows::<module_path>`` instead of one
+    npz per module.
     """
     import numpy as np
 
-    mlx, nn, mlx_lm = _ensure_mlx()
     if max_rows < 1:
         raise CaptureError("max_rows must be positive")
+    if segment_batches < 1:
+        raise CaptureError("segment_batches must be positive")
+    if modules_per_shard < 1:
+        raise CaptureError("modules_per_shard must be positive")
+    mlx, nn, mlx_lm = _ensure_mlx()
     model_path = Path(model_dir).expanduser().resolve()
     cache_path = Path(cache_dir).expanduser().resolve()
     capture_dir = Path(output_dir).expanduser().resolve()
@@ -200,9 +317,44 @@ def capture_calibration_activations(
     log.info("capture_model_loaded", model_dir=str(model_path))
 
     targets = _discover_targets(model, nn, target_modules)
+    sorted_names = sorted(targets)
     total_rows = sum(int(np.asarray(batch).size) for batch in replay_batches)
     stride = max(1, math.ceil(total_rows / max_rows))
-    recorders = {name: _RowRecorder(stride=stride, max_rows=max_rows) for name in targets}
+
+    activations_dir = capture_dir / CAPTURE_ACTIVATIONS_DIR
+    partial_dir = activations_dir / _PARTIAL_DIRNAME
+    progress_path = capture_dir / CAPTURE_PROGRESS_NAME
+    binding: dict[str, Any] = {
+        "model": cache_manifest.model.model_id,
+        "revision": cache_manifest.model.revision,
+        "cache_key_sha256": cache_manifest.cache_key_sha256,
+        "max_rows": max_rows,
+        "stride": stride,
+        "token_budget": budget,
+        "segment_batches": segment_batches,
+        "target_modules": sorted_names,
+    }
+
+    segments_completed = 0
+    resumed_modules: dict[str, CaptureProgressModule] = {}
+    progress = _load_resume_progress(progress_path, binding)
+    if progress is not None:
+        segments_completed = progress.segments_completed
+        resumed_modules = dict(progress.modules)
+        log.info(
+            "capture_resume_started",
+            output=str(capture_dir),
+            segments_completed=segments_completed,
+        )
+
+    recorders: dict[str, _RowRecorder] = {}
+    for name in sorted_names:
+        recorder = _RowRecorder(stride=stride, max_rows=max_rows)
+        state = resumed_modules.get(name)
+        if state is not None:
+            recorder.seen = state.seen
+            recorder.kept = state.kept
+        recorders[name] = recorder
 
     class _RecordingLinear:
         """Plain callable wrapper; the parent module only ever calls it.
@@ -222,47 +374,102 @@ def capture_calibration_activations(
             return self.inner(x)
 
     originals: dict[str, tuple[Any, str, Any]] = {}
-    for name in targets:
+    for name in sorted_names:
         parent, child_name, original = _parent_and_module(model, name)
         _set_child(parent, child_name, _RecordingLinear(original, recorders[name]))
         originals[name] = (parent, child_name, original)
+
+    segments = [
+        replay_batches[start : start + segment_batches]
+        for start in range(0, len(replay_batches), segment_batches)
+    ]
+    if segments_completed > len(segments):
+        raise CaptureError(
+            f"capture progress claims {segments_completed} completed segments but only "
+            f"{len(segments)} exist; use a fresh output directory"
+        )
     try:
-        for batch in replay_batches:
-            tokens = mlx.array(np.asarray(batch, dtype=np.int32))
-            if tokens.ndim == 1:
-                tokens = tokens[None, :]
-            language_model = getattr(model, "language_model", None)
-            text_backbone = getattr(language_model, "model", None)
-            if language_model is not None and callable(text_backbone):
-                output = text_backbone(tokens)
-            else:
-                output = model(tokens)
-            mlx.eval(output)
+        for segment_index in range(segments_completed, len(segments)):
+            _replay_segment(model, mlx, segments[segment_index])
+            partial_dir.mkdir(parents=True, exist_ok=True)
+            _flush_segment(partial_dir, sorted_names, recorders, segment_index)
+            checkpoint = CaptureProgress(
+                **binding,
+                segments_completed=segment_index + 1,
+                modules={
+                    name: CaptureProgressModule(
+                        seen=recorders[name].seen,
+                        kept=recorders[name].kept,
+                    )
+                    for name in sorted_names
+                },
+            )
+            write_data(progress_path, checkpoint)
+            log.info(
+                "capture_segment_completed",
+                segment=segment_index + 1,
+                segments=len(segments),
+            )
     finally:
         for parent, child_name, original in originals.values():
             _set_child(parent, child_name, original)
 
-    activations_dir = capture_dir / CAPTURE_ACTIVATIONS_DIR
     activations_dir.mkdir(parents=True, exist_ok=True)
-    entries: list[ActivationCaptureEntry] = []
-    for index, name in enumerate(sorted(targets)):
-        recorder = recorders[name]
+    module_rows: dict[str, np.ndarray] = {}
+    module_in_features: dict[str, int] = {}
+    for index, name in enumerate(sorted_names):
         in_features = int(targets[name].weight.shape[1])
-        if recorder.chunks:
-            x_rows = np.concatenate(recorder.chunks, axis=0).astype(np.float16, copy=False)
+        module_in_features[name] = in_features
+        segment_files = sorted(partial_dir.glob(f"{index:04d}-*.seg-*.npz"))
+        arrays: list[np.ndarray] = []
+        for segment_file in segment_files:
+            with np.load(segment_file, allow_pickle=False) as data:
+                arrays.append(np.asarray(data[_LEGACY_ARRAY_KEY], dtype=np.float16))
+        if arrays:
+            module_rows[name] = np.concatenate(arrays, axis=0)
         else:
-            x_rows = np.zeros((0, in_features), dtype=np.float16)
-        filename = f"{index:04d}-{_sanitize_filename(name)}.npz"
-        _write_npz_atomic(activations_dir / filename, x_rows=x_rows)
-        entries.append(
-            ActivationCaptureEntry(
-                module_path=name,
-                rows=int(x_rows.shape[0]),
-                in_features=in_features,
-                file=filename,
-                sha256=file_sha256(activations_dir / filename),
+            module_rows[name] = np.zeros((0, in_features), dtype=np.float16)
+
+    entries: list[ActivationCaptureEntry] = []
+    if modules_per_shard == 1:
+        for index, name in enumerate(sorted_names):
+            x_rows = module_rows[name]
+            filename = f"{index:04d}-{_sanitize_filename(name)}.npz"
+            _write_npz_atomic(activations_dir / filename, compressed=True, x_rows=x_rows)
+            entries.append(
+                ActivationCaptureEntry(
+                    module_path=name,
+                    rows=int(x_rows.shape[0]),
+                    in_features=module_in_features[name],
+                    file=filename,
+                    sha256=file_sha256(activations_dir / filename),
+                )
             )
-        )
+    else:
+        groups = [
+            sorted_names[start : start + modules_per_shard]
+            for start in range(0, len(sorted_names), modules_per_shard)
+        ]
+        for shard_index, group in enumerate(groups):
+            filename = f"shard-{shard_index:04d}.npz"
+            _write_npz_atomic(
+                activations_dir / filename,
+                compressed=True,
+                **{_shard_array_key(name): module_rows[name] for name in group},
+            )
+            shard_sha256 = file_sha256(activations_dir / filename)
+            for name in group:
+                x_rows = module_rows[name]
+                entries.append(
+                    ActivationCaptureEntry(
+                        module_path=name,
+                        rows=int(x_rows.shape[0]),
+                        in_features=module_in_features[name],
+                        file=filename,
+                        sha256=shard_sha256,
+                        array_key=_shard_array_key(name),
+                    )
+                )
 
     manifest = ActivationCaptureManifest(
         model=cache_manifest.model.model_id,
@@ -274,6 +481,14 @@ def capture_calibration_activations(
         entries=tuple(entries),
     )
     write_data(capture_dir / CAPTURE_MANIFEST_NAME, manifest)
+    shutil.rmtree(partial_dir, ignore_errors=True)
+    progress_path.unlink(missing_ok=True)
+    _write_completion_marker(
+        capture_dir,
+        cache_key_sha256=cache_manifest.cache_key_sha256,
+        modules=len(entries),
+        rows=sum(entry.rows for entry in entries),
+    )
     log.info(
         "activation_capture_completed",
         output=str(capture_dir / CAPTURE_MANIFEST_NAME),
@@ -282,6 +497,8 @@ def capture_calibration_activations(
         max_rows=max_rows,
         stride=stride,
         measured_tokens=measured_tokens,
+        segments=len(segments),
+        modules_per_shard=modules_per_shard,
     )
     return manifest
 
@@ -296,6 +513,8 @@ def load_capture_activations(
     import numpy as np
 
     root = Path(capture_dir).expanduser().resolve()
+    if not (root / CAPTURE_COMPLETION_MARKER).is_file():
+        raise CaptureError(f"activation capture is incomplete (no completion marker): {root}")
     manifest = load_model(root / CAPTURE_MANIFEST_NAME, ActivationCaptureManifest)
     if manifest.model != model:
         raise CaptureError(
@@ -305,6 +524,7 @@ def load_capture_activations(
         raise CaptureError(
             f"activation capture revision {manifest.revision!r} does not match {revision!r}"
         )
+    verified_files: dict[str, Path] = {}
     result: dict[str, np.ndarray] = {}
     for entry in manifest.entries:
         if Path(entry.file).name != entry.file:
@@ -312,12 +532,20 @@ def load_capture_activations(
         path = root / CAPTURE_ACTIVATIONS_DIR / entry.file
         if not path.is_file():
             raise CaptureError(f"activation capture file is missing: {path}")
-        if file_sha256(path) != entry.sha256:
-            raise CaptureError(f"activation capture file checksum mismatch: {entry.file}")
+        if entry.file not in verified_files:
+            if file_sha256(path) != entry.sha256:
+                raise CaptureError(f"activation capture file checksum mismatch: {entry.file}")
+            verified_files[entry.file] = path
+        array_key = entry.array_key or _LEGACY_ARRAY_KEY
+        if entry.array_key is not None and entry.array_key != _shard_array_key(entry.module_path):
+            raise CaptureError(
+                f"activation capture array key mismatch for {entry.module_path}: "
+                f"{entry.array_key!r}"
+            )
         with np.load(path, allow_pickle=False) as data:
-            if "x_rows" not in data.files:
-                raise CaptureError(f"activation capture file lacks x_rows: {entry.file}")
-            rows = np.asarray(data["x_rows"], dtype=np.float16)
+            if array_key not in data.files:
+                raise CaptureError(f"activation capture file lacks {array_key}: {entry.file}")
+            rows = np.asarray(data[array_key], dtype=np.float16)
         if rows.shape != (entry.rows, entry.in_features):
             raise CaptureError(
                 f"activation capture shape mismatch for {entry.module_path}: "

@@ -22,6 +22,7 @@ from axquant.errors import CaptureError
 from axquant.schema import (
     ActivationCaptureEntry,
     ActivationCaptureManifest,
+    CaptureProgress,
     ModelIdentity,
     ProfileName,
 )
@@ -74,6 +75,10 @@ def _write_capture_dir(root: Path) -> Path:
         np.savez(activations / filename, x_rows=x_rows)
         entries.append(_entry(name, rows, features, filename, file_sha256(activations / filename)))
     write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(tuple(entries)))
+    (capture / "completion.json").write_text(
+        json.dumps({"complete": True}, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
     return capture
 
 
@@ -132,6 +137,74 @@ class TestLoadCaptureActivations:
         manifest = load_model(capture / CAPTURE_MANIFEST_NAME, ActivationCaptureManifest)
         (capture / CAPTURE_ACTIVATIONS_DIR / manifest.entries[1].file).unlink()
         with pytest.raises(CaptureError, match="missing"):
+            load_capture_activations(capture, model="test-model")
+
+    def test_missing_completion_marker_fails_closed(self, tmp_path: Path) -> None:
+        capture = _write_capture_dir(tmp_path)
+        (capture / "completion.json").unlink()
+        with pytest.raises(CaptureError, match="incomplete"):
+            load_capture_activations(capture, model="test-model")
+
+    def test_sharded_layout_round_trip(self, tmp_path: Path) -> None:
+        capture = tmp_path / "capture"
+        activations = capture / CAPTURE_ACTIVATIONS_DIR
+        activations.mkdir(parents=True)
+        rng = np.random.default_rng(1)
+        specs = (
+            ("model.layers.0.mlp.down_proj", 4, 8),
+            ("model.layers.0.self_attn.q_proj", 6, 8),
+        )
+        arrays = {
+            f"rows::{name}": rng.standard_normal((rows, features)).astype(np.float16)
+            for name, rows, features in specs
+        }
+        np.savez_compressed(activations / "shard-0000.npz", **arrays)
+        shard_sha256 = file_sha256(activations / "shard-0000.npz")
+        entries = tuple(
+            ActivationCaptureEntry(
+                module_path=name,
+                rows=rows,
+                in_features=features,
+                file="shard-0000.npz",
+                sha256=shard_sha256,
+                array_key=f"rows::{name}",
+            )
+            for name, rows, features in specs
+        )
+        write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(entries))
+        (capture / "completion.json").write_text(
+            json.dumps({"complete": True}, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        loaded = load_capture_activations(capture, model="test-model", revision="rev1")
+        assert set(loaded) == {name for name, _, _ in specs}
+        for name, _, _ in specs:
+            np.testing.assert_array_equal(loaded[name], arrays[f"rows::{name}"])
+
+    def test_sharded_array_key_mismatch_fails_closed(self, tmp_path: Path) -> None:
+        capture = tmp_path / "capture"
+        activations = capture / CAPTURE_ACTIVATIONS_DIR
+        activations.mkdir(parents=True)
+        np.savez_compressed(
+            activations / "shard-0000.npz",
+            **{"rows::model.layers.0.mlp.down_proj": np.zeros((4, 8), dtype=np.float16)},
+        )
+        entries = (
+            ActivationCaptureEntry(
+                module_path="model.layers.0.mlp.down_proj",
+                rows=4,
+                in_features=8,
+                file="shard-0000.npz",
+                sha256=file_sha256(activations / "shard-0000.npz"),
+                array_key="rows::model.layers.0.self_attn.q_proj",
+            ),
+        )
+        write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(entries))
+        (capture / "completion.json").write_text(
+            json.dumps({"complete": True}, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        with pytest.raises(CaptureError, match="array key mismatch"):
             load_capture_activations(capture, model="test-model")
 
 
@@ -314,4 +387,215 @@ class TestCaptureEndToEnd:
                 output_dir=tmp_path / "capture-missing",
                 target_modules=["model.layers.9.mlp.down_proj"],
                 max_rows=4,
+            )
+
+
+@pytest.fixture
+def mlx_multi_segment_cache(tmp_path: Path) -> Path:
+    """Cache with enough packed batches to span several replay segments."""
+    dataset = tmp_path / "calibration-multi.jsonl"
+    dataset.write_text(
+        "\n".join(
+            json.dumps({"text": text})
+            for text in (
+                "def sort_list(items): return sorted(items) and filter them all",
+                "Fix the bug in this function and add regression coverage now",
+                "Generate a JSON response with every field populated fully",
+                "Refactor the parser into smaller composable helper pieces",
+                "Write unit tests for the tokenizer edge cases today please",
+                "Document the public API surface with accurate examples here",
+                "Profile the hot loop and remove the extra allocations soon",
+                "Validate all checksums before publishing the artifact bundle",
+                "Handle empty inputs gracefully across every code path now",
+                "Cache the compiled graph to avoid repeated tracing overhead",
+                "Clamp the gradients before the optimizer step is applied",
+                "Shuffle the calibration samples with a deterministic seed",
+            )
+        ),
+        encoding="utf-8",
+    )
+    cache_dir = tmp_path / "cache-multi"
+    tokenize_calibration(
+        model=ModelIdentity(model_id="tiny-llama", revision="rev0"),
+        dataset_path=dataset,
+        output_dir=cache_dir,
+        profile=ProfileName.AGENT_CODING,
+        sequence_length=16,
+        random_seed=7,
+        tokenizer=_SmallTokenizer(),
+    )
+    return cache_dir
+
+
+class TestCaptureResume:
+    def test_resume_matches_single_shot(
+        self,
+        tmp_path: Path,
+        mlx_multi_segment_cache: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("mlx.core")
+        model_dir = tmp_path / "tiny-llama"
+        _write_tiny_llama(model_dir)
+        output_dir = tmp_path / "capture"
+        control_dir = tmp_path / "capture-control"
+
+        import axquant.capture as capture_module
+
+        real_replay = capture_module._replay_segment
+        calls = {"count": 0}
+
+        def boom(model: object, mlx: object, batches: list[object]) -> None:
+            calls["count"] += 1
+            if calls["count"] == 3:
+                raise RuntimeError("simulated interruption")
+            real_replay(model, mlx, batches)
+
+        monkeypatch.setattr(capture_module, "_replay_segment", boom)
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_multi_segment_cache,
+                output_dir=output_dir,
+                max_rows=8,
+                segment_batches=1,
+            )
+        progress = load_model(output_dir / "capture_progress.json", CaptureProgress)
+        assert progress.segments_completed == 2
+        assert (output_dir / CAPTURE_ACTIVATIONS_DIR / ".partial").is_dir()
+        assert not (output_dir / "completion.json").exists()
+        with pytest.raises(CaptureError, match="incomplete"):
+            load_capture_activations(output_dir, model="tiny-llama")
+
+        monkeypatch.undo()
+        resumed = capture_calibration_activations(
+            model_dir=model_dir,
+            cache_dir=mlx_multi_segment_cache,
+            output_dir=output_dir,
+            max_rows=8,
+            segment_batches=1,
+        )
+        assert not (output_dir / "capture_progress.json").exists()
+        assert not (output_dir / CAPTURE_ACTIVATIONS_DIR / ".partial").exists()
+        assert (output_dir / "completion.json").is_file()
+
+        control = capture_calibration_activations(
+            model_dir=model_dir,
+            cache_dir=mlx_multi_segment_cache,
+            output_dir=control_dir,
+            max_rows=8,
+            segment_batches=1,
+        )
+        assert resumed.model_dump(mode="json", exclude={"created_at"}) == control.model_dump(
+            mode="json", exclude={"created_at"}
+        )
+        resumed_rows = load_capture_activations(output_dir, model="tiny-llama", revision="rev0")
+        control_rows = load_capture_activations(control_dir, model="tiny-llama", revision="rev0")
+        assert set(resumed_rows) == set(control_rows)
+        for name in resumed_rows:
+            np.testing.assert_array_equal(resumed_rows[name], control_rows[name])
+
+    def test_resume_binding_mismatch_fails_closed(
+        self,
+        tmp_path: Path,
+        mlx_multi_segment_cache: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("mlx.core")
+        model_dir = tmp_path / "tiny-llama"
+        _write_tiny_llama(model_dir)
+        output_dir = tmp_path / "capture"
+
+        import axquant.capture as capture_module
+
+        real_replay = capture_module._replay_segment
+        calls = {"count": 0}
+
+        def boom(model: object, mlx: object, batches: list[object]) -> None:
+            calls["count"] += 1
+            if calls["count"] == 2:
+                raise RuntimeError("simulated interruption")
+            real_replay(model, mlx, batches)
+
+        monkeypatch.setattr(capture_module, "_replay_segment", boom)
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_multi_segment_cache,
+                output_dir=output_dir,
+                max_rows=8,
+                segment_batches=1,
+            )
+        assert (output_dir / "capture_progress.json").is_file()
+        monkeypatch.undo()
+        with pytest.raises(CaptureError, match="fresh output directory"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_multi_segment_cache,
+                output_dir=output_dir,
+                max_rows=16,
+                segment_batches=1,
+            )
+
+
+class TestCaptureSharding:
+    def test_sharded_capture_round_trip(self, tmp_path: Path, mlx_calibration_cache: Path) -> None:
+        pytest.importorskip("mlx.core")
+        model_dir = tmp_path / "tiny-llama"
+        _write_tiny_llama(model_dir)
+        sharded_dir = tmp_path / "capture-sharded"
+        control_dir = tmp_path / "capture-control"
+
+        sharded = capture_calibration_activations(
+            model_dir=model_dir,
+            cache_dir=mlx_calibration_cache,
+            output_dir=sharded_dir,
+            max_rows=8,
+            modules_per_shard=3,
+        )
+        control = capture_calibration_activations(
+            model_dir=model_dir,
+            cache_dir=mlx_calibration_cache,
+            output_dir=control_dir,
+            max_rows=8,
+        )
+
+        assert len(sharded.entries) == len(control.entries) == 7
+        for entry in sharded.entries:
+            assert entry.array_key == f"rows::{entry.module_path}"
+            assert entry.file.startswith("shard-")
+        shard_files = {entry.file for entry in sharded.entries}
+        assert shard_files == {"shard-0000.npz", "shard-0001.npz", "shard-0002.npz"}
+        by_file: dict[str, set[str]] = {}
+        for entry in sharded.entries:
+            by_file.setdefault(entry.file, set()).add(entry.sha256)
+        assert all(len(digests) == 1 for digests in by_file.values())
+        assert len(by_file["shard-0000.npz"]) == 1
+
+        import zipfile
+
+        shard_path = sharded_dir / CAPTURE_ACTIVATIONS_DIR / "shard-0000.npz"
+        with zipfile.ZipFile(shard_path) as archive:
+            assert all(info.compress_type == zipfile.ZIP_DEFLATED for info in archive.infolist())
+
+        sharded_rows = load_capture_activations(sharded_dir, model="tiny-llama", revision="rev0")
+        control_rows = load_capture_activations(control_dir, model="tiny-llama", revision="rev0")
+        assert set(sharded_rows) == set(control_rows)
+        for name in sharded_rows:
+            np.testing.assert_array_equal(sharded_rows[name], control_rows[name])
+
+    def test_invalid_segment_and_shard_sizes(self, tmp_path: Path) -> None:
+        with pytest.raises(CaptureError, match="segment_batches"):
+            capture_calibration_activations(
+                model_dir=tmp_path,
+                cache_dir=tmp_path,
+                output_dir=tmp_path / "out",
+                segment_batches=0,
+            )
+        with pytest.raises(CaptureError, match="modules_per_shard"):
+            capture_calibration_activations(
+                model_dir=tmp_path,
+                cache_dir=tmp_path,
+                output_dir=tmp_path / "out",
+                modules_per_shard=0,
             )

@@ -1331,6 +1331,8 @@ def _run(args: argparse.Namespace) -> int:
             target_modules=tuple(args.target_modules) or None,
             max_rows=args.max_rows,
             token_budget=args.token_budget,
+            segment_batches=args.segment_batches,
+            modules_per_shard=args.modules_per_shard,
         )
         log.info(
             "capture_activations_completed",
