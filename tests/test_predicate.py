@@ -127,24 +127,29 @@ def test_awq_plan_is_admitted_by_predicate_allowlist() -> None:
     config = predicate("layers.0.mlp.down_proj", object())
     assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
     assert predicate.unmatched_quantized_modules() == set()
-    assert predicate.awq_metadata == {}
+    assert predicate.method_metadata == {}
+
+
+def test_gptq_plan_is_admitted_by_predicate_allowlist() -> None:
+    plan = _mlp_plan(method=QuantMethod.GPTQ)
+    # Preflight / coverage path must not reject solely because the method is GPTQ.
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    config = predicate("layers.0.mlp.down_proj", object())
+    assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
+    assert predicate.unmatched_quantized_modules() == set()
+    assert predicate.method_metadata == {}
 
 
 def test_awq_refinement_requires_calibration_activations() -> None:
     plan = _mlp_plan(method=QuantMethod.AWQ)
-    with pytest.raises(PlanningError, match="AWQ conversion requires calibration activations"):
+    with pytest.raises(PlanningError, match="requires calibration activations"):
         build_quant_predicate(plan, execute_refinement=True)
-    with pytest.raises(PlanningError, match="cannot execute methods"):
-        plan.assignments[0].method = QuantMethod.GPTQ
-        plan.hardware = plan.hardware.model_copy(
-            update={
-                "supported_methods": (
-                    *plan.hardware.supported_methods,
-                    QuantMethod.GPTQ,
-                )
-            }
-        )
-        build_quant_predicate(plan, execute_refinement=False)
+
+
+def test_gptq_refinement_requires_calibration_activations() -> None:
+    plan = _mlp_plan(method=QuantMethod.GPTQ)
+    with pytest.raises(PlanningError, match="requires calibration activations"):
+        build_quant_predicate(plan, execute_refinement=True)
 
 
 def test_awq_refinement_executes_before_affine_packing(
@@ -179,16 +184,59 @@ def test_awq_refinement_executes_before_affine_packing(
     activations = np.random.default_rng(0).standard_normal((32, 64), dtype=np.float32)
     predicate = build_quant_predicate(
         plan,
-        awq_activations={plan.assignments[0].module_path: activations},
+        calibration_activations={plan.assignments[0].module_path: activations},
     )
     config = predicate("layers.0.mlp.down_proj", object())
     assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
     assert captured["bits"] == 4
     assert captured["group_size"] == 64
     assert np.allclose(captured["activations"], activations)
-    meta = predicate.awq_metadata[plan.assignments[0].module_path]
+    meta = predicate.method_metadata[plan.assignments[0].module_path]
     assert meta["awq_alpha"] == 0.5
     assert len(meta["awq_channel_scales"]) == 64
+
+
+def test_gptq_refinement_executes_before_affine_packing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _mlp_plan(method=QuantMethod.GPTQ)
+    captured: dict[str, object] = {}
+
+    def _fake_gptq(
+        module: object,
+        *,
+        activations: object,
+        bits: int,
+        group_size: int,
+        damping: float = 0.01,
+    ) -> dict[str, float | int]:
+        del damping
+        captured["module"] = module
+        captured["activations"] = activations
+        captured["bits"] = bits
+        captured["group_size"] = group_size
+        return {
+            "gptq_damping": 0.01,
+            "calibration_rows": 32,
+            "bits": bits,
+            "group_size": group_size,
+            "mean_quant_error": 0.001,
+        }
+
+    monkeypatch.setattr(predicate_module, "_apply_gptq_refine", _fake_gptq)
+    activations = np.random.default_rng(0).standard_normal((32, 64), dtype=np.float32)
+    predicate = build_quant_predicate(
+        plan,
+        calibration_activations={plan.assignments[0].module_path: activations},
+    )
+    config = predicate("layers.0.mlp.down_proj", object())
+    assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
+    assert captured["bits"] == 4
+    assert captured["group_size"] == 64
+    assert np.allclose(captured["activations"], activations)
+    meta = predicate.method_metadata[plan.assignments[0].module_path]
+    assert meta["gptq_damping"] == 0.01
+    assert meta["calibration_rows"] == 32
 
 
 def test_portable_awq_refinement_matches_plugin_contract() -> None:
@@ -252,3 +300,16 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
     mixed = plan.model_copy(update={"assignments": [*plan.assignments, *mixed_members]})
     with pytest.raises(PlanningError, match="mixes precisions"):
         build_quant_predicate(mixed, execute_refinement=False)
+
+    gptq_members = [member.model_copy(update={"method": QuantMethod.GPTQ}) for member in members]
+    gptq_fused = plan.model_copy(update={"assignments": [*plan.assignments, *gptq_members]})
+    gptq_fused.hardware = gptq_fused.hardware.model_copy(
+        update={
+            "supported_methods": (
+                *gptq_fused.hardware.supported_methods,
+                QuantMethod.GPTQ,
+            )
+        }
+    )
+    with pytest.raises(PlanningError, match="requires the affine method"):
+        build_quant_predicate(gptq_fused, execute_refinement=False)

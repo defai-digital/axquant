@@ -303,6 +303,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("--calibration-manifest")
     convert_parser.add_argument(
+        "--calibration-activations",
+        help="path to a capture-activations artifact directory "
+        "(required when the plan uses AWQ or GPTQ methods)",
+    )
+    convert_parser.add_argument(
         "--kv-sensitivity",
         help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
     )

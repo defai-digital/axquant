@@ -6,10 +6,11 @@ from typing import Any
 from axquant.awq import apply_mlx_awq_scale as _apply_awq_scale
 from axquant.dwq import apply_mlx_dwq_clip as _apply_dwq_clip
 from axquant.errors import PlanningError
+from axquant.gptq import apply_mlx_gptq_refine as _apply_gptq_refine
 from axquant.module_paths import fused_expert_module, mlx_module_aliases
 from axquant.schema import Allocation, QuantizationPlan
 
-_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq"})
+_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq"})
 
 
 def _without_weight_suffix(path: str) -> str:
@@ -22,7 +23,7 @@ class PlanPredicate:
         plan: QuantizationPlan,
         *,
         execute_refinement: bool = True,
-        awq_activations: Mapping[str, Any] | None = None,
+        calibration_activations: Mapping[str, Any] | None = None,
     ) -> None:
         self._assignments = {
             _without_weight_suffix(allocation.module_path): allocation
@@ -71,9 +72,9 @@ class PlanPredicate:
                 self._aliases[alias] = allocation
         self.matched: set[str] = set()
         self._execute_refinement = execute_refinement
-        self._awq_activations = dict(awq_activations or {})
+        self._calibration_activations = dict(calibration_activations or {})
         self.dwq_metadata: dict[str, dict[str, float | int]] = {}
-        self.awq_metadata: dict[str, dict[str, float | int | list[float]]] = {}
+        self.method_metadata: dict[str, dict[str, Any]] = {}
 
     def lookup(self, path: str) -> Allocation | None:
         normalized = _without_weight_suffix(path)
@@ -91,7 +92,7 @@ class PlanPredicate:
             raise PlanningError(f"ambiguous module path {path}")
         return suffix_matches[0] if suffix_matches else None
 
-    def _resolve_awq_calibration(self, allocation: Allocation) -> Any:
+    def _resolve_calibration(self, allocation: Allocation) -> Any:
         candidates = [
             allocation.module_path,
             _without_weight_suffix(allocation.module_path),
@@ -99,15 +100,16 @@ class PlanPredicate:
             _without_weight_suffix(allocation.tensor),
         ]
         for key in candidates:
-            if key in self._awq_activations:
-                return self._awq_activations[key]
+            if key in self._calibration_activations:
+                return self._calibration_activations[key]
         for alias in mlx_module_aliases(allocation.module_path):
-            if alias in self._awq_activations:
-                return self._awq_activations[alias]
-            if _without_weight_suffix(alias) in self._awq_activations:
-                return self._awq_activations[_without_weight_suffix(alias)]
+            if alias in self._calibration_activations:
+                return self._calibration_activations[alias]
+            if _without_weight_suffix(alias) in self._calibration_activations:
+                return self._calibration_activations[_without_weight_suffix(alias)]
         raise PlanningError(
-            f"AWQ conversion requires calibration activations for module {allocation.module_path}"
+            "AWQ/GPTQ conversion requires calibration activations for module "
+            f"{allocation.module_path}; run capture-activations to produce them"
         )
 
     def __call__(self, path: str, module: Any, *args: Any) -> bool | dict[str, Any]:
@@ -131,8 +133,21 @@ class PlanPredicate:
                 raise PlanningError(
                     f"AWQ allocation is missing group_size: {allocation.module_path}"
                 )
-            calibration = self._resolve_awq_calibration(allocation)
-            self.awq_metadata[allocation.module_path] = _apply_awq_scale(
+            calibration = self._resolve_calibration(allocation)
+            self.method_metadata[allocation.module_path] = _apply_awq_scale(
+                module,
+                activations=calibration,
+                bits=allocation.bits,
+                group_size=group_size,
+            )
+        if allocation.method.value == "gptq" and self._execute_refinement:
+            group_size = allocation.group_size
+            if group_size is None:
+                raise PlanningError(
+                    f"GPTQ allocation is missing group_size: {allocation.module_path}"
+                )
+            calibration = self._resolve_calibration(allocation)
+            self.method_metadata[allocation.module_path] = _apply_gptq_refine(
                 module,
                 activations=calibration,
                 bits=allocation.bits,
@@ -157,7 +172,7 @@ def build_quant_predicate(
     plan: QuantizationPlan,
     *,
     execute_refinement: bool = True,
-    awq_activations: Mapping[str, Any] | None = None,
+    calibration_activations: Mapping[str, Any] | None = None,
 ) -> PlanPredicate:
     undeclared = {
         allocation.method.value
@@ -177,20 +192,21 @@ def build_quant_predicate(
         raise PlanningError(
             f"the MLX-LM predicate backend cannot execute methods {sorted(unsupported)}"
         )
-    awq_assignments = [
+    calibration_assignments = [
         allocation
         for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.method.value == "awq"
+        if allocation.bits < 16 and allocation.method.value in ("awq", "gptq")
     ]
-    if awq_assignments and execute_refinement and not awq_activations:
-        missing = sorted(allocation.module_path for allocation in awq_assignments)
+    if calibration_assignments and execute_refinement and not calibration_activations:
+        missing = sorted(allocation.module_path for allocation in calibration_assignments)
         raise PlanningError(
-            f"AWQ conversion requires calibration activations for modules: {missing[:10]}"
+            "AWQ/GPTQ conversion requires calibration activations for modules: "
+            f"{missing[:10]}; run capture-activations to produce them"
         )
     return PlanPredicate(
         plan,
         execute_refinement=execute_refinement,
-        awq_activations=awq_activations,
+        calibration_activations=calibration_activations,
     )
 
 

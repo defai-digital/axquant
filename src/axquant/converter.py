@@ -648,7 +648,7 @@ def convert_model(
     mtp_layout: MtpSidecarLayout = MtpSidecarLayout.BYTE_PRESERVED,
     calibration_manifest: str | Path | None = None,
     kv_sensitivity: str | Path | None = None,
-    awq_activations: Mapping[str, Any] | None = None,
+    calibration_activations: Mapping[str, Any] | None = None,
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
     ax_engine_bench: str = "ax-engine-bench",
@@ -708,12 +708,12 @@ def convert_model(
         predicate = build_quant_predicate(
             plan,
             execute_refinement=False,
-            awq_activations=awq_activations,
+            calibration_activations=calibration_activations,
         )
         _LOG.info("conversion_preflight_started", model=convert_model_ref)
         _preflight_coverage(convert_model_ref, convert_revision, predicate)
         convert, _ = _mlx_api()
-        predicate = build_quant_predicate(plan, awq_activations=awq_activations)
+        predicate = build_quant_predicate(plan, calibration_activations=calibration_activations)
         default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:
             convert(
@@ -743,12 +743,16 @@ def convert_model(
                     else (
                         "AWQ activation scaling followed by portable affine packing"
                         if allocation.method.value == "awq"
-                        else "MLX-LM affine packing"
+                        else (
+                            "GPTQ Hessian error compensation followed by portable affine packing"
+                            if allocation.method.value == "gptq"
+                            else "MLX-LM affine packing"
+                        )
                     )
                 ),
                 metadata=(
-                    predicate.awq_metadata.get(allocation.module_path, {})
-                    if allocation.method.value == "awq"
+                    predicate.method_metadata.get(allocation.module_path, {})
+                    if allocation.method.value in ("awq", "gptq")
                     else predicate.dwq_metadata.get(allocation.module_path, {})
                 ),
             )

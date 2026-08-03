@@ -421,6 +421,15 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "convert":
         plan = load_model(args.plan, QuantizationPlan)
+        calibration_activations = None
+        if args.calibration_activations:
+            from axquant.capture import load_capture_activations
+
+            calibration_activations = load_capture_activations(
+                args.calibration_activations,
+                model=plan.source_model.model_id,
+                revision=args.revision or plan.source_model.revision,
+            )
         convert_model(
             model=args.model,
             plan=plan,
@@ -430,6 +439,7 @@ def _run(args: argparse.Namespace) -> int:
             mtp_layout=MtpSidecarLayout(args.mtp_layout),
             calibration_manifest=args.calibration_manifest,
             kv_sensitivity=args.kv_sensitivity,
+            calibration_activations=calibration_activations,
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,

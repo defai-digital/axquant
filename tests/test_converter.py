@@ -117,7 +117,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
     assert preflight.unmatched_quantized_modules() == set()
 
     # Match the plan group size (64) so portable AWQ scale search can run.
-    awq_activations = {
+    calibration_activations = {
         allocation.module_path: np.random.default_rng(i).standard_normal(
             (16, 64),
             dtype=np.float32,
@@ -192,7 +192,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
         plan=plan,
         output=output,
         mtp_sidecar=qwen36_model_dir,
-        awq_activations=awq_activations,
+        calibration_activations=calibration_activations,
         allow_unmeasured=True,
         ax_engine_manifest="skip",
     )
@@ -208,11 +208,150 @@ def test_awq_convert_preflight_and_predicate_are_executable(
     )
     assert all("awq_channel_scales" in record.metadata for record in awq_records)
 
-    with pytest.raises(PlanningError, match="AWQ conversion requires calibration activations"):
+    with pytest.raises(PlanningError, match="requires calibration activations"):
         converter.convert_model(
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "awq-missing-activations",
+            mtp_sidecar=qwen36_model_dir,
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
+
+
+def test_gptq_convert_preflight_and_predicate_are_executable(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exercise the real convert preflight/predicate entry points with a GPTQ plan."""
+    plan = _plan(qwen36_model_dir)
+    gptq_targets = [
+        allocation
+        for allocation in plan.assignments
+        if allocation.bits < 16 and allocation.role == TensorRole.MLP
+    ]
+    assert gptq_targets
+    for allocation in gptq_targets:
+        allocation.method = QuantMethod.GPTQ
+    plan.hardware = plan.hardware.model_copy(
+        update={
+            "supported_methods": (
+                *plan.hardware.supported_methods,
+                QuantMethod.GPTQ,
+            )
+        }
+    )
+
+    # Preflight path must admit GPTQ without activations (refinement disabled).
+    preflight = build_quant_predicate(plan, execute_refinement=False)
+    for allocation in plan.assignments:
+        if allocation.bits < 16:
+            config = preflight(allocation.module_path, object())
+            assert config == {
+                "group_size": allocation.group_size,
+                "bits": allocation.bits,
+                "mode": "affine",
+            }
+    assert preflight.unmatched_quantized_modules() == set()
+
+    # Match the plan group size (64) so portable GPTQ refinement can run.
+    calibration_activations = {
+        allocation.module_path: np.random.default_rng(i).standard_normal(
+            (16, 64),
+            dtype=np.float32,
+        )
+        for i, allocation in enumerate(gptq_targets)
+    }
+
+    class FakeModule:
+        def __init__(self) -> None:
+            self.weight = np.random.default_rng(1).standard_normal((8, 64), dtype=np.float32)
+
+    class FakeModel:
+        def named_modules(self):
+            return [
+                (allocation.module_path, FakeModule())
+                for allocation in plan.assignments
+                if allocation.bits < 16
+            ]
+
+    def fake_load(*args, **kwargs):
+        return FakeModel(), {}, {}
+
+    def fake_convert(model, *, mlx_path, quant_predicate, **kwargs):
+        del model, kwargs
+        for path, module in FakeModel().named_modules():
+            quant_predicate(path, module)
+        output = Path(mlx_path)
+        output.mkdir()
+        converted_config = json.loads(
+            (qwen36_model_dir / "config.json").read_text(encoding="utf-8")
+        )
+        converted_config.pop("vision_config")
+        (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
+        with safe_open(qwen36_model_dir / "model.safetensors", framework="numpy") as source:
+            save_file(
+                {
+                    name: source.get_tensor(name)
+                    for name in list(source.keys())
+                    if not name.startswith("visual.")
+                },
+                output / "model.safetensors",
+            )
+
+    # Use the real portable refine path for GPTQ modules (numpy weights; no MLX required).
+    import axquant.predicate as predicate_module
+    from axquant.gptq import learn_gptq_refined_weight
+
+    def _apply_numpy_gptq(
+        module: FakeModule,
+        *,
+        activations: object,
+        bits: int,
+        group_size: int,
+        damping: float = 0.01,
+    ) -> dict[str, float | int]:
+        refined, metadata = learn_gptq_refined_weight(
+            module.weight,
+            activations,
+            bits=bits,
+            group_size=group_size,
+            damping=damping,
+        )
+        module.weight = refined
+        return metadata
+
+    monkeypatch.setattr(predicate_module, "_apply_gptq_refine", _apply_numpy_gptq)
+    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
+
+    output = tmp_path / "gptq-candidate"
+    manifest = converter.convert_model(
+        model=str(qwen36_model_dir),
+        plan=plan,
+        output=output,
+        mtp_sidecar=qwen36_model_dir,
+        calibration_activations=calibration_activations,
+        allow_unmeasured=True,
+        ax_engine_manifest="skip",
+    )
+    assert (output / "axquant_quantizer_execution.json").is_file()
+    assert any(record.path == "axquant_quantizer_execution.json" for record in manifest.files)
+    execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
+    gptq_records = [record for record in execution.records if record.method == QuantMethod.GPTQ]
+    assert gptq_records
+    assert all(record.success for record in gptq_records)
+    assert all(
+        record.note == "GPTQ Hessian error compensation followed by portable affine packing"
+        for record in gptq_records
+    )
+    assert all("gptq_damping" in record.metadata for record in gptq_records)
+
+    with pytest.raises(PlanningError, match="requires calibration activations"):
+        converter.convert_model(
+            model=str(qwen36_model_dir),
+            plan=plan,
+            output=tmp_path / "gptq-missing-activations",
             mtp_sidecar=qwen36_model_dir,
             allow_unmeasured=True,
             ax_engine_manifest="skip",
