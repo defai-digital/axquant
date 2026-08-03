@@ -43,9 +43,7 @@ def _needs_model_prefix(path: Path) -> bool:
     if not keys:
         return False
     has_model = sum(1 for key in keys if key.startswith("model."))
-    has_flat = sum(
-        1 for key in keys if key.startswith("layers.") or key.startswith("embed_tokens")
-    )
+    has_flat = sum(1 for key in keys if key.startswith("layers.") or key.startswith("embed_tokens"))
     return has_model == 0 and has_flat > 0
 
 
@@ -79,7 +77,9 @@ def _prepare_with_prefix(snapshot: Path, prepared: Path) -> Path:
 
     # Embedding exports often omit lm_head while config has tie_word_embeddings=false.
     # Materialize lm_head from embed_tokens so mlx_lm can load a causal Qwen3 layout.
-    has_lm_head = any(key == "lm_head.weight" or key.endswith(".lm_head.weight") for key in weight_map)
+    has_lm_head = any(
+        key == "lm_head.weight" or key.endswith(".lm_head.weight") for key in weight_map
+    )
     embed_key = next(
         (
             key
