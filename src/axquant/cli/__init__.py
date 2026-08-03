@@ -248,6 +248,11 @@ def _run(args: argparse.Namespace) -> int:
                     metric_positions_per_sample=args.metric_positions,
                     long_context_min_tokens=args.long_context_min_tokens,
                     warmup_replays=args.warmup_replays,
+                    capture_points=(
+                        tuple(args.capture_points)
+                        if args.capture_points is not None
+                        else ("output", "hidden")
+                    ),
                 ),
                 state_path=(args.state or str(Path(args.output).with_suffix(".progress.json"))),
                 base_report=(

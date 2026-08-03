@@ -41,6 +41,10 @@ or is gated behind an explicit flag.
 - **Architecture priors never emit AWQ/GPTQ candidates.** Prior-based plans stay affine/DWQ;
   AWQ/GPTQ require measured evidence (`analyze --calibration ... --calibration-activations ...`)
   or an explicit manual recipe.
+- **Plain dense backbones expose logits only.** Measured probing on non-multimodal layouts
+  (MiniCPM5, Qwen3 dense, Mistral, …) must pass `analyze --capture-points output`; the default
+  `("output", "hidden")` fails closed with a hint, and reports produced this way carry no
+  hidden-state metrics.
 - **Release attestations begin with the first tag containing the release workflow.** The workflow
   verifies tag/package version equality, creates the GitHub Release when needed, uploads the wheel,
   sdist, and checksums, and emits keyless GitHub build provenance. Verify with

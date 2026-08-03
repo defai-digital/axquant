@@ -208,6 +208,26 @@ def test_validate_calibration_dataset_passes_on_bundled_data() -> None:
     assert result == 0
 
 
+def test_analyze_capture_points_flag_parsing() -> None:
+    parser = _build_parser()
+
+    args = parser.parse_args(
+        ["analyze", "--model", "m", "--calibration", "c", "--capture-points", "output"]
+    )
+    assert args.capture_points == ("output",)
+
+    args = parser.parse_args(
+        ["analyze", "--model", "m", "--capture-points", "output,hidden,output"]
+    )
+    assert args.capture_points == ("output", "hidden")
+
+    args = parser.parse_args(["analyze", "--model", "m"])
+    assert args.capture_points is None
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["analyze", "--model", "m", "--capture-points", "bogus"])
+
+
 def test_validate_calibration_dataset_fails_on_missing_file(tmp_path: Path) -> None:
     result = main(["validate-calibration-dataset", "--path", str(tmp_path / "nope.jsonl")])
     assert result == 2

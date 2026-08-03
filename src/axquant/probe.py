@@ -894,7 +894,11 @@ def probe_tensor_sensitivity(
         if "hidden" in config.capture_points and any(
             reference.hidden_states is None for reference in references
         ):
-            raise ProbeError("probe backend did not return requested reference hidden states")
+            raise ProbeError(
+                "probe backend did not return requested reference hidden states; "
+                "plain dense backbones expose logits only — retry with "
+                "--capture-points output"
+            )
         reference_metrics = _reference_metrics(references)
     else:
         log.info(

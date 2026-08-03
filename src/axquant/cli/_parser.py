@@ -57,6 +57,18 @@ def _domains(value: str) -> list[str]:
     return result
 
 
+_VALID_CAPTURE_POINTS = ("output", "hidden")
+
+
+def _capture_points(value: str) -> tuple[str, ...]:
+    result = tuple(dict.fromkeys(item.strip() for item in value.split(",") if item.strip()))
+    invalid = sorted(set(result) - set(_VALID_CAPTURE_POINTS))
+    if not result or invalid:
+        choices = ",".join(_VALID_CAPTURE_POINTS)
+        raise argparse.ArgumentTypeError(f"capture points must be a subset of: {choices}")
+    return result
+
+
 def _methods(value: str) -> tuple[QuantMethod, ...]:
     parsed: list[QuantMethod] = []
     for item in value.split(","):
@@ -203,6 +215,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     analyze_parser.add_argument("--base-sensitivity")
     analyze_parser.add_argument("--target-tensor", action="append", default=[])
+    analyze_parser.add_argument(
+        "--capture-points",
+        type=_capture_points,
+        default=None,
+        help="probe capture points (subset of output,hidden); plain dense backbones "
+        "expose logits only and need '--capture-points output'",
+    )
     analyze_parser.add_argument("--token-budget", type=int, default=2048)
     analyze_parser.add_argument("--replay-batch-size", type=int, default=1)
     analyze_parser.add_argument("--metric-positions", type=int, default=32)
