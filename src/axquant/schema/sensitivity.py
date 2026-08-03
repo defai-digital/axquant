@@ -177,6 +177,16 @@ class ProbeConfig(StrictModel):
             raise ValueError("probe target tensor names must be non-empty")
         return tuple(sorted(set(value)))
 
+    @field_validator("capture_points")
+    @classmethod
+    def valid_capture_points(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(dict.fromkeys(value))
+        allowed = {"output", "hidden"}
+        invalid = sorted(set(normalized) - allowed)
+        if not normalized or invalid:
+            raise ValueError("probe capture points must be a non-empty subset of output, hidden")
+        return normalized
+
     def effective_group_sizes(self) -> tuple[int, ...]:
         """Group sizes measured for quantized candidates."""
         return self.candidate_group_sizes or (self.group_size,)
@@ -236,6 +246,13 @@ class ActivationCaptureManifest(StrictModel):
         oversized = [entry.module_path for entry in self.entries if entry.rows > self.max_rows]
         if oversized:
             raise ValueError(f"activation capture entries exceed max_rows: {oversized[:10]}")
+        file_digests: dict[str, str] = {}
+        for entry in self.entries:
+            previous = file_digests.setdefault(entry.file, entry.sha256)
+            if previous != entry.sha256:
+                raise ValueError(
+                    f"activation capture file {entry.file!r} has inconsistent checksums"
+                )
         return self
 
 

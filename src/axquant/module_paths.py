@@ -65,6 +65,17 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     return ()
 
 
+def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
+    """Return every MLX runtime module represented by one packed expert tensor.
+
+    Some source checkpoints store gate/up projections in one tensor while
+    MLX-LM exposes two independently visited ``SwitchLinear`` modules.  A
+    conversion is only complete after every returned module was visited by
+    the quantization predicate.
+    """
+    return _packed_expert_aliases(module_path)
+
+
 def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
     """Return public MLX-LM module-path aliases for a checkpoint tensor path.
 

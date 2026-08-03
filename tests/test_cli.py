@@ -6,8 +6,16 @@ import pytest
 
 import axquant.cli as cli_module
 from axquant.cli import _build_parser, main
-from axquant.schema import ModelIdentity, QualityEvaluationResult, QuantizationPlan
-from axquant.serde import load_model
+from axquant.schema import (
+    ActivationCaptureManifest,
+    ModelIdentity,
+    ProfileName,
+    QualityEvaluationResult,
+    QuantizationPlan,
+    SoftwareVersions,
+    TokenizedCacheManifest,
+)
+from axquant.serde import load_model, write_data
 
 
 def test_name_command_uses_product_naming(capsys) -> None:
@@ -226,6 +234,97 @@ def test_analyze_capture_points_flag_parsing() -> None:
 
     with pytest.raises(SystemExit):
         parser.parse_args(["analyze", "--model", "m", "--capture-points", "bogus"])
+
+
+def test_capture_activations_accepts_immutable_revision() -> None:
+    revision = "a" * 40
+    args = _build_parser().parse_args(
+        [
+            "capture-activations",
+            "--model",
+            "org/model",
+            "--calibration",
+            "cache",
+            "--revision",
+            revision,
+        ]
+    )
+    assert args.revision == revision
+
+
+def test_capture_activations_resolves_model_at_cache_revision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import axquant.capture as capture_module
+
+    revision = "a" * 40
+    cache = tmp_path / "cache"
+    write_data(
+        cache / "tokenized_cache_manifest.json",
+        TokenizedCacheManifest(
+            cache_key_sha256="b" * 64,
+            model=ModelIdentity(model_id="org/model", revision=revision),
+            dataset_sha256="c" * 64,
+            profile=ProfileName.AGENT_CODING,
+            sequence_length=32,
+            samples=1,
+            shard_count=1,
+            total_tokens=8,
+            software_versions=SoftwareVersions(
+                axquant="1.1.1",
+                python="3.13",
+                safetensors="0.5",
+                pydantic="2.0",
+            ),
+            complete=True,
+        ),
+    )
+    resolved: dict[str, object] = {}
+
+    def fake_resolve(
+        model: str,
+        *,
+        revision: str | None = None,
+        allow_download: bool = False,
+    ) -> Path:
+        resolved.update(model=model, revision=revision, allow_download=allow_download)
+        return tmp_path / "source"
+
+    monkeypatch.setattr(cli_module, "resolve_model_dir", fake_resolve)
+    monkeypatch.setattr(
+        capture_module,
+        "capture_calibration_activations",
+        lambda **_kwargs: ActivationCaptureManifest(
+            model="org/model",
+            revision=revision,
+            tokenized_cache_manifest_sha256="d" * 64,
+            cache_key_sha256="b" * 64,
+            calibration_dataset_id="dataset",
+            max_rows=8,
+        ),
+    )
+    args = _build_parser().parse_args(
+        [
+            "capture-activations",
+            "--model",
+            "org/model",
+            "--calibration",
+            str(cache),
+            "--output",
+            str(tmp_path / "capture"),
+            "--max-rows",
+            "8",
+            "--allow-download",
+        ]
+    )
+
+    assert cli_module._run(args) == 0
+    assert resolved == {
+        "model": "org/model",
+        "revision": revision,
+        "allow_download": True,
+    }
 
 
 def test_validate_calibration_dataset_fails_on_missing_file(tmp_path: Path) -> None:

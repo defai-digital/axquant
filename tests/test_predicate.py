@@ -313,3 +313,43 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
     )
     with pytest.raises(PlanningError, match="requires the affine method"):
         build_quant_predicate(gptq_fused, execute_refinement=False)
+
+
+def test_packed_expert_requires_every_split_runtime_module() -> None:
+    """One packed gate/up tensor is not covered until both MLX modules are visited."""
+    plan = _mlp_plan()
+    packed = plan.assignments[0].model_copy(
+        update={
+            "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "module_path": "model.layers.0.mlp.experts.gate_up_proj",
+            "role": TensorRole.EXPERT,
+            "bits": 4,
+            "method": QuantMethod.AFFINE,
+            "group_size": 64,
+        }
+    )
+    packed_plan = plan.model_copy(update={"assignments": [packed]})
+    predicate = build_quant_predicate(packed_plan, execute_refinement=False)
+
+    gate = predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
+    assert isinstance(gate, dict)
+    assert predicate.unmatched_quantized_modules() == {packed.module_path}
+
+    up = predicate("model.layers.0.mlp.switch_mlp.up_proj", object())
+    assert isinstance(up, dict)
+    assert predicate.unmatched_quantized_modules() == set()
+
+
+def test_packed_expert_rejects_non_affine_refinement() -> None:
+    plan = _mlp_plan(method=QuantMethod.GPTQ)
+    packed = plan.assignments[0].model_copy(
+        update={
+            "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "module_path": "model.layers.0.mlp.experts.gate_up_proj",
+            "role": TensorRole.EXPERT,
+        }
+    )
+    packed_plan = plan.model_copy(update={"assignments": [packed]})
+
+    with pytest.raises(PlanningError, match=r"packed expert tensor.*requires the affine method"):
+        build_quant_predicate(packed_plan, execute_refinement=False)

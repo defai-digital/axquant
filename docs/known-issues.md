@@ -31,6 +31,12 @@ or is gated behind an explicit flag.
 - **Capture resume is binding-sensitive by design.** Rerunning with a different model, cache,
   `--max-rows`, `--segment-batches`, or token budget against an existing `capture_progress.json`
   is rejected; use a fresh output directory.
+- **Completed capture outputs are immutable.** A second capture will not overwrite a directory
+  containing `completion.json`; choose a new output path. Committed resume chunks are shape- and
+  row-accounting-verified before replay continues.
+- **Hub capture resolution follows the cache revision.** For a Hub model, use a tokenized cache
+  with an immutable revision (or pass the same value via `--revision`). Prepared BF16 sources with
+  `axquant_source.json` fail closed when their source ID or revision differs from the cache.
 - **Capture only wraps `nn.Linear` leaves.** Custom architectures that route through non-Linear
   projections are not captured (they are also outside the refinement predicate's scope).
 

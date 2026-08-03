@@ -41,6 +41,8 @@ from axquant.schema import (
     ActivationCaptureManifest,
     CaptureProgress,
     CaptureProgressModule,
+    SourceConversionProvenance,
+    TokenizedCacheManifest,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
@@ -56,6 +58,7 @@ CAPTURE_COMPLETION_MARKER = "completion.json"
 CAPTURE_COMPLETION_SCHEMA = "axquant.activation-capture-completion.v1"
 _PARTIAL_DIRNAME = ".partial"
 _LEGACY_ARRAY_KEY = "x_rows"
+_SEGMENT_CHUNK = re.compile(r"^(?P<index>\d{4})-.+\.seg-(?P<segment>\d{4})\.npz$")
 
 
 def _ensure_mlx() -> tuple[Any, Any, Any]:
@@ -76,6 +79,16 @@ def _sanitize_filename(module_path: str) -> str:
 
 def _shard_array_key(module_path: str) -> str:
     return f"rows::{module_path}"
+
+
+def _segment_chunk_path(
+    partial_dir: Path,
+    module_index: int,
+    module_path: str,
+    segment_index: int,
+) -> Path:
+    filename = f"{module_index:04d}-{_sanitize_filename(module_path)}.seg-{segment_index:04d}.npz"
+    return partial_dir / filename
 
 
 def _get_child(parent: Any, child_name: str) -> Any:
@@ -221,12 +234,16 @@ def _flush_segment(
 
     for index, name in enumerate(sorted_names):
         recorder = recorders[name]
+        destination = _segment_chunk_path(partial_dir, index, name, segment_index)
         if not recorder.chunks:
+            # A crash can leave an uncommitted chunk for this segment before
+            # the progress checkpoint advances.  Replaying a segment that
+            # now retains no rows must remove that stale file.
+            destination.unlink(missing_ok=True)
             continue
         rows = np.concatenate(recorder.chunks, axis=0).astype(np.float16, copy=False)
         recorder.chunks = []
-        filename = f"{index:04d}-{_sanitize_filename(name)}.seg-{segment_index:04d}.npz"
-        _write_npz_atomic(partial_dir / filename, x_rows=rows)
+        _write_npz_atomic(destination, x_rows=rows)
 
 
 def _write_completion_marker(
@@ -312,6 +329,110 @@ def _load_resume_progress(
     return progress
 
 
+def _verify_source_provenance(
+    model_path: Path,
+    cache_manifest: TokenizedCacheManifest,
+) -> None:
+    """Bind a prepared BF16 checkpoint to the cache's immutable model identity."""
+    provenance_path = model_path / "axquant_source.json"
+    if not provenance_path.is_file():
+        return
+    try:
+        provenance = load_model(provenance_path, SourceConversionProvenance)
+    except (ArtifactError, ValidationError, ValueError) as exc:
+        raise CaptureError(f"BF16 source provenance is unreadable: {exc}") from exc
+    if (
+        provenance.source_model != cache_manifest.model.model_id
+        or provenance.source_revision != cache_manifest.model.revision
+    ):
+        raise CaptureError(
+            "BF16 source provenance does not match the tokenized calibration cache model"
+        )
+
+
+def _validate_resume_chunks(
+    partial_dir: Path,
+    sorted_names: list[str],
+    targets: dict[str, Any],
+    progress: CaptureProgress,
+    *,
+    stride: int,
+    max_rows: int,
+) -> None:
+    """Verify committed resume chunks and discard only uncommitted replay output."""
+    import numpy as np
+
+    if set(progress.modules) != set(sorted_names):
+        raise CaptureError(
+            "capture progress module inventory is incomplete; use a fresh output directory"
+        )
+    if progress.segments_completed and not partial_dir.is_dir():
+        raise CaptureError(
+            "capture progress has no partial activation directory; use a fresh output directory"
+        )
+
+    for path in sorted(partial_dir.glob("*.npz")) if partial_dir.is_dir() else ():
+        match = _SEGMENT_CHUNK.fullmatch(path.name)
+        if match is None:
+            raise CaptureError(
+                f"unexpected activation capture resume chunk {path.name!r}; "
+                "use a fresh output directory"
+            )
+        module_index = int(match.group("index"))
+        segment_index = int(match.group("segment"))
+        if module_index >= len(sorted_names) or path != _segment_chunk_path(
+            partial_dir,
+            module_index,
+            sorted_names[module_index],
+            segment_index,
+        ):
+            raise CaptureError(
+                f"activation capture resume chunk does not match its module: {path.name}; "
+                "use a fresh output directory"
+            )
+        if segment_index >= progress.segments_completed:
+            # Flush happens before checkpoint.  A chunk at or beyond the
+            # checkpoint is uncommitted and will be deterministically replayed.
+            path.unlink()
+
+    for module_index, name in enumerate(sorted_names):
+        state = progress.modules[name]
+        expected_kept = min(max_rows, (state.seen + stride - 1) // stride)
+        if state.kept != expected_kept:
+            raise CaptureError(
+                f"capture progress row accounting is invalid for {name}; "
+                "use a fresh output directory"
+            )
+        in_features = int(targets[name].weight.shape[1])
+        committed_rows = 0
+        for segment_index in range(progress.segments_completed):
+            path = _segment_chunk_path(partial_dir, module_index, name, segment_index)
+            if not path.is_file():
+                continue
+            try:
+                with np.load(path, allow_pickle=False) as data:
+                    if _LEGACY_ARRAY_KEY not in data.files:
+                        raise CaptureError(f"capture resume chunk lacks rows: {path.name}")
+                    rows = np.asarray(data[_LEGACY_ARRAY_KEY])
+            except (OSError, ValueError) as exc:
+                raise CaptureError(
+                    f"capture resume chunk is unreadable: {path.name}: {exc}"
+                ) from exc
+            if (
+                rows.dtype != np.float16
+                or rows.ndim != 2
+                or rows.shape[1] != in_features
+                or rows.shape[0] == 0
+            ):
+                raise CaptureError(f"capture resume chunk shape is invalid: {path.name}")
+            committed_rows += int(rows.shape[0])
+        if committed_rows != state.kept:
+            raise CaptureError(
+                f"capture resume chunks contain {committed_rows} rows for {name}, "
+                f"but progress records {state.kept}; use a fresh output directory"
+            )
+
+
 def capture_calibration_activations(
     *,
     model_dir: str | Path,
@@ -347,14 +468,20 @@ def capture_calibration_activations(
         raise CaptureError("segment_batches must be positive")
     if modules_per_shard < 1:
         raise CaptureError("modules_per_shard must be positive")
-    mlx, nn, mlx_lm = _ensure_mlx()
     model_path = Path(model_dir).expanduser().resolve()
     cache_path = Path(cache_dir).expanduser().resolve()
     capture_dir = Path(output_dir).expanduser().resolve()
+    if (capture_dir / CAPTURE_COMPLETION_MARKER).exists():
+        raise CaptureError(
+            f"activation capture output is already complete: {capture_dir}; "
+            "use a fresh output directory"
+        )
 
     manifest_hint = load_cache_manifest(cache_path)
     if manifest_hint is None:
         raise CaptureError(f"calibration cache manifest is missing or invalid: {cache_path}")
+    _verify_source_provenance(model_path, manifest_hint)
+    mlx, nn, mlx_lm = _ensure_mlx()
     budget = token_budget if token_budget is not None else max(manifest_hint.total_tokens, 2)
     cache_manifest, replay_batches, measured_tokens = _load_calibration_inputs(
         cache_path,
@@ -375,6 +502,10 @@ def capture_calibration_activations(
     sorted_names = sorted(targets)
     total_rows = sum(int(np.asarray(batch).size) for batch in replay_batches)
     stride = max(1, math.ceil(total_rows / max_rows))
+    segments = [
+        replay_batches[start : start + segment_batches]
+        for start in range(0, len(replay_batches), segment_batches)
+    ]
 
     activations_dir = capture_dir / CAPTURE_ACTIVATIONS_DIR
     partial_dir = activations_dir / _PARTIAL_DIRNAME
@@ -395,11 +526,29 @@ def capture_calibration_activations(
     progress = _load_resume_progress(progress_path, binding)
     if progress is not None:
         segments_completed = progress.segments_completed
+        if segments_completed > len(segments):
+            raise CaptureError(
+                f"capture progress claims {segments_completed} completed segments but only "
+                f"{len(segments)} exist; use a fresh output directory"
+            )
         resumed_modules = dict(progress.modules)
+        _validate_resume_chunks(
+            partial_dir,
+            sorted_names,
+            targets,
+            progress,
+            stride=stride,
+            max_rows=max_rows,
+        )
         log.info(
             "capture_resume_started",
             output=str(capture_dir),
             segments_completed=segments_completed,
+        )
+    elif partial_dir.is_dir() and any(partial_dir.iterdir()):
+        raise CaptureError(
+            "activation capture has partial chunks without a progress checkpoint; "
+            "use a fresh output directory"
         )
 
     recorders: dict[str, _RowRecorder] = {}
@@ -433,15 +582,6 @@ def capture_calibration_activations(
         _set_child(parent, child_name, _RecordingLinear(original, recorders[name]))
         originals[name] = (parent, child_name, original)
 
-    segments = [
-        replay_batches[start : start + segment_batches]
-        for start in range(0, len(replay_batches), segment_batches)
-    ]
-    if segments_completed > len(segments):
-        raise CaptureError(
-            f"capture progress claims {segments_completed} completed segments but only "
-            f"{len(segments)} exist; use a fresh output directory"
-        )
     try:
         for segment_index in range(segments_completed, len(segments)):
             _replay_segment(model, mlx, segments[segment_index])
@@ -474,15 +614,41 @@ def capture_calibration_activations(
     for index, name in enumerate(sorted_names):
         in_features = int(targets[name].weight.shape[1])
         module_in_features[name] = in_features
-        segment_files = sorted(partial_dir.glob(f"{index:04d}-*.seg-*.npz"))
         arrays: list[np.ndarray] = []
-        for segment_file in segment_files:
-            with np.load(segment_file, allow_pickle=False) as data:
-                arrays.append(np.asarray(data[_LEGACY_ARRAY_KEY], dtype=np.float16))
+        for segment_index in range(len(segments)):
+            segment_file = _segment_chunk_path(partial_dir, index, name, segment_index)
+            if not segment_file.is_file():
+                continue
+            try:
+                with np.load(segment_file, allow_pickle=False) as data:
+                    if _LEGACY_ARRAY_KEY not in data.files:
+                        raise CaptureError(
+                            f"activation capture chunk lacks rows: {segment_file.name}"
+                        )
+                    rows = np.asarray(data[_LEGACY_ARRAY_KEY])
+            except (OSError, ValueError) as exc:
+                raise CaptureError(
+                    f"activation capture chunk is unreadable: {segment_file.name}: {exc}"
+                ) from exc
+            if (
+                rows.dtype != np.float16
+                or rows.ndim != 2
+                or rows.shape[1] != in_features
+                or rows.shape[0] == 0
+            ):
+                raise CaptureError(
+                    f"activation capture chunk shape is invalid: {segment_file.name}"
+                )
+            arrays.append(rows)
         if arrays:
             module_rows[name] = np.concatenate(arrays, axis=0)
         else:
             module_rows[name] = np.zeros((0, in_features), dtype=np.float16)
+        if len(module_rows[name]) != recorders[name].kept:
+            raise CaptureError(
+                f"activation capture chunks contain {len(module_rows[name])} rows for {name}, "
+                f"but replay recorded {recorders[name].kept}"
+            )
 
     entries: list[ActivationCaptureEntry] = []
     if modules_per_shard == 1:
@@ -580,7 +746,7 @@ def load_capture_activations(
         raise CaptureError(
             f"activation capture revision {manifest.revision!r} does not match {revision!r}"
         )
-    verified_files: dict[str, Path] = {}
+    verified_files: dict[str, tuple[Path, str]] = {}
     result: dict[str, np.ndarray] = {}
     for entry in manifest.entries:
         if Path(entry.file).name != entry.file:
@@ -589,9 +755,14 @@ def load_capture_activations(
         if not path.is_file():
             raise CaptureError(f"activation capture file is missing: {path}")
         if entry.file not in verified_files:
-            if file_sha256(path) != entry.sha256:
+            actual_sha256 = file_sha256(path)
+            if actual_sha256 != entry.sha256:
                 raise CaptureError(f"activation capture file checksum mismatch: {entry.file}")
-            verified_files[entry.file] = path
+            verified_files[entry.file] = (path, actual_sha256)
+        elif verified_files[entry.file][1] != entry.sha256:
+            raise CaptureError(
+                f"activation capture manifest has inconsistent checksums: {entry.file}"
+            )
         array_key = entry.array_key or _LEGACY_ARRAY_KEY
         if entry.array_key is not None and entry.array_key != _shard_array_key(entry.module_path):
             raise CaptureError(

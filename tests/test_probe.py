@@ -188,6 +188,27 @@ class TestProbeConfigValidation:
                 candidate_methods=(QuantMethod.BF16,),
             )
 
+    def test_capture_points_are_validated_and_deduplicated(self) -> None:
+        config = ProbeConfig(
+            model=ModelIdentity(model_id="m"),
+            calibration_cache="/tmp",
+            capture_points=("output", "hidden", "output"),
+        )
+        assert config.capture_points == ("output", "hidden")
+
+        with pytest.raises(ValueError, match="probe capture points"):
+            ProbeConfig(
+                model=ModelIdentity(model_id="m"),
+                calibration_cache="/tmp",
+                capture_points=(),
+            )
+        with pytest.raises(ValueError, match="probe capture points"):
+            ProbeConfig(
+                model=ModelIdentity(model_id="m"),
+                calibration_cache="/tmp",
+                capture_points=("logits",),
+            )
+
 
 class TestModuleGrouping:
     def test_attention_group(self) -> None:

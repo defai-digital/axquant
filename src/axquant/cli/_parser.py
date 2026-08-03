@@ -862,6 +862,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     capture_parser.add_argument("--model", required=True)
     capture_parser.add_argument(
+        "--revision",
+        help="Immutable source revision; must match the tokenized calibration cache",
+    )
+    capture_parser.add_argument(
         "--calibration",
         required=True,
         help="Verified tokenized calibration cache directory",

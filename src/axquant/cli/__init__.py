@@ -1325,13 +1325,24 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "capture-activations":
+        from axquant.activation_cache import load_cache_manifest
         from axquant.capture import CAPTURE_MANIFEST_NAME, capture_calibration_activations
 
-        capture_model_dir = resolve_model_dir(args.model, allow_download=args.allow_download)
+        capture_cache = Path(args.calibration).expanduser().resolve()
+        cache_manifest = load_cache_manifest(capture_cache)
+        if cache_manifest is None:
+            raise ValueError(f"calibration cache manifest is missing or invalid: {capture_cache}")
+        if args.revision is not None and args.revision != cache_manifest.model.revision:
+            raise ValueError("--revision does not match the tokenized calibration cache revision")
+        capture_model_dir = resolve_model_dir(
+            args.model,
+            revision=args.revision or cache_manifest.model.revision,
+            allow_download=args.allow_download,
+        )
         capture_output = Path(args.output).expanduser().resolve()
         capture_manifest = capture_calibration_activations(
             model_dir=capture_model_dir,
-            cache_dir=Path(args.calibration).expanduser().resolve(),
+            cache_dir=capture_cache,
             output_dir=capture_output,
             target_modules=tuple(args.target_modules) or None,
             max_rows=args.max_rows,

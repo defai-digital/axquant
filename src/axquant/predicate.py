@@ -7,7 +7,11 @@ from axquant.awq import apply_mlx_awq_scale as _apply_awq_scale
 from axquant.dwq import apply_mlx_dwq_clip as _apply_dwq_clip
 from axquant.errors import PlanningError
 from axquant.gptq import apply_mlx_gptq_refine as _apply_gptq_refine
-from axquant.module_paths import fused_expert_module, mlx_module_aliases
+from axquant.module_paths import (
+    fused_expert_module,
+    mlx_module_aliases,
+    packed_expert_runtime_modules,
+)
 from axquant.schema import Allocation, QuantizationPlan
 
 _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq"})
@@ -36,10 +40,24 @@ class PlanPredicate:
         # agree on precision and every member counts as visited when the
         # fused module is quantized.
         self._fused_members: dict[str, list[Allocation]] = {}
+        self._packed_requirements: dict[str, tuple[frozenset[str], ...]] = {}
+        self._packed_seen: dict[str, set[int]] = {}
         for module_path, allocation in self._assignments.items():
             fused = fused_expert_module(module_path)
             if fused is not None:
                 self._fused_members.setdefault(fused, []).append(allocation)
+            packed_modules = packed_expert_runtime_modules(module_path)
+            if packed_modules:
+                if allocation.bits < 16 and allocation.method.value != "affine":
+                    raise PlanningError(
+                        f"packed expert tensor {module_path} requires the affine method; "
+                        f"got {allocation.method.value}"
+                    )
+                self._packed_requirements[module_path] = tuple(
+                    frozenset(mlx_module_aliases(runtime_module))
+                    for runtime_module in packed_modules
+                )
+                self._packed_seen[module_path] = set()
         for fused, members in self._fused_members.items():
             signatures = {
                 (member.bits, member.method.value, member.group_size) for member in members
@@ -114,10 +132,23 @@ class PlanPredicate:
 
     def __call__(self, path: str, module: Any, *args: Any) -> bool | dict[str, Any]:
         del args
-        allocation = self.lookup(path)
+        normalized_path = _without_weight_suffix(path)
+        allocation = self.lookup(normalized_path)
         if allocation is None:
             return False
-        self.matched.add(allocation.module_path)
+        packed_requirements = self._packed_requirements.get(allocation.module_path)
+        if packed_requirements is None:
+            self.matched.add(allocation.module_path)
+        else:
+            seen = self._packed_seen[allocation.module_path]
+            for index, aliases in enumerate(packed_requirements):
+                if normalized_path in aliases or any(
+                    alias.endswith(f".{normalized_path}") or normalized_path.endswith(f".{alias}")
+                    for alias in aliases
+                ):
+                    seen.add(index)
+            if len(seen) == len(packed_requirements):
+                self.matched.add(allocation.module_path)
         fused = fused_expert_module(allocation.module_path)
         if fused is not None:
             # Quantizing the fused switch module covers every member expert.

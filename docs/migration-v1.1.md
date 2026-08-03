@@ -48,6 +48,13 @@ Saved `--state` probe progress from older versions is rejected; rerun `analyze` 
 - `ActivationCaptureEntry` gained an optional `array_key` field (used when
   `--modules-per-shard N > 1` groups modules into `shard-NNNN.npz` archives). Old manifests
   without the field still validate; the schema version is unchanged.
+- Post-v1.1.1 hardening makes completed capture directories immutable, validates every committed
+  resume chunk against checkpoint row accounting, discards only uncommitted crash output, and
+  rejects inconsistent checksums when several entries share one shard. Resume or recapture into
+  a new output directory when one of these gates fires.
+- `capture-activations --revision <SHA>` is resolved at the exact revision bound by the tokenized
+  cache. When an MLX BF16 source contains `axquant_source.json`, its model ID and immutable
+  revision must also match that cache.
 
 ## Evidence-chain hardening (next patch after v1.1.1)
 
@@ -65,6 +72,10 @@ adapter, matching the generic inspector and MLX-LM fused-module path. Artifacts 
 fix may have retained most expert weights at BF16 and must be regenerated. Inspection now
 downgrades a supported MoE checkpoint to inventory-only if fused-expert classification coverage
 ever drifts again.
+
+Packed gate/up source tensors that split into two MLX runtime modules now remain unmatched until
+both runtime modules are visited. Packed/fused expert paths are affine-only; AWQ/GPTQ refinement
+on these 3-D modules is rejected before conversion.
 
 ## Hub BF16 source preparation (next patch after v1.1.1)
 

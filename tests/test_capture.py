@@ -126,6 +126,15 @@ class TestManifestSchema:
         with pytest.raises(ValidationError, match="exceed max_rows"):
             _manifest((_entry("model.layers.0.mlp.up_proj", 17, 8, "b.npz", "d" * 64),))
 
+    def test_rejects_inconsistent_checksums_for_shared_file(self) -> None:
+        with pytest.raises(ValidationError, match="inconsistent checksums"):
+            _manifest(
+                (
+                    _entry("model.layers.0.mlp.down_proj", 4, 8, "shard.npz", "c" * 64),
+                    _entry("model.layers.0.mlp.up_proj", 4, 8, "shard.npz", "d" * 64),
+                )
+            )
+
 
 class TestLoadCaptureActivations:
     def test_happy_path_returns_fp16_mapping(self, tmp_path: Path) -> None:
@@ -360,6 +369,40 @@ def mlx_calibration_cache(tmp_path: Path) -> Path:
 
 
 class TestCaptureEndToEnd:
+    def test_prepared_source_provenance_must_match_cache(
+        self,
+        tmp_path: Path,
+        mlx_calibration_cache: Path,
+    ) -> None:
+        model_dir = tmp_path / "wrong-source"
+        model_dir.mkdir()
+        write_data(
+            model_dir / "axquant_source.json",
+            {
+                "schema_version": "axquant.source-conversion.v1",
+                "source_model": "other/model",
+                "source_revision": "a" * 40,
+                "dtype": "bfloat16",
+                "key_remap_applied": False,
+            },
+        )
+
+        with pytest.raises(CaptureError, match="source provenance does not match"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_calibration_cache,
+                output_dir=tmp_path / "capture",
+            )
+
+    def test_refuses_to_overwrite_completed_capture(self, tmp_path: Path) -> None:
+        completed = _write_capture_dir(tmp_path)
+        with pytest.raises(CaptureError, match="already complete"):
+            capture_calibration_activations(
+                model_dir=tmp_path / "model",
+                cache_dir=tmp_path / "cache",
+                output_dir=completed,
+            )
+
     def test_capture_and_load_round_trip(self, tmp_path: Path, mlx_calibration_cache: Path) -> None:
         pytest.importorskip("mlx.core")
         model_dir = tmp_path / "tiny-llama"
@@ -566,6 +609,50 @@ class TestCaptureResume:
                 cache_dir=mlx_multi_segment_cache,
                 output_dir=output_dir,
                 max_rows=16,
+                segment_batches=1,
+            )
+
+    def test_resume_rejects_missing_committed_chunk(
+        self,
+        tmp_path: Path,
+        mlx_multi_segment_cache: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pytest.importorskip("mlx.core")
+        model_dir = tmp_path / "tiny-llama"
+        _write_tiny_llama(model_dir)
+        output_dir = tmp_path / "capture"
+
+        import axquant.capture as capture_module
+
+        real_replay = capture_module._replay_segment
+        calls = {"count": 0}
+
+        def boom(model: object, mlx: object, batches: list[object]) -> None:
+            calls["count"] += 1
+            if calls["count"] == 2:
+                raise RuntimeError("simulated interruption")
+            real_replay(model, mlx, batches)
+
+        monkeypatch.setattr(capture_module, "_replay_segment", boom)
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_multi_segment_cache,
+                output_dir=output_dir,
+                max_rows=8,
+                segment_batches=1,
+            )
+        committed_chunk = next((output_dir / CAPTURE_ACTIVATIONS_DIR / ".partial").glob("*.npz"))
+        committed_chunk.unlink()
+
+        monkeypatch.undo()
+        with pytest.raises(CaptureError, match="resume chunks contain"):
+            capture_calibration_activations(
+                model_dir=model_dir,
+                cache_dir=mlx_multi_segment_cache,
+                output_dir=output_dir,
+                max_rows=8,
                 segment_batches=1,
             )
 
