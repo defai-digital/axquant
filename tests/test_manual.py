@@ -52,6 +52,7 @@ def test_manual_plan_applies_rules_and_mandatory_protection(
     qwen36_model_dir: Path,
 ) -> None:
     plan = manual_quantization_plan(_inventory(qwen36_model_dir), _recipe())
+    assert plan.target_class == "16p0bpw"
     attention = next(
         allocation
         for allocation in plan.assignments

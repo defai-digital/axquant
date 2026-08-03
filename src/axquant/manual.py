@@ -4,6 +4,7 @@ from fnmatch import fnmatchcase
 
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
+from axquant.naming import target_class_for_bpw
 from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
 from axquant.schema import (
@@ -230,7 +231,7 @@ def manual_quantization_plan(
         )
     candidate_bits = tuple(sorted({allocation.bits for allocation in allocations}))
     quantized_bits = [bits for bits in candidate_bits if bits < 16]
-    target_class = f"{min(quantized_bits)}bit" if quantized_bits else "bf16"
+    target_class = target_class_for_bpw(recipe.target_bpw) if quantized_bits else "bf16"
     objective = objective_for(recipe.profile)
     fingerprint = {
         "inventory": inventory.model_dump(mode="json", exclude={"created_at"}),

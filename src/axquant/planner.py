@@ -6,6 +6,7 @@ from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.module_paths import fused_expert_module
+from axquant.naming import target_class_for_bpw
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
@@ -508,7 +509,7 @@ def plan_quantization(
     )
     effective_bpw = current_storage_bits() / total_parameters
     quantized_bits = [bits for bits in request.candidate_bits if bits < 16]
-    target_class = f"{min(quantized_bits)}bit" if quantized_bits else "bf16"
+    target_class = target_class_for_bpw(request.target_bpw) if quantized_bits else "bf16"
     warnings = list(report.warnings)
     if not report.evidence_kind.release_quality:
         warnings.append(

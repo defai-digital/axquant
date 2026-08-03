@@ -134,6 +134,7 @@ def test_extra_budget_upgrades_toward_finer_group() -> None:
         report,
         _request(target_bpw=6.0, candidate_group_sizes=(32, 64, 128)),
     )
+    assert richer.target_class == "6bit"
     floor_mlp = next(item for item in floor.assignments if item.role == TensorRole.MLP)
     rich_mlp = next(item for item in richer.assignments if item.role == TensorRole.MLP)
     assert floor_mlp.group_size == 128

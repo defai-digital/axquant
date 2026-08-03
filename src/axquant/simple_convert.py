@@ -40,7 +40,7 @@ from typing import Literal
 
 from axquant.errors import PlanningError
 from axquant.ladders import get_ladder
-from axquant.naming import model_name
+from axquant.naming import model_name, target_class_for_bpw
 from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke
 from axquant.schema import ConvertLadderName, ProfileName, QuickConversionSummary
 
@@ -60,21 +60,6 @@ def looks_like_hub_id(model: str) -> bool:
         # Allow org/name only (exactly one slash for classic Hub ids; nested ok via regex).
         pass
     return bool(_HUB_ID.fullmatch(model))
-
-
-def target_class_for_bpw(target_bpw: float) -> str:
-    """Map a target BPW to a short name suffix for default output directories."""
-    if target_bpw <= 0:
-        raise PlanningError("target_bpw must be positive")
-    # Common product labels first.
-    centers = (("2bit", 2.0), ("3bit", 3.0), ("4bit", 4.0), ("6bit", 6.0), ("8bit", 8.0))
-    for label, center in centers:
-        if abs(target_bpw - center) <= 0.35:
-            return label
-    if 4.4 <= target_bpw <= 5.2:
-        return "4bit"  # typical mixed ~4.8 BPW ships as 4bit-class name
-    # Filesystem-safe continuous label, e.g. 5p5bpw.
-    return f"{target_bpw:.1f}bpw".replace(".", "p")
 
 
 def default_output_dir(
