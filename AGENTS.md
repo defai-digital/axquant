@@ -89,7 +89,10 @@ literal:
   `load_capture_activations` fails closed on model identity, shape, checksum drift, or a
   missing `completion.json`. Capture is segmented and resumable (`capture_progress.json` +
   `activations/.partial/`, binding-verified), final npz files are compressed, and modules can
-  optionally be grouped into shard archives (`--modules-per-shard`).
+  optionally be grouped into shard archives (`--modules-per-shard`). The loader returns a
+  mapping-compatible `LoadedActivationCapture`; high-level AWQ/GPTQ probe and conversion paths
+  reject raw mappings, and calibration evidence binds the capture manifest, tokenized cache,
+  cache key, and dataset identity through publication audit. Never weaken that chain.
 - **CI and releases** (`.github/workflows/`): `ci.yml` runs lint on Ubuntu and the full MLX test
   suite on `macos-14`; `release.yml` builds dists on `v*` tags, emits `SHA256SUMS.txt`, and
   signs them with keyless Sigstore attestation. Project docs beyond README live in `docs/`

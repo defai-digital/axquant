@@ -36,15 +36,19 @@ or is gated behind an explicit flag.
 
 ## Evidence and state
 
-- **Probe resume state does not survive backend version bumps** (v4 → v5 in v1.1.0). Saved
+- **Probe resume state does not survive backend version bumps** (v4 → v5 → v6 in v1.1.x). Saved
   `--state` files from older versions are rejected; rerun the analysis.
 - **Architecture priors never emit AWQ/GPTQ candidates.** Prior-based plans stay affine/DWQ;
   AWQ/GPTQ require measured evidence (`analyze --calibration ... --calibration-activations ...`)
   or an explicit manual recipe.
-- **Release attestations start with the release after v1.1.1.** The release workflow that builds
-  and signs (keyless Sigstore) the dist artifacts ships in v1.1.1 itself, so v1.1.1's own GitHub
-  Release has no attached dist artifacts; from the next tag onward, verify with
+- **Release attestations begin with the first tag containing the release workflow.** The workflow
+  verifies tag/package version equality, creates the GitHub Release when needed, uploads the wheel,
+  sdist, and checksums, and emits keyless GitHub build provenance. Verify with
   `gh attestation verify` and `shasum -c SHA256SUMS.txt`.
+- **Pre-fix Qwen3-Coder-Next artifacts must be regenerated.** The family adapter previously let
+  `switch_mlp` fall through to the ordinary MLP role, so packed 3-D experts were preserved at
+  BF16. Their low-bit repository names are not proof of low effective BPW; regenerate and rerun
+  measured size/quality gates with the post-v1.1.1 fix before republishing.
 
 ## Validated scope
 

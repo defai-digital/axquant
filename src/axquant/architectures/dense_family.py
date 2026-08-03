@@ -68,6 +68,7 @@ _ATTENTION_TOKENS = (
     "dt_bias",
 )
 _MLP_TOKENS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj")
+_EXPERT_TOKENS = ("expert", "switch_mlp", "switch_glu")
 
 
 def classify_dense_tensor(
@@ -100,7 +101,11 @@ def classify_dense_tensor(
         # Qwen-style MoE routers are named `mlp.gate` (distinct from the
         # `gate_proj` expert/MLP projections, which carry the `_proj` suffix).
         return TensorRole.ROUTER
-    if "expert" in value:
+    # MLX-LM exposes packed MoE projections as fused switch modules.  These
+    # tensors are commonly named ``switch_mlp`` / ``switch_glu`` rather than
+    # ``experts``; this rule must win over the generic ``mlp`` token below or
+    # their 3-D weights are incorrectly treated as non-quantizable dense MLPs.
+    if any(token in value for token in _EXPERT_TOKENS):
         return TensorRole.EXPERT
     # Mamba / hybrid mixer blocks (Nemotron-H) quantize like attention trunks.
     if ".mixer." in value or value.endswith(".mixer"):

@@ -14,6 +14,7 @@ from axquant.schema import (
     OptimizationScope,
     TensorRole,
 )
+from axquant.serde import write_data
 
 
 def test_classifies_supported_tensor_roles() -> None:
@@ -43,6 +44,29 @@ def test_inventory_detects_mtp_ties_and_protection(tiny_model_dir: Path) -> None
     assert mtp.role == TensorRole.MTP_PROJECTION
     assert mtp.protected_recommendation is True
     assert mtp.current_precision == "f32"
+
+
+def test_inventory_consumes_immutable_bf16_source_provenance(tiny_model_dir: Path) -> None:
+    revision = "a" * 40
+    write_data(
+        tiny_model_dir / "axquant_source.json",
+        {
+            "schema_version": "axquant.source-conversion.v1",
+            "source_model": "org/source-model",
+            "source_revision": revision,
+            "dtype": "bfloat16",
+            "key_remap_applied": False,
+        },
+    )
+
+    inventory = inspect_model(tiny_model_dir)
+    assert inventory.model.model_id == "org/source-model"
+    assert inventory.model.revision == revision
+
+    with pytest.raises(ArtifactError, match="model ID differs"):
+        inspect_model(tiny_model_dir, model_id="org/other-model")
+    with pytest.raises(ArtifactError, match="revision differs"):
+        inspect_model(tiny_model_dir, revision="b" * 40)
 
 
 def test_quantized_source_requires_explicit_inventory_permission(
@@ -171,6 +195,87 @@ def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
     assert expert.role == TensorRole.EXPERT
     assert expert.quantizable is True
     assert out_proj.quantizable is True
+
+
+def _write_qwen3_next_fixture(model_dir: Path) -> None:
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["Qwen3NextForCausalLM"],
+                "model_type": "qwen3_next",
+                "num_hidden_layers": 2,
+                "num_experts": 4,
+                "num_experts_per_tok": 2,
+                "moe_intermediate_size": 8,
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "model.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
+            "model.layers.0.mlp.gate.weight": np.zeros((4, 8), dtype=np.float32),
+            "model.layers.0.mlp.switch_mlp.gate_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+            "model.layers.0.mlp.switch_mlp.up_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+            "model.layers.0.mlp.switch_mlp.down_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+            "model.norm.weight": np.zeros((8,), dtype=np.float32),
+            "lm_head.weight": np.zeros((32, 8), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+
+
+def test_qwen3_next_fused_experts_are_quantizable(tmp_path: Path) -> None:
+    model_dir = tmp_path / "Qwen3-Coder-Next"
+    _write_qwen3_next_fixture(model_dir)
+
+    inventory = inspect_model(
+        model_dir,
+        model_id="Qwen/Qwen3-Coder-Next",
+        revision="source-revision",
+    )
+
+    experts = [tensor for tensor in inventory.tensors if "switch_mlp" in tensor.name]
+    assert len(experts) == 3
+    assert all(tensor.role == TensorRole.EXPERT for tensor in experts)
+    assert all(tensor.quantizable for tensor in experts)
+    assert inventory.architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
+    assert not any("fused expert coverage is incomplete" in item for item in inventory.warnings)
+
+
+def test_supported_moe_downgrades_when_fused_expert_coverage_drifts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import axquant.inspector as inspector_module
+    from axquant.architectures.registry import adapter_for
+
+    model_dir = tmp_path / "Qwen3-Coder-Next"
+    _write_qwen3_next_fixture(model_dir)
+    config = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
+    original = adapter_for("Qwen/Qwen3-Coder-Next", config)
+    assert original is not None
+
+    class BrokenAdapter:
+        def profile(self, model_reference: str, model_config: dict[str, object]):
+            return original.profile(model_reference, model_config)
+
+        def classify_tensor(self, name: str, source_file: str):
+            if "switch_mlp" in name:
+                return TensorRole.MLP
+            return original.classify_tensor(name, source_file)
+
+    monkeypatch.setattr(inspector_module, "adapter_for", lambda *_args, **_kwargs: BrokenAdapter())
+    inventory = inspector_module.inspect_model(
+        model_dir,
+        model_id="Qwen/Qwen3-Coder-Next",
+        revision="source-revision",
+    )
+
+    assert inventory.architecture_profile.support_level == ArchitectureSupportLevel.INVENTORY_ONLY
+    assert inventory.architecture_profile.optimization_scope == OptimizationScope.INVENTORY_ONLY
+    assert any("fused expert coverage is incomplete" in item for item in inventory.warnings)
 
 
 def test_quantized_inventory_reconstructs_logical_parameters(

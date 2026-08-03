@@ -32,6 +32,7 @@ import structlog
 from pydantic import ValidationError
 
 from axquant.activation_cache import _write_npz_atomic, load_cache_manifest
+from axquant.capture_binding import LoadedActivationCapture
 from axquant.errors import ArtifactError, BackendUnavailableError, CaptureError
 from axquant.module_paths import mlx_module_aliases
 from axquant.probe import _calibration_dataset_id, _load_calibration_inputs
@@ -52,6 +53,7 @@ CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 CAPTURE_ACTIVATIONS_DIR = "activations"
 CAPTURE_PROGRESS_NAME = "capture_progress.json"
 CAPTURE_COMPLETION_MARKER = "completion.json"
+CAPTURE_COMPLETION_SCHEMA = "axquant.activation-capture-completion.v1"
 _PARTIAL_DIRNAME = ".partial"
 _LEGACY_ARRAY_KEY = "x_rows"
 
@@ -231,21 +233,60 @@ def _write_completion_marker(
     capture_dir: Path,
     *,
     cache_key_sha256: str,
+    manifest_sha256: str,
     modules: int,
     rows: int,
 ) -> None:
     """Write the capture completion marker (mirrors the calibration cache convention)."""
     marker_data = {
+        "schema_version": CAPTURE_COMPLETION_SCHEMA,
         "complete": True,
         "cache_key_sha256": cache_key_sha256,
+        "manifest_sha256": manifest_sha256,
         "modules": modules,
         "rows": rows,
     }
+    write_data(capture_dir / CAPTURE_COMPLETION_MARKER, marker_data)
+
+
+def _verify_completion_marker(
+    capture_dir: Path,
+    manifest: ActivationCaptureManifest,
+) -> None:
+    """Verify the marker written last during capture finalization.
+
+    The pre-v1.1.1 development marker only carried ``complete``.  It remains
+    readable for migration, while every field present is validated and new
+    markers must bind the manifest semantic digest.
+    """
     marker_path = capture_dir / CAPTURE_COMPLETION_MARKER
-    marker_path.write_text(
-        json.dumps(marker_data, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    if not marker_path.is_file():
+        raise CaptureError(
+            f"activation capture is incomplete (no completion marker): {capture_dir}"
+        )
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CaptureError(f"activation capture completion marker is unreadable: {exc}") from exc
+    if not isinstance(marker, dict) or marker.get("complete") is not True:
+        raise CaptureError("activation capture completion marker is invalid")
+    schema_version = marker.get("schema_version")
+    if schema_version not in {None, CAPTURE_COMPLETION_SCHEMA}:
+        raise CaptureError(f"unsupported activation capture completion schema: {schema_version!r}")
+    expected_manifest_sha256 = stable_sha256(manifest)
+    marker_manifest_sha256 = marker.get("manifest_sha256")
+    if schema_version == CAPTURE_COMPLETION_SCHEMA and not isinstance(marker_manifest_sha256, str):
+        raise CaptureError("activation capture completion marker lacks manifest checksum")
+    if marker_manifest_sha256 is not None and marker_manifest_sha256 != expected_manifest_sha256:
+        raise CaptureError("activation capture completion marker manifest checksum mismatch")
+    expected_fields = {
+        "cache_key_sha256": manifest.cache_key_sha256,
+        "modules": len(manifest.entries),
+        "rows": sum(entry.rows for entry in manifest.entries),
+    }
+    for name, expected in expected_fields.items():
+        if name in marker and marker[name] != expected:
+            raise CaptureError(f"activation capture completion marker {name} mismatch")
 
 
 def _load_resume_progress(
@@ -499,6 +540,7 @@ def capture_calibration_activations(
     _write_completion_marker(
         capture_dir,
         cache_key_sha256=cache_manifest.cache_key_sha256,
+        manifest_sha256=stable_sha256(manifest),
         modules=len(entries),
         rows=sum(entry.rows for entry in entries),
     )
@@ -521,7 +563,7 @@ def load_capture_activations(
     *,
     model: str,
     revision: str | None = None,
-) -> dict[str, np.ndarray]:
+) -> LoadedActivationCapture:
     """Load a capture artifact, failing closed on any identity or checksum drift."""
     import numpy as np
 
@@ -529,6 +571,7 @@ def load_capture_activations(
     if not (root / CAPTURE_COMPLETION_MARKER).is_file():
         raise CaptureError(f"activation capture is incomplete (no completion marker): {root}")
     manifest = load_model(root / CAPTURE_MANIFEST_NAME, ActivationCaptureManifest)
+    _verify_completion_marker(root, manifest)
     if manifest.model != model:
         raise CaptureError(
             f"activation capture model {manifest.model!r} does not match requested {model!r}"
@@ -564,5 +607,11 @@ def load_capture_activations(
                 f"activation capture shape mismatch for {entry.module_path}: "
                 f"{rows.shape} != {(entry.rows, entry.in_features)}"
             )
+        rows.setflags(write=False)
         result[entry.module_path] = rows
-    return result
+    return LoadedActivationCapture(
+        manifest=manifest,
+        manifest_sha256=stable_sha256(manifest),
+        activations=result,
+        source_dir=root,
+    )

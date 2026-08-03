@@ -113,7 +113,8 @@ Its design centers on:
 
 ## Current status
 
-The toolkit version is `1.1.1` (packaging classifier: **Beta**). Its inspection, planning,
+The latest tagged toolkit version is `1.1.1` (packaging classifier: **Beta**); this worktree also
+contains unreleased next-patch hardening. Its inspection, planning,
 conversion, runtime-check, validation, and publication-gating commands are implemented and
 covered by the test suite. Certification is checkpoint- and evidence-specific; a working command
 does not by itself certify an output. `v1.1.1` is a stability release: resumable, compressed,
@@ -225,8 +226,8 @@ linked model card and manifest remain authoritative if a pack is rebuilt.
 | [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | ~8.00 | embedding |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | (factory) | embedding; publishing |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | (factory) | embedding; publishing |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | (factory) | hybrid MoE; publishing |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | (factory) | hybrid MoE; publishing |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | regeneration required | pre-fix fused experts stayed BF16; do not use as low-bit evidence |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | regeneration required | regenerate with corrected `switch_mlp` expert classification |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | (factory) | Mistral3 shell; publishing |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | (factory) | Mistral3 shell; publishing |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | (factory) | Mistral3 shell; publishing |

@@ -10,6 +10,10 @@ from email.parser import Parser
 from math import isfinite
 from pathlib import Path, PurePosixPath
 
+from axquant.capture_binding import (
+    CAPTURE_METADATA_KEYS,
+    activation_capture_evidence_issues,
+)
 from axquant.errors import ArtifactError, RefinementError, ValidationGateError
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.pareto import build_pareto_report
@@ -25,6 +29,7 @@ from axquant.release_exceptions import (
 )
 from axquant.reproduction import verify_reproduction
 from axquant.schema import (
+    ActivationCaptureManifest,
     ArtifactManifest,
     BaselineKind,
     BenchmarkEvidenceIndex,
@@ -80,6 +85,8 @@ _RELEASE_PROBE_MIN_BITS = {
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
 }
+_ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_ACTIVATION_CAPTURE_MANIFEST = "activation_capture_manifest.json"
 _REQUIRED_BENCHMARK_KINDS = {
     BenchmarkEvidenceKind.BF16,
     BenchmarkEvidenceKind.UNIFORM_4BIT,
@@ -1168,6 +1175,59 @@ def _sensitivity_measurement_issues(
     return issues
 
 
+def _activation_capture_artifact_issues(
+    artifact: Path,
+    sensitivity: SensitivityReport,
+    plan: QuantizationPlan,
+) -> list[str]:
+    """Verify AWQ/GPTQ lineage through the packaged capture manifest."""
+    methods = {
+        assignment.method
+        for assignment in plan.assignments
+        if assignment.bits < 16 and assignment.method in _ACTIVATION_REFINEMENT_METHODS
+    }
+    if not methods:
+        return []
+    if plan.calibration is None or sensitivity.calibration is None:
+        return ["AWQ/GPTQ release evidence lacks activation-capture calibration provenance"]
+    plan_metadata = plan.calibration.metadata
+    sensitivity_metadata = sensitivity.calibration.metadata
+    missing = [
+        key
+        for key in CAPTURE_METADATA_KEYS
+        if not isinstance(plan_metadata.get(key), str) or not plan_metadata.get(key)
+    ]
+    issues: list[str] = []
+    if missing:
+        issues.append(f"AWQ/GPTQ release plan lacks activation-capture bindings: {missing}")
+    changed = [
+        key
+        for key in CAPTURE_METADATA_KEYS
+        if plan_metadata.get(key) != sensitivity_metadata.get(key)
+    ]
+    if changed:
+        issues.append(f"sensitivity and plan activation-capture bindings differ: {changed}")
+    capture_path = artifact / _ACTIVATION_CAPTURE_MANIFEST
+    if not capture_path.is_file():
+        issues.append("release artifact does not package activation_capture_manifest.json")
+        return issues
+    try:
+        manifest = load_model(capture_path, ActivationCaptureManifest)
+    except (ArtifactError, OSError, ValueError) as exc:
+        issues.append(f"packaged activation capture manifest is invalid: {exc}")
+        return issues
+    issues.extend(
+        activation_capture_evidence_issues(
+            manifest,
+            plan_metadata,
+            model_id=plan.source_model.model_id,
+            revision=plan.source_model.revision,
+            dataset_id=plan.calibration.dataset_id,
+        )
+    )
+    return issues
+
+
 _SENSITIVITY_LINEAGE_PROTOCOL_FIELDS = (
     "cache_key_sha256",
     "sample_order_sha256",
@@ -1568,6 +1628,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     ) != plan.architecture_profile.model_dump(exclude={"support_tier"}):
         m3_issues.append("sensitivity and plan architecture profiles differ")
     m3_issues.extend(_sensitivity_measurement_issues(sensitivity, plan))
+    m3_issues.extend(_activation_capture_artifact_issues(artifact, sensitivity, plan))
     m3_issues.extend(_sensitivity_lineage_issues(sensitivity, sensitivity_lineage))
     m3_evidence_sha256 = {"sensitivity_report": file_sha256(paths["sensitivity"])}
     m3_evidence_sha256.update(

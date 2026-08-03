@@ -8,6 +8,7 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from axquant.capture_binding import LoadedActivationCapture, activation_capture_metadata
 from axquant.cli import main
 from axquant.pareto import build_pareto_report
 from axquant.planner import plan_quantization
@@ -18,6 +19,7 @@ from axquant.refinement import (
     build_complete_candidate_measurement,
 )
 from axquant.release_audit import (
+    _activation_capture_artifact_issues,
     _sensitivity_lineage_issues,
     _sensitivity_measurement_issues,
     _wheel_identity,
@@ -27,6 +29,7 @@ from axquant.release_exceptions import apply_release_exception
 from axquant.reproduction import verify_reproduction
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
+    ActivationCaptureManifest,
     ArchitectureProfile,
     ArchitectureSupportLevel,
     ArtifactFile,
@@ -1756,6 +1759,41 @@ def test_release_audit_requires_measurement_even_when_candidate_is_dominated() -
     assert _sensitivity_measurement_issues(failed_report, plan) == [
         "model.layers.0.mlp.down_proj.weight lacks complete measured candidates at bits [4]"
     ]
+
+
+def test_release_audit_binds_packaged_awq_capture_manifest(tmp_path: Path) -> None:
+    sensitivity = _sensitivity()
+    plan = _plan(sensitivity)
+    target = next(assignment for assignment in plan.assignments if assignment.bits < 16)
+    target.method = QuantMethod.AWQ
+    assert sensitivity.calibration is not None
+    assert plan.calibration is not None
+    plan.calibration = plan.calibration.model_copy(deep=True)
+    capture_manifest = ActivationCaptureManifest(
+        model=plan.source_model.model_id,
+        revision=plan.source_model.revision,
+        tokenized_cache_manifest_sha256="b" * 64,
+        cache_key_sha256="c" * 64,
+        calibration_dataset_id=plan.calibration.dataset_id,
+        max_rows=4,
+    )
+    capture = LoadedActivationCapture(
+        manifest=capture_manifest,
+        manifest_sha256=stable_sha256(capture_manifest),
+        activations={},
+        source_dir=tmp_path,
+    )
+    binding = activation_capture_metadata(capture)
+    sensitivity.calibration.metadata.update(binding)
+    plan.calibration.metadata.update(binding)
+    write_data(tmp_path / "activation_capture_manifest.json", capture_manifest)
+
+    assert _activation_capture_artifact_issues(tmp_path, sensitivity, plan) == []
+
+    plan.calibration.metadata["activation_capture_manifest_sha256"] = "0" * 64
+    issues = _activation_capture_artifact_issues(tmp_path, sensitivity, plan)
+    assert any("bindings differ" in issue for issue in issues)
+    assert any("does not match the activation capture" in issue for issue in issues)
 
 
 def test_release_audit_cli_fails_non_v1_wheel(tmp_path: Path) -> None:

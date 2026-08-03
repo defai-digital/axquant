@@ -185,6 +185,26 @@ def test_qwen3_next_coder_is_convertible_moe() -> None:
     assert any("MoE" in note or "fused" in note for note in profile.notes)
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "model.layers.0.mlp.switch_mlp.gate_proj.weight",
+        "model.layers.0.mlp.switch_mlp.up_proj.weight",
+        "model.layers.0.mlp.switch_mlp.down_proj.weight",
+        "model.layers.0.mlp.switch_glu.fc1.weight",
+    ],
+)
+def test_qwen3_next_fused_switch_weights_classify_as_experts(name: str) -> None:
+    config = {
+        "model_type": "qwen3_next",
+        "num_hidden_layers": 48,
+        "num_experts": 512,
+    }
+    adapter = adapter_for("Qwen/Qwen3-Coder-Next", config)
+    assert adapter is not None
+    assert adapter.classify_tensor(name, "model.safetensors") is TensorRole.EXPERT
+
+
 def test_dense_family_tier_fails_closed_for_moe_and_missing_layers() -> None:
     spec = DenseFamilySpec(
         adapter_id="test-dense-v1",

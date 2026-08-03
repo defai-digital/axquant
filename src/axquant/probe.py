@@ -21,6 +21,7 @@ from axquant.activation_cache import (
     verify_cache_integrity,
 )
 from axquant.awq import apply_mlx_awq_scale
+from axquant.capture_binding import LoadedActivationCapture, activation_capture_metadata
 from axquant.dwq import apply_mlx_dwq_clip
 from axquant.errors import BackendUnavailableError, PlanningError, ProbeError
 from axquant.gptq import apply_mlx_gptq_refine
@@ -57,7 +58,7 @@ _REQUIRED_AGENT_CODING_DOMAINS = {
     "multilingual",
     "long-context",
 }
-_PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v5"
+_PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v6"
 # Methods that refine the float weight before identical affine packing. They
 # reuse the matching AFFINE candidate as the hardware-cost control.
 _REFINEMENT_METHODS = frozenset({QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ})
@@ -762,13 +763,20 @@ def probe_tensor_sensitivity(
             "module-group probing is not available in the tensor-isolation backend; "
             "disable it rather than relabelling representative tensor results"
         )
-    if _ACTIVATION_DRIVEN_METHODS & set(config.candidate_methods) and (
-        calibration_activations is None
-    ):
-        raise ProbeError(
-            "AWQ/GPTQ measured probing requires captured calibration activations; "
-            "run capture-activations and pass the artifact via --calibration-activations"
-        )
+    activation_driven = bool(_ACTIVATION_DRIVEN_METHODS & set(config.candidate_methods))
+    bound_capture: LoadedActivationCapture | None = None
+    if activation_driven:
+        if calibration_activations is None:
+            raise ProbeError(
+                "AWQ/GPTQ measured probing requires captured calibration activations; "
+                "run capture-activations and pass the artifact via --calibration-activations"
+            )
+        if not isinstance(calibration_activations, LoadedActivationCapture):
+            raise ProbeError(
+                "AWQ/GPTQ measured probing requires a checksum-bound capture loaded with "
+                "load_capture_activations; an unbound activation mapping is not evidence"
+            )
+        bound_capture = calibration_activations
     if backend is None:
         backend = MlxProbeBackend(calibration_activations=calibration_activations)
     if isinstance(backend, MlxProbeBackend):
@@ -787,6 +795,9 @@ def probe_tensor_sensitivity(
             "config": config.model_dump(mode="json"),
             "probe_backend_version": _PROBE_BACKEND_VERSION,
             "base_sensitivity_sha256": base_sha256,
+            "activation_capture_manifest_sha256": (
+                bound_capture.manifest_sha256 if bound_capture is not None else None
+            ),
         }
     )
     progress_path = Path(state_path).expanduser().resolve() if state_path is not None else None
@@ -819,6 +830,20 @@ def probe_tensor_sensitivity(
             "measured release evidence requires calibration/evaluation separation attestation"
         )
     calibration_dataset_id = _calibration_dataset_id(cache_path, cache_manifest)
+    if bound_capture is not None:
+        capture_manifest = bound_capture.manifest
+        tokenized_cache_sha256 = stable_sha256(cache_manifest)
+        if (
+            capture_manifest.model != config.model.model_id
+            or capture_manifest.revision != config.model.revision
+        ):
+            raise ProbeError("activation capture source model does not match the probe model")
+        if capture_manifest.tokenized_cache_manifest_sha256 != tokenized_cache_sha256:
+            raise ProbeError("activation capture does not bind the probe calibration cache")
+        if capture_manifest.cache_key_sha256 != cache_manifest.cache_key_sha256:
+            raise ProbeError("activation capture cache key does not match the probe cache")
+        if capture_manifest.calibration_dataset_id != calibration_dataset_id:
+            raise ProbeError("activation capture dataset does not match the probe calibration")
     calibration_random_seed: int | None = None
     if cache_manifest.calibration_manifest_sha256 not in {None, "", "unknown"}:
         calibration_random_seed = load_model(
@@ -1123,6 +1148,8 @@ def probe_tensor_sensitivity(
             "bit/group/packing reuse the base affine hardware-cost control"
         ),
     }
+    if bound_capture is not None:
+        calibration_metadata.update(activation_capture_metadata(bound_capture))
     if calibration_random_seed is not None:
         calibration_metadata["calibration_random_seed"] = calibration_random_seed
     if base_report is not None:

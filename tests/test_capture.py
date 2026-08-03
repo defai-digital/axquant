@@ -14,6 +14,7 @@ from safetensors.numpy import save_file
 from axquant.activation_cache import tokenize_calibration
 from axquant.capture import (
     CAPTURE_ACTIVATIONS_DIR,
+    CAPTURE_COMPLETION_SCHEMA,
     CAPTURE_MANIFEST_NAME,
     capture_calibration_activations,
     load_capture_activations,
@@ -26,7 +27,7 @@ from axquant.schema import (
     ModelIdentity,
     ProfileName,
 )
-from axquant.serde import file_sha256, load_model, write_data
+from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 _HIDDEN = 32
 _INTERMEDIATE = 64
@@ -59,6 +60,24 @@ def _manifest(
     return ActivationCaptureManifest(**fields)  # type: ignore[arg-type]
 
 
+def _write_completion(capture: Path, manifest: ActivationCaptureManifest) -> None:
+    (capture / "completion.json").write_text(
+        json.dumps(
+            {
+                "schema_version": CAPTURE_COMPLETION_SCHEMA,
+                "complete": True,
+                "cache_key_sha256": manifest.cache_key_sha256,
+                "manifest_sha256": stable_sha256(manifest),
+                "modules": len(manifest.entries),
+                "rows": sum(entry.rows for entry in manifest.entries),
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+
 def _write_capture_dir(root: Path) -> Path:
     capture = root / "capture"
     activations = capture / CAPTURE_ACTIVATIONS_DIR
@@ -74,11 +93,9 @@ def _write_capture_dir(root: Path) -> Path:
         filename = f"{index:04d}-{name.replace('.', '-')}.npz"
         np.savez(activations / filename, x_rows=x_rows)
         entries.append(_entry(name, rows, features, filename, file_sha256(activations / filename)))
-    write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(tuple(entries)))
-    (capture / "completion.json").write_text(
-        json.dumps({"complete": True}, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    manifest = _manifest(tuple(entries))
+    write_data(capture / CAPTURE_MANIFEST_NAME, manifest)
+    _write_completion(capture, manifest)
     return capture
 
 
@@ -102,6 +119,13 @@ class TestManifestSchema:
         assert loaded.schema_version == "axquant.activation-capture.v1"
         assert loaded.entries[0].module_path == "model.layers.0.mlp.down_proj"
 
+    def test_rejects_duplicate_modules_and_rows_above_limit(self) -> None:
+        entry = _entry("model.layers.0.mlp.down_proj", 4, 8, "a.npz", "c" * 64)
+        with pytest.raises(ValidationError, match="module paths must be unique"):
+            _manifest((entry, entry))
+        with pytest.raises(ValidationError, match="exceed max_rows"):
+            _manifest((_entry("model.layers.0.mlp.up_proj", 17, 8, "b.npz", "d" * 64),))
+
 
 class TestLoadCaptureActivations:
     def test_happy_path_returns_fp16_mapping(self, tmp_path: Path) -> None:
@@ -113,6 +137,9 @@ class TestLoadCaptureActivations:
         }
         assert loaded["model.layers.0.mlp.down_proj"].shape == (4, 8)
         assert loaded["model.layers.0.mlp.down_proj"].dtype == np.float16
+        assert loaded.manifest_sha256 == stable_sha256(loaded.manifest)
+        assert loaded.source_dir == capture.resolve()
+        assert loaded["model.layers.0.mlp.down_proj"].flags.writeable is False
 
     def test_model_mismatch_fails_closed(self, tmp_path: Path) -> None:
         capture = _write_capture_dir(tmp_path)
@@ -145,6 +172,15 @@ class TestLoadCaptureActivations:
         with pytest.raises(CaptureError, match="incomplete"):
             load_capture_activations(capture, model="test-model")
 
+    def test_completion_marker_manifest_mismatch_fails_closed(self, tmp_path: Path) -> None:
+        capture = _write_capture_dir(tmp_path)
+        marker_path = capture / "completion.json"
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        marker["manifest_sha256"] = "0" * 64
+        marker_path.write_text(json.dumps(marker), encoding="utf-8")
+        with pytest.raises(CaptureError, match="manifest checksum mismatch"):
+            load_capture_activations(capture, model="test-model")
+
     def test_sharded_layout_round_trip(self, tmp_path: Path) -> None:
         capture = tmp_path / "capture"
         activations = capture / CAPTURE_ACTIVATIONS_DIR
@@ -171,11 +207,9 @@ class TestLoadCaptureActivations:
             )
             for name, rows, features in specs
         )
-        write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(entries))
-        (capture / "completion.json").write_text(
-            json.dumps({"complete": True}, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
+        manifest = _manifest(entries)
+        write_data(capture / CAPTURE_MANIFEST_NAME, manifest)
+        _write_completion(capture, manifest)
         loaded = load_capture_activations(capture, model="test-model", revision="rev1")
         assert set(loaded) == {name for name, _, _ in specs}
         for name, _, _ in specs:
@@ -199,11 +233,9 @@ class TestLoadCaptureActivations:
                 array_key="rows::model.layers.0.self_attn.q_proj",
             ),
         )
-        write_data(capture / CAPTURE_MANIFEST_NAME, _manifest(entries))
-        (capture / "completion.json").write_text(
-            json.dumps({"complete": True}, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
+        manifest = _manifest(entries)
+        write_data(capture / CAPTURE_MANIFEST_NAME, manifest)
+        _write_completion(capture, manifest)
         with pytest.raises(CaptureError, match="array key mismatch"):
             load_capture_activations(capture, model="test-model")
 

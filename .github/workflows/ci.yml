@@ -23,6 +23,22 @@ jobs:
       - name: mypy
         run: mypy src
 
+  python-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]"
+      - name: Run non-MLX tests
+        run: pytest -m "not integration"
+
   test:
     runs-on: macos-14
     steps:
@@ -33,4 +49,11 @@ jobs:
       - name: Install with MLX extras
         run: pip install -e ".[dev,mlx]"
       - name: Run test suite
-        run: pytest
+        run: pytest -m "not integration"
+      - name: Run real-hardware integration suite
+        run: |
+          if test -f tests/test_integration_mac.py; then
+            pytest -m integration
+          else
+            echo "No tracked real-hardware integration tests yet"
+          fi

@@ -23,6 +23,16 @@ class ModelIdentity(StrictModel):
     local_path: str | None = None
 
 
+class SourceConversionProvenance(StrictModel):
+    """Immutable Hub identity emitted by the BF16 source-preparation helper."""
+
+    schema_version: Literal["axquant.source-conversion.v1"] = "axquant.source-conversion.v1"
+    source_model: str
+    source_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    dtype: Literal["bfloat16"] = "bfloat16"
+    key_remap_applied: bool
+
+
 class ArchitectureProfile(StrictModel):
     adapter_id: str = "generic"
     product_family: str = "unknown"

@@ -10,6 +10,10 @@ import numpy as np
 import pytest
 
 from axquant.activation_cache import tokenize_calibration
+from axquant.capture_binding import (
+    CAPTURE_MANIFEST_SHA256_KEY,
+    LoadedActivationCapture,
+)
 from axquant.errors import BackendUnavailableError, ProbeError
 from axquant.inspector import inspect_model
 from axquant.probe import (
@@ -25,6 +29,8 @@ from axquant.probe import (
     probe_tensor_sensitivity,
 )
 from axquant.schema import (
+    ActivationCaptureEntry,
+    ActivationCaptureManifest,
     CalibrationManifest,
     EvidenceKind,
     ModelIdentity,
@@ -32,8 +38,10 @@ from axquant.schema import (
     ProbeProgress,
     ProfileName,
     QuantMethod,
+    SensitivityReport,
     SupportTier,
     TensorRole,
+    TokenizedCacheManifest,
 )
 from axquant.serde import load_model, stable_sha256, write_data
 
@@ -600,6 +608,44 @@ def _base_probe_report(
     return inventory, config, report
 
 
+def _bound_probe_capture(
+    tmp_path: Path,
+    config: ProbeConfig,
+    report: SensitivityReport,
+    activations: dict[str, np.ndarray],
+) -> LoadedActivationCapture:
+    cache_manifest = load_model(
+        Path(config.calibration_cache) / "tokenized_cache_manifest.json",
+        TokenizedCacheManifest,
+    )
+    assert report.calibration is not None
+    entries = tuple(
+        ActivationCaptureEntry(
+            module_path=name,
+            rows=int(rows.shape[0]),
+            in_features=int(rows.shape[1]),
+            file=f"{index:04d}.npz",
+            sha256=f"{index + 1:064x}",
+        )
+        for index, (name, rows) in enumerate(sorted(activations.items()))
+    )
+    manifest = ActivationCaptureManifest(
+        model=config.model.model_id,
+        revision=config.model.revision,
+        tokenized_cache_manifest_sha256=stable_sha256(cache_manifest),
+        cache_key_sha256=cache_manifest.cache_key_sha256,
+        calibration_dataset_id=report.calibration.dataset_id,
+        max_rows=max(entry.rows for entry in entries),
+        entries=entries,
+    )
+    return LoadedActivationCapture(
+        manifest=manifest,
+        manifest_sha256=stable_sha256(manifest),
+        activations=activations,
+        source_dir=tmp_path,
+    )
+
+
 def test_probe_requires_calibration_activations_for_awq_gptq(
     qwen36_model_dir: Path,
 ) -> None:
@@ -631,6 +677,22 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
     four_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 4)
     target_tensor = quantized_entry.tensor.name
     activations = {target_tensor.removesuffix(".weight"): np.zeros((4, 8), dtype=np.float32)}
+    bound_activations = _bound_probe_capture(tmp_path, config, report, activations)
+
+    with pytest.raises(ProbeError, match="unbound activation mapping"):
+        probe_tensor_sensitivity(
+            inventory,
+            config=config.model_copy(
+                update={
+                    "candidate_bits": (4,),
+                    "candidate_methods": (QuantMethod.AWQ,),
+                    "target_tensors": (target_tensor,),
+                }
+            ),
+            backend=_MeasuredFakeBackend(),
+            base_report=report,
+            calibration_activations=activations,
+        )
 
     for method, note_text in (
         (QuantMethod.AWQ, "activation-aware channel scaling"),
@@ -648,7 +710,7 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             backend=_MeasuredFakeBackend(),
             state_path=tmp_path / f"{method.value}-progress.json",
             base_report=report,
-            calibration_activations=activations,
+            calibration_activations=bound_activations,
         )
         refined_entry = next(
             entry for entry in refined.entries if entry.tensor.name == target_tensor
@@ -665,6 +727,45 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
         assert candidate.note is not None
         assert note_text in candidate.note
         assert "hardware costs normalized" in candidate.note
+        assert refined.calibration is not None
+        assert (
+            refined.calibration.metadata[CAPTURE_MANIFEST_SHA256_KEY]
+            == bound_activations.manifest_sha256
+        )
+
+
+def test_probe_rejects_capture_bound_to_another_cache(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory, config, report = _base_probe_report(tmp_path, qwen36_model_dir)
+    target = next(tensor for tensor in inventory.tensors if tensor.quantizable)
+    activations = {
+        target.module_path: np.zeros((4, target.shape[-1]), dtype=np.float32),
+    }
+    capture = _bound_probe_capture(tmp_path, config, report, activations)
+    wrong_manifest = capture.manifest.model_copy(update={"cache_key_sha256": "0" * 64})
+    wrong_capture = LoadedActivationCapture(
+        manifest=wrong_manifest,
+        manifest_sha256=stable_sha256(wrong_manifest),
+        activations=activations,
+        source_dir=tmp_path,
+    )
+
+    with pytest.raises(ProbeError, match="cache key does not match"):
+        probe_tensor_sensitivity(
+            inventory,
+            config=config.model_copy(
+                update={
+                    "candidate_bits": (4,),
+                    "candidate_methods": (QuantMethod.AWQ,),
+                    "target_tensors": (target.name,),
+                }
+            ),
+            backend=_MeasuredFakeBackend(),
+            base_report=report,
+            calibration_activations=wrong_capture,
+        )
 
 
 class TestMlxProbeBackendRefinement:

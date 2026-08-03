@@ -3,11 +3,13 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from axquant.capture_binding import activation_capture_evidence_issues
 from axquant.errors import ArtifactError, ValidationGateError
 from axquant.planner import allocate_kv_cache_measured
 from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
 from axquant.schema import (
+    ActivationCaptureManifest,
     ArtifactFile,
     ArtifactManifest,
     BenchmarkEvidenceEntry,
@@ -22,6 +24,7 @@ from axquant.schema import (
     PreparedMtpSidecarManifest,
     ProfileName,
     QuantizationPlan,
+    QuantMethod,
     RefinementMeasurementSet,
     ReleaseValidationIndex,
     ReproductionCommand,
@@ -52,6 +55,32 @@ def _validate_manifest_files(directory: Path, manifest: ArtifactManifest) -> Non
             raise ValidationGateError(f"manifest size changed: {record.path}")
         if file_sha256(path) != record.sha256:
             raise ValidationGateError(f"manifest checksum changed: {record.path}")
+
+
+def _verify_packaged_activation_capture(directory: Path, plan: QuantizationPlan) -> None:
+    """Require the exact analyzed capture for public AWQ/GPTQ artifacts."""
+    methods = {
+        assignment.method
+        for assignment in plan.assignments
+        if assignment.bits < 16 and assignment.method in {QuantMethod.AWQ, QuantMethod.GPTQ}
+    }
+    if not methods:
+        return
+    if plan.calibration is None:
+        raise ValidationGateError("AWQ/GPTQ publication lacks calibration provenance")
+    path = directory / "activation_capture_manifest.json"
+    if not path.is_file():
+        raise ValidationGateError("AWQ/GPTQ publication requires activation_capture_manifest.json")
+    capture = load_model(path, ActivationCaptureManifest)
+    issues = activation_capture_evidence_issues(
+        capture,
+        plan.calibration.metadata,
+        model_id=plan.source_model.model_id,
+        revision=plan.source_model.revision,
+        dataset_id=plan.calibration.dataset_id,
+    )
+    if issues:
+        raise ValidationGateError(f"packaged activation capture is inconsistent: {issues}")
 
 
 def _artifact_files(directory: Path) -> list[ArtifactFile]:
@@ -577,6 +606,7 @@ def prepare_publication(
         or not calibration.calibration_evaluation_separation_attested
     ):
         raise ValidationGateError("packaged calibration provenance is inconsistent")
+    _verify_packaged_activation_capture(directory, plan)
     if not plan.source_model.revision:
         raise ValidationGateError("publication requires an immutable source revision")
     if stable_sha256(plan) != manifest.plan_sha256:

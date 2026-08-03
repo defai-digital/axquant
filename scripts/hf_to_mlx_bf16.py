@@ -10,12 +10,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
-import mlx.core as mx
 from huggingface_hub import snapshot_download
 
 _CONFIG_NAMES = (
@@ -28,6 +31,15 @@ _CONFIG_NAMES = (
     "special_tokens_map.json",
     "chat_template.jinja",
 )
+_IMMUTABLE_HUB_REVISION = re.compile(r"^[0-9a-fA-F]{40}$")
+_SOURCE_PROVENANCE_NAME = "axquant_source.json"
+
+
+def _mlx_core() -> Any:
+    try:
+        return import_module("mlx.core")
+    except ModuleNotFoundError as exc:
+        raise SystemExit("this helper requires MLX on Apple Silicon") from exc
 
 
 def _weight_files(directory: Path) -> list[Path]:
@@ -38,6 +50,7 @@ def _weight_files(directory: Path) -> list[Path]:
 
 
 def _needs_model_prefix(path: Path) -> bool:
+    mx = _mlx_core()
     weights = mx.load(str(path))
     keys = list(weights)
     if not keys:
@@ -54,8 +67,9 @@ def _remap_key(key: str) -> str:
 
 
 def _prepare_with_prefix(snapshot: Path, prepared: Path) -> Path:
+    mx = _mlx_core()
     if prepared.exists():
-        shutil.rmtree(prepared)
+        raise SystemExit(f"prepared staging path already exists: {prepared}")
     prepared.mkdir(parents=True)
     for name in _CONFIG_NAMES:
         src = snapshot / name
@@ -123,50 +137,83 @@ def _prepare_with_prefix(snapshot: Path, prepared: Path) -> Path:
     return prepared
 
 
-def prepare_hf_dir(hf_id: str, work: Path) -> Path:
+def prepare_hf_dir(hf_id: str, revision: str, work: Path, prepared: Path) -> Path:
     work.mkdir(parents=True, exist_ok=True)
     snap = Path(
         snapshot_download(
             hf_id,
-            local_dir=str(work / "snapshot"),
+            revision=revision,
+            local_dir=str(work / f"snapshot-{revision}"),
         )
     )
     weight_files = _weight_files(snap)
     if not weight_files:
         raise SystemExit(f"no safetensors in {snap}")
     if any(_needs_model_prefix(path) for path in weight_files):
-        return _prepare_with_prefix(snap, work / "prepared")
+        return _prepare_with_prefix(snap, prepared)
     print(f"using snapshot as-is {snap}")
     return snap
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hf-id", required=True)
+    parser.add_argument(
+        "--revision",
+        required=True,
+        help="Immutable 40-character Hugging Face commit SHA",
+    )
     parser.add_argument("--mlx-path", required=True, type=Path)
     parser.add_argument("--work", required=True, type=Path)
-    args = parser.parse_args()
-    if (args.mlx_path / "config.json").exists() and list(args.mlx_path.glob("*.safetensors")):
-        print(f"skip existing {args.mlx_path}")
-        return
-    hf_dir = prepare_hf_dir(args.hf_id, args.work)
-    args.mlx_path.parent.mkdir(parents=True, exist_ok=True)
+    args = parser.parse_args(argv)
+    if not _IMMUTABLE_HUB_REVISION.fullmatch(args.revision):
+        raise SystemExit("--revision must be an immutable 40-character Hub commit SHA")
     if args.mlx_path.exists():
-        shutil.rmtree(args.mlx_path)
-    cmd = [
-        sys.executable,
-        "-m",
-        "mlx_lm",
-        "convert",
-        "--hf-path",
-        str(hf_dir),
-        "--mlx-path",
-        str(args.mlx_path),
-        "--dtype",
-        "bfloat16",
-    ]
-    print("run", " ".join(cmd))
-    subprocess.check_call(cmd)
+        raise SystemExit(f"refusing to overwrite existing output: {args.mlx_path}")
+    args.mlx_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_root = Path(
+        tempfile.mkdtemp(prefix=f".{args.mlx_path.name}.", dir=args.mlx_path.parent)
+    )
+    staging = temporary_root / "artifact"
+    prepared = temporary_root / "prepared-source"
+    try:
+        hf_dir = prepare_hf_dir(args.hf_id, args.revision, args.work, prepared)
+        cmd = [
+            sys.executable,
+            "-m",
+            "mlx_lm",
+            "convert",
+            "--hf-path",
+            str(hf_dir),
+            "--mlx-path",
+            str(staging),
+            "--dtype",
+            "bfloat16",
+        ]
+        print("run", " ".join(cmd))
+        subprocess.check_call(cmd)
+        if not (staging / "config.json").is_file() or not list(staging.glob("*.safetensors")):
+            raise SystemExit("MLX conversion completed without a usable checkpoint")
+        (staging / _SOURCE_PROVENANCE_NAME).write_text(
+            json.dumps(
+                {
+                    "schema_version": "axquant.source-conversion.v1",
+                    "source_model": args.hf_id,
+                    "source_revision": args.revision.lower(),
+                    "dtype": "bfloat16",
+                    "key_remap_applied": hf_dir == prepared,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        if args.mlx_path.exists():
+            raise SystemExit(f"output appeared during conversion: {args.mlx_path}")
+        staging.rename(args.mlx_path)
+    finally:
+        shutil.rmtree(temporary_root, ignore_errors=True)
     print("ok", args.mlx_path)
 
 

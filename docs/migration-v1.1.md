@@ -11,14 +11,17 @@ This page lists every breaking or behavior-changing item and what to do about it
 - `PlanPredicate.awq_metadata` → `method_metadata` (now also carries GPTQ metadata).
 
 The mapping shape is unchanged — `{module_path: activation array (rows, in_features)}` — and is
-now shared by AWQ and GPTQ allocations. Update call sites and any monkeypatching in downstream
-tests.
+now shared by AWQ and GPTQ allocations. `load_capture_activations` now returns a
+mapping-compatible `LoadedActivationCapture` carrying the verified manifest identity. High-level
+AWQ/GPTQ probe and conversion paths reject a raw, unbound `dict`; load the artifact through the
+public loader instead. Update call sites and any monkeypatching in downstream tests.
 
 ## Probe resume state invalidated
 
-The measured-probe backend version moved from `axquant-mlx-isolated-probe-v4` to `v5`. Saved
-`--state` probe progress from v1.0.x is rejected; rerun `analyze` from scratch (reference passes
-are the only real cost).
+The measured-probe backend version moved from `axquant-mlx-isolated-probe-v4` through `v5` to
+`v6`. `v6` includes the activation-capture digest in resume identity and calibration evidence.
+Saved `--state` probe progress from older versions is rejected; rerun `analyze` from scratch
+(reference passes are the only real cost).
 
 ## New and changed CLI surface
 
@@ -40,10 +43,36 @@ are the only real cost).
   use a fresh output directory.
 - Final npz files are deflate-compressed. `load_capture_activations` handles both layouts.
 - A capture is only loadable once `completion.json` exists; `load_capture_activations` fails
-  closed on partial captures.
+  closed on partial captures. New completion markers are atomically written and bind the semantic
+  manifest digest; the loader validates every available legacy marker field during migration.
 - `ActivationCaptureEntry` gained an optional `array_key` field (used when
   `--modules-per-shard N > 1` groups modules into `shard-NNNN.npz` archives). Old manifests
   without the field still validate; the schema version is unchanged.
+
+## Evidence-chain hardening (next patch after v1.1.1)
+
+- AWQ/GPTQ analysis records the activation-capture manifest digest, tokenized-cache manifest
+  digest, cache key, and calibration dataset ID in `CalibrationEvidence.metadata`.
+- The planner carries those bindings unchanged. Conversion rejects a measured plan if the loaded
+  capture differs, and packages `activation_capture_manifest.json` with the checkpoint.
+- Publication preparation and release audit independently revalidate the packaged capture
+  manifest. A capture from the right model but a different cache is no longer interchangeable.
+
+## Qwen3-Next fused experts (next patch after v1.1.1)
+
+`switch_mlp` and `switch_glu` 3-D weights now classify as `expert` in the registered family
+adapter, matching the generic inspector and MLX-LM fused-module path. Artifacts made before this
+fix may have retained most expert weights at BF16 and must be regenerated. Inspection now
+downgrades a supported MoE checkpoint to inventory-only if fused-expert classification coverage
+ever drifts again.
+
+## Hub BF16 source preparation (next patch after v1.1.1)
+
+`scripts/hf_to_mlx_bf16.py` now requires `--revision <40-character commit SHA>`, passes that
+revision to `snapshot_download`, converts into a sibling staging directory, and atomically
+renames only after a usable checkpoint exists. It refuses to overwrite an existing output and
+writes `axquant_source.json` with the immutable source identity. Update automation that previously
+relied on a floating Hub branch or silent output reuse.
 
 ## Planner / policy defaults
 

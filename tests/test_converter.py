@@ -10,11 +10,18 @@ from safetensors.numpy import save_file
 
 import axquant.converter as converter
 from axquant.analyzer import architecture_prior_report
+from axquant.capture_binding import (
+    CAPTURE_MANIFEST_SHA256_KEY,
+    LoadedActivationCapture,
+    activation_capture_metadata,
+)
 from axquant.errors import ArtifactError, PlanningError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
 from axquant.schema import (
+    ActivationCaptureEntry,
+    ActivationCaptureManifest,
     ArtifactManifest,
     CalibrationEvidence,
     CalibrationManifest,
@@ -80,6 +87,43 @@ def _measured_plan(
     return plan
 
 
+def _bound_capture(
+    plan: QuantizationPlan,
+    activations: dict[str, np.ndarray],
+    source_dir: Path,
+) -> LoadedActivationCapture:
+    entries = tuple(
+        ActivationCaptureEntry(
+            module_path=name,
+            rows=int(rows.shape[0]),
+            in_features=int(rows.shape[1]),
+            file=f"{index:04d}.npz",
+            sha256=f"{index + 1:064x}",
+        )
+        for index, (name, rows) in enumerate(sorted(activations.items()))
+    )
+    manifest = ActivationCaptureManifest(
+        model=plan.source_model.model_id,
+        revision=plan.source_model.revision,
+        tokenized_cache_manifest_sha256="c" * 64,
+        cache_key_sha256="d" * 64,
+        calibration_dataset_id=(
+            plan.calibration.dataset_id if plan.calibration is not None else "development-cache"
+        ),
+        max_rows=max(entry.rows for entry in entries),
+        entries=entries,
+    )
+    capture = LoadedActivationCapture(
+        manifest=manifest,
+        manifest_sha256=stable_sha256(manifest),
+        activations=activations,
+        source_dir=source_dir,
+    )
+    if plan.calibration is not None:
+        plan.calibration.metadata.update(activation_capture_metadata(capture))
+    return capture
+
+
 def test_awq_convert_preflight_and_predicate_are_executable(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -117,13 +161,14 @@ def test_awq_convert_preflight_and_predicate_are_executable(
     assert preflight.unmatched_quantized_modules() == set()
 
     # Match the plan group size (64) so portable AWQ scale search can run.
-    calibration_activations = {
+    activation_arrays = {
         allocation.module_path: np.random.default_rng(i).standard_normal(
             (16, 64),
             dtype=np.float32,
         )
         for i, allocation in enumerate(awq_targets)
     }
+    calibration_activations = _bound_capture(plan, activation_arrays, tmp_path)
 
     class FakeModule:
         def __init__(self) -> None:
@@ -197,6 +242,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
         ax_engine_manifest="skip",
     )
     assert (output / "axquant_quantizer_execution.json").is_file()
+    assert (output / "activation_capture_manifest.json").is_file()
     assert any(record.path == "axquant_quantizer_execution.json" for record in manifest.files)
     execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
     awq_records = [record for record in execution.records if record.method == QuantMethod.AWQ]
@@ -207,6 +253,17 @@ def test_awq_convert_preflight_and_predicate_are_executable(
         for record in awq_records
     )
     assert all("awq_channel_scales" in record.metadata for record in awq_records)
+
+    with pytest.raises(PlanningError, match="unbound activation mapping"):
+        converter.convert_model(
+            model=str(qwen36_model_dir),
+            plan=plan,
+            output=tmp_path / "awq-unbound-activations",
+            mtp_sidecar=qwen36_model_dir,
+            calibration_activations=activation_arrays,
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
 
     with pytest.raises(PlanningError, match="requires calibration activations"):
         converter.convert_model(
@@ -256,13 +313,14 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
     assert preflight.unmatched_quantized_modules() == set()
 
     # Match the plan group size (64) so portable GPTQ refinement can run.
-    calibration_activations = {
+    activation_arrays = {
         allocation.module_path: np.random.default_rng(i).standard_normal(
             (16, 64),
             dtype=np.float32,
         )
         for i, allocation in enumerate(gptq_targets)
     }
+    calibration_activations = _bound_capture(plan, activation_arrays, tmp_path)
 
     class FakeModule:
         def __init__(self) -> None:
@@ -336,6 +394,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
         ax_engine_manifest="skip",
     )
     assert (output / "axquant_quantizer_execution.json").is_file()
+    assert (output / "activation_capture_manifest.json").is_file()
     assert any(record.path == "axquant_quantizer_execution.json" for record in manifest.files)
     execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
     gptq_records = [record for record in execution.records if record.method == QuantMethod.GPTQ]
@@ -375,6 +434,29 @@ def test_measured_conversion_requires_bound_calibration_manifest(
     plan.calibration.metadata["calibration_manifest_sha256"] = "0" * 64
     with pytest.raises(PlanningError, match="checksum"):
         converter._validated_calibration_source(plan, calibration_path)
+
+
+def test_measured_awq_conversion_binds_exact_activation_capture(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    plan = _measured_plan(qwen36_model_dir, tmp_path / "calibration.json")
+    target = next(
+        allocation
+        for allocation in plan.assignments
+        if allocation.bits < 16 and allocation.role == TensorRole.MLP
+    )
+    target.method = QuantMethod.AWQ
+    activations = {
+        target.module_path: np.zeros((4, 64), dtype=np.float32),
+    }
+    capture = _bound_capture(plan, activations, tmp_path)
+
+    assert converter._validated_activation_capture(plan, capture) is capture
+    assert plan.calibration is not None
+    plan.calibration.metadata[CAPTURE_MANIFEST_SHA256_KEY] = "0" * 64
+    with pytest.raises(PlanningError, match="does not match the plan"):
+        converter._validated_activation_capture(plan, capture)
 
 
 def test_measured_conversion_accepts_canonical_calibration_manifest_hash(

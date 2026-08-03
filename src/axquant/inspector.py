@@ -15,12 +15,17 @@ from axquant.errors import ArtifactError
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
     ArchitectureProfile,
+    ArchitectureSupportLevel,
     Inventory,
     ModelIdentity,
+    OptimizationScope,
     QuantMethod,
+    SourceConversionProvenance,
+    SupportTier,
     TensorRole,
     TensorSpec,
 )
+from axquant.serde import load_model
 
 _FLOAT_DTYPES = {"BF16", "F16", "F32", "F64"}
 _DTYPE_BYTES = {
@@ -42,6 +47,7 @@ _DTYPE_BYTES = {
 }
 _MTP_TOKEN = re.compile(r"(^|[./_-])(mtp|multi[_-]?token)([./_-]|$)")
 _MTP_PRECISION = re.compile(r"INT(4|6|8|16)", re.IGNORECASE)
+_FUSED_EXPERT_PATH_TOKENS = ("switch_mlp", "switch_glu", ".experts.")
 
 
 def resolve_model_dir(
@@ -268,6 +274,19 @@ def inspect_model(
 ) -> Inventory:
     model_dir = resolve_model_dir(model, revision=revision, allow_download=allow_download)
     config = _read_config(model_dir)
+    provenance_path = model_dir / "axquant_source.json"
+    source_provenance = (
+        load_model(provenance_path, SourceConversionProvenance)
+        if provenance_path.is_file()
+        else None
+    )
+    if source_provenance is not None:
+        if model_id is not None and model_id != source_provenance.source_model:
+            raise ArtifactError("explicit model ID differs from axquant_source.json")
+        if revision is not None and revision.lower() != source_provenance.source_revision:
+            raise ArtifactError("explicit revision differs from axquant_source.json")
+        model_id = source_provenance.source_model
+        revision = source_provenance.source_revision
     model_reference = model_id or str(model)
     adapter = adapter_for(model_reference, config)
     architecture_profile = (
@@ -405,6 +424,33 @@ def inspect_model(
     tensors.sort(key=lambda tensor: (tensor.file, tensor.name))
     total_parameters = sum(tensor.parameters for tensor in tensors)
     quantizable_parameters = sum(tensor.parameters for tensor in tensors if tensor.quantizable)
+    # A supported MoE family must never silently preserve packed expert stacks
+    # because an adapter classified their 3-D weights as ordinary MLPs.  Keep
+    # inspection available, but revoke conversion scope until classification
+    # coverage is restored.  This backstop prevents a nominal low-bit model
+    # whose effective BPW is actually close to BF16.
+    uncovered_fused_experts = [
+        tensor.name
+        for tensor in tensors
+        if len(tensor.shape) == 3
+        and tensor.dtype in _FLOAT_DTYPES
+        and tensor.role != TensorRole.EXPERT
+        and any(token in tensor.name.lower() for token in _FUSED_EXPERT_PATH_TOKENS)
+    ]
+    if uncovered_fused_experts and (
+        architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
+    ):
+        architecture_profile = architecture_profile.model_copy(
+            update={
+                "support_level": ArchitectureSupportLevel.INVENTORY_ONLY,
+                "support_tier": SupportTier.INSPECT_ONLY,
+                "optimization_scope": OptimizationScope.INVENTORY_ONLY,
+                "notes": [
+                    *architecture_profile.notes,
+                    "Fused expert tensors are not fully classified; conversion is disabled.",
+                ],
+            }
+        )
     tied_weight_groups: list[list[str]] = []
     if bool(config.get("tie_word_embeddings")):
         embeddings = [tensor for tensor in tensors if tensor.role == TensorRole.EMBEDDING]
@@ -416,6 +462,12 @@ def inspect_model(
             head.tied_to = embedding.name
             tied_weight_groups.append([embedding.name, head.name])
     warnings: list[str] = []
+    if uncovered_fused_experts:
+        preview = uncovered_fused_experts[:10]
+        warnings.append(
+            "fused expert coverage is incomplete; tensors must classify as expert before "
+            f"conversion: {preview}"
+        )
     if quantized_source:
         warnings.append(
             "logical parameter counts were reconstructed from packed quantization metadata"

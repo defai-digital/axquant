@@ -228,6 +228,16 @@ class ActivationCaptureManifest(StrictModel):
     entries: tuple[ActivationCaptureEntry, ...] = ()
     created_at: datetime = Field(default_factory=utc_now)
 
+    @model_validator(mode="after")
+    def unique_bounded_entries(self) -> ActivationCaptureManifest:
+        module_paths = [entry.module_path for entry in self.entries]
+        if len(module_paths) != len(set(module_paths)):
+            raise ValueError("activation capture module paths must be unique")
+        oversized = [entry.module_path for entry in self.entries if entry.rows > self.max_rows]
+        if oversized:
+            raise ValueError(f"activation capture entries exceed max_rows: {oversized[:10]}")
+        return self
+
 
 class CaptureProgressModule(StrictModel):
     """Per-module row-accounting state for a resumable activation capture."""

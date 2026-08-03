@@ -125,6 +125,7 @@ from axquant.schema.inventory import (
     ArchitectureProfile,
     Inventory,
     ModelIdentity,
+    SourceConversionProvenance,
     TensorSpec,
 )
 from axquant.schema.planning import (
@@ -301,6 +302,7 @@ __all__ = [
     "ScoreboardReport",
     "SensitivityReport",
     "SoftwareVersions",
+    "SourceConversionProvenance",
     "StrictModel",
     "SupportMatrix",
     "SupportMatrixEntry",

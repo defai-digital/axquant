@@ -13,6 +13,10 @@ from typing import Any, Literal
 
 import structlog
 
+from axquant.capture_binding import (
+    LoadedActivationCapture,
+    activation_capture_evidence_issues,
+)
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
@@ -33,12 +37,15 @@ from axquant.schema import (
     QuantizationPlan,
     QuantizerExecutionManifest,
     QuantizerExecutionRecord,
+    QuantMethod,
     TensorRole,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.source_prep import prepare_conversion_source
 
 _LOG = structlog.get_logger()
+_ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 
 
 def _mlx_api() -> tuple[Any, Any]:
@@ -241,6 +248,54 @@ def _validated_calibration_source(
     if not manifest.calibration_evaluation_separation_attested:
         raise PlanningError("calibration manifest lacks evaluation-separation attestation")
     return source
+
+
+def _validated_activation_capture(
+    plan: QuantizationPlan,
+    calibration_activations: Mapping[str, Any] | None,
+) -> LoadedActivationCapture | None:
+    """Bind AWQ/GPTQ conversion to the exact capture used by analysis.
+
+    Architecture-prior/manual development plans have no calibration evidence
+    to carry a digest, but still require a verified capture wrapper.  Every
+    measured plan must carry and match the full capture binding.
+    """
+    methods = {
+        allocation.method
+        for allocation in plan.assignments
+        if allocation.bits < 16 and allocation.method in _ACTIVATION_REFINEMENT_METHODS
+    }
+    if not methods:
+        return None
+    if calibration_activations is None:
+        raise PlanningError(
+            "AWQ/GPTQ conversion requires calibration activations from capture-activations"
+        )
+    if not isinstance(calibration_activations, LoadedActivationCapture):
+        raise PlanningError(
+            "AWQ/GPTQ conversion requires a checksum-bound capture loaded with "
+            "load_capture_activations; an unbound activation mapping is not evidence"
+        )
+    capture = calibration_activations
+    evidence = plan.calibration
+    if evidence is not None:
+        issues = activation_capture_evidence_issues(
+            capture.manifest,
+            evidence.metadata,
+            model_id=plan.source_model.model_id,
+            revision=plan.source_model.revision,
+            dataset_id=evidence.dataset_id,
+        )
+        if issues:
+            raise PlanningError(f"activation capture does not match the plan: {issues}")
+    elif plan.evidence_kind.release_quality:
+        raise PlanningError("measured AWQ/GPTQ plan has no activation-capture provenance")
+    elif (
+        capture.manifest.model != plan.source_model.model_id
+        or capture.manifest.revision != plan.source_model.revision
+    ):
+        raise PlanningError("activation capture source model does not match the plan")
+    return capture
 
 
 def _validated_kv_sensitivity_source(
@@ -658,6 +713,7 @@ def convert_model(
             "conversion requires measured evidence; pass --allow-unmeasured only for dry runs"
         )
     calibration_source = _validated_calibration_source(plan, calibration_manifest)
+    bound_capture = _validated_activation_capture(plan, calibration_activations)
     assert_conversion_scope(plan)
     kv_sensitivity_source = _validated_kv_sensitivity_source(plan, kv_sensitivity)
     quantized_allocations = [allocation for allocation in plan.assignments if allocation.bits < 16]
@@ -807,6 +863,8 @@ def convert_model(
             _extract_protected_integrated_mtp(source_model_dir, plan, staging_dir)
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
+        if bound_capture is not None:
+            write_data(staging_dir / _CAPTURE_MANIFEST_NAME, bound_capture.manifest)
         if kv_sensitivity_source is not None:
             _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
