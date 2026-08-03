@@ -86,7 +86,14 @@ literal:
 - **Activation capture** (`capture.py`): `capture-activations` replays a verified tokenized
   cache with recording wrappers on eligible `nn.Linear` modules and writes checksum-bound
   per-module fp16 activations (`ActivationCaptureManifest`) for weight-refinement backends;
-  `load_capture_activations` fails closed on model identity, shape, or checksum drift.
+  `load_capture_activations` fails closed on model identity, shape, checksum drift, or a
+  missing `completion.json`. Capture is segmented and resumable (`capture_progress.json` +
+  `activations/.partial/`, binding-verified), final npz files are compressed, and modules can
+  optionally be grouped into shard archives (`--modules-per-shard`).
+- **CI and releases** (`.github/workflows/`): `ci.yml` runs lint on Ubuntu and the full MLX test
+  suite on `macos-14`; `release.yml` builds dists on `v*` tags, emits `SHA256SUMS.txt`, and
+  signs them with keyless Sigstore attestation. Project docs beyond README live in `docs/`
+  (migration guide, environment compatibility, known issues).
 - **MLX is a lazy optional dependency**: execution backends import it only inside conversion,
   sensitivity, quality, and runtime paths. Inspection, planning, reporting, and tests do not
   require MLX.

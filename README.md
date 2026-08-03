@@ -1,5 +1,7 @@
 # AXQuant
 
+[![CI](https://github.com/defai-digital/axquant/actions/workflows/ci.yml/badge.svg)](https://github.com/defai-digital/axquant/actions/workflows/ci.yml)
+
 AXQuant is a command-line toolkit that converts a supported, unquantized Safetensors checkpoint
 into an AXQuant-optimized MLX checkpoint for Apple Silicon.
 
@@ -121,6 +123,14 @@ calibration activations that feed measured AWQ/GPTQ probing (`analyze
 convert-time refinement (`convert --calibration-activations`) before portable affine packing.
 See the [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.1.0) for
 detail.
+
+Further reading: [migration guide (v1.0.x → v1.1.x)](docs/migration-v1.1.md),
+[environment compatibility matrix](docs/compatibility.md), and
+[known issues](docs/known-issues.md).
+
+Release artifacts are built and signed (keyless Sigstore attestation) by the release workflow;
+verify a downloaded dist with `gh attestation verify <file> --repo defai-digital/axquant` and
+`shasum -a 256 -c SHA256SUMS.txt`.
 
 What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
 checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on

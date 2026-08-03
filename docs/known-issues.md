@@ -1,0 +1,53 @@
+# Known issues
+
+AXQuant v1.1.x. Items here are documented limitations, not silent failures — each fails closed
+or is gated behind an explicit flag.
+
+## Quantization algorithms
+
+- **GPTQ factorization cost is superlinear in the input dimension.** The damped Cholesky is
+  O(in³) and peak memory is dominated by LAPACK internals (~3×in² fp32 of AXQuant buffers plus
+  Accelerate scratch; measured 4.7 GB peak at in = 8192 on an M-series machine). Large
+  `down_proj` modules (in = intermediate size) can take tens of seconds and GB-scale memory per
+  module. This is inherent to second-order methods; plan for it on 27B-class checkpoints.
+- **GPTQ has no activation ordering (act-order) yet.** v1 implements the static-grid baseline;
+  act-order is a known quality improvement for low bits and may land in a future release.
+- **GPTQ weight-space MSE can exceed RTN.** GPTQ minimizes the activation-weighted reconstruction
+  objective, not weight distance; judge it by output metrics (`output_kl`,
+  `hidden_state_error`), not `mean_quant_error`.
+- **AWQ's reconstruction grid search uses at most 256 calibration rows** (channel magnitudes use
+  all captured rows). This mirrors the reference AWQ cost model.
+- **AWQ/GPTQ are unavailable for fused MoE expert modules** (`SwitchLinear`); fused groups remain
+  affine-only by design. Non-fused expert Linears can use AWQ/GPTQ normally.
+- **2-bit and 3-bit remain experimental**, gated by AX Engine's documented switches; GPTQ at 2/3
+  bits is allowed but quality at 2-bit scalar grids is limited by the packing format, not the
+  optimizer.
+
+## Activation capture
+
+- **Capture artifact size** before compression is roughly
+  `modules × max_rows × in_features × 2 bytes` (fp16). Use `--max-rows`, `--target-module`, or
+  `--modules-per-shard` to control footprint.
+- **Capture resume is binding-sensitive by design.** Rerunning with a different model, cache,
+  `--max-rows`, `--segment-batches`, or token budget against an existing `capture_progress.json`
+  is rejected; use a fresh output directory.
+- **Capture only wraps `nn.Linear` leaves.** Custom architectures that route through non-Linear
+  projections are not captured (they are also outside the refinement predicate's scope).
+
+## Evidence and state
+
+- **Probe resume state does not survive backend version bumps** (v4 → v5 in v1.1.0). Saved
+  `--state` files from older versions are rejected; rerun the analysis.
+- **Architecture priors never emit AWQ/GPTQ candidates.** Prior-based plans stay affine/DWQ;
+  AWQ/GPTQ require measured evidence (`analyze --calibration ... --calibration-activations ...`)
+  or an explicit manual recipe.
+- **Release attestations start with the release after v1.1.1.** The release workflow that builds
+  and signs (keyless Sigstore) the dist artifacts ships in v1.1.1 itself, so v1.1.1's own GitHub
+  Release has no attached dist artifacts; from the next tag onward, verify with
+  `gh attestation verify` and `shasum -c SHA256SUMS.txt`.
+
+## Validated scope
+
+- **End-to-end quality has been validated on tiny/synthetic models only.** The 27B-class
+  certification track requires a real-hardware run (capture → analyze → plan → convert →
+  validate) before any quality claim; that run is deliberately outside the v1.1.1 scope.
