@@ -57,6 +57,9 @@ packages = ["src/axquant"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+markers = [
+    "integration: real-hardware end-to-end pipeline tests (Apple Silicon + MLX)",
+]
 
 [tool.ruff]
 line-length = 100
