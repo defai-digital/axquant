@@ -23,7 +23,7 @@ from axquant.schema import (
     QuantMethod,
     TensorRole,
 )
-from axquant.serde import stable_sha256, write_data
+from axquant.serde import file_sha256, stable_sha256, write_data
 
 
 class _FakeTokenizer:
@@ -97,7 +97,7 @@ class _FakeBackend:
 def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path) -> None:
     identity = ModelIdentity(
         model_id="test/tiny-model",
-        revision="abc123",
+        revision="a" * 40,
         local_path=str(tiny_model_dir),
     )
 
@@ -123,14 +123,16 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         model=identity,
         profile=ProfileName.AGENT_CODING,
         dataset_id=str(dataset),
-        dataset_sha256="",
+        dataset_sha256=file_sha256(dataset),
         samples=len(samples),
-        domains=[],
+        domains=sorted({sample["domain"] for sample in samples}),
         sequence_length=64,
         random_seed=42,
         calibration_evaluation_separation_attested=True,
     )
-    cache_manifest = tokenize_calibration(
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
+    tokenize_calibration(
         model=identity,
         dataset_path=dataset,
         output_dir=cache,
@@ -143,13 +145,6 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         ),
         separation_attested=True,
     )
-    calibration.dataset_sha256 = cache_manifest.dataset_sha256
-    calibration.domains = cache_manifest.domains
-    write_data(cache / "calibration_manifest.json", calibration)
-    cache_manifest.calibration_manifest_sha256 = stable_sha256(
-        calibration.model_dump(mode="json", exclude={"created_at"})
-    )
-    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
 
     backend = _FakeBackend()
     config = ProbeConfig(
@@ -186,13 +181,15 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         report,
         PlanRequest(
             profile=ProfileName.AGENT_CODING,
-            target_bpw=14.0,
+            # The fixture declares tied embeddings, so the protected BF16
+            # LM-head floor also applies to the shared embedding weight.
+            target_bpw=15.5,
             allow_unmeasured=True,
             mtp=MtpPolicy(mode="protected"),
         ),
     )
 
-    assert plan.effective_bpw <= 14.0
+    assert plan.effective_bpw <= 15.5
     assert plan.evidence_kind == report.evidence_kind
 
     plan_tensors = {a.tensor for a in plan.assignments}
@@ -204,3 +201,9 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
             assert allocation.bits >= 16
         if allocation.role == TensorRole.LM_HEAD:
             assert allocation.bits >= 16
+    tied = [
+        allocation
+        for allocation in plan.assignments
+        if allocation.tensor in {"model.embed_tokens.weight", "lm_head.weight"}
+    ]
+    assert len({(item.bits, item.method, item.group_size) for item in tied}) == 1

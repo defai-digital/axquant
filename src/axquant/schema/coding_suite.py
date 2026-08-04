@@ -78,7 +78,10 @@ def _safe_relative_path(value: str) -> bool:
     normalized = value.replace("\\", "/")
     parts = normalized.split("/")
     return bool(
-        value and not normalized.startswith("/") and ".." not in parts and "\\" not in value
+        value
+        and not normalized.startswith(("/", "~/"))
+        and all(part not in {"", ".", ".."} for part in parts)
+        and "\\" not in value
     )
 
 

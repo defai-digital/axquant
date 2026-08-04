@@ -109,6 +109,39 @@ def test_probe_capacity_from_inventory(qwen36_model_dir: Path, tmp_path: Path) -
     assert report.recommended_mode is ProbeMode.BF16_FULL
 
 
+def test_probe_capacity_rejects_boolean_and_non_finite_inputs() -> None:
+    with pytest.raises(PlanningError, match="parameter_count"):
+        assess_probe_capacity(parameter_count=True, available_memory_bytes=1024)
+    with pytest.raises(PlanningError, match="available memory"):
+        assess_probe_capacity(parameter_count=1, available_memory_bytes=True)
+    with pytest.raises(PlanningError, match="headroom_fraction"):
+        assess_probe_capacity(
+            parameter_count=1,
+            available_memory_bytes=1024,
+            headroom_fraction=float("nan"),
+        )
+
+
+def test_probe_capacity_never_rounds_measured_modes_to_zero_bytes() -> None:
+    report = assess_probe_capacity(
+        parameter_count=1,
+        available_memory_bytes=1024,
+    )
+    measured = [mode for mode in report.modes if mode.mode is not ProbeMode.PRIOR_ONLY]
+    assert measured
+    assert all(mode.estimated_bytes >= 1 for mode in measured)
+
+
+def test_probe_capacity_rejects_inconsistent_inventory(qwen36_model_dir: Path) -> None:
+    inventory = inspect_model(str(qwen36_model_dir), model_id="Qwen/Qwen3.6-27B")
+    inconsistent = inventory.model_copy(update={"total_parameters": inventory.total_parameters + 1})
+    with pytest.raises(PlanningError, match="does not match"):
+        assess_probe_capacity_from_inventory(
+            inconsistent,
+            available_memory_bytes=64 * 1024**3,
+        )
+
+
 def test_scoreboard_lists_missing_and_engine_mtp(qwen36_model_dir: Path, tmp_path: Path) -> None:
     inventory = inspect_model(str(qwen36_model_dir), model_id="Qwen/Qwen3.6-27B")
     request = plan_request_for_ladder(

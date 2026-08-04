@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from axquant.errors import ArtifactError
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     BenchmarkEvidenceEntry,
     BenchmarkEvidenceIndex,
@@ -30,9 +32,12 @@ _REQUIRED_METADATA = (
     "top_p",
     "top_k",
     "max_tokens",
+    "draft_depth",
     "power_mode",
     "quantizer",
     "quantizer_version",
+    "runtime_env",
+    "ax_engine_version",
     "quality_dataset_sha256",
 )
 
@@ -44,7 +49,10 @@ _CONTROL_METADATA = (
     "top_p",
     "top_k",
     "max_tokens",
+    "draft_depth",
     "power_mode",
+    "runtime_env",
+    "ax_engine_version",
     "quality_dataset_sha256",
 )
 
@@ -78,7 +86,10 @@ def build_benchmark_evidence_index(
                 issues.append(f"required benchmark baseline is unavailable: {kind.value}")
             continue
 
-        assert evidence.evaluation_file is not None
+        if evidence.evaluation_file is None:
+            raise ArtifactError(
+                f"available benchmark evidence is missing an evaluation file: {kind.value}"
+            )
         evaluation_path = _resolved(request_source.parent, evidence.evaluation_file)
         bundle = load_model(evaluation_path, EvaluationBundle)
         bundles[kind] = bundle
@@ -88,7 +99,7 @@ def build_benchmark_evidence_index(
             issues.append(f"{kind.value} workload does not match profile {request.profile.value}")
         if bundle.runtime != RuntimeName.AX_ENGINE:
             issues.append(f"{kind.value} release evidence must use AX Engine")
-        if not bundle.model.revision:
+        if not is_immutable_revision(bundle.model.revision):
             issues.append(f"{kind.value} model revision is not immutable")
         integrity = bundle.integrity
         if not (
@@ -134,18 +145,56 @@ def build_benchmark_evidence_index(
         ]
         if missing_metadata:
             issues.append(f"{kind.value} benchmark metadata is missing: {missing_metadata}")
+        draft_depth = metadata.get("draft_depth")
+        if isinstance(draft_depth, bool) or not isinstance(draft_depth, int) or draft_depth < 1:
+            issues.append(f"{kind.value} benchmark draft depth is invalid")
+        runtime_env = metadata.get("runtime_env")
+        if not isinstance(runtime_env, dict) or any(
+            not isinstance(key, str) or not key or not isinstance(value, str) or not value
+            for key, value in runtime_env.items()
+        ):
+            issues.append(f"{kind.value} benchmark runtime environment is invalid")
         measured_trials = metadata.get("measured_trials")
         if metadata.get("successful_measured_trials") != measured_trials:
             issues.append(f"{kind.value} benchmark did not complete every measured trial")
         if metadata.get("failed_trials") != 0 or metadata.get("timed_out_trials") != 0:
             issues.append(f"{kind.value} benchmark contains failed or timed-out trials")
         metadata_ax_engine = metadata.get("ax_engine_version")
+        if not isinstance(metadata_ax_engine, str) or not metadata_ax_engine:
+            issues.append(f"{kind.value} benchmark AX Engine version is invalid")
         if metadata_ax_engine is not None and metadata_ax_engine != versions.ax_engine:
             issues.append(f"{kind.value} AX Engine metadata and software versions differ")
         if kind == BenchmarkEvidenceKind.AXQUANT_MTP_OFF and bundle.mtp_enabled:
             issues.append("axquant-mtp-off evidence has MTP enabled")
+        if kind == BenchmarkEvidenceKind.AXQUANT_MTP_OFF and bundle.mtp is not None:
+            issues.append("axquant-mtp-off evidence unexpectedly contains MTP metrics")
         if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON and not bundle.mtp_enabled:
             issues.append("axquant-mtp-on evidence has MTP disabled")
+        if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON:
+            if bundle.mtp is None:
+                issues.append("axquant-mtp-on evidence is missing MTP metrics")
+            else:
+                required_mtp_metrics = {
+                    "average_accepted_tokens": bundle.mtp.average_accepted_tokens,
+                    "acceptance_rate": bundle.mtp.acceptance_rate,
+                    "rejection_rate": bundle.mtp.rejection_rate,
+                    "effective_tokens_per_forward": bundle.mtp.effective_tokens_per_forward,
+                    "repetition_rate": bundle.mtp.repetition_rate,
+                    "divergence_rate": bundle.mtp.divergence_rate,
+                }
+                missing_mtp_metrics = [
+                    name for name, value in required_mtp_metrics.items() if value is None
+                ]
+                if missing_mtp_metrics:
+                    issues.append(
+                        f"axquant-mtp-on evidence has incomplete MTP metrics: {missing_mtp_metrics}"
+                    )
+                if metadata.get("draft_depth") == 1 and not bundle.mtp.token_accuracy:
+                    issues.append("axquant-mtp-on depth-1 evidence is missing token accuracy")
+            if hardware.mtp_effective_tokens_per_second is None:
+                issues.append("axquant-mtp-on evidence is missing effective MTP throughput")
+            if not metadata.get("mtp_metrics_protocol"):
+                issues.append("axquant-mtp-on evidence is missing the MTP metrics protocol")
         if (
             kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
             and bundle.integrity.mtp_layout_valid is not True

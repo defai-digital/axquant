@@ -11,6 +11,7 @@ import pytest
 
 from axquant import publisher
 from axquant.architectures.registry import support_matrix
+from axquant.calibration import calibration_manifest_sha256
 from axquant.certification.common import (
     architecture_fingerprint,
     build_source_checkpoint_manifest,
@@ -596,7 +597,7 @@ def _build_inputs(tmp_path: Path) -> Path:
         sequence_length=calibration_manifest.sequence_length,
         backend="mlx-probe-formal-v1",
         reference="calibration_manifest.json",
-        metadata={"calibration_manifest_sha256": file_sha256(calibration_path)},
+        metadata={"calibration_manifest_sha256": calibration_manifest_sha256(calibration_manifest)},
     )
     assignments = [_assignment(tensor) for tensor in tensors]
     entries = [
@@ -986,7 +987,14 @@ def _build_inputs(tmp_path: Path) -> Path:
     validation_path = tmp_path / "validation.json"
     write_data(validation_path, validation)
 
-    parent_plan = plan.model_copy(update={"target_class": "parent-4bit", "effective_bpw": 4.9})
+    parent_plan = plan.model_copy(
+        update={
+            "target_class": "parent-4bit",
+            "target_bpw": 4.9,
+            "effective_bpw": 4.9,
+            "constraints": plan.constraints.model_copy(update={"effective_bpw_limit": 4.9}),
+        }
+    )
     parent_sha = stable_sha256(parent_plan)
     plan_sha = stable_sha256(plan)
     refinement = RefinementResult(
@@ -1345,6 +1353,17 @@ def test_source_checksum_tamper_fails_n0(tmp_path: Path) -> None:
     assert not _gate(audit, "N0").passed
 
 
+def test_untracked_source_weight_file_fails_n0(tmp_path: Path) -> None:
+    request_path = _build_inputs(tmp_path)
+    (tmp_path / "source" / "untracked.safetensors").write_bytes(b"untracked")
+
+    audit = build_qwen3_next_release_audit(request_path)
+
+    n0 = _gate(audit, "N0")
+    assert not n0.passed
+    assert any("Safetensors membership differs" in issue for issue in n0.issues)
+
+
 def test_artifact_checksum_tamper_fails_n1(tmp_path: Path) -> None:
     request_path = _build_inputs(tmp_path)
     (tmp_path / "artifact" / "model.safetensors").write_bytes(b"changed")
@@ -1603,6 +1622,24 @@ def test_direct_publisher_rerun_and_registry_bind_exact_audit(tmp_path: Path) ->
             candidate_id="qwen-next-candidate",
             measured_bpw=4.8,
             allowed_claims=["MTP and family-wide certified"],
+        )
+
+
+def test_certification_registry_rechecks_artifact_after_audit(tmp_path: Path) -> None:
+    request_path = _build_inputs(tmp_path)
+    audit_path = tmp_path / "audit.json"
+    write_data(audit_path, build_qwen3_next_release_audit(request_path))
+    weight_path = tmp_path / "artifact" / "model.safetensors"
+    weight_path.write_bytes(weight_path.read_bytes() + b"drift")
+
+    with pytest.raises(PublishingError, match="artifact integrity"):
+        append_certified_checkpoint(
+            registry_path=tmp_path / "registry.json",
+            audit_path=audit_path,
+            artifact_directory=tmp_path / "artifact",
+            candidate_id="qwen-next-candidate",
+            measured_bpw=4.8,
+            allowed_claims=list(DIRECT_CERTIFICATION_ALLOWED_CLAIMS),
         )
 
 

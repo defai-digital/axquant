@@ -10,16 +10,20 @@ from axquant.schema import (
     BenchmarkEvidenceEntry,
     BenchmarkEvidenceIndex,
     BenchmarkEvidenceKind,
+    EvaluationBundle,
+    IntegrityMetrics,
     ModelIdentity,
     ProfileName,
     ReleaseValidationIndex,
     ReleaseValidationInput,
     ReleaseValidationRequest,
     RuntimeName,
+    SoftwareVersions,
+    ValidationIssue,
     ValidationReport,
     ValidationThresholds,
 )
-from axquant.serde import load_model, write_data
+from axquant.serde import file_sha256, load_model, write_data
 
 
 def _profile_evidence(
@@ -31,7 +35,7 @@ def _profile_evidence(
 ) -> ReleaseValidationInput:
     reference = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B-MLX-6bit",
-        revision="uniform6-revision",
+        revision="6" * 40,
     )
     benchmark_entries: list[BenchmarkEvidenceEntry] = []
     for kind in BenchmarkEvidenceKind:
@@ -59,15 +63,43 @@ def _profile_evidence(
             }
             else ModelIdentity(
                 model_id=f"Qwen/Qwen3.6-27B-{kind.value}",
-                revision=f"{kind.value}-revision",
+                revision="b" * 40,
             )
+        )
+        evaluation_path = tmp_path / f"{profile.value}-{kind.value}.json"
+        write_data(
+            evaluation_path,
+            EvaluationBundle(
+                model=model,
+                runtime=RuntimeName.AX_ENGINE,
+                baseline_kind=kind.value,
+                mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
+                integrity=IntegrityMetrics(
+                    safetensors_valid=True,
+                    index_complete=True,
+                    config_valid=True,
+                    source_revision_pinned=True,
+                ),
+                workload=profile.value,
+                dataset_sha256=dataset_sha256,
+                software_versions=SoftwareVersions(
+                    axquant="test",
+                    python="3.13",
+                    mlx="test",
+                    mlx_lm="test",
+                    ax_engine="test",
+                    safetensors="test",
+                    pydantic="test",
+                ),
+                random_seed=7,
+            ),
         )
         benchmark_entries.append(
             BenchmarkEvidenceEntry(
                 kind=kind,
                 status="available",
-                evaluation_file=f"{kind.value}.json",
-                evaluation_sha256=kind.value.ljust(64, "0"),
+                evaluation_file=str(evaluation_path),
+                evaluation_sha256=file_sha256(evaluation_path),
                 model=model,
                 runtime=RuntimeName.AX_ENGINE,
                 mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
@@ -108,7 +140,7 @@ def _profile_evidence(
 def _request(tmp_path: Path) -> ReleaseValidationRequest:
     candidate = ModelIdentity(
         model_id="AutomatosX/candidate",
-        revision="candidate-revision",
+        revision="c" * 40,
         local_path="/models/candidate",
     )
     return ReleaseValidationRequest(
@@ -154,6 +186,21 @@ def test_release_validation_index_requires_both_disjoint_profiles(tmp_path: Path
     }
 
 
+def test_release_validation_rejects_mutable_candidate_revision(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    agent = next(entry for entry in request.entries if entry.profile == ProfileName.AGENT_CODING)
+    validation = load_model(agent.validation_file, ValidationReport)
+    validation.candidate_model.revision = "main"
+    write_data(agent.validation_file, validation)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_release_validation_index(request_path)
+
+    assert not index.release_ready
+    assert "agent-coding candidate revision is not immutable" in index.issues
+
+
 def test_release_validation_index_rejects_reused_dataset(tmp_path: Path) -> None:
     request = _request(tmp_path)
     general = next(entry for entry in request.entries if entry.profile == ProfileName.GENERAL)
@@ -167,6 +214,57 @@ def test_release_validation_index_rejects_reused_dataset(tmp_path: Path) -> None
 
     assert not index.release_ready
     assert "required profiles must use distinct benchmark datasets" in index.issues
+
+
+def test_release_validation_rechecks_benchmark_evaluation_checksums(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path)
+    agent = next(entry for entry in request.entries if entry.profile == ProfileName.AGENT_CODING)
+    benchmark = load_model(agent.benchmark_index_file, BenchmarkEvidenceIndex)
+    evidence = next(
+        entry for entry in benchmark.entries if entry.kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+    )
+    assert evidence.evaluation_file is not None
+    Path(evidence.evaluation_file).write_text("{}", encoding="utf-8")
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_release_validation_index(request_path)
+
+    assert not index.release_ready
+    assert any(
+        "agent-coding/axquant-mtp-on benchmark evaluation checksum changed" in issue
+        for issue in index.issues
+    )
+
+
+def test_release_validation_rederives_required_baseline_availability(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path)
+    agent = next(entry for entry in request.entries if entry.profile == ProfileName.AGENT_CODING)
+    benchmark = load_model(agent.benchmark_index_file, BenchmarkEvidenceIndex)
+    benchmark.entries = [
+        BenchmarkEvidenceEntry(
+            kind=entry.kind,
+            status="unavailable",
+            unavailable_reason="forged unavailable baseline",
+        )
+        if entry.kind == BenchmarkEvidenceKind.BF16
+        else entry
+        for entry in benchmark.entries
+    ]
+    write_data(agent.benchmark_index_file, benchmark)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_release_validation_index(request_path)
+
+    assert not index.release_ready
+    assert any(
+        "required benchmark evidence is unavailable: bf16" in issue for issue in index.issues
+    )
 
 
 def test_release_validation_request_cannot_omit_general(tmp_path: Path) -> None:
@@ -185,7 +283,7 @@ def test_release_validation_index_rejects_different_candidates(tmp_path: Path) -
     validation = load_model(general.validation_file, ValidationReport)
     validation.candidate_model = ModelIdentity(
         model_id="AutomatosX/other-candidate",
-        revision="other-revision",
+        revision="d" * 40,
     )
     write_data(general.validation_file, validation)
     request_path = tmp_path / "request.json"
@@ -196,3 +294,48 @@ def test_release_validation_index_rejects_different_candidates(tmp_path: Path) -
     assert not index.release_ready
     assert "general candidate evidence model differs" in index.issues
     assert "required profiles validate different candidate models" in index.issues
+
+
+@pytest.mark.parametrize(
+    ("passed", "issues"),
+    [
+        (
+            True,
+            [
+                ValidationIssue(
+                    severity="error",
+                    metric="quality.perplexity",
+                    message="quality threshold failed",
+                )
+            ],
+        ),
+        (False, []),
+    ],
+)
+def test_validation_report_status_must_match_error_issues(
+    passed: bool,
+    issues: list[ValidationIssue],
+) -> None:
+    reference = ModelIdentity(model_id="reference", revision="b" * 40)
+    candidate = ModelIdentity(model_id="candidate", revision="c" * 40)
+
+    with pytest.raises(ValueError, match="validation report status is inconsistent"):
+        ValidationReport(
+            reference_model=reference,
+            candidate_model=candidate,
+            profile=ProfileName.AGENT_CODING,
+            passed=passed,
+            thresholds=ValidationThresholds(),
+            issues=issues,
+            comparisons={},
+        )
+
+
+def test_release_validation_index_requires_every_entry_to_pass(tmp_path: Path) -> None:
+    request_path = tmp_path / "request.json"
+    write_data(request_path, _request(tmp_path))
+    payload = build_release_validation_index(request_path).model_dump(mode="json")
+    payload["entries"][0]["passed"] = False
+
+    with pytest.raises(ValueError, match="release validation status is inconsistent"):
+        ReleaseValidationIndex.model_validate(payload)

@@ -7,6 +7,7 @@ MTP speed ownership is recorded as AX Engine when the planner/artifact side is c
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,12 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.serde import load_model, stable_sha256
+
+
+def _positive_finite(value: float, label: str, *, at_most_one: bool = False) -> None:
+    if not math.isfinite(value) or value <= 0.0 or (at_most_one and value > 1.0):
+        suffix = " within (0, 1]" if at_most_one else " positive and finite"
+        raise PlanningError(f"{label} must be{suffix}")
 
 
 def _optional_load(path: str | Path | None, model_type: type[Any]) -> Any | None:
@@ -78,7 +85,17 @@ def build_scoreboard(
 ) -> ScoreboardReport:
     """Build a scoreboard from a plan plus optional evidence artifacts."""
     plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
-    active_profile = profile or plan_model.profile
+    if profile is not None and profile != plan_model.profile:
+        raise PlanningError("scoreboard profile does not match the quantization plan")
+    active_profile = plan_model.profile
+    _positive_finite(minimum_quality_retention, "minimum quality retention")
+    _positive_finite(max_size_ratio_to_uniform4, "maximum size ratio")
+    _positive_finite(
+        minimum_mtp_acceptance_retention,
+        "minimum MTP acceptance retention",
+        at_most_one=True,
+    )
+    _positive_finite(minimum_mtp_speedup, "minimum MTP speedup")
     rows: list[ScoreboardMetricRow] = []
 
     rows.append(
@@ -107,7 +124,17 @@ def build_scoreboard(
 
     cand_size = _optional_load(candidate_size, ArtifactSizeEvidence)
     ref_size = _optional_load(size_reference, ArtifactSizeEvidence)
-    if cand_size is not None and ref_size is not None and ref_size.weight_bytes > 0:
+    if cand_size is not None and cand_size.kind != "candidate":
+        raise ArtifactError("candidate size evidence has the wrong kind")
+    if ref_size is not None and ref_size.kind != "uniform-4bit":
+        raise ArtifactError("size reference evidence has the wrong kind")
+    if (
+        cand_size is not None
+        and ref_size is not None
+        and cand_size.logical_parameters != ref_size.logical_parameters
+    ):
+        raise ArtifactError("candidate and size reference logical parameter counts differ")
+    if cand_size is not None and ref_size is not None:
         ratio = cand_size.weight_bytes / ref_size.weight_bytes
         status = "pass" if ratio <= max_size_ratio_to_uniform4 else "fail"
         rows.append(
@@ -133,6 +160,21 @@ def build_scoreboard(
         )
 
     quality = _optional_load(quality_comparison, QualityComparisonReport)
+    if quality is not None:
+        aggregate = quality.aggregate
+        if abs(aggregate.delta - (aggregate.candidate - aggregate.reference)) > 1e-9:
+            raise ArtifactError("quality comparison aggregate delta is inconsistent")
+        expected_retention = (
+            aggregate.candidate / aggregate.reference if aggregate.reference > 0.0 else None
+        )
+        if (expected_retention is None) != (aggregate.retention is None) or (
+            expected_retention is not None
+            and aggregate.retention is not None
+            and abs(aggregate.retention - expected_retention) > 1e-9
+        ):
+            raise ArtifactError("quality comparison aggregate retention is inconsistent")
+        if cand_size is not None and quality.candidate_model != cand_size.model:
+            raise ArtifactError("quality comparison and size evidence use different candidates")
     if quality is not None and quality.aggregate.retention is not None:
         retention = float(quality.aggregate.retention)
         status = "pass" if retention >= minimum_quality_retention else "fail"
@@ -170,6 +212,15 @@ def build_scoreboard(
 
     validation = _optional_load(validation_report, ValidationReport)
     if validation is not None:
+        if validation.profile != active_profile:
+            raise ArtifactError("validation report profile does not match the scoreboard")
+        if cand_size is not None and validation.candidate_model != cand_size.model:
+            raise ArtifactError("validation report and size evidence use different candidates")
+        if quality is not None and (
+            validation.candidate_model != quality.candidate_model
+            or validation.reference_model != quality.reference_model
+        ):
+            raise ArtifactError("validation report and quality comparison identities differ")
         rows.append(
             _row(
                 "validation_gate",
@@ -190,15 +241,56 @@ def build_scoreboard(
 
     mtp = _optional_load(mtp_ab, MtpAbComparison)
     if mtp is not None:
+        if mtp.workload is not None and mtp.workload != active_profile.value:
+            raise ArtifactError("MTP A/B workload does not match the scoreboard profile")
+        if mtp.model is not None:
+            candidate_identities = [
+                evidence.model for evidence in (cand_size,) if evidence is not None
+            ]
+            if quality is not None:
+                candidate_identities.append(quality.candidate_model)
+            if validation is not None:
+                candidate_identities.append(validation.candidate_model)
+            if any(identity != mtp.model for identity in candidate_identities):
+                raise ArtifactError("MTP A/B and candidate evidence identify different checkpoints")
+        if mtp.exactness_pass != (mtp.divergent_trial_count == 0):
+            raise ArtifactError("MTP A/B exactness status is inconsistent with divergent trials")
+        if mtp.speedup is None:
+            if mtp.speedup_pass:
+                raise ArtifactError("MTP A/B speed status is inconsistent with missing speedup")
+        elif mtp.speedup_pass != (mtp.speedup >= mtp.minimum_speedup):
+            raise ArtifactError("MTP A/B speed status is inconsistent with its threshold")
+        if mtp.release_ready:
+            if mtp.measured_trial_count < 1 or mtp.failed_trial_count:
+                raise ArtifactError("release-ready MTP A/B evidence has no complete trials")
+            if (
+                mtp.direct_tokens_per_second_p50 is None
+                or mtp.direct_tokens_per_second_p50 <= 0.0
+                or mtp.mtp_tokens_per_second_p50 is None
+                or mtp.mtp_tokens_per_second_p50 <= 0.0
+                or mtp.speedup is None
+            ):
+                raise ArtifactError("release-ready MTP A/B evidence is missing throughput")
+            measured_speedup = mtp.mtp_tokens_per_second_p50 / mtp.direct_tokens_per_second_p50
+            if abs(measured_speedup - mtp.speedup) > 1e-9:
+                raise ArtifactError("MTP A/B speedup does not match its measured throughput")
         # MtpAbComparison records greedy exactness; acceptance retention is not a
         # separate field — exactness is the quality-side MTP gate in this toolkit.
+        exactness_status = (
+            "fail" if not mtp.exactness_pass else "pass" if mtp.release_ready else "unavailable"
+        )
         rows.append(
             _row(
                 "mtp_exactness",
                 "MTP greedy exactness",
-                status="pass" if mtp.exactness_pass else "fail",
+                status=exactness_status,
                 value="exact" if mtp.exactness_pass else "divergent",
                 threshold="exact",
+                reason=(
+                    "MTP A/B evidence is not release-ready"
+                    if mtp.exactness_pass and not mtp.release_ready
+                    else None
+                ),
                 notes=[
                     f"divergent_trials={mtp.divergent_trial_count}",
                     f"measured_trials={mtp.measured_trial_count}",
@@ -207,7 +299,13 @@ def build_scoreboard(
             )
         )
         if mtp.speedup is not None:
-            status = "pass" if float(mtp.speedup) >= minimum_mtp_speedup else "fail"
+            status = (
+                "fail"
+                if float(mtp.speedup) < minimum_mtp_speedup
+                else "pass"
+                if mtp.release_ready
+                else "unavailable"
+            )
             rows.append(
                 _row(
                     "mtp_speedup",
@@ -217,9 +315,13 @@ def build_scoreboard(
                     threshold=minimum_mtp_speedup,
                     unit="ratio",
                     owner="ax-engine",
+                    reason=(
+                        "MTP A/B evidence is not release-ready" if status == "unavailable" else None
+                    ),
                     notes=[
                         "Planner/artifact side is independent of decode pipeline speed.",
-                        "Residual gap vs 1.20x is AX Engine ownership (async draft / overlap).",
+                        f"Residual gap vs {minimum_mtp_speedup:.2f}x is AX Engine ownership "
+                        "(async draft / overlap).",
                         f"speedup_pass={mtp.speedup_pass}",
                     ],
                 )
@@ -263,9 +365,19 @@ def build_scoreboard(
         )
 
     # Optional evaluation presence checks (do not require parsing full quality).
-    for metric_id, label, path in (
-        ("candidate_evaluation", "Candidate evaluation bundle", candidate_evaluation),
-        ("reference_evaluation", "Reference evaluation bundle", reference_evaluation),
+    for metric_id, label, path, candidate in (
+        (
+            "candidate_evaluation",
+            "Candidate evaluation bundle",
+            candidate_evaluation,
+            True,
+        ),
+        (
+            "reference_evaluation",
+            "Reference evaluation bundle",
+            reference_evaluation,
+            False,
+        ),
     ):
         if path is None:
             rows.append(
@@ -277,7 +389,28 @@ def build_scoreboard(
                 )
             )
         else:
-            _optional_load(path, EvaluationBundle)
+            evaluation = _optional_load(path, EvaluationBundle)
+            if evaluation is None:
+                raise ArtifactError(f"{label.lower()} could not be loaded")
+            if evaluation.workload != active_profile.value:
+                raise ArtifactError(f"{label.lower()} profile does not match the scoreboard")
+            expected_identities = []
+            if candidate:
+                if cand_size is not None:
+                    expected_identities.append(cand_size.model)
+                if quality is not None:
+                    expected_identities.append(quality.candidate_model)
+                if validation is not None:
+                    expected_identities.append(validation.candidate_model)
+                if mtp is not None and mtp.model is not None:
+                    expected_identities.append(mtp.model)
+            else:
+                if quality is not None:
+                    expected_identities.append(quality.reference_model)
+                if validation is not None:
+                    expected_identities.append(validation.reference_model)
+            if any(identity != evaluation.model for identity in expected_identities):
+                raise ArtifactError(f"{label.lower()} identity differs from bound evidence")
             rows.append(_row(metric_id, label, status="available", value=str(Path(path).name)))
 
     mandatory = [
@@ -369,6 +502,8 @@ def scoreboard_markdown(report: ScoreboardReport) -> str:
 
 def require_scoreboard_inputs_for_certification(report: ScoreboardReport) -> None:
     """Fail closed when a scoreboard is incomplete for certification narrative."""
+    if not report.evidence_kind.release_quality:
+        raise PlanningError("scoreboard plan evidence is not eligible for certification claims")
     if report.overall_status == "incomplete":
         missing = ", ".join(report.missing_mandatory) or "unknown"
         raise PlanningError(f"scoreboard is incomplete for certification; missing: {missing}")

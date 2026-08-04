@@ -16,7 +16,8 @@ from axquant.activation_cache import (
     verify_cache_integrity,
 )
 from axquant.errors import CacheError
-from axquant.schema import ModelIdentity, ProfileName
+from axquant.schema import ModelIdentity, ProfileName, SoftwareVersions, TokenizedCacheManifest
+from axquant.serde import stable_sha256, write_data
 
 
 class _FakeTokenizer:
@@ -130,6 +131,34 @@ class TestCacheKeyDeterminism:
         assert key1 != key2
 
 
+@pytest.mark.parametrize(("field", "value"), [("shard_count", 0), ("total_tokens", 0)])
+def test_tokenized_cache_manifest_requires_nonempty_payload(
+    model_identity: ModelIdentity,
+    field: str,
+    value: int,
+) -> None:
+    payload = {
+        "cache_key_sha256": "a" * 64,
+        "model": model_identity,
+        "dataset_sha256": "b" * 64,
+        "profile": ProfileName.AGENT_CODING,
+        "sequence_length": 8,
+        "samples": 1,
+        "shard_count": 1,
+        "total_tokens": 1,
+        "software_versions": SoftwareVersions(
+            axquant="0.1.0",
+            python="3.13",
+            safetensors="0.5",
+            pydantic="2.0",
+        ),
+    }
+    payload[field] = value
+
+    with pytest.raises(ValueError):
+        TokenizedCacheManifest.model_validate(payload)
+
+
 class TestTokenizeCalibration:
     def test_writes_real_token_ids_and_verified_checksums(
         self,
@@ -153,7 +182,11 @@ class TestTokenizeCalibration:
         assert manifest.complete
         assert manifest.total_tokens > manifest.samples
         assert manifest.shard_sha256
+        assert is_cache_complete(output_dir, manifest)
         assert verify_cache_integrity(output_dir, manifest) == []
+        completion = json.loads((output_dir / "completion.json").read_text(encoding="utf-8"))
+        assert completion["schema_version"] == "axquant.tokenized-cache-completion.v1"
+        assert completion["manifest_sha256"] == stable_sha256(manifest)
         shard = output_dir / "tokenized" / "shard-0000.npz"
         with np.load(shard, allow_pickle=False) as data:
             assert data["input_ids"].shape[0] == 3
@@ -180,6 +213,29 @@ class TestTokenizeCalibration:
         shard.write_bytes(shard.read_bytes() + b"tampered")
 
         assert "checksum mismatch: shard-0000.npz" in verify_cache_integrity(output_dir, manifest)
+
+    def test_missing_shard_checksum_binding_is_rejected(
+        self,
+        model_identity: ModelIdentity,
+        calibration_dataset: Path,
+        tmp_path: Path,
+    ) -> None:
+        output_dir = tmp_path / "cache"
+        manifest = tokenize_calibration(
+            model=model_identity,
+            dataset_path=calibration_dataset,
+            output_dir=output_dir,
+            profile=ProfileName.AGENT_CODING,
+            sequence_length=32,
+            random_seed=0,
+            tokenizer=_FakeTokenizer(),
+        )
+        unbound = manifest.model_copy(update={"shard_sha256": {}})
+
+        assert "missing checksum binding: shard-0000.npz" in verify_cache_integrity(
+            output_dir,
+            unbound,
+        )
 
     def test_sample_domains_are_observed_release_provenance(
         self,
@@ -300,11 +356,39 @@ class TestTokenizeCalibration:
                 random_seed=0,
             )
 
+    def test_completed_unbound_cache_is_not_reused_for_bound_calibration(
+        self,
+        model_identity: ModelIdentity,
+        calibration_dataset: Path,
+        tmp_path: Path,
+    ) -> None:
+        output_dir = tmp_path / "cache"
+        first = tokenize_calibration(
+            model=model_identity,
+            dataset_path=calibration_dataset,
+            output_dir=output_dir,
+            profile=ProfileName.AGENT_CODING,
+            sequence_length=32,
+            random_seed=0,
+            tokenizer=_FakeTokenizer(),
+        )
+        assert first.calibration_manifest_sha256 is None
+
+        with pytest.raises(CacheError, match="different calibration manifest binding"):
+            tokenize_calibration(
+                model=model_identity,
+                dataset_path=calibration_dataset,
+                output_dir=output_dir,
+                profile=ProfileName.AGENT_CODING,
+                sequence_length=32,
+                random_seed=0,
+                tokenizer=_FakeTokenizer(),
+                calibration_manifest_sha256="a" * 64,
+            )
+
 
 class TestCacheIntegrity:
     def test_missing_tokenized_dir(self, tmp_path: Path) -> None:
-        from axquant.schema import SoftwareVersions, TokenizedCacheManifest
-
         manifest = TokenizedCacheManifest(
             cache_key_sha256="test",
             model=ModelIdentity(model_id="m"),
@@ -325,8 +409,6 @@ class TestCacheIntegrity:
         assert "tokenized directory missing" in issues
 
     def test_missing_shards(self, tmp_path: Path) -> None:
-        from axquant.schema import SoftwareVersions, TokenizedCacheManifest
-
         tokenized = tmp_path / "tokenized"
         tokenized.mkdir()
         manifest = TokenizedCacheManifest(
@@ -338,6 +420,10 @@ class TestCacheIntegrity:
             samples=10,
             shard_count=2,
             total_tokens=5120,
+            shard_sha256={
+                "shard-0000.npz": "a" * 64,
+                "shard-0001.npz": "b" * 64,
+            },
             software_versions=SoftwareVersions(
                 axquant="0.1.0",
                 python="3.13",
@@ -355,9 +441,88 @@ class TestCompletionMarker:
     def test_not_complete_initially(self, tmp_path: Path) -> None:
         assert not is_cache_complete(tmp_path)
 
-    def test_complete_with_marker(self, tmp_path: Path) -> None:
+    def test_marker_presence_without_manifest_binding_is_not_complete(self, tmp_path: Path) -> None:
         (tmp_path / "completion.json").write_text("{}", encoding="utf-8")
-        assert is_cache_complete(tmp_path)
+        assert not is_cache_complete(tmp_path)
+
+    def test_legacy_marker_must_match_manifest_fields(self, tmp_path: Path) -> None:
+        manifest = TokenizedCacheManifest(
+            cache_key_sha256="cache-key",
+            model=ModelIdentity(model_id="m"),
+            dataset_sha256="dataset",
+            profile=ProfileName.GENERAL,
+            sequence_length=8,
+            samples=1,
+            shard_count=1,
+            total_tokens=8,
+            shard_sha256={"shard-0000.npz": "a" * 64},
+            software_versions=SoftwareVersions(
+                axquant="0.1.0",
+                python="3.13",
+                safetensors="0.5",
+                pydantic="2.0",
+            ),
+            complete=True,
+        )
+        write_data(tmp_path / "tokenized_cache_manifest.json", manifest)
+        write_data(
+            tmp_path / "completion.json",
+            {
+                "complete": True,
+                "cache_key_sha256": manifest.cache_key_sha256,
+                "shard_count": manifest.shard_count,
+                "total_tokens": manifest.total_tokens,
+            },
+        )
+
+        assert is_cache_complete(tmp_path, manifest)
+
+        write_data(
+            tmp_path / "completion.json",
+            {
+                "complete": True,
+                "cache_key_sha256": "different",
+                "shard_count": manifest.shard_count,
+                "total_tokens": manifest.total_tokens,
+            },
+        )
+        assert not is_cache_complete(tmp_path, manifest)
+
+    def test_current_marker_rejects_manifest_digest_drift(self, tmp_path: Path) -> None:
+        manifest = TokenizedCacheManifest(
+            cache_key_sha256="cache-key",
+            model=ModelIdentity(model_id="m"),
+            dataset_sha256="dataset",
+            profile=ProfileName.GENERAL,
+            sequence_length=8,
+            samples=1,
+            shard_count=1,
+            total_tokens=8,
+            shard_sha256={"shard-0000.npz": "a" * 64},
+            software_versions=SoftwareVersions(
+                axquant="0.1.0",
+                python="3.13",
+                safetensors="0.5",
+                pydantic="2.0",
+            ),
+            complete=True,
+        )
+        write_data(tmp_path / "tokenized_cache_manifest.json", manifest)
+        write_data(
+            tmp_path / "completion.json",
+            {
+                "schema_version": "axquant.tokenized-cache-completion.v1",
+                "complete": True,
+                "cache_key_sha256": manifest.cache_key_sha256,
+                "manifest_sha256": stable_sha256(manifest),
+                "shard_count": manifest.shard_count,
+                "total_tokens": manifest.total_tokens,
+            },
+        )
+
+        changed = manifest.model_copy(update={"domains": ["different"]})
+        write_data(tmp_path / "tokenized_cache_manifest.json", changed)
+        assert not is_cache_complete(tmp_path, changed)
 
 
 class TestLoadManifest:

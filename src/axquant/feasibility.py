@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from axquant.artifact_paths import artifact_member_path, artifact_tree_symlinks
 from axquant.errors import AxquantError
 from axquant.inspector import inspect_model, resolve_model_dir
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
+from axquant.revisions import is_immutable_revision
 from axquant.runtime import check_ax_engine, check_mlx_lm_static
 from axquant.schema import (
     ArchitectureSupportLevel,
@@ -21,8 +23,6 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, stable_sha256
 
-_REVISION = re.compile(r"^[0-9a-f]{40,64}$", re.IGNORECASE)
-
 
 @dataclass(frozen=True, slots=True)
 class ArtifactTarget:
@@ -32,12 +32,19 @@ class ArtifactTarget:
     revision: str | None = None
 
 
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"non-finite JSON constant is not permitted: {value}")
+
+
 def _read_json_object(path: Path) -> tuple[bool, dict[str, Any] | None]:
     if not path.is_file():
         return False, None
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            parse_constant=_reject_json_constant,
+        )
+    except (OSError, ValueError):
         return True, None
     return True, value if isinstance(value, dict) else None
 
@@ -45,7 +52,7 @@ def _read_json_object(path: Path) -> tuple[bool, dict[str, Any] | None]:
 def _inferred_revision(directory: Path, revision: str | None) -> str | None:
     if revision:
         return revision
-    return directory.name if _REVISION.fullmatch(directory.name) else None
+    return directory.name if is_immutable_revision(directory.name) else None
 
 
 def _index_integrity(directory: Path) -> tuple[bool, bool, list[str]]:
@@ -65,7 +72,12 @@ def _index_integrity(directory: Path) -> tuple[bool, bool, list[str]]:
             issues.append("model.safetensors.index.json contains a non-string shard reference")
             continue
         relative = Path(value)
-        if relative.is_absolute() or ".." in relative.parts:
+        if (
+            not value
+            or "\\" in value
+            or relative.is_absolute()
+            or any(part in {"", ".", ".."} for part in value.split("/"))
+        ):
             issues.append(f"model.safetensors.index.json contains an unsafe path: {value}")
             continue
         referenced.add(relative.as_posix())
@@ -99,9 +111,12 @@ def _mtp_runtime_integrity(directory: Path) -> tuple[bool, bool, dict[str, Any] 
         return present, False, None
     valid = (
         isinstance(runtime.get("arch_id"), str)
+        and bool(runtime["arch_id"].strip())
         and isinstance(runtime.get("mtp_depth_max"), int)
+        and not isinstance(runtime["mtp_depth_max"], bool)
         and runtime["mtp_depth_max"] > 0
         and isinstance(runtime.get("mtp_tensor_count"), int)
+        and not isinstance(runtime["mtp_tensor_count"], bool)
         and runtime["mtp_tensor_count"] > 0
     )
     return present, valid, runtime
@@ -121,18 +136,31 @@ def _mtp_provenance_integrity(directory: Path) -> tuple[bool, bool]:
     if not isinstance(relative_value, str):
         return present, False
     relative = Path(relative_value)
-    if relative.is_absolute() or ".." in relative.parts:
+    if (
+        "\\" in relative_value
+        or relative.is_absolute()
+        or len(relative.parts) != 1
+        or relative.name not in EXTERNAL_MTP_SIDECAR_FILENAMES
+    ):
         return present, False
-    sidecar = directory / relative
-    if not sidecar.is_file():
+    try:
+        sidecar = artifact_member_path(directory, relative_value)
+    except ValueError:
         return present, False
-    if not isinstance(size_value, int) or sidecar.stat().st_size != size_value:
+    if sidecar.is_symlink() or not sidecar.is_file():
+        return present, False
+    if (
+        isinstance(size_value, bool)
+        or not isinstance(size_value, int)
+        or sidecar.stat().st_size != size_value
+    ):
         return present, False
     return (
         present,
         isinstance(digest_value, str)
         and len(digest_value) == 64
-        and file_sha256(sidecar) == digest_value.lower(),
+        and all(character in "0123456789abcdef" for character in digest_value)
+        and file_sha256(sidecar) == digest_value,
     )
 
 
@@ -144,7 +172,12 @@ def _artifact_integrity(
     native_present, native_valid = _native_manifest_integrity(directory)
     runtime_present, runtime_valid, runtime = _mtp_runtime_integrity(directory)
     provenance_present, provenance_valid = _mtp_provenance_integrity(directory)
-    safetensors_present = any(directory.glob("*.safetensors"))
+    sidecars = [
+        directory / name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (directory / name).is_file()
+    ]
+    safetensors_present = any(
+        path.is_file() and not path.is_symlink() for path in directory.glob("*.safetensors")
+    )
     tokenizer_present = any(
         (directory / name).is_file() for name in ("tokenizer.json", "tokenizer.model", "vocab.json")
     )
@@ -158,6 +191,13 @@ def _artifact_integrity(
         issues.append("the model weight index is incomplete")
     if not tokenizer_present:
         issues.append("tokenizer files are missing")
+    symlinks = artifact_tree_symlinks(directory)
+    if symlinks:
+        issues.append(f"the checkpoint tree contains symbolic links: {symlinks}")
+    if len(sidecars) > 1:
+        issues.append(
+            f"multiple external MTP sidecars are present: {sorted(path.name for path in sidecars)}"
+        )
     return (
         ArtifactIntegrity(
             config_valid=config is not None,
@@ -167,7 +207,7 @@ def _artifact_integrity(
             native_manifest_present=native_present,
             native_manifest_valid=native_valid,
             tokenizer_present=tokenizer_present,
-            mtp_sidecar_present=(directory / "mtp.safetensors").is_file(),
+            mtp_sidecar_present=len(sidecars) == 1,
             mtp_runtime_present=runtime_present,
             mtp_runtime_valid=runtime_valid,
             mtp_provenance_present=provenance_present,
@@ -253,8 +293,11 @@ def audit_artifact(
     run_runtime_checks: bool = False,
     ax_engine: str = "ax-engine",
 ) -> BaselineAudit:
+    local_argument = Path(target.model).expanduser()
+    if local_argument.is_symlink():
+        return _failed_audit(target, "the checkpoint root cannot be a symbolic link")
     try:
-        directory = resolve_model_dir(target.model)
+        directory = resolve_model_dir(target.model, revision=target.revision)
     except (AxquantError, OSError, ValueError) as exc:
         return _failed_audit(target, str(exc))
     revision = _inferred_revision(directory, target.revision)
@@ -315,7 +358,7 @@ def audit_artifact(
         audit.issues.append("the checkpoint does not match the supported Qwen 3.6 adapter")
     if inventory.architecture_profile.optimization_scope != OptimizationScope.TEXT_PATH:
         audit.issues.append("the checkpoint is not supported for Qwen 3.6 text-path conversion")
-    if revision is None:
+    if not is_immutable_revision(revision):
         audit.issues.append("the checkpoint revision is not pinned")
     if not inventory.mtp_present or mtp_parameters <= 0:
         audit.issues.append("MTP tensors were not found")
@@ -335,11 +378,16 @@ def audit_artifact(
         actual_count = sum(
             1
             for tensor in inventory.tensors
-            if Path(tensor.file).name == "mtp.safetensors" and not tensor.quantization_metadata
+            if Path(tensor.file).name in EXTERNAL_MTP_SIDECAR_FILENAMES
+            and not tensor.quantization_metadata
         )
-        if isinstance(expected_count, int) and expected_count != actual_count:
+        if (
+            isinstance(expected_count, int)
+            and not isinstance(expected_count, bool)
+            and expected_count != actual_count
+        ):
             audit.issues.append(
-                "MTP runtime tensor count does not match mtp.safetensors "
+                "MTP runtime tensor count does not match the external MTP sidecar "
                 f"({expected_count} declared, {actual_count} found)"
             )
     audit.issues = list(dict.fromkeys(audit.issues))
@@ -395,7 +443,7 @@ def assess_feasibility(
         compared, "optimization_scope"
     )
     mtp_present = all(audit.mtp_logical_parameters > 0 for audit in compared)
-    revisions_pinned = all(audit.model.revision is not None for audit in compared)
+    revisions_pinned = all(is_immutable_revision(audit.model.revision) for audit in compared)
     ax_checks = [
         check
         for audit in baselines

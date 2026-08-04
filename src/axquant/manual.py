@@ -7,6 +7,7 @@ from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.naming import target_class_for_bpw
 from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
 )
@@ -129,8 +130,21 @@ def _harmonize_tied_weights(
         if len(tied) < 2:
             continue
         bits = max(allocation.bits for allocation in tied)
-        method = QuantMethod.BF16 if bits == 16 else QuantMethod.AFFINE
-        group_size = None if bits == 16 else recipe.group_size
+        if bits == 16:
+            method = QuantMethod.BF16
+            group_size = None
+        else:
+            selected_signatures = {
+                (allocation.method, allocation.group_size)
+                for allocation in tied
+                if allocation.bits == bits
+            }
+            if len(selected_signatures) != 1:
+                names = sorted(allocation.tensor for allocation in tied)
+                raise PlanningError(
+                    f"tied-weight group {names} has conflicting manual methods or group sizes"
+                )
+            method, group_size = next(iter(selected_signatures))
         for allocation in tied:
             allocation.bits = bits
             allocation.method = method
@@ -167,7 +181,7 @@ def manual_quantization_plan(
 ) -> QuantizationPlan:
     if inventory.quantized_source:
         raise PlanningError("manual planning requires an unquantized source inventory")
-    if inventory.model.revision is None:
+    if not is_immutable_revision(inventory.model.revision):
         raise PlanningError("manual planning requires a revision-pinned source inventory")
     profile = inventory.architecture_profile
     if profile.support_level != ArchitectureSupportLevel.SUPPORTED:

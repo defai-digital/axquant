@@ -9,6 +9,7 @@ with the same portable affine contract MLX-LM already accepts for affine/DWQ.
 from __future__ import annotations
 
 import importlib
+import math
 from typing import Any
 
 from axquant.errors import PlanningError, QuantizerError
@@ -21,7 +22,36 @@ def _as_numpy(weight: Any) -> Any:
         import numpy as np
     except ImportError as exc:
         raise PlanningError("AWQ execution requires numpy") from exc
-    return np.asarray(weight, dtype=np.float32)
+    try:
+        result = np.asarray(weight, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PlanningError(f"AWQ weight tensor is not numeric: {exc}") from exc
+    if result.size == 0:
+        raise PlanningError("AWQ weight matrix must not be empty")
+    if not bool(np.all(np.isfinite(result))):
+        raise PlanningError("AWQ weight matrix must contain only finite values")
+    return result
+
+
+def _resolve_alpha_grid(value: Any) -> tuple[float, ...]:
+    try:
+        raw_values = tuple(value)
+    except TypeError as exc:
+        raise PlanningError("AWQ alpha_grid must contain numeric values") from exc
+    resolved: list[float] = []
+    for raw in raw_values:
+        if isinstance(raw, bool):
+            raise PlanningError("AWQ alpha_grid must contain numeric values")
+        try:
+            alpha = float(raw)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise PlanningError("AWQ alpha_grid must contain numeric values") from exc
+        if not math.isfinite(alpha) or alpha < 0.0 or alpha > 1.0:
+            raise PlanningError("AWQ alpha_grid values must be finite and within [0, 1]")
+        resolved.append(alpha)
+    if not resolved:
+        raise PlanningError("AWQ alpha_grid must not be empty")
+    return tuple(resolved)
 
 
 def learn_awq_channel_scales(
@@ -44,24 +74,21 @@ def learn_awq_channel_scales(
         raise PlanningError(f"AWQ does not support group size {group_size}")
     if activations is None:
         raise PlanningError("AWQ requires calibration activations")
-    if not alpha_grid or any(alpha < 0.0 or alpha > 1.0 for alpha in alpha_grid):
-        raise PlanningError("AWQ alpha_grid values must be within [0, 1]")
-
     w = _as_numpy(weight)
     if w.ndim != 2:
         raise PlanningError("AWQ currently requires a two-dimensional weight matrix")
     calibration_config = activations if isinstance(activations, dict) else {}
     activation_value = calibration_config.get("activations", activations)
-    act = np.asarray(activation_value, dtype=np.float32)
-    if act.size == 0 or act.shape[-1] != w.shape[-1]:
-        raise PlanningError("AWQ calibration channels must match the weight input dimension")
-    alpha_grid_value = calibration_config.get("alpha_grid", alpha_grid)
     try:
-        resolved_grid = tuple(float(alpha) for alpha in alpha_grid_value)
-    except (TypeError, ValueError) as exc:
-        raise PlanningError("AWQ alpha_grid must contain numeric values") from exc
-    if not resolved_grid or any(alpha < 0.0 or alpha > 1.0 for alpha in resolved_grid):
-        raise PlanningError("AWQ alpha_grid values must be within [0, 1]")
+        act = np.asarray(activation_value, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PlanningError(f"AWQ calibration activations are not numeric: {exc}") from exc
+    if act.ndim == 0 or act.size == 0 or act.shape[-1] != w.shape[-1]:
+        raise PlanningError("AWQ calibration channels must match the weight input dimension")
+    if not bool(np.all(np.isfinite(act))):
+        raise PlanningError("AWQ calibration activations must contain only finite values")
+    alpha_grid_value = calibration_config.get("alpha_grid", alpha_grid)
+    resolved_grid = _resolve_alpha_grid(alpha_grid_value)
 
     out_features, in_features = w.shape
     if in_features % group_size != 0:
@@ -73,10 +100,15 @@ def learn_awq_channel_scales(
         channel_magnitudes = np.mean(np.abs(act), axis=0)
     else:
         channel_magnitudes = np.mean(np.abs(act.reshape(-1, in_features)), axis=0)
-    max_mag = float(np.max(channel_magnitudes)) if float(np.max(channel_magnitudes)) > 0 else 1.0
+    if not bool(np.all(np.isfinite(channel_magnitudes))):
+        raise PlanningError("AWQ activation statistics are non-finite")
+    observed_max = float(np.max(channel_magnitudes))
+    max_mag = observed_max if observed_max > 0 else 1.0
     activation_basis = np.clip(channel_magnitudes / max_mag, 1e-5, None)
     activation_rows = act.reshape(-1, in_features)[:256]
     reference_output = activation_rows @ w.T
+    if not bool(np.all(np.isfinite(reference_output))):
+        raise PlanningError("AWQ reference output is non-finite")
 
     best: tuple[float, float, Any] | None = None
     for alpha in resolved_grid:
@@ -97,10 +129,13 @@ def learn_awq_channel_scales(
         reconstructed = reconstructed / channel_scales[np.newaxis, :]
         candidate_output = activation_rows @ reconstructed.T
         reconstruction_mse = float(np.mean((reference_output - candidate_output) ** 2))
+        if not math.isfinite(reconstruction_mse):
+            raise PlanningError("AWQ reconstruction objective is non-finite")
         candidate = (reconstruction_mse, alpha, channel_scales)
         if best is None or candidate[:2] < best[:2]:
             best = candidate
-    assert best is not None
+    if best is None:
+        raise PlanningError("AWQ scale search produced no candidates")
     reconstruction_mse, alpha, scales_per_channel = best
     metadata: dict[str, float | int | list[float]] = {
         "awq_alpha": float(alpha),
@@ -154,6 +189,8 @@ def refine_weight_with_awq(
     )
     reconstructed = ((quantized - zero_point) * q_scale).reshape(w.shape)
     refined = reconstructed / channel_scales[np.newaxis, :]
+    if not bool(np.all(np.isfinite(refined))):
+        raise PlanningError("AWQ refinement produced non-finite weights")
     return refined.astype(np.float32), metadata
 
 
@@ -169,7 +206,12 @@ def apply_channel_scales(weight: Any, channel_scales: Any) -> Any:
         raise PlanningError("AWQ channel scaling requires a two-dimensional weight matrix")
     if scales.ndim != 1 or scales.shape[0] != w.shape[-1]:
         raise PlanningError("AWQ channel scales must match the weight input dimension")
-    return (w * scales[np.newaxis, :]).astype(np.float32)
+    if not bool(np.all(np.isfinite(scales))) or bool(np.any(scales <= 0)):
+        raise PlanningError("AWQ channel scales must contain finite positive values")
+    scaled = w * scales[np.newaxis, :]
+    if not bool(np.all(np.isfinite(scaled))):
+        raise PlanningError("AWQ channel scaling produced non-finite weights")
+    return scaled.astype(np.float32)
 
 
 def apply_mlx_awq_scale(
@@ -203,6 +245,10 @@ def apply_mlx_awq_scale(
         )
     except (PlanningError, QuantizerError, ValueError, TypeError) as exc:
         raise PlanningError(str(exc)) from exc
-    module.weight = mx.array(refined, dtype=weight.dtype)
-    mx.eval(module.weight)
+    try:
+        candidate = mx.array(refined, dtype=weight.dtype)
+        mx.eval(candidate)
+    except Exception as exc:
+        raise PlanningError(f"AWQ MLX weight materialization failed: {exc}") from exc
+    module.weight = candidate
     return metadata

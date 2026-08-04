@@ -49,7 +49,8 @@ def executable_distribution_version(executable: str, distribution: str) -> str |
     parts = resolved.parts
     for index, part in enumerate(parts[:-2]):
         if part == distribution and parts[index - 1 : index] == ("Cellar",):
-            return parts[index + 1]
+            match = _VERSION_DIRECTORY.fullmatch(parts[index + 1])
+            return match.group("version") if match is not None else None
     return standalone_executable_version(resolved)
 
 

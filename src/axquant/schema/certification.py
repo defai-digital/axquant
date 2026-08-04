@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 
+from axquant.revisions import is_immutable_revision
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
 from axquant.schema.artifacts import QualityGenerationConfig
 from axquant.schema.coding_suite import CodingScorer
@@ -14,7 +14,6 @@ from axquant.schema.enums import ProfileName, RuntimeName
 from axquant.schema.inventory import ModelIdentity
 
 _SHA256 = r"^[0-9a-f]{64}$"
-_REVISION = r"^[0-9a-f]{40}$"
 _IDENTIFIER = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
 
 
@@ -23,7 +22,7 @@ def _relative_artifact_path(value: str) -> str:
     if (
         not value
         or normalized.startswith(("/", "~/"))
-        or ".." in normalized.split("/")
+        or any(part in {"", ".", ".."} for part in normalized.split("/"))
         or "\\" in value
     ):
         raise ValueError("certification artifact paths must be safe relative paths")
@@ -154,9 +153,7 @@ class ExactCertificationScope(StrictModel):
 
     @model_validator(mode="after")
     def immutable_and_unique(self) -> ExactCertificationScope:
-        if self.source_model.revision is None or not re.fullmatch(
-            _REVISION, self.source_model.revision
-        ):
+        if not is_immutable_revision(self.source_model.revision):
             raise ValueError("certification source revision must be a full immutable commit SHA")
         if len(self.hardware_scope_ids) != len(set(self.hardware_scope_ids)):
             raise ValueError("hardware scope IDs must be unique")

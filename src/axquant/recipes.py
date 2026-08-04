@@ -10,6 +10,7 @@ evidence kind of its payload.
 from __future__ import annotations
 
 import posixpath
+import re
 import shutil
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from huggingface_hub import hf_hub_download
 from axquant import __version__
 from axquant.errors import ArtifactError
 from axquant.manual import manual_quantization_plan
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     Inventory,
     ManualPlanRecipe,
@@ -28,6 +30,35 @@ from axquant.serde import file_sha256, load_model, write_data
 
 RECIPE_BUNDLE_FILE = "axquant_recipe_bundle.json"
 REMOTE_SCHEME = "hf://"
+_LINEAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
+
+
+def _safe_relative_path(value: str, *, label: str) -> str:
+    normalized = value.replace("\\", "/")
+    parts = normalized.split("/")
+    if (
+        not value
+        or "\\" in value
+        or normalized.startswith(("/", "~/"))
+        or any(part in {"", ".", ".."} for part in parts)
+    ):
+        raise ArtifactError(f"{label} must be a safe normalized relative path: {value!r}")
+    return normalized
+
+
+def _validated_lineage(lineage: dict[str, str]) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for name, digest in lineage.items():
+        if _LINEAGE_NAME.fullmatch(name) is None:
+            raise ArtifactError(
+                f"recipe lineage name must be a safe lowercase identifier: {name!r}"
+            )
+        if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
+            raise ArtifactError(
+                f"recipe lineage digest for {name!r} must be 64 lowercase hexadecimal digits"
+            )
+        result[name] = digest
+    return result
 
 
 def _parse_remote_reference(reference: str) -> tuple[str, str, str]:
@@ -39,9 +70,13 @@ def _parse_remote_reference(reference: str) -> tuple[str, str, str]:
     if repo_id.count("/") != 1 or not all(repo_id.split("/")):
         raise ArtifactError(f"remote recipe reference must use hf://OWNER/REPO: {reference}")
     revision, _, path = rest.partition("/")
-    if not revision:
+    if not is_immutable_revision(revision):
         raise ArtifactError(f"remote recipe reference must pin a revision (AXQ-023): {reference}")
-    return repo_id, revision, path or RECIPE_BUNDLE_FILE
+    record_path = _safe_relative_path(
+        path or RECIPE_BUNDLE_FILE,
+        label="remote recipe record path",
+    )
+    return repo_id, revision, record_path
 
 
 def _download_remote_file(repo_id: str, revision: str, filename: str, reference: str) -> Path:
@@ -55,13 +90,15 @@ def _remote_bundle(reference: str) -> tuple[RecipeBundle, Path]:
     repo_id, revision, record_name = _parse_remote_reference(reference)
     record_path = _download_remote_file(repo_id, revision, record_name, reference)
     record = load_model(record_path, RecipeBundle)
-    payload_name = posixpath.normpath(
-        posixpath.join(posixpath.dirname(record_name), record.payload_file)
+    payload_file = _safe_relative_path(
+        record.payload_file,
+        label=f"recipe bundle {record.bundle_id} payload path",
     )
-    if payload_name.startswith(".."):
-        raise ArtifactError(
-            f"recipe bundle {record.bundle_id} payload escapes the repository: {payload_name}"
-        )
+    payload_name = posixpath.normpath(posixpath.join(posixpath.dirname(record_name), payload_file))
+    _safe_relative_path(
+        payload_name,
+        label=f"recipe bundle {record.bundle_id} repository payload path",
+    )
     payload = _download_remote_file(repo_id, revision, payload_name, reference)
     return record, payload
 
@@ -86,7 +123,17 @@ def load_recipe_bundle(bundle: str | Path) -> tuple[RecipeBundle, Path]:
         if bundle_path.is_dir():
             bundle_path = bundle_path / RECIPE_BUNDLE_FILE
         record = load_model(bundle_path, RecipeBundle)
-        payload = (bundle_path.parent / record.payload_file).resolve()
+        payload_file = _safe_relative_path(
+            record.payload_file,
+            label=f"recipe bundle {record.bundle_id} payload path",
+        )
+        bundle_root = bundle_path.parent.resolve()
+        payload = (bundle_root / payload_file).resolve()
+        if not payload.is_relative_to(bundle_root):
+            raise ArtifactError(
+                f"recipe bundle {record.bundle_id} payload escapes its bundle directory"
+            )
+    _validated_lineage(record.lineage)
     _verify_payload(record, payload)
     return record, payload
 
@@ -99,18 +146,41 @@ def resolve_recipe_plan(
     """Verify a bundle against the target inventory and produce its plan."""
     record, payload = load_recipe_bundle(bundle)
     target = inventory.model
+    if not is_immutable_revision(target.revision):
+        raise ArtifactError(
+            f"recipe bundle {record.bundle_id} cannot be resolved against an unpinned inventory"
+        )
     if record.source_model.model_id != target.model_id:
         raise ArtifactError(
             f"recipe bundle {record.bundle_id} targets {record.source_model.model_id}, "
             f"not {target.model_id}"
         )
-    if target.revision and record.source_model.revision != target.revision:
+    if record.source_model.revision != target.revision:
         raise ArtifactError(
             f"recipe bundle {record.bundle_id} pins revision "
             f"{record.source_model.revision}, not {target.revision}"
         )
     if record.payload_kind == "plan":
         plan = load_model(payload, QuantizationPlan)
+        if (
+            plan.source_model.model_id != record.source_model.model_id
+            or plan.source_model.revision != record.source_model.revision
+        ):
+            raise ArtifactError(
+                f"recipe bundle {record.bundle_id} plan source identity does not match "
+                "the bundle record"
+            )
+        # A published plan records the producer's local checkpoint path, but that
+        # path is not portable to another machine.  Identity has already been
+        # pinned and checked above, so bind the executable copy to the target
+        # inventory without altering the checksummed bundle payload.
+        plan = plan.model_copy(
+            update={
+                "source_model": plan.source_model.model_copy(
+                    update={"local_path": target.local_path}
+                )
+            }
+        )
     else:
         recipe = load_model(payload, ManualPlanRecipe)
         plan = manual_quantization_plan(inventory, recipe)
@@ -133,28 +203,32 @@ def export_recipe_bundle(
     """Export a plan file as a recipe bundle directory."""
     plan_path = Path(plan).expanduser().resolve()
     loaded = load_model(plan_path, QuantizationPlan)
-    if not loaded.source_model.revision:
+    if not is_immutable_revision(loaded.source_model.revision):
         raise ArtifactError("a recipe bundle requires a revision-pinned plan")
-    directory = Path(output_dir).expanduser().resolve()
-    directory.mkdir(parents=True, exist_ok=True)
+    validated_lineage = _validated_lineage(dict(lineage or {}))
+    supplied_directory = Path(output_dir).expanduser()
+    if supplied_directory.is_symlink():
+        raise ArtifactError("recipe bundle output directory cannot be a symbolic link")
+    directory = supplied_directory.resolve()
     payload_name = "plan.json"
     destination = directory / payload_name
+    bundle_path = directory / RECIPE_BUNDLE_FILE
     if destination.exists():
         raise ArtifactError(f"recipe bundle payload already exists: {destination}")
-    shutil.copyfile(plan_path, destination)
+    if bundle_path.exists():
+        raise ArtifactError(f"recipe bundle record already exists: {bundle_path}")
     record = RecipeBundle(
         bundle_id=bundle_id,
         source_model=loaded.source_model,
         evidence_kind=loaded.evidence_kind,
         payload_kind="plan",
         payload_file=payload_name,
-        payload_sha256=file_sha256(destination),
-        lineage=dict(lineage or {}),
+        payload_sha256=file_sha256(plan_path),
+        lineage=validated_lineage,
         axquant_version=__version__,
         notes=list(notes or []),
     )
-    bundle_path = directory / RECIPE_BUNDLE_FILE
-    if bundle_path.exists():
-        raise ArtifactError(f"recipe bundle record already exists: {bundle_path}")
+    directory.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(plan_path, destination)
     write_data(bundle_path, record)
     return bundle_path

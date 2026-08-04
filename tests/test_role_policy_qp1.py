@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
+from axquant.cli import main
 from axquant.errors import RefinementError
 from axquant.planner import plan_quantization
-from axquant.refinement import refine_candidates, select_complete_candidate
+from axquant.refinement import (
+    _complete_objective_loss,
+    refine_candidates,
+    select_complete_candidate,
+)
 from axquant.role_policy import (
     method_preference_rank,
     prefer_method_on_tie,
@@ -30,12 +37,13 @@ from axquant.schema import (
     QuantMethod,
     RefinementConfig,
     RefinementMeasurementSet,
+    RefinementResult,
     SensitivityReport,
     TensorRole,
     TensorSensitivity,
     TensorSpec,
 )
-from axquant.serde import stable_sha256
+from axquant.serde import load_model, stable_sha256, write_data
 
 
 def _tensor(name: str, role: TensorRole, parameters: int) -> TensorSpec:
@@ -293,8 +301,16 @@ def test_holdout_digest_mismatch_fails_closed() -> None:
         quality_comparison_sha256="e" * 64,
         validation_sha256="f" * 64,
         measured_bpw=5.0,
-        objective_loss=0.1,
+        objective_loss=_complete_objective_loss(
+            result.selected_plan,
+            quality_retention=0.99,
+            perplexity_ratio=1.0,
+            mtp_acceptance_retention=1.0,
+            mtp_speedup=1.2,
+            peak_memory_ratio=0.5,
+        ),
         quality_retention=0.99,
+        perplexity_ratio=1.0,
         mtp_acceptance_retention=1.0,
         mtp_speedup=1.2,
         peak_memory_ratio=0.5,
@@ -311,7 +327,7 @@ def test_holdout_digest_mismatch_fails_closed() -> None:
         select_complete_candidate(result, measurements)
 
 
-def test_holdout_digest_match_binds_selection() -> None:
+def test_holdout_digest_match_binds_selection(tmp_path: Path) -> None:
     report = _measured_report()
     result = refine_candidates(
         report,
@@ -342,8 +358,16 @@ def test_holdout_digest_match_binds_selection() -> None:
         quality_comparison_sha256="e" * 64,
         validation_sha256="f" * 64,
         measured_bpw=5.0,
-        objective_loss=0.1,
+        objective_loss=_complete_objective_loss(
+            result.selected_plan,
+            quality_retention=0.99,
+            perplexity_ratio=1.0,
+            mtp_acceptance_retention=1.0,
+            mtp_speedup=1.2,
+            peak_memory_ratio=0.5,
+        ),
         quality_retention=0.99,
+        perplexity_ratio=1.0,
         mtp_acceptance_retention=1.0,
         mtp_speedup=1.2,
         peak_memory_ratio=0.5,
@@ -362,3 +386,25 @@ def test_holdout_digest_match_binds_selection() -> None:
     assert selected.selection_basis == "complete-model"
     assert selected.evidence_label == "holdout-bound"
     assert selected.holdout_measurement_set_sha256 == digest
+
+    refinement_path = tmp_path / "refinement.json"
+    measurements_path = tmp_path / "measurements.json"
+    output_path = tmp_path / "selected.json"
+    write_data(refinement_path, bound)
+    write_data(measurements_path, measurements)
+    assert (
+        main(
+            [
+                "refine-select",
+                "--refinement",
+                str(refinement_path),
+                "--measurements",
+                str(measurements_path),
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    cli_selected = load_model(output_path, RefinementResult)
+    assert cli_selected.holdout_measurement_set_sha256 == digest

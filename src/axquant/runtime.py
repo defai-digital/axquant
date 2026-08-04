@@ -6,12 +6,18 @@ import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+from safetensors import SafetensorError, safe_open
+
 from axquant.errors import ArtifactError, BackendUnavailableError
+from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     AxEngineOptimizationMetadata,
     KvCacheRuntimeMetadata,
     ModelIdentity,
@@ -25,6 +31,7 @@ from axquant.schema import (
     RuntimeSupportLevel,
     SupportTier,
 )
+from axquant.serde import load_model, read_data
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
 
@@ -65,6 +72,19 @@ def _model_identity(
     )
 
 
+def _reports_ready(report: dict[str, Any]) -> bool:
+    declared_statuses = [report[key] for key in ("result", "status") if key in report]
+    return bool(declared_statuses) and all(status == "ready" for status in declared_statuses)
+
+
+def _safetensors_has_payload(path: Path) -> bool:
+    try:
+        with safe_open(path, framework="numpy") as tensors:
+            return bool(tensors.keys())
+    except (OSError, SafetensorError):
+        return False
+
+
 def generate_ax_engine_manifest(
     model_dir: str | Path,
     *,
@@ -93,6 +113,8 @@ def generate_ax_engine_manifest(
     ]
     completed = runner(command)
     manifest_exists = (directory / "model-manifest.json").is_file()
+    report = _json_report(completed.stdout)
+    declared_ready = _reports_ready(report)
     diagnostics = f"{completed.stdout}\n{completed.stderr}".casefold()
     validation_failed = any(
         marker in diagnostics
@@ -103,16 +125,28 @@ def generate_ax_engine_manifest(
             '"status": "failed"',
         )
     )
+    failure = ""
+    if validation_failed:
+        failure = "manifest validation failed"
+    elif not declared_ready:
+        failure = "manifest generator did not report a parseable ready status"
+    elif not manifest_exists:
+        failure = "manifest generator did not create model-manifest.json"
     return RuntimeCheck(
         model=model,
         runtime=RuntimeName.AX_ENGINE,
         check_kind="manifest",
         available=True,
-        passed=completed.returncode == 0 and manifest_exists and not validation_failed,
+        passed=(
+            completed.returncode == 0
+            and manifest_exists
+            and declared_ready
+            and not validation_failed
+        ),
         command=command,
         exit_code=completed.returncode,
-        report=_json_report(completed.stdout),
-        stderr=completed.stderr or ("manifest validation failed" if validation_failed else ""),
+        report=report,
+        stderr=completed.stderr or failure,
     )
 
 
@@ -166,17 +200,12 @@ def check_ax_engine(
     ]
     completed = runner(command)
     report = _json_report(completed.stdout)
-    declared_statuses = [report[key] for key in ("result", "status") if key in report]
     return RuntimeCheck(
         model=model,
         runtime=RuntimeName.AX_ENGINE,
         check_kind="doctor",
         available=True,
-        passed=(
-            completed.returncode == 0
-            and bool(declared_statuses)
-            and all(status == "ready" for status in declared_statuses)
-        ),
+        passed=completed.returncode == 0 and _reports_ready(report),
         command=command,
         exit_code=completed.returncode,
         report=report,
@@ -191,14 +220,47 @@ def check_mlx_lm_static(
 ) -> RuntimeCheck:
     directory = Path(model_dir).expanduser().resolve()
     model = _model_identity(directory, model_identity)
-    config_present = (directory / "config.json").is_file()
-    weights_present = any(directory.glob("*.safetensors"))
+    config_path = directory / "config.json"
+    config_present = config_path.is_file()
+    config_valid = False
+    if config_present:
+        try:
+            config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            config_payload = None
+        config_valid = isinstance(config_payload, dict)
+    sidecar_names = {
+        *(name.casefold() for name in EXTERNAL_MTP_SIDECAR_FILENAMES),
+        "vision.safetensors",
+    }
+    main_weight_paths = sorted(
+        (
+            path
+            for path in directory.glob("*.safetensors")
+            if path.is_file() and path.name.casefold() not in sidecar_names
+        ),
+        key=lambda path: path.name,
+    )
+    valid_main_weight_files = [
+        path.name for path in main_weight_paths if _safetensors_has_payload(path)
+    ]
+    invalid_main_weight_files = [
+        path.name for path in main_weight_paths if path.name not in valid_main_weight_files
+    ]
+    main_weight_files = [path.name for path in main_weight_paths]
+    weights_present = bool(main_weight_files)
+    weights_valid = weights_present and not invalid_main_weight_files
     importable = importlib.util.find_spec("mlx_lm") is not None
     executable = shutil.which("mlx_lm.generate") or shutil.which("mlx_lm.convert")
     installed = importable or executable is not None
     report = {
         "config_present": config_present,
+        "config_valid": config_valid,
         "weights_present": weights_present,
+        "weights_valid": weights_valid,
+        "main_weight_files": main_weight_files,
+        "valid_main_weight_files": valid_main_weight_files,
+        "invalid_main_weight_files": invalid_main_weight_files,
         "mlx_lm_installed": installed,
         "mlx_lm_importable": importable,
         "mlx_lm_executable": executable,
@@ -210,7 +272,7 @@ def check_mlx_lm_static(
         runtime=RuntimeName.MLX_LM,
         check_kind="static-compatibility",
         available=installed,
-        passed=installed and config_present and weights_present,
+        passed=installed and config_valid and weights_valid,
         report=report,
         stderr="" if installed else "mlx-lm is not installed",
     )
@@ -317,17 +379,97 @@ def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
     if not runtime_path.is_file():
         return None
     try:
-        payload = json.loads(runtime_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        payload = read_data(runtime_path)
+        if not isinstance(payload, dict):
+            raise ArtifactError("runtime metadata must be a JSON object")
+        raw_kv = payload.get("kv_cache")
+        if raw_kv is not None:
+            if not isinstance(raw_kv, dict):
+                raise ArtifactError("kv_cache must be a JSON object or null")
+            raw_bits = raw_kv.get("advisory_mlx_lm_kv_bits")
+            raw_group = raw_kv.get("advisory_mlx_lm_kv_group_size")
+            if type(raw_bits) is not int or raw_bits not in AX_ENGINE_EXECUTABLE_BITS:
+                raise ArtifactError(
+                    "kv_cache.advisory_mlx_lm_kv_bits is not executable by AX Engine"
+                )
+            if type(raw_group) is not int or raw_group not in AX_ENGINE_EXECUTABLE_GROUP_SIZES:
+                raise ArtifactError(
+                    "kv_cache.advisory_mlx_lm_kv_group_size is not executable by AX Engine"
+                )
+            if raw_kv.get("advisory") is not True:
+                raise ArtifactError("kv_cache.advisory must be true")
+        metadata = load_model(runtime_path, RuntimeMetadata)
+    except (ArtifactError, ValueError) as exc:
+        raise ArtifactError(f"axquant_runtime.json is invalid: {exc}") from exc
+    kv = metadata.kv_cache
+    if kv is None:
         return None
-    kv = payload.get("kv_cache")
-    if not isinstance(kv, dict):
-        return None
-    bits = kv.get("advisory_mlx_lm_kv_bits")
-    group = kv.get("advisory_mlx_lm_kv_group_size")
-    if not isinstance(bits, int) or not isinstance(group, int) or bits >= 16:
+    bits = kv.advisory_mlx_lm_kv_bits
+    group = kv.advisory_mlx_lm_kv_group_size
+    if bits >= 16:
         return None
     return bits, group
+
+
+def _load_mtp_runtime_contract(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"mtplx_runtime.json is unreadable: {path}") from exc
+    if not isinstance(value, dict):
+        raise ArtifactError("mtplx_runtime.json must be a JSON object")
+    return value
+
+
+def _resolve_mtp_sidecar(directory: Path) -> Path | None:
+    existing = [
+        directory / name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (directory / name).is_file()
+    ]
+    invalid = [path.name for path in existing if not _safetensors_has_payload(path)]
+    if invalid:
+        raise ArtifactError(f"invalid MTP Safetensors sidecar(s): {invalid}")
+    return existing[0] if existing else None
+
+
+def _mtp_contract_values(contract: dict[str, Any]) -> tuple[int | None, str | None]:
+    depth = contract.get("mtp_depth_max")
+    if depth is not None and (type(depth) is not int or depth <= 0):
+        raise ArtifactError("mtplx_runtime.json mtp_depth_max must be a positive integer")
+    draft_tokens = depth if isinstance(depth, int) else None
+
+    precision_bits: int | None = None
+    if "mtp_sidecar_bits" in contract:
+        structured_bits = contract["mtp_sidecar_bits"]
+        if type(structured_bits) is not int or structured_bits not in {4, 6, 8, 16}:
+            raise ArtifactError("mtplx_runtime.json mtp_sidecar_bits must be one of 4, 6, 8, 16")
+        precision_bits = structured_bits
+    else:
+        sidecar_description = contract.get("mtp_sidecar")
+        if sidecar_description is not None and not isinstance(sidecar_description, str):
+            raise ArtifactError("mtplx_runtime.json mtp_sidecar must be a string")
+        if isinstance(sidecar_description, str):
+            match = re.search(r"INT(4|6|8|16)", sidecar_description.upper())
+            if match:
+                precision_bits = int(match.group(1))
+    precision = f"{precision_bits}bit" if precision_bits is not None else None
+    return draft_tokens, precision
+
+
+def _advisory_kv_pair(plan: QuantizationPlan) -> tuple[int, int] | None:
+    if plan.kv_cache is None:
+        return None
+    pairs = [(layer.bits, layer.group_size) for layer in plan.kv_cache.layers]
+    counts = Counter(pairs)
+    return min(
+        counts,
+        key=lambda pair: (
+            -counts[pair],
+            -pair[0],
+            pair[1],
+        ),
+    )
 
 
 def build_runtime_metadata(
@@ -335,38 +477,27 @@ def build_runtime_metadata(
     output_dir: str | Path,
 ) -> RuntimeMetadata:
     directory = Path(output_dir).expanduser().resolve()
-    sidecar = directory / "mtp.safetensors"
+    sidecar = _resolve_mtp_sidecar(directory)
     runtime_contract = directory / "mtplx_runtime.json"
-    contract: dict[str, Any] = {}
-    if runtime_contract.is_file():
-        try:
-            value = json.loads(runtime_contract.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            value = {}
-        if isinstance(value, dict):
-            contract = value
-    depth = contract.get("mtp_depth_max")
-    draft_tokens = int(depth) if isinstance(depth, int) and depth > 0 else None
-    precision = None
-    sidecar_description = contract.get("mtp_sidecar")
-    if isinstance(sidecar_description, str):
-        match = re.search(r"INT(4|6|8|16)", sidecar_description.upper())
-        if match:
-            precision = f"{match.group(1)}bit"
-    mtp_detected = sidecar.is_file() or bool(plan.mtp_distribution)
-    mtp_capable = mtp_detected or plan.mtp.mode != "disabled"
+    contract = _load_mtp_runtime_contract(runtime_contract)
+    draft_tokens, precision = _mtp_contract_values(contract)
+    mtp_detected = sidecar is not None
+    mtp_capable = mtp_detected
     kv_metadata: KvCacheRuntimeMetadata | None = None
     if plan.kv_cache is not None:
         kv = plan.kv_cache
         ordered = sorted(kv.layers, key=lambda layer: layer.layer_index)
         bit_values = [layer.bits for layer in ordered]
         group_values = [layer.group_size for layer in ordered]
+        advisory_pair = _advisory_kv_pair(plan)
+        if advisory_pair is None:
+            raise ArtifactError("KV-cache plan requires at least one layer")
         kv_metadata = KvCacheRuntimeMetadata(
             allocation_basis=kv.allocation_basis,
             layer_bits=bit_values,
             layer_group_sizes=group_values,
-            advisory_mlx_lm_kv_bits=max(set(bit_values), key=bit_values.count),
-            advisory_mlx_lm_kv_group_size=max(set(group_values), key=group_values.count),
+            advisory_mlx_lm_kv_bits=advisory_pair[0],
+            advisory_mlx_lm_kv_group_size=advisory_pair[1],
         )
     return RuntimeMetadata(
         primary_runtime=RuntimeProfile(
@@ -395,12 +526,12 @@ def build_runtime_metadata(
         optimization_scope=plan.architecture_profile.optimization_scope,
         mtp=MtpRuntimeMetadata(
             detected=mtp_detected,
-            sidecar_file="mtp.safetensors" if sidecar.is_file() else None,
+            sidecar_file=sidecar.name if sidecar is not None else None,
             optimized=False,
-            enabled_by_default=sidecar.is_file() and bool(contract),
-            draft_tokens=draft_tokens,
-            verification_mode="runtime-default" if sidecar.is_file() else None,
-            head_precision=precision,
+            enabled_by_default=sidecar is not None and bool(contract),
+            draft_tokens=draft_tokens if mtp_detected else None,
+            verification_mode="runtime-default" if mtp_detected else None,
+            head_precision=precision if mtp_detected else None,
         ),
         ax_engine=AxEngineOptimizationMetadata(
             preferred_group_size=plan.group_size,

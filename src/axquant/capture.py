@@ -32,7 +32,10 @@ import structlog
 from pydantic import ValidationError
 
 from axquant.activation_cache import _write_npz_atomic, load_cache_manifest
-from axquant.capture_binding import LoadedActivationCapture
+from axquant.capture_binding import (
+    LoadedActivationCapture,
+    _loaded_activation_capture_from_validated_disk,
+)
 from axquant.errors import ArtifactError, BackendUnavailableError, CaptureError
 from axquant.module_paths import mlx_module_aliases
 from axquant.probe import _calibration_dataset_id, _load_calibration_inputs
@@ -772,15 +775,18 @@ def load_capture_activations(
         with np.load(path, allow_pickle=False) as data:
             if array_key not in data.files:
                 raise CaptureError(f"activation capture file lacks {array_key}: {entry.file}")
-            rows = np.asarray(data[array_key], dtype=np.float16)
-        if rows.shape != (entry.rows, entry.in_features):
+            loaded_rows = np.asarray(data[array_key], dtype=np.float16)
+        if loaded_rows.shape != (entry.rows, entry.in_features):
             raise CaptureError(
                 f"activation capture shape mismatch for {entry.module_path}: "
-                f"{rows.shape} != {(entry.rows, entry.in_features)}"
+                f"{loaded_rows.shape} != {(entry.rows, entry.in_features)}"
             )
-        rows.setflags(write=False)
+        rows = np.frombuffer(loaded_rows.tobytes(order="C"), dtype=np.float16).reshape(
+            entry.rows,
+            entry.in_features,
+        )
         result[entry.module_path] = rows
-    return LoadedActivationCapture(
+    return _loaded_activation_capture_from_validated_disk(
         manifest=manifest,
         manifest_sha256=stable_sha256(manifest),
         activations=result,

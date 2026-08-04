@@ -17,6 +17,7 @@ from typing import Any
 import structlog
 
 from axquant.errors import ArtifactError
+from axquant.serde import file_sha256
 
 log = structlog.get_logger()
 
@@ -32,12 +33,24 @@ _GEMMA4_MULTIMODAL_DROP = (
 )
 
 
+def _json_object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ArtifactError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _read_config(model_dir: Path) -> dict[str, Any]:
     path = model_dir / "config.json"
     if not path.is_file():
         raise ArtifactError(f"missing config.json in {model_dir}")
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        value = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
     except (OSError, json.JSONDecodeError) as exc:
         raise ArtifactError(f"cannot read config.json: {exc}") from exc
     if not isinstance(value, dict):
@@ -101,6 +114,30 @@ def needs_conversion_prep(model_dir: str | Path) -> bool:
     return needs_gemma4_unified_prep(config)
 
 
+def _prepared_directory(source: Path, work_dir: str | Path, name: str) -> Path:
+    """Create an empty preparation directory without ever overlapping the source."""
+    root = Path(work_dir).expanduser().resolve()
+    prepared = root / name
+    resolved_prepared = prepared.resolve()
+    if (
+        source == resolved_prepared
+        or source in resolved_prepared.parents
+        or resolved_prepared in source.parents
+    ):
+        raise ArtifactError(
+            f"preparation output must not overlap the source checkpoint: {resolved_prepared}"
+        )
+    root.mkdir(parents=True, exist_ok=True)
+    if prepared.is_symlink():
+        raise ArtifactError(f"preparation output must not be a symlink: {prepared}")
+    if prepared.exists():
+        if not prepared.is_dir():
+            raise ArtifactError(f"preparation output is not a directory: {prepared}")
+        shutil.rmtree(prepared)
+    prepared.mkdir(parents=True)
+    return prepared
+
+
 def prepare_gemma4_unified_source(
     source_dir: str | Path,
     *,
@@ -125,12 +162,7 @@ def prepare_gemma4_unified_source(
             f"{config.get('model_type')!r}"
         )
 
-    root = Path(work_dir).expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    prepared = root / "gemma4-text-path"
-    if prepared.exists():
-        shutil.rmtree(prepared)
-    prepared.mkdir(parents=True)
+    prepared = _prepared_directory(source, work_dir, "gemma4-text-path")
 
     prepared_config = dict(config)
     prepared_config["model_type"] = "gemma4"
@@ -221,12 +253,7 @@ def prepare_tekken_tokenizer_source(
     config = _read_config(source)
     repo, revision = _resolve_tekken_tokenizer_pack(source, model_id=model_id, config=config)
 
-    root = Path(work_dir).expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    prepared = root / "tekken-tokenizer-path"
-    if prepared.exists():
-        shutil.rmtree(prepared)
-    prepared.mkdir(parents=True)
+    prepared = _prepared_directory(source, work_dir, "tekken-tokenizer-path")
 
     # Link all source files (weights, config, tekken) into the prepared tree.
     for item in source.iterdir():
@@ -248,7 +275,7 @@ def prepare_tekken_tokenizer_source(
             "tekken tokenizer prep requires huggingface_hub to fetch tokenizer.json"
         ) from exc
 
-    fetched: dict[str, str] = {}
+    fetched_sha256: dict[str, str] = {}
     for filename in (
         "tokenizer.json",
         "tokenizer_config.json",
@@ -268,11 +295,21 @@ def prepare_tekken_tokenizer_source(
                     f"for tekken source {source}"
                 ) from None
             continue
+        downloaded_path = Path(downloaded)
+        if not downloaded_path.is_file():
+            raise ArtifactError(
+                f"tokenizer pack returned a non-file for {filename}: {downloaded_path}"
+            )
+        expected_sha256 = file_sha256(downloaded_path)
         dest = prepared / filename
         if dest.is_symlink() or dest.exists():
+            if dest.exists() and not dest.is_file() and not dest.is_symlink():
+                raise ArtifactError(f"tokenizer destination is not a file: {dest}")
             dest.unlink()
-        shutil.copy2(downloaded, dest)
-        fetched[filename] = revision
+        shutil.copy2(downloaded_path, dest)
+        if file_sha256(dest) != expected_sha256:
+            raise ArtifactError(f"tokenizer checksum changed while copying {filename}")
+        fetched_sha256[filename] = expected_sha256
 
     if not (prepared / "tokenizer.json").is_file():
         raise ArtifactError(f"tokenizer.json missing after tekken prep from {repo}@{revision}")
@@ -282,9 +319,19 @@ def prepare_tekken_tokenizer_source(
         "source_dir": str(source),
         "tokenizer_repo": repo,
         "tokenizer_revision": revision,
-        "fetched_files": sorted(fetched),
+        "fetched_files": sorted(fetched_sha256),
+        "fetched_sha256": dict(sorted(fetched_sha256.items())),
     }
-    (prepared / "axquant_tekken_tokenizer_provenance.json").write_text(
+    provenance_path = prepared / "axquant_tekken_tokenizer_provenance.json"
+    if provenance_path.is_symlink():
+        provenance_path.unlink()
+    elif provenance_path.exists():
+        if not provenance_path.is_file():
+            raise ArtifactError(
+                f"tokenizer provenance destination is not a file: {provenance_path}"
+            )
+        provenance_path.unlink()
+    provenance_path.write_text(
         json.dumps(provenance, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
@@ -328,7 +375,7 @@ def _mlx_core() -> Any:
 
 def _filter_single_shard(source_file: Path, destination: Path) -> None:
     mx = _mlx_core()
-    weights = mx.load(str(source_file))
+    weights = _load_mlx_weights(mx, source_file)
     filtered = {
         key: value
         for key, value in weights.items()
@@ -338,6 +385,7 @@ def _filter_single_shard(source_file: Path, destination: Path) -> None:
         raise ArtifactError("gemma4 preparation dropped every tensor; refusing empty checkpoint")
     dropped = len(weights) - len(filtered)
     mx.save_safetensors(str(destination), filtered)
+    _verify_saved_tensor_names(mx, destination, set(filtered))
     log.info(
         "gemma4_weights_filtered",
         kept=len(filtered),
@@ -346,16 +394,56 @@ def _filter_single_shard(source_file: Path, destination: Path) -> None:
     )
 
 
+def _load_mlx_weights(mx: Any, path: Path) -> Any:
+    try:
+        weights = mx.load(str(path))
+    except Exception as exc:
+        raise ArtifactError(f"cannot load Safetensors weights from {path}: {exc}") from exc
+    if not hasattr(weights, "items"):
+        raise ArtifactError(f"MLX returned a non-mapping weight payload for {path}")
+    keys = list(weights)
+    if any(not isinstance(key, str) or not key for key in keys):
+        raise ArtifactError(f"MLX returned an invalid tensor name for {path}")
+    return weights
+
+
+def _verify_saved_tensor_names(mx: Any, path: Path, expected: set[str]) -> None:
+    saved = _load_mlx_weights(mx, path)
+    actual = set(saved)
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        raise ArtifactError(
+            f"prepared Safetensors output coverage mismatch: "
+            f"missing={missing[:10]}, unexpected={unexpected[:10]}"
+        )
+
+
 def _filter_sharded(source: Path, prepared: Path) -> None:
     """Filter a sharded checkpoint; write one consolidated safetensors file."""
     mx = _mlx_core()
-    index = json.loads((source / "model.safetensors.index.json").read_text(encoding="utf-8"))
-    weight_map = index.get("weight_map")
+    source = source.resolve()
+    index_path = source / "model.safetensors.index.json"
+    try:
+        index = json.loads(
+            index_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"invalid {index_path}: {exc}") from exc
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
     if not isinstance(weight_map, dict) or not weight_map:
         raise ArtifactError("model.safetensors.index.json has no weight_map")
-    shards = sorted({str(value) for value in weight_map.values() if isinstance(value, str)})
-    filtered: dict[str, Any] = {}
-    for shard_name in shards:
+    indexed_names: dict[Path, set[str]] = {}
+    shard_labels: dict[Path, str] = {}
+    resolved_shards: dict[Path, str] = {}
+    for tensor_name, shard_name in weight_map.items():
+        if not tensor_name:
+            raise ArtifactError("model.safetensors.index.json contains an empty tensor name")
+        if not isinstance(shard_name, str) or not shard_name:
+            raise ArtifactError(
+                "model.safetensors.index.json contains a non-string shard reference"
+            )
         relative = Path(shard_name)
         if relative.is_absolute() or ".." in relative.parts:
             raise ArtifactError(f"index contains an unsafe shard path: {shard_name}")
@@ -364,12 +452,38 @@ def _filter_sharded(source: Path, prepared: Path) -> None:
             raise ArtifactError(f"index references a non-Safetensors shard: {shard_name}")
         if not shard_path.is_file():
             raise ArtifactError(f"missing shard referenced by index: {shard_name}")
-        weights = mx.load(str(shard_path))
-        for key, value in weights.items():
+        resolved_shard = shard_path.resolve()
+        previous_label = resolved_shards.get(resolved_shard)
+        if previous_label is not None and previous_label != shard_name:
+            raise ArtifactError(
+                "index references the same physical shard under multiple paths: "
+                f"{previous_label!r}, {shard_name!r}"
+            )
+        resolved_shards[resolved_shard] = shard_name
+        indexed_names.setdefault(shard_path, set()).add(tensor_name)
+        shard_labels[shard_path] = shard_name
+
+    filtered: dict[str, Any] = {}
+    for shard_path in sorted(indexed_names):
+        shard_name = shard_labels[shard_path]
+        weights = _load_mlx_weights(mx, shard_path)
+        expected = indexed_names[shard_path]
+        actual = set(weights)
+        if actual != expected:
+            missing = sorted(expected - actual)
+            unindexed = sorted(actual - expected)
+            raise ArtifactError(
+                f"{shard_name} does not match model.safetensors.index.json: "
+                f"missing={missing[:10]}, unindexed={unindexed[:10]}"
+            )
+        for key in sorted(expected):
+            value = weights[key]
             if any(token in key.lower() for token in _GEMMA4_MULTIMODAL_DROP):
                 continue
             filtered[key] = value
     if not filtered:
         raise ArtifactError("gemma4 preparation dropped every tensor; refusing empty checkpoint")
-    mx.save_safetensors(str(prepared / "model.safetensors"), filtered)
-    log.info("gemma4_sharded_weights_filtered", kept=len(filtered), shards=len(shards))
+    destination = prepared / "model.safetensors"
+    mx.save_safetensors(str(destination), filtered)
+    _verify_saved_tensor_names(mx, destination, set(filtered))
+    log.info("gemma4_sharded_weights_filtered", kept=len(filtered), shards=len(indexed_names))

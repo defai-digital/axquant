@@ -9,6 +9,7 @@ import subprocess
 from collections.abc import Iterable
 from pathlib import Path
 
+from axquant.artifact_paths import artifact_member_path
 from axquant.errors import ArtifactError, BenchmarkError
 from axquant.schema import (
     CodingOverlapMatch,
@@ -861,12 +862,29 @@ def load_coding_payloads(
     manifest_path: str | Path,
     manifest: CodingSuiteManifest | None = None,
 ) -> list[CodingTaskPayload]:
-    path = Path(manifest_path).expanduser().resolve()
-    suite = manifest or load_model(path, CodingSuiteManifest)
+    source_path = Path(manifest_path).expanduser()
+    if source_path.is_symlink():
+        raise ArtifactError("coding suite manifest cannot be a symbolic link")
+    path = source_path.resolve()
+    recorded_suite = load_model(path, CodingSuiteManifest)
+    if manifest is not None and manifest != recorded_suite:
+        raise ArtifactError("supplied coding suite manifest differs from its on-disk record")
+    suite = manifest or recorded_suite
+    if suite.dataset_sha256 != stable_sha256(suite.task_shards):
+        raise ArtifactError("coding suite dataset digest does not bind its shard checksums")
+    if suite.sandbox_profile_sha256 != SANDBOX_PROFILE_SHA256:
+        raise ArtifactError("coding suite sandbox policy does not match this AXQuant version")
     payloads: list[CodingTaskPayload] = []
     for shard_name, expected_sha256 in suite.task_shards.items():
-        shard_path = path.parent / shard_name
-        if not shard_path.is_file() or file_sha256(shard_path) != expected_sha256:
+        try:
+            shard_path = artifact_member_path(path.parent, shard_name)
+        except ValueError as exc:
+            raise ArtifactError(f"coding suite shard path is unsafe: {shard_name}") from exc
+        if (
+            shard_path.is_symlink()
+            or not shard_path.is_file()
+            or file_sha256(shard_path) != expected_sha256
+        ):
             raise ArtifactError(f"coding suite shard is missing or stale: {shard_name}")
         try:
             with shard_path.open(encoding="utf-8") as source:

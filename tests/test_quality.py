@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from axquant.errors import BenchmarkError
-from axquant.quality import compare_quality, evaluate_quality
+from axquant.quality import MlxQualityBackend, compare_quality, evaluate_quality
 from axquant.schema import ModelIdentity
 
 
@@ -147,3 +148,101 @@ def test_quality_comparison_preserves_per_task_visibility(tmp_path: Path) -> Non
     assert comparison.categories["coding"].retention == 0.5
     assert comparison.tasks[0].task_id == "coding-1"
     assert comparison.tasks[0].delta == -0.5
+
+
+def test_generation_failure_counts_as_failed_structured_output_check(
+    tmp_path: Path,
+) -> None:
+    dataset = tmp_path / "quality.jsonl"
+    tasks = [
+        {
+            "task_id": "json-ok",
+            "category": "json",
+            "prompt": "return JSON",
+            "checks": [{"kind": "json-valid"}],
+        },
+        {
+            "task_id": "json-error",
+            "category": "json",
+            "prompt": "generation fails",
+            "checks": [{"kind": "json-valid"}],
+        },
+    ]
+    dataset.write_text(
+        "\n".join(json.dumps(task) for task in tasks),
+        encoding="utf-8",
+    )
+
+    class FailingBackend(_FakeQualityBackend):
+        def generate(self, prompt: str, max_tokens: int, random_seed: int) -> str:
+            if "fails" in prompt:
+                raise RuntimeError("backend generation failed")
+            return "{}"
+
+    result = evaluate_quality(
+        model=ModelIdentity(model_id="test-model", revision="pinned"),
+        dataset_path=dataset,
+        backend=FailingBackend(),
+    )
+
+    failed = next(task for task in result.task_results if task.task_id == "json-error")
+    assert failed.score == 0.0
+    assert failed.check_scores == {"json-valid:0": 0.0}
+    assert failed.error == "backend generation failed"
+    assert result.metrics.json_valid_rate == 0.5
+
+
+def test_scoring_failure_zeros_every_declared_check(tmp_path: Path) -> None:
+    dataset = tmp_path / "quality.jsonl"
+    task = {
+        "task_id": "invalid-check",
+        "category": "json",
+        "prompt": "return JSON",
+        "checks": [
+            {"kind": "json-valid"},
+            {"kind": "regex", "value": "["},
+        ],
+    }
+    dataset.write_text(json.dumps(task), encoding="utf-8")
+
+    result = evaluate_quality(
+        model=ModelIdentity(model_id="test-model", revision="pinned"),
+        dataset_path=dataset,
+        backend=_FakeQualityBackend(),
+    )
+
+    failed = result.task_results[0]
+    assert failed.score == 0.0
+    assert failed.check_scores == {"json-valid:0": 0.0, "regex:1": 0.0}
+    assert failed.error
+    assert result.metrics.json_valid_rate == 0.0
+
+
+def test_mlx_backend_resets_chat_template_state_between_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeModel:
+        def parameters(self) -> list[object]:
+            return []
+
+    first_tokenizer = SimpleNamespace(chat_template="{{ messages }}")
+    second_tokenizer = SimpleNamespace(chat_template=None)
+    tokenizers = iter((first_tokenizer, second_tokenizer))
+    fake_mlx_lm = SimpleNamespace(load=lambda *_args, **_kwargs: (FakeModel(), next(tokenizers)))
+    fake_mx = SimpleNamespace(eval=lambda *_args: None)
+
+    import importlib
+
+    monkeypatch.setattr(
+        importlib,
+        "import_module",
+        lambda name: fake_mx if name == "mlx.core" else fake_mlx_lm,
+    )
+    backend = MlxQualityBackend()
+
+    backend.load_model("first", None)
+    assert backend.generation_metadata()[0] == "chat-template"
+    assert backend.generation_metadata()[1] is not None
+
+    backend.load_model("second", None)
+    assert backend.generation_metadata() == ("raw", None)

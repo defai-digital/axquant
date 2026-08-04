@@ -5,7 +5,12 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from axquant.awq import apply_mlx_awq_scale, refine_weight_with_awq
+from axquant import awq
+from axquant.awq import (
+    apply_channel_scales,
+    apply_mlx_awq_scale,
+    refine_weight_with_awq,
+)
 from axquant.errors import PlanningError
 
 
@@ -62,3 +67,73 @@ def test_apply_mlx_awq_scale_requires_a_weight_tensor() -> None:
     pytest.importorskip("mlx.core")
     with pytest.raises(PlanningError, match="requires a module with a weight"):
         apply_mlx_awq_scale(SimpleNamespace(), activations=None, bits=8, group_size=32)
+
+
+def test_awq_rejects_non_finite_inputs_and_alpha_grid() -> None:
+    weight = np.ones((2, 32), dtype=np.float32)
+    activations = np.ones((4, 32), dtype=np.float32)
+
+    invalid_weight = weight.copy()
+    invalid_weight[0, 0] = np.nan
+    with pytest.raises(PlanningError, match="finite values"):
+        refine_weight_with_awq(
+            invalid_weight,
+            activations,
+            bits=4,
+            group_size=32,
+        )
+
+    invalid_activations = activations.copy()
+    invalid_activations[0, 0] = np.inf
+    with pytest.raises(PlanningError, match="finite values"):
+        refine_weight_with_awq(
+            weight,
+            invalid_activations,
+            bits=4,
+            group_size=32,
+        )
+
+    with pytest.raises(PlanningError, match="finite and within"):
+        refine_weight_with_awq(
+            weight,
+            activations,
+            bits=4,
+            group_size=32,
+            alpha_grid=(float("nan"),),
+        )
+
+
+def test_awq_rejects_scalar_activations_and_invalid_channel_scales() -> None:
+    weight = np.ones((2, 32), dtype=np.float32)
+    with pytest.raises(PlanningError, match="calibration channels"):
+        refine_weight_with_awq(weight, np.array(1.0), bits=4, group_size=32)
+    with pytest.raises(PlanningError, match="finite positive"):
+        apply_channel_scales(weight, np.zeros((32,), dtype=np.float32))
+
+
+def test_apply_mlx_awq_scale_does_not_mutate_when_materialization_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FailingMlx:
+        @staticmethod
+        def array(value: np.ndarray, *, dtype: np.dtype[np.float32]) -> np.ndarray:
+            return np.asarray(value, dtype=dtype)
+
+        @staticmethod
+        def eval(value: np.ndarray) -> None:
+            del value
+            raise RuntimeError("materialization failed")
+
+    monkeypatch.setattr(awq.importlib, "import_module", lambda _name: _FailingMlx)
+    original = np.ones((2, 32), dtype=np.float32)
+    module = SimpleNamespace(weight=original)
+
+    with pytest.raises(PlanningError, match="materialization failed"):
+        apply_mlx_awq_scale(
+            module,
+            activations=np.ones((4, 32), dtype=np.float32),
+            bits=4,
+            group_size=32,
+        )
+
+    assert module.weight is original

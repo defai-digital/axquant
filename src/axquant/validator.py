@@ -1,16 +1,33 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactSizeEvidence,
     CalibrationManifest,
     EvaluationBundle,
     ProfileName,
+    RuntimeName,
     ValidationIssue,
     ValidationReport,
     ValidationThresholds,
 )
+
+
+def _metadata_value_missing(metadata: Mapping[str, object], name: str) -> bool:
+    if name not in metadata or metadata[name] is None:
+        return True
+    value = metadata[name]
+    if isinstance(value, str):
+        return not value.strip()
+    if name == "runtime_env":
+        # No caller-supplied overrides is a valid, explicitly recorded
+        # environment.
+        return not isinstance(value, dict)
+    if isinstance(value, (dict, list)):
+        return not value
+    return False
 
 
 def validate_evaluations(
@@ -95,7 +112,7 @@ def validate_evaluations(
         comparisons["calibration.dataset_sha256"] = calibration.dataset_sha256
         if calibration.profile != profile:
             issue("calibration.profile", "calibration profile does not match validation profile")
-        if calibration.model.revision is None:
+        if not is_immutable_revision(calibration.model.revision):
             issue("calibration.model.revision", "calibration source revision is not pinned")
         if not calibration.calibration_evaluation_separation_attested:
             issue(
@@ -138,8 +155,26 @@ def validate_evaluations(
             "candidate_direct.runtime",
             "MTP-off and MTP-on candidates used different runtimes",
         )
-    if candidate.runtime.value != "ax-engine":
+    if candidate.runtime is not RuntimeName.AX_ENGINE:
         issue("runtime", "production MTP validation must run on AX Engine")
+    if reference.runtime is not RuntimeName.AX_ENGINE:
+        issue("reference.runtime", "reference validation must run on AX Engine")
+    elif reference.runtime != candidate.runtime:
+        issue("reference.runtime", "reference and candidate used different runtimes")
+    if reference.random_seed != candidate.random_seed:
+        issue("reference.random_seed", "reference and candidate used different seeds")
+    if reference.baseline_kind != "uniform-6bit":
+        issue("reference.baseline_kind", "quality reference must be the uniform-6bit baseline")
+    if candidate_direct.baseline_kind != "axquant-mtp-off":
+        issue(
+            "candidate_direct.baseline_kind",
+            "direct candidate must use the axquant-mtp-off baseline kind",
+        )
+    if candidate.baseline_kind != "axquant-mtp-on":
+        issue(
+            "candidate.baseline_kind",
+            "MTP candidate must use the axquant-mtp-on baseline kind",
+        )
     if candidate_direct.mtp_enabled:
         issue("candidate_direct.mtp_enabled", "direct candidate must have MTP disabled")
     if not candidate.mtp_enabled:
@@ -233,7 +268,7 @@ def validate_evaluations(
                 )
         metadata = bundle.benchmark_metadata
         if thresholds.require_complete_metrics:
-            for metadata_name in (
+            required_metadata = (
                 "prompt_count",
                 "warmup_trials",
                 "measured_trials",
@@ -250,15 +285,96 @@ def validate_evaluations(
                 "quantizer_version",
                 "ax_engine_version",
                 "quality_dataset_sha256",
-            ):
-                if metadata_name not in metadata:
+                "runtime_env",
+            )
+
+            missing_metadata = {
+                metadata_name
+                for metadata_name in required_metadata
+                if _metadata_value_missing(metadata, metadata_name)
+            }
+            for metadata_name in sorted(missing_metadata):
+                issue(
+                    f"{bundle_name}.benchmark_metadata.{metadata_name}",
+                    "required benchmark metadata is missing or empty",
+                )
+
+            count_minima = {
+                "prompt_count": 1,
+                "warmup_trials": 0,
+                "measured_trials": 1,
+                "successful_measured_trials": 0,
+                "failed_trials": 0,
+                "timed_out_trials": 0,
+            }
+            counts: dict[str, int] = {}
+            for metadata_name, minimum in count_minima.items():
+                if metadata_name in missing_metadata:
+                    continue
+                metadata_count_value = metadata.get(metadata_name)
+                if (
+                    isinstance(metadata_count_value, bool)
+                    or not isinstance(metadata_count_value, int)
+                    or metadata_count_value < minimum
+                ):
                     issue(
                         f"{bundle_name}.benchmark_metadata.{metadata_name}",
-                        "required benchmark metadata is missing",
+                        f"benchmark count must be an integer >= {minimum}",
                     )
-        if metadata.get("failed_trials", 0) != 0:
+                    continue
+                counts[metadata_name] = metadata_count_value
+
+            required_counts = set(count_minima)
+            if required_counts.issubset(counts):
+                warmups = counts["warmup_trials"]
+                measured = counts["measured_trials"]
+                successful = counts["successful_measured_trials"]
+                failed = counts["failed_trials"]
+                timed_out = counts["timed_out_trials"]
+                if successful > measured:
+                    issue(
+                        f"{bundle_name}.benchmark_metadata.successful_measured_trials",
+                        "successful measured trials exceed configured measured trials",
+                    )
+                if timed_out > failed:
+                    issue(
+                        f"{bundle_name}.benchmark_metadata.timed_out_trials",
+                        "timed-out trials exceed total failed trials",
+                    )
+                if failed > measured + warmups:
+                    issue(
+                        f"{bundle_name}.benchmark_metadata.failed_trials",
+                        "failed trials exceed configured warmup plus measured trials",
+                    )
+                if successful + failed < measured:
+                    issue(
+                        f"{bundle_name}.benchmark_metadata.successful_measured_trials",
+                        "successful measured plus failed trials cannot account for "
+                        "configured measured trials",
+                    )
+
+            runtime_env = metadata.get("runtime_env")
+            if isinstance(runtime_env, dict) and any(
+                not isinstance(key, str)
+                or not key.strip()
+                or not isinstance(value, str)
+                or not value.strip()
+                for key, value in runtime_env.items()
+            ):
+                issue(
+                    f"{bundle_name}.benchmark_metadata.runtime_env",
+                    "runtime environment entries must use non-empty string keys and values",
+                )
+
+        failed_trials = metadata.get("failed_trials")
+        if isinstance(failed_trials, int) and not isinstance(failed_trials, bool) and failed_trials:
             issue(f"{bundle_name}.benchmark.failed_trials", "benchmark contains failed trials")
-        if metadata.get("timed_out_trials", 0) != 0:
+        timed_out_trials = metadata.get("timed_out_trials")
+        if (
+            isinstance(timed_out_trials, int)
+            and not isinstance(timed_out_trials, bool)
+            and timed_out_trials
+        ):
             issue(
                 f"{bundle_name}.benchmark.timed_out_trials",
                 "benchmark contains timed-out trials",
@@ -306,15 +422,16 @@ def validate_evaluations(
         "quantizer_version",
         "ax_engine_version",
         "quality_dataset_sha256",
+        "runtime_env",
     )
-    if reference.benchmark_metadata.get("power_mode") != candidate.benchmark_metadata.get(
-        "power_mode"
-    ):
-        issue(
-            "reference.benchmark_metadata.power_mode",
-            "reference and candidate used different power modes",
-        )
     for field_name in invariant_fields:
+        if reference.benchmark_metadata.get(field_name) != candidate.benchmark_metadata.get(
+            field_name
+        ):
+            issue(
+                f"reference.benchmark_metadata.{field_name}",
+                "reference and candidate benchmark controls differ",
+            )
         if candidate_direct.benchmark_metadata.get(field_name) != candidate.benchmark_metadata.get(
             field_name
         ):
@@ -448,6 +565,13 @@ def validate_evaluations(
             candidate.mtp.acceptance_rate,
             check_acceptance,
         )
+        if thresholds.require_complete_metrics and (
+            not reference.mtp.token_accuracy or not candidate.mtp.token_accuracy
+        ):
+            issue(
+                "mtp.token_accuracy",
+                "reference and candidate token-accuracy horizons are required",
+            )
         missing_horizons = sorted(
             set(reference.mtp.token_accuracy) - set(candidate.mtp.token_accuracy)
         )
@@ -503,11 +627,18 @@ def validate_evaluations(
     reference_speed = candidate_direct.hardware.decode_tokens_per_second
     candidate_speed = (
         candidate.hardware.mtp_effective_tokens_per_second
-        or candidate.hardware.decode_tokens_per_second
+        if candidate.hardware.mtp_effective_tokens_per_second is not None
+        else candidate.hardware.decode_tokens_per_second
     )
 
     def check_speed(reference_value: float, candidate_value: float) -> None:
-        speedup = candidate_value / reference_value if reference_value else 0.0
+        if reference_value <= 0.0:
+            issue(
+                "hardware.effective_speedup",
+                "direct candidate decode throughput must be positive",
+            )
+            return
+        speedup = candidate_value / reference_value
         comparisons["hardware.effective_speedup"] = speedup
         if speedup < thresholds.min_effective_speedup:
             issue(
@@ -518,7 +649,13 @@ def validate_evaluations(
     require_pair("hardware.effective_speedup", reference_speed, candidate_speed, check_speed)
 
     def check_memory(reference_value: float, candidate_value: float) -> None:
-        ratio = candidate_value / reference_value if reference_value else 0.0
+        if reference_value <= 0.0:
+            issue(
+                "hardware.peak_memory_ratio",
+                "reference peak memory must be positive",
+            )
+            return
+        ratio = candidate_value / reference_value
         comparisons["hardware.peak_memory_ratio"] = ratio
         if ratio > thresholds.max_peak_memory_ratio:
             issue(

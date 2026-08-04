@@ -8,6 +8,7 @@ from typing import ClassVar
 
 import numpy as np
 import pytest
+from _capture_helpers import load_test_activation_capture
 
 from axquant.activation_cache import tokenize_calibration
 from axquant.capture_binding import (
@@ -29,7 +30,6 @@ from axquant.probe import (
     probe_tensor_sensitivity,
 )
 from axquant.schema import (
-    ActivationCaptureEntry,
     ActivationCaptureManifest,
     CalibrationManifest,
     EvidenceKind,
@@ -43,7 +43,7 @@ from axquant.schema import (
     TensorRole,
     TokenizedCacheManifest,
 )
-from axquant.serde import load_model, stable_sha256, write_data
+from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 
 class _FakeTokenizer:
@@ -352,7 +352,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
 ) -> None:
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
         local_path=str(qwen36_model_dir),
     )
     inventory = inspect_model(
@@ -375,13 +375,15 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         model=identity,
         profile=ProfileName.AGENT_CODING,
         dataset_id=str(dataset),
-        dataset_sha256="",
+        dataset_sha256=file_sha256(dataset),
         samples=2,
         domains=[],
         sequence_length=32,
         random_seed=11,
         calibration_evaluation_separation_attested=True,
     )
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
     cache_manifest = tokenize_calibration(
         model=identity,
         dataset_path=dataset,
@@ -395,13 +397,6 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         ),
         separation_attested=True,
     )
-    calibration.dataset_sha256 = cache_manifest.dataset_sha256
-    calibration.domains = cache_manifest.domains
-    write_data(cache / "calibration_manifest.json", calibration)
-    cache_manifest.calibration_manifest_sha256 = stable_sha256(
-        calibration.model_dump(mode="json", exclude={"created_at"})
-    )
-    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
     backend = _MeasuredFakeBackend()
     progress_path = tmp_path / "probe-progress.json"
     config = ProbeConfig(
@@ -562,7 +557,7 @@ def _base_probe_report(
     """Build a tiny tokenized cache and a base AFFINE probe report for refinement tests."""
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
         local_path=str(qwen36_model_dir),
     )
     inventory = inspect_model(
@@ -585,14 +580,16 @@ def _base_probe_report(
         model=identity,
         profile=ProfileName.AGENT_CODING,
         dataset_id=str(dataset),
-        dataset_sha256="",
+        dataset_sha256=file_sha256(dataset),
         samples=2,
         domains=[],
         sequence_length=32,
         random_seed=11,
         calibration_evaluation_separation_attested=True,
     )
-    cache_manifest = tokenize_calibration(
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
+    tokenize_calibration(
         model=identity,
         dataset_path=dataset,
         output_dir=cache,
@@ -605,13 +602,6 @@ def _base_probe_report(
         ),
         separation_attested=True,
     )
-    calibration.dataset_sha256 = cache_manifest.dataset_sha256
-    calibration.domains = cache_manifest.domains
-    write_data(cache / "calibration_manifest.json", calibration)
-    cache_manifest.calibration_manifest_sha256 = stable_sha256(
-        calibration.model_dump(mode="json", exclude={"created_at"})
-    )
-    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
     config = ProbeConfig(
         model=identity,
         calibration_cache=str(cache),
@@ -640,30 +630,18 @@ def _bound_probe_capture(
         TokenizedCacheManifest,
     )
     assert report.calibration is not None
-    entries = tuple(
-        ActivationCaptureEntry(
-            module_path=name,
-            rows=int(rows.shape[0]),
-            in_features=int(rows.shape[1]),
-            file=f"{index:04d}.npz",
-            sha256=f"{index + 1:064x}",
-        )
-        for index, (name, rows) in enumerate(sorted(activations.items()))
-    )
     manifest = ActivationCaptureManifest(
         model=config.model.model_id,
         revision=config.model.revision,
         tokenized_cache_manifest_sha256=stable_sha256(cache_manifest),
         cache_key_sha256=cache_manifest.cache_key_sha256,
         calibration_dataset_id=report.calibration.dataset_id,
-        max_rows=max(entry.rows for entry in entries),
-        entries=entries,
+        max_rows=max(rows.shape[0] for rows in activations.values()),
     )
-    return LoadedActivationCapture(
+    return load_test_activation_capture(
+        tmp_path / "capture",
         manifest=manifest,
-        manifest_sha256=stable_sha256(manifest),
         activations=activations,
-        source_dir=tmp_path,
     )
 
 
@@ -673,7 +651,7 @@ def test_probe_requires_calibration_activations_for_awq_gptq(
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
     )
     for method in (QuantMethod.AWQ, QuantMethod.GPTQ):
         config = ProbeConfig(
@@ -683,6 +661,21 @@ def test_probe_requires_calibration_activations_for_awq_gptq(
         )
         with pytest.raises(ProbeError, match="capture-activations"):
             probe_tensor_sensitivity(inventory, config=config)
+
+
+def test_probe_rejects_mutable_revision_alias(qwen36_model_dir: Path) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="main",
+    )
+    config = ProbeConfig(
+        model=inventory.model,
+        calibration_cache="/nonexistent-cache",
+    )
+
+    with pytest.raises(ProbeError, match="revision-pinned"):
+        probe_tensor_sensitivity(inventory, config=config)
 
 
 def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
@@ -766,11 +759,10 @@ def test_probe_rejects_capture_bound_to_another_cache(
     }
     capture = _bound_probe_capture(tmp_path, config, report, activations)
     wrong_manifest = capture.manifest.model_copy(update={"cache_key_sha256": "0" * 64})
-    wrong_capture = LoadedActivationCapture(
+    wrong_capture = load_test_activation_capture(
+        tmp_path / "wrong-capture",
         manifest=wrong_manifest,
-        manifest_sha256=stable_sha256(wrong_manifest),
         activations=activations,
-        source_dir=tmp_path,
     )
 
     with pytest.raises(ProbeError, match="cache key does not match"):
@@ -838,7 +830,7 @@ def test_probe_role_floors_keep_embedding_measurable(
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
     )
     config = ProbeConfig(
         model=inventory.model,

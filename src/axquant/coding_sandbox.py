@@ -215,8 +215,14 @@ def _wait_with_limits(
     ):
         with suppress(ProcessLookupError):
             os.killpg(process.pid, signal.SIGKILL)
+    exit_code = process.wait()
+    final_output_bytes = sum(
+        path.stat().st_size for path in (stdout_path, stderr_path) if path.exists()
+    )
+    if final_output_bytes > output_limit_bytes:
+        output_limit_exceeded = True
     return (
-        process.wait(),
+        exit_code,
         timed_out,
         memory_exceeded,
         process_limit_exceeded,
@@ -322,14 +328,20 @@ def _compile_and_test_commands(
 ) -> tuple[list[list[str]], dict[str, str]]:
     environment_updates: dict[str, str] = {}
     candidate = output_dir / payload.candidate_path
+
+    def required_test_path() -> str:
+        if payload.test_path is None:
+            raise BenchmarkError(f"{payload.language} unit-test task is missing test_path")
+        return payload.test_path
+
     if payload.language == "python":
         python = executables["python"]
         compile_command = [python, "-B", "-m", "py_compile", str(candidate)]
         if payload.scorer is CodingScorer.COMPILE:
             return [compile_command], environment_updates
-        assert payload.test_path is not None
+        test_path = required_test_path()
         environment_updates["PYTHONPATH"] = os.pathsep.join([str(output_dir), str(fixture_dir)])
-        return [compile_command, [python, "-B", str(fixture_dir / payload.test_path)]], (
+        return [compile_command, [python, "-B", str(fixture_dir / test_path)]], (
             environment_updates
         )
     if payload.language == "javascript":
@@ -337,11 +349,9 @@ def _compile_and_test_commands(
         compile_command = [node, "--check", str(candidate)]
         if payload.scorer is CodingScorer.COMPILE:
             return [compile_command], environment_updates
-        assert payload.test_path is not None
+        test_path = required_test_path()
         environment_updates["AXQ_CANDIDATE_PATH"] = str(candidate)
-        return [compile_command, [node, str(fixture_dir / payload.test_path)]], (
-            environment_updates
-        )
+        return [compile_command, [node, str(fixture_dir / test_path)]], (environment_updates)
     if payload.language == "typescript":
         compiler = executables["typescript"]
         copied_fixtures: list[str] = []
@@ -364,12 +374,26 @@ def _compile_and_test_commands(
         return [command], environment_updates
     if payload.language == "rust":
         compiler = executables["rust"]
-        assert payload.test_path is not None
+        if payload.scorer is CodingScorer.COMPILE:
+            library = output_dir / "libaxquant_candidate.rlib"
+            return [
+                [
+                    compiler,
+                    "--edition",
+                    "2021",
+                    "--crate-type",
+                    "lib",
+                    str(candidate),
+                    "-o",
+                    str(library),
+                ]
+            ], environment_updates
+        test_path = required_test_path()
         harness = output_dir / "axquant_harness.rs"
         harness.write_text(
             candidate.read_text(encoding="utf-8")
             + "\n"
-            + (fixture_dir / payload.test_path).read_text(encoding="utf-8"),
+            + (fixture_dir / test_path).read_text(encoding="utf-8"),
             encoding="utf-8",
         )
         test_binary = output_dir / "axquant-rust-tests"
@@ -385,13 +409,6 @@ def _compile_and_test_commands(
         return [compile_command, [str(test_binary)]], environment_updates
     if payload.language == "go":
         go = executables["go"]
-        assert payload.test_path is not None
-        test_copy = output_dir / payload.test_path
-        test_copy.parent.mkdir(parents=True, exist_ok=True)
-        test_copy.write_text(
-            (fixture_dir / payload.test_path).read_text(encoding="utf-8"),
-            encoding="utf-8",
-        )
         (output_dir / "go.mod").write_text("module axquant.task\n\ngo 1.23\n", encoding="utf-8")
         environment_updates.update(
             {
@@ -402,6 +419,15 @@ def _compile_and_test_commands(
                 "GOROOT": str(Path(go).resolve().parent.parent),
                 "GOTELEMETRY": "off",
             }
+        )
+        if payload.scorer is CodingScorer.COMPILE:
+            return [[go, "test", "-p=4", "-run", "^$", str(candidate)]], environment_updates
+        test_path = required_test_path()
+        test_copy = output_dir / test_path
+        test_copy.parent.mkdir(parents=True, exist_ok=True)
+        test_copy.write_text(
+            (fixture_dir / test_path).read_text(encoding="utf-8"),
+            encoding="utf-8",
         )
         compile_command = [go, "test", "-p=4", "-run", "^$", str(candidate), str(test_copy)]
         test_command = [go, "test", "-p=4", str(candidate), str(test_copy)]
@@ -417,19 +443,25 @@ def _write_raw_logs(
     stderr: bytes,
     evidence_root: Path | None = None,
 ) -> tuple[str, str, str, str]:
+    if raw_log_dir.is_symlink():
+        raise BenchmarkError("raw coding log directory cannot be a symbolic link")
     raw_log_dir.mkdir(parents=True, exist_ok=True)
     stdout_name = f"{task_id}.stdout.txt"
     stderr_name = f"{task_id}.stderr.txt"
     stdout_path = raw_log_dir / stdout_name
     stderr_path = raw_log_dir / stderr_name
+    root = (evidence_root or raw_log_dir).resolve()
+    for path in (stdout_path, stderr_path):
+        if path.is_symlink():
+            raise BenchmarkError("raw coding log file cannot be a symbolic link")
+        try:
+            path.resolve().relative_to(root)
+        except ValueError as exc:
+            raise BenchmarkError("raw coding logs must be inside the evidence root") from exc
     write_text(stdout_path, stdout.decode("utf-8", errors="replace"))
     write_text(stderr_path, stderr.decode("utf-8", errors="replace"))
-    root = (evidence_root or raw_log_dir).resolve()
-    try:
-        stdout_name = stdout_path.resolve().relative_to(root).as_posix()
-        stderr_name = stderr_path.resolve().relative_to(root).as_posix()
-    except ValueError as exc:
-        raise BenchmarkError("raw coding logs must be inside the evidence root") from exc
+    stdout_name = stdout_path.resolve().relative_to(root).as_posix()
+    stderr_name = stderr_path.resolve().relative_to(root).as_posix()
     return stdout_name, stderr_name, file_sha256(stdout_path), file_sha256(stderr_path)
 
 
@@ -440,14 +472,19 @@ def _write_model_output(
     output: str,
     evidence_root: Path | None = None,
 ) -> tuple[str, str]:
+    if raw_log_dir.is_symlink():
+        raise BenchmarkError("raw coding output directory cannot be a symbolic link")
     raw_log_dir.mkdir(parents=True, exist_ok=True)
     output_path = raw_log_dir / f"{task_id}.model-output.txt"
-    write_text(output_path, output)
     root = (evidence_root or raw_log_dir).resolve()
+    if output_path.is_symlink():
+        raise BenchmarkError("raw coding output file cannot be a symbolic link")
     try:
-        output_name = output_path.resolve().relative_to(root).as_posix()
+        output_path.resolve().relative_to(root)
     except ValueError as exc:
         raise BenchmarkError("raw coding outputs must be inside the evidence root") from exc
+    write_text(output_path, output)
+    output_name = output_path.resolve().relative_to(root).as_posix()
     return output_name, file_sha256(output_path)
 
 

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import math
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Literal
 
-from axquant.benchmark import validate_ab_invariant
+from axquant.benchmark import result_to_evaluation_bundle, validate_ab_invariant
 from axquant.errors import ArtifactError, RefinementError
 from axquant.refinement import build_complete_candidate_measurement
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     Allocation,
     ArtifactManifest,
@@ -30,6 +33,8 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
 
 def _resolved(base: Path, value: str) -> Path:
     path = Path(value).expanduser()
@@ -44,7 +49,7 @@ def _required_file(base: Path, value: str, label: str) -> Path:
 
 
 def _required_text(value: str | None, label: str) -> str:
-    if not value:
+    if not value or not value.strip():
         raise RefinementError(f"hardware registry evidence is missing {label}")
     return value
 
@@ -60,7 +65,15 @@ def _measured_trials(result: BenchmarkResult) -> list[TrialResult]:
 
 
 def _commands(result: BenchmarkResult) -> list[list[str]]:
-    commands = [trial.command for trial in result.trials if trial.success and trial.command]
+    successful = [trial for trial in result.trials if trial.success]
+    if any(
+        not trial.command or any(not argument.strip() for argument in trial.command)
+        for trial in successful
+    ):
+        raise RefinementError(
+            "hardware registry benchmark result contains a non-executable command"
+        )
+    commands = [trial.command for trial in successful]
     if not commands:
         raise RefinementError("hardware registry benchmark result has no executable commands")
     return commands
@@ -68,6 +81,23 @@ def _commands(result: BenchmarkResult) -> list[list[str]]:
 
 def _kernel_fallbacks(result: BenchmarkResult) -> int:
     return sum(trial.kernel_fallbacks or 0 for trial in _measured_trials(result))
+
+
+def _same_finite_number(left: object, right: object) -> bool:
+    if (
+        not isinstance(left, (int, float))
+        or isinstance(left, bool)
+        or not isinstance(right, (int, float))
+        or isinstance(right, bool)
+    ):
+        return False
+    left_value = float(left)
+    right_value = float(right)
+    return (
+        math.isfinite(left_value)
+        and math.isfinite(right_value)
+        and math.isclose(left_value, right_value, rel_tol=1e-12, abs_tol=1e-12)
+    )
 
 
 def _check_result_bundle(
@@ -99,15 +129,149 @@ def _check_result_bundle(
         message = f"{label} raw benchmark contains failed or timed-out trials"
         issues.append(message)
         kernel_issues.append(message)
+    actual_failed = sum(not trial.success for trial in result.trials)
+    if actual_failed != result.failed_count:
+        message = f"{label} raw benchmark failed-trial count is inconsistent"
+        issues.append(message)
+        kernel_issues.append(message)
     if result.measured_count != config.measured_trials:
         message = f"{label} raw benchmark did not complete every measured trial"
         issues.append(message)
         kernel_issues.append(message)
     measured = _measured_trials(result)
+    warmups = [trial for trial in result.trials if trial.is_warmup]
     if len(measured) != result.measured_count:
         message = f"{label} raw benchmark measured count is inconsistent"
         issues.append(message)
         kernel_issues.append(message)
+    if len(warmups) != config.warmup_trials:
+        message = f"{label} raw benchmark warmup count is inconsistent"
+        issues.append(message)
+        kernel_issues.append(message)
+    if len(result.trials) != config.warmup_trials + config.measured_trials:
+        message = f"{label} raw benchmark trial count is inconsistent"
+        issues.append(message)
+        kernel_issues.append(message)
+    trial_indices = [trial.trial_index for trial in result.trials]
+    if len(trial_indices) != len(set(trial_indices)):
+        message = f"{label} raw benchmark contains duplicate trial indices"
+        issues.append(message)
+        kernel_issues.append(message)
+    for trial in measured:
+        if not trial.command or any(not argument.strip() for argument in trial.command):
+            message = f"{label} measured trial has no executable command"
+            issues.append(message)
+            kernel_issues.append(message)
+        if (
+            trial.prompt_tokens <= 0
+            or trial.tokens_generated <= 0
+            or trial.latency_seconds <= 0.0
+            or trial.tokens_per_second <= 0.0
+        ):
+            message = f"{label} measured trial contains vacuous throughput evidence"
+            issues.append(message)
+            kernel_issues.append(message)
+        if trial.kernel_fallbacks is None:
+            message = f"{label} measured trial is missing kernel fallback telemetry"
+            issues.append(message)
+            kernel_issues.append(message)
+        if trial.peak_memory_bytes is None or trial.peak_memory_bytes <= 0:
+            message = f"{label} measured trial is missing positive peak-memory telemetry"
+            issues.append(message)
+            kernel_issues.append(message)
+        trial_identity = {
+            "device_name": trial.runtime_device_name,
+            "chip": trial.runtime_chip,
+            "unified_memory_bytes": trial.unified_memory_bytes,
+            "os_version": trial.os_version,
+        }
+        result_identity = {
+            "device_name": result.runtime_device_name,
+            "chip": result.runtime_chip,
+            "unified_memory_bytes": result.unified_memory_bytes,
+            "os_version": result.os_version,
+        }
+        if trial_identity != result_identity:
+            message = f"{label} measured trial hardware identity differs from its result"
+            issues.append(message)
+            kernel_issues.append(message)
+        if mtp_enabled:
+            if (
+                trial.mtp_active is not True
+                or trial.mtp_proposed_tokens is None
+                or trial.mtp_proposed_tokens <= 0
+                or trial.mtp_accepted_tokens is None
+                or trial.mtp_accepted_tokens > trial.mtp_proposed_tokens
+                or trial.mtp_decode_steps is None
+                or trial.mtp_decode_steps <= 0
+            ):
+                message = f"{label} measured trial has incomplete MTP telemetry"
+                issues.append(message)
+                kernel_issues.append(message)
+        elif any(
+            value is not None
+            for value in (
+                trial.mtp_accepted_tokens,
+                trial.mtp_proposed_tokens,
+                trial.mtp_rejected_tokens,
+                trial.mtp_decode_steps,
+                trial.mtp_active,
+            )
+        ):
+            message = f"{label} direct measured trial contains MTP telemetry"
+            issues.append(message)
+            kernel_issues.append(message)
+    if result.software_versions is None:
+        message = f"{label} raw benchmark is missing software-version evidence"
+        issues.append(message)
+        kernel_issues.append(message)
+    elif result.software_versions != bundle.software_versions:
+        message = f"{label} raw result and evaluation use different software versions"
+        issues.append(message)
+        kernel_issues.append(message)
+
+    rebuilt = result_to_evaluation_bundle(
+        result,
+        software_versions=bundle.software_versions,
+    )
+    for field_name in (
+        "peak_memory_bytes",
+        "prefill_tokens_per_second",
+        "decode_tokens_per_second",
+        "mtp_effective_tokens_per_second",
+        "kernel_fallbacks",
+        "device_name",
+        "chip",
+        "unified_memory_bytes",
+        "os_version",
+    ):
+        if getattr(bundle.hardware, field_name) != getattr(rebuilt.hardware, field_name):
+            message = f"{label} evaluation {field_name} does not match raw trials"
+            issues.append(message)
+            kernel_issues.append(message)
+    if mtp_enabled:
+        if bundle.mtp is None or rebuilt.mtp is None:
+            message = f"{label} evaluation is missing measured MTP metrics"
+            issues.append(message)
+            kernel_issues.append(message)
+        else:
+            for field_name in (
+                "token_accuracy",
+                "average_accepted_tokens",
+                "acceptance_rate",
+                "rejection_rate",
+                "effective_tokens_per_forward",
+                "repetition_rate",
+            ):
+                if getattr(bundle.mtp, field_name) != getattr(rebuilt.mtp, field_name):
+                    message = f"{label} evaluation MTP {field_name} does not match raw trials"
+                    issues.append(message)
+                    kernel_issues.append(message)
+    elif bundle.mtp is not None:
+        message = f"{label} direct evaluation unexpectedly contains MTP metrics"
+        issues.append(message)
+        kernel_issues.append(message)
+
     expected_fallbacks = _kernel_fallbacks(result)
     if bundle.hardware.kernel_fallbacks != expected_fallbacks:
         message = f"{label} evaluation kernel fallback count does not match raw trials"
@@ -150,6 +314,8 @@ def _check_result_bundle(
     for field_name, expected_metadata in metadata_fields.items():
         if bundle.benchmark_metadata.get(field_name) != expected_metadata:
             issues.append(f"{label} evaluation metadata {field_name} does not match raw result")
+    if bundle.benchmark_metadata.get("runtime_env") != dict(config.runtime_env):
+        issues.append(f"{label} evaluation metadata runtime_env does not match raw result")
 
 
 def _coverage(
@@ -169,14 +335,31 @@ def _coverage(
         message = "sensitivity report identity/profile does not match the candidate plan"
         issues.append(message)
         kernel_issues.append(message)
+    normalized_plan_profile = plan.architecture_profile.model_copy(
+        update={"support_tier": sensitivity.architecture_profile.support_tier}
+    )
+    if normalized_plan_profile != sensitivity.architecture_profile:
+        message = "sensitivity architecture profile does not match the candidate plan"
+        issues.append(message)
+        kernel_issues.append(message)
+    if sensitivity.calibration != plan.calibration:
+        message = "sensitivity calibration evidence does not match the candidate plan"
+        issues.append(message)
+        kernel_issues.append(message)
     if not sensitivity.evidence_kind.release_quality or not plan.evidence_kind.release_quality:
         message = "hardware registry requires release-quality sensitivity and plan evidence"
         issues.append(message)
         kernel_issues.append(message)
 
     tensors = {entry.tensor.name: entry.tensor for entry in sensitivity.entries}
+    sensitivity_entries = {entry.tensor.name: entry for entry in sensitivity.entries}
     if len(tensors) != len(sensitivity.entries):
         message = "sensitivity report contains duplicate tensor names"
+        issues.append(message)
+        kernel_issues.append(message)
+    plan_tensors = {allocation.tensor for allocation in plan.assignments}
+    if plan_tensors != set(tensors):
+        message = "candidate plan tensor coverage does not match sensitivity evidence"
         issues.append(message)
         kernel_issues.append(message)
 
@@ -238,6 +421,25 @@ def _coverage(
             message = f"plan tensor metadata differs from sensitivity evidence: {allocation.tensor}"
             issues.append(message)
             kernel_issues.append(message)
+        matching_candidates = [
+            candidate
+            for candidate in sensitivity_entries[allocation.tensor].candidates
+            if candidate.bits == allocation.bits
+            and candidate.method == allocation.method
+            and candidate.group_size == allocation.group_size
+            and candidate.supported
+        ]
+        if len(matching_candidates) != 1:
+            message = (
+                "plan allocation has no unique supported sensitivity candidate: "
+                f"{allocation.tensor}"
+            )
+            issues.append(message)
+            kernel_issues.append(message)
+        elif matching_candidates[0].metrics != allocation.metrics:
+            message = f"plan metrics differ from sensitivity evidence: {allocation.tensor}"
+            issues.append(message)
+            kernel_issues.append(message)
         grouped[(allocation.bits, allocation.group_size, allocation.method)].append(
             (allocation, tensor.shape)
         )
@@ -289,6 +491,10 @@ def build_hardware_profile_registry(
         "hardware registry measurement set",
     )
     measurements = load_model(measurement_path, RefinementMeasurementSet)
+    if _SHA256.fullmatch(measurements.refinement_sha256) is None:
+        raise RefinementError("hardware registry measurement set has an invalid refinement digest")
+    if not measurements.evaluator_version.strip():
+        raise RefinementError("hardware registry measurement set has no evaluator version")
     measurements_by_id = {
         measurement.measurement_id: measurement for measurement in measurements.measurements
     }
@@ -392,6 +598,10 @@ def build_hardware_profile_registry(
             kernel_issues.append(message)
         if validation.candidate_model != measurement.candidate_model:
             issues.append("validation and complete measurement candidate identities differ")
+        if not is_immutable_revision(measurement.candidate_model.revision):
+            message = "complete measurement candidate revision is not immutable"
+            issues.append(message)
+            kernel_issues.append(message)
         if validation.profile != measurement.profile or plan.profile != measurement.profile:
             issues.append("plan, validation, and complete measurement profiles differ")
         if not validation.passed:
@@ -453,6 +663,24 @@ def build_hardware_profile_registry(
                 kernel_issues.append(message)
         if direct_evaluation.software_versions != mtp_evaluation.software_versions:
             message = "direct and MTP evaluations use different software versions"
+            issues.append(message)
+            kernel_issues.append(message)
+
+        direct_speed = direct_evaluation.hardware.decode_tokens_per_second
+        mtp_speed = (
+            mtp_evaluation.hardware.mtp_effective_tokens_per_second
+            if mtp_evaluation.hardware.mtp_effective_tokens_per_second is not None
+            else mtp_evaluation.hardware.decode_tokens_per_second
+        )
+        recorded_speedup = validation.comparisons.get("hardware.effective_speedup")
+        if (
+            direct_speed is None
+            or direct_speed <= 0.0
+            or mtp_speed is None
+            or mtp_speed <= 0.0
+            or not _same_finite_number(recorded_speedup, mtp_speed / direct_speed)
+        ):
+            message = "validation effective speedup does not match candidate A/B evidence"
             issues.append(message)
             kernel_issues.append(message)
 

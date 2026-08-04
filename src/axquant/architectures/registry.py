@@ -7,15 +7,14 @@ from axquant.architectures.dense_family import DENSE_FAMILY_SPECS, DenseFamilyAd
 from axquant.architectures.nemotron3 import Nemotron3Adapter
 from axquant.architectures.qwen36 import Qwen36Adapter
 from axquant.architectures.types import ArchitectureAdapter
+from axquant.certification.registry import load_checkpoint_registry
 from axquant.errors import ArtifactError
 from axquant.schema import (
-    CertifiedCheckpointRegistry,
     CertifiedCheckpointSummary,
     SupportMatrix,
     SupportMatrixEntry,
     SupportTier,
 )
-from axquant.serde import load_model
 from axquant.support_policy import policy_for_adapter
 
 _ADAPTERS: tuple[ArchitectureAdapter, ...] = (
@@ -75,7 +74,7 @@ def support_matrix(certification_registry: str | None = None) -> SupportMatrix:
     entries.sort(key=lambda entry: (entry.priority, entry.adapter_id))
     certified: list[CertifiedCheckpointSummary] = []
     if certification_registry is not None:
-        registry = load_model(certification_registry, CertifiedCheckpointRegistry)
+        registry = load_checkpoint_registry(certification_registry)
         certified = [
             CertifiedCheckpointSummary(
                 source_model=entry.certification_scope.source_model,

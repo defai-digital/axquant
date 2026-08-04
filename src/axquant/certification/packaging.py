@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from axquant.artifact_paths import artifact_tree_files
 from axquant.certification.common import required_directory, required_file
 from axquant.certification.policy import direct_policy
 from axquant.errors import PublishingError
@@ -84,10 +85,20 @@ def prepare_direct_publication(
 ) -> list[Path]:
     request_source = Path(request_path).expanduser().resolve()
     request = load_model(request_source, Qwen3NextReleaseAuditRequest)
+    request_artifact_path = request_source.parent / request.artifact_directory
+    if request_artifact_path.is_symlink():
+        raise PublishingError("artifact root is a symlink")
     artifact = required_directory(request_source.parent, request.artifact_directory, "artifact")
-    requested_artifact = Path(model_dir).expanduser().resolve()
+    supplied_artifact = Path(model_dir).expanduser()
+    if supplied_artifact.is_symlink():
+        raise PublishingError("artifact root is a symlink")
+    requested_artifact = supplied_artifact.resolve()
     if artifact != requested_artifact:
         raise PublishingError("direct certification request targets another artifact")
+    try:
+        artifact_tree_files(artifact)
+    except ValueError as exc:
+        raise PublishingError(str(exc)) from exc
     manifest_path = required_file(artifact, "axquant_manifest.json", "artifact manifest")
     manifest = load_model(manifest_path, ArtifactManifest)
     if file_sha256(manifest_path) != request.certification_scope.artifact_manifest_sha256:
@@ -106,4 +117,7 @@ def prepare_direct_publication(
         artifact / "README.md",
         _direct_model_card(request, manifest, repo_id=repo_id),
     )
-    return sorted(path for path in artifact.rglob("*") if path.is_file())
+    try:
+        return artifact_tree_files(artifact)
+    except ValueError as exc:
+        raise PublishingError(str(exc)) from exc

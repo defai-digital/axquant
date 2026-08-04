@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from math import isclose
 from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
@@ -21,6 +22,9 @@ from axquant.schema.sensitivity import (
     CandidateMeasurement,
     MetricVector,
 )
+
+AX_ENGINE_EXECUTABLE_BITS = frozenset({2, 3, 4, 6, 8, 16})
+AX_ENGINE_EXECUTABLE_GROUP_SIZES = frozenset({32, 64, 128})
 
 
 class ObjectiveWeights(StrictModel):
@@ -60,8 +64,12 @@ class MtpPolicy(StrictModel):
     @classmethod
     def valid_candidate_bits(cls, value: tuple[int, ...]) -> tuple[int, ...]:
         normalized = tuple(sorted(set(value)))
-        if not normalized or any(bits < 2 or bits > 16 for bits in normalized):
-            raise ValueError("MTP candidate bits must be within [2, 16]")
+        unsupported = set(normalized) - AX_ENGINE_EXECUTABLE_BITS
+        if not normalized or unsupported:
+            raise ValueError(
+                "MTP candidate bits must use the AX Engine executable grid; "
+                f"unsupported bits: {sorted(unsupported)}"
+            )
         return normalized
 
 
@@ -82,6 +90,22 @@ class HardwareProfile(StrictModel):
         QuantMethod.BF16,
     )
     supported_group_sizes: tuple[int, ...] = (32, 64, 128)
+
+    @field_validator("supported_bits")
+    @classmethod
+    def executable_bits(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        unsupported = set(value) - AX_ENGINE_EXECUTABLE_BITS
+        if unsupported:
+            raise ValueError(f"AX Engine does not support bits {sorted(unsupported)}")
+        return value
+
+    @field_validator("supported_group_sizes")
+    @classmethod
+    def executable_group_sizes(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        unsupported = set(value) - AX_ENGINE_EXECUTABLE_GROUP_SIZES
+        if unsupported:
+            raise ValueError(f"AX Engine does not support group sizes {sorted(unsupported)}")
+        return value
 
 
 class PlanningConstraints(StrictModel):
@@ -281,6 +305,20 @@ class KvLayerAllocation(StrictModel):
     group_size: int = Field(ge=1)
     reason: str
 
+    @field_validator("bits")
+    @classmethod
+    def executable_bits(cls, value: int) -> int:
+        if value not in AX_ENGINE_EXECUTABLE_BITS:
+            raise ValueError(f"AX Engine KV cache does not support {value}-bit execution")
+        return value
+
+    @field_validator("group_size")
+    @classmethod
+    def executable_group_size(cls, value: int) -> int:
+        if value not in AX_ENGINE_EXECUTABLE_GROUP_SIZES:
+            raise ValueError(f"AX Engine KV cache does not support group size {value}")
+        return value
+
 
 class KvCachePlan(StrictModel):
     """Optional per-layer KV-cache precision plan (AXQ-021).
@@ -304,6 +342,20 @@ class KvCachePlan(StrictModel):
     layers: list[KvLayerAllocation]
     warnings: list[str] = Field(default_factory=list)
 
+    @field_validator("min_bits", "default_bits")
+    @classmethod
+    def executable_bits(cls, value: int) -> int:
+        if value not in AX_ENGINE_EXECUTABLE_BITS:
+            raise ValueError(f"AX Engine KV cache does not support {value}-bit execution")
+        return value
+
+    @field_validator("default_group_size")
+    @classmethod
+    def executable_group_size(cls, value: int) -> int:
+        if value not in AX_ENGINE_EXECUTABLE_GROUP_SIZES:
+            raise ValueError(f"AX Engine KV cache does not support group size {value}")
+        return value
+
     @model_validator(mode="after")
     def complete_and_floored(self) -> KvCachePlan:
         indices = [layer.layer_index for layer in self.layers]
@@ -311,6 +363,8 @@ class KvCachePlan(StrictModel):
             raise ValueError("KV-cache plan requires at least one layer")
         if sorted(indices) != list(range(len(indices))):
             raise ValueError("KV-cache layers must cover 0..n-1 without gaps or duplicates")
+        if self.default_bits < self.min_bits:
+            raise ValueError("KV-cache default bits cannot fall below the policy floor")
         if any(layer.bits < self.min_bits for layer in self.layers):
             raise ValueError("KV-cache layer bits cannot fall below the policy floor")
         return self
@@ -390,12 +444,12 @@ class QuantizationPlan(StrictModel):
     source_model: ModelIdentity
     architecture_profile: ArchitectureProfile = Field(default_factory=ArchitectureProfile)
     profile: ProfileName
-    target_class: str
-    target_bpw: float
-    nominal_bpw: float
-    effective_bpw: float
-    candidate_bits: tuple[int, ...]
-    group_size: int
+    target_class: str = Field(min_length=1)
+    target_bpw: float = Field(gt=0.0, le=16.0)
+    nominal_bpw: float = Field(gt=0.0, le=16.0)
+    effective_bpw: float = Field(gt=0.0, le=16.0)
+    candidate_bits: tuple[int, ...] = Field(min_length=1)
+    group_size: int = Field(ge=1)
     # Effective group-size grid used when planning (AXQ-028). Empty on legacy plans.
     candidate_group_sizes: tuple[int, ...] = ()
     objective: ObjectiveWeights
@@ -404,18 +458,56 @@ class QuantizationPlan(StrictModel):
     constraints: PlanningConstraints
     target_mode: Literal["balanced", "quality", "low-memory", "speed"]
     primary_runtime: RuntimeName = RuntimeName.AX_ENGINE
-    random_seed: int
+    random_seed: int = Field(ge=0)
     software_versions: SoftwareVersions
-    global_validation_required: bool = True
-    analysis_sha256: str
+    global_validation_required: Literal[True] = True
+    analysis_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     evidence_kind: EvidenceKind
     calibration: CalibrationEvidence | None = None
-    assignments: list[Allocation]
+    assignments: list[Allocation] = Field(min_length=1)
     weight_distribution: dict[str, PrecisionShare]
     mtp_distribution: dict[str, PrecisionShare]
     kv_cache: KvCachePlan | None = None
     created_at: datetime = Field(default_factory=utc_now)
     warnings: list[str] = Field(default_factory=list)
+
+    @field_validator("candidate_bits")
+    @classmethod
+    def canonical_candidate_bits(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        canonical = tuple(sorted(set(value)))
+        if value != canonical:
+            raise ValueError("plan candidate bits must be sorted and unique")
+        return value
+
+    @field_validator("candidate_group_sizes")
+    @classmethod
+    def canonical_candidate_group_sizes(cls, value: tuple[int, ...]) -> tuple[int, ...]:
+        canonical = tuple(sorted(set(value)))
+        if value != canonical:
+            raise ValueError("plan candidate group sizes must be sorted and unique")
+        return value
+
+    @model_validator(mode="after")
+    def summary_is_consistent(self) -> QuantizationPlan:
+        tensor_names = [allocation.tensor for allocation in self.assignments]
+        if any(not name.strip() for name in tensor_names):
+            raise ValueError("plan assignment tensor names must be non-empty")
+        if len(tensor_names) != len(set(tensor_names)):
+            raise ValueError("plan assignment tensor names must be unique")
+        if sum(allocation.parameters for allocation in self.assignments) <= 0:
+            raise ValueError("plan assignments must contain logical parameters")
+        if self.nominal_bpw > self.effective_bpw + 1e-6:
+            raise ValueError("plan effective BPW cannot be below nominal BPW")
+        if self.effective_bpw > self.target_bpw + 1e-6:
+            raise ValueError("plan effective BPW exceeds its target")
+        if not isclose(
+            self.target_bpw,
+            self.constraints.effective_bpw_limit,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            raise ValueError("plan target BPW does not match its effective-BPW constraint")
+        return self
 
     @model_validator(mode="after")
     def protection_floors_hold(self) -> QuantizationPlan:
@@ -445,4 +537,119 @@ class QuantizationPlan(StrictModel):
             preview = violations[:10]
             suffix = "" if len(violations) <= 10 else f" and {len(violations) - 10} more"
             raise ValueError(f"plan violates protection floors: {preview}{suffix}")
+        return self
+
+    @model_validator(mode="after")
+    def assignments_match_executable_grid(self) -> QuantizationPlan:
+        """Reject loaded plans that declare allocations conversion cannot execute."""
+        if self.hardware.runtime != self.primary_runtime:
+            raise ValueError("hardware profile runtime does not match the primary runtime")
+
+        unsupported_candidate_bits = set(self.candidate_bits) - set(self.hardware.supported_bits)
+        if unsupported_candidate_bits:
+            raise ValueError(
+                "plan candidate bits are absent from its hardware profile: "
+                f"{sorted(unsupported_candidate_bits)}"
+            )
+        if self.group_size not in self.hardware.supported_group_sizes:
+            raise ValueError(
+                f"plan group size {self.group_size} is absent from its hardware profile"
+            )
+        unsupported_candidate_groups = set(self.candidate_group_sizes) - set(
+            self.hardware.supported_group_sizes
+        )
+        if unsupported_candidate_groups:
+            raise ValueError(
+                "plan candidate group sizes are absent from its hardware profile: "
+                f"{sorted(unsupported_candidate_groups)}"
+            )
+
+        violations: list[str] = []
+        declared_groups = set(self.candidate_group_sizes)
+        for allocation in self.assignments:
+            # Policy-preserved tensors may inject BF16 even when the requested
+            # quantized search grid omitted 16-bit.
+            if allocation.bits < 16 and allocation.bits not in self.candidate_bits:
+                violations.append(
+                    f"{allocation.tensor} uses {allocation.bits}-bit outside candidate_bits"
+                )
+            if allocation.bits not in self.hardware.supported_bits:
+                violations.append(
+                    f"{allocation.tensor} uses {allocation.bits}-bit absent from hardware"
+                )
+            if allocation.method not in self.hardware.supported_methods:
+                violations.append(
+                    f"{allocation.tensor} uses {allocation.method.value} absent from hardware"
+                )
+            if allocation.bits == 16:
+                if allocation.method != QuantMethod.BF16 or allocation.group_size is not None:
+                    violations.append(
+                        f"{allocation.tensor} must use bf16 without a group size at 16-bit"
+                    )
+                continue
+            if allocation.method == QuantMethod.BF16:
+                violations.append(f"{allocation.tensor} uses bf16 for a quantized allocation")
+            if allocation.group_size is None:
+                violations.append(f"{allocation.tensor} is quantized without a group size")
+            elif allocation.group_size not in self.hardware.supported_group_sizes:
+                violations.append(
+                    f"{allocation.tensor} uses group size {allocation.group_size} "
+                    "absent from hardware"
+                )
+            elif declared_groups and allocation.group_size not in declared_groups:
+                violations.append(
+                    f"{allocation.tensor} uses group size {allocation.group_size} "
+                    "outside candidate_group_sizes"
+                )
+        if violations:
+            preview = violations[:10]
+            suffix = "" if len(violations) <= 10 else f" and {len(violations) - 10} more"
+            raise ValueError(f"plan contains non-executable allocations: {preview}{suffix}")
+        return self
+
+    @model_validator(mode="after")
+    def precision_distributions_match_assignments(self) -> QuantizationPlan:
+        def expected_distribution(*, mtp_only: bool) -> dict[str, tuple[int, float]]:
+            selected = [
+                allocation
+                for allocation in self.assignments
+                if allocation.parameters > 0 and (not mtp_only or allocation.role.is_mtp)
+            ]
+            total = sum(allocation.parameters for allocation in selected)
+            if total == 0:
+                return {}
+            parameters_by_label: dict[str, int] = {}
+            for allocation in selected:
+                label = "bf16" if allocation.bits == 16 else f"{allocation.bits}bit"
+                parameters_by_label[label] = (
+                    parameters_by_label.get(label, 0) + allocation.parameters
+                )
+            return {
+                label: (parameters, parameters / total)
+                for label, parameters in parameters_by_label.items()
+            }
+
+        for name, recorded, expected in (
+            (
+                "weight_distribution",
+                self.weight_distribution,
+                expected_distribution(mtp_only=False),
+            ),
+            (
+                "mtp_distribution",
+                self.mtp_distribution,
+                expected_distribution(mtp_only=True),
+            ),
+        ):
+            if set(recorded) != set(expected):
+                raise ValueError(f"plan {name} labels do not match assignments")
+            for label, (parameters, fraction) in expected.items():
+                share = recorded[label]
+                if share.parameters != parameters or not isclose(
+                    share.fraction,
+                    fraction,
+                    rel_tol=0.0,
+                    abs_tol=1e-9,
+                ):
+                    raise ValueError(f"plan {name} entry {label!r} does not match assignments")
         return self

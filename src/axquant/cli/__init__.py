@@ -16,7 +16,7 @@ from axquant.benchmark import (
     run_mtp_ab,
     run_mtp_diagnostics,
 )
-from axquant.calibration import prepare_calibration
+from axquant.calibration import calibration_manifest_sha256, prepare_calibration
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import AxquantError, PlanningError
@@ -32,6 +32,7 @@ from axquant.quantize import DEVELOPMENT_NOTE
 from axquant.recipes import export_recipe_bundle
 from axquant.reporting import plan_markdown, prepare_publication, validation_markdown
 from axquant.reproduction import verify_reproduction
+from axquant.revisions import is_immutable_revision
 from axquant.runtime import check_ax_engine, check_mlx_lm_generation, check_mlx_lm_static
 from axquant.schema import (
     BaselineKind,
@@ -109,6 +110,32 @@ def _toolchain_overrides(values: list[str]) -> dict[str, str]:
 def _run(args: argparse.Namespace) -> int:
     log = structlog.get_logger()
     if args.command == "feasibility":
+        output_paths = [
+            Path(args.output).expanduser().resolve(),
+            Path(args.markdown_output).expanduser().resolve(),
+        ]
+        if len(set(output_paths)) != len(output_paths):
+            raise ValueError("feasibility JSON and markdown outputs must use different paths")
+        local_checkpoint_roots = [
+            candidate.resolve()
+            for value in (
+                args.reference_4bit,
+                args.reference_6bit,
+                args.mixed_baseline,
+                args.source_bf16,
+            )
+            if value is not None
+            for candidate in (Path(value).expanduser(),)
+            if candidate.is_dir()
+        ]
+        for output_path in output_paths:
+            if any(
+                output_path == checkpoint_root or output_path.is_relative_to(checkpoint_root)
+                for checkpoint_root in local_checkpoint_roots
+            ):
+                raise ValueError(
+                    "feasibility outputs must not be written inside an audited checkpoint"
+                )
         report = assess_feasibility(
             reference_4bit=ArtifactTarget(
                 model=args.reference_4bit,
@@ -378,6 +405,7 @@ def _run(args: argparse.Namespace) -> int:
             domains=args.domains,
             sequence_length=args.max_seq_length,
             random_seed=args.seed,
+            tokenizer_revision=args.tokenizer_revision,
             separation_attested=args.attest_calibration_eval_separation,
         )
         tokenized_manifest = None
@@ -392,9 +420,7 @@ def _run(args: argparse.Namespace) -> int:
                 sequence_length=args.max_seq_length,
                 random_seed=args.seed,
                 tokenizer_revision=args.tokenizer_revision,
-                calibration_manifest_sha256=stable_sha256(
-                    manifest.model_dump(mode="json", exclude={"created_at"})
-                ),
+                calibration_manifest_sha256=calibration_manifest_sha256(manifest),
                 separation_attested=args.attest_calibration_eval_separation,
                 domains=args.domains,
             )
@@ -683,7 +709,7 @@ def _run(args: argparse.Namespace) -> int:
             output=args.output,
             model_id=args.model_id,
             revision=args.revision,
-            profile=ProfileName(args.profile),
+            profile=(ProfileName(args.profile) if args.profile is not None else None),
             target_bpw=args.target_bpw,
             ladder=args.ladder,
             kv_cache=args.kv_cache,
@@ -909,6 +935,8 @@ def _run(args: argparse.Namespace) -> int:
             name, separator, digest = item.partition("=")
             if not separator or not name or not digest:
                 raise ValueError(f"lineage entries use NAME=SHA256 form, got {item!r}")
+            if name in lineage:
+                raise ValueError(f"duplicate lineage name: {name}")
             lineage[name] = digest
         bundle_path = export_recipe_bundle(
             plan=args.plan,
@@ -1002,7 +1030,7 @@ def _run(args: argparse.Namespace) -> int:
                 "size-evidence requires exactly one of --artifact-manifest or --feasibility-report"
             )
         if args.artifact_manifest:
-            if not args.model_id or not args.revision:
+            if not args.model_id or not is_immutable_revision(args.revision):
                 raise ValueError(
                     "candidate size evidence requires --model-id and immutable --revision"
                 )
@@ -1141,6 +1169,21 @@ def _run(args: argparse.Namespace) -> int:
                 request_path=args.release_audit_request,
             )
         else:
+            missing = [
+                option
+                for option, value in (
+                    ("--validation-index", args.validation_index),
+                    ("--hardware-registry", args.hardware_registry),
+                    ("--pareto-report", args.pareto_report),
+                )
+                if value is None
+            ]
+            if missing:
+                raise ValueError(
+                    "publish-prepare requires "
+                    + ", ".join(missing)
+                    + " unless --release-audit-request is supplied"
+                )
             prepared_files = prepare_publication(
                 model_dir=args.model,
                 repo_id=args.repo,
@@ -1639,8 +1682,6 @@ def _run(args: argparse.Namespace) -> int:
 
         refinement = load_model(args.refinement, RefinementResult)
         measurements = load_model(args.measurements, RefinementMeasurementSet)
-        if measurements.refinement_sha256 != stable_sha256(refinement):
-            raise ValueError("measurement set does not match the refinement result")
         selected = select_complete_candidate(refinement, measurements)
         write_data(args.output, selected)
         log.info(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 import pytest
+from pydantic import ValidationError
 
 from axquant.profiles import thresholds_for
 from axquant.schema import (
@@ -15,14 +16,33 @@ from axquant.schema import (
     MtpMetrics,
     ProfileName,
     QualityMetrics,
+    RuntimeName,
     SoftwareVersions,
 )
 from axquant.validator import validate_evaluations
 
+_SOURCE_REVISION = "a" * 40
+_BASELINE_REVISION = "b" * 40
+_CANDIDATE_REVISION = "c" * 40
+
+
+@pytest.mark.parametrize("score", [-0.01, 1.01])
+def test_quality_metrics_rejects_out_of_range_task_scores(score: float) -> None:
+    with pytest.raises(ValidationError, match=r"task scores must be within \[0, 1\]"):
+        QualityMetrics(task_scores={"coding": score})
+
+
+def test_mtp_metrics_rejects_inconsistent_acceptance_and_rejection_rates() -> None:
+    with pytest.raises(ValidationError, match="acceptance and rejection rates must sum to 1"):
+        MtpMetrics(acceptance_rate=0.8, rejection_rate=0.3)
+
+    assert MtpMetrics(acceptance_rate=0.8, rejection_rate=0.2)
+    assert MtpMetrics(acceptance_rate=0.8)
+
 
 def _calibration() -> CalibrationManifest:
     return CalibrationManifest(
-        model=ModelIdentity(model_id="Qwen/Qwen3.6-27B", revision="source-revision"),
+        model=ModelIdentity(model_id="Qwen/Qwen3.6-27B", revision=_SOURCE_REVISION),
         profile=ProfileName.AGENT_CODING,
         dataset_id="calibration-v1",
         dataset_sha256="calibration-sha",
@@ -51,9 +71,9 @@ def _size(
     weight_bytes: int,
 ) -> ArtifactSizeEvidence:
     model = (
-        ModelIdentity(model_id="org/candidate", revision="candidate-rev")
+        ModelIdentity(model_id="org/candidate", revision=_CANDIDATE_REVISION)
         if kind == "candidate"
-        else ModelIdentity(model_id="org/uniform-4bit", revision="uniform-4bit-revision")
+        else ModelIdentity(model_id="org/uniform-4bit", revision=_BASELINE_REVISION)
     )
     return ArtifactSizeEvidence(
         kind=kind,
@@ -75,7 +95,7 @@ def _evaluation(
     return EvaluationBundle(
         model=ModelIdentity(
             model_id="org/candidate" if candidate else "org/uniform-6",
-            revision="candidate-rev" if candidate else "baseline-rev",
+            revision=_CANDIDATE_REVISION if candidate else _BASELINE_REVISION,
         ),
         baseline_kind=(
             "uniform-6bit"
@@ -141,6 +161,7 @@ def _evaluation(
             "quantizer_version": "0.1.0a0",
             "ax_engine_version": "6.11.1",
             "quality_dataset_sha256": "b" * 64,
+            "runtime_env": {},
         },
     )
 
@@ -149,7 +170,7 @@ def test_size_evidence_rejects_inconsistent_measured_bpw() -> None:
     with pytest.raises(ValueError, match="does not match byte accounting"):
         ArtifactSizeEvidence(
             kind="candidate",
-            model=ModelIdentity(model_id="org/candidate", revision="candidate-rev"),
+            model=ModelIdentity(model_id="org/candidate", revision=_CANDIDATE_REVISION),
             logical_parameters=1000,
             weight_bytes=1000,
             measured_bpw=7.0,
@@ -226,9 +247,30 @@ def test_validation_fails_mtp_retention_regression() -> None:
     assert any(issue.metric == "mtp.acceptance_rate" for issue in report.issues)
 
 
+def test_validation_requires_mtp_token_accuracy_horizons() -> None:
+    reference = _evaluation(mode="reference")
+    candidate = _evaluation(mode="mtp")
+    assert reference.mtp is not None
+    assert candidate.mtp is not None
+    reference.mtp.token_accuracy = {}
+    candidate.mtp.token_accuracy = {}
+    report = validate_evaluations(
+        reference,
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+    assert report.passed is False
+    assert any(issue.metric == "mtp.token_accuracy" for issue in report.issues)
+
+
 def test_validation_rejects_size_evidence_for_another_candidate() -> None:
     candidate_size = _size("candidate", 1050).model_copy(
-        update={"model": ModelIdentity(model_id="org/another", revision="another-rev")}
+        update={"model": ModelIdentity(model_id="org/another", revision="d" * 40)}
     )
     report = validate_evaluations(
         _evaluation(mode="reference"),
@@ -278,3 +320,145 @@ def test_validation_fails_weight_size_gate() -> None:
     assert report.passed is False
     assert report.comparisons["artifact.weight_size_ratio"] == 1.2
     assert any(issue.metric == "artifact.weight_size_ratio" for issue in report.issues)
+
+
+def test_validation_preserves_zero_mtp_throughput() -> None:
+    candidate = _evaluation(mode="mtp")
+    candidate.hardware.mtp_effective_tokens_per_second = 0.0
+    candidate.hardware.decode_tokens_per_second = 1_000.0
+
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    assert report.comparisons["hardware.effective_speedup"] == 0.0
+    assert any(issue.metric == "hardware.effective_speedup" for issue in report.issues)
+
+
+def test_validation_rejects_nonpositive_reference_peak_memory() -> None:
+    reference = _evaluation(mode="reference")
+    reference.hardware.peak_memory_bytes = 0
+
+    report = validate_evaluations(
+        reference,
+        _evaluation(mode="direct"),
+        _evaluation(mode="mtp"),
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    assert "hardware.peak_memory_ratio" not in report.comparisons
+    assert any(
+        issue.metric == "hardware.peak_memory_ratio" and "must be positive" in issue.message
+        for issue in report.issues
+    )
+
+
+def test_validation_rejects_empty_or_inconsistent_benchmark_metadata() -> None:
+    candidate = _evaluation(mode="mtp")
+    candidate.benchmark_metadata["quantizer"] = ""
+    candidate.benchmark_metadata["successful_measured_trials"] = 1
+
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    issue_metrics = {issue.metric for issue in report.issues}
+    assert "candidate.benchmark_metadata.quantizer" in issue_metrics
+    assert "candidate.benchmark_metadata.successful_measured_trials" in issue_metrics
+
+
+def test_validation_binds_runtime_environment() -> None:
+    candidate = _evaluation(mode="mtp")
+    candidate.benchmark_metadata["runtime_env"] = {"AX_ENGINE_FAST_FFN_MATVEC": "1"}
+
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    assert any(
+        issue.metric == "candidate.benchmark_metadata.runtime_env"
+        and "controls differ" in issue.message
+        for issue in report.issues
+    )
+
+
+def test_validation_binds_reference_benchmark_controls() -> None:
+    reference = _evaluation(mode="reference")
+    reference.benchmark_metadata["runtime_env"] = {"AX_ENGINE_FAST_FFN_MATVEC": "0"}
+    report = validate_evaluations(
+        reference,
+        _evaluation(mode="direct"),
+        _evaluation(mode="mtp"),
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+    assert report.passed is False
+    assert any(
+        issue.metric == "reference.benchmark_metadata.runtime_env"
+        and "controls differ" in issue.message
+        for issue in report.issues
+    )
+
+
+def test_validation_requires_matched_reference_seed_runtime_and_baseline_kinds() -> None:
+    reference = _evaluation(mode="reference")
+    reference.random_seed = 8
+    reference.runtime = RuntimeName.MLX_LM
+    reference.baseline_kind = "bf16"
+    candidate_direct = _evaluation(mode="direct")
+    candidate_direct.baseline_kind = "candidate"
+    candidate = _evaluation(mode="mtp")
+    candidate.baseline_kind = "candidate"
+
+    report = validate_evaluations(
+        reference,
+        candidate_direct,
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    issue_metrics = {issue.metric for issue in report.issues}
+    assert {
+        "reference.random_seed",
+        "reference.runtime",
+        "reference.baseline_kind",
+        "candidate_direct.baseline_kind",
+        "candidate.baseline_kind",
+    }.issubset(issue_metrics)

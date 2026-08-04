@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from axquant.analyzer import architecture_prior_report
+from axquant.errors import ArtifactError, PlanningError
 from axquant.planner import plan_quantization
 from axquant.schema import (
     ArtifactSizeEvidence,
@@ -14,11 +17,13 @@ from axquant.schema import (
     ProfileName,
     QualityComparisonReport,
     QualityScoreComparison,
+    RuntimeName,
+    SoftwareVersions,
     TensorRole,
     TensorSpec,
 )
-from axquant.scoreboard import build_scoreboard
-from axquant.serde import write_data
+from axquant.scoreboard import build_scoreboard, require_scoreboard_inputs_for_certification
+from axquant.serde import load_model, write_data
 
 
 def _tensor(name: str, parameters: int, role: TensorRole) -> TensorSpec:
@@ -80,7 +85,7 @@ def _quality_report(tmp_path: Path, *, retention: float) -> Path:
         path,
         QualityComparisonReport(
             reference_model=ModelIdentity(model_id="org/model", revision="ref"),
-            candidate_model=ModelIdentity(model_id="org/model", revision="cand"),
+            candidate_model=ModelIdentity(model_id="org/model", revision="abc"),
             dataset_sha256="a" * 64,
             random_seed=0,
             aggregate=QualityScoreComparison(
@@ -97,15 +102,38 @@ def _quality_report(tmp_path: Path, *, retention: float) -> Path:
 
 def _mtp_ab(tmp_path: Path, *, exactness_pass: bool, speedup: float | None) -> Path:
     path = tmp_path / "mtp-ab.json"
+    speedup_pass = speedup is not None and speedup >= 1.20
     write_data(
         path,
         MtpAbComparison(
-            profile_name="agent-coding",
+            profile_name="benchmark-ab",
+            model=ModelIdentity(model_id="org/model", revision="a" * 40),
+            runtime=RuntimeName.AX_ENGINE,
+            workload=ProfileName.AGENT_CODING.value,
+            dataset_sha256="a" * 64,
+            random_seed=0,
+            generation_controls={"temperature": 0.0},
+            runtime_env={"AX_TEST_MODE": "1"},
+            draft_depth=2,
             exactness_pass=exactness_pass,
             divergent_trial_count=0 if exactness_pass else 3,
             measured_trial_count=10,
+            direct_tokens_per_second_p50=100.0,
+            mtp_tokens_per_second_p50=(100.0 * speedup if speedup is not None else None),
             speedup=speedup,
-            speedup_pass=speedup is not None and speedup >= 1.20,
+            speedup_pass=speedup_pass,
+            release_ready=exactness_pass and speedup_pass,
+            ax_engine_version="6.12.1",
+            runtime_chip="Apple M4 Max",
+            software_versions=SoftwareVersions(
+                axquant="1.0.0",
+                python="3.13",
+                mlx="0.32",
+                mlx_lm="0.31",
+                ax_engine="6.12.1",
+                safetensors="0.6",
+                pydantic="2.11",
+            ),
         ),
     )
     return path
@@ -213,3 +241,54 @@ def test_any_failing_gate_outranks_incomplete_in_overall_status(tmp_path: Path) 
     )
 
     assert report.overall_status == "fail"
+
+
+def test_scoreboard_rejects_unbound_passing_mtp_evidence(tmp_path: Path) -> None:
+    mtp_path = tmp_path / "unbound-mtp.json"
+    write_data(
+        mtp_path,
+        MtpAbComparison(
+            profile_name=ProfileName.AGENT_CODING.value,
+            exactness_pass=True,
+            measured_trial_count=10,
+            speedup=1.5,
+            speedup_pass=True,
+        ),
+    )
+
+    report = build_scoreboard(plan=_plan(), mtp_ab=mtp_path)
+
+    assert next(row for row in report.rows if row.metric_id == "mtp_exactness").status == (
+        "unavailable"
+    )
+    assert next(row for row in report.rows if row.metric_id == "mtp_speedup").status == (
+        "unavailable"
+    )
+
+
+def test_scoreboard_rejects_mismatched_candidate_identity(tmp_path: Path) -> None:
+    quality_path = _quality_report(tmp_path, retention=0.99)
+    quality = load_model(quality_path, QualityComparisonReport)
+    quality.candidate_model = ModelIdentity(model_id="unrelated/model", revision="revision")
+    write_data(quality_path, quality)
+
+    with pytest.raises(ArtifactError, match="different candidates"):
+        build_scoreboard(
+            plan=_plan(),
+            candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),
+            size_reference=_size_evidence(tmp_path, "reference", weight_bytes=1000),
+            quality_comparison=quality_path,
+        )
+
+
+@pytest.mark.parametrize("threshold", [float("nan"), float("inf"), 0.0, -1.0])
+def test_scoreboard_rejects_invalid_thresholds(threshold: float) -> None:
+    with pytest.raises(PlanningError, match="positive and finite"):
+        build_scoreboard(plan=_plan(), minimum_mtp_speedup=threshold)
+
+
+def test_certification_rejects_architecture_prior_scoreboard() -> None:
+    report = build_scoreboard(plan=_plan())
+
+    with pytest.raises(PlanningError, match="not eligible"):
+        require_scoreboard_inputs_for_certification(report)

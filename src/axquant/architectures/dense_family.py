@@ -69,6 +69,15 @@ _ATTENTION_TOKENS = (
 )
 _MLP_TOKENS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj")
 _EXPERT_TOKENS = ("expert", "switch_mlp", "switch_glu")
+_MTP_SIDECAR_FILENAMES = frozenset({"mtp.safetensors", "mtp_head.safetensors"})
+_VISION_SIDECAR_FILENAME = "vision.safetensors"
+
+
+def valid_layer_count(value: object) -> int | None:
+    """Return a positive integer layer count, excluding bool's int subclass."""
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    return None
 
 
 def classify_dense_tensor(
@@ -77,27 +86,41 @@ def classify_dense_tensor(
     extra_patterns: tuple[tuple[str, TensorRole], ...] = (),
 ) -> TensorRole | None:
     """Shared fail-closed role classification for dense transformer tensors."""
-    value = f"{source_file}/{name}".lower()
+    name_value = name.lower()
+    source_name = source_file.rsplit("/", 1)[-1].lower()
+    protected_path_value = f"{source_file}/{name}".lower()
+    name_path_value = f"/{name_value}"
+    # The shared expert gate controls whether the shared expert contributes;
+    # it is routing state, not an expert projection, and must retain the
+    # router 8-bit protection floor.
+    if "shared_expert_gate" in name_value:
+        return TensorRole.ROUTER
     for token, role in extra_patterns:
-        if token in value:
+        if token.lower() in name_value:
             return role
-    if _MTP.search(value):
-        if any(token in value for token in _MTP_OUTPUT_TOKENS):
+    # The source filename is meaningful only for explicit protected sidecars.
+    # Letting ordinary role tokens in a shard filename participate would make
+    # (for example) every tensor in ``norm-shard.safetensors`` a norm and
+    # could mask unknown tensor names as quantizable MLPs.
+    if source_name in _MTP_SIDECAR_FILENAMES or _MTP.search(name_value):
+        if any(token in protected_path_value for token in _MTP_OUTPUT_TOKENS):
             return TensorRole.MTP_OUTPUT
-        if any(token in value for token in _MTP_PROJECTION_TOKENS):
+        if any(token in protected_path_value for token in _MTP_PROJECTION_TOKENS):
             return TensorRole.MTP_PROJECTION
         return TensorRole.MTP_BLOCK
-    if any(token in value for token in _VISION_TOKENS):
+    if source_name == _VISION_SIDECAR_FILENAME or any(
+        token in name_path_value for token in _VISION_TOKENS
+    ):
         return TensorRole.VISION
-    if "norm" in value:
+    if "norm" in name_value:
         return TensorRole.NORM
-    if any(token in value for token in _LM_HEAD_TOKENS):
+    if any(token in name_value for token in _LM_HEAD_TOKENS):
         return TensorRole.LM_HEAD
-    if any(token in value for token in _EMBEDDING_TOKENS):
+    if any(token in name_value for token in _EMBEDDING_TOKENS):
         return TensorRole.EMBEDDING
-    if "router" in value:
+    if "router" in name_value:
         return TensorRole.ROUTER
-    if ".mlp.gate." in value:
+    if ".mlp.gate." in name_value:
         # Qwen-style MoE routers are named `mlp.gate` (distinct from the
         # `gate_proj` expert/MLP projections, which carry the `_proj` suffix).
         return TensorRole.ROUTER
@@ -105,14 +128,14 @@ def classify_dense_tensor(
     # tensors are commonly named ``switch_mlp`` / ``switch_glu`` rather than
     # ``experts``; this rule must win over the generic ``mlp`` token below or
     # their 3-D weights are incorrectly treated as non-quantizable dense MLPs.
-    if any(token in value for token in _EXPERT_TOKENS):
+    if any(token in name_value for token in _EXPERT_TOKENS):
         return TensorRole.EXPERT
     # Mamba / hybrid mixer blocks (Nemotron-H) quantize like attention trunks.
-    if ".mixer." in value or value.endswith(".mixer"):
+    if ".mixer." in name_value or name_value.endswith(".mixer"):
         return TensorRole.ATTENTION
-    if any(token in value for token in _ATTENTION_TOKENS):
+    if any(token in name_value for token in _ATTENTION_TOKENS):
         return TensorRole.ATTENTION
-    if any(token in value for token in _MLP_TOKENS):
+    if any(token in name_value for token in _MLP_TOKENS):
         return TensorRole.MLP
     return None
 
@@ -177,9 +200,8 @@ class DenseFamilyAdapter:
         dense = not any(scope.get(key) for key in _MOE_CONFIG_KEYS)
         layer_count: int | None = None
         for key in self.spec.layer_count_keys:
-            value = scope.get(key)
-            if isinstance(value, int):
-                layer_count = value
+            layer_count = valid_layer_count(scope.get(key))
+            if layer_count is not None:
                 break
         # Fail closed: missing layer count always downgrades. MoE checkpoints stay
         # inventory-only unless the spec explicitly allows MoE convert (AXQ-017).

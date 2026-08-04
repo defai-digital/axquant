@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import re
 
 from axquant.errors import ArtifactError, PlanningError
@@ -22,8 +23,8 @@ def target_class_for_bpw(target_bpw: float) -> str:
     present in the candidate grid.  A mixed 6.0-BPW plan may legitimately use
     some 4-bit tensors and must still be labelled ``6bit``.
     """
-    if target_bpw <= 0:
-        raise PlanningError("target_bpw must be positive")
+    if not math.isfinite(target_bpw) or target_bpw <= 0:
+        raise PlanningError("target_bpw must be positive and finite")
     centers = (("2bit", 2.0), ("3bit", 3.0), ("4bit", 4.0), ("6bit", 6.0), ("8bit", 8.0))
     for label, center in centers:
         if abs(target_bpw - center) <= 0.35:
@@ -52,4 +53,7 @@ def model_name(
     parts.extend([quant_brand, target_class])
     if mtp:
         parts.append("MTP")
-    return "-".join(parts)
+    result = "-".join(parts)
+    if not _VALID_NAME.fullmatch(result):
+        raise ArtifactError("model name components produce an unsafe model name")
+    return result

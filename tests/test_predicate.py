@@ -11,10 +11,13 @@ from axquant.module_paths import mlx_module_aliases
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
 from axquant.schema import (
+    Allocation,
     Inventory,
     ModelIdentity,
     PlanRequest,
+    PrecisionShare,
     ProfileName,
+    QuantizationPlan,
     QuantMethod,
     TensorRole,
     TensorSpec,
@@ -270,6 +273,26 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
 
     plan = _mlp_plan()
     template = plan.assignments[0]
+
+    def with_assignments(assignments: list[Allocation]) -> QuantizationPlan:
+        parameters_by_label: dict[str, int] = {}
+        total = 0
+        for assignment in assignments:
+            parameters = assignment.parameters
+            label = "bf16" if assignment.bits == 16 else f"{assignment.bits}bit"
+            parameters_by_label[label] = parameters_by_label.get(label, 0) + parameters
+            total += parameters
+        distribution = {
+            label: PrecisionShare(parameters=parameters, fraction=parameters / total)
+            for label, parameters in parameters_by_label.items()
+        }
+        return plan.model_copy(
+            update={
+                "assignments": assignments,
+                "weight_distribution": distribution,
+            }
+        )
+
     members = []
     for index in (0, 1):
         members.append(
@@ -286,7 +309,7 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
                 }
             )
         )
-    uniform = plan.model_copy(update={"assignments": [*plan.assignments, *members]})
+    uniform = with_assignments([*plan.assignments, *members])
     predicate = build_quant_predicate(uniform, execute_refinement=False)
     # Visiting the fused MLX module marks every member expert as covered.
     result = predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
@@ -297,12 +320,12 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
         members[0],
         members[1].model_copy(update={"bits": 8}),
     ]
-    mixed = plan.model_copy(update={"assignments": [*plan.assignments, *mixed_members]})
+    mixed = with_assignments([*plan.assignments, *mixed_members])
     with pytest.raises(PlanningError, match="mixes precisions"):
         build_quant_predicate(mixed, execute_refinement=False)
 
     gptq_members = [member.model_copy(update={"method": QuantMethod.GPTQ}) for member in members]
-    gptq_fused = plan.model_copy(update={"assignments": [*plan.assignments, *gptq_members]})
+    gptq_fused = with_assignments([*plan.assignments, *gptq_members])
     gptq_fused.hardware = gptq_fused.hardware.model_copy(
         update={
             "supported_methods": (

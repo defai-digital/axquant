@@ -93,7 +93,7 @@ def _write_raw_manifest(
                 "shards": [
                     {
                         "name": "source.safetensors",
-                        "size_bytes": 1,
+                        "size_bytes": sum(len(payload) for payload in payloads.values()) + 1024,
                         "sha256": "b" * 64,
                     }
                 ],
@@ -237,5 +237,115 @@ def test_prepare_qwen36_mtp_sidecar_rejects_unrecognized_transform(
         prepare_qwen36_mtp_sidecar(
             source,
             tmp_path / "prepared",
+            source_model=_source_model(),
+        )
+
+
+def test_prepare_qwen36_mtp_sidecar_rejects_nested_output_binding(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw"
+    source.mkdir()
+    raw_payloads = _write_raw_sidecar(source / "mtp.safetensors")
+    manifest_path = _write_raw_manifest(source, raw_payloads)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["output"]["mtp"]["path"] = "nested/mtp.safetensors"
+    write_data(manifest_path, manifest)
+
+    with pytest.raises(ArtifactError, match="different path"):
+        prepare_qwen36_mtp_sidecar(
+            source,
+            tmp_path / "prepared",
+            source_model=_source_model(),
+        )
+
+
+def test_prepare_qwen36_mtp_sidecar_rejects_out_of_bounds_source_range(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw"
+    source.mkdir()
+    raw_payloads = _write_raw_sidecar(source / "mtp.safetensors")
+    manifest_path = _write_raw_manifest(source, raw_payloads)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    byte_count = manifest["tensor_payloads"][0]["byte_count"]
+    manifest["tensor_payloads"][0]["source_data_range"] = [-byte_count, 0]
+    write_data(manifest_path, manifest)
+
+    with pytest.raises(ArtifactError, match="metadata mismatch"):
+        prepare_qwen36_mtp_sidecar(
+            source,
+            tmp_path / "prepared",
+            source_model=_source_model(),
+        )
+
+
+def test_prepare_qwen36_mtp_sidecar_validates_runtime_contract_semantics(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw"
+    source.mkdir()
+    raw_payloads = _write_raw_sidecar(source / "mtp.safetensors")
+    _write_raw_manifest(source, raw_payloads)
+    prepared = tmp_path / "prepared"
+    prepare_qwen36_mtp_sidecar(source, prepared, source_model=_source_model())
+
+    runtime_path = prepared / "mtplx_runtime.json"
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    runtime["mtp_depth_max"] = 2
+    write_data(runtime_path, runtime)
+    manifest_path = prepared / "ax_mtp_sidecar_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["output"]["runtime"]["size_bytes"] = runtime_path.stat().st_size
+    manifest["output"]["runtime"]["sha256"] = file_sha256(runtime_path)
+    write_data(manifest_path, manifest)
+
+    with pytest.raises(ArtifactError, match="runtime contract"):
+        prepare_qwen36_mtp_sidecar(
+            prepared,
+            tmp_path / "copied",
+            source_model=_source_model(),
+        )
+
+
+def test_prepare_qwen36_mtp_sidecar_accepts_alternate_root_filename(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw"
+    source.mkdir()
+    raw_payloads = _write_raw_sidecar(source / "mtp.safetensors")
+    manifest_path = _write_raw_manifest(source, raw_payloads)
+    alternate = source / "mtp_head.safetensors"
+    (source / "mtp.safetensors").rename(alternate)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["output"]["mtp"]["path"] = alternate.name
+    write_data(manifest_path, manifest)
+
+    result = prepare_qwen36_mtp_sidecar(
+        source,
+        tmp_path / "prepared",
+        source_model=_source_model(),
+    )
+
+    assert result.output.mtp.path == "mtp.safetensors"
+
+
+def test_copy_prepared_mtp_bundle_rejects_symlink_destination(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "raw"
+    source.mkdir()
+    raw_payloads = _write_raw_sidecar(source / "mtp.safetensors")
+    _write_raw_manifest(source, raw_payloads)
+    prepared = tmp_path / "prepared"
+    prepare_qwen36_mtp_sidecar(source, prepared, source_model=_source_model())
+    copied = tmp_path / "copied"
+    copied.mkdir()
+    (copied / "mtp.safetensors").symlink_to(prepared / "mtp.safetensors")
+
+    with pytest.raises(ArtifactError, match="must not be a symlink"):
+        prepare_qwen36_mtp_sidecar(
+            prepared,
+            copied,
             source_model=_source_model(),
         )

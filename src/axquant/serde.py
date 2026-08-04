@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -23,10 +24,13 @@ def read_data(path: str | Path) -> Any:
         raise ArtifactError(f"cannot read {source}: {exc}") from exc
     try:
         if source.suffix.lower() in {".yaml", ".yml"}:
-            return yaml.safe_load(text)
-        return json.loads(text)
+            payload = yaml.safe_load(text)
+        else:
+            payload = json.loads(text)
     except (json.JSONDecodeError, yaml.YAMLError) as exc:
         raise ArtifactError(f"invalid structured data in {source}: {exc}") from exc
+    _reject_non_finite(payload)
+    return payload
 
 
 def load_model(path: str | Path, model_type: type[ModelT]) -> ModelT:
@@ -82,6 +86,7 @@ def _strip_created_at(value: Any) -> Any:
 def stable_sha256(value: BaseModel | dict[str, Any] | list[Any]) -> str:
     payload = json.dumps(
         _strip_created_at(_serializable(value)),
+        allow_nan=False,
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,
@@ -101,11 +106,35 @@ def write_data(path: str | Path, value: BaseModel | dict[str, Any] | list[Any]) 
     destination = Path(path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     payload = _serializable(value)
+    _reject_non_finite(payload)
     if destination.suffix.lower() in {".yaml", ".yml"}:
         rendered = yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
     else:
-        rendered = json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+        rendered = (
+            json.dumps(
+                payload,
+                allow_nan=False,
+                indent=2,
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            + "\n"
+        )
     write_text(destination, rendered)
+
+
+def _reject_non_finite(value: Any) -> None:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ArtifactError("structured artifacts cannot contain non-finite numbers")
+        return
+    if isinstance(value, dict):
+        for item in value.values():
+            _reject_non_finite(item)
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _reject_non_finite(item)
 
 
 def write_text(path: str | Path, rendered: str) -> None:

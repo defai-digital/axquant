@@ -117,6 +117,14 @@ def test_manual_plan_enforces_declared_bpw_limit(
         )
 
 
+def test_manual_plan_rejects_mutable_revision_alias(qwen36_model_dir: Path) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    inventory.model.revision = "main"
+
+    with pytest.raises(PlanningError, match="revision-pinned"):
+        manual_quantization_plan(inventory, _recipe())
+
+
 def test_plan_manual_cli_emits_plan_and_report(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -172,3 +180,77 @@ def test_manual_axq026_lm_head_floor_requires_explicit_opt_in(
     )
     assert head.bits == 8
     assert plan.constraints.lm_head_min_bits == 8
+
+
+def test_manual_tied_weight_harmonization_preserves_explicit_method(
+    qwen36_model_dir: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    unprotected = [
+        tensor
+        for tensor in inventory.tensors
+        if tensor.quantizable
+        and not tensor.role.is_mtp
+        and tensor.role not in {TensorRole.LM_HEAD, TensorRole.VISION}
+    ]
+    left, right = unprotected[:2]
+    inventory.tied_weight_groups = [[left.name, right.name]]
+    shared_rule = ManualPrecisionRule(
+        rule_id="shared-awq",
+        bits=8,
+        method=QuantMethod.AWQ,
+        tensor_glob=f"*{left.name.split('.')[-2]}*",
+        group_size=32,
+        reason="shared tied-weight strategy",
+    )
+    shared_rule_right = shared_rule.model_copy(
+        update={
+            "rule_id": "shared-awq-right",
+            "tensor_glob": f"*{right.name.split('.')[-2]}*",
+        }
+    )
+    plan = manual_quantization_plan(
+        inventory,
+        _recipe(rules=[shared_rule, shared_rule_right]),
+    )
+    tied = [
+        allocation
+        for allocation in plan.assignments
+        if allocation.tensor in {left.name, right.name}
+    ]
+    assert {(allocation.bits, allocation.method, allocation.group_size) for allocation in tied} == {
+        (8, QuantMethod.AWQ, 32)
+    }
+
+
+def test_manual_tied_weights_reject_conflicting_quantizers(
+    qwen36_model_dir: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    unprotected = [
+        tensor
+        for tensor in inventory.tensors
+        if tensor.quantizable
+        and not tensor.role.is_mtp
+        and tensor.role not in {TensorRole.LM_HEAD, TensorRole.VISION}
+    ]
+    left, right = unprotected[:2]
+    inventory.tied_weight_groups = [[left.name, right.name]]
+    rules = [
+        ManualPrecisionRule(
+            rule_id="left-awq",
+            bits=8,
+            method=QuantMethod.AWQ,
+            tensor_glob=f"*{left.name.split('.')[-2]}*",
+            reason="left strategy",
+        ),
+        ManualPrecisionRule(
+            rule_id="right-gptq",
+            bits=8,
+            method=QuantMethod.GPTQ,
+            tensor_glob=f"*{right.name.split('.')[-2]}*",
+            reason="right strategy",
+        ),
+    ]
+    with pytest.raises(PlanningError, match="conflicting manual methods"):
+        manual_quantization_plan(inventory, _recipe(rules=rules))

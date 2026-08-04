@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
+from axquant.architectures.registry import support_matrix
 from axquant.certification.policy import direct_policy, direct_policy_sha256
+from axquant.certification.registry import (
+    DIRECT_CERTIFICATION_ALLOWED_CLAIMS,
+    load_checkpoint_registry,
+)
+from axquant.errors import ArtifactError
 from axquant.schema import (
     ArchitectureFingerprint,
     CertifiedCheckpointEntry,
     CertifiedCheckpointRegistry,
+    DirectBenchmarkTrial,
     DirectReleaseValidationRequest,
     ExactCertificationScope,
     ModelIdentity,
@@ -17,7 +25,7 @@ from axquant.schema import (
     Qwen3NextReleaseAuditCheck,
     Qwen3NextReleaseAuditRequest,
 )
-from axquant.serde import stable_sha256
+from axquant.serde import stable_sha256, write_data
 
 _SHA = "a" * 64
 _REVISION = "b" * 40
@@ -85,6 +93,34 @@ def test_direct_policy_is_frozen_and_canonically_hashed() -> None:
     assert direct_policy_sha256() == stable_sha256(policy)
 
 
+def test_direct_policy_callers_cannot_mutate_cached_release_thresholds() -> None:
+    digest = direct_policy_sha256()
+    policy = direct_policy()
+    policy.decode_speedup_vs_bf16_min = 0.0
+
+    assert direct_policy().decode_speedup_vs_bf16_min == 1.20
+    assert direct_policy_sha256() == digest
+
+
+def test_strict_artifacts_reject_non_finite_metrics_on_create_and_assignment() -> None:
+    values = {
+        "trial_id": "trial-1",
+        "warmup": False,
+        "success": True,
+        "decode_tokens_per_second": float("inf"),
+        "ttft_seconds": 0.1,
+        "peak_memory_bytes": 1024,
+        "output_sha256": _SHA,
+    }
+    with pytest.raises(ValueError, match="finite number"):
+        DirectBenchmarkTrial.model_validate(values)
+
+    values["decode_tokens_per_second"] = 10.0
+    trial = DirectBenchmarkTrial.model_validate(values)
+    with pytest.raises(ValueError, match="finite number"):
+        trial.ttft_seconds = float("inf")
+
+
 def test_audit_requires_n0_through_n8_in_order() -> None:
     audit = _audit()
     payload = audit.model_dump(mode="json")
@@ -110,10 +146,13 @@ def test_scope_rejects_mutable_source_revision() -> None:
         ExactCertificationScope.model_validate(payload)
 
 
-def test_direct_audit_request_rejects_path_traversal() -> None:
+@pytest.mark.parametrize(
+    "artifact_directory", ["../artifact", "artifact//nested", "artifact/./nested"]
+)
+def test_direct_audit_request_rejects_path_traversal(artifact_directory: str) -> None:
     request = {
         "certification_scope": _scope().model_dump(mode="json"),
-        "artifact_directory": "../artifact",
+        "artifact_directory": artifact_directory,
         "source_inventory": "inventory.json",
         "source_checkpoint_manifest": "source.json",
         "feasibility_report": "feasibility.json",
@@ -240,3 +279,35 @@ def test_registry_entry_hardware_scope_must_match_audit_scope() -> None:
             hardware_scope_ids=["another-host"],
             certified_at=datetime.now(UTC),
         )
+
+
+def test_loaded_registry_must_preserve_wheel_owned_trust_scope(
+    tmp_path: Path,
+) -> None:
+    audit = _audit()
+    entry = CertifiedCheckpointEntry(
+        entry_id="qwen-next-4bit-v1",
+        certification_scope=_scope(),
+        candidate_model=audit.candidate_model,
+        candidate_id="candidate-4bit",
+        policy_sha256="c" * 64,
+        artifact_manifest_sha256=_SHA,
+        release_audit_sha256=stable_sha256(audit),
+        measured_bpw=4.8,
+        allowed_claims=list(DIRECT_CERTIFICATION_ALLOWED_CLAIMS),
+        hardware_scope_ids=["m2-ultra-192gb"],
+        certified_at=datetime.now(UTC),
+    )
+    registry_path = tmp_path / "registry.json"
+    write_data(registry_path, CertifiedCheckpointRegistry(entries=[entry]))
+
+    with pytest.raises(ArtifactError, match="another certification policy"):
+        load_checkpoint_registry(registry_path)
+    with pytest.raises(ArtifactError, match="another certification policy"):
+        support_matrix(str(registry_path))
+
+    entry.policy_sha256 = direct_policy_sha256()
+    entry.candidate_model.revision = "mutable-tag"
+    write_data(registry_path, CertifiedCheckpointRegistry(entries=[entry]))
+    with pytest.raises(ArtifactError, match="candidate revision is not immutable"):
+        load_checkpoint_registry(registry_path)

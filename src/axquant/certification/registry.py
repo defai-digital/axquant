@@ -6,6 +6,7 @@ from typing import Final
 
 from axquant.certification.policy import direct_policy_sha256
 from axquant.errors import ArtifactError, PublishingError
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactManifest,
     CertifiedCheckpointEntry,
@@ -24,7 +25,21 @@ def load_checkpoint_registry(path: str | Path) -> CertifiedCheckpointRegistry:
     source = Path(path).expanduser().resolve()
     if not source.exists():
         return CertifiedCheckpointRegistry()
-    return load_model(source, CertifiedCheckpointRegistry)
+    registry = load_model(source, CertifiedCheckpointRegistry)
+    policy_sha256 = direct_policy_sha256()
+    issues: list[str] = []
+    for entry in registry.entries:
+        if entry.policy_sha256 != policy_sha256:
+            issues.append(f"{entry.entry_id} uses another certification policy")
+        if any(claim not in DIRECT_CERTIFICATION_ALLOWED_CLAIMS for claim in entry.allowed_claims):
+            issues.append(f"{entry.entry_id} exceeds the direct certification claim scope")
+        if not is_immutable_revision(entry.candidate_model.revision):
+            issues.append(f"{entry.entry_id} candidate revision is not immutable")
+        if entry.artifact_manifest_sha256 != entry.certification_scope.artifact_manifest_sha256:
+            issues.append(f"{entry.entry_id} artifact manifest differs from its exact scope")
+    if issues:
+        raise ArtifactError("certification registry trust validation failed: " + "; ".join(issues))
+    return registry
 
 
 def append_certified_checkpoint(
@@ -43,7 +58,7 @@ def append_certified_checkpoint(
         raise PublishingError("only a release-ready N0-N8 audit may enter the registry")
     if audit.policy_sha256 != direct_policy_sha256():
         raise PublishingError("registry audit does not use the wheel-owned direct policy")
-    if audit.candidate_model.revision is None:
+    if not is_immutable_revision(audit.candidate_model.revision):
         raise PublishingError("registry candidate identity requires an immutable revision")
     if not allowed_claims or any(
         claim not in DIRECT_CERTIFICATION_ALLOWED_CLAIMS for claim in allowed_claims
@@ -57,6 +72,16 @@ def append_certified_checkpoint(
     manifest_sha256 = file_sha256(manifest_path)
     if manifest_sha256 != audit.certification_scope.artifact_manifest_sha256:
         raise PublishingError("audit and registry artifact manifest differ")
+    # The audit binds the manifest digest, but the artifact tree can drift
+    # between audit creation and registry append. Recheck every manifest-bound
+    # file and the Safetensors membership before certifying the checkpoint.
+    from axquant.release_audit import _artifact_issues
+
+    artifact_issues = _artifact_issues(artifact, manifest)
+    if artifact_issues:
+        raise PublishingError(
+            "registry artifact integrity check failed: " + "; ".join(artifact_issues)
+        )
     if abs(manifest.measured_total_bpw - measured_bpw) > 1e-9:
         raise PublishingError("registry measured BPW differs from the artifact")
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -101,6 +103,17 @@ class TestAffinePlugin:
         with pytest.raises(QuantizerError, match="not divisible"):
             plugin.quantize(weight, bits=4, group_size=64)
 
+    def test_quantize_rejects_non_finite_and_non_matrix_weights(
+        self,
+        plugin: AffinePlugin,
+    ) -> None:
+        weight = np.ones((2, 64), dtype=np.float32)
+        weight[0, 0] = np.nan
+        with pytest.raises(QuantizerError, match="finite values"):
+            plugin.quantize(weight, bits=4, group_size=64)
+        with pytest.raises(QuantizerError, match="two-dimensional"):
+            plugin.quantize(np.ones((64,), dtype=np.float32), bits=4, group_size=64)
+
     def test_roundtrip(self, plugin: AffinePlugin) -> None:
         weight = np.random.randn(8, 64).astype(np.float32)
         quantized = plugin.quantize(weight, bits=8, group_size=64)
@@ -108,6 +121,29 @@ class TestAffinePlugin:
         # 8-bit should have low error
         error = np.mean((weight - reconstructed) ** 2)
         assert error < 0.1
+
+    def test_dequantize_rejects_tampered_codes(self, plugin: AffinePlugin) -> None:
+        quantized = plugin.quantize(
+            np.ones((2, 64), dtype=np.float32),
+            bits=4,
+            group_size=64,
+        )
+        invalid_codes = quantized.data.copy()
+        invalid_codes[0, 0, 0] = 16
+        with pytest.raises(QuantizerError, match="codes are invalid"):
+            plugin.dequantize(replace(quantized, data=invalid_codes))
+
+    def test_dequantize_rejects_mismatched_parameter_shape(
+        self,
+        plugin: AffinePlugin,
+    ) -> None:
+        quantized = plugin.quantize(
+            np.ones((2, 64), dtype=np.float32),
+            bits=4,
+            group_size=64,
+        )
+        with pytest.raises(QuantizerError, match="parameter shapes"):
+            plugin.dequantize(replace(quantized, scales=np.ones((1,), dtype=np.float16)))
 
 
 class TestAwqPlugin:
@@ -192,6 +228,12 @@ class TestDwqPlugin:
         result = plugin.quantize(weight, bits=4, group_size=64)
         # Clip bounds should not include the extreme outlier
         assert result.metadata["clip_upper"] < 1000.0
+
+    def test_rejects_non_finite_weights(self, plugin: DwqPlugin) -> None:
+        weight = np.ones((2, 64), dtype=np.float32)
+        weight[0, 0] = np.inf
+        with pytest.raises(QuantizerError, match="finite values"):
+            plugin.quantize(weight, bits=4, group_size=64)
 
     def test_roundtrip(self, plugin: DwqPlugin) -> None:
         weight = np.random.randn(8, 64).astype(np.float32)

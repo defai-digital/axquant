@@ -10,6 +10,12 @@ from email.parser import Parser
 from math import isfinite
 from pathlib import Path, PurePosixPath
 
+from axquant.artifact_paths import (
+    artifact_member_path,
+    artifact_tree_files,
+    artifact_tree_symlinks,
+)
+from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import (
     CAPTURE_METADATA_KEYS,
     activation_capture_evidence_issues,
@@ -28,6 +34,7 @@ from axquant.release_exceptions import (
     verify_release_exception,
 )
 from axquant.reproduction import verify_reproduction
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ActivationCaptureManifest,
     ArtifactManifest,
@@ -136,6 +143,10 @@ def _required_file(base: Path, value: str, label: str) -> Path:
 
 
 def _required_directory(base: Path, value: str, label: str) -> Path:
+    supplied = Path(value).expanduser()
+    supplied = supplied if supplied.is_absolute() else base / supplied
+    if supplied.is_symlink():
+        raise ArtifactError(f"{label} root is a symlink: {supplied}")
     path = _resolved(base, value)
     if not path.is_dir():
         raise ArtifactError(f"{label} does not exist: {path}")
@@ -151,20 +162,18 @@ def _bound_file(base: Path, value: str, expected_sha256: str, label: str) -> Pat
 
 def _artifact_issues(directory: Path, manifest: ArtifactManifest) -> list[str]:
     issues: list[str] = []
+    symlinks = artifact_tree_symlinks(directory)
+    if symlinks:
+        issues.append(f"artifact tree contains symlinks: {symlinks}")
     record_paths = [record.path for record in manifest.files]
     if len(record_paths) != len(set(record_paths)):
         issues.append("artifact manifest contains duplicate file records")
     for record in manifest.files:
-        relative = Path(record.path)
-        if (
-            not record.path
-            or "\\" in record.path
-            or relative.is_absolute()
-            or ".." in relative.parts
-        ):
-            issues.append(f"unsafe artifact manifest path: {record.path}")
+        try:
+            path = artifact_member_path(directory, record.path)
+        except ValueError as exc:
+            issues.append(str(exc))
             continue
-        path = directory / relative
         if not path.is_file():
             issues.append(f"artifact manifest file is missing: {record.path}")
         elif path.stat().st_size != record.size_bytes:
@@ -176,10 +185,16 @@ def _artifact_issues(directory: Path, manifest: ArtifactManifest) -> list[str]:
         for record in manifest.files
         if Path(record.path).suffix.lower() == ".safetensors"
     }
+    try:
+        actual_files = artifact_tree_files(directory)
+    except ValueError:
+        actual_files = [
+            path for path in directory.rglob("*") if path.is_file() and not path.is_symlink()
+        ]
     actual_weight_files = {
         path.relative_to(directory).as_posix()
-        for path in directory.rglob("*.safetensors")
-        if path.is_file()
+        for path in actual_files
+        if path.suffix.lower() == ".safetensors"
     }
     if recorded_weight_files != actual_weight_files:
         missing = sorted(actual_weight_files - recorded_weight_files)
@@ -187,6 +202,13 @@ def _artifact_issues(directory: Path, manifest: ArtifactManifest) -> list[str]:
         issues.append(
             f"artifact manifest Safetensors coverage differs: missing={missing}, extra={extra}"
         )
+    recorded_weight_bytes = sum(
+        record.size_bytes
+        for record in manifest.files
+        if Path(record.path).suffix.lower() == ".safetensors"
+    )
+    if recorded_weight_bytes != manifest.weight_file_size_bytes:
+        issues.append("artifact manifest Safetensors bytes do not match measured weight bytes")
     return issues
 
 
@@ -231,7 +253,7 @@ def _feasibility_issues(
             plan.architecture_profile.optimization_scope
         }:
             issues.append("feasibility architecture profiles differ from the candidate plan")
-        if any(not audit.model.revision for audit in compared):
+        if any(not is_immutable_revision(audit.model.revision) for audit in compared):
             issues.append("feasibility checkpoint revisions are not all pinned")
         if any(audit.mtp_logical_parameters <= 0 for audit in compared):
             issues.append("feasibility evidence does not contain MTP parameters everywhere")
@@ -483,8 +505,11 @@ def _validation_evidence(
         for benchmark_entry in benchmark.entries:
             if benchmark_entry.status != "available":
                 continue
-            assert benchmark_entry.evaluation_file is not None
-            assert benchmark_entry.evaluation_sha256 is not None
+            if benchmark_entry.evaluation_file is None or benchmark_entry.evaluation_sha256 is None:
+                raise ArtifactError(
+                    f"{entry.profile.value} {benchmark_entry.kind.value} "
+                    "available benchmark evidence is incomplete"
+                )
             evaluation_path = _bound_file(
                 benchmark_path.parent,
                 benchmark_entry.evaluation_file,
@@ -520,11 +545,15 @@ def _benchmark_index_issues(
     for entry in index.entries:
         if entry.status != "available":
             continue
-        assert entry.evaluation_file is not None
-        assert entry.evaluation_sha256 is not None
-        assert entry.model is not None
-        assert entry.runtime is not None
-        assert entry.mtp_enabled is not None
+        if (
+            entry.evaluation_file is None
+            or entry.evaluation_sha256 is None
+            or entry.model is None
+            or entry.runtime is None
+            or entry.mtp_enabled is None
+        ):
+            issues.append(f"{entry.kind.value} available benchmark evidence is incomplete")
+            continue
         try:
             path = _bound_file(
                 index_path.parent,
@@ -548,7 +577,7 @@ def _benchmark_index_issues(
             issues.append(f"{entry.kind.value} workload differs from the benchmark profile")
         if bundle.runtime != RuntimeName.AX_ENGINE:
             issues.append(f"{entry.kind.value} benchmark did not use AX Engine")
-        if not bundle.model.revision:
+        if not is_immutable_revision(bundle.model.revision):
             issues.append(f"{entry.kind.value} benchmark model revision is not immutable")
         integrity = bundle.integrity
         if not (
@@ -1097,16 +1126,14 @@ def _calibration_issues(
         return ["calibration evidence does not reference the packaged manifest"]
     path = artifact / reference
     expected_sha256 = evidence.metadata.get("calibration_manifest_sha256")
-    if (
-        not path.is_file()
-        or not isinstance(expected_sha256, str)
-        or file_sha256(path) != expected_sha256
-    ):
+    if not path.is_file() or not isinstance(expected_sha256, str):
         return ["calibration manifest is missing or checksum-mismatched"]
     try:
         manifest = load_model(path, CalibrationManifest)
     except (OSError, ValueError) as exc:
         return [f"calibration manifest is invalid: {exc}"]
+    if not calibration_manifest_matches(path, manifest, expected_sha256):
+        return ["calibration manifest is missing or checksum-mismatched"]
     if (
         manifest.model != plan.source_model
         or manifest.profile != plan.profile

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from axquant.architectures.dense_family import classify_dense_tensor
+from axquant.architectures.dense_family import classify_dense_tensor, valid_layer_count
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -38,6 +38,14 @@ _MOE_KEYS = (
     "moe_intermediate_size",
     "num_local_experts",
 )
+_NANO_30B_A3B_SIGNATURE = {
+    "num_hidden_layers": 52,
+    "hidden_size": 2688,
+    "n_routed_experts": 128,
+    "num_experts_per_tok": 6,
+    "n_shared_experts": 1,
+    "moe_intermediate_size": 1856,
+}
 _NEMOTRON_EXTRA = (
     ("shared_experts", TensorRole.MLP),  # fires every token — denser than routed experts
     ("backbone.embeddings", TensorRole.EMBEDDING),
@@ -74,10 +82,9 @@ class Nemotron3Adapter:
         if isinstance(text, dict):
             scope = text
         moe = any(scope.get(key) for key in _MOE_KEYS) or any(config.get(key) for key in _MOE_KEYS)
-        layer_count = scope.get("num_hidden_layers")
-        if not isinstance(layer_count, int):
-            layer_count = config.get("num_hidden_layers")
-        layers = int(layer_count) if isinstance(layer_count, int) else None
+        layers = valid_layer_count(scope.get("num_hidden_layers"))
+        if layers is None:
+            layers = valid_layer_count(config.get("num_hidden_layers"))
         references = " ".join(
             [
                 model_reference,
@@ -87,8 +94,16 @@ class Nemotron3Adapter:
         )
         is_nano = bool(_NANO_MOE.search(references))
         is_super_ultra = bool(_SUPER_OR_ULTRA.search(references))
+        signature_is_nano = all(
+            scope.get(key) == value for key, value in _NANO_30B_A3B_SIGNATURE.items()
+        )
         # Thin support: only Nano-30B-A3B MoE converts. Super/Ultra are inventory.
-        supported = bool(moe and is_nano and layers is not None)
+        # A conflicting catalog identity must fail closed. A stale Nano
+        # `_name_or_path` must never promote an explicitly named Super/Ultra
+        # checkpoint into the thin Nano-only conversion scope.
+        supported = bool(
+            moe and is_nano and not is_super_ultra and signature_is_nano and layers is not None
+        )
         notes = [
             "Nemotron 3 generative catalog is hybrid MoE (nemotron_h).",
             "Routed experts fuse to switch_mlp.fc1/fc2 under MLX-LM sanitize.",
@@ -128,7 +143,7 @@ class Nemotron3Adapter:
         )
 
     def classify_tensor(self, name: str, source_file: str) -> TensorRole | None:
-        value = f"{source_file}/{name}".lower()
+        value = name.lower()
         # Experts before generic mixer / mlp rules.
         if ".experts." in value or value.endswith(".experts"):
             return TensorRole.EXPERT

@@ -13,6 +13,8 @@ contract as ``awq.py`` states.
 from __future__ import annotations
 
 import importlib
+import math
+import operator
 from typing import Any
 
 from axquant.errors import PlanningError, QuantizerError
@@ -27,7 +29,15 @@ def _as_numpy(weight: Any) -> Any:
         import numpy as np
     except ImportError as exc:
         raise PlanningError("GPTQ execution requires numpy") from exc
-    return np.asarray(weight, dtype=np.float32)
+    try:
+        result = np.asarray(weight, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PlanningError(f"GPTQ weight tensor is not numeric: {exc}") from exc
+    if result.size == 0:
+        raise PlanningError("GPTQ weight matrix must not be empty")
+    if not bool(np.all(np.isfinite(result))):
+        raise PlanningError("GPTQ weight matrix must contain only finite values")
+    return result
 
 
 def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, Any]:
@@ -48,6 +58,10 @@ def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, An
     scale = (w_max - w_min) / ((1 << bits) - 1)
     scale = np.where(scale == 0, 1.0, scale)
     zero = np.clip(np.round(-w_min / scale), 0, (1 << bits) - 1)
+    if not bool(np.all(np.isfinite(scale))) or bool(np.any(scale <= 0)):
+        raise PlanningError("GPTQ affine grid contains invalid scales")
+    if not bool(np.all(np.isfinite(zero))):
+        raise PlanningError("GPTQ affine grid contains invalid zero points")
     return scale.astype(np.float32), zero.astype(np.float32)
 
 
@@ -69,7 +83,11 @@ def _cholesky_inv_upper(hessian: Any) -> Any:
     hessian_inv = (hessian_inv + hessian_inv.T) / 2.0
     upper = np.linalg.cholesky(hessian_inv).T
     del hessian_inv
-    return upper.astype(np.float32, copy=False)
+    with np.errstate(over="ignore", invalid="ignore"):
+        result = upper.astype(np.float32, copy=False)
+    if not bool(np.all(np.isfinite(result))) or bool(np.any(np.diag(result) <= 0)):
+        raise np.linalg.LinAlgError("GPTQ inverse-Hessian factor is non-finite")
+    return result
 
 
 def learn_gptq_refined_weight(
@@ -100,15 +118,36 @@ def learn_gptq_refined_weight(
         raise PlanningError(f"GPTQ does not support group size {group_size}")
     if activations is None:
         raise PlanningError("GPTQ requires calibration activations")
+    if isinstance(damping, bool):
+        raise PlanningError("GPTQ damping must be a finite non-negative number")
+    try:
+        resolved_damping = float(damping)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PlanningError("GPTQ damping must be a finite non-negative number") from exc
+    if not math.isfinite(resolved_damping) or resolved_damping < 0:
+        raise PlanningError("GPTQ damping must be a finite non-negative number")
+    if isinstance(block_size, bool):
+        raise PlanningError("GPTQ block_size must be a positive integer")
+    try:
+        resolved_block_size = operator.index(block_size)
+    except TypeError as exc:
+        raise PlanningError("GPTQ block_size must be a positive integer") from exc
+    if resolved_block_size <= 0:
+        raise PlanningError("GPTQ block_size must be a positive integer")
 
     w = _as_numpy(weight)
     if w.ndim != 2:
         raise PlanningError("GPTQ currently requires a two-dimensional weight matrix")
     calibration_config = activations if isinstance(activations, dict) else {}
     activation_value = calibration_config.get("activations", activations)
-    act = np.asarray(activation_value, dtype=np.float32)
-    if act.size == 0 or act.shape[-1] != w.shape[-1]:
+    try:
+        act = np.asarray(activation_value, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise PlanningError(f"GPTQ calibration activations are not numeric: {exc}") from exc
+    if act.ndim == 0 or act.size == 0 or act.shape[-1] != w.shape[-1]:
         raise PlanningError("GPTQ calibration channels must match the weight input dimension")
+    if not bool(np.all(np.isfinite(act))):
+        raise PlanningError("GPTQ calibration activations must contain only finite values")
 
     out_features, in_features = w.shape
     if in_features % group_size != 0:
@@ -124,24 +163,32 @@ def learn_gptq_refined_weight(
     # Hessian exists.
     hessian = (2.0 * x.T) @ x
     del x
+    if not bool(np.all(np.isfinite(hessian))):
+        raise PlanningError("GPTQ calibration Hessian is non-finite")
     dead = np.diag(hessian) == 0.0
     hessian[dead, dead] = 1.0
 
     # Damped factorization, escalating damping x10 up to three attempts. The
     # diagonal is damped in place on a copy -- no identity matrix is ever
     # materialized, keeping peak memory at a few in^2 float32 buffers.
-    final_damping = float(damping)
+    final_damping = resolved_damping
     mean_diag = float(np.mean(np.diag(hessian)))
+    if not math.isfinite(mean_diag) or mean_diag <= 0:
+        raise PlanningError("GPTQ calibration Hessian has an invalid diagonal")
     hinv_chol: Any | None = None
     for _ in range(3):
         damped = hessian.copy()
         damped[np.diag_indices_from(damped)] += final_damping * mean_diag
         try:
+            if not bool(np.all(np.isfinite(damped))):
+                raise np.linalg.LinAlgError("GPTQ damped Hessian is non-finite")
             hinv_chol = _cholesky_inv_upper(damped)
             del damped
             break
         except np.linalg.LinAlgError:
-            final_damping *= 10.0
+            final_damping = (
+                final_damping * 10.0 if final_damping > 0 else float(np.finfo(np.float32).eps)
+            )
     del hessian
     if hinv_chol is None:
         raise PlanningError("GPTQ Hessian factorization failed even after damping escalation")
@@ -150,17 +197,21 @@ def learn_gptq_refined_weight(
     qmax = (1 << bits) - 1
     working = w.copy()
     refined = np.zeros_like(w)
-    for block_start in range(0, in_features, block_size):
-        block_end = min(block_start + block_size, in_features)
+    for block_start in range(0, in_features, resolved_block_size):
+        block_end = min(block_start + resolved_block_size, in_features)
         block_errors = np.zeros((out_features, block_end - block_start), dtype=np.float32)
         for j in range(block_start, block_end):
             w_col = working[:, j]
+            if not bool(np.all(np.isfinite(w_col))):
+                raise PlanningError("GPTQ error compensation produced non-finite weights")
             scale_col = group_scale[:, j // group_size]
             zero_col = group_zero[:, j // group_size]
             q_col = np.clip(np.round(w_col / scale_col) + zero_col, 0, qmax)
             deq_col = (q_col - zero_col) * scale_col
             refined[:, j] = deq_col
             err = (w_col - deq_col) / hinv_chol[j, j]
+            if not bool(np.all(np.isfinite(err))):
+                raise PlanningError("GPTQ error compensation produced a non-finite error")
             block_errors[:, j - block_start] = err
             if j + 1 < block_end:
                 working[:, j + 1 : block_end] -= np.outer(
@@ -169,13 +220,25 @@ def learn_gptq_refined_weight(
         if block_end < in_features:
             # float32 throughout: no per-block float64 temporaries.
             working[:, block_end:] -= block_errors @ hinv_chol[block_start:block_end, block_end:]
+            if not bool(np.all(np.isfinite(working[:, block_end:]))):
+                raise PlanningError("GPTQ block update produced non-finite weights")
 
+    if not bool(np.all(np.isfinite(refined))):
+        raise PlanningError("GPTQ refinement produced non-finite weights")
+    with np.errstate(over="ignore", invalid="ignore"):
+        absolute_error = np.abs(w - refined)
+    if not bool(np.all(np.isfinite(absolute_error))):
+        raise PlanningError("GPTQ refinement error is non-finite")
+    mean_quant_error = float(np.mean(absolute_error, dtype=np.float64))
+    del absolute_error
+    if not math.isfinite(mean_quant_error):
+        raise PlanningError("GPTQ refinement error is non-finite")
     metadata: dict[str, float | int] = {
         "gptq_damping": final_damping,
         "calibration_rows": calibration_rows,
         "bits": bits,
         "group_size": group_size,
-        "mean_quant_error": float(np.mean(np.abs(w - refined))),
+        "mean_quant_error": mean_quant_error,
     }
     return refined.astype(np.float32), metadata
 
@@ -211,6 +274,10 @@ def apply_mlx_gptq_refine(
         )
     except (PlanningError, QuantizerError, ValueError, TypeError) as exc:
         raise PlanningError(str(exc)) from exc
-    module.weight = mx.array(refined, dtype=weight.dtype)
-    mx.eval(module.weight)
+    try:
+        candidate = mx.array(refined, dtype=weight.dtype)
+        mx.eval(candidate)
+    except Exception as exc:
+        raise PlanningError(f"GPTQ MLX weight materialization failed: {exc}") from exc
+    module.weight = candidate
     return metadata

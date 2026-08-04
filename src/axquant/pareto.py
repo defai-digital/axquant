@@ -14,6 +14,11 @@ def _dominates(
     left: CompleteCandidateMeasurement,
     right: CompleteCandidateMeasurement,
 ) -> bool:
+    # Throughput and memory ratios are only comparable inside one named hardware/software
+    # environment. A result on a faster host must not evict an otherwise non-dominated point
+    # measured on another host.
+    if left.hardware != right.hardware:
+        return False
     no_worse = (
         left.measured_bpw <= right.measured_bpw
         and left.quality_retention >= right.quality_retention

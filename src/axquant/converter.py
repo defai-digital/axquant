@@ -14,6 +14,8 @@ from typing import Any, Literal
 
 import structlog
 
+from axquant.artifact_paths import artifact_tree_files
+from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import (
     LoadedActivationCapture,
     activation_capture_evidence_issues,
@@ -140,6 +142,67 @@ def _source_has_external_mtp_sidecar(model: str | Path) -> bool:
     return any((root / name).is_file() for name in EXTERNAL_MTP_SIDECAR_FILENAMES)
 
 
+def _resolve_bound_conversion_source(
+    model: str,
+    plan: QuantizationPlan,
+    revision: str | None,
+) -> Path:
+    """Resolve the exact checkpoint identity carried by ``plan``.
+
+    Conversion must never fall back from an unrelated or unresolved ``model``
+    argument to the plan's local path.  Doing so lets a caller execute the
+    predicate against one checkpoint while the artifact continues to claim
+    another model and revision.
+    """
+
+    planned_revision = plan.source_model.revision
+    if revision is not None and revision != planned_revision:
+        raise PlanningError(
+            "conversion revision does not match the plan source revision: "
+            f"{revision!r} != {planned_revision!r}"
+        )
+    effective_revision = revision if revision is not None else planned_revision
+    expected_path = (
+        Path(plan.source_model.local_path).expanduser().resolve()
+        if plan.source_model.local_path
+        else None
+    )
+    supplied_path = Path(model).expanduser()
+    if supplied_path.is_dir():
+        resolved = supplied_path.resolve()
+        if expected_path is None:
+            raise PlanningError(
+                "a local conversion source requires a plan-bound source_model.local_path"
+            )
+        if resolved != expected_path:
+            raise PlanningError(
+                "local conversion source does not match the plan source path: "
+                f"{resolved} != {expected_path}"
+            )
+        return resolved
+
+    if model != plan.source_model.model_id:
+        raise PlanningError(
+            "conversion model does not match the plan source model: "
+            f"{model!r} != {plan.source_model.model_id!r}"
+        )
+    try:
+        resolved = resolve_model_dir(
+            plan.source_model.model_id,
+            revision=effective_revision,
+            allow_download=False,
+        )
+    except ArtifactError:
+        if expected_path is None or not expected_path.is_dir():
+            raise
+        resolved = expected_path
+    if expected_path is not None and resolved != expected_path:
+        raise PlanningError(
+            "resolved conversion checkpoint does not match the plan-bound local source"
+        )
+    return resolved
+
+
 def _resolve_external_mtp_sidecar_file(sidecar: Path) -> Path:
     if not sidecar.is_dir():
         return sidecar
@@ -227,13 +290,12 @@ def _validated_calibration_source(
     if not isinstance(expected_sha256, str) or expected_sha256 in {"", "unknown"}:
         raise PlanningError("plan calibration evidence has no manifest checksum")
     manifest = load_model(source, CalibrationManifest)
-    canonical_sha256 = stable_sha256(manifest.model_dump(mode="json", exclude={"created_at"}))
     # Current calibration evidence uses AXQuant's canonical artifact identity,
     # while early development artifacts stored the byte-level file checksum.
     # Accept the latter for backwards compatibility, but always recognize the
     # canonical hash emitted by the probe so a measured plan can bind its
     # manifest regardless of its timestamp or JSON formatting.
-    if expected_sha256 not in {file_sha256(source), canonical_sha256}:
+    if not calibration_manifest_matches(source, manifest, expected_sha256):
         raise PlanningError("calibration manifest checksum does not match the plan")
     same_model_identity = (
         manifest.model.model_id == plan.source_model.model_id
@@ -625,7 +687,11 @@ def _extract_protected_sidecar(
 
 def _artifact_files(output_dir: Path) -> list[ArtifactFile]:
     files: list[ArtifactFile] = []
-    for path in sorted(item for item in output_dir.rglob("*") if item.is_file()):
+    try:
+        artifact_files = artifact_tree_files(output_dir)
+    except ValueError as exc:
+        raise ArtifactError(str(exc)) from exc
+    for path in artifact_files:
         if path.name == "axquant_manifest.json":
             continue
         files.append(
@@ -638,10 +704,57 @@ def _artifact_files(output_dir: Path) -> list[ArtifactFile]:
     return files
 
 
+def _validated_plan_source_tensors(
+    source_dir: Path,
+    plan: QuantizationPlan,
+) -> dict[str, Any]:
+    """Verify that the bound source still has the exact logical plan coverage."""
+
+    inventory = inspect_model(
+        source_dir,
+        model_id=plan.source_model.model_id,
+        revision=plan.source_model.revision,
+    )
+    expected = {allocation.tensor: allocation for allocation in plan.assignments}
+    actual = {
+        tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
+    }
+    if set(actual) != set(expected):
+        raise PlanningError(
+            "conversion source tensor coverage does not match the plan: "
+            f"missing={sorted(set(expected) - set(actual))[:10]}, "
+            f"extra={sorted(set(actual) - set(expected))[:10]}"
+        )
+    for tensor_name, allocation in expected.items():
+        source_tensor = actual[tensor_name]
+        if (
+            source_tensor.module_path != allocation.module_path
+            or source_tensor.role is not allocation.role
+            or source_tensor.parameters != allocation.parameters
+        ):
+            raise PlanningError(
+                f"conversion source tensor {tensor_name} no longer matches its plan allocation"
+            )
+    if inventory.architecture_profile != plan.architecture_profile:
+        raise PlanningError("conversion source architecture profile does not match the plan")
+    return actual
+
+
 def _verify_converted_weights(
     staging_dir: Path,
     plan: QuantizationPlan,
+    *,
+    source_tensors: Mapping[str, Any] | None = None,
 ) -> tuple[int, int, int, int, int, int, float, float]:
+    if source_tensors is None:
+        if not plan.source_model.local_path:
+            raise ArtifactError(
+                "converted weight verification requires the plan-bound local source path"
+            )
+        source_tensors = _validated_plan_source_tensors(
+            Path(plan.source_model.local_path).expanduser().resolve(),
+            plan,
+        )
     inventory = inspect_model(
         staging_dir,
         model_id=plan.source_model.model_id,
@@ -663,6 +776,69 @@ def _verify_converted_weights(
     actual_vision_parameters = sum(
         tensor.parameters for tensor in inventory.tensors if tensor.role == TensorRole.VISION
     )
+    expected_tensors = {allocation.tensor: allocation for allocation in plan.assignments}
+    actual_tensors = {
+        tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
+    }
+    if set(actual_tensors) != set(expected_tensors):
+        raise ArtifactError(
+            "converted checkpoint tensor coverage mismatch: "
+            f"missing={sorted(set(expected_tensors) - set(actual_tensors))[:10]}, "
+            f"extra={sorted(set(actual_tensors) - set(expected_tensors))[:10]}"
+        )
+    metadata_names = {tensor.name for tensor in inventory.tensors if tensor.quantization_metadata}
+    for tensor_name, allocation in expected_tensors.items():
+        actual = actual_tensors[tensor_name]
+        if actual.parameters != allocation.parameters:
+            raise ArtifactError(
+                f"converted tensor {tensor_name} parameter count does not match the plan: "
+                f"{actual.parameters} != {allocation.parameters}"
+            )
+        source_shape = source_tensors[tensor_name].shape
+        if allocation.bits < 16:
+            if not source_shape or source_shape[-1] * allocation.bits % 32:
+                raise ArtifactError(
+                    f"source tensor {tensor_name} cannot be packed exactly at "
+                    f"{allocation.bits} bits"
+                )
+            expected_shape = (
+                *source_shape[:-1],
+                source_shape[-1] * allocation.bits // 32,
+            )
+            if (
+                actual.shape != expected_shape
+                or actual.current_bits != allocation.bits
+                or actual.current_group_size != allocation.group_size
+                or actual.current_method is not QuantMethod.AFFINE
+            ):
+                raise ArtifactError(
+                    f"converted tensor {tensor_name} packing does not match the plan: "
+                    f"expected shape {expected_shape}, affine {allocation.bits}-bit "
+                    f"group {allocation.group_size}; found shape {actual.shape}, "
+                    f"{actual.current_method} {actual.current_bits}-bit "
+                    f"group {actual.current_group_size}"
+                )
+            required_metadata = {
+                f"{allocation.module_path}.scales",
+                f"{allocation.module_path}.biases",
+            }
+            missing_metadata = required_metadata - metadata_names
+            if missing_metadata:
+                raise ArtifactError(
+                    f"converted tensor {tensor_name} lacks affine metadata: "
+                    f"{sorted(missing_metadata)}"
+                )
+        else:
+            if actual.shape != source_shape:
+                raise ArtifactError(
+                    f"protected tensor {tensor_name} shape changed during conversion: "
+                    f"{actual.shape} != {source_shape}"
+                )
+            if actual.current_bits is not None and actual.current_bits < 16:
+                raise ArtifactError(
+                    f"protected tensor {tensor_name} was packed below its "
+                    f"{allocation.bits}-bit plan"
+                )
     if inventory.total_parameters != expected_parameters:
         raise ArtifactError(
             "converted checkpoint logical parameter coverage mismatch: "
@@ -682,6 +858,21 @@ def _verify_converted_weights(
     weight_files = [staging_dir / relative for relative in inventory.source_files]
     if not weight_files:
         raise ArtifactError("converted checkpoint contains no Safetensors weight files")
+    try:
+        actual_weight_files = {
+            path.relative_to(staging_dir).as_posix()
+            for path in artifact_tree_files(staging_dir)
+            if path.suffix.lower() == ".safetensors"
+        }
+    except ValueError as exc:
+        raise ArtifactError(str(exc)) from exc
+    inventoried_weight_files = {path.relative_to(staging_dir).as_posix() for path in weight_files}
+    if actual_weight_files != inventoried_weight_files:
+        raise ArtifactError(
+            "converted checkpoint Safetensors coverage mismatch: "
+            f"missing={sorted(actual_weight_files - inventoried_weight_files)}, "
+            f"extra={sorted(inventoried_weight_files - actual_weight_files)}"
+        )
     mtp_files = [path for path in weight_files if path.name == "mtp.safetensors"]
     protected_files = [path for path in weight_files if path.name == "vision.safetensors"]
     main_files = [path for path in weight_files if path.name != "mtp.safetensors"]
@@ -732,30 +923,31 @@ def convert_model(
     quantized_allocations = [allocation for allocation in plan.assignments if allocation.bits < 16]
     if not quantized_allocations:
         raise PlanningError("conversion plan contains no quantized assignments")
-    if (
-        plan.mtp.preserve_external_sidecar
-        and any(allocation.role.is_mtp for allocation in plan.assignments)
-        and mtp_sidecar is None
-        and _source_has_external_mtp_sidecar(model)
-    ):
-        raise PlanningError("MTP sidecar preservation requires --mtp-sidecar")
+    mtp_allocations = [allocation for allocation in plan.assignments if allocation.role.is_mtp]
+    if plan.architecture_profile.mtp_declared and not mtp_allocations:
+        raise PlanningError(
+            "the architecture declares MTP but the plan contains no MTP tensor allocations"
+        )
     output_dir = Path(output).expanduser().resolve()
     if output_dir.exists():
         raise ArtifactError(f"conversion output already exists: {output_dir}")
     # Resolve the physical source early so architecture prep (e.g. gemma4_unified
     # → gemma4 text path) can stage beside the output rather than on /tmp.
-    try:
-        original_source_dir = resolve_model_dir(model, revision=revision, allow_download=False)
-    except Exception:
-        original_source_dir = Path(model).expanduser()
-        if not original_source_dir.is_dir():
-            original_source_dir = Path(plan.source_model.local_path or "").expanduser()
+    original_source_dir = _resolve_bound_conversion_source(model, plan, revision)
+    source_tensors = _validated_plan_source_tensors(original_source_dir, plan)
+    if (
+        plan.mtp.preserve_external_sidecar
+        and mtp_allocations
+        and mtp_sidecar is None
+        and _source_has_external_mtp_sidecar(original_source_dir)
+    ):
+        raise PlanningError("MTP sidecar preservation requires --mtp-sidecar")
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     temporary_root = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.", dir=output_dir.parent))
     staging_dir = temporary_root / "artifact"
     prep_dir = temporary_root / "prepared-source"
-    convert_model_ref = model
-    convert_revision = revision
+    convert_model_ref = str(original_source_dir)
+    convert_revision = None
     try:
         prepared = (
             prepare_conversion_source(
@@ -902,7 +1094,11 @@ def convert_model(
             protected_weight_file_size_bytes,
             measured_total_bpw,
             measured_main_bpw,
-        ) = _verify_converted_weights(staging_dir, plan)
+        ) = _verify_converted_weights(
+            staging_dir,
+            plan,
+            source_tensors=source_tensors,
+        )
         manifest = ArtifactManifest(
             axquant_version=plan.software_versions.axquant,
             source_model=plan.source_model,

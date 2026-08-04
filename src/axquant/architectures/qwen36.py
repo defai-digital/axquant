@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from axquant.architectures.dense_family import classify_dense_tensor
+from axquant.architectures.dense_family import classify_dense_tensor, valid_layer_count
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -13,6 +13,39 @@ from axquant.schema import (
 )
 
 _QWEN36 = re.compile(r"qwen[._-]?3[._-]?6", re.IGNORECASE)
+_QWEN36_27B = re.compile(
+    r"qwen[._-]?3[._-]?6[._-]?27b(?=$|[._/-])",
+    re.IGNORECASE,
+)
+_QWEN36_35B_A3B = re.compile(
+    r"qwen[._-]?3[._-]?6[._-]?35b[._-]?a3b(?=$|[._/-])",
+    re.IGNORECASE,
+)
+_QWEN36_CATALOG_SIZE = re.compile(
+    r"qwen[._-]?3[._-]?6[._-]?\d+b(?:[._-]?a\d+b)?(?=$|[._/-])",
+    re.IGNORECASE,
+)
+_MOE_CONFIG_KEYS = (
+    "num_experts",
+    "num_experts_per_tok",
+    "moe_intermediate_size",
+    "num_local_experts",
+    "n_routed_experts",
+    "enable_moe_block",
+)
+_DENSE_27B_SIGNATURE = {
+    "num_hidden_layers": 64,
+    "hidden_size": 5120,
+    "intermediate_size": 17408,
+}
+_MOE_35B_A3B_SIGNATURE = {
+    "num_hidden_layers": 40,
+    "hidden_size": 2048,
+    "moe_intermediate_size": 512,
+    "shared_expert_intermediate_size": 512,
+    "num_experts": 256,
+    "num_experts_per_tok": 8,
+}
 
 
 class Qwen36Adapter:
@@ -32,29 +65,43 @@ class Qwen36Adapter:
     def profile(self, model_reference: str, config: dict[str, Any]) -> ArchitectureProfile:
         text = config.get("text_config")
         text_config = text if isinstance(text, dict) else {}
-        dense = not any(
-            key in text_config
-            for key in (
-                "num_experts",
-                "num_experts_per_tok",
-                "moe_intermediate_size",
-            )
+        dense = not any(text_config.get(key) for key in _MOE_CONFIG_KEYS)
+        layer_count = valid_layer_count(text_config.get("num_hidden_layers"))
+        # An explicit Qwen 3.6 model reference is authoritative.  Fall back to
+        # `_name_or_path` only for anonymous local snapshot paths; otherwise a
+        # stale config identity could make a differently named checkpoint
+        # inherit catalog conversion scope.
+        references = (
+            (model_reference,)
+            if _QWEN36.search(model_reference)
+            else (str(config.get("_name_or_path", "")),)
         )
-        text_layers = text_config.get("num_hidden_layers")
-        layer_count = int(text_layers) if isinstance(text_layers, int) else None
-        reference_is_27b = "27b" in model_reference.lower()
-        signature_is_27b = (
-            layer_count == 64
-            and text_config.get("hidden_size") == 5120
-            and text_config.get("intermediate_size") == 17408
+        reference_is_27b = any(_QWEN36_27B.search(reference) for reference in references)
+        signature_is_27b = all(
+            text_config.get(key) == value for key, value in _DENSE_27B_SIGNATURE.items()
         )
         # The official catalog's MoE size. Expert tensors quantize as fused
         # MLX-LM switch modules with a uniform per-group precision; the
         # router keeps its 8-bit floor. Conversion evidence for this path is
         # development-only until the family certifies.
-        reference_is_35b_a3b = "35b-a3b" in model_reference.lower()
-        supported = (dense and (reference_is_27b or signature_is_27b)) or (
-            not dense and reference_is_35b_a3b
+        reference_is_35b_a3b = any(_QWEN36_35B_A3B.search(reference) for reference in references)
+        reference_declares_catalog_size = any(
+            _QWEN36_CATALOG_SIZE.search(reference) for reference in references
+        )
+        signature_is_35b_a3b = all(
+            text_config.get(key) == value for key, value in _MOE_35B_A3B_SIGNATURE.items()
+        )
+        model_type = config.get("model_type")
+        supported = (
+            dense
+            and model_type == "qwen3_5"
+            and (reference_is_27b or not reference_declares_catalog_size)
+            and signature_is_27b
+        ) or (
+            not dense
+            and model_type == "qwen3_5_moe"
+            and (reference_is_35b_a3b or not reference_declares_catalog_size)
+            and signature_is_35b_a3b
         )
         vision_present = isinstance(config.get("vision_config"), dict)
         notes = [
@@ -71,7 +118,7 @@ class Qwen36Adapter:
         return ArchitectureProfile(
             adapter_id=self.adapter_id,
             product_family="qwen3.6",
-            config_model_type="qwen3_5",
+            config_model_type=(model_type if isinstance(model_type, str) else None),
             support_level=(
                 ArchitectureSupportLevel.SUPPORTED
                 if supported

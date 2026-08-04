@@ -29,10 +29,25 @@ from axquant.schema import (
     BenchmarkConfig,
     BenchmarkResult,
     ModelIdentity,
+    MtpAbComparison,
+    SoftwareVersions,
     TrialResult,
 )
+from axquant.serde import file_sha256
 
 _TEST_EXECUTABLE = sys.executable
+
+
+def _software_versions() -> SoftwareVersions:
+    return SoftwareVersions(
+        axquant="0.1.0a0",
+        python="3.13",
+        mlx="0.32",
+        mlx_lm="0.31",
+        ax_engine="6.11.1",
+        safetensors="0.6",
+        pydantic="2.11",
+    )
 
 
 @pytest.fixture
@@ -50,13 +65,13 @@ def prompt_dataset(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def base_config() -> BenchmarkConfig:
+def base_config(prompt_dataset: Path) -> BenchmarkConfig:
     return BenchmarkConfig(
-        model=ModelIdentity(model_id="test-model", revision="abc123", local_path="/tmp/model"),
+        model=ModelIdentity(model_id="test-model", revision="a" * 40, local_path="/tmp/model"),
         mtp_enabled=False,
         baseline_kind="axquant-mtp-off",
         workload="agent-coding",
-        dataset_sha256="deadbeef" * 8,
+        dataset_sha256=file_sha256(prompt_dataset),
         prompt_count=3,
         warmup_trials=1,
         measured_trials=3,
@@ -75,11 +90,25 @@ def _fake_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
         stdout=json.dumps(
             {
                 "tokens_generated": 100,
-                "decode_seconds": 2.0,
-                "prefill_seconds": 0.5,
-                "mtp_accepted_tokens": 80,
-                "mtp_proposed_tokens": 100,
+                "output_tokens": list(range(100)),
+                "prompt_tokens": [11, 12, 13, 14],
+                "finish_reason": "max_output_tokens",
+                "performance": {
+                    "generation_time_us": 2_000_000,
+                    "prompt_eval_time_us": 500_000,
+                    "mtp": {
+                        "accepted_tokens": 80,
+                        "draft_tokens": 100,
+                        "decode_steps": 50,
+                        "active": True,
+                    },
+                },
                 "peak_memory_bytes": 8_000_000_000,
+                "route": {
+                    "crossover_decisions": {
+                        "ax_mlx_test_kernel_fallbacks": 0,
+                    }
+                },
                 "runtime": {
                     "host": {
                         "device_class": "Mac15,9",
@@ -314,6 +343,8 @@ def test_kernel_fallback_count_excludes_policy_fallback_steps() -> None:
         "ax_mtp_ngram_fallback_no_candidate_steps": 16,
     }
     assert _kernel_fallback_count(decisions) == 3
+    assert _kernel_fallback_count({}) is None
+    assert _kernel_fallback_count({"ax_mlx_bad_fallbacks": "unknown"}) is None
 
 
 def test_standalone_ax_engine_version_accepts_versioned_runtime_layouts(
@@ -368,6 +399,77 @@ class TestRunBenchmark:
         assert result.runtime_device_name == "Mac15,9"
         assert result.runtime_chip == "Apple M3 Max"
         assert result.unified_memory_bytes == 128 * 1024**3
+        assert all(trial.verification_overhead_seconds is None for trial in result.trials)
+
+    def test_dataset_digest_is_verified_before_subprocess(
+        self,
+        base_config: BenchmarkConfig,
+        prompt_dataset: Path,
+    ) -> None:
+        called = False
+
+        def should_not_run(command: list[str]) -> subprocess.CompletedProcess[str]:
+            nonlocal called
+            called = True
+            return _fake_runner(command)
+
+        config = base_config.model_copy(update={"dataset_sha256": "0" * 64})
+        with pytest.raises(BenchmarkError, match="dataset digest does not match"):
+            run_benchmark(
+                config,
+                dataset_path=prompt_dataset,
+                executable=_TEST_EXECUTABLE,
+                runner=should_not_run,
+            )
+        assert called is False
+
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            "",
+            "not-json",
+            "{}",
+            json.dumps(
+                {
+                    "output_tokens": [],
+                    "prompt_tokens": [1],
+                    "finish_reason": "stop",
+                    "performance": {"generation_time_us": 1},
+                }
+            ),
+            json.dumps(
+                {
+                    "output_tokens": [1],
+                    "prompt_tokens": [],
+                    "finish_reason": "stop",
+                    "performance": {"generation_time_us": 1},
+                }
+            ),
+        ],
+    )
+    def test_exit_zero_invalid_stdout_is_a_failed_trial(
+        self,
+        base_config: BenchmarkConfig,
+        prompt_dataset: Path,
+        stdout: str,
+    ) -> None:
+        def invalid_runner(command: list[str]) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+
+        config = base_config.model_copy(
+            update={"prompt_count": 1, "warmup_trials": 0, "measured_trials": 1}
+        )
+        result = run_benchmark(
+            config,
+            dataset_path=prompt_dataset,
+            executable=_TEST_EXECUTABLE,
+            runner=invalid_runner,
+        )
+
+        assert result.measured_count == 0
+        assert result.failed_count == 1
+        assert result.trials[0].success is False
+        assert result.trials[0].error
 
     def test_warmup_exclusion(self, base_config: BenchmarkConfig, prompt_dataset: Path) -> None:
         result = run_benchmark(
@@ -412,7 +514,12 @@ class TestRunBenchmark:
     def test_insufficient_prompts(self, base_config: BenchmarkConfig, tmp_path: Path) -> None:
         small_dataset = tmp_path / "small.jsonl"
         small_dataset.write_text(json.dumps({"prompt": "hello"}), encoding="utf-8")
-        config = base_config.model_copy(update={"prompt_count": 10})
+        config = base_config.model_copy(
+            update={
+                "prompt_count": 10,
+                "dataset_sha256": file_sha256(small_dataset),
+            }
+        )
         with pytest.raises(BenchmarkError, match="prompts"):
             run_benchmark(
                 config,
@@ -465,6 +572,61 @@ class TestResultToEvaluationBundle:
         assert bundle.mtp.acceptance_rate == pytest.approx(0.75)
         assert bundle.mtp.token_accuracy == {"1": pytest.approx(0.75)}
         assert bundle.mtp.repetition_rate == pytest.approx(1 / 3)
+
+    def test_prefill_throughput_uses_only_trials_with_timing(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        result = BenchmarkResult(
+            config=base_config,
+            trials=[
+                TrialResult(
+                    trial_index=0,
+                    prompt_tokens=100,
+                    tokens_generated=4,
+                    output_token_ids=[1, 2, 3, 4],
+                    prefill_seconds=1.0,
+                    tokens_per_second=10.0,
+                    kernel_fallbacks=0,
+                ),
+                TrialResult(
+                    trial_index=1,
+                    prompt_tokens=1_000,
+                    tokens_generated=4,
+                    output_token_ids=[5, 6, 7, 8],
+                    prefill_seconds=None,
+                    tokens_per_second=10.0,
+                    kernel_fallbacks=0,
+                ),
+            ],
+            measured_count=2,
+        )
+
+        bundle = result_to_evaluation_bundle(result)
+
+        assert bundle.hardware.prefill_tokens_per_second == pytest.approx(100.0)
+
+    def test_missing_kernel_telemetry_remains_unknown(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        result = BenchmarkResult(
+            config=base_config,
+            trials=[
+                TrialResult(
+                    trial_index=0,
+                    tokens_generated=4,
+                    output_token_ids=[1, 2, 3, 4],
+                    tokens_per_second=10.0,
+                    kernel_fallbacks=None,
+                )
+            ],
+            measured_count=1,
+        )
+
+        bundle = result_to_evaluation_bundle(result)
+
+        assert bundle.hardware.kernel_fallbacks is None
 
 
 class TestRunMtpAb:
@@ -544,6 +706,27 @@ class TestRunMtpAb:
 
         assert (output_dir / "mtp_ab_comparison.json").is_file()
 
+    def test_speed_gate_is_enforced_when_exactness_is_not(
+        self,
+        base_config: BenchmarkConfig,
+        prompt_dataset: Path,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+
+        with pytest.raises(BenchmarkError, match="below required"):
+            run_mtp_ab(
+                base_config,
+                mtp_config,
+                dataset_path=prompt_dataset,
+                executable=_TEST_EXECUTABLE,
+                runner=_fake_runner,
+                enforce_exactness=False,
+                enforce_speedup=True,
+                minimum_speedup=1.20,
+            )
+
 
 class TestMtpDiagnostics:
     def _result_with_tokens(
@@ -577,6 +760,7 @@ class TestMtpDiagnostics:
             tokens_per_second_p50=tps,
             ax_engine_version="6.11.1",
             runtime_chip="Apple M3 Max",
+            software_versions=_software_versions(),
         )
 
     def test_compare_detects_divergence(self, base_config: BenchmarkConfig) -> None:
@@ -620,6 +804,83 @@ class TestMtpDiagnostics:
         assert comparison.exactness_pass is True
         assert comparison.speedup_pass is True
         assert comparison.release_ready is True
+        assert comparison.model == base_config.model
+        assert comparison.runtime == base_config.runtime
+        assert comparison.workload == base_config.workload
+        assert comparison.dataset_sha256 == base_config.dataset_sha256
+        assert comparison.random_seed == base_config.random_seed
+        assert comparison.generation_controls["max_tokens"] == base_config.max_tokens
+        assert comparison.software_versions == _software_versions()
+        unbound = comparison.model_dump(mode="json")
+        unbound["model"] = None
+        with pytest.raises(ValueError, match="missing environment bindings"):
+            MtpAbComparison.model_validate(unbound)
+        mutable = comparison.model_dump(mode="json")
+        mutable["model"]["revision"] = "main"
+        with pytest.raises(ValueError, match="missing environment bindings"):
+            MtpAbComparison.model_validate(mutable)
+
+    def test_compare_requires_output_tokens_and_active_mtp(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        direct = self._result_with_tokens(base_config, {0: []}, tps=10.0)
+        mtp = self._result_with_tokens(mtp_config, {0: []}, tps=13.0, mtp_active=None)
+
+        comparison = compare_mtp_ab_results(direct, mtp, minimum_speedup=1.20)
+
+        assert comparison.exactness_pass is False
+        assert comparison.release_ready is False
+        assert "missing output tokens for trial 0" in comparison.issues
+        assert "MTP was not active for measured trial 0" in comparison.issues
+
+    def test_public_compare_rejects_mismatched_checkpoint(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={
+                "mtp_enabled": True,
+                "baseline_kind": "axquant-mtp-on",
+                "model": ModelIdentity(
+                    model_id="different",
+                    revision="b" * 40,
+                    local_path="/tmp/different",
+                ),
+            }
+        )
+        tokens = {0: [1, 2, 3]}
+        direct = self._result_with_tokens(base_config, tokens, tps=10.0)
+        mtp = self._result_with_tokens(mtp_config, tokens, tps=13.0, mtp_active=True)
+
+        comparison = compare_mtp_ab_results(direct, mtp, minimum_speedup=1.20)
+
+        assert "model identity differs between direct and MTP results" in comparison.issues
+        assert comparison.release_ready is False
+
+    def test_public_compare_requires_chip_and_software_bindings(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        tokens = {0: [1, 2, 3]}
+        direct = self._result_with_tokens(base_config, tokens, tps=10.0).model_copy(
+            update={"runtime_chip": None, "software_versions": None}
+        )
+        mtp = self._result_with_tokens(mtp_config, tokens, tps=13.0, mtp_active=True).model_copy(
+            update={"runtime_chip": None, "software_versions": None}
+        )
+
+        comparison = compare_mtp_ab_results(direct, mtp, minimum_speedup=1.20)
+
+        assert "hardware chip is missing from direct or MTP results" in comparison.issues
+        assert "software versions are missing from direct or MTP results" in comparison.issues
+        assert comparison.release_ready is False
 
     def test_compare_rejects_release_ready_on_mismatched_runtime_env(
         self, base_config: BenchmarkConfig

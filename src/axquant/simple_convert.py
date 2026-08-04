@@ -34,6 +34,7 @@ Cons / risks (why keep the second door)
 
 from __future__ import annotations
 
+import math
 import re
 from pathlib import Path
 from typing import Literal
@@ -42,7 +43,15 @@ from axquant.errors import PlanningError
 from axquant.ladders import get_ladder
 from axquant.naming import model_name, target_class_for_bpw
 from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke
-from axquant.schema import ConvertLadderName, ProfileName, QuickConversionSummary
+from axquant.recipes import load_recipe_bundle
+from axquant.schema import (
+    ConvertLadderName,
+    ManualPlanRecipe,
+    ProfileName,
+    QuantizationPlan,
+    QuickConversionSummary,
+)
+from axquant.serde import load_model
 
 _HUB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)+$")
 _SAFE_DIR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -55,10 +64,9 @@ def looks_like_hub_id(model: str) -> bool:
     path = Path(model).expanduser()
     if path.is_dir() or path.is_file():
         return False
-    # Drive-style or multi-segment OS paths are not Hub ids.
-    if "\\" in model or model.count("/") > 1:
-        # Allow org/name only (exactly one slash for classic Hub ids; nested ok via regex).
-        pass
+    # Hub repository ids have exactly one owner/name separator.
+    if "\\" in model or model.count("/") != 1:
+        return False
     return bool(_HUB_ID.fullmatch(model))
 
 
@@ -71,6 +79,8 @@ def default_output_dir(
     parent: str | Path = ".",
 ) -> Path:
     """Derive ``./AX-<base>-MLX-AXQ-<class>`` under *parent*."""
+    if not math.isfinite(target_bpw) or target_bpw <= 0 or target_bpw > 16:
+        raise PlanningError("target_bpw must be finite and in (0, 16]")
     base = model_id or model
     name = model_name(base, target_class=target_class_for_bpw(target_bpw), mtp=mtp)
     if not _SAFE_DIR.fullmatch(name):
@@ -118,10 +128,10 @@ def simple_convert(
     output: str | Path | None = None,
     model_id: str | None = None,
     revision: str | None = None,
-    profile: ProfileName = ProfileName.GENERAL,
+    profile: ProfileName | None = None,
     target_bpw: float | None = None,
     ladder: ConvertLadderName | str = ConvertLadderName.PRIOR,
-    kv_cache: str = "off",
+    kv_cache: str | None = None,
     recipe: str | Path | None = None,
     allow_download: bool = False,
     runtime_smoke: RuntimeSmoke = "none",
@@ -141,9 +151,36 @@ def simple_convert(
     from axquant.quantize import quick_convert as _quick
 
     resolved_ladder = get_ladder(ladder)
-    effective_bpw = resolved_ladder.default_target_bpw if target_bpw is None else float(target_bpw)
-    if effective_bpw <= 0 or effective_bpw > 16:
-        raise PlanningError("target_bpw must be in (0, 16]")
+    if recipe is not None and target_bpw is not None:
+        raise PlanningError(
+            "simple convert --target-bpw cannot be combined with --recipe; "
+            "the recipe bundle already fixes its target BPW"
+        )
+    if recipe is not None and kv_cache is not None:
+        raise PlanningError(
+            "simple convert --kv-cache cannot be combined with --recipe; "
+            "the recipe bundle already fixes its KV-cache plan"
+        )
+    if recipe is not None:
+        recipe_record, recipe_payload = load_recipe_bundle(recipe)
+        recipe_model = (
+            load_model(recipe_payload, QuantizationPlan)
+            if recipe_record.payload_kind == "plan"
+            else load_model(recipe_payload, ManualPlanRecipe)
+        )
+        if profile is not None and profile != recipe_model.profile:
+            raise PlanningError(
+                "simple convert --profile does not match the profile fixed by --recipe"
+            )
+        effective_bpw = recipe_model.target_bpw
+        effective_profile = recipe_model.profile
+    else:
+        effective_bpw = (
+            resolved_ladder.default_target_bpw if target_bpw is None else float(target_bpw)
+        )
+        effective_profile = profile or ProfileName.GENERAL
+    if not math.isfinite(effective_bpw) or effective_bpw <= 0 or effective_bpw > 16:
+        raise PlanningError("target_bpw must be finite and in (0, 16]")
 
     download, download_notes = resolve_download_policy(model, allow_download=allow_download)
     # Resolve early so Hub cache / download failures are clear before planning.
@@ -158,10 +195,18 @@ def simple_convert(
         )
     else:
         output_path = Path(output).expanduser()
+    resolved_output = output_path.resolve()
+    if (
+        resolved_output == model_dir
+        or resolved_output.is_relative_to(model_dir)
+        or model_dir.is_relative_to(resolved_output)
+    ):
+        raise PlanningError("simple convert output must not overlap the source checkpoint")
 
-    if kv_cache not in {"off", "prior"}:
+    effective_kv_cache = kv_cache or "off"
+    if effective_kv_cache not in {"off", "prior"}:
         raise PlanningError("simple convert supports --kv-cache off|prior only")
-    kv_mode: Literal["off", "prior"] = "prior" if kv_cache == "prior" else "off"
+    kv_mode: Literal["off", "prior"] = "prior" if effective_kv_cache == "prior" else "off"
 
     # Prefer resolved directory for conversion so Hub ids work end-to-end.
     # MTP auto-discovery in quick_convert uses inventory.local_path / model path.
@@ -170,8 +215,8 @@ def simple_convert(
         output=output_path,
         model_id=resolved_model_id or str(model),
         revision=revision,
-        profile=profile,
-        target_bpw=effective_bpw,
+        profile=effective_profile,
+        target_bpw=None if recipe is not None else effective_bpw,
         ladder=ladder,
         kv_cache=kv_mode,
         recipe=recipe,

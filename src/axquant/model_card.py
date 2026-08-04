@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
 from axquant.schema import (
     ArtifactFile,
@@ -37,10 +38,61 @@ def _public_identity(identity: ModelIdentity) -> ModelIdentity:
     return identity.model_copy(update={"local_path": None})
 
 
+def _public_calibration_reference(value: str) -> str:
+    normalized = value.replace("\\", "/")
+    relative = Path(normalized)
+    if relative.is_absolute() or ".." in relative.parts:
+        normalized = relative.name
+    if not normalized or normalized in {".", ".."}:
+        raise ArtifactError("calibration evidence has no safe public reference")
+    return normalized
+
+
 def _load_optional_sidecar(path: Path) -> ProtectedTensorSidecarManifest | None:
     if not path.is_file():
         return None
     return load_model(path, ProtectedTensorSidecarManifest)
+
+
+def _assert_safe_record_path(directory: Path, value: str, label: str) -> None:
+    try:
+        artifact_member_path(directory, value)
+    except ValueError as exc:
+        raise ArtifactError(f"{label} contains an unsafe artifact path: {value}") from exc
+
+
+def _assert_input_bindings(
+    directory: Path,
+    manifest: ArtifactManifest,
+    plan: QuantizationPlan,
+    execution: QuantizerExecutionManifest,
+    mtp_sidecar: ProtectedTensorSidecarManifest | None,
+    vision_sidecar: ProtectedTensorSidecarManifest | None,
+) -> None:
+    plan_sha256 = stable_sha256(plan)
+    if not _REPO_ID.fullmatch(plan.source_model.model_id):
+        raise ArtifactError("development model cards require a Hub owner/name source identity")
+    if manifest.plan_sha256 != plan_sha256:
+        raise ArtifactError("artifact manifest does not bind the input plan")
+    if execution.plan_sha256 != plan_sha256:
+        raise ArtifactError("quantizer execution does not bind the input plan")
+    if manifest.source_model != plan.source_model:
+        raise ArtifactError("artifact manifest and plan use different source identities")
+    for label, sidecar, expected_role in (
+        ("MTP sidecar manifest", mtp_sidecar, "mtp"),
+        ("vision sidecar manifest", vision_sidecar, "vision"),
+    ):
+        if sidecar is None:
+            continue
+        if sidecar.role != expected_role:
+            raise ArtifactError(f"{label} declares the wrong protected tensor role")
+        if sidecar.source_model != plan.source_model:
+            raise ArtifactError(f"{label} uses a different source identity")
+        _assert_safe_record_path(directory, sidecar.output.path, label)
+        for source in sidecar.source_files:
+            _assert_safe_record_path(directory, source.path, label)
+    for record in manifest.files:
+        _assert_safe_record_path(directory, record.path, "artifact manifest")
 
 
 def _format_decimal_size(size_bytes: int) -> str:
@@ -151,6 +203,8 @@ def render_development_model_card(
             f"(repo={name!r}, product_class={product_class!r})"
         )
     source = manifest.source_model
+    if not _REPO_ID.fullmatch(source.model_id):
+        raise ArtifactError("development model cards require a Hub owner/name source identity")
     if (
         source.model_id != plan.source_model.model_id
         or source.revision != plan.source_model.revision
@@ -480,12 +534,16 @@ def _assert_public_consistency(directory: Path) -> None:
     if execution.plan_sha256 != expected_plan_sha256:
         raise ArtifactError("public quantizer execution does not bind the sanitized plan")
     identities = [manifest.source_model, plan.source_model]
+    if manifest.source_model != plan.source_model:
+        raise ArtifactError("public artifact manifest and plan use different source identities")
     for sidecar_name in (
         "axquant_mtp_sidecar_manifest.json",
         "axquant_vision_sidecar_manifest.json",
     ):
         sidecar = _load_optional_sidecar(directory / sidecar_name)
         if sidecar is not None:
+            if sidecar.source_model != plan.source_model:
+                raise ArtifactError(f"public {sidecar_name} uses a different source identity")
             identities.append(sidecar.source_model)
     if any(identity.local_path for identity in identities):
         raise ArtifactError("public AXQuant metadata contains a local source path")
@@ -514,9 +572,16 @@ def prepare_development_model_card(
     every metadata file changed here is re-bound in ``axquant_manifest.json``.
     """
 
-    directory = Path(artifact_dir).expanduser().resolve()
+    directory_input = Path(artifact_dir).expanduser()
+    if directory_input.is_symlink():
+        raise ArtifactError(f"artifact directory must not be a symlink: {directory_input}")
+    directory = directory_input.resolve()
     if not directory.is_dir():
         raise ArtifactError(f"artifact directory does not exist: {directory}")
+    try:
+        artifact_tree_files(directory)
+    except ValueError as exc:
+        raise ArtifactError(f"artifact directory is unsafe: {exc}") from exc
     if not _REPO_ID.fullmatch(repo_id):
         raise ArtifactError("Hub repository must use the owner/name form")
     name = repo_id.rsplit("/", 1)[-1]
@@ -535,16 +600,27 @@ def prepare_development_model_card(
     plan = load_model(plan_path, QuantizationPlan)
     execution = load_model(execution_path, QuantizerExecutionManifest)
 
+    mtp_path = directory / "axquant_mtp_sidecar_manifest.json"
+    vision_path = directory / "axquant_vision_sidecar_manifest.json"
+    mtp_sidecar = _load_optional_sidecar(mtp_path)
+    vision_sidecar = _load_optional_sidecar(vision_path)
+    _assert_input_bindings(
+        directory,
+        manifest,
+        plan,
+        execution,
+        mtp_sidecar,
+        vision_sidecar,
+    )
+
     plan.source_model = _public_identity(plan.source_model)
+    if plan.calibration is not None:
+        plan.calibration.reference = _public_calibration_reference(plan.calibration.reference)
     write_data(plan_path, plan)
     plan_sha256 = stable_sha256(plan)
     execution.plan_sha256 = plan_sha256
     write_data(execution_path, execution)
 
-    mtp_path = directory / "axquant_mtp_sidecar_manifest.json"
-    vision_path = directory / "axquant_vision_sidecar_manifest.json"
-    mtp_sidecar = _load_optional_sidecar(mtp_path)
-    vision_sidecar = _load_optional_sidecar(vision_path)
     for path, sidecar in ((mtp_path, mtp_sidecar), (vision_path, vision_sidecar)):
         if sidecar is None:
             continue

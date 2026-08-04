@@ -23,6 +23,7 @@ import structlog
 
 from axquant.errors import BackendUnavailableError, BenchmarkError, InvariantViolationError
 from axquant.inspector import inspect_model
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     BenchmarkConfig,
     BenchmarkResult,
@@ -38,7 +39,7 @@ from axquant.schema import (
     SoftwareVersions,
     TrialResult,
 )
-from axquant.serde import stable_sha256, write_data
+from axquant.serde import file_sha256, stable_sha256, write_data
 from axquant.versioning import collect_versions, standalone_executable_version
 
 log = structlog.get_logger()
@@ -299,13 +300,18 @@ def _runtime_environment(config: BenchmarkConfig) -> list[str]:
     return environment
 
 
-def _kernel_fallback_count(decisions: Mapping[str, Any]) -> int:
-    """Sum AX MLX kernel fallback counters without counting policy fallback steps."""
-    return sum(
-        int(value)
-        for key, value in decisions.items()
-        if key.startswith("ax_mlx_") and key.endswith("_fallbacks") and isinstance(value, int)
-    )
+def _kernel_fallback_count(decisions: Mapping[str, Any]) -> int | None:
+    """Sum AX MLX kernel fallback counters without inventing missing telemetry."""
+    counters: list[int] = []
+    for key, value in decisions.items():
+        if not (key.startswith("ax_mlx_") and key.endswith("_fallbacks")):
+            continue
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        counters.append(value)
+    if not counters:
+        return None
+    return sum(counters)
 
 
 def parse_runtime_env_items(items: Sequence[str] | None) -> dict[str, str]:
@@ -349,6 +355,69 @@ def resolve_diagnostic_profiles(
             raise BenchmarkError(f"unknown MTP diagnostic profile {name!r}; known: {known}")
         resolved[key] = dict(MTP_DIAGNOSTIC_PROFILES[key])
     return resolved
+
+
+def _failed_backend_trial(
+    *,
+    trial_index: int,
+    is_warmup: bool,
+    command: list[str],
+    elapsed: float,
+    error: str,
+    stderr: str,
+) -> tuple[TrialResult, bool]:
+    return (
+        TrialResult(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            success=False,
+            command=command,
+            latency_seconds=elapsed,
+            error=error,
+            backend_stderr=stderr[-4000:],
+        ),
+        False,
+    )
+
+
+def _required_report_error(report: Any) -> str | None:
+    """Return a diagnostic when exit-zero stdout is not a benchmark report."""
+    if not isinstance(report, dict):
+        return "AX Engine exit-0 stdout must be a JSON object"
+    output_tokens = report.get("output_tokens")
+    if (
+        not isinstance(output_tokens, list)
+        or not output_tokens
+        or any(
+            isinstance(token, bool) or not isinstance(token, int) or token < 0
+            for token in output_tokens
+        )
+    ):
+        return "AX Engine exit-0 report requires nonempty nonnegative integer output_tokens"
+    prompt_tokens = report.get("prompt_tokens")
+    if (
+        not isinstance(prompt_tokens, list)
+        or not prompt_tokens
+        or any(
+            isinstance(token, bool) or not isinstance(token, int) or token < 0
+            for token in prompt_tokens
+        )
+    ):
+        return "AX Engine exit-0 report requires nonempty nonnegative integer prompt_tokens"
+    performance = report.get("performance")
+    if not isinstance(performance, dict):
+        return "AX Engine exit-0 report requires performance metrics"
+    generation_us = performance.get("generation_time_us")
+    if (
+        isinstance(generation_us, bool)
+        or not isinstance(generation_us, int | float)
+        or generation_us <= 0
+    ):
+        return "AX Engine exit-0 report requires positive performance.generation_time_us"
+    finish_reason = report.get("finish_reason")
+    if not isinstance(finish_reason, str) or not finish_reason.strip():
+        return "AX Engine exit-0 report requires finish_reason"
+    return None
 
 
 def _run_single_trial(
@@ -436,15 +505,56 @@ def _run_single_trial(
             ),
         ), is_timeout
 
-    report: dict[str, Any] = {}
-    if completed.stdout.strip():
-        try:
-            report = json.loads(completed.stdout)
-        except json.JSONDecodeError:
-            report = {}
+    if not completed.stdout.strip():
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine exited 0 with empty stdout",
+            stderr=completed.stderr,
+        )
+    try:
+        report: Any = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error=f"AX Engine exited 0 with invalid JSON stdout: {exc.msg}",
+            stderr=completed.stderr,
+        )
+    report_error = _required_report_error(report)
+    if report_error is not None:
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error=report_error,
+            stderr=completed.stderr,
+        )
+    if not isinstance(report, dict):
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine exit-0 stdout must be a JSON object",
+            stderr=completed.stderr,
+        )
 
     performance = report.get("performance")
-    performance = performance if isinstance(performance, dict) else {}
+    if not isinstance(performance, dict):
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine exit-0 report requires performance metrics",
+            stderr=completed.stderr,
+        )
     mtp_report = performance.get("mtp")
     mtp_report = mtp_report if isinstance(mtp_report, dict) else {}
     route = report.get("route")
@@ -456,28 +566,49 @@ def _run_single_trial(
     host = runtime.get("host")
     host = host if isinstance(host, dict) else {}
 
-    output_token_ids = [
-        int(token) for token in report.get("output_tokens", []) if isinstance(token, int)
-    ]
-    tokens_generated = int(report.get("tokens_generated", len(output_token_ids)))
+    output_tokens = report["output_tokens"]
+    if not isinstance(output_tokens, list):
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine exit-0 report requires nonempty nonnegative integer output_tokens",
+            stderr=completed.stderr,
+        )
+    output_token_ids = [int(token) for token in output_tokens]
+    tokens_generated = len(output_token_ids)
+    reported_tokens_generated = report.get("tokens_generated")
+    if reported_tokens_generated is not None and (
+        isinstance(reported_tokens_generated, bool)
+        or not isinstance(reported_tokens_generated, int)
+        or reported_tokens_generated != tokens_generated
+    ):
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine tokens_generated does not match output_tokens",
+            stderr=completed.stderr,
+        )
     generation_us = performance.get("generation_time_us")
-    decode_seconds = (
-        float(generation_us) / 1_000_000
-        if isinstance(generation_us, int | float)
-        else float(report.get("decode_seconds", elapsed))
-    )
+    if isinstance(generation_us, bool) or not isinstance(generation_us, int | float):
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error="AX Engine exit-0 report requires positive performance.generation_time_us",
+            stderr=completed.stderr,
+        )
+    decode_seconds = float(generation_us) / 1_000_000
     tps = tokens_generated / decode_seconds if decode_seconds > 0 else 0.0
     accepted_tokens = mtp_report.get("accepted_tokens", report.get("mtp_accepted_tokens"))
     proposed_tokens = mtp_report.get("draft_tokens", report.get("mtp_proposed_tokens"))
     peak_match = re.search(r"\b(\d+)\s+maximum resident set size", completed.stderr)
     peak_memory_bytes = (
         int(peak_match.group(1)) if peak_match is not None else report.get("peak_memory_bytes")
-    )
-    verification_us = (
-        int(decisions.get("ax_mtp_verify_forward_wall_us", 0))
-        + int(decisions.get("ax_mtp_verify_eval_wall_us", 0))
-        + int(decisions.get("ax_mtp_accept_wall_us", 0))
-        + int(decisions.get("ax_mtp_rollback_wall_us", 0))
     )
     device_name = host.get("device_class") or host.get("model")
     if device_name is None and using_real_runner:
@@ -486,50 +617,79 @@ def _run_single_trial(
     if unified_memory is None and using_real_runner:
         unified_memory = _sysctl_value("hw.memsize")
 
-    return TrialResult(
-        trial_index=trial_index,
-        is_warmup=is_warmup,
-        success=True,
-        command=command,
-        prompt_tokens=len(report.get("prompt_tokens", prompt_tokens or [])),
-        tokens_generated=tokens_generated,
-        output_token_ids=output_token_ids,
-        output_sha256=stable_sha256(output_token_ids) if output_token_ids else None,
-        latency_seconds=elapsed,
-        time_to_first_token_seconds=(
-            float(performance["time_to_first_token_us"]) / 1_000_000
-            if "time_to_first_token_us" in performance
-            else None
-        ),
-        prefill_seconds=(
-            float(performance["prompt_eval_time_us"]) / 1_000_000
-            if "prompt_eval_time_us" in performance
-            else report.get("prefill_seconds")
-        ),
-        decode_seconds=decode_seconds,
-        tokens_per_second=tps,
-        mtp_accepted_tokens=int(accepted_tokens) if accepted_tokens is not None else None,
-        mtp_proposed_tokens=int(proposed_tokens) if proposed_tokens is not None else None,
-        mtp_rejected_tokens=(
-            max(0, int(proposed_tokens) - int(accepted_tokens))
-            if proposed_tokens is not None and accepted_tokens is not None
-            else None
-        ),
-        mtp_decode_steps=(
-            int(mtp_report["decode_steps"]) if "decode_steps" in mtp_report else None
-        ),
-        mtp_active=bool(mtp_report["active"]) if "active" in mtp_report else None,
-        verification_overhead_seconds=verification_us / 1_000_000,
-        kernel_fallbacks=_kernel_fallback_count(decisions),
-        peak_memory_bytes=peak_memory_bytes,
-        runtime_device_name=str(device_name) if device_name is not None else None,
-        runtime_chip=str(host["detected_soc"]) if "detected_soc" in host else None,
-        unified_memory_bytes=int(unified_memory) if unified_memory is not None else None,
-        os_version=platform.platform(),
-        terminal_stop_reason=report.get("finish_reason"),
-        backend_report=report,
-        backend_stderr=completed.stderr[-4000:],
-    ), False
+    active = mtp_report.get("active")
+    verification_keys = (
+        "ax_mtp_verify_forward_wall_us",
+        "ax_mtp_verify_eval_wall_us",
+        "ax_mtp_accept_wall_us",
+        "ax_mtp_rollback_wall_us",
+    )
+    collected_verification_counters: list[int] = []
+    verification_counters: list[int] | None = collected_verification_counters
+    for key in verification_keys:
+        value = decisions.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            verification_counters = None
+            break
+        collected_verification_counters.append(value)
+    verification_us = sum(verification_counters) if verification_counters is not None else None
+    try:
+        result = TrialResult(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            success=True,
+            command=command,
+            prompt_tokens=len(report["prompt_tokens"]),
+            tokens_generated=tokens_generated,
+            output_token_ids=output_token_ids,
+            output_sha256=stable_sha256(output_token_ids) if output_token_ids else None,
+            latency_seconds=elapsed,
+            time_to_first_token_seconds=(
+                float(performance["time_to_first_token_us"]) / 1_000_000
+                if "time_to_first_token_us" in performance
+                else None
+            ),
+            prefill_seconds=(
+                float(performance["prompt_eval_time_us"]) / 1_000_000
+                if "prompt_eval_time_us" in performance
+                else report.get("prefill_seconds")
+            ),
+            decode_seconds=decode_seconds,
+            tokens_per_second=tps,
+            mtp_accepted_tokens=int(accepted_tokens) if accepted_tokens is not None else None,
+            mtp_proposed_tokens=int(proposed_tokens) if proposed_tokens is not None else None,
+            mtp_rejected_tokens=(
+                max(0, int(proposed_tokens) - int(accepted_tokens))
+                if proposed_tokens is not None and accepted_tokens is not None
+                else None
+            ),
+            mtp_decode_steps=(
+                int(mtp_report["decode_steps"]) if "decode_steps" in mtp_report else None
+            ),
+            mtp_active=active if isinstance(active, bool) else None,
+            verification_overhead_seconds=(
+                verification_us / 1_000_000 if verification_us is not None else None
+            ),
+            kernel_fallbacks=_kernel_fallback_count(decisions),
+            peak_memory_bytes=peak_memory_bytes,
+            runtime_device_name=str(device_name) if device_name is not None else None,
+            runtime_chip=str(host["detected_soc"]) if "detected_soc" in host else None,
+            unified_memory_bytes=int(unified_memory) if unified_memory is not None else None,
+            os_version=platform.platform(),
+            terminal_stop_reason=report["finish_reason"],
+            backend_report=report,
+            backend_stderr=completed.stderr[-4000:],
+        )
+    except (TypeError, ValueError) as exc:
+        return _failed_backend_trial(
+            trial_index=trial_index,
+            is_warmup=is_warmup,
+            command=command,
+            elapsed=elapsed,
+            error=f"AX Engine exit-0 report contains invalid metrics: {exc}",
+            stderr=completed.stderr,
+        )
+    return result, False
 
 
 def run_benchmark(
@@ -545,7 +705,17 @@ def run_benchmark(
     Executes warmup + measured trials, computes latency distributions,
     and optionally persists raw logs to output_dir.
     """
-    prompts = _load_prompts(Path(dataset_path).expanduser().resolve(), config.random_seed)
+    resolved_dataset = Path(dataset_path).expanduser().resolve()
+    try:
+        actual_dataset_sha256 = file_sha256(resolved_dataset)
+    except OSError as exc:
+        raise BenchmarkError(f"cannot hash prompt dataset {resolved_dataset}: {exc}") from exc
+    if actual_dataset_sha256 != config.dataset_sha256:
+        raise BenchmarkError(
+            "prompt dataset digest does not match benchmark config: "
+            f"expected {config.dataset_sha256}, got {actual_dataset_sha256}"
+        )
+    prompts = _load_prompts(resolved_dataset, config.random_seed)
     if len(prompts) < config.prompt_count:
         raise BenchmarkError(
             f"dataset has {len(prompts)} prompts but config requires {config.prompt_count}"
@@ -592,6 +762,10 @@ def run_benchmark(
     latencies = [t.latency_seconds for t in measured_trials]
     tps_values = [t.tokens_per_second for t in measured_trials if t.tokens_per_second > 0]
 
+    ax_engine_version = _ax_engine_version(resolved) if runner is _run else None
+    software_versions = collect_versions()
+    if ax_engine_version is not None:
+        software_versions = software_versions.model_copy(update={"ax_engine": ax_engine_version})
     benchmark_result = BenchmarkResult(
         config=config,
         trials=trials,
@@ -624,7 +798,8 @@ def run_benchmark(
             (trial.os_version for trial in measured_trials if trial.os_version),
             platform.platform(),
         ),
-        ax_engine_version=_ax_engine_version(resolved) if runner is _run else None,
+        ax_engine_version=ax_engine_version,
+        software_versions=software_versions,
     )
 
     # Persist raw logs if output_dir specified
@@ -678,9 +853,20 @@ def result_to_evaluation_bundle(
     # Aggregate hardware metrics
     peak_memories = [t.peak_memory_bytes for t in measured if t.peak_memory_bytes is not None]
     decode_tps = [t.tokens_per_second for t in measured if t.tokens_per_second > 0]
-    total_prefill_tokens = sum(t.prompt_tokens for t in measured)
-    total_prefill_seconds = sum(t.prefill_seconds or 0.0 for t in measured)
-    kernel_fallbacks = sum(t.kernel_fallbacks or 0 for t in measured)
+    measured_prefill = [
+        trial
+        for trial in measured
+        if trial.prefill_seconds is not None and trial.prefill_seconds > 0
+    ]
+    total_prefill_tokens = sum(trial.prompt_tokens for trial in measured_prefill)
+    total_prefill_seconds = sum(
+        trial.prefill_seconds for trial in measured_prefill if trial.prefill_seconds is not None
+    )
+    kernel_fallbacks = (
+        sum(trial.kernel_fallbacks for trial in measured if trial.kernel_fallbacks is not None)
+        if all(trial.kernel_fallbacks is not None for trial in measured)
+        else None
+    )
 
     hardware = HardwareMetrics(
         peak_memory_bytes=max(peak_memories) if peak_memories else None,
@@ -698,7 +884,7 @@ def result_to_evaluation_bundle(
         os_version=result.os_version,
     )
 
-    versions = software_versions or collect_versions()
+    versions = software_versions or result.software_versions or collect_versions()
     if result.ax_engine_version is not None:
         versions = versions.model_copy(update={"ax_engine": result.ax_engine_version})
     safetensors_valid = False
@@ -734,7 +920,7 @@ def result_to_evaluation_bundle(
             index_complete=index_complete,
             config_valid=config_valid,
             mtp_layout_valid=mtp_layout_valid,
-            source_revision_pinned=config.model.revision is not None,
+            source_revision_pinned=is_immutable_revision(config.model.revision),
         ),
         workload=config.workload,
         dataset_sha256=config.dataset_sha256,
@@ -805,10 +991,12 @@ def _trial_route_decisions(trial: TrialResult) -> Mapping[str, Any]:
     return decisions if isinstance(decisions, Mapping) else {}
 
 
-def _nonnegative_counter(value: Any) -> int:
-    if isinstance(value, bool) or not isinstance(value, int | float):
-        return 0
-    return max(0, int(value))
+def _nonnegative_counter(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value
 
 
 def _trial_generation_wall_us(trial: TrialResult) -> int:
@@ -835,6 +1023,11 @@ def _mtp_phase_timing_summary(
     decision_names = set(_MTP_PHASE_DECISION_KEYS.values())
     if not any(any(name in decisions for name in decision_names) for decisions in mtp_decisions):
         return None
+    if any(
+        any(_nonnegative_counter(decisions.get(name)) is None for name in decision_names)
+        for decisions in mtp_decisions
+    ):
+        return None
     direct_output_tokens = sum(_trial_output_tokens(trial) for trial in direct_trials)
     mtp_output_tokens = sum(_trial_output_tokens(trial) for trial in mtp_trials)
     if direct_output_tokens <= 0 or mtp_output_tokens <= 0:
@@ -842,7 +1035,11 @@ def _mtp_phase_timing_summary(
     direct_generation_wall_us = sum(_trial_generation_wall_us(trial) for trial in direct_trials)
     mtp_generation_wall_us = sum(_trial_generation_wall_us(trial) for trial in mtp_trials)
     counters = {
-        field: sum(_nonnegative_counter(decisions.get(name)) for decisions in mtp_decisions)
+        field: sum(
+            value
+            for decisions in mtp_decisions
+            if (value := _nonnegative_counter(decisions.get(name))) is not None
+        )
         for field, name in _MTP_PHASE_DECISION_KEYS.items()
     }
     proposed_tokens = sum(trial.mtp_proposed_tokens or 0 for trial in mtp_trials)
@@ -894,6 +1091,26 @@ def _mtp_phase_timing_summary(
     )
 
 
+_AB_GENERATION_CONTROL_FIELDS = (
+    "prompt_count",
+    "warmup_trials",
+    "measured_trials",
+    "temperature",
+    "top_p",
+    "top_k",
+    "max_tokens",
+    "timeout_seconds",
+    "draft_depth",
+    "power_mode",
+    "quantizer",
+    "quantizer_version",
+)
+
+
+def _generation_controls(config: BenchmarkConfig) -> dict[str, Any]:
+    return {field_name: getattr(config, field_name) for field_name in _AB_GENERATION_CONTROL_FIELDS}
+
+
 def compare_mtp_ab_results(
     direct_result: BenchmarkResult,
     mtp_result: BenchmarkResult,
@@ -903,22 +1120,51 @@ def compare_mtp_ab_results(
 ) -> MtpAbComparison:
     """Soft-compare MTP-off/on results without raising on greedy divergence."""
     issues: list[str] = []
+    direct_config = direct_result.config
+    mtp_config = mtp_result.config
+    if direct_config.model != mtp_config.model:
+        issues.append("model identity differs between direct and MTP results")
+    if not is_immutable_revision(direct_config.model.revision) or not is_immutable_revision(
+        mtp_config.model.revision
+    ):
+        issues.append("model revision is not immutable in direct or MTP results")
+    if direct_config.runtime != mtp_config.runtime:
+        issues.append("runtime differs between direct and MTP results")
+    if direct_config.dataset_sha256 != mtp_config.dataset_sha256:
+        issues.append("dataset digest differs between direct and MTP results")
+    if direct_config.workload != mtp_config.workload:
+        issues.append("workload differs between direct and MTP results")
+    if direct_config.random_seed != mtp_config.random_seed:
+        issues.append("random seed differs between direct and MTP results")
+    for field_name in _AB_GENERATION_CONTROL_FIELDS:
+        if getattr(direct_config, field_name) != getattr(mtp_config, field_name):
+            issues.append(f"{field_name} differs between direct and MTP results")
     if direct_result.config.runtime_env != mtp_result.config.runtime_env:
         issues.append("runtime_env differs between direct and MTP results")
+    if direct_config.mtp_enabled:
+        issues.append("direct result configuration has MTP enabled")
+    if not mtp_config.mtp_enabled:
+        issues.append("MTP result configuration has MTP disabled")
     if direct_result.failed_count or mtp_result.failed_count:
         issues.append("one or more trials failed or timed out")
-    if (
-        direct_result.runtime_chip
-        and mtp_result.runtime_chip
-        and direct_result.runtime_chip != mtp_result.runtime_chip
-    ):
+    if not direct_result.runtime_chip or not mtp_result.runtime_chip:
+        issues.append("hardware chip is missing from direct or MTP results")
+    elif direct_result.runtime_chip != mtp_result.runtime_chip:
         issues.append("hardware chip differs between direct and MTP results")
-    if (
-        direct_result.ax_engine_version
-        and mtp_result.ax_engine_version
-        and direct_result.ax_engine_version != mtp_result.ax_engine_version
-    ):
+    if not direct_result.ax_engine_version or not mtp_result.ax_engine_version:
+        issues.append("AX Engine version is missing from direct or MTP results")
+    elif direct_result.ax_engine_version != mtp_result.ax_engine_version:
         issues.append("AX Engine version differs between direct and MTP results")
+    if direct_result.software_versions is None or mtp_result.software_versions is None:
+        issues.append("software versions are missing from direct or MTP results")
+    elif direct_result.software_versions != mtp_result.software_versions:
+        issues.append("software versions differ between direct and MTP results")
+    for label, result in (("direct", direct_result), ("MTP", mtp_result)):
+        if (
+            result.software_versions is not None
+            and result.software_versions.ax_engine != result.ax_engine_version
+        ):
+            issues.append(f"{label} AX Engine result and software versions differ")
 
     direct_measured = {
         trial.trial_index: trial
@@ -972,15 +1218,12 @@ def compare_mtp_ab_results(
                 )
             )
             continue
-        if mtp_trial.mtp_active is False:
+        if mtp_trial.mtp_active is not True:
             issues.append(f"MTP was not active for measured trial {trial_index}")
         direct_tokens = list(direct_trial.output_token_ids)
         mtp_tokens = list(mtp_trial.output_token_ids)
-        if not direct_tokens and not mtp_tokens:
-            # Unit-test runners may omit tokens; treat as non-comparable success.
-            equal = True
-            first_diff: int | None = None
-        elif not direct_tokens or not mtp_tokens:
+        first_diff: int | None
+        if not direct_tokens or not mtp_tokens:
             equal = False
             first_diff = 0
             divergent += 1
@@ -1021,16 +1264,7 @@ def compare_mtp_ab_results(
         for issue in issues
     )
     speedup_pass = speedup is not None and speedup >= minimum_speedup
-    release_ready = (
-        exactness_pass
-        and speedup_pass
-        and not any(
-            issue.startswith("hardware chip differs")
-            or issue.startswith("AX Engine version differs")
-            or issue.startswith("runtime_env differs")
-            for issue in issues
-        )
-    )
+    release_ready = exactness_pass and speedup_pass and not issues
     phase_timing = _mtp_phase_timing_summary(
         list(direct_measured.values()),
         list(mtp_measured.values()),
@@ -1038,8 +1272,14 @@ def compare_mtp_ab_results(
     )
     return MtpAbComparison(
         profile_name=profile_name,
-        runtime_env=dict(direct_result.config.runtime_env),
-        draft_depth=direct_result.config.draft_depth,
+        model=direct_config.model,
+        runtime=direct_config.runtime,
+        workload=direct_config.workload,
+        dataset_sha256=direct_config.dataset_sha256,
+        random_seed=direct_config.random_seed,
+        generation_controls=_generation_controls(direct_config),
+        runtime_env=dict(direct_config.runtime_env),
+        draft_depth=direct_config.draft_depth,
         exactness_pass=exactness_pass,
         divergent_trial_count=divergent,
         measured_trial_count=len(direct_measured),
@@ -1052,6 +1292,7 @@ def compare_mtp_ab_results(
         release_ready=release_ready,
         ax_engine_version=direct_result.ax_engine_version or mtp_result.ax_engine_version,
         runtime_chip=direct_result.runtime_chip or mtp_result.runtime_chip,
+        software_versions=direct_result.software_versions or mtp_result.software_versions,
         phase_timing=phase_timing,
         trial_comparisons=trial_comparisons,
         issues=issues,
@@ -1112,6 +1353,8 @@ def run_mtp_ab(
                 raise InvariantViolationError(
                     f"A/B invariant violated: greedy outputs differ for trial {trial_index}"
                 )
+            if issue.startswith("missing output tokens"):
+                raise BenchmarkError(issue)
             if issue.startswith("MTP was not active"):
                 raise BenchmarkError(issue)
             if issue.startswith("measured trial sets differ"):
@@ -1120,10 +1363,10 @@ def run_mtp_ab(
                 raise InvariantViolationError("A/B invariant violated: hardware chip differs")
             if issue.startswith("AX Engine version differs"):
                 raise InvariantViolationError("A/B invariant violated: AX Engine version differs")
-        if enforce_speedup and minimum_speedup is not None and not comparison.speedup_pass:
-            raise BenchmarkError(
-                f"MTP speedup {comparison.speedup} is below required {minimum_speedup}"
-            )
+    if enforce_speedup and minimum_speedup is not None and not comparison.speedup_pass:
+        raise BenchmarkError(
+            f"MTP speedup {comparison.speedup} is below required {minimum_speedup}"
+        )
 
     direct_bundle = result_to_evaluation_bundle(direct_result)
     mtp_bundle = result_to_evaluation_bundle(mtp_result)

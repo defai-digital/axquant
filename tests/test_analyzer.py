@@ -3,7 +3,10 @@ from __future__ import annotations
 from datetime import timedelta
 from pathlib import Path
 
+import pytest
+
 from axquant.analyzer import architecture_prior_report
+from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
 from axquant.schema import EvidenceKind, ProfileName
 
@@ -28,3 +31,55 @@ def test_architecture_prior_is_explicitly_unmeasured(tiny_model_dir: Path) -> No
         candidate_bits=(4, 6, 8, 16),
     )
     assert repeated.inventory_sha256 == report.inventory_sha256
+
+
+def test_architecture_prior_rejects_empty_inventory_and_candidate_grid(
+    tiny_model_dir: Path,
+) -> None:
+    inventory = inspect_model(tiny_model_dir)
+    empty = inventory.model_copy(
+        update={
+            "tensors": [],
+            "total_parameters": 0,
+            "quantizable_parameters": 0,
+        }
+    )
+    with pytest.raises(PlanningError, match="non-empty tensor inventory"):
+        architecture_prior_report(empty, profile=ProfileName.GENERAL)
+    with pytest.raises(PlanningError, match="at least one candidate"):
+        architecture_prior_report(
+            inventory,
+            profile=ProfileName.GENERAL,
+            candidate_bits=(),
+        )
+
+
+def test_architecture_prior_canonicalizes_and_validates_candidate_grid(
+    tiny_model_dir: Path,
+) -> None:
+    inventory = inspect_model(tiny_model_dir)
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.GENERAL,
+        candidate_bits=(16, 4, 4),
+        candidate_group_sizes=(64, 32, 64),
+    )
+    quantizable = next(entry for entry in report.entries if entry.tensor.quantizable)
+    assert [(candidate.bits, candidate.group_size) for candidate in quantizable.candidates] == [
+        (4, 32),
+        (4, 64),
+        (16, None),
+    ]
+
+    with pytest.raises(PlanningError, match=r"bit-widths.*5"):
+        architecture_prior_report(
+            inventory,
+            profile=ProfileName.GENERAL,
+            candidate_bits=(5, 16),
+        )
+    with pytest.raises(PlanningError, match=r"group sizes.*7"):
+        architecture_prior_report(
+            inventory,
+            profile=ProfileName.GENERAL,
+            candidate_group_sizes=(7,),
+        )

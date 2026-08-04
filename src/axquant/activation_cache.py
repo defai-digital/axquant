@@ -31,6 +31,7 @@ log = structlog.get_logger()
 _SHARD_PREFIX = "shard-"
 _SHARD_SUFFIX = ".npz"
 _COMPLETION_MARKER = "completion.json"
+_COMPLETION_SCHEMA = "axquant.tokenized-cache-completion.v1"
 _MANIFEST_NAME = "tokenized_cache_manifest.json"
 _BACKEND_VERSION = "axquant-tokenizer-v1"
 _SAMPLES_PER_SHARD = 100
@@ -91,6 +92,15 @@ def verify_cache_integrity(cache_dir: Path, manifest: TokenizedCacheManifest) ->
     if not tokenized_dir.is_dir():
         issues.append("tokenized directory missing")
         return issues
+
+    expected_shards = {
+        _shard_path(tokenized_dir, index).name for index in range(manifest.shard_count)
+    }
+    recorded_shards = set(manifest.shard_sha256)
+    for name in sorted(expected_shards - recorded_shards):
+        issues.append(f"missing checksum binding: {name}")
+    for name in sorted(recorded_shards - expected_shards):
+        issues.append(f"unexpected checksum binding: {name}")
 
     for i in range(manifest.shard_count):
         shard = _shard_path(tokenized_dir, i)
@@ -224,9 +234,42 @@ def _write_npz_atomic(path: Path, *, compressed: bool = False, **arrays: Any) ->
         raise
 
 
-def is_cache_complete(cache_dir: Path) -> bool:
-    """Check whether the atomic completion marker exists."""
-    return (cache_dir / _COMPLETION_MARKER).is_file()
+def is_cache_complete(
+    cache_dir: Path,
+    manifest: TokenizedCacheManifest | None = None,
+) -> bool:
+    """Verify that the completion marker binds the finished cache manifest.
+
+    Legacy markers did not carry a schema or manifest digest. They remain
+    readable only when every field they did record matches the manifest; new
+    markers additionally bind the complete semantic manifest identity.
+    """
+
+    bound_manifest = manifest or load_cache_manifest(cache_dir)
+    if bound_manifest is None or not bound_manifest.complete:
+        return False
+    marker_path = cache_dir / _COMPLETION_MARKER
+    if not marker_path.is_file():
+        return False
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(marker, dict) or marker.get("complete") is not True:
+        return False
+    expected_fields: dict[str, Any] = {
+        "cache_key_sha256": bound_manifest.cache_key_sha256,
+        "shard_count": bound_manifest.shard_count,
+        "total_tokens": bound_manifest.total_tokens,
+    }
+    if any(marker.get(name) != expected for name, expected in expected_fields.items()):
+        return False
+    schema_version = marker.get("schema_version")
+    if schema_version is None:
+        return True
+    if schema_version != _COMPLETION_SCHEMA:
+        return False
+    return marker.get("manifest_sha256") == stable_sha256(bound_manifest)
 
 
 def load_cache_manifest(cache_dir: Path) -> TokenizedCacheManifest | None:
@@ -291,6 +334,14 @@ def tokenize_calibration(
     versions = collect_versions()
     cache_dir = Path(output_dir).expanduser().resolve()
     existing_manifest = load_cache_manifest(cache_dir)
+    if (
+        existing_manifest is not None
+        and existing_manifest.calibration_manifest_sha256 != calibration_manifest_sha256
+    ):
+        raise CacheError(
+            "calibration cache already exists with a different calibration manifest binding "
+            f"at {cache_dir}; use a new output directory"
+        )
     if existing_manifest is not None and (
         existing_manifest.dataset_sha256 != dataset_sha
         or existing_manifest.model != model
@@ -321,7 +372,7 @@ def tokenize_calibration(
     # Check for existing cache with same key
     if existing_manifest is not None:
         if existing_manifest.cache_key_sha256 == cache_key:
-            if is_cache_complete(cache_dir):
+            if is_cache_complete(cache_dir, existing_manifest):
                 issues = verify_cache_integrity(cache_dir, existing_manifest)
                 if issues:
                     raise CacheError(f"completed calibration cache failed verification: {issues}")
@@ -449,13 +500,11 @@ def tokenize_calibration(
 def _write_completion_marker(cache_dir: Path, manifest: TokenizedCacheManifest) -> None:
     """Write the atomic completion marker."""
     marker_data = {
+        "schema_version": _COMPLETION_SCHEMA,
         "complete": True,
         "cache_key_sha256": manifest.cache_key_sha256,
+        "manifest_sha256": stable_sha256(manifest),
         "shard_count": manifest.shard_count,
         "total_tokens": manifest.total_tokens,
     }
-    marker_path = cache_dir / _COMPLETION_MARKER
-    marker_path.write_text(
-        json.dumps(marker_data, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    write_data(cache_dir / _COMPLETION_MARKER, marker_data)

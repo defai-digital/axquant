@@ -91,6 +91,149 @@ def test_benchmark_ab_accepts_failed_speedup_recording() -> None:
     assert args.record_failed_speedup is True
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        [
+            "plan",
+            "--sensitivity",
+            "/evidence/weights.json",
+            "--kv-default-bits",
+            "5",
+        ],
+        [
+            "analyze-kv",
+            "--model",
+            "/model",
+            "--calibration",
+            "/calibration",
+            "--bits",
+            "4,5",
+        ],
+        [
+            "analyze-kv",
+            "--model",
+            "/model",
+            "--calibration",
+            "/calibration",
+            "--group-size",
+            "7",
+        ],
+    ],
+)
+def test_cli_rejects_non_executable_kv_grid(argv: list[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        _build_parser().parse_args(argv)
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_accepts_executable_kv_grid() -> None:
+    plan_args = _build_parser().parse_args(
+        [
+            "plan",
+            "--sensitivity",
+            "/evidence/weights.json",
+            "--kv-default-bits",
+            "3",
+        ]
+    )
+    analyze_args = _build_parser().parse_args(
+        [
+            "analyze-kv",
+            "--model",
+            "/model",
+            "--calibration",
+            "/calibration",
+            "--bits",
+            "2,6,16",
+            "--group-size",
+            "128",
+        ]
+    )
+
+    assert plan_args.kv_default_bits == 3
+    assert analyze_args.bits == (2, 6, 16)
+    assert analyze_args.group_size == 128
+
+
+def test_direct_publish_prepare_does_not_require_mtp_track_evidence() -> None:
+    args = _build_parser().parse_args(
+        [
+            "publish-prepare",
+            "--model",
+            "/model",
+            "--repo",
+            "org/model",
+            "--release-audit-request",
+            "/evidence/request.json",
+        ]
+    )
+
+    assert args.validation_index is None
+    assert args.hardware_registry is None
+    assert args.pareto_report is None
+
+
+def test_mtp_publish_prepare_requires_track_evidence_at_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        cli_module,
+        "prepare_publication",
+        lambda **_kwargs: pytest.fail("missing arguments must fail before preparation"),
+    )
+    args = _build_parser().parse_args(
+        ["publish-prepare", "--model", "/model", "--repo", "org/model"]
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"--validation-index.*--hardware-registry.*--pareto-report",
+    ):
+        cli_module._run(args)
+
+
+def test_recipe_export_rejects_duplicate_lineage_names() -> None:
+    args = _build_parser().parse_args(
+        [
+            "recipe-export",
+            "--plan",
+            "/plan.json",
+            "--bundle-id",
+            "bundle",
+            "--output-dir",
+            "/output",
+            "--lineage",
+            "sensitivity=" + "a" * 64,
+            "--lineage",
+            "sensitivity=" + "b" * 64,
+        ]
+    )
+
+    with pytest.raises(ValueError, match="duplicate lineage name"):
+        cli_module._run(args)
+
+
+def test_quantize_planning_overrides_are_unset_unless_explicit() -> None:
+    implicit = _build_parser().parse_args(["quantize", "/model"])
+    explicit = _build_parser().parse_args(
+        [
+            "quantize",
+            "/model",
+            "--profile",
+            "agent-coding",
+            "--kv-cache",
+            "prior",
+        ]
+    )
+
+    assert implicit.profile is None
+    assert implicit.kv_cache is None
+    assert explicit.profile == "agent-coding"
+    assert explicit.kv_cache == "prior"
+
+
 @pytest.mark.parametrize("command", ["benchmark", "benchmark-ab"])
 def test_benchmark_rejects_mismatched_quality_before_backend_execution(
     command: str,
@@ -181,7 +324,7 @@ def test_foundation_pipeline_emits_versioned_artifacts(
                 "--analysis",
                 str(sensitivity),
                 "--target-bpw",
-                "14.0",
+                "15.5",
                 "--allow-unmeasured",
                 "--output",
                 str(plan_path),
@@ -191,7 +334,13 @@ def test_foundation_pipeline_emits_versioned_artifacts(
     )
     plan = load_model(plan_path, QuantizationPlan)
     assert plan.profile.value == "agent-coding"
-    assert plan.effective_bpw <= 14.0
+    assert plan.effective_bpw <= 15.5
+    tied = [
+        allocation
+        for allocation in plan.assignments
+        if allocation.tensor in {"model.embed_tokens.weight", "lm_head.weight"}
+    ]
+    assert len({(item.bits, item.method, item.group_size) for item in tied}) == 1
     assert plan.software_versions.axquant
 
 

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from axquant import gptq
 from axquant.errors import PlanningError
 from axquant.gptq import apply_mlx_gptq_refine, learn_gptq_refined_weight
 
@@ -109,3 +110,100 @@ def test_apply_mlx_gptq_refine_requires_a_weight_tensor() -> None:
     pytest.importorskip("mlx.core")
     with pytest.raises(PlanningError, match="requires a module with a weight"):
         apply_mlx_gptq_refine(SimpleNamespace(), activations=None, bits=4, group_size=32)
+
+
+def test_gptq_rejects_non_finite_inputs() -> None:
+    weight = np.ones((2, 32), dtype=np.float32)
+    activations = np.ones((4, 32), dtype=np.float32)
+    invalid_weight = weight.copy()
+    invalid_weight[0, 0] = np.nan
+    with pytest.raises(PlanningError, match="finite values"):
+        learn_gptq_refined_weight(
+            invalid_weight,
+            activations,
+            bits=4,
+            group_size=32,
+        )
+    invalid_activations = activations.copy()
+    invalid_activations[0, 0] = np.inf
+    with pytest.raises(PlanningError, match="finite values"):
+        learn_gptq_refined_weight(
+            weight,
+            invalid_activations,
+            bits=4,
+            group_size=32,
+        )
+
+
+@pytest.mark.parametrize("block_size", [0, -1, True])
+def test_gptq_rejects_invalid_block_size(block_size: int) -> None:
+    with pytest.raises(PlanningError, match="block_size must be a positive integer"):
+        learn_gptq_refined_weight(
+            np.ones((2, 32), dtype=np.float32),
+            np.ones((4, 32), dtype=np.float32),
+            bits=4,
+            group_size=32,
+            block_size=block_size,
+        )
+
+
+@pytest.mark.parametrize("damping", [-0.01, float("nan"), float("inf"), True])
+def test_gptq_rejects_invalid_damping(damping: float) -> None:
+    with pytest.raises(PlanningError, match="damping must be a finite non-negative number"):
+        learn_gptq_refined_weight(
+            np.ones((2, 32), dtype=np.float32),
+            np.ones((4, 32), dtype=np.float32),
+            bits=4,
+            group_size=32,
+            damping=damping,
+        )
+
+
+def test_gptq_zero_damping_escalates_if_factorization_needs_it() -> None:
+    refined, metadata = learn_gptq_refined_weight(
+        np.ones((2, 32), dtype=np.float32),
+        np.ones((4, 32), dtype=np.float32),
+        bits=4,
+        group_size=32,
+        damping=0.0,
+    )
+    assert np.all(np.isfinite(refined))
+    assert metadata["gptq_damping"] >= 0.0
+
+
+def test_gptq_rejects_scalar_activations() -> None:
+    with pytest.raises(PlanningError, match="calibration channels"):
+        learn_gptq_refined_weight(
+            np.ones((2, 32), dtype=np.float32),
+            np.array(1.0),
+            bits=4,
+            group_size=32,
+        )
+
+
+def test_apply_mlx_gptq_refine_does_not_mutate_when_materialization_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FailingMlx:
+        @staticmethod
+        def array(value: np.ndarray, *, dtype: np.dtype[np.float32]) -> np.ndarray:
+            return np.asarray(value, dtype=dtype)
+
+        @staticmethod
+        def eval(value: np.ndarray) -> None:
+            del value
+            raise RuntimeError("materialization failed")
+
+    monkeypatch.setattr(gptq.importlib, "import_module", lambda _name: _FailingMlx)
+    original = np.ones((2, 32), dtype=np.float32)
+    module = SimpleNamespace(weight=original)
+
+    with pytest.raises(PlanningError, match="materialization failed"):
+        apply_mlx_gptq_refine(
+            module,
+            activations=np.ones((4, 32), dtype=np.float32),
+            bits=4,
+            group_size=32,
+        )
+
+    assert module.weight is original

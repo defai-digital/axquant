@@ -13,6 +13,7 @@ from axquant.profiles import thresholds_for
 from axquant.refinement import (
     _ax_engine_attention_packing_compatible,
     _canonicalize_ax_engine_attention_packs,
+    _complete_objective_loss,
     _compute_plan_loss,
     _is_monotonic_precision_refinement,
     build_complete_candidate_measurement,
@@ -42,6 +43,10 @@ from axquant.schema import (
     TensorSpec,
 )
 from axquant.serde import stable_sha256
+
+_ARTIFACT_SHA = "a" * 64
+_QUALITY_SHA = "b" * 64
+_VALIDATION_SHA = "c" * 64
 
 
 def _make_tensor(name: str, role: TensorRole, params: int = 1024) -> TensorSpec:
@@ -357,6 +362,25 @@ class TestRefineCandidates:
             assert entry.state in ("selected", "rejected", "pending")
             assert entry.candidate_id
             assert entry.plan_sha256
+        assert [entry.candidate_id for entry in result.history if entry.state == "selected"] == [
+            result.selected_candidate_id
+        ]
+        assert all(entry.state != "pending" for entry in result.history)
+
+    def test_initial_generation_respects_evaluation_budget(self) -> None:
+        result = refine_candidates(
+            _make_sensitivity_report(),
+            _make_request(target_bpw=8.0),
+            RefinementConfig(
+                top_n=20,
+                max_iterations=1,
+                evaluation_budget=1,
+                random_seed=9,
+            ),
+        )
+
+        assert result.evaluations_used == 1
+        assert len(result.history) == 1
 
     def test_result_schema(self) -> None:
         report = _make_sensitivity_report()
@@ -465,12 +489,24 @@ def test_complete_model_selection_uses_only_passing_measurements() -> None:
                 ),
                 profile=refinement.selected_plan.profile,
                 plan_sha256=entry.plan_sha256,
-                artifact_manifest_sha256=f"artifact-{index}",
-                quality_comparison_sha256=f"quality-{index}",
-                validation_sha256=f"validation-{index}",
+                artifact_manifest_sha256=f"{index + 1:064x}",
+                quality_comparison_sha256=f"{index + 11:064x}",
+                validation_sha256=f"{index + 21:064x}",
                 measured_bpw=7.5 + index,
-                objective_loss=0.1 + index,
+                objective_loss=(
+                    0.1
+                    if index == 0
+                    else _complete_objective_loss(
+                        refinement.candidate_plans[entry.candidate_id],
+                        quality_retention=1.0,
+                        perplexity_ratio=1.0,
+                        mtp_acceptance_retention=0.97,
+                        mtp_speedup=1.25,
+                        peak_memory_ratio=0.8,
+                    )
+                ),
                 quality_retention=1.0,
+                perplexity_ratio=1.0,
                 mtp_acceptance_retention=0.97,
                 mtp_speedup=1.25,
                 peak_memory_ratio=0.8,
@@ -482,7 +518,15 @@ def test_complete_model_selection_uses_only_passing_measurements() -> None:
         update={
             "measurement_id": f"{records[1].candidate_id}-second-host",
             "measured_bpw": records[1].measured_bpw + 0.2,
-            "objective_loss": records[1].objective_loss + 0.2,
+            "peak_memory_ratio": 0.9,
+            "objective_loss": _complete_objective_loss(
+                refinement.candidate_plans[records[1].candidate_id],
+                quality_retention=1.0,
+                perplexity_ratio=1.0,
+                mtp_acceptance_retention=0.97,
+                mtp_speedup=1.25,
+                peak_memory_ratio=0.9,
+            ),
         }
     )
     selected = select_complete_candidate(
@@ -523,9 +567,9 @@ def test_complete_model_selection_rejects_all_failed_candidates() -> None:
                 ),
                 profile=refinement.selected_plan.profile,
                 plan_sha256=entry.plan_sha256,
-                artifact_manifest_sha256="artifact",
-                quality_comparison_sha256="quality",
-                validation_sha256="validation",
+                artifact_manifest_sha256=_ARTIFACT_SHA,
+                quality_comparison_sha256=_QUALITY_SHA,
+                validation_sha256=_VALIDATION_SHA,
                 measured_bpw=8.0,
                 objective_loss=0.1,
                 quality_retention=0.9,
@@ -544,6 +588,63 @@ def test_complete_model_selection_rejects_all_failed_candidates() -> None:
         select_complete_candidate(refinement, measurements)
 
 
+def test_complete_model_selection_rejects_tampered_objective_and_binding() -> None:
+    refinement = refine_candidates(
+        _make_sensitivity_report(),
+        _make_request(target_bpw=8.0),
+        RefinementConfig(top_n=1, max_iterations=1),
+    )
+    entry = refinement.history[0]
+    plan = refinement.candidate_plans[entry.candidate_id]
+    measurement = CompleteCandidateMeasurement(
+        candidate_id=entry.candidate_id,
+        candidate_model=ModelIdentity(model_id="AutomatosX/candidate", revision="candidate"),
+        profile=plan.profile,
+        plan_sha256=stable_sha256(plan),
+        artifact_manifest_sha256=_ARTIFACT_SHA,
+        quality_comparison_sha256=_QUALITY_SHA,
+        validation_sha256=_VALIDATION_SHA,
+        measured_bpw=8.0,
+        objective_loss=0.0,
+        quality_retention=1.0,
+        perplexity_ratio=1.0,
+        mtp_acceptance_retention=1.0,
+        mtp_speedup=1.25,
+        peak_memory_ratio=0.8,
+        hardware=_complete_hardware(),
+        validation_passed=True,
+    )
+    measurements = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test",
+        measurements=[measurement],
+    )
+
+    with pytest.raises(RefinementError, match="measurement objective differs"):
+        select_complete_candidate(refinement, measurements)
+
+    correctly_scored = measurement.model_copy(
+        update={
+            "objective_loss": _complete_objective_loss(
+                plan,
+                quality_retention=measurement.quality_retention,
+                perplexity_ratio=measurement.perplexity_ratio or 1.0,
+                mtp_acceptance_retention=measurement.mtp_acceptance_retention,
+                mtp_speedup=measurement.mtp_speedup,
+                peak_memory_ratio=measurement.peak_memory_ratio,
+            )
+        }
+    )
+    wrong_binding = measurements.model_copy(
+        update={
+            "refinement_sha256": "wrong-refinement",
+            "measurements": [correctly_scored],
+        }
+    )
+    with pytest.raises(RefinementError, match="does not bind"):
+        select_complete_candidate(refinement, wrong_binding)
+
+
 def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
     refinement = refine_candidates(
         _make_sensitivity_report(),
@@ -555,7 +656,16 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
     reference_model = ModelIdentity(model_id="AutomatosX/reference", revision="reference")
     artifact = SimpleNamespace(
         plan_sha256=stable_sha256(plan),
+        source_model=plan.source_model,
+        calibration=plan.calibration,
         profile=plan.profile,
+        target_class=plan.target_class,
+        mtp_policy=plan.mtp,
+        software_versions=plan.software_versions,
+        weight_distribution=plan.weight_distribution,
+        mtp_distribution=plan.mtp_distribution,
+        logical_parameters=sum(assignment.parameters for assignment in plan.assignments),
+        effective_bpw=plan.effective_bpw,
         weight_file_size_bytes=100,
         measured_total_bpw=7.5,
     )
@@ -574,9 +684,11 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
         issues=[],
         release_exceptions=[],
         comparisons={
-            "artifact.candidate_source_sha256": "artifact-sha",
+            "artifact.candidate_source_sha256": _ARTIFACT_SHA,
             "artifact.candidate_weight_bytes": 100,
             "artifact.weight_size_ratio": 1.05,
+            "quality.aggregate_retention": 0.99,
+            "perplexity_relative_increase": -0.05,
             "mtp.acceptance_retention": 0.98,
             "hardware.effective_speedup": 1.25,
             "hardware.peak_memory_ratio": 0.8,
@@ -595,11 +707,11 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
         candidate_id=candidate_id,
         plan=plan,
         artifact=artifact,
-        artifact_sha256="artifact-sha",
+        artifact_sha256=_ARTIFACT_SHA,
         quality=quality,
-        quality_sha256="quality-sha",
+        quality_sha256=_QUALITY_SHA,
         validation=validation,
-        validation_sha256="validation-sha",
+        validation_sha256=_VALIDATION_SHA,
     )
     assert measurement.plan_sha256 == stable_sha256(plan)
     assert measurement.measured_bpw == 7.5
@@ -615,11 +727,11 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
             candidate_id=candidate_id,
             plan=plan,
             artifact=artifact,
-            artifact_sha256="artifact-sha",
+            artifact_sha256=_ARTIFACT_SHA,
             quality=quality,
-            quality_sha256="quality-sha",
+            quality_sha256=_QUALITY_SHA,
             validation=validation,
-            validation_sha256="validation-sha",
+            validation_sha256=_VALIDATION_SHA,
         )
     validation.thresholds = thresholds_for(plan.profile)
 
@@ -629,11 +741,11 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
             candidate_id=candidate_id,
             plan=plan,
             artifact=artifact,
-            artifact_sha256="artifact-sha",
+            artifact_sha256=_ARTIFACT_SHA,
             quality=quality,
-            quality_sha256="quality-sha",
+            quality_sha256=_QUALITY_SHA,
             validation=validation,
-            validation_sha256="validation-sha",
+            validation_sha256=_VALIDATION_SHA,
         )
     validation.comparisons["artifact.weight_size_ratio"] = 1.05
 
@@ -643,9 +755,95 @@ def test_complete_measurement_is_built_from_bound_release_artifacts() -> None:
             candidate_id=candidate_id,
             plan=plan,
             artifact=artifact,
-            artifact_sha256="artifact-sha",
+            artifact_sha256=_ARTIFACT_SHA,
             quality=quality,
-            quality_sha256="quality-sha",
+            quality_sha256=_QUALITY_SHA,
             validation=validation,
-            validation_sha256="validation-sha",
+            validation_sha256=_VALIDATION_SHA,
+        )
+
+
+def test_complete_measurement_rejects_cross_bound_quality_and_artifact_metadata() -> None:
+    refinement = refine_candidates(
+        _make_sensitivity_report(),
+        _make_request(target_bpw=8.0),
+        RefinementConfig(top_n=1, max_iterations=1),
+    )
+    candidate_id, plan = next(iter(refinement.candidate_plans.items()))
+    candidate_model = ModelIdentity(model_id="AutomatosX/candidate", revision="candidate")
+    reference_model = ModelIdentity(model_id="AutomatosX/reference", revision="reference")
+    artifact = SimpleNamespace(
+        plan_sha256=stable_sha256(plan),
+        source_model=plan.source_model,
+        calibration=plan.calibration,
+        profile=plan.profile,
+        target_class=plan.target_class,
+        mtp_policy=plan.mtp,
+        software_versions=plan.software_versions,
+        weight_distribution=plan.weight_distribution,
+        mtp_distribution=plan.mtp_distribution,
+        logical_parameters=sum(assignment.parameters for assignment in plan.assignments),
+        effective_bpw=plan.effective_bpw,
+        weight_file_size_bytes=100,
+        measured_total_bpw=7.5,
+    )
+    quality = SimpleNamespace(
+        reference_model=reference_model,
+        candidate_model=candidate_model,
+        aggregate=SimpleNamespace(retention=0.99),
+        perplexity_ratio=0.95,
+    )
+    validation = SimpleNamespace(
+        profile=plan.profile,
+        reference_model=reference_model,
+        candidate_model=candidate_model,
+        passed=True,
+        thresholds=thresholds_for(plan.profile),
+        issues=[],
+        release_exceptions=[],
+        comparisons={
+            "artifact.candidate_source_sha256": _ARTIFACT_SHA,
+            "artifact.candidate_weight_bytes": 100,
+            "artifact.weight_size_ratio": 1.05,
+            "quality.aggregate_retention": 0.98,
+            "perplexity_relative_increase": -0.05,
+            "mtp.acceptance_retention": 0.98,
+            "hardware.effective_speedup": 1.25,
+            "hardware.peak_memory_ratio": 0.8,
+            "hardware.device_name": "Test Mac",
+            "hardware.chip": "M4 Max",
+            "hardware.unified_memory_bytes": 128 * 1024**3,
+            "hardware.os_version": "macOS",
+            "software.ax_engine": "6.11.1",
+            "software.mlx": "0.32.0",
+            "software.mlx_lm": "0.31.0",
+            "hardware.power_mode": "AC power",
+            "hardware.kernel_fallbacks": 0,
+        },
+    )
+
+    with pytest.raises(RefinementError, match="retention does not match"):
+        build_complete_candidate_measurement(
+            candidate_id=candidate_id,
+            plan=plan,
+            artifact=artifact,
+            artifact_sha256=_ARTIFACT_SHA,
+            quality=quality,
+            quality_sha256=_QUALITY_SHA,
+            validation=validation,
+            validation_sha256=_VALIDATION_SHA,
+        )
+
+    validation.comparisons["quality.aggregate_retention"] = 0.99
+    artifact.target_class = "another-target"
+    with pytest.raises(RefinementError, match="metadata differs"):
+        build_complete_candidate_measurement(
+            candidate_id=candidate_id,
+            plan=plan,
+            artifact=artifact,
+            artifact_sha256=_ARTIFACT_SHA,
+            quality=quality,
+            quality_sha256=_QUALITY_SHA,
+            validation=validation,
+            validation_sha256=_VALIDATION_SHA,
         )

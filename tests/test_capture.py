@@ -19,6 +19,7 @@ from axquant.capture import (
     capture_calibration_activations,
     load_capture_activations,
 )
+from axquant.capture_binding import LoadedActivationCapture
 from axquant.errors import CaptureError
 from axquant.schema import (
     ActivationCaptureEntry,
@@ -137,6 +138,19 @@ class TestManifestSchema:
 
 
 class TestLoadCaptureActivations:
+    def test_direct_wrapper_construction_is_rejected(self, tmp_path: Path) -> None:
+        manifest = _manifest(())
+
+        with pytest.raises(TypeError, match="use load_capture_activations"):
+            LoadedActivationCapture(
+                manifest=manifest,
+                manifest_sha256=stable_sha256(manifest),
+                activations={},
+                source_dir=tmp_path,
+            )
+        with pytest.raises(TypeError, match="cannot be subclassed"):
+            type("ForgedActivationCapture", (LoadedActivationCapture,), {})
+
     def test_happy_path_returns_fp16_mapping(self, tmp_path: Path) -> None:
         capture = _write_capture_dir(tmp_path)
         loaded = load_capture_activations(capture, model="test-model", revision="rev1")
@@ -149,6 +163,11 @@ class TestLoadCaptureActivations:
         assert loaded.manifest_sha256 == stable_sha256(loaded.manifest)
         assert loaded.source_dir == capture.resolve()
         assert loaded["model.layers.0.mlp.down_proj"].flags.writeable is False
+        with pytest.raises(ValueError):
+            loaded["model.layers.0.mlp.down_proj"].setflags(write=True)
+        exposed_manifest = loaded.manifest
+        exposed_manifest.cache_key_sha256 = "0" * 64
+        assert loaded.manifest.cache_key_sha256 == "b" * 64
 
     def test_model_mismatch_fails_closed(self, tmp_path: Path) -> None:
         capture = _write_capture_dir(tmp_path)

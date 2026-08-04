@@ -63,7 +63,7 @@ pytestmark = [
 # convertible tier, so planning and conversion pass the fail-closed scope
 # gates without weakening them.
 _MODEL_ID = "openbmb/MiniCPM5-1B"
-_REVISION = "rev0"
+_REVISION = "a" * 40
 _GROUP_SIZE = 32
 _BITS = (4,)
 

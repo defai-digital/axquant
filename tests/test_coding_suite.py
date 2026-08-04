@@ -3,12 +3,19 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from axquant.coding_sandbox import evaluate_coding_suite, score_coding_task, verify_coding_suite
+from axquant.coding_sandbox import (
+    _compile_and_test_commands,
+    _wait_with_limits,
+    evaluate_coding_suite,
+    score_coding_task,
+    verify_coding_suite,
+)
 from axquant.coding_suite import (
     SANDBOX_PROFILE_SHA256,
     build_coding_suite,
@@ -75,6 +82,45 @@ def test_reference_coding_suite_has_frozen_quotas_and_bindings(tmp_path: Path) -
     )
 
 
+@pytest.mark.parametrize(
+    ("language", "candidate_path", "toolchain"),
+    [
+        ("rust", "candidate.rs", "rustc"),
+        ("go", "candidate.go", "go"),
+    ],
+)
+def test_compile_only_native_tasks_do_not_require_test_fixtures(
+    tmp_path: Path,
+    language: str,
+    candidate_path: str,
+    toolchain: str,
+) -> None:
+    fixture_dir = tmp_path / "fixture"
+    output_dir = tmp_path / "output"
+    fixture_dir.mkdir()
+    output_dir.mkdir()
+    (output_dir / candidate_path).write_text("", encoding="utf-8")
+    payload = CodingTaskPayload(
+        task_id=f"{language}-compile",
+        category=language,
+        language=language,
+        scorer=CodingScorer.COMPILE,
+        prompt="Compile this source.",
+        candidate_path=candidate_path,
+        target_tokens=1,
+    )
+
+    commands, _environment = _compile_and_test_commands(
+        payload,
+        fixture_dir=fixture_dir,
+        output_dir=output_dir,
+        executables={language: toolchain},
+    )
+
+    assert len(commands) == 1
+    assert commands[0][0] == toolchain
+
+
 def test_coding_suite_rejects_a_tampered_task_shard(tmp_path: Path) -> None:
     output = tmp_path / "suite"
     manifest = build_coding_suite(
@@ -86,6 +132,43 @@ def test_coding_suite_rejects_a_tampered_task_shard(tmp_path: Path) -> None:
 
     with pytest.raises(ArtifactError, match="missing or stale"):
         load_coding_payloads(output / "coding-suite-manifest.json", manifest)
+
+
+def test_coding_suite_rejects_unbound_dataset_policy_and_symlinked_shard(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "suite"
+    manifest = build_coding_suite(
+        output,
+        calibration_path=_calibration(tmp_path / "calibration.jsonl"),
+    )
+    manifest_path = output / "coding-suite-manifest.json"
+
+    unbound = manifest.model_copy(update={"dataset_sha256": "0" * 64})
+    write_data(manifest_path, unbound)
+    with pytest.raises(ArtifactError, match="does not bind"):
+        load_coding_payloads(manifest_path)
+
+    wrong_policy = manifest.model_copy(update={"sandbox_profile_sha256": "0" * 64})
+    write_data(manifest_path, wrong_policy)
+    with pytest.raises(ArtifactError, match="sandbox policy"):
+        load_coding_payloads(manifest_path)
+
+    write_data(manifest_path, manifest)
+    shard = output / next(iter(manifest.task_shards))
+    outside = tmp_path / shard.name
+    shard.replace(outside)
+    shard.symlink_to(outside)
+    with pytest.raises(ArtifactError, match=r"unsafe|missing or stale"):
+        load_coding_payloads(manifest_path)
+
+
+@pytest.mark.parametrize("unsafe_path", [".", "nested//file.py", "nested/./file.py"])
+def test_coding_payload_rejects_noncanonical_paths(unsafe_path: str) -> None:
+    payload = reference_coding_payloads()[0].model_dump(mode="json")
+    payload["candidate_path"] = unsafe_path
+    with pytest.raises(ValueError, match="safe relative paths"):
+        CodingTaskPayload.model_validate(payload)
 
 
 def test_coding_task_ids_cannot_escape_raw_evidence_directories() -> None:
@@ -243,6 +326,52 @@ def test_executable_scorer_fails_closed_without_sandbox(tmp_path: Path) -> None:
     assert result.infrastructure_error
     assert result.score == 0.0
     assert not result.sandboxed
+
+
+def test_coding_raw_output_symlink_is_rejected_before_write(tmp_path: Path) -> None:
+    task, payload = _python_task()
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    external = tmp_path / "external.txt"
+    external.write_text("preserve", encoding="utf-8")
+    (logs / f"{task.task_id}.model-output.txt").symlink_to(external)
+    with pytest.raises(BenchmarkError, match="symbolic link"):
+        score_coding_task(
+            task=task,
+            payload=payload,
+            model_output=CodingModelOutput(
+                task_id=task.task_id,
+                output="candidate",
+                generated_tokens=1,
+                perplexity_loss=1.0,
+                perplexity_tokens=1,
+            ),
+            raw_log_dir=logs,
+            work_root=tmp_path / "work",
+        )
+    assert external.read_text(encoding="utf-8") == "preserve"
+
+
+def test_coding_output_limit_checks_final_process_bytes(tmp_path: Path) -> None:
+    stdout_path = tmp_path / "stdout"
+    stderr_path = tmp_path / "stderr"
+    with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import sys; sys.stdout.write('x' * 4096)"],
+            stdout=stdout,
+            stderr=stderr,
+            start_new_session=True,
+        )
+        result = _wait_with_limits(
+            process,
+            wall_seconds=5,
+            memory_limit_bytes=1024**3,
+            process_limit=8,
+            output_limit_bytes=16,
+            stdout_path=stdout_path,
+            stderr_path=stderr_path,
+        )
+    assert result[4] is True
 
 
 class _FakeCodingBackend:

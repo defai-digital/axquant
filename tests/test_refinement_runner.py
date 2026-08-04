@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from axquant.analyzer import architecture_prior_report
+from axquant.calibration import calibration_manifest_sha256
 from axquant.cli import main
 from axquant.errors import RefinementError
 from axquant.inspector import inspect_model
@@ -28,7 +29,7 @@ from axquant.schema import (
     RefinementMeasurementSet,
     RefinementResult,
 )
-from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.serde import load_model, stable_sha256, write_data
 
 
 def _inputs(
@@ -39,7 +40,7 @@ def _inputs(
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision="a" * 40,
     )
     calibration = CalibrationManifest(
         model=inventory.model,
@@ -74,7 +75,7 @@ def _inputs(
         sequence_length=calibration.sequence_length,
         backend="mlx",
         reference=calibration_path.name,
-        metadata={"calibration_manifest_sha256": file_sha256(calibration_path)},
+        metadata={"calibration_manifest_sha256": calibration_manifest_sha256(calibration)},
     )
     candidate_id = "cand-0007-000"
     plan_sha256 = stable_sha256(plan)
@@ -256,7 +257,7 @@ def test_refinement_execution_merges_measurement_and_selects(
                             candidate_id=candidate_id,
                             candidate_model=ModelIdentity(
                                 model_id="AutomatosX/AX-Qwen3.6-test-cand-0007-000",
-                                revision=f"axquant-plan-{stable_sha256(plan)[:24]}",
+                                revision=stable_sha256(plan)[:40],
                             ),
                             profile=plan.profile,
                             plan_sha256=stable_sha256(plan),

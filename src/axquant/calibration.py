@@ -8,6 +8,26 @@ from axquant.schema import CalibrationManifest, ModelIdentity, ProfileName
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 
+def calibration_manifest_sha256(manifest: CalibrationManifest) -> str:
+    """Return the semantic identity used to bind calibration evidence.
+
+    ``created_at`` records when a reusable manifest was first materialized; it
+    is not an input to calibration and therefore is not part of the binding.
+    """
+
+    return stable_sha256(manifest.model_dump(mode="json", exclude={"created_at"}))
+
+
+def calibration_manifest_matches(
+    path: Path,
+    manifest: CalibrationManifest,
+    expected_sha256: str,
+) -> bool:
+    """Match current semantic bindings and legacy byte-level bindings."""
+
+    return expected_sha256 in {calibration_manifest_sha256(manifest), file_sha256(path)}
+
+
 def _count_jsonl(path: Path) -> int:
     samples = 0
     try:
@@ -37,6 +57,7 @@ def prepare_calibration(
     domains: list[str],
     sequence_length: int,
     random_seed: int,
+    tokenizer_revision: str | None = None,
     separation_attested: bool,
 ) -> CalibrationManifest:
     dataset_path = Path(dataset).expanduser().resolve()
@@ -51,6 +72,7 @@ def prepare_calibration(
         domains=domains,
         sequence_length=sequence_length,
         random_seed=random_seed,
+        tokenizer_revision=tokenizer_revision or model.revision,
         calibration_evaluation_separation_attested=separation_attested,
     )
     output = Path(output_dir).expanduser().resolve()

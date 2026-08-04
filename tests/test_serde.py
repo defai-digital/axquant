@@ -8,7 +8,7 @@ import pytest
 
 from axquant.errors import ArtifactError
 from axquant.schema import Inventory, ModelIdentity, TensorRole, TensorSpec
-from axquant.serde import load_model, stable_sha256, write_data
+from axquant.serde import load_model, read_data, stable_sha256, write_data
 
 
 def _tensor() -> TensorSpec:
@@ -83,3 +83,33 @@ def test_load_model_rejects_an_artifact_missing_schema_version(tmp_path: Path) -
 
     with pytest.raises(ArtifactError, match="missing required 'schema_version'"):
         load_model(path, Inventory)
+
+
+@pytest.mark.parametrize("suffix", [".json", ".yaml"])
+def test_write_data_rejects_non_finite_raw_values(tmp_path: Path, suffix: str) -> None:
+    with pytest.raises(ArtifactError, match="non-finite"):
+        write_data(tmp_path / f"artifact{suffix}", {"metric": float("inf")})
+
+
+def test_stable_sha256_rejects_non_finite_raw_values() -> None:
+    with pytest.raises(ValueError, match="JSON compliant"):
+        stable_sha256({"metric": float("nan")})
+
+
+@pytest.mark.parametrize(
+    ("name", "payload"),
+    [
+        ("artifact.json", '{"metric": NaN}'),
+        ("artifact.yaml", "metric: .inf\n"),
+    ],
+)
+def test_read_data_rejects_non_finite_raw_values(
+    tmp_path: Path,
+    name: str,
+    payload: str,
+) -> None:
+    path = tmp_path / name
+    path.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match="non-finite"):
+        read_data(path)

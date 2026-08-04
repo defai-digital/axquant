@@ -3,16 +3,20 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
 from axquant.benchmark_evidence import build_benchmark_evidence_index
+from axquant.calibration import calibration_manifest_sha256
 from axquant.cli import main
-from axquant.errors import ValidationGateError
+from axquant.errors import ArtifactError, ValidationGateError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
+from axquant.profiles import thresholds_for
 from axquant.release_validation import build_release_validation_index
-from axquant.reporting import prepare_publication
+from axquant.reporting import _validate_manifest_files, prepare_publication
 from axquant.reproduction import verify_reproduction
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
@@ -35,6 +39,7 @@ from axquant.schema import (
     HardwareRegistryEntry,
     IntegrityMetrics,
     ModelIdentity,
+    MtpMetrics,
     ParetoPoint,
     ParetoReport,
     PlanRequest,
@@ -52,16 +57,19 @@ from axquant.schema import (
     TensorRole,
     ValidationIssue,
     ValidationReport,
-    ValidationThresholds,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+
+_SOURCE_REVISION = "a" * 40
+_BASELINE_REVISION = "b" * 40
+_CANDIDATE_REVISION = "c" * 40
 
 
 def _plan(model_dir: Path):
     inventory = inspect_model(
         model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision=_SOURCE_REVISION,
     )
     report = architecture_prior_report(
         inventory,
@@ -83,22 +91,23 @@ def _validation(
     *,
     profile: ProfileName = ProfileName.AGENT_CODING,
 ) -> ValidationReport:
+    candidate_manifest = load_model(candidate_dir / "axquant_manifest.json", ArtifactManifest)
     return ValidationReport(
         reference_model=ModelIdentity(
             model_id="Qwen/Qwen3.6-27B-MLX-6bit",
-            revision="baseline-revision",
+            revision=_BASELINE_REVISION,
         ),
         candidate_model=ModelIdentity(
             model_id=candidate_id,
-            revision="candidate-revision",
+            revision=_CANDIDATE_REVISION,
         ),
         profile=profile,
         passed=True,
-        thresholds=ValidationThresholds(min_effective_speedup=1.2),
+        thresholds=thresholds_for(profile),
         issues=[],
         comparisons={
             "artifact.weight_size_ratio": 1.05,
-            "artifact.candidate_weight_bytes": 10,
+            "artifact.candidate_weight_bytes": candidate_manifest.weight_file_size_bytes,
             "artifact.candidate_source_sha256": file_sha256(
                 candidate_dir / "axquant_manifest.json"
             ),
@@ -147,17 +156,17 @@ def _benchmark_index(
         if kind == BenchmarkEvidenceKind.UNIFORM_6BIT:
             model = ModelIdentity(
                 model_id="Qwen/Qwen3.6-27B-MLX-6bit",
-                revision="baseline-revision",
+                revision=_BASELINE_REVISION,
             )
         elif kind in {
             BenchmarkEvidenceKind.AXQUANT_MTP_OFF,
             BenchmarkEvidenceKind.AXQUANT_MTP_ON,
         }:
-            model = ModelIdentity(model_id=candidate_id, revision="candidate-revision")
+            model = ModelIdentity(model_id=candidate_id, revision=_CANDIDATE_REVISION)
         else:
             model = ModelIdentity(
                 model_id=f"Qwen/Qwen3.6-27B-{kind.value}",
-                revision=f"{kind.value}-revision",
+                revision=_BASELINE_REVISION,
             )
         path = evidence_directory / f"{kind.value}.json"
         write_data(
@@ -166,8 +175,22 @@ def _benchmark_index(
                 model=model,
                 mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
                 baseline_kind=kind.value,
+                mtp=(
+                    MtpMetrics(
+                        token_accuracy={"1": 0.8},
+                        average_accepted_tokens=0.8,
+                        acceptance_rate=0.8,
+                        rejection_rate=0.2,
+                        effective_tokens_per_forward=1.8,
+                        repetition_rate=0.01,
+                        divergence_rate=0.0,
+                    )
+                    if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+                    else None
+                ),
                 hardware=HardwareMetrics(
                     kernel_fallbacks=0,
+                    mtp_effective_tokens_per_second=12.0,
                     device_name="Mac15,9",
                     chip="Apple M3 Max",
                     unified_memory_bytes=128 * 1024**3,
@@ -195,11 +218,19 @@ def _benchmark_index(
                     "top_p": 1.0,
                     "top_k": 0,
                     "max_tokens": 512,
+                    "draft_depth": 1,
                     "power_mode": "AC power",
                     "quantizer": kind.value,
                     "quantizer_version": "fixture-v1",
+                    "runtime_env": {},
                     "quality_dataset_sha256": f"{profile.value}-quality",
                     "ax_engine_version": "6.11.1",
+                    "mtp_metrics_protocol": (
+                        "adjacent-token-repeat-v1;depth1-proposal-accuracy-v1;"
+                        "greedy-output-ab-divergence-v1"
+                        if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+                        else None
+                    ),
                 },
             ),
         )
@@ -283,8 +314,14 @@ def _release_validation_index(
 def _write_candidate(directory: Path, plan) -> None:
     directory.mkdir()
     (directory / "config.json").write_text("{}", encoding="utf-8")
-    (directory / "model.safetensors").write_bytes(b"weights")
-    (directory / "mtp.safetensors").write_bytes(b"mtp")
+    save_file(
+        {"model.layers.0.mlp.down_proj.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "model.safetensors",
+    )
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "mtp.safetensors",
+    )
     (directory / "model-manifest.json").write_text("{}", encoding="utf-8")
     write_data(directory / "axquant_plan.json", plan)
     if plan.calibration is not None:
@@ -300,12 +337,15 @@ def _write_candidate(directory: Path, plan) -> None:
             calibration_evaluation_separation_attested=True,
         )
         write_data(directory / "calibration_manifest.json", calibration_manifest)
-        plan.calibration.metadata["calibration_manifest_sha256"] = file_sha256(
-            directory / "calibration_manifest.json"
+        plan.calibration.metadata["calibration_manifest_sha256"] = calibration_manifest_sha256(
+            calibration_manifest
         )
         write_data(directory / "axquant_plan.json", plan)
     runtime = build_runtime_metadata(plan, directory)
     write_data(directory / "axquant_runtime.json", runtime)
+    main_weight_bytes = (directory / "model.safetensors").stat().st_size
+    mtp_weight_bytes = (directory / "mtp.safetensors").stat().st_size
+    total_weight_bytes = main_weight_bytes + mtp_weight_bytes
     files = [
         ArtifactFile(
             path=path.relative_to(directory).as_posix(),
@@ -325,12 +365,12 @@ def _write_candidate(directory: Path, plan) -> None:
         effective_bpw=plan.effective_bpw,
         logical_parameters=1,
         main_logical_parameters=1,
-        weight_file_size_bytes=10,
-        main_weight_file_size_bytes=7,
-        mtp_weight_file_size_bytes=3,
+        weight_file_size_bytes=total_weight_bytes,
+        main_weight_file_size_bytes=main_weight_bytes,
+        mtp_weight_file_size_bytes=mtp_weight_bytes,
         protected_weight_file_size_bytes=0,
-        measured_total_bpw=80.0,
-        measured_main_bpw=56.0,
+        measured_total_bpw=total_weight_bytes * 8.0,
+        measured_main_bpw=main_weight_bytes * 8.0,
         weight_distribution=plan.weight_distribution,
         mtp_distribution=plan.mtp_distribution,
         mtp_present=True,
@@ -351,7 +391,7 @@ def _m7_evidence(
 ) -> tuple[Path, Path]:
     candidate_model = ModelIdentity(
         model_id=candidate_id,
-        revision="candidate-revision",
+        revision=_CANDIDATE_REVISION,
     )
     hardware = CompleteCandidateHardware(
         device_name="Mac15,9",
@@ -532,6 +572,64 @@ def test_publication_rejects_architecture_prior_evidence(
         )
 
 
+def test_publication_rejects_symlinked_artifact_members(tmp_path: Path) -> None:
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"secret")
+    (candidate / "leak.bin").symlink_to(outside)
+
+    with pytest.raises(ValidationGateError, match="artifact tree contains symlinks"):
+        prepare_publication(
+            model_dir=candidate,
+            repo_id="AutomatosX/candidate",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+        )
+
+
+def test_publication_rejects_symlinked_artifact_root(tmp_path: Path) -> None:
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    alias = tmp_path / "candidate-alias"
+    alias.symlink_to(candidate, target_is_directory=True)
+
+    with pytest.raises(ValidationGateError, match="artifact root is a symlink"):
+        prepare_publication(
+            model_dir=alias,
+            repo_id="AutomatosX/candidate",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+        )
+
+
+def test_manifest_validation_rejects_unaccounted_safetensors(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "candidate"
+    plan = _plan(qwen36_model_dir)
+    _write_candidate(candidate, plan)
+    manifest = load_model(candidate / "axquant_manifest.json", ArtifactManifest)
+    extra = candidate / "extra.safetensors"
+    extra.write_bytes(b"extra")
+
+    with pytest.raises(ValidationGateError, match="Safetensors coverage"):
+        _validate_manifest_files(candidate, manifest)
+
+    manifest.files.append(
+        ArtifactFile(
+            path=extra.name,
+            size_bytes=extra.stat().st_size,
+            sha256=file_sha256(extra),
+        )
+    )
+    with pytest.raises(ValidationGateError, match="measured weight bytes"):
+        _validate_manifest_files(candidate, manifest)
+
+
 def test_publication_rejects_validation_for_another_repository(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -560,15 +658,17 @@ def test_publication_rejects_validation_for_another_repository(
         )
 
 
+@pytest.mark.parametrize("revision", [None, "main"])
 def test_publication_rejects_unpinned_candidate_revision(
     qwen36_model_dir: Path,
     tmp_path: Path,
+    revision: str | None,
 ) -> None:
     candidate = tmp_path / "candidate"
     plan = _plan(qwen36_model_dir)
     _write_candidate(candidate, plan)
     validation_report = _validation("AutomatosX/candidate", candidate)
-    validation_report.candidate_model.revision = None
+    validation_report.candidate_model.revision = revision
     validation = tmp_path / "validation.json"
     write_data(validation, validation_report)
     hardware_registry, pareto = _m7_evidence(
@@ -713,6 +813,44 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
     )
     assert candidate / "README.md" in repeated_files
     assert load_recipe_bundle(candidate / "recipe")[0] == bundle_record
+
+    candidate_link = tmp_path / "candidate-link"
+    candidate_link.symlink_to(candidate, target_is_directory=True)
+    with pytest.raises(ArtifactError, match="root must not be a symlink"):
+        verify_reproduction(
+            recipe_path=candidate / "reproduction_recipe.yaml",
+            artifact_dir=candidate_link,
+        )
+
+    calibration_path = candidate / "calibration_manifest.json"
+    calibration = load_model(calibration_path, CalibrationManifest)
+    calibration.dataset_id = "unrelated/calibration-dataset"
+    write_data(calibration_path, calibration)
+    recipe = load_model(candidate / "reproduction_recipe.yaml", ReproductionRecipe)
+    recipe.calibration_file_sha256 = file_sha256(calibration_path)
+    write_data(candidate / "reproduction_recipe.yaml", recipe)
+
+    mismatched = verify_reproduction(
+        recipe_path=candidate / "reproduction_recipe.yaml",
+        artifact_dir=candidate,
+    )
+    assert not mismatched.passed
+    assert "calibration manifest dataset ID does not match the recipe" in mismatched.issues
+
+    conversion_path = candidate / "axquant_conversion_manifest.json"
+    conversion = load_model(conversion_path, ArtifactManifest)
+    conversion.source_model.revision = "d" * 40
+    write_data(conversion_path, conversion)
+    recipe = load_model(candidate / "reproduction_recipe.yaml", ReproductionRecipe)
+    recipe.conversion_manifest_sha256 = file_sha256(conversion_path)
+    write_data(candidate / "reproduction_recipe.yaml", recipe)
+
+    mismatched = verify_reproduction(
+        recipe_path=candidate / "reproduction_recipe.yaml",
+        artifact_dir=candidate,
+    )
+    assert not mismatched.passed
+    assert "immutable conversion manifest source model does not match recipe" in mismatched.issues
 
 
 def test_publication_snapshots_hardware_manifest_before_runtime_updates(
@@ -908,7 +1046,7 @@ def test_publication_packages_a_governed_size_exception(
     _write_candidate(candidate, plan)
     candidate_model = ModelIdentity(
         model_id="AutomatosX/candidate",
-        revision="candidate-revision",
+        revision=_CANDIDATE_REVISION,
     )
     approved_at = datetime.now(UTC) - timedelta(days=1)
     exception = ReleaseException(
@@ -946,6 +1084,7 @@ def test_publication_packages_a_governed_size_exception(
 
     def excepted(profile: ProfileName) -> ValidationReport:
         report = _validation("AutomatosX/candidate", candidate, profile=profile)
+        report.thresholds = thresholds_for(profile)
         report.comparisons["artifact.weight_size_ratio"] = 1.2
         report.comparisons["artifact.candidate_measured_bpw"] = 5.76
         report.issues = [
@@ -1022,7 +1161,10 @@ def test_reproduction_verification_detects_changed_weight_bytes(
         hardware_registry_path=hardware_registry,
         pareto_report_path=pareto,
     )
-    (candidate / "model.safetensors").write_bytes(b"changed")
+    model_path = candidate / "model.safetensors"
+    changed = bytearray(model_path.read_bytes())
+    changed[-1] ^= 0x01
+    model_path.write_bytes(changed)
 
     verification = verify_reproduction(
         recipe_path=candidate / "reproduction_recipe.yaml",

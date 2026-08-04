@@ -8,15 +8,22 @@ from __future__ import annotations
 
 import json
 import shutil
+import tempfile
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from axquant.artifact_paths import artifact_tree_files
 from axquant.errors import PlanningError
-from axquant.schema import QuantizationPlan, RecoveryTargetRanking, SensitivityReport
+from axquant.schema import (
+    ArtifactManifest,
+    QuantizationPlan,
+    RecoveryTargetRanking,
+    SensitivityReport,
+)
 from axquant.schema._base import StrictModel, utc_now
 from axquant.serde import load_model, stable_sha256, write_data
 
@@ -49,6 +56,20 @@ class RecoveryManifest(StrictModel):
     notes: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
+    @field_validator("random_seed", "steps", mode="before")
+    @classmethod
+    def integer_fields_reject_booleans(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("recovery integer fields must not be booleans")
+        return value
+
+    @field_validator("learning_rate", mode="before")
+    @classmethod
+    def learning_rate_rejects_booleans(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("recovery learning rate must not be a boolean")
+        return value
+
     @model_validator(mode="after")
     def fail_closed_provenance(self) -> RecoveryManifest:
         # Empty strings already blocked by min_length; reinforce algorithm claim.
@@ -56,6 +77,16 @@ class RecoveryManifest(StrictModel):
             raise ValueError("recovery may only claim retention-restore-only")
         if self.steps < 1:
             raise ValueError("recovery requires at least one step")
+        digests = {
+            "source artifact": self.source_artifact_sha256,
+            "plan": self.plan_sha256,
+            "calibration dataset": self.calibration_dataset_sha256,
+            "quality before": self.quality_before_sha256,
+            "quality after": self.quality_after_sha256,
+        }
+        for label, digest in digests.items():
+            if digest is not None and not _is_sha256(digest):
+                raise ValueError(f"recovery {label} sha256 must be 64 lowercase hexadecimal digits")
         return self
 
 
@@ -76,6 +107,41 @@ class RecoveryRequest(StrictModel):
     quality_after_sha256: str | None = Field(default=None, min_length=64, max_length=64)
     algorithm_id: str = Field(default="axquant-scale-bias-recovery-v1", min_length=1)
 
+    @field_validator("random_seed", "steps", mode="before")
+    @classmethod
+    def integer_fields_reject_booleans(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("recovery integer fields must not be booleans")
+        return value
+
+    @field_validator("learning_rate", mode="before")
+    @classmethod
+    def learning_rate_rejects_booleans(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("recovery learning rate must not be a boolean")
+        return value
+
+
+def _is_sha256(value: str) -> bool:
+    return len(value) == 64 and all(ch in "0123456789abcdef" for ch in value)
+
+
+def _require_sha256(value: str, *, label: str) -> None:
+    if not _is_sha256(value):
+        raise PlanningError(f"recovery {label} must be 64 lowercase hexadecimal digits")
+
+
+def _first_symlink_component(path: Path) -> Path | None:
+    """Return the first existing symlink in an input path without resolving it."""
+
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            return current
+    return None
+
 
 def _sha256_hex_of_path(path: Path) -> str:
     """Content digest for a file, or of sorted relative file digests for a directory."""
@@ -90,15 +156,20 @@ def _sha256_hex_of_path(path: Path) -> str:
     if not path.is_dir():
         raise PlanningError(f"recovery source does not exist: {path}")
     digest = hashlib.sha256()
-    for child in sorted(path.rglob("*")):
-        if child.is_file():
-            rel = child.relative_to(path).as_posix().encode()
-            digest.update(rel)
-            digest.update(b"\0")
-            with child.open("rb") as handle:
-                for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                    digest.update(chunk)
-            digest.update(b"\0")
+    try:
+        children = artifact_tree_files(path)
+    except ValueError as exc:
+        raise PlanningError(f"unsafe recovery source artifact: {exc}") from exc
+    if not children:
+        raise PlanningError(f"recovery source directory is empty: {path}")
+    for child in children:
+        rel = child.relative_to(path).as_posix().encode()
+        digest.update(rel)
+        digest.update(b"\0")
+        with child.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        digest.update(b"\0")
     return digest.hexdigest()
 
 
@@ -106,18 +177,48 @@ def validate_recovery_request(request: RecoveryRequest) -> None:
     """Fail closed when required recovery provenance inputs are incomplete."""
     if not request.calibration_dataset_id.strip():
         raise PlanningError("recovery requires a calibration dataset id")
-    if len(request.calibration_dataset_sha256) != 64:
-        raise PlanningError("recovery requires a 64-hex calibration dataset sha256")
-    if not all(ch in "0123456789abcdef" for ch in request.calibration_dataset_sha256.lower()):
-        raise PlanningError("recovery calibration_dataset_sha256 must be hexadecimal")
+    _require_sha256(request.calibration_dataset_sha256, label="calibration dataset sha256")
+    if not request.algorithm_id.strip():
+        raise PlanningError("recovery requires a non-empty algorithm id")
+    for label, digest in (
+        ("quality-before sha256", request.quality_before_sha256),
+        ("quality-after sha256", request.quality_after_sha256),
+    ):
+        if digest is not None:
+            _require_sha256(digest, label=label)
     source = Path(request.source_artifact).expanduser()
-    if not source.exists():
+    source_symlink = _first_symlink_component(source)
+    if source_symlink is not None:
+        raise PlanningError(f"recovery source path traverses a symbolic link: {source_symlink}")
+    if not source.is_dir():
         raise PlanningError(f"recovery source artifact not found: {source}")
     plan_path = Path(request.plan_path).expanduser()
+    plan_symlink = _first_symlink_component(plan_path)
+    if plan_symlink is not None:
+        raise PlanningError(f"recovery plan path traverses a symbolic link: {plan_symlink}")
     if not plan_path.is_file():
         raise PlanningError(f"recovery plan not found: {plan_path}")
-    # Plan must parse as QuantizationPlan.
-    load_model(plan_path, QuantizationPlan)
+    plan = load_model(plan_path, QuantizationPlan)
+    plan_sha256 = stable_sha256(plan)
+    bundled_plan_path = source / "axquant_plan.json"
+    manifest_path = source / "axquant_manifest.json"
+    if not bundled_plan_path.is_file() and not manifest_path.is_file():
+        raise PlanningError(
+            "recovery source artifact must contain axquant_plan.json or axquant_manifest.json"
+        )
+    if bundled_plan_path.is_file():
+        bundled_plan = load_model(bundled_plan_path, QuantizationPlan)
+        if stable_sha256(bundled_plan) != plan_sha256:
+            raise PlanningError("recovery plan does not match the source artifact plan")
+    if manifest_path.is_file():
+        manifest = load_model(manifest_path, ArtifactManifest)
+        if manifest.plan_sha256 != plan_sha256:
+            raise PlanningError("recovery plan does not match the source artifact manifest")
+    if plan.calibration is not None and (
+        request.calibration_dataset_id != plan.calibration.dataset_id
+        or request.calibration_dataset_sha256 != plan.calibration.dataset_sha256
+    ):
+        raise PlanningError("recovery calibration dataset does not match the plan")
     if request.steps < 1:
         raise PlanningError("recovery requires steps >= 1")
 
@@ -131,8 +232,8 @@ def build_recovery_manifest(
 ) -> RecoveryManifest:
     """Build a recovery provenance manifest after validating the request."""
     validate_recovery_request(request)
-    if len(source_artifact_sha256) != 64 or len(plan_sha256) != 64:
-        raise PlanningError("recovery digests must be 64-character hex sha256 values")
+    _require_sha256(source_artifact_sha256, label="source artifact sha256")
+    _require_sha256(plan_sha256, label="plan sha256")
     notes = [
         "Optional quantization recovery; retention-restore only.",
         "Not domain SFT/DPO; convert/quantize never require this stage.",
@@ -182,8 +283,13 @@ def rank_recovery_targets(
             else load_model(sensitivity, SensitivityReport)
         )
         sens_digest = stable_sha256(report)
-        if report.model.model_id != plan_model.source_model.model_id:
+        if (
+            report.model.model_id != plan_model.source_model.model_id
+            or report.model.revision != plan_model.source_model.revision
+        ):
             raise PlanningError("recovery ranking sensitivity model does not match the plan")
+        if sens_digest != plan_model.analysis_sha256:
+            raise PlanningError("recovery ranking sensitivity report is not bound to the plan")
         by_name = {entry.tensor.name: entry for entry in report.entries}
         for name in list(score_by_tensor):
             entry = by_name.get(name)
@@ -199,7 +305,10 @@ def rank_recovery_targets(
             matching = [
                 candidate.metrics.output_kl
                 for candidate in entry.candidates
-                if candidate.bits == assigned.bits and candidate.supported
+                if candidate.bits == assigned.bits
+                and candidate.method == assigned.method
+                and candidate.group_size == assigned.group_size
+                and candidate.supported
             ]
             if matching:
                 score_by_tensor[name] = max(float(value) for value in matching)
@@ -230,25 +339,26 @@ def recover_checkpoint(request: RecoveryRequest) -> RecoveryManifest:
     the same manifest schema.
     """
     validate_recovery_request(request)
-    source = Path(request.source_artifact).expanduser().resolve()
+    source_argument = Path(request.source_artifact).expanduser()
+    output_argument = Path(request.output).expanduser()
+    output_symlink = _first_symlink_component(output_argument)
+    if output_symlink is not None:
+        raise PlanningError(f"recovery output path traverses a symbolic link: {output_symlink}")
+    source = source_argument.resolve()
     plan_path = Path(request.plan_path).expanduser().resolve()
-    output = Path(request.output).expanduser().resolve()
+    output = output_argument.resolve()
+    filesystem_root = Path(output.anchor)
+    if output == filesystem_root:
+        raise PlanningError("recovery output cannot be a filesystem root")
+    if output == source or output.is_relative_to(source) or source.is_relative_to(output):
+        raise PlanningError("recovery output must not overlap the source artifact path")
+    if output == plan_path or plan_path.is_relative_to(output):
+        raise PlanningError("recovery output must not contain the input plan")
+    if output.exists():
+        raise PlanningError(f"recovery output already exists; refusing to overwrite: {output}")
     plan = load_model(plan_path, QuantizationPlan)
     plan_sha = stable_sha256(plan)
     source_sha = _sha256_hex_of_path(source)
-
-    if output.exists() and output.resolve() == source:
-        raise PlanningError("recovery output must differ from the source artifact path")
-    if output.exists():
-        if output.is_dir():
-            shutil.rmtree(output)
-        else:
-            output.unlink()
-    if source.is_dir():
-        shutil.copytree(source, output)
-    else:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, output)
 
     # Record a recovery sidecar marker (no weight mutation for v1 identity recovery).
     marker = {
@@ -259,22 +369,24 @@ def recover_checkpoint(request: RecoveryRequest) -> RecoveryManifest:
         "identity_copy": True,
         "note": "v1 recovery records provenance; scale/bias updates are algorithm-specific",
     }
-    marker_path = output / "axquant_recovery_marker.json" if output.is_dir() else None
-    if marker_path is not None:
-        marker_path.write_text(
-            json.dumps(marker, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
-
     manifest = build_recovery_manifest(
         request,
         source_artifact_sha256=source_sha,
         plan_sha256=plan_sha,
         weight_mutation_applied=False,
     )
-    manifest_path = (
-        output / "axquant_recovery.json"
-        if output.is_dir()
-        else output.with_suffix(output.suffix + ".recovery.json")
-    )
-    write_data(manifest_path, manifest)
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary_root = Path(tempfile.mkdtemp(prefix=f".{output.name}.recovery.", dir=output.parent))
+    staging = temporary_root / "artifact"
+    try:
+        shutil.copytree(source, staging)
+        marker_path = staging / "axquant_recovery_marker.json"
+        marker_path.write_text(
+            json.dumps(marker, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        write_data(staging / "axquant_recovery.json", manifest)
+        staging.rename(output)
+    finally:
+        shutil.rmtree(temporary_root, ignore_errors=True)
     return manifest

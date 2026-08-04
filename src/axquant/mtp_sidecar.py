@@ -93,7 +93,7 @@ def _json_object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[st
     result: dict[str, Any] = {}
     for key, value in pairs:
         if key in result:
-            raise ArtifactError(f"duplicate Safetensors header key: {key}")
+            raise ArtifactError(f"duplicate JSON object key: {key}")
         result[key] = value
     return result
 
@@ -217,9 +217,15 @@ def _payload_sha256(path: Path, layout: _SafetensorsLayout, tensor: _TensorSlice
 
 def _binding_matches(path: Path, binding: MtpSidecarFileBinding, label: str) -> None:
     relative = Path(binding.path)
-    if relative.is_absolute() or ".." in relative.parts or relative.name != path.name:
+    if relative.is_absolute() or relative.parts != (path.name,) or relative.name != path.name:
         raise ArtifactError(f"{label} provenance binds a different path")
-    if path.stat().st_size != binding.size_bytes:
+    if not path.is_file():
+        raise ArtifactError(f"{label} provenance target is not a regular file")
+    try:
+        size_bytes = path.stat().st_size
+    except OSError as exc:
+        raise ArtifactError(f"cannot inspect {label}: {exc}") from exc
+    if size_bytes != binding.size_bytes:
         raise ArtifactError(f"{label} provenance size does not match")
     if file_sha256(path) != binding.sha256:
         raise ArtifactError(f"{label} provenance checksum does not match")
@@ -234,6 +240,19 @@ def _validate_source_model(
         or manifest.source.model.revision != source_model.revision
     ):
         raise ArtifactError("MTP sidecar source model does not match the quantization plan")
+
+
+def _validated_source_shards(
+    manifest: BytePreservedMtpSidecarManifest | PreparedMtpSidecarManifest,
+) -> dict[str, Any]:
+    shards = {shard.name: shard for shard in manifest.source.shards}
+    if len(shards) != len(manifest.source.shards):
+        raise ArtifactError("MTP provenance contains duplicate source shard records")
+    for shard_name in shards:
+        relative = Path(shard_name)
+        if relative.is_absolute() or ".." in relative.parts or relative.suffix != ".safetensors":
+            raise ArtifactError(f"MTP provenance contains an unsafe source shard: {shard_name}")
+    return shards
 
 
 def _load_raw_manifest(
@@ -255,22 +274,42 @@ def _load_raw_manifest(
     records = {record.name: record for record in manifest.tensor_payloads}
     if len(records) != len(manifest.tensor_payloads) or set(records) != set(layout.tensors):
         raise ArtifactError("raw MTP provenance tensor records do not match the sidecar")
-    shard_names = {shard.name for shard in manifest.source.shards}
+    shards = _validated_source_shards(manifest)
     payload_sha256: dict[str, str] = {}
+    source_intervals: dict[str, list[tuple[int, int, str]]] = {}
     for name, tensor in layout.tensors.items():
         record = records[name]
+        source_shard = shards.get(record.source_shard)
+        source_start, source_end = record.source_data_range
         if (
             record.dtype != tensor.dtype
             or tuple(record.shape) != tensor.shape
             or record.byte_count != tensor.byte_count
-            or record.source_data_range[1] - record.source_data_range[0] != tensor.byte_count
-            or record.source_shard not in shard_names
+            or source_shard is None
+            or source_start < 0
+            or source_end <= source_start
+            or source_end - source_start != tensor.byte_count
+            or source_end > source_shard.size_bytes
         ):
             raise ArtifactError(f"raw MTP provenance metadata mismatch for {name}")
+        source_intervals.setdefault(record.source_shard, []).append(
+            (source_start, source_end, name)
+        )
         digest = _payload_sha256(source, layout, tensor)
         if digest != record.sha256:
             raise ArtifactError(f"raw MTP provenance payload checksum mismatch for {name}")
         payload_sha256[name] = digest
+    for shard_name, intervals in source_intervals.items():
+        previous_end = -1
+        previous_name = ""
+        for start, end, name in sorted(intervals):
+            if start < previous_end:
+                raise ArtifactError(
+                    "raw MTP provenance source ranges overlap in "
+                    f"{shard_name}: {previous_name}, {name}"
+                )
+            previous_end = end
+            previous_name = name
     return manifest, layout, payload_sha256
 
 
@@ -355,11 +394,34 @@ def _validate_prepared_manifest(
     except (ArtifactError, ValidationError) as exc:
         raise ArtifactError(f"invalid prepared MTP provenance: {manifest_path}") from exc
     _validate_source_model(manifest, source_model)
+    _validated_source_shards(manifest)
     _binding_matches(sidecar, manifest.output.mtp, "prepared MTP sidecar")
     runtime = sidecar.parent / "mtplx_runtime.json"
     if not runtime.is_file():
         raise ArtifactError("prepared MTP sidecar is missing mtplx_runtime.json")
     _binding_matches(runtime, manifest.output.runtime, "prepared MTP runtime")
+    try:
+        runtime_value = json.loads(
+            runtime.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ArtifactError(f"invalid prepared MTP runtime contract: {exc}") from exc
+    expected_runtime = _runtime_contract(source_model)
+    if json.dumps(runtime_value, sort_keys=True, separators=(",", ":")) != json.dumps(
+        expected_runtime,
+        sort_keys=True,
+        separators=(",", ":"),
+    ):
+        raise ArtifactError("prepared MTP runtime contract does not match ax-engine-qwen36-v1")
+    input_manifest_path = Path(manifest.input.manifest.path)
+    if input_manifest_path.parts != ("ax_mtp_sidecar_manifest.json",):
+        raise ArtifactError("prepared MTP provenance binds an unsafe input manifest path")
+    input_mtp_path = Path(manifest.input.mtp.path)
+    if input_mtp_path.parts not in {(name,) for name in EXTERNAL_MTP_SIDECAR_FILENAMES}:
+        raise ArtifactError("prepared MTP provenance binds an unsafe input sidecar path")
+    if manifest.input.mtp.size_bytes != manifest.output.mtp.size_bytes:
+        raise ArtifactError("prepared MTP provenance input/output sidecar sizes differ")
     if set(manifest.transform.transformed_tensors) != QWEN36_MTP_NORM_TENSORS:
         raise ArtifactError("prepared MTP provenance has the wrong transformed tensor set")
     if set(manifest.transform.unchanged_tensors) != QWEN36_MTP_PROJECTION_TENSORS:
@@ -392,13 +454,32 @@ def _validate_prepared_manifest(
 
 
 def _copy_verified(source: Path, destination: Path) -> None:
+    if not source.is_file():
+        raise ArtifactError(f"cannot copy missing MTP bundle file: {source}")
+    if destination.is_symlink():
+        raise ArtifactError(f"MTP bundle destination must not be a symlink: {destination}")
+    source_digest = file_sha256(source)
     if destination.exists():
-        if file_sha256(destination) != file_sha256(source):
+        if not destination.is_file():
+            raise ArtifactError(f"MTP bundle destination is not a file: {destination}")
+        if file_sha256(destination) != source_digest:
             raise ArtifactError(f"conversion output contains a different {destination.name}")
         return
-    shutil.copy2(source, destination)
-    if file_sha256(destination) != file_sha256(source):
-        raise ArtifactError(f"{source.name} checksum changed during copy")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        shutil.copy2(source, temporary)
+        if file_sha256(temporary) != source_digest:
+            raise ArtifactError(f"{source.name} checksum changed during copy")
+        os.replace(temporary, destination)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+        raise
 
 
 def _copy_prepared_bundle(
@@ -425,7 +506,17 @@ def prepare_qwen36_mtp_sidecar(
     source_model: ModelIdentity,
 ) -> PreparedMtpSidecarManifest:
     source_value = Path(sidecar).expanduser().resolve()
-    source = source_value / "mtp.safetensors" if source_value.is_dir() else source_value
+    if source_value.is_dir():
+        source = next(
+            (
+                candidate
+                for name in EXTERNAL_MTP_SIDECAR_FILENAMES
+                if (candidate := source_value / name).is_file()
+            ),
+            source_value / EXTERNAL_MTP_SIDECAR_FILENAMES[0],
+        )
+    else:
+        source = source_value
     if not source.is_file():
         raise ArtifactError(f"MTP sidecar does not exist: {source}")
     provenance_path = source.parent / "ax_mtp_sidecar_manifest.json"
@@ -458,11 +549,13 @@ def prepare_qwen36_mtp_sidecar(
         source_model,
     )
     output_sidecar = destination_dir / "mtp.safetensors"
-    if output_sidecar.exists():
-        raise ArtifactError(f"MTP output already exists: {output_sidecar}")
+    runtime_path = destination_dir / "mtplx_runtime.json"
+    manifest_path = destination_dir / "ax_mtp_sidecar_manifest.json"
+    for output_path in (output_sidecar, runtime_path, manifest_path):
+        if output_path.exists() or output_path.is_symlink():
+            raise ArtifactError(f"MTP output already exists: {output_path}")
     _transform_norm_payloads(source, output_sidecar, raw_layout)
     output_layout = _parse_qwen36_layout(output_sidecar)
-    runtime_path = destination_dir / "mtplx_runtime.json"
     write_data(runtime_path, _runtime_contract(source_model))
 
     tensor_payloads: list[PreparedMtpTensorPayload] = []
@@ -523,6 +616,5 @@ def prepare_qwen36_mtp_sidecar(
         tensor_payloads=tensor_payloads,
         total_payload_bytes=output_layout.payload_bytes,
     )
-    manifest_path = destination_dir / "ax_mtp_sidecar_manifest.json"
     write_data(manifest_path, manifest)
     return _validate_prepared_manifest(manifest_path, output_sidecar, source_model)

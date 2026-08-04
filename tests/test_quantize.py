@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 from safetensors import safe_open
 from safetensors.numpy import save_file
@@ -42,15 +43,37 @@ def _install_fake_mlx(monkeypatch: pytest.MonkeyPatch, model_dir: Path) -> None:
         output.mkdir()
         converted_config = json.loads((model_dir / "config.json").read_text(encoding="utf-8"))
         converted_config.pop("vision_config", None)
-        (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
-        with safe_open(model_dir / "model.safetensors", framework="numpy") as source:
-            tensors = {
-                name: source.get_tensor(name)
-                for name in list(source.keys())
-                if not name.startswith("visual.")
-            }
+        quantization: dict[str, dict[str, int | str]] = {}
         for path, module in FakeModel().named_modules():
-            quant_predicate(path, module)
+            config = quant_predicate(path, module)
+            if isinstance(config, dict):
+                quantization[path] = config
+        with safe_open(model_dir / "model.safetensors", framework="numpy") as source:
+            tensors: dict[str, np.ndarray] = {}
+            for name in list(source.keys()):
+                if name.startswith("visual."):
+                    continue
+                value = source.get_tensor(name)
+                path = name.rsplit(".", 1)[0]
+                config = quantization.get(path)
+                if config is None:
+                    tensors[name] = value
+                    continue
+                bits = int(config["bits"])
+                group_size = int(config["group_size"])
+                assert value.shape[-1] * bits % 32 == 0
+                tensors[name] = np.zeros(
+                    (*value.shape[:-1], value.shape[-1] * bits // 32),
+                    dtype=np.uint32,
+                )
+                metadata_shape = (
+                    *value.shape[:-1],
+                    max(1, (value.shape[-1] + group_size - 1) // group_size),
+                )
+                tensors[f"{path}.scales"] = np.ones(metadata_shape, dtype=np.float32)
+                tensors[f"{path}.biases"] = np.zeros(metadata_shape, dtype=np.float32)
+        converted_config["quantization"] = quantization
+        (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
         save_file(tensors, output / "model.safetensors")
 
     monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
@@ -169,10 +192,11 @@ def test_quick_convert_binds_recipe_bundle(
     from axquant.schema import PlanRequest, ProfileName
     from axquant.serde import write_data
 
+    source_revision = "a" * 40
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision=source_revision,
     )
     report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
     plan = plan_quantization(
@@ -197,7 +221,7 @@ def test_quick_convert_binds_recipe_bundle(
         model=str(qwen36_model_dir),
         output=output,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision=source_revision,
         recipe=bundle_path,
         ax_engine_manifest="skip",
     )

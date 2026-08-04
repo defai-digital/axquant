@@ -15,6 +15,7 @@ from axquant.schema import (
     HardwareMetrics,
     IntegrityMetrics,
     ModelIdentity,
+    MtpMetrics,
     ProfileName,
     SoftwareVersions,
 )
@@ -41,17 +42,31 @@ def _bundle(kind: BenchmarkEvidenceKind, *, dataset_sha256: str = "a" * 64) -> E
     return EvaluationBundle(
         model=ModelIdentity(
             model_id="AutomatosX/candidate" if candidate else f"AutomatosX/{kind.value}",
-            revision="candidate-revision" if candidate else f"{kind.value}-revision",
+            revision="c" * 40 if candidate else "b" * 40,
             local_path="/models/candidate" if candidate else None,
         ),
         mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
         baseline_kind=kind.value,
+        mtp=(
+            MtpMetrics(
+                token_accuracy={"1": 0.8},
+                average_accepted_tokens=0.8,
+                acceptance_rate=0.8,
+                rejection_rate=0.2,
+                effective_tokens_per_forward=1.8,
+                repetition_rate=0.01,
+                divergence_rate=0.0,
+            )
+            if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+            else None
+        ),
         hardware=HardwareMetrics(
             kernel_fallbacks=0,
             device_name="Mac15,9",
             chip="Apple M3 Max",
             unified_memory_bytes=128 * 1024**3,
             os_version="macOS-test",
+            mtp_effective_tokens_per_second=12.0,
         ),
         integrity=IntegrityMetrics(
             safetensors_valid=True,
@@ -75,11 +90,19 @@ def _bundle(kind: BenchmarkEvidenceKind, *, dataset_sha256: str = "a" * 64) -> E
             "top_p": 1.0,
             "top_k": 0,
             "max_tokens": 512,
+            "draft_depth": 1,
             "power_mode": "AC power",
             "quantizer": kind.value,
             "quantizer_version": "fixture-v1",
+            "runtime_env": {},
             "quality_dataset_sha256": "q" * 64,
             "ax_engine_version": "6.11.1",
+            "mtp_metrics_protocol": (
+                "adjacent-token-repeat-v1;depth1-proposal-accuracy-v1;"
+                "greedy-output-ab-divergence-v1"
+                if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+                else None
+            ),
         },
     )
 
@@ -136,6 +159,22 @@ def test_benchmark_evidence_index_is_complete_and_checksum_bound(tmp_path: Path)
         BenchmarkEvidenceKind.DWQ,
         BenchmarkEvidenceKind.GPTQ,
     }
+
+
+def test_benchmark_evidence_rejects_mutable_revision_alias(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    bf16 = next(entry for entry in request.entries if entry.kind == BenchmarkEvidenceKind.BF16)
+    assert bf16.evaluation_file is not None
+    bundle = load_model(tmp_path / bf16.evaluation_file, EvaluationBundle)
+    bundle.model.revision = "main"
+    write_data(tmp_path / bf16.evaluation_file, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert "bf16 model revision is not immutable" in index.issues
 
 
 def test_benchmark_evidence_cli_returns_one_for_missing_required_baseline(
@@ -204,6 +243,121 @@ def test_benchmark_evidence_rejects_kernel_fallback(tmp_path: Path) -> None:
 
     assert not index.release_ready
     assert "axquant-mtp-on benchmark used kernel fallbacks" in index.issues
+
+
+def test_benchmark_evidence_rejects_missing_kernel_telemetry(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    mtp_path = tmp_path / f"{BenchmarkEvidenceKind.AXQUANT_MTP_ON.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
+    bundle.hardware.kernel_fallbacks = None
+    write_data(mtp_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert "axquant-mtp-on kernel fallback count is missing" in index.issues
+
+
+def test_benchmark_evidence_requires_complete_mtp_metrics(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    mtp_path = tmp_path / f"{BenchmarkEvidenceKind.AXQUANT_MTP_ON.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
+    bundle.mtp = None
+    write_data(mtp_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert "axquant-mtp-on evidence is missing MTP metrics" in index.issues
+
+
+def test_benchmark_evidence_rejects_empty_mtp_metrics(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    mtp_path = tmp_path / f"{BenchmarkEvidenceKind.AXQUANT_MTP_ON.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
+    bundle.mtp = MtpMetrics()
+    write_data(mtp_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert any(
+        issue.startswith("axquant-mtp-on evidence has incomplete MTP metrics")
+        for issue in index.issues
+    )
+
+
+def test_benchmark_evidence_requires_effective_mtp_throughput(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    mtp_path = tmp_path / f"{BenchmarkEvidenceKind.AXQUANT_MTP_ON.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
+    bundle.hardware.mtp_effective_tokens_per_second = None
+    write_data(mtp_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert "axquant-mtp-on evidence is missing effective MTP throughput" in index.issues
+
+
+@pytest.mark.parametrize(
+    ("field_name", "different_value"),
+    [
+        ("draft_depth", 2),
+        (
+            "runtime_env",
+            {"AX_MLX_QWEN_LINEAR_ATTENTION_DECODE_POST_INPUT_METAL": "0"},
+        ),
+        ("ax_engine_version", "6.12.0"),
+    ],
+)
+def test_benchmark_evidence_binds_execution_controls(
+    tmp_path: Path,
+    field_name: str,
+    different_value: object,
+) -> None:
+    request = _request(tmp_path)
+    uniform_path = tmp_path / f"{BenchmarkEvidenceKind.UNIFORM_4BIT.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.UNIFORM_4BIT)
+    bundle.benchmark_metadata[field_name] = different_value  # type: ignore[assignment]
+    write_data(uniform_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert "available benchmark baselines use different benchmark controls" in index.issues
+
+
+@pytest.mark.parametrize("field_name", ["draft_depth", "runtime_env", "ax_engine_version"])
+def test_benchmark_evidence_requires_bound_execution_controls(
+    tmp_path: Path,
+    field_name: str,
+) -> None:
+    request = _request(tmp_path)
+    uniform_path = tmp_path / f"{BenchmarkEvidenceKind.UNIFORM_4BIT.value}.json"
+    bundle = _bundle(BenchmarkEvidenceKind.UNIFORM_4BIT)
+    del bundle.benchmark_metadata[field_name]
+    write_data(uniform_path, bundle)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_benchmark_evidence_index(request_path)
+
+    assert not index.release_ready
+    assert any(
+        issue.startswith("uniform-4bit benchmark metadata is missing") and field_name in issue
+        for issue in index.issues
+    )
 
 
 def test_benchmark_request_cannot_silently_omit_optional_baseline(tmp_path: Path) -> None:

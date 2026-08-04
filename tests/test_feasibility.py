@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 import struct
 from pathlib import Path
 
 import numpy as np
+import pytest
 from safetensors.numpy import save_file
 
 from axquant.cli import main
@@ -17,7 +19,9 @@ from axquant.serde import file_sha256, load_model
 def _qwen_config(bits: int | None = None) -> dict[str, object]:
     config: dict[str, object] = {
         "architectures": ["Qwen3_5ForConditionalGeneration"],
-        "language_model_only": False,
+        # These compact fixtures intentionally contain only the language path.
+        # Do not declare a vision tower whose protected weights are absent.
+        "language_model_only": True,
         "model_type": "qwen3_5",
         "text_config": {
             "hidden_size": 5120,
@@ -27,7 +31,6 @@ def _qwen_config(bits: int | None = None) -> dict[str, object]:
             "num_hidden_layers": 64,
             "vocab_size": 248320,
         },
-        "vision_config": {"depth": 27, "hidden_size": 1152},
     }
     if bits is not None:
         config["quantization"] = {
@@ -245,6 +248,167 @@ def test_baseline_audit_rejects_invalid_mtp_checksum(tmp_path: Path) -> None:
     assert audit.complete is False
     assert audit.integrity.mtp_provenance_valid is False
     assert any("MTP provenance" in issue for issue in audit.issues)
+
+
+def test_baseline_audit_rejects_noncanonical_mtp_checksum(tmp_path: Path) -> None:
+    model_dir = _quantized_baseline(tmp_path, 4)
+    provenance_path = model_dir / "ax_mtp_sidecar_manifest.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    provenance["output"]["mtp"]["sha256"] = provenance["output"]["mtp"]["sha256"].upper()
+    provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+
+    audit = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+
+    assert audit.complete is False
+    assert audit.integrity.mtp_provenance_valid is False
+    assert any("MTP provenance" in issue for issue in audit.issues)
+
+
+def test_baseline_audit_resolves_the_requested_revision(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import axquant.feasibility as feasibility
+
+    model_dir = _quantized_baseline(tmp_path, 4)
+    revision = "a" * 40
+    original = feasibility.resolve_model_dir
+    observed: dict[str, object] = {}
+
+    def recording_resolve(
+        model: str | Path,
+        *,
+        revision: str | None = None,
+        allow_download: bool = False,
+    ) -> Path:
+        observed.update(revision=revision, allow_download=allow_download)
+        return original(model, revision=revision, allow_download=allow_download)
+
+    monkeypatch.setattr(feasibility, "resolve_model_dir", recording_resolve)
+    audit = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, revision))
+    assert audit.complete is True
+    assert observed == {"revision": revision, "allow_download": False}
+
+
+def test_baseline_audit_rejects_mutable_revision_and_symlinks(tmp_path: Path) -> None:
+    model_dir = _quantized_baseline(tmp_path, 4)
+    mutable = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "main"))
+    assert mutable.complete is False
+    assert any("revision is not pinned" in issue for issue in mutable.issues)
+
+    external = tmp_path / "external-tokenizer.json"
+    external.write_text("{}", encoding="utf-8")
+    (model_dir / "tokenizer.json").unlink()
+    (model_dir / "tokenizer.json").symlink_to(external)
+    linked = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert linked.complete is False
+    assert any("symbolic links" in issue for issue in linked.issues)
+
+    root_link = tmp_path / "linked-model"
+    root_link.symlink_to(model_dir, target_is_directory=True)
+    linked_root = audit_artifact(_target(root_link, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert linked_root.complete is False
+    assert any("root cannot be a symbolic link" in issue for issue in linked_root.issues)
+
+
+def test_baseline_audit_supports_one_alternate_mtp_sidecar_only(tmp_path: Path) -> None:
+    model_dir = _quantized_baseline(tmp_path, 4)
+    alternate = model_dir / "mtp_head.safetensors"
+    (model_dir / "mtp.safetensors").replace(alternate)
+    provenance_path = model_dir / "ax_mtp_sidecar_manifest.json"
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    provenance["output"]["mtp"] = {
+        "path": alternate.name,
+        "size_bytes": alternate.stat().st_size,
+        "sha256": file_sha256(alternate),
+    }
+    provenance_path.write_text(json.dumps(provenance), encoding="utf-8")
+    alternate_audit = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert alternate_audit.complete is True
+    assert alternate_audit.integrity.mtp_sidecar_present is True
+
+    shutil.copyfile(alternate, model_dir / "mtp.safetensors")
+    ambiguous = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert ambiguous.complete is False
+    assert any("multiple external MTP sidecars" in issue for issue in ambiguous.issues)
+
+
+def test_baseline_audit_rejects_boolean_mtp_runtime_counts(tmp_path: Path) -> None:
+    model_dir = _quantized_baseline(tmp_path, 4)
+    runtime_path = model_dir / "mtplx_runtime.json"
+    runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
+    runtime["mtp_depth_max"] = True
+    runtime_path.write_text(json.dumps(runtime), encoding="utf-8")
+    audit = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert audit.complete is False
+    assert audit.integrity.mtp_runtime_valid is False
+
+
+def test_baseline_audit_rejects_nonfinite_json_and_unsafe_index_paths(tmp_path: Path) -> None:
+    model_dir = _quantized_baseline(tmp_path, 4)
+    config_path = model_dir / "config.json"
+    config_path.write_text('{"model_type": NaN}', encoding="utf-8")
+    invalid_config = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert invalid_config.complete is False
+    assert invalid_config.integrity.config_valid is False
+
+    config_path.write_text(json.dumps(_qwen_config(4)), encoding="utf-8")
+    index_path = model_dir / "model.safetensors.index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["weight_map"]["language_model.model.layers.0.mlp.down_proj.weight"] = (
+        "nested\\shard.safetensors"
+    )
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+    unsafe_index = audit_artifact(_target(model_dir, BaselineKind.UNIFORM_4BIT, "a" * 40))
+    assert unsafe_index.complete is False
+    assert any("unsafe path" in issue for issue in unsafe_index.issues)
+
+
+def test_feasibility_cli_refuses_outputs_inside_checkpoint_or_same_file(tmp_path: Path) -> None:
+    four = _quantized_baseline(tmp_path, 4)
+    six = _quantized_baseline(tmp_path, 6)
+    config_path = four / "config.json"
+    original_config = config_path.read_bytes()
+    common = [
+        "feasibility",
+        "--reference-4bit",
+        str(four),
+        "--reference-4bit-revision",
+        "a" * 40,
+        "--reference-6bit",
+        str(six),
+        "--reference-6bit-revision",
+        "b" * 40,
+    ]
+
+    assert (
+        main(
+            [
+                *common,
+                "--output",
+                str(config_path),
+                "--markdown-output",
+                str(tmp_path / "report.md"),
+            ]
+        )
+        == 2
+    )
+    assert config_path.read_bytes() == original_config
+
+    same_output = tmp_path / "same-output"
+    assert (
+        main(
+            [
+                *common,
+                "--output",
+                str(same_output),
+                "--markdown-output",
+                str(same_output),
+            ]
+        )
+        == 2
+    )
+    assert not same_output.exists()
 
 
 def test_feasibility_cli_writes_json_and_markdown(tmp_path: Path) -> None:

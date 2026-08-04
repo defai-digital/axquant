@@ -49,6 +49,14 @@ def test_score_check_json_valid() -> None:
         checks=[QualityCheck(kind="json-valid")],
     )
     assert _score_check(task.checks[0], task, '{"key": "value"}') == 1.0
+    assert (
+        _score_check(
+            task.checks[0],
+            task,
+            'Result: {"key": "value"}\nTrailing prose [not JSON]',
+        )
+        == 1.0
+    )
     assert _score_check(task.checks[0], task, "not json") == 0.0
 
 

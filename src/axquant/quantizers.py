@@ -40,6 +40,111 @@ class QuantizedWeight:
     metadata: dict[str, Any] | None = None
 
 
+def _finite_weight_matrix(np: Any, weight: Any, label: str) -> Any:
+    try:
+        result = np.asarray(weight, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise QuantizerError(f"{label} weight tensor is not numeric: {exc}") from exc
+    if result.ndim != 2:
+        raise QuantizerError(f"{label} quantization requires a two-dimensional weight matrix")
+    if result.size == 0:
+        raise QuantizerError(f"{label} weight matrix must not be empty")
+    if not bool(np.all(np.isfinite(result))):
+        raise QuantizerError(f"{label} weight matrix must contain only finite values")
+    return result
+
+
+def _stored_affine_parameters(np: Any, scale: Any, zero_point: Any, label: str) -> tuple[Any, Any]:
+    if (
+        not bool(np.all(np.isfinite(scale)))
+        or bool(np.any(scale <= 0))
+        or not bool(np.all(np.isfinite(zero_point)))
+    ):
+        raise QuantizerError(f"{label} produced invalid affine parameters")
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        stored_scale = scale.astype(np.float16)
+        stored_zero = zero_point.astype(np.float16)
+    if (
+        not bool(np.all(np.isfinite(stored_scale)))
+        or bool(np.any(stored_scale <= 0))
+        or not bool(np.all(np.isfinite(stored_zero)))
+    ):
+        raise QuantizerError(f"{label} affine parameters are not representable in float16")
+    return stored_scale, stored_zero
+
+
+def _dequantize_affine(
+    np: Any,
+    quantized: QuantizedWeight,
+    *,
+    expected_method: QuantMethod,
+    supported_bits: tuple[int, ...],
+    supported_group_sizes: tuple[int, ...],
+    label: str,
+) -> Any:
+    if quantized.method != expected_method:
+        actual_method = (
+            quantized.method.value
+            if isinstance(quantized.method, QuantMethod)
+            else str(quantized.method)
+        )
+        raise QuantizerError(f"{label} cannot dequantize method {actual_method!r}")
+    if quantized.bits not in supported_bits:
+        raise QuantizerError(f"{label} quantized weight has unsupported bit width")
+    if quantized.group_size not in supported_group_sizes:
+        raise QuantizerError(f"{label} quantized weight has unsupported group size")
+    if quantized.scales is None or quantized.biases is None:
+        raise QuantizerError(f"{label} quantized weight is missing affine parameters")
+    try:
+        data = np.asarray(quantized.data, dtype=np.float32)
+        scales = np.asarray(quantized.scales, dtype=np.float32)
+        biases = np.asarray(quantized.biases, dtype=np.float32)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise QuantizerError(f"{label} quantized payload is not numeric: {exc}") from exc
+    metadata = quantized.metadata
+    original_shape = metadata.get("original_shape") if isinstance(metadata, dict) else None
+    if (
+        not isinstance(original_shape, (list, tuple))
+        or len(original_shape) != 2
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+            for value in original_shape
+        )
+    ):
+        raise QuantizerError(f"{label} quantized weight has an invalid original shape")
+    out_features, in_features = original_shape
+    if in_features % quantized.group_size != 0:
+        raise QuantizerError(f"{label} original shape is incompatible with its group size")
+    expected_data_shape = (
+        out_features,
+        in_features // quantized.group_size,
+        quantized.group_size,
+    )
+    expected_parameter_shape = (*expected_data_shape[:-1], 1)
+    if data.shape != expected_data_shape:
+        raise QuantizerError(f"{label} quantized code shape does not match its metadata")
+    if scales.shape != expected_parameter_shape or biases.shape != expected_parameter_shape:
+        raise QuantizerError(f"{label} affine parameter shapes do not match its codes")
+    qmax = (1 << quantized.bits) - 1
+    if (
+        not bool(np.all(np.isfinite(data)))
+        or bool(np.any(data < 0))
+        or bool(np.any(data > qmax))
+        or not bool(np.all(data == np.round(data)))
+    ):
+        raise QuantizerError(f"{label} quantized codes are invalid")
+    if (
+        not bool(np.all(np.isfinite(scales)))
+        or bool(np.any(scales <= 0))
+        or not bool(np.all(np.isfinite(biases)))
+    ):
+        raise QuantizerError(f"{label} affine parameters are invalid")
+    dequantized = (data - biases) * scales
+    if not bool(np.all(np.isfinite(dequantized))):
+        raise QuantizerError(f"{label} dequantization produced non-finite values")
+    return dequantized.reshape(original_shape)
+
+
 @runtime_checkable
 class QuantizerPlugin(Protocol):
     """Protocol for quantizer plugins."""
@@ -173,20 +278,16 @@ class AffinePlugin:
         except ImportError:
             raise QuantizerError("affine quantization requires numpy") from None
 
-        w = np.asarray(weight, dtype=np.float32)
+        w = _finite_weight_matrix(np, weight, "affine")
         original_shape = w.shape
 
         # Reshape for group quantization
-        w_grouped: Any
-        if w.ndim == 2:
-            out_features, in_features = w.shape
-            if in_features % group_size != 0:
-                raise QuantizerError(
-                    f"input features {in_features} not divisible by group size {group_size}"
-                )
-            w_grouped = w.reshape(out_features, in_features // group_size, group_size)
-        else:
-            w_grouped = w.reshape(-1, group_size)
+        out_features, in_features = w.shape
+        if in_features % group_size != 0:
+            raise QuantizerError(
+                f"input features {in_features} not divisible by group size {group_size}"
+            )
+        w_grouped = w.reshape(out_features, in_features // group_size, group_size)
 
         # Compute per-group scale and zero-point (affine)
         w_min = w_grouped.min(axis=-1, keepdims=True)
@@ -194,14 +295,15 @@ class AffinePlugin:
         scale = (w_max - w_min) / ((1 << bits) - 1)
         scale = np.where(scale == 0, 1.0, scale)
         zero_point = np.round(-w_min / scale)
+        stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "affine")
 
         # Quantize
         quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
 
         return QuantizedWeight(
             data=quantized.astype(np.uint8),
-            scales=scale.astype(np.float16),
-            biases=zero_point.astype(np.float16),
+            scales=stored_scale,
+            biases=stored_zero,
             bits=bits,
             group_size=group_size,
             method=QuantMethod.AFFINE,
@@ -214,16 +316,14 @@ class AffinePlugin:
         except ImportError:
             raise QuantizerError("dequantization requires numpy") from None
 
-        data = np.asarray(quantized.data, dtype=np.float32)
-        scales = np.asarray(quantized.scales, dtype=np.float32)
-        biases = np.asarray(quantized.biases, dtype=np.float32)
-
-        dequantized = (data - biases) * scales
-
-        if quantized.metadata and "original_shape" in quantized.metadata:
-            dequantized = dequantized.reshape(quantized.metadata["original_shape"])
-
-        return dequantized
+        return _dequantize_affine(
+            np,
+            quantized,
+            expected_method=self.method_id,
+            supported_bits=self.supported_bits,
+            supported_group_sizes=self.supported_group_sizes,
+            label="affine",
+        )
 
 
 class AwqPlugin:
@@ -274,7 +374,7 @@ class AwqPlugin:
         from axquant.awq import learn_awq_channel_scales
         from axquant.errors import PlanningError
 
-        w = np.asarray(weight, dtype=np.float32)
+        w = _finite_weight_matrix(np, weight, "AWQ")
         original_shape = w.shape
         calibration_config = calibration if isinstance(calibration, dict) else {}
         alpha_grid_value = calibration_config.get(
@@ -304,6 +404,7 @@ class AwqPlugin:
         q_scale = (w_max - w_min) / ((1 << bits) - 1)
         q_scale = np.where(q_scale == 0, 1.0, q_scale)
         zero_point = np.round(-w_min / q_scale)
+        stored_scale, stored_zero = _stored_affine_parameters(np, q_scale, zero_point, "AWQ")
         quantized = np.clip(
             np.round(w_grouped / q_scale + zero_point),
             0,
@@ -315,8 +416,8 @@ class AwqPlugin:
             raise QuantizerError("AWQ search metadata is missing channel scales")
         return QuantizedWeight(
             data=quantized.astype(np.uint8),
-            scales=q_scale.astype(np.float16),
-            biases=zero_point.astype(np.float16),
+            scales=stored_scale,
+            biases=stored_zero,
             bits=bits,
             group_size=group_size,
             method=QuantMethod.AWQ,
@@ -338,23 +439,34 @@ class AwqPlugin:
         except ImportError:
             raise QuantizerError("dequantization requires numpy") from None
 
-        data = np.asarray(quantized.data, dtype=np.float32)
-        scales = np.asarray(quantized.scales, dtype=np.float32)
-        biases = np.asarray(quantized.biases, dtype=np.float32)
-
-        dequantized = (data - biases) * scales
-
-        if quantized.metadata and "original_shape" in quantized.metadata:
-            dequantized = dequantized.reshape(quantized.metadata["original_shape"])
+        dequantized = _dequantize_affine(
+            np,
+            quantized,
+            expected_method=self.method_id,
+            supported_bits=self.supported_bits,
+            supported_group_sizes=self.supported_group_sizes,
+            label="AWQ",
+        )
 
         # Apply inverse AWQ channel scales
-        if quantized.metadata and "awq_channel_scales" in quantized.metadata:
-            channel_scales = np.array(quantized.metadata["awq_channel_scales"], dtype=np.float32)
-            inv_scales = 1.0 / np.clip(channel_scales, 1e-5, None)
-            if dequantized.ndim == 2:
-                dequantized = dequantized * inv_scales[np.newaxis, :]
-            else:
-                dequantized = dequantized * inv_scales
+        metadata = quantized.metadata
+        channel_scale_value = (
+            metadata.get("awq_channel_scales") if isinstance(metadata, dict) else None
+        )
+        try:
+            channel_scales = np.asarray(channel_scale_value, dtype=np.float32)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise QuantizerError(f"AWQ channel scale metadata is invalid: {exc}") from exc
+        if (
+            channel_scales.ndim != 1
+            or channel_scales.shape[0] != dequantized.shape[-1]
+            or not bool(np.all(np.isfinite(channel_scales)))
+            or bool(np.any(channel_scales <= 0))
+        ):
+            raise QuantizerError("AWQ channel scale metadata is invalid")
+        dequantized = dequantized / channel_scales[np.newaxis, :]
+        if not bool(np.all(np.isfinite(dequantized))):
+            raise QuantizerError("AWQ dequantization produced non-finite values")
 
         return dequantized
 
@@ -408,7 +520,7 @@ class GptqPlugin:
         from axquant.errors import PlanningError
         from axquant.gptq import learn_gptq_refined_weight
 
-        w = np.asarray(weight, dtype=np.float32)
+        w = _finite_weight_matrix(np, weight, "GPTQ")
         original_shape = w.shape
         try:
             refined, refine_meta = learn_gptq_refined_weight(
@@ -429,6 +541,7 @@ class GptqPlugin:
         q_scale = (w_max - w_min) / ((1 << bits) - 1)
         q_scale = np.where(q_scale == 0, 1.0, q_scale)
         zero_point = np.clip(np.round(-w_min / q_scale), 0, (1 << bits) - 1)
+        stored_scale, stored_zero = _stored_affine_parameters(np, q_scale, zero_point, "GPTQ")
         refined_grouped = refined.reshape(out_features, in_features // group_size, group_size)
         quantized = np.clip(
             np.round(refined_grouped / q_scale) + zero_point,
@@ -438,8 +551,8 @@ class GptqPlugin:
 
         return QuantizedWeight(
             data=quantized.astype(np.uint8),
-            scales=q_scale.astype(np.float16),
-            biases=zero_point.astype(np.float16),
+            scales=stored_scale,
+            biases=stored_zero,
             bits=bits,
             group_size=group_size,
             method=QuantMethod.GPTQ,
@@ -457,16 +570,14 @@ class GptqPlugin:
         except ImportError:
             raise QuantizerError("dequantization requires numpy") from None
 
-        data = np.asarray(quantized.data, dtype=np.float32)
-        scales = np.asarray(quantized.scales, dtype=np.float32)
-        biases = np.asarray(quantized.biases, dtype=np.float32)
-
-        dequantized = (data - biases) * scales
-
-        if quantized.metadata and "original_shape" in quantized.metadata:
-            dequantized = dequantized.reshape(quantized.metadata["original_shape"])
-
-        return dequantized
+        return _dequantize_affine(
+            np,
+            quantized,
+            expected_method=self.method_id,
+            supported_bits=self.supported_bits,
+            supported_group_sizes=self.supported_group_sizes,
+            label="GPTQ",
+        )
 
 
 class DwqPlugin:
@@ -510,7 +621,7 @@ class DwqPlugin:
         except ImportError:
             raise QuantizerError("DWQ quantization requires numpy") from None
 
-        w = np.asarray(weight, dtype=np.float32)
+        w = _finite_weight_matrix(np, weight, "DWQ")
         original_shape = w.shape
 
         # Distribution-aware clipping using percentile bounds
@@ -525,16 +636,12 @@ class DwqPlugin:
         w_clipped = np.clip(w, w_lower, w_upper)
 
         # Group-wise quantization with distribution-aware rounding
-        w_grouped: Any
-        if w_clipped.ndim == 2:
-            out_features, in_features = w_clipped.shape
-            if in_features % group_size != 0:
-                raise QuantizerError(
-                    f"input features {in_features} not divisible by group size {group_size}"
-                )
-            w_grouped = w_clipped.reshape(out_features, in_features // group_size, group_size)
-        else:
-            w_grouped = w_clipped.reshape(-1, group_size)
+        out_features, in_features = w_clipped.shape
+        if in_features % group_size != 0:
+            raise QuantizerError(
+                f"input features {in_features} not divisible by group size {group_size}"
+            )
+        w_grouped = w_clipped.reshape(out_features, in_features // group_size, group_size)
 
         w_min = w_grouped.min(axis=-1, keepdims=True)
         w_max = w_grouped.max(axis=-1, keepdims=True)
@@ -548,12 +655,13 @@ class DwqPlugin:
         # involved, and silently produces round-trip errors beyond the
         # theoretical max of `scale / 2` for a correct affine quantizer.
         zero_point = np.round(-w_min / scale)
+        stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "DWQ")
         quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
 
         return QuantizedWeight(
             data=quantized.astype(np.uint8),
-            scales=scale.astype(np.float16),
-            biases=zero_point.astype(np.float16),
+            scales=stored_scale,
+            biases=stored_zero,
             bits=bits,
             group_size=group_size,
             method=QuantMethod.DWQ,
@@ -570,16 +678,14 @@ class DwqPlugin:
         except ImportError:
             raise QuantizerError("dequantization requires numpy") from None
 
-        data = np.asarray(quantized.data, dtype=np.float32)
-        scales = np.asarray(quantized.scales, dtype=np.float32)
-        biases = np.asarray(quantized.biases, dtype=np.float32)
-
-        dequantized = (data - biases) * scales
-
-        if quantized.metadata and "original_shape" in quantized.metadata:
-            dequantized = dequantized.reshape(quantized.metadata["original_shape"])
-
-        return dequantized
+        return _dequantize_affine(
+            np,
+            quantized,
+            expected_method=self.method_id,
+            supported_bits=self.supported_bits,
+            supported_group_sizes=self.supported_group_sizes,
+            label="DWQ",
+        )
 
 
 def record_execution(

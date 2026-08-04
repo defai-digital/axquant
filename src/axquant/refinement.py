@@ -8,21 +8,26 @@ evaluation is delegated to the benchmark harness.
 
 from __future__ import annotations
 
+import math
+import re
 import time
 from dataclasses import dataclass
 
 import structlog
 
 from axquant.errors import RefinementError, ValidationGateError
-from axquant.planner import plan_quantization, storage_bpw
+from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
+from axquant.planner import plan_quantization, storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for, thresholds_for
 from axquant.schema import (
     Allocation,
     ArtifactManifest,
     CandidateEntry,
+    CandidateMeasurement,
     CompleteCandidateHardware,
     CompleteCandidateMeasurement,
     PlanRequest,
+    PrecisionShare,
     QualityComparisonReport,
     QuantizationPlan,
     QuantMethod,
@@ -37,6 +42,7 @@ from axquant.serde import stable_sha256
 log = structlog.get_logger()
 
 COMPLETE_OBJECTIVE_VERSION = "axquant-complete-objective-v2"
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass
@@ -65,6 +71,87 @@ def _compute_plan_loss(plan: QuantizationPlan) -> float:
         total_loss += loss * allocation.parameters
         total_params += allocation.parameters
     return total_loss / total_params if total_params > 0 else 0.0
+
+
+def _allocation_distribution(
+    assignments: list[Allocation],
+    *,
+    mtp_only: bool = False,
+) -> dict[str, PrecisionShare]:
+    selected = [assignment for assignment in assignments if not mtp_only or assignment.role.is_mtp]
+    total_parameters = sum(assignment.parameters for assignment in selected)
+    if total_parameters == 0:
+        return {}
+    parameters_by_precision: dict[str, int] = {}
+    for assignment in selected:
+        label = "bf16" if assignment.bits == 16 else f"{assignment.bits}bit"
+        parameters_by_precision[label] = (
+            parameters_by_precision.get(label, 0) + assignment.parameters
+        )
+    return {
+        label: PrecisionShare(
+            parameters=parameters,
+            fraction=parameters / total_parameters,
+        )
+        for label, parameters in sorted(parameters_by_precision.items())
+    }
+
+
+def _rebuild_plan(
+    plan: QuantizationPlan,
+    assignments: list[Allocation],
+) -> QuantizationPlan:
+    """Recompute every assignment-derived plan summary and validate the result."""
+    total_parameters = sum(assignment.parameters for assignment in assignments)
+    if total_parameters <= 0:
+        raise RefinementError("refined plan contains no logical parameters")
+    nominal_bpw = (
+        sum(assignment.bits * assignment.parameters for assignment in assignments)
+        / total_parameters
+    )
+    effective_bpw = (
+        sum(
+            storage_bpw(assignment.bits, assignment.group_size) * assignment.parameters
+            for assignment in assignments
+        )
+        / total_parameters
+    )
+    payload = plan.model_dump(mode="python")
+    payload.update(
+        {
+            "assignments": assignments,
+            "nominal_bpw": nominal_bpw,
+            "effective_bpw": effective_bpw,
+            "weight_distribution": _allocation_distribution(assignments),
+            "mtp_distribution": _allocation_distribution(assignments, mtp_only=True),
+        }
+    )
+    try:
+        return QuantizationPlan.model_validate(payload)
+    except ValueError as exc:
+        raise RefinementError(f"refined plan is invalid: {exc}") from exc
+
+
+def _require_plan_report_binding(
+    plan: QuantizationPlan,
+    report: SensitivityReport,
+) -> None:
+    if stable_sha256(report) != plan.analysis_sha256:
+        raise RefinementError("refinement sensitivity report does not bind the candidate plan")
+    if (
+        report.model != plan.source_model
+        or report.profile != plan.profile
+        or report.evidence_kind != plan.evidence_kind
+        or report.calibration != plan.calibration
+    ):
+        raise RefinementError("refinement sensitivity identity differs from the candidate plan")
+    # The planner intentionally stamps the registry's current support tier. All
+    # immutable architecture facts must still match the producing report.
+    normalized_plan_profile = plan.architecture_profile.model_copy(
+        update={"support_tier": report.architecture_profile.support_tier}
+    )
+    if normalized_plan_profile != report.architecture_profile:
+        raise RefinementError("refinement architecture profile differs from sensitivity evidence")
 
 
 def _generate_candidate_id(seed: int, index: int) -> str:
@@ -121,6 +208,23 @@ def _is_monotonic_precision_refinement(
     different budgets. A valid child must retain identical tensor coverage, never reduce a
     tensor's precision, and make at least one actual format change.
     """
+    identity_fields = (
+        "source_model",
+        "architecture_profile",
+        "profile",
+        "candidate_bits",
+        "group_size",
+        "candidate_group_sizes",
+        "objective",
+        "hardware",
+        "mtp",
+        "primary_runtime",
+        "analysis_sha256",
+        "evidence_kind",
+        "calibration",
+    )
+    if any(getattr(parent, field) != getattr(child, field) for field in identity_fields):
+        return False
     parent_assignments = {assignment.tensor: assignment for assignment in parent.assignments}
     child_assignments = {assignment.tensor: assignment for assignment in child.assignments}
     if set(parent_assignments) != set(child_assignments):
@@ -128,6 +232,12 @@ def _is_monotonic_precision_refinement(
     changed = False
     for tensor, parent_assignment in parent_assignments.items():
         child_assignment = child_assignments[tensor]
+        if (
+            child_assignment.module_path != parent_assignment.module_path
+            or child_assignment.role != parent_assignment.role
+            or child_assignment.parameters != parent_assignment.parameters
+        ):
+            return False
         if child_assignment.bits < parent_assignment.bits:
             return False
         if child_assignment.bits == parent_assignment.bits and (
@@ -161,7 +271,10 @@ def _canonicalize_ax_engine_attention_packs(
     sensitivity estimate.
     """
 
+    _require_plan_report_binding(plan, report)
     entries = {entry.tensor.name: entry for entry in report.entries}
+    if len(entries) != len(report.entries):
+        raise RefinementError("sensitivity report contains duplicate tensor entries")
     groups: dict[str, list[tuple[int, Allocation]]] = {}
     for index, assignment in enumerate(plan.assignments):
         marker = ".self_attn."
@@ -183,10 +296,71 @@ def _canonicalize_ax_engine_attention_packs(
         }
         if projections != {"q_proj", "k_proj", "v_proj"} or len(signatures) == 1:
             continue
-        bits, method, group_size = min(
-            signatures,
-            key=lambda signature: storage_bpw(signature[0], signature[2]),
+        candidate_maps = []
+        for _index, assignment in members:
+            entry = entries.get(assignment.tensor)
+            if entry is None:
+                raise RefinementError(f"missing sensitivity entry for {assignment.tensor}")
+            candidate_maps.append(
+                {
+                    (item.bits, item.method, item.group_size): item
+                    for item in entry.candidates
+                    if item.supported
+                }
+            )
+        common_signatures = set.intersection(
+            *(set(candidate_map) for candidate_map in candidate_maps)
         )
+        # Do not introduce a method/group that the original planner may have
+        # excluded through a request-only method filter.
+        legal_signatures = common_signatures & signatures
+        if not legal_signatures:
+            raise RefinementError(
+                "packed attention tensors have no common measured format among "
+                "their planned signatures"
+            )
+        current_storage = sum(
+            storage_bpw(assignment.bits, assignment.group_size) * assignment.parameters
+            for _index, assignment in members
+        )
+
+        def signature_key(
+            signature: tuple[int, QuantMethod, int | None],
+            member_records: list[tuple[int, Allocation]] = members,
+            candidate_records: list[
+                dict[tuple[int, QuantMethod, int | None], CandidateMeasurement]
+            ] = candidate_maps,
+        ) -> tuple[float, float, int, int, str]:
+            aggregate_loss = 0.0
+            for (_index, assignment), candidate_map in zip(
+                member_records,
+                candidate_records,
+                strict=True,
+            ):
+                metrics = candidate_map[signature].metrics.model_dump()
+                aggregate_loss += assignment.parameters * sum(
+                    float(metrics[key]) * weight for key, weight in weights.items()
+                )
+            return (
+                aggregate_loss,
+                -storage_bpw(signature[0], signature[2]),
+                signature[0],
+                signature[2] or 0,
+                signature[1].value,
+            )
+
+        budget_safe_signatures = {
+            signature
+            for signature in legal_signatures
+            if storage_bpw(signature[0], signature[2])
+            * sum(assignment.parameters for _index, assignment in members)
+            <= current_storage + 1e-9
+        }
+        if not budget_safe_signatures:
+            raise RefinementError(
+                "packed attention tensors have no common format within their planned storage"
+            )
+        bits, method, group_size = min(budget_safe_signatures, key=signature_key)
         for index, assignment in members:
             entry = entries.get(assignment.tensor)
             if entry is None:
@@ -208,6 +382,7 @@ def _canonicalize_ax_engine_attention_packs(
                     f"{bits}-bit candidate for packed attention tensor {assignment.tensor}"
                 )
             metric_values = candidate.metrics.model_dump()
+            scale_strategy, outlier_strategy = strategy_for_measurement(candidate)
             assignments[index] = assignment.model_copy(
                 update={
                     "bits": bits,
@@ -218,29 +393,19 @@ def _canonicalize_ax_engine_attention_packs(
                         float(metric_values[key]) * weight for key, weight in weights.items()
                     ),
                     "reason": "AX Engine packed Q/K/V format canonicalization",
+                    "scale_strategy": scale_strategy,
+                    "outlier_strategy": outlier_strategy,
+                    "strategy_metadata": {
+                        **assignment.strategy_metadata,
+                        "storage_bpw": storage_bpw(bits, group_size),
+                    },
                 }
             )
             changed = True
 
     if not changed:
         return plan
-    total_parameters = sum(assignment.parameters for assignment in assignments)
-    return plan.model_copy(
-        update={
-            "assignments": assignments,
-            "nominal_bpw": (
-                sum(assignment.bits * assignment.parameters for assignment in assignments)
-                / total_parameters
-            ),
-            "effective_bpw": (
-                sum(
-                    storage_bpw(assignment.bits, assignment.group_size) * assignment.parameters
-                    for assignment in assignments
-                )
-                / total_parameters
-            ),
-        }
-    )
+    return _rebuild_plan(plan, assignments)
 
 
 def generate_top_n_plans(
@@ -333,7 +498,16 @@ def coordinate_descent_swap(
     try upgrading to the next precision level if budget allows.  Returns
     an improved plan or None if no improvement is found.
     """
+    _require_plan_report_binding(plan, report)
+    if request.profile != plan.profile:
+        raise RefinementError("refinement request profile differs from the candidate plan")
     weights = objective_for(plan.profile).normalized()
+    entries = {entry.tensor.name: entry for entry in report.entries}
+    if len(entries) != len(report.entries):
+        raise RefinementError("sensitivity report contains duplicate tensor entries")
+    tied_targets = {
+        entry.tensor.tied_to for entry in report.entries if entry.tensor.tied_to is not None
+    }
 
     # Sort allocations by predicted loss (highest first)
     sorted_allocations = sorted(plan.assignments, key=lambda a: a.predicted_loss, reverse=True)
@@ -347,45 +521,91 @@ def coordinate_descent_swap(
             continue
 
         # Find the sensitivity entry for this tensor
-        entry = None
-        for e in report.entries:
-            if e.tensor.name == alloc.tensor:
-                entry = e
-                break
+        entry = entries.get(alloc.tensor)
         if entry is None:
+            raise RefinementError(f"missing sensitivity entry for {alloc.tensor}")
+        if entry.tensor.tied_to is not None or alloc.tensor in tied_targets:
+            # A one-coordinate mutation cannot preserve shared physical storage.
             continue
 
-        # Try the closest precision upgrade that satisfies the hardware policy
-        upgrade = None
-        for candidate in sorted(entry.candidates, key=lambda c: c.bits):
+        # Try the closest precision upgrade that satisfies both the original
+        # request grid and the hardware policy, and actually reduces measured
+        # objective loss.
+        legal_upgrades = []
+        for candidate in entry.candidates:
+            fused_or_packed_expert = fused_expert_module(alloc.module_path) is not None or bool(
+                packed_expert_runtime_modules(alloc.module_path)
+            )
             if (
                 candidate.bits > alloc.bits
                 and candidate.supported
+                and candidate.bits in request.candidate_bits
                 and candidate.bits in request.hardware.supported_bits
+                and candidate.bits in plan.hardware.supported_bits
                 and candidate.method in request.hardware.supported_methods
+                and candidate.method in plan.hardware.supported_methods
+                and (
+                    not request.candidate_methods
+                    or candidate.method in request.candidate_methods
+                    or candidate.method == QuantMethod.BF16
+                )
+                and (
+                    not fused_or_packed_expert
+                    or candidate.bits == 16
+                    or candidate.method == QuantMethod.AFFINE
+                )
                 and (
                     candidate.bits == 16
-                    or candidate.group_size in request.hardware.supported_group_sizes
+                    or (
+                        candidate.group_size in request.effective_group_sizes()
+                        and candidate.group_size in request.hardware.supported_group_sizes
+                        and candidate.group_size in plan.hardware.supported_group_sizes
+                    )
                 )
             ):
-                upgrade = candidate
-                break
-
-        if upgrade is None:
+                metric_values = candidate.metrics.model_dump()
+                candidate_loss = sum(
+                    float(metric_values[key]) * weight for key, weight in weights.items()
+                )
+                if candidate_loss < alloc.predicted_loss - 1e-15:
+                    legal_upgrades.append((candidate, candidate_loss))
+        if not legal_upgrades:
             continue
 
-        # Check budget impact
-        current_storage = storage_bpw(alloc.bits, alloc.group_size) * alloc.parameters
-        new_storage = storage_bpw(upgrade.bits, upgrade.group_size) * alloc.parameters
-        budget_delta = (new_storage - current_storage) / sum(a.parameters for a in plan.assignments)
-
-        if plan.effective_bpw + budget_delta > request.target_bpw:
+        legal_upgrades.sort(
+            key=lambda item: (
+                item[0].bits,
+                item[1],
+                storage_bpw(item[0].bits, item[0].group_size),
+                item[0].group_size or 0,
+                item[0].method.value,
+            )
+        )
+        upgrade = None
+        upgraded_loss = 0.0
+        for candidate, candidate_loss in legal_upgrades:
+            current_storage = storage_bpw(alloc.bits, alloc.group_size) * alloc.parameters
+            new_storage = storage_bpw(candidate.bits, candidate.group_size) * alloc.parameters
+            budget_delta = (new_storage - current_storage) / sum(
+                assignment.parameters for assignment in plan.assignments
+            )
+            if (
+                plan.effective_bpw + budget_delta
+                <= min(
+                    request.target_bpw,
+                    plan.target_bpw,
+                )
+                + 1e-9
+            ):
+                upgrade = candidate
+                upgraded_loss = candidate_loss
+                break
+        if upgrade is None:
             continue
 
         # Apply the upgrade together with the candidate's metrics so that
         # downstream loss tracking reflects the new precision
-        metric_values = upgrade.metrics.model_dump()
-        upgraded_loss = sum(float(metric_values[k]) * w for k, w in weights.items())
+        scale_strategy, outlier_strategy = strategy_for_measurement(upgrade)
         for i, a in enumerate(new_assignments):
             if a.tensor == alloc.tensor:
                 new_assignments[i] = a.model_copy(
@@ -396,6 +616,12 @@ def coordinate_descent_swap(
                         "metrics": upgrade.metrics,
                         "predicted_loss": upgraded_loss,
                         "reason": f"coordinate descent upgrade from {alloc.bits} to {upgrade.bits}",
+                        "scale_strategy": scale_strategy,
+                        "outlier_strategy": outlier_strategy,
+                        "strategy_metadata": {
+                            **a.strategy_metadata,
+                            "storage_bpw": storage_bpw(upgrade.bits, upgrade.group_size),
+                        },
                     }
                 )
                 improved = True
@@ -407,21 +633,7 @@ def coordinate_descent_swap(
     if not improved:
         return None
 
-    # Reconstruct plan with updated assignments
-    total_params = sum(a.parameters for a in new_assignments)
-    nominal_bpw = sum(a.bits * a.parameters for a in new_assignments) / total_params
-    effective_bpw = (
-        sum(storage_bpw(a.bits, a.group_size) * a.parameters for a in new_assignments)
-        / total_params
-    )
-
-    refined = plan.model_copy(
-        update={
-            "assignments": new_assignments,
-            "nominal_bpw": nominal_bpw,
-            "effective_bpw": effective_bpw,
-        }
-    )
+    refined = _rebuild_plan(plan, new_assignments)
     return refined if _ax_engine_attention_packing_compatible(refined) else None
 
 
@@ -446,7 +658,7 @@ def refine_candidates(
     plans = generate_top_n_plans(
         report,
         request,
-        config.top_n,
+        min(config.top_n, config.evaluation_budget),
         deadline=start_time + config.wall_clock_seconds,
     )
     if not plans:
@@ -538,7 +750,7 @@ def refine_candidates(
         improvement = best_candidate.predicted_loss - new_loss
 
         # Check convergence threshold
-        if improvement < config.convergence_threshold:
+        if improvement <= config.convergence_threshold:
             converged = True
             break
 
@@ -584,10 +796,11 @@ def refine_candidates(
     final_best = min(candidates, key=lambda c: c.predicted_loss)
     selected_sha = stable_sha256(final_best.plan)
 
-    # Mark rejected candidates in history
+    # A refinement history has exactly one selected state. Intermediate
+    # candidates may have been provisionally selected while searching, but are
+    # immutable evidence records rather than multiple final selections.
     for entry in history:
-        if entry.candidate_id != final_best.candidate_id and entry.state == "pending":
-            entry.state = "rejected"
+        entry.state = "selected" if entry.candidate_id == final_best.candidate_id else "rejected"
 
     proxy_warning = (
         "Proxy-only refinement is development evidence and cannot satisfy release "
@@ -616,23 +829,153 @@ def refine_candidates(
     )
 
 
+def _complete_objective_loss(
+    plan: QuantizationPlan,
+    *,
+    quality_retention: float,
+    perplexity_ratio: float,
+    mtp_acceptance_retention: float,
+    mtp_speedup: float,
+    peak_memory_ratio: float,
+) -> float:
+    values = {
+        "quality_retention": quality_retention,
+        "perplexity_ratio": perplexity_ratio,
+        "mtp_acceptance_retention": mtp_acceptance_retention,
+        "mtp_speedup": mtp_speedup,
+        "peak_memory_ratio": peak_memory_ratio,
+    }
+    for name, value in values.items():
+        if not math.isfinite(value):
+            raise RefinementError(f"complete-candidate {name} must be finite")
+    if perplexity_ratio <= 0.0:
+        raise RefinementError("complete-candidate perplexity_ratio must be positive")
+    if mtp_speedup <= 0.0:
+        raise RefinementError("complete-candidate mtp_speedup must be positive")
+    if peak_memory_ratio <= 0.0:
+        raise RefinementError("complete-candidate peak_memory_ratio must be positive")
+
+    weights = objective_for(plan.profile).normalized()
+    quality_weight = (
+        weights["output_kl"]
+        + weights["hidden_state_error"]
+        + weights["cosine_distance"]
+        + weights["token_disagreement"]
+        + weights["task_loss_delta"]
+        + weights["long_context_loss"]
+    )
+    latency_weight = weights["prefill_latency_cost"] + weights["decode_latency_cost"]
+    quality_loss = 0.5 * max(0.0, 1.0 - quality_retention) + 0.5 * perplexity_ratio
+    return (
+        quality_weight * quality_loss
+        + weights["mtp_acceptance_loss"] * max(0.0, 1.0 - mtp_acceptance_retention)
+        + weights["peak_memory_cost"] * peak_memory_ratio
+        + latency_weight / mtp_speedup
+    )
+
+
+def _validate_complete_measurement(
+    *,
+    plan: QuantizationPlan,
+    history_plan_sha256: str,
+    measurement: CompleteCandidateMeasurement,
+) -> None:
+    plan_sha256 = stable_sha256(plan)
+    if history_plan_sha256 != plan_sha256:
+        raise RefinementError(
+            f"refinement history plan digest differs for {measurement.candidate_id}"
+        )
+    if measurement.plan_sha256 != plan_sha256:
+        raise RefinementError(f"measurement plan digest differs for {measurement.candidate_id}")
+    if measurement.profile != plan.profile:
+        raise RefinementError(f"measurement profile differs for {measurement.candidate_id}")
+    for label, digest in (
+        ("artifact manifest", measurement.artifact_manifest_sha256),
+        ("quality comparison", measurement.quality_comparison_sha256),
+        ("validation", measurement.validation_sha256),
+    ):
+        if _SHA256.fullmatch(digest) is None:
+            raise RefinementError(
+                f"measurement {label} digest is invalid for {measurement.candidate_id}"
+            )
+    if not measurement.validation_passed:
+        return
+
+    if measurement.perplexity_ratio is None:
+        raise RefinementError(
+            f"passing measurement has no perplexity ratio for {measurement.candidate_id}"
+        )
+    expected_loss = _complete_objective_loss(
+        plan,
+        quality_retention=measurement.quality_retention,
+        perplexity_ratio=measurement.perplexity_ratio,
+        mtp_acceptance_retention=measurement.mtp_acceptance_retention,
+        mtp_speedup=measurement.mtp_speedup,
+        peak_memory_ratio=measurement.peak_memory_ratio,
+    )
+    if not math.isclose(
+        measurement.objective_loss,
+        expected_loss,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    ):
+        raise RefinementError(f"measurement objective differs for {measurement.candidate_id}")
+
+    thresholds = thresholds_for(plan.profile)
+    failed_metrics: list[str] = []
+    if measurement.quality_retention < thresholds.minimum_aggregate_quality_retention:
+        failed_metrics.append("quality_retention")
+    if measurement.perplexity_ratio > 1.0 + thresholds.max_perplexity_relative_increase:
+        failed_metrics.append("perplexity_ratio")
+    if measurement.mtp_acceptance_retention < thresholds.minimum_mtp_acceptance_retention:
+        failed_metrics.append("mtp_acceptance_retention")
+    if measurement.mtp_speedup < thresholds.min_effective_speedup:
+        failed_metrics.append("mtp_speedup")
+    if measurement.peak_memory_ratio > thresholds.max_peak_memory_ratio:
+        failed_metrics.append("peak_memory_ratio")
+    if measurement.hardware.kernel_fallbacks != 0:
+        failed_metrics.append("kernel_fallbacks")
+    if failed_metrics:
+        raise RefinementError(
+            f"passing measurement fails release metrics for "
+            f"{measurement.candidate_id}: {failed_metrics}"
+        )
+
+
 def select_complete_candidate(
     refinement: RefinementResult,
     measurements: RefinementMeasurementSet,
 ) -> RefinementResult:
     """Select a candidate only from checksum-bound complete-model evidence."""
     measurement_digest = stable_sha256(measurements)
-    expected_holdout = (
-        refinement.config.holdout_measurement_set_sha256
-        or refinement.holdout_measurement_set_sha256
-    )
+    if not measurements.evaluator_version.strip():
+        raise RefinementError("measurement set evaluator version is empty")
+    configured_holdout = refinement.config.holdout_measurement_set_sha256
+    recorded_holdout = refinement.holdout_measurement_set_sha256
+    if (
+        configured_holdout is not None
+        and recorded_holdout is not None
+        and configured_holdout != recorded_holdout
+    ):
+        raise RefinementError("refinement contains conflicting holdout measurement bindings")
+    expected_holdout = configured_holdout or recorded_holdout
     if expected_holdout is not None and measurement_digest != expected_holdout:
         raise RefinementError(
             "holdout measurement set digest does not match refinement binding: "
             f"expected {expected_holdout}, got {measurement_digest}"
         )
+    # An explicit holdout digest and the measurement set's refinement digest
+    # cannot both include one another without a circular hash. In the ordinary
+    # unconfigured workflow, require the measurement set's direct binding.
+    if expected_holdout is None and measurements.refinement_sha256 != stable_sha256(refinement):
+        raise RefinementError("measurement set does not bind the refinement result")
     candidates_by_id = refinement.candidate_plans
+    history_ids = [entry.candidate_id for entry in refinement.history]
+    if len(history_ids) != len(set(history_ids)):
+        raise RefinementError("refinement history contains duplicate candidate IDs")
     history_by_id = {entry.candidate_id: entry for entry in refinement.history}
+    if set(history_by_id) != set(candidates_by_id):
+        raise RefinementError("refinement history and candidate plans have different coverage")
     measurements_by_candidate: dict[str, list[CompleteCandidateMeasurement]] = {}
     for measurement_record in measurements.measurements:
         history = history_by_id.get(measurement_record.candidate_id)
@@ -640,17 +983,19 @@ def select_complete_candidate(
             raise RefinementError(
                 f"measurement references unknown candidate {measurement_record.candidate_id}"
             )
-        if history.plan_sha256 != measurement_record.plan_sha256:
-            raise RefinementError(
-                f"measurement plan digest differs for {measurement_record.candidate_id}"
-            )
-        if candidates_by_id[measurement_record.candidate_id].profile != measurement_record.profile:
-            raise RefinementError(
-                f"measurement profile differs for {measurement_record.candidate_id}"
-            )
+        plan = candidates_by_id[measurement_record.candidate_id]
+        _validate_complete_measurement(
+            plan=plan,
+            history_plan_sha256=history.plan_sha256,
+            measurement=measurement_record,
+        )
         measurements_by_candidate.setdefault(measurement_record.candidate_id, []).append(
             measurement_record
         )
+    for candidate_id, records in measurements_by_candidate.items():
+        candidate_models = {stable_sha256(record.candidate_model) for record in records}
+        if len(candidate_models) != 1:
+            raise RefinementError(f"measurements identify different checkpoints for {candidate_id}")
     valid = {
         candidate_id: records
         for candidate_id, records in measurements_by_candidate.items()
@@ -722,9 +1067,34 @@ def build_complete_candidate_measurement(
     validation_sha256: str,
 ) -> CompleteCandidateMeasurement:
     """Build checksum-bound complete-model evidence from release artifacts."""
+    for label, digest in (
+        ("artifact manifest", artifact_sha256),
+        ("quality comparison", quality_sha256),
+        ("validation", validation_sha256),
+    ):
+        if _SHA256.fullmatch(digest) is None:
+            raise RefinementError(f"{label} digest is not a valid SHA-256")
     plan_sha256 = stable_sha256(plan)
     if artifact.plan_sha256 != plan_sha256:
         raise RefinementError("artifact manifest does not match the refinement candidate plan")
+    if (
+        artifact.source_model != plan.source_model
+        or artifact.calibration != plan.calibration
+        or artifact.target_class != plan.target_class
+        or artifact.mtp_policy != plan.mtp
+        or artifact.software_versions != plan.software_versions
+        or artifact.weight_distribution != plan.weight_distribution
+        or artifact.mtp_distribution != plan.mtp_distribution
+        or artifact.logical_parameters
+        != sum(assignment.parameters for assignment in plan.assignments)
+        or not math.isclose(
+            artifact.effective_bpw,
+            plan.effective_bpw,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        )
+    ):
+        raise RefinementError("artifact manifest metadata differs from the candidate plan")
     if artifact.profile != plan.profile or validation.profile != plan.profile:
         raise RefinementError("artifact, validation, and candidate plan profiles differ")
     if quality.candidate_model != validation.candidate_model:
@@ -755,16 +1125,23 @@ def build_complete_candidate_measurement(
         value = validation.comparisons.get(name)
         if not isinstance(value, (int, float)) or isinstance(value, bool):
             raise RefinementError(f"validation is missing numeric {name}")
-        return float(value)
+        numeric = float(value)
+        if not math.isfinite(numeric):
+            raise RefinementError(f"validation contains non-finite {name}")
+        return numeric
 
     def required_text(name: str) -> str:
         value = validation.comparisons.get(name)
-        if not isinstance(value, str) or not value:
+        if not isinstance(value, str) or not value.strip():
             raise RefinementError(f"validation is missing {name}")
         return value
 
     unified_memory = validation.comparisons.get("hardware.unified_memory_bytes")
-    if not isinstance(unified_memory, int) or isinstance(unified_memory, bool):
+    if (
+        not isinstance(unified_memory, int)
+        or isinstance(unified_memory, bool)
+        or unified_memory <= 0
+    ):
         raise RefinementError("validation is missing hardware.unified_memory_bytes")
 
     mtp_retention = required_metric("mtp.acceptance_retention")
@@ -773,8 +1150,22 @@ def build_complete_candidate_measurement(
     kernel_fallbacks = validation.comparisons.get("hardware.kernel_fallbacks")
     if not isinstance(kernel_fallbacks, int) or isinstance(kernel_fallbacks, bool):
         raise RefinementError("validation is missing hardware.kernel_fallbacks")
-    if peak_memory_ratio <= 0.0:
-        raise RefinementError("hardware.peak_memory_ratio must be positive")
+    quality_validation_retention = required_metric("quality.aggregate_retention")
+    perplexity_relative_increase = required_metric("perplexity_relative_increase")
+    if not math.isclose(
+        quality_validation_retention,
+        quality_retention,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    ):
+        raise RefinementError("quality comparison retention does not match validation evidence")
+    if not math.isclose(
+        1.0 + perplexity_relative_increase,
+        perplexity_ratio,
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    ):
+        raise RefinementError("quality comparison perplexity does not match validation evidence")
 
     if validation.passed:
         thresholds = validation.thresholds
@@ -817,22 +1208,13 @@ def build_complete_candidate_measurement(
                 "validation without an artifact-size gate contains a release exception"
             )
 
-    weights = objective_for(plan.profile).normalized()
-    quality_weight = (
-        weights["output_kl"]
-        + weights["hidden_state_error"]
-        + weights["cosine_distance"]
-        + weights["token_disagreement"]
-        + weights["task_loss_delta"]
-        + weights["long_context_loss"]
-    )
-    latency_weight = weights["prefill_latency_cost"] + weights["decode_latency_cost"]
-    quality_loss = 0.5 * max(0.0, 1.0 - quality_retention) + 0.5 * perplexity_ratio
-    objective_loss = (
-        quality_weight * quality_loss
-        + weights["mtp_acceptance_loss"] * max(0.0, 1.0 - mtp_retention)
-        + weights["peak_memory_cost"] * peak_memory_ratio
-        + latency_weight / max(mtp_speedup, 1e-12)
+    objective_loss = _complete_objective_loss(
+        plan,
+        quality_retention=quality_retention,
+        perplexity_ratio=perplexity_ratio,
+        mtp_acceptance_retention=mtp_retention,
+        mtp_speedup=mtp_speedup,
+        peak_memory_ratio=peak_memory_ratio,
     )
     return CompleteCandidateMeasurement(
         candidate_id=candidate_id,

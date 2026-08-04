@@ -52,6 +52,11 @@ class MlxQualityBackend:
         self._chat_template_sha256: str | None = None
 
     def load_model(self, model: str, revision: str | None) -> None:
+        # Backends may be reused for a reference/candidate pair. Reset prompt
+        # rendering state before every load so a tokenizer without a template
+        # cannot inherit the previous model's chat-template metadata.
+        self._prompt_format = "raw"
+        self._chat_template_sha256 = None
         try:
             import importlib
 
@@ -166,12 +171,17 @@ def _json_value(output: str) -> Any:
     text = _unfenced(output)
     try:
         return json.loads(text)
-    except json.JSONDecodeError:
-        start = min((index for index in (text.find("{"), text.find("[")) if index >= 0), default=-1)
-        end = max(text.rfind("}"), text.rfind("]"))
-        if start >= 0 and end > start:
-            return json.loads(text[start : end + 1])
-        raise
+    except json.JSONDecodeError as original_error:
+        decoder = json.JSONDecoder()
+        for start, character in enumerate(text):
+            if character not in "[{":
+                continue
+            try:
+                value, _ = decoder.raw_decode(text[start:])
+            except json.JSONDecodeError:
+                continue
+            return value
+        raise original_error
 
 
 def _token_f1(reference: str, candidate: str) -> float:
@@ -285,9 +295,14 @@ def evaluate_quality(
             )
             score, check_scores = score_quality_task_output(task, output)
             error = None
-        except (BenchmarkError, RuntimeError, ValueError) as exc:
+        except (BenchmarkError, RuntimeError, ValueError, re.error) as exc:
             output = ""
-            check_scores = {}
+            # A failed generation/scoring attempt is a failed sample, not a
+            # missing observation. Preserve every declared check at zero so
+            # structured-output validity denominators cannot silently shrink.
+            check_scores = {
+                f"{check.kind}:{check_index}": 0.0 for check_index, check in enumerate(task.checks)
+            }
             score = 0.0
             error = str(exc)
         category_scores.setdefault(task.category, []).append(score)

@@ -5,7 +5,9 @@ import subprocess
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from axquant.calibration import calibration_manifest_matches
 from axquant.errors import ArtifactError, RefinementError
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     CalibrationManifest,
     QuantizationPlan,
@@ -51,7 +53,7 @@ def _required_directory(base: Path, value: str, label: str) -> Path:
 
 
 def _candidate_revision(plan_sha256: str) -> str:
-    return f"axquant-plan-{plan_sha256[:24]}"
+    return plan_sha256[:40]
 
 
 def _candidate_model_id(prefix: str, candidate_id: str) -> str:
@@ -353,10 +355,14 @@ def prepare_refinement_execution(
             or plan.source_model.revision != calibration_manifest.model.revision
         ):
             raise RefinementError(f"candidate source differs from calibration: {candidate_id}")
-        if not plan.source_model.revision:
+        if not is_immutable_revision(plan.source_model.revision):
             raise RefinementError(f"candidate source revision is not immutable: {candidate_id}")
         expected_calibration_sha256 = plan.calibration.metadata.get("calibration_manifest_sha256")
-        if expected_calibration_sha256 != file_sha256(calibration):
+        if not isinstance(expected_calibration_sha256, str) or not calibration_manifest_matches(
+            calibration,
+            calibration_manifest,
+            expected_calibration_sha256,
+        ):
             raise RefinementError(f"candidate calibration checksum differs: {candidate_id}")
 
     output = Path(output_dir).expanduser().resolve()

@@ -19,7 +19,7 @@ from axquant.schema import (
     QualityMetrics,
     SoftwareVersions,
 )
-from axquant.serde import file_sha256, write_data
+from axquant.serde import file_sha256, load_model, write_data
 
 
 def _versions() -> SoftwareVersions:
@@ -42,7 +42,7 @@ def _bundle(kind: BenchmarkEvidenceKind, *, perplexity: float) -> EvaluationBund
     return EvaluationBundle(
         model=ModelIdentity(
             model_id="AutomatosX/candidate" if candidate else f"external/{kind.value}",
-            revision=f"{kind.value}-revision",
+            revision="c" * 40 if candidate else "b" * 40,
         ),
         mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
         baseline_kind=kind.value,
@@ -137,6 +137,57 @@ def test_head_to_head_rejects_checksum_mismatch(tmp_path: Path) -> None:
     bundle_path = tmp_path / "bf16.json"
     bundle_path.write_text(bundle_path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     with pytest.raises(ArtifactError, match="checksum mismatch"):
+        render_head_to_head(index_path)
+
+
+def test_head_to_head_rejects_index_bundle_identity_mismatch(tmp_path: Path) -> None:
+    index_path = _index(tmp_path)
+    index = load_model(index_path, BenchmarkEvidenceIndex)
+    bf16 = next(entry for entry in index.entries if entry.kind == BenchmarkEvidenceKind.BF16)
+    bf16.model = ModelIdentity(model_id="unrelated/model", revision="d" * 40)
+    write_data(index_path, index)
+
+    with pytest.raises(ArtifactError, match=r"bindings differ.*model identity"):
+        render_head_to_head(index_path)
+
+
+def test_head_to_head_rejects_mutable_release_revision(tmp_path: Path) -> None:
+    index_path = _index(tmp_path)
+    index = load_model(index_path, BenchmarkEvidenceIndex)
+    bf16 = next(entry for entry in index.entries if entry.kind == BenchmarkEvidenceKind.BF16)
+    assert bf16.evaluation_file is not None
+    bundle_path = tmp_path / bf16.evaluation_file
+    bundle = load_model(bundle_path, EvaluationBundle)
+    bundle.model.revision = "main"
+    write_data(bundle_path, bundle)
+    bf16.model = bundle.model
+    bf16.evaluation_sha256 = file_sha256(bundle_path)
+    write_data(index_path, index)
+
+    with pytest.raises(ArtifactError, match="immutable revisions"):
+        render_head_to_head(index_path)
+
+
+def test_head_to_head_rejects_release_ready_index_missing_required_bundle(
+    tmp_path: Path,
+) -> None:
+    index_path = _index(tmp_path)
+    index = load_model(index_path, BenchmarkEvidenceIndex)
+    index.entries = [
+        (
+            BenchmarkEvidenceEntry(
+                kind=BenchmarkEvidenceKind.BF16,
+                status="unavailable",
+                unavailable_reason="incorrectly omitted",
+            )
+            if entry.kind == BenchmarkEvidenceKind.BF16
+            else entry
+        )
+        for entry in index.entries
+    ]
+    write_data(index_path, index)
+
+    with pytest.raises(ArtifactError, match="omits required entries"):
         render_head_to_head(index_path)
 
 

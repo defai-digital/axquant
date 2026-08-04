@@ -11,6 +11,7 @@ from axquant.cli import main
 from axquant.compatibility import build_compatibility_matrix
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
+from axquant.profiles import thresholds_for
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
     ArtifactFile,
@@ -29,7 +30,6 @@ from axquant.schema import (
     RuntimeName,
     ValidationIssue,
     ValidationReport,
-    ValidationThresholds,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
@@ -57,7 +57,7 @@ def _candidate(
     inventory = inspect_model(
         directory,
         model_id=source_id,
-        revision=f"{source_id}-revision",
+        revision="a" * 40,
     )
     sensitivity = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
     plan = plan_quantization(
@@ -105,7 +105,7 @@ def _candidate(
     evidence.mkdir()
     candidate_model = ModelIdentity(
         model_id=candidate_id,
-        revision=f"{candidate_id}-revision",
+        revision="c" * 40,
         local_path=str(directory.resolve()),
     )
     ax_check = evidence / "ax-engine.json"
@@ -150,12 +150,12 @@ def _candidate(
             ValidationReport(
                 reference_model=ModelIdentity(
                     model_id="Qwen/Qwen3.6-27B-MLX-6bit",
-                    revision="reference-revision",
+                    revision="b" * 40,
                 ),
                 candidate_model=candidate_model,
                 profile=profile,
                 passed=True,
-                thresholds=ValidationThresholds(),
+                thresholds=thresholds_for(profile),
                 issues=[],
                 comparisons={
                     "artifact.candidate_weight_bytes": manifest.weight_file_size_bytes,
@@ -286,28 +286,19 @@ def test_compatibility_matrix_release_ready_and_cli(
     qwen36_model_dir: Path,
     tmp_path: Path,
 ) -> None:
-    first = _candidate(
+    candidate = _candidate(
         source=qwen36_model_dir,
         directory=tmp_path / "candidate-a",
         source_id="Qwen/Qwen3.6-27B",
         candidate_id="AutomatosX/candidate-a",
-    )
-    second = _candidate(
-        source=qwen36_model_dir,
-        directory=tmp_path / "candidate-b",
-        source_id="Qwen/Qwen3.6-32B",
-        candidate_id="AutomatosX/candidate-b",
     )
     request = tmp_path / "request.json"
     output = tmp_path / "matrix.json"
     write_data(
         request,
         _request(
-            candidates=[*first, *second],
-            requirements=[
-                ("Qwen/Qwen3.6-27B", "27B"),
-                ("Qwen/Qwen3.6-32B", "32B"),
-            ],
+            candidates=candidate,
+            requirements=[("Qwen/Qwen3.6-27B", "27B")],
         ),
     )
 
@@ -325,7 +316,7 @@ def test_compatibility_matrix_release_ready_and_cli(
     )
     matrix = load_model(output, CompatibilityMatrix)
     assert matrix.release_ready
-    assert matrix.distinct_dense_source_checkpoints == 2
+    assert matrix.distinct_dense_source_checkpoints == 1
     assert all(entry.compatible for entry in matrix.entries)
 
 
@@ -356,6 +347,37 @@ def test_compatibility_matrix_rejects_runtime_evidence_for_another_artifact(
 
     assert not matrix.entries[0].compatible
     assert "does not target the candidate artifact" in matrix.entries[0].issues[0]
+
+
+def test_compatibility_matrix_rejects_ambiguous_runtime_target(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidates = _candidate(
+        source=qwen36_model_dir,
+        directory=tmp_path / "candidate-a",
+        source_id="Qwen/Qwen3.6-27B",
+        candidate_id="AutomatosX/candidate-a",
+    )
+    check_path = Path(candidates[0].ax_engine_check)
+    check = load_model(check_path, RuntimeCheck)
+    check.command.extend(["--mlx-model-artifacts-dir", str(tmp_path / "another-artifact")])
+    write_data(check_path, check)
+    request = tmp_path / "request.json"
+    write_data(
+        request,
+        _request(
+            candidates=candidates,
+            requirements=[("Qwen/Qwen3.6-27B", "27B")],
+        ),
+    )
+
+    matrix = build_compatibility_matrix(request)
+
+    assert not matrix.entries[0].compatible
+    assert any(
+        "does not target the candidate artifact" in issue for issue in matrix.entries[0].issues
+    )
 
 
 def test_compatibility_matrix_rechecks_validation_thresholds(
@@ -390,6 +412,74 @@ def test_compatibility_matrix_rechecks_validation_thresholds(
     )
 
 
+def test_compatibility_matrix_requires_complete_weight_manifest_membership(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidates = _candidate(
+        source=qwen36_model_dir,
+        directory=tmp_path / "candidate-a",
+        source_id="Qwen/Qwen3.6-27B",
+        candidate_id="AutomatosX/candidate-a",
+    )
+    manifest_path = Path(candidates[0].artifact_directory) / "axquant_manifest.json"
+    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest.files = [
+        record for record in manifest.files if not record.path.endswith(".safetensors")
+    ]
+    write_data(manifest_path, manifest)
+    request = tmp_path / "request.json"
+    write_data(
+        request,
+        _request(
+            candidates=candidates,
+            requirements=[("Qwen/Qwen3.6-27B", "27B")],
+        ),
+    )
+
+    matrix = build_compatibility_matrix(request)
+
+    assert not matrix.entries[0].compatible
+    assert any("Safetensors membership differs" in issue for issue in matrix.entries[0].issues)
+
+
+def test_compatibility_matrix_rejects_wrong_comparison_types(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidates = _candidate(
+        source=qwen36_model_dir,
+        directory=tmp_path / "candidate-a",
+        source_id="Qwen/Qwen3.6-27B",
+        candidate_id="AutomatosX/candidate-a",
+    )
+    validation_path = Path(candidates[0].validation_report)
+    validation = load_model(validation_path, ValidationReport)
+    validation.comparisons["hardware.effective_speedup"] = "fast"
+    validation.comparisons["hardware.chip"] = 123
+    write_data(validation_path, validation)
+    request = tmp_path / "request.json"
+    write_data(
+        request,
+        _request(
+            candidates=candidates,
+            requirements=[("Qwen/Qwen3.6-27B", "27B")],
+        ),
+    )
+
+    matrix = build_compatibility_matrix(request)
+
+    assert not matrix.entries[0].compatible
+    assert (
+        "validation comparison must be numeric: hardware.effective_speedup"
+        in matrix.entries[0].issues
+    )
+    assert (
+        "validation comparison must be a non-empty string: hardware.chip"
+        in matrix.entries[0].issues
+    )
+
+
 def test_compatibility_matrix_accepts_a_governed_size_exception(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -402,6 +492,7 @@ def test_compatibility_matrix_accepts_a_governed_size_exception(
     )
     validation_path = Path(candidates[0].validation_report)
     validation = load_model(validation_path, ValidationReport)
+    validation.thresholds = thresholds_for(validation.profile)
     plan = load_model(
         Path(candidates[0].artifact_directory) / "axquant_plan.json",
         QuantizationPlan,

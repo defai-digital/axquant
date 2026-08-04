@@ -23,6 +23,7 @@ def _qwen36_config() -> dict[str, object]:
         "text_config": {
             "num_hidden_layers": 64,
             "hidden_size": 5120,
+            "intermediate_size": 17408,
             "vocab_size": 248320,
             "mtp_num_hidden_layers": 1,
         },
@@ -58,6 +59,58 @@ def test_qwen36_unsupported_profile_is_inspect_only() -> None:
     text["num_experts"] = 64
     profile = Qwen36Adapter().profile("Qwen/Qwen3.6-27B", config)
     assert profile.support_tier is SupportTier.INSPECT_ONLY
+
+
+@pytest.mark.parametrize(
+    ("reference", "updates"),
+    [
+        ("Qwen/Qwen3.6-127B", {}),
+        ("Qwen/Qwen3.6-27B", {"num_hidden_layers": 63}),
+        ("Qwen/Qwen3.6-27B", {"num_hidden_layers": True}),
+        ("Qwen/Qwen3.6-27B", {"hidden_size": 4096}),
+        ("Qwen/Qwen3.6-27B", {"intermediate_size": None}),
+    ],
+)
+def test_qwen36_dense_profile_requires_exact_catalog_identity_and_signature(
+    reference: str,
+    updates: dict[str, object],
+) -> None:
+    config = _qwen36_config()
+    text = config["text_config"]
+    assert isinstance(text, dict)
+    text.update(updates)
+
+    profile = Qwen36Adapter().profile(reference, config)
+
+    assert profile.support_tier is SupportTier.INSPECT_ONLY
+
+
+def test_qwen36_null_moe_fields_do_not_downgrade_dense_checkpoint() -> None:
+    config = _qwen36_config()
+    text = config["text_config"]
+    assert isinstance(text, dict)
+    text.update(
+        {
+            "num_experts": None,
+            "num_experts_per_tok": 0,
+            "moe_intermediate_size": None,
+            "enable_moe_block": False,
+        }
+    )
+
+    profile = Qwen36Adapter().profile("Qwen/Qwen3.6-27B", config)
+
+    assert profile.dense is True
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+
+
+def test_qwen36_structural_signature_supports_renamed_artifact_without_size() -> None:
+    profile = Qwen36Adapter().profile(
+        "AutomatosX/qwen36-4bit",
+        _qwen36_config(),
+    )
+
+    assert profile.support_tier is SupportTier.CONVERTIBLE
 
 
 def test_registry_resolves_qwen36_without_ambiguity() -> None:
@@ -222,6 +275,11 @@ def test_dense_family_tier_fails_closed_for_moe_and_missing_layers() -> None:
     assert (
         adapter.profile("org/testfam-7b", missing_layers).support_tier is SupportTier.INSPECT_ONLY
     )
+    for invalid_layers in (True, 0, -1):
+        malformed = {"model_type": "testfam", "num_hidden_layers": invalid_layers}
+        profile = adapter.profile("org/testfam-7b", malformed)
+        assert profile.support_tier is SupportTier.INSPECT_ONLY
+        assert profile.text_layer_count is None
 
 
 def test_dense_family_allow_moe_opt_in() -> None:
@@ -279,6 +337,19 @@ def test_shared_classifier_matches_qwen36_conventions() -> None:
     for name, expected in cases.items():
         assert adapter.classify_tensor(name, "model.safetensors") is expected
     assert adapter.classify_tensor("totally.unknown.tensor", "model.safetensors") is None
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.self_attn.q_proj.weight",
+            "norm-shard.safetensors",
+        )
+        is TensorRole.ATTENTION
+    )
+    assert adapter.classify_tensor("model.layers.0.block.weight", "mtp.safetensors") is (
+        TensorRole.MTP_BLOCK
+    )
+    assert adapter.classify_tensor("encoder.block.weight", "vision.safetensors") is (
+        TensorRole.VISION
+    )
 
 
 def test_extra_role_patterns_take_precedence() -> None:
@@ -334,7 +405,7 @@ def test_moe_router_and_expert_classification() -> None:
         "model.language_model.layers.3.mlp.experts.17.gate_proj.weight": TensorRole.EXPERT,
         "model.language_model.layers.3.mlp.experts.17.down_proj.weight": TensorRole.EXPERT,
         "model.language_model.layers.3.mlp.shared_expert.up_proj.weight": TensorRole.EXPERT,
-        "model.language_model.layers.3.mlp.shared_expert_gate.weight": TensorRole.EXPERT,
+        "model.language_model.layers.3.mlp.shared_expert_gate.weight": TensorRole.ROUTER,
         "model.language_model.layers.3.mlp.gate_proj.weight": TensorRole.MLP,
     }
     for name, expected in cases.items():
@@ -370,6 +441,24 @@ def test_nemotron3_catalog_moe_is_convertible() -> None:
     }
     super_profile = adapter.profile("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", super_cfg)
     assert super_profile.support_tier is SupportTier.INSPECT_ONLY
+    conflicting_identity = adapter.profile(
+        "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        config,
+    )
+    assert conflicting_identity.support_tier is SupportTier.INSPECT_ONLY
+    wrong_signature = adapter.profile(
+        "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+        {**config, "hidden_size": 4096},
+    )
+    assert wrong_signature.support_tier is SupportTier.INSPECT_ONLY
+    for invalid_layers in (True, 0, -1):
+        malformed = {**config, "num_hidden_layers": invalid_layers}
+        malformed_profile = adapter.profile(
+            "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+            malformed,
+        )
+        assert malformed_profile.support_tier is SupportTier.INSPECT_ONLY
+        assert malformed_profile.text_layer_count is None
     # Classification for hybrid MoE tensors.
     cases = {
         "backbone.layers.3.mixer.experts.14.up_proj.weight": TensorRole.EXPERT,
@@ -407,17 +496,27 @@ def test_mistral_devstral_not_confused_with_minicpm() -> None:
 
 def test_qwen36_moe_catalog_size_is_supported() -> None:
     config = {
-        "model_type": "qwen3_5",
+        "model_type": "qwen3_5_moe",
         "_name_or_path": "Qwen/Qwen3.6-35B-A3B",
         "text_config": {
-            "num_hidden_layers": 48,
-            "num_experts": 128,
+            "num_hidden_layers": 40,
+            "hidden_size": 2048,
+            "moe_intermediate_size": 512,
+            "shared_expert_intermediate_size": 512,
+            "num_experts": 256,
             "num_experts_per_tok": 8,
         },
     }
     profile = Qwen36Adapter().profile("Qwen/Qwen3.6-35B-A3B", config)
     assert profile.support_tier is SupportTier.CONVERTIBLE
     assert profile.dense is False
+    assert profile.config_model_type == "qwen3_5_moe"
     # A non-catalog MoE reference stays fail-closed.
     other = Qwen36Adapter().profile("Qwen/Qwen3.6-99B-A9B", config)
     assert other.support_tier is SupportTier.INSPECT_ONLY
+    malformed = {
+        **config,
+        "text_config": {**config["text_config"], "num_experts": 128},
+    }
+    malformed_profile = Qwen36Adapter().profile("Qwen/Qwen3.6-35B-A3B", malformed)
+    assert malformed_profile.support_tier is SupportTier.INSPECT_ONLY

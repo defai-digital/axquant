@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from _capture_helpers import load_test_activation_capture
 from safetensors import safe_open
 from safetensors.numpy import save_file
 
@@ -20,7 +21,6 @@ from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
 from axquant.schema import (
-    ActivationCaptureEntry,
     ActivationCaptureManifest,
     ArtifactManifest,
     CalibrationEvidence,
@@ -54,6 +54,60 @@ def _plan(model_dir: Path) -> QuantizationPlan:
             allow_unmeasured=True,
         ),
     )
+
+
+def _write_fake_converted_checkpoint(
+    source_dir: Path,
+    output: Path,
+    plan: QuantizationPlan,
+    *,
+    pack_weights: bool = True,
+) -> None:
+    """Write a tiny MLX-shaped result for converter contract tests."""
+
+    output.mkdir()
+    converted_config = json.loads((source_dir / "config.json").read_text(encoding="utf-8"))
+    converted_config.pop("vision_config", None)
+    allocations = {allocation.tensor: allocation for allocation in plan.assignments}
+    quantization: dict[str, dict[str, int | str]] = {}
+    tensors: dict[str, np.ndarray] = {}
+    with safe_open(source_dir / "model.safetensors", framework="numpy") as source:
+        for name in list(source.keys()):
+            if name.startswith("visual."):
+                continue
+            value = source.get_tensor(name)
+            allocation = allocations[name]
+            if not pack_weights or allocation.bits >= 16:
+                tensors[name] = value
+                continue
+            assert allocation.group_size is not None
+            assert value.shape[-1] * allocation.bits % 32 == 0
+            packed_shape = (
+                *value.shape[:-1],
+                value.shape[-1] * allocation.bits // 32,
+            )
+            metadata_shape = (
+                *value.shape[:-1],
+                max(1, (value.shape[-1] + allocation.group_size - 1) // allocation.group_size),
+            )
+            tensors[name] = np.zeros(packed_shape, dtype=np.uint32)
+            tensors[f"{allocation.module_path}.scales"] = np.ones(
+                metadata_shape,
+                dtype=np.float32,
+            )
+            tensors[f"{allocation.module_path}.biases"] = np.zeros(
+                metadata_shape,
+                dtype=np.float32,
+            )
+            quantization[allocation.module_path] = {
+                "bits": allocation.bits,
+                "group_size": allocation.group_size,
+                "mode": "affine",
+            }
+    if quantization:
+        converted_config["quantization"] = quantization
+    (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
+    save_file(tensors, output / "model.safetensors")
 
 
 def _measured_plan(
@@ -92,16 +146,6 @@ def _bound_capture(
     activations: dict[str, np.ndarray],
     source_dir: Path,
 ) -> LoadedActivationCapture:
-    entries = tuple(
-        ActivationCaptureEntry(
-            module_path=name,
-            rows=int(rows.shape[0]),
-            in_features=int(rows.shape[1]),
-            file=f"{index:04d}.npz",
-            sha256=f"{index + 1:064x}",
-        )
-        for index, (name, rows) in enumerate(sorted(activations.items()))
-    )
     manifest = ActivationCaptureManifest(
         model=plan.source_model.model_id,
         revision=plan.source_model.revision,
@@ -110,14 +154,12 @@ def _bound_capture(
         calibration_dataset_id=(
             plan.calibration.dataset_id if plan.calibration is not None else "development-cache"
         ),
-        max_rows=max(entry.rows for entry in entries),
-        entries=entries,
+        max_rows=max(rows.shape[0] for rows in activations.values()),
     )
-    capture = LoadedActivationCapture(
+    capture = load_test_activation_capture(
+        source_dir / "capture",
         manifest=manifest,
-        manifest_sha256=stable_sha256(manifest),
         activations=activations,
-        source_dir=source_dir,
     )
     if plan.calibration is not None:
         plan.calibration.metadata.update(activation_capture_metadata(capture))
@@ -189,22 +231,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
         del model, kwargs
         for path, module in FakeModel().named_modules():
             quant_predicate(path, module)
-        output = Path(mlx_path)
-        output.mkdir()
-        converted_config = json.loads(
-            (qwen36_model_dir / "config.json").read_text(encoding="utf-8")
-        )
-        converted_config.pop("vision_config")
-        (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
-        with safe_open(qwen36_model_dir / "model.safetensors", framework="numpy") as source:
-            save_file(
-                {
-                    name: source.get_tensor(name)
-                    for name in list(source.keys())
-                    if not name.startswith("visual.")
-                },
-                output / "model.safetensors",
-            )
+        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
 
     # Use the real portable refine path for AWQ modules (numpy weights; no MLX required).
     import axquant.predicate as predicate_module
@@ -341,22 +368,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
         del model, kwargs
         for path, module in FakeModel().named_modules():
             quant_predicate(path, module)
-        output = Path(mlx_path)
-        output.mkdir()
-        converted_config = json.loads(
-            (qwen36_model_dir / "config.json").read_text(encoding="utf-8")
-        )
-        converted_config.pop("vision_config")
-        (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
-        with safe_open(qwen36_model_dir / "model.safetensors", framework="numpy") as source:
-            save_file(
-                {
-                    name: source.get_tensor(name)
-                    for name in list(source.keys())
-                    if not name.startswith("visual.")
-                },
-                output / "model.safetensors",
-            )
+        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
 
     # Use the real portable refine path for GPTQ modules (numpy weights; no MLX required).
     import axquant.predicate as predicate_module
@@ -520,25 +532,7 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
         del model, kwargs
         for path, module in FakeModel().named_modules():
             quant_predicate(path, module)
-        output = Path(mlx_path)
-        output.mkdir()
-        converted_config = json.loads(
-            (qwen36_model_dir / "config.json").read_text(encoding="utf-8")
-        )
-        converted_config.pop("vision_config")
-        (output / "config.json").write_text(
-            json.dumps(converted_config),
-            encoding="utf-8",
-        )
-        with safe_open(qwen36_model_dir / "model.safetensors", framework="numpy") as source:
-            save_file(
-                {
-                    name: source.get_tensor(name)
-                    for name in list(source.keys())
-                    if not name.startswith("visual.")
-                },
-                output / "model.safetensors",
-            )
+        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
 
     monkeypatch.setattr(
         converter,
@@ -821,7 +815,7 @@ def test_converted_weight_verification_rejects_missing_mtp_parameters(
     (staging / "model.safetensors").write_bytes(
         (qwen36_model_dir / "model.safetensors").read_bytes()
     )
-    with pytest.raises(ArtifactError, match="logical parameter coverage mismatch"):
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
         converter._verify_converted_weights(staging, plan)
 
 
@@ -834,6 +828,102 @@ def test_conversion_requires_declared_mtp_sidecar(
             model=str(qwen36_model_dir),
             plan=_plan(qwen36_model_dir),
             output=tmp_path / "candidate",
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
+
+
+def test_conversion_rejects_revision_that_differs_from_plan(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(PlanningError, match="revision does not match"):
+        converter.convert_model(
+            model=str(qwen36_model_dir),
+            revision="different-revision",
+            plan=_plan(qwen36_model_dir),
+            output=tmp_path / "candidate",
+            mtp_sidecar=qwen36_model_dir,
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
+
+
+def test_conversion_rejects_local_source_that_differs_from_plan(
+    qwen36_model_dir: Path,
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(PlanningError, match="does not match the plan source path"):
+        converter.convert_model(
+            model=str(tiny_model_dir),
+            plan=_plan(qwen36_model_dir),
+            output=tmp_path / "candidate",
+            mtp_sidecar=qwen36_model_dir,
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
+
+
+def test_conversion_rejects_declared_mtp_without_plan_allocations(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source-with-missing-mtp"
+    source.mkdir()
+    for name in ("config.json", "model.safetensors"):
+        (source / name).write_bytes((qwen36_model_dir / name).read_bytes())
+    plan = _plan(source)
+    assert plan.architecture_profile.mtp_declared
+    assert not any(allocation.role.is_mtp for allocation in plan.assignments)
+
+    with pytest.raises(PlanningError, match="contains no MTP tensor allocations"):
+        converter.convert_model(
+            model=str(source),
+            plan=plan,
+            output=tmp_path / "candidate",
+            allow_unmeasured=True,
+            ax_engine_manifest="skip",
+        )
+
+
+def test_conversion_rejects_backend_that_does_not_pack_planned_weights(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+
+    class FakeModel:
+        def named_modules(self):
+            return [
+                (allocation.module_path, object())
+                for allocation in plan.assignments
+                if allocation.bits < 16
+            ]
+
+    def fake_load(*args, **kwargs):
+        return FakeModel(), {}, {}
+
+    def fake_convert(model, *, mlx_path, quant_predicate, **kwargs):
+        del model, kwargs
+        for path, module in FakeModel().named_modules():
+            quant_predicate(path, module)
+        _write_fake_converted_checkpoint(
+            qwen36_model_dir,
+            Path(mlx_path),
+            plan,
+            pack_weights=False,
+        )
+
+    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
+
+    with pytest.raises(ArtifactError, match="packing does not match the plan"):
+        converter.convert_model(
+            model=str(qwen36_model_dir),
+            plan=plan,
+            output=tmp_path / "candidate",
+            mtp_sidecar=qwen36_model_dir,
             allow_unmeasured=True,
             ax_engine_manifest="skip",
         )

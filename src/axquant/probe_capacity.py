@@ -6,8 +6,12 @@ and records the strongest EvidenceKind each mode may produce.
 
 from __future__ import annotations
 
+import math
 import os
+import sys
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from axquant.errors import PlanningError
 from axquant.schema import (
@@ -29,15 +33,21 @@ _DEFAULT_HEADROOM = 0.70  # use at most this fraction of available unified memor
 
 def _read_available_memory_bytes(explicit: int | None) -> int | None:
     if explicit is not None:
-        if explicit <= 0:
-            raise PlanningError("available memory must be positive")
+        if type(explicit) is not int or explicit <= 0 or explicit > sys.maxsize:
+            raise PlanningError("available memory must be a positive platform-sized integer")
         return explicit
     # Best-effort macOS / Linux detection; absence falls back to prior-only advice.
     try:
         page_size = os.sysconf("SC_PAGE_SIZE")
         phys_pages = os.sysconf("SC_PHYS_PAGES")
-        if page_size > 0 and phys_pages > 0:
-            return int(page_size) * int(phys_pages)
+        if (
+            type(page_size) is int
+            and type(phys_pages) is int
+            and page_size > 0
+            and phys_pages > 0
+            and page_size <= sys.maxsize // phys_pages
+        ):
+            return page_size * phys_pages
     except (AttributeError, OSError, ValueError):
         pass
     return None
@@ -88,20 +98,30 @@ def assess_probe_capacity(
     headroom_fraction: float = _DEFAULT_HEADROOM,
 ) -> ProbeCapacityReport:
     """Assess which probe modes fit the host memory budget."""
-    if parameter_count <= 0:
-        raise PlanningError("parameter_count must be positive")
-    if not 0.0 < headroom_fraction <= 1.0:
+    if type(parameter_count) is not int or parameter_count <= 0 or parameter_count > sys.maxsize:
+        raise PlanningError("parameter_count must be a positive platform-sized integer")
+    if (
+        isinstance(headroom_fraction, bool)
+        or not isinstance(headroom_fraction, (int, float))
+        or not math.isfinite(float(headroom_fraction))
+        or not 0.0 < float(headroom_fraction) <= 1.0
+    ):
         raise PlanningError("headroom_fraction must be in (0, 1]")
+    resolved_headroom = float(headroom_fraction)
     available = _read_available_memory_bytes(available_memory_bytes)
-    bf16 = int(parameter_count * _BF16_BYTES_PER_PARAM * _PROBE_OVERHEAD)
-    u4 = int(parameter_count * _UNIFORM4_BYTES_PER_PARAM * _PROBE_OVERHEAD)
-    lite = int(u4 * 1.15)  # uniform-4 resident + modest probe workspace
+    bf16_estimate = parameter_count * _BF16_BYTES_PER_PARAM * _PROBE_OVERHEAD
+    u4_estimate = parameter_count * _UNIFORM4_BYTES_PER_PARAM * _PROBE_OVERHEAD
+    if not math.isfinite(bf16_estimate) or not math.isfinite(u4_estimate):
+        raise PlanningError("probe capacity estimate exceeds the supported numeric range")
+    bf16 = max(1, math.ceil(bf16_estimate))
+    u4 = max(1, math.ceil(u4_estimate))
+    lite = max(1, math.ceil(u4 * 1.15))  # uniform-4 resident + modest probe workspace
     modes = [
         _mode_assessment(
             ProbeMode.BF16_FULL,
             required_bytes=bf16,
             available_bytes=available,
-            headroom_fraction=headroom_fraction,
+            headroom_fraction=resolved_headroom,
             evidence_kind=EvidenceKind.MEASURED,
             release_quality=True,
             notes=[
@@ -113,7 +133,7 @@ def assess_probe_capacity(
             ProbeMode.MEASURED_LITE,
             required_bytes=lite,
             available_bytes=available,
-            headroom_fraction=headroom_fraction,
+            headroom_fraction=resolved_headroom,
             evidence_kind=EvidenceKind.MEASURED_DEVELOPMENT,
             release_quality=False,
             notes=[
@@ -125,7 +145,7 @@ def assess_probe_capacity(
             ProbeMode.STREAMING_PARTIAL,
             required_bytes=u4,
             available_bytes=available,
-            headroom_fraction=headroom_fraction,
+            headroom_fraction=resolved_headroom,
             evidence_kind=EvidenceKind.MEASURED_DEVELOPMENT,
             release_quality=False,
             notes=[
@@ -137,7 +157,7 @@ def assess_probe_capacity(
             ProbeMode.PRIOR_ONLY,
             required_bytes=0,
             available_bytes=available,
-            headroom_fraction=headroom_fraction,
+            headroom_fraction=resolved_headroom,
             evidence_kind=EvidenceKind.ARCHITECTURE_PRIOR,
             release_quality=False,
             notes=[
@@ -171,7 +191,7 @@ def assess_probe_capacity(
         model=model,
         parameter_count=parameter_count,
         available_memory_bytes=available,
-        headroom_fraction=headroom_fraction,
+        headroom_fraction=resolved_headroom,
         recommended_mode=recommended,
         modes=modes,
         warnings=warnings,
@@ -186,6 +206,17 @@ def assess_probe_capacity_from_inventory(
 ) -> ProbeCapacityReport:
     """Assess capacity from an Inventory object or JSON path."""
     report = inventory if isinstance(inventory, Inventory) else load_model(inventory, Inventory)
+    try:
+        report = Inventory.model_validate(report.model_dump(mode="python"))
+    except ValidationError as exc:
+        raise PlanningError(f"invalid inventory for probe capacity: {exc}") from exc
+    if not report.tensors:
+        raise PlanningError("probe capacity requires a non-empty tensor inventory")
+    tensor_parameters = sum(tensor.parameters for tensor in report.tensors)
+    if report.total_parameters != tensor_parameters:
+        raise PlanningError(
+            "inventory total_parameters does not match its tensor parameter records"
+        )
     return assess_probe_capacity(
         parameter_count=report.total_parameters,
         model=report.model,

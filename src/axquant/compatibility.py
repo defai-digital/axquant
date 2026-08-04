@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from axquant.artifact_paths import artifact_member_path, artifact_tree_symlinks
 from axquant.errors import ArtifactError, ValidationGateError
 from axquant.inspector import inspect_model
 from axquant.release_exceptions import release_exception_allows_size
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArchitectureSupportLevel,
     ArtifactManifest,
@@ -26,10 +28,10 @@ def _resolved(base: Path, value: str) -> Path:
 
 
 def _safe_artifact_file(directory: Path, relative_name: str) -> Path:
-    relative = Path(relative_name)
-    if relative.is_absolute() or ".." in relative.parts:
-        raise ArtifactError(f"unsafe artifact manifest path: {relative_name}")
-    return directory / relative
+    try:
+        return artifact_member_path(directory, relative_name)
+    except ValueError as exc:
+        raise ArtifactError(str(exc)) from exc
 
 
 def _validate_artifact_files(
@@ -37,6 +39,12 @@ def _validate_artifact_files(
     manifest: ArtifactManifest,
     issues: list[str],
 ) -> None:
+    symlinks = artifact_tree_symlinks(directory)
+    if symlinks:
+        issues.append(f"artifact tree contains symlinks: {symlinks}")
+    record_paths = [record.path for record in manifest.files]
+    if len(record_paths) != len(set(record_paths)):
+        issues.append("artifact manifest contains duplicate file records")
     for record in manifest.files:
         path = _safe_artifact_file(directory, record.path)
         if not path.is_file():
@@ -45,13 +53,35 @@ def _validate_artifact_files(
             issues.append(f"artifact manifest file size changed: {record.path}")
         elif file_sha256(path) != record.sha256:
             issues.append(f"artifact manifest file checksum changed: {record.path}")
+    recorded_weights = {
+        Path(record.path).as_posix()
+        for record in manifest.files
+        if Path(record.path).suffix.lower() == ".safetensors"
+    }
+    actual_weights = {
+        path.relative_to(directory).as_posix()
+        for path in directory.rglob("*.safetensors")
+        if path.is_file() and not path.is_symlink()
+    }
+    if recorded_weights != actual_weights:
+        issues.append("artifact manifest Safetensors membership differs from the artifact")
+    recorded_weight_bytes = sum(
+        record.size_bytes
+        for record in manifest.files
+        if Path(record.path).suffix.lower() == ".safetensors"
+    )
+    if recorded_weight_bytes != manifest.weight_file_size_bytes:
+        issues.append("artifact manifest Safetensors bytes differ from measured weight bytes")
 
 
 def _runtime_targets_artifact(check: RuntimeCheck, artifact: Path) -> bool:
     option = "--mlx-model-artifacts-dir" if check.runtime == RuntimeName.AX_ENGINE else "--model"
+    option_indices = [index for index, argument in enumerate(check.command) if argument == option]
+    if len(option_indices) != 1:
+        return False
     try:
-        target = check.command[check.command.index(option) + 1]
-    except (ValueError, IndexError):
+        target = check.command[option_indices[0] + 1]
+    except IndexError:
         return False
     return Path(target).expanduser().resolve() == artifact
 
@@ -128,6 +158,10 @@ def _candidate_entry(
         allow_quantized=True,
     )
     architecture = inventory.architecture_profile
+    if inventory.weight_bytes != manifest.weight_file_size_bytes:
+        issues.append("inspected checkpoint weight bytes differ from the artifact manifest")
+    if inventory.total_parameters != manifest.logical_parameters:
+        issues.append("inspected logical parameters differ from the artifact manifest")
     if architecture.support_level != ArchitectureSupportLevel.SUPPORTED:
         issues.append("candidate architecture is not supported for conversion")
     if architecture.product_family != "qwen3.6" or architecture.dense is not True:
@@ -156,7 +190,7 @@ def _candidate_entry(
         or Path(candidate_local_path).expanduser().resolve() != artifact
     ):
         issues.append("validation report does not identify the candidate artifact directory")
-    if not validation.candidate_model.revision:
+    if not is_immutable_revision(validation.candidate_model.revision):
         issues.append("validated candidate revision is not immutable")
     if not validation.passed:
         issues.append("candidate release validation did not pass")
@@ -202,7 +236,12 @@ def _candidate_entry(
         issues.append(f"validation report is missing release evidence: {missing_comparisons}")
     for metric, (minimum, maximum) in numeric_comparisons.items():
         value = validation.comparisons.get(metric)
-        if isinstance(value, (int, float)) and not minimum <= float(value) <= maximum:
+        if value is None or value == "":
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            issues.append(f"validation comparison must be numeric: {metric}")
+            continue
+        if not minimum <= float(value) <= maximum:
             if metric == "artifact.weight_size_ratio":
                 try:
                     release_exception_allows_size(validation, plan=plan)
@@ -210,6 +249,26 @@ def _candidate_entry(
                 except ValidationGateError:
                     pass
             issues.append(f"validation comparison violates its release threshold: {metric}")
+    string_comparisons = named_hardware - {"hardware.unified_memory_bytes"}
+    for metric in sorted(string_comparisons):
+        value = validation.comparisons.get(metric)
+        if value is None or value == "":
+            continue
+        if not isinstance(value, str) or not value.strip():
+            issues.append(f"validation comparison must be a non-empty string: {metric}")
+    unified_memory = validation.comparisons.get("hardware.unified_memory_bytes")
+    if (
+        unified_memory is not None
+        and unified_memory != ""
+        and (
+            isinstance(unified_memory, bool)
+            or not isinstance(unified_memory, int)
+            or unified_memory <= 0
+        )
+    ):
+        issues.append(
+            "validation comparison must be a positive integer: hardware.unified_memory_bytes"
+        )
     if any(issue.severity == "error" for issue in validation.issues):
         issues.append("validation report contains release-blocking issues")
 
@@ -269,7 +328,7 @@ def build_compatibility_matrix(request_path: str | Path) -> CompatibilityMatrix:
             if entry.dense and entry.source_model.model_id == requirement.model_id
         ]
         revisions = {entry.source_model.revision for entry in model_entries}
-        if None in revisions or len(revisions) != 1:
+        if len(revisions) != 1 or not all(is_immutable_revision(value) for value in revisions):
             issues.append(
                 f"{requirement.model_id} must use one immutable source revision across profiles"
             )

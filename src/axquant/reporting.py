@@ -3,11 +3,14 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from axquant.artifact_paths import artifact_member_path, artifact_tree_files
+from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import activation_capture_evidence_issues
 from axquant.errors import ArtifactError, ValidationGateError
 from axquant.planner import allocate_kv_cache_measured
 from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ActivationCaptureManifest,
     ArtifactFile,
@@ -44,17 +47,49 @@ from axquant.serde import (
 
 
 def _validate_manifest_files(directory: Path, manifest: ArtifactManifest) -> None:
+    record_paths = [record.path for record in manifest.files]
+    if len(record_paths) != len(set(record_paths)):
+        raise ValidationGateError("artifact manifest contains duplicate file records")
+    try:
+        actual_files = artifact_tree_files(directory)
+    except ValueError as exc:
+        raise ValidationGateError(str(exc)) from exc
     for record in manifest.files:
-        relative = Path(record.path)
-        if relative.is_absolute() or ".." in relative.parts:
-            raise ValidationGateError(f"unsafe manifest path: {record.path}")
-        path = directory / relative
+        try:
+            path = artifact_member_path(directory, record.path)
+        except ValueError as exc:
+            raise ValidationGateError(str(exc)) from exc
         if not path.is_file():
             raise ValidationGateError(f"manifest file is missing: {record.path}")
         if path.stat().st_size != record.size_bytes:
             raise ValidationGateError(f"manifest size changed: {record.path}")
         if file_sha256(path) != record.sha256:
             raise ValidationGateError(f"manifest checksum changed: {record.path}")
+    recorded_weight_files = {
+        Path(record.path).as_posix()
+        for record in manifest.files
+        if Path(record.path).suffix.lower() == ".safetensors"
+    }
+    actual_weight_files = {
+        path.relative_to(directory).as_posix()
+        for path in actual_files
+        if path.suffix.lower() == ".safetensors"
+    }
+    if recorded_weight_files != actual_weight_files:
+        raise ValidationGateError(
+            "artifact manifest Safetensors coverage differs: "
+            f"missing={sorted(actual_weight_files - recorded_weight_files)}, "
+            f"extra={sorted(recorded_weight_files - actual_weight_files)}"
+        )
+    recorded_weight_bytes = sum(
+        record.size_bytes
+        for record in manifest.files
+        if Path(record.path).suffix.lower() == ".safetensors"
+    )
+    if recorded_weight_bytes != manifest.weight_file_size_bytes:
+        raise ValidationGateError(
+            "artifact manifest Safetensors bytes do not match measured weight bytes"
+        )
 
 
 def _verify_packaged_activation_capture(directory: Path, plan: QuantizationPlan) -> None:
@@ -84,13 +119,17 @@ def _verify_packaged_activation_capture(directory: Path, plan: QuantizationPlan)
 
 
 def _artifact_files(directory: Path) -> list[ArtifactFile]:
+    try:
+        files = artifact_tree_files(directory)
+    except ValueError as exc:
+        raise ValidationGateError(str(exc)) from exc
     return [
         ArtifactFile(
             path=path.relative_to(directory).as_posix(),
             size_bytes=path.stat().st_size,
             sha256=file_sha256(path),
         )
-        for path in sorted(item for item in directory.rglob("*") if item.is_file())
+        for path in files
         if path.name != "axquant_manifest.json"
     ]
 
@@ -237,22 +276,22 @@ def _benchmark_evidence_sources(
     for entry in required_entries:
         if entry.status != "available" or entry.model is None:
             raise ValidationGateError(f"required benchmark evidence is unavailable: {entry.kind}")
-    assert reference_entry.model is not None
-    assert direct_entry.model is not None
-    assert mtp_entry.model is not None
-    if reference_entry.model != validation.reference_model:
+    reference_model = reference_entry.model
+    direct_model = direct_entry.model
+    mtp_model = mtp_entry.model
+    if reference_model is None or direct_model is None or mtp_model is None:
+        raise ValidationGateError("required benchmark evidence has no model identity")
+    if reference_model != validation.reference_model:
         raise ValidationGateError("uniform-6 benchmark evidence does not match validation")
-    for entry in (direct_entry, mtp_entry):
-        if entry.model != validation.candidate_model:
-            raise ValidationGateError("AXQuant benchmark evidence does not match validation")
+    if direct_model != validation.candidate_model or mtp_model != validation.candidate_model:
+        raise ValidationGateError("AXQuant benchmark evidence does not match validation")
 
     sources: list[tuple[BenchmarkEvidenceEntry, Path]] = []
     for entry in index.entries:
         if entry.status != "available":
             continue
-        assert entry.evaluation_file is not None
-        assert entry.evaluation_sha256 is not None
-        assert entry.model is not None
+        if entry.evaluation_file is None or entry.evaluation_sha256 is None or entry.model is None:
+            raise ValidationGateError(f"available benchmark evidence is incomplete: {entry.kind}")
         source = _resolved_evidence_path(index_source.parent, entry.evaluation_file)
         if not source.is_file() or file_sha256(source) != entry.evaluation_sha256:
             raise ValidationGateError(f"benchmark evidence checksum mismatch: {entry.kind}")
@@ -283,7 +322,8 @@ def _package_benchmark_evidence(
     evidence_directory.mkdir(exist_ok=True)
     for source_entry, source in sources:
         entry = packaged_entries[source_entry.kind]
-        assert entry.evaluation_sha256 is not None
+        if entry.evaluation_sha256 is None:
+            raise ValidationGateError(f"available benchmark evidence is incomplete: {entry.kind}")
         destination = evidence_directory / f"{entry.kind.value}.json"
         if destination.exists():
             if file_sha256(destination) != entry.evaluation_sha256:
@@ -450,9 +490,16 @@ def prepare_publication(
     hardware_registry_path: str | Path,
     pareto_report_path: str | Path,
 ) -> list[Path]:
-    directory = Path(model_dir).expanduser().resolve()
+    supplied_directory = Path(model_dir).expanduser()
+    if supplied_directory.is_symlink():
+        raise ValidationGateError("artifact root is a symlink")
+    directory = supplied_directory.resolve()
     if not directory.is_dir():
         raise ArtifactError(f"model directory does not exist: {directory}")
+    try:
+        artifact_tree_files(directory)
+    except ValueError as exc:
+        raise ValidationGateError(str(exc)) from exc
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
     plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
     if plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY:
@@ -556,7 +603,7 @@ def prepare_publication(
     if validation.candidate_model.model_id != repo_id:
         raise ValidationGateError("validated candidate model does not match publication repository")
     candidate_revision = validation.candidate_model.revision
-    if not candidate_revision:
+    if not is_immutable_revision(candidate_revision):
         raise ValidationGateError("publication requires an immutable candidate revision")
     approved_exception = None
     for label, report in (
@@ -596,9 +643,9 @@ def prepare_publication(
     calibration_sha256 = plan.calibration.metadata.get("calibration_manifest_sha256")
     if not calibration_path.is_file() or not isinstance(calibration_sha256, str):
         raise ValidationGateError("publication requires the bound calibration manifest")
-    if file_sha256(calibration_path) != calibration_sha256:
-        raise ValidationGateError("packaged calibration manifest does not match the plan")
     calibration = load_model(calibration_path, CalibrationManifest)
+    if not calibration_manifest_matches(calibration_path, calibration, calibration_sha256):
+        raise ValidationGateError("packaged calibration manifest does not match the plan")
     if (
         calibration.model != plan.source_model
         or calibration.profile != plan.profile
@@ -607,7 +654,7 @@ def prepare_publication(
     ):
         raise ValidationGateError("packaged calibration provenance is inconsistent")
     _verify_packaged_activation_capture(directory, plan)
-    if not plan.source_model.revision:
+    if not is_immutable_revision(plan.source_model.revision):
         raise ValidationGateError("publication requires an immutable source revision")
     if stable_sha256(plan) != manifest.plan_sha256:
         raise ValidationGateError("manifest plan hash does not match axquant_plan.json")
@@ -728,7 +775,8 @@ def prepare_publication(
         },
     )
     source_revision = plan.source_model.revision
-    assert source_revision is not None
+    if source_revision is None:
+        raise ValidationGateError("publication requires an immutable source revision")
     mtp_sidecar_path = directory / "mtp.safetensors"
     mtp_sidecar_file = mtp_sidecar_path.name if mtp_sidecar_path.is_file() else None
     mtp_companion_files: list[ArtifactFile] = []

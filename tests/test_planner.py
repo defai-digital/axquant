@@ -7,12 +7,16 @@ from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
 from axquant.planner import plan_quantization, storage_bpw
 from axquant.schema import (
+    CandidateMeasurement,
+    HardwareProfile,
     Inventory,
+    MetricVector,
     ModelIdentity,
     MtpPolicy,
     PlanRequest,
     ProfileName,
     QuantizationPlan,
+    QuantMethod,
     TensorRole,
     TensorSpec,
 )
@@ -163,6 +167,78 @@ def test_planner_respects_budget_and_external_mtp_protection() -> None:
     assert plan.mtp_distribution["bf16"].fraction == 1.0
 
 
+def test_planner_harmonizes_tied_weights_at_one_executable_signature() -> None:
+    trunk = _tensor("model.layers.0.mlp.down_proj.weight", 10_000, TensorRole.MLP)
+    embedding = _tensor("model.embed_tokens.weight", 100, TensorRole.EMBEDDING)
+    head = _tensor("lm_head.weight", 100, TensorRole.LM_HEAD)
+    embedding.tied_to = head.name
+    head.tied_to = embedding.name
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/tied-model", revision="abc"),
+        tensors=[trunk, embedding, head],
+        total_parameters=10_200,
+        quantizable_parameters=10_200,
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+        tied_weight_groups=[[embedding.name, head.name]],
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(report, _request(target_bpw=5.0))
+    tied = {
+        allocation.tensor: (allocation.bits, allocation.method, allocation.group_size)
+        for allocation in plan.assignments
+        if allocation.tensor in {embedding.name, head.name}
+    }
+    assert len(set(tied.values())) == 1
+    assert next(iter(tied.values())) == (16, QuantMethod.BF16, None)
+    assert all(
+        "tied-weight group" in allocation.reason
+        for allocation in plan.assignments
+        if allocation.tensor in tied
+    )
+
+
+def test_planner_rejects_tied_weight_precision_outside_budget() -> None:
+    trunk = _tensor("model.layers.0.mlp.down_proj.weight", 10_000, TensorRole.MLP)
+    embedding = _tensor("model.embed_tokens.weight", 100, TensorRole.EMBEDDING)
+    head = _tensor("lm_head.weight", 100, TensorRole.LM_HEAD)
+    embedding.tied_to = head.name
+    head.tied_to = embedding.name
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/tied-model", revision="abc"),
+        tensors=[trunk, embedding, head],
+        total_parameters=10_200,
+        quantizable_parameters=10_200,
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    with pytest.raises(PlanningError, match=r"tied-weight group.*within the budget"):
+        plan_quantization(report, _request(target_bpw=4.7))
+
+
+def test_planner_rejects_dangling_tied_weight_reference() -> None:
+    tensor = _tensor("model.embed_tokens.weight", 100, TensorRole.EMBEDDING)
+    tensor.tied_to = "missing.weight"
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/tied-model", revision="abc"),
+        tensors=[tensor],
+        total_parameters=100,
+        quantizable_parameters=100,
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    with pytest.raises(PlanningError, match="tied to missing tensor"):
+        plan_quantization(report, _request(target_bpw=16.0))
+
+
 def test_sidecar_policy_preserves_logical_mtp_from_integrated_source_shards() -> None:
     inventory = _inventory()
     mtp = next(tensor for tensor in inventory.tensors if tensor.role.is_mtp)
@@ -229,6 +305,12 @@ def test_kv_cache_allocator_rejects_invalid_inputs() -> None:
         allocate_kv_cache(0)
     with pytest.raises(PlanningError, match="policy floor"):
         allocate_kv_cache(8, default_bits=4, min_bits=6)
+    with pytest.raises(PlanningError, match=r"bit widths.*5"):
+        allocate_kv_cache(8, default_bits=5)
+    with pytest.raises(PlanningError, match=r"bit widths.*5"):
+        allocate_kv_cache(8, min_bits=5)
+    with pytest.raises(PlanningError, match=r"group sizes.*7"):
+        allocate_kv_cache(8, group_size=7)
 
 
 def test_kv_cache_plan_schema_rejects_gaps_and_floor_violations() -> None:
@@ -250,6 +332,55 @@ def test_kv_cache_plan_schema_rejects_gaps_and_floor_violations() -> None:
             default_bits=6,
             layers=[layer(0, bits=4)],
         )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "allocation_basis": "architecture-prior",
+            "min_bits": 4,
+            "default_bits": 5,
+            "default_group_size": 64,
+            "layers": [{"layer_index": 0, "bits": 4, "group_size": 64, "reason": "test"}],
+        },
+        {
+            "allocation_basis": "architecture-prior",
+            "min_bits": 5,
+            "default_bits": 6,
+            "default_group_size": 64,
+            "layers": [{"layer_index": 0, "bits": 6, "group_size": 64, "reason": "test"}],
+        },
+        {
+            "allocation_basis": "architecture-prior",
+            "min_bits": 4,
+            "default_bits": 4,
+            "default_group_size": 7,
+            "layers": [{"layer_index": 0, "bits": 4, "group_size": 64, "reason": "test"}],
+        },
+        {
+            "allocation_basis": "architecture-prior",
+            "min_bits": 4,
+            "default_bits": 4,
+            "default_group_size": 64,
+            "layers": [{"layer_index": 0, "bits": 5, "group_size": 64, "reason": "test"}],
+        },
+        {
+            "allocation_basis": "architecture-prior",
+            "min_bits": 4,
+            "default_bits": 4,
+            "default_group_size": 64,
+            "layers": [{"layer_index": 0, "bits": 4, "group_size": 7, "reason": "test"}],
+        },
+    ],
+)
+def test_kv_cache_plan_schema_rejects_non_executable_grid(
+    payload: dict[str, object],
+) -> None:
+    from axquant.schema import KvCachePlan
+
+    with pytest.raises(ValidationError, match="AX Engine KV cache does not support"):
+        KvCachePlan.model_validate(payload)
 
 
 def test_plan_refreshes_stale_tier_from_current_registry_policy() -> None:
@@ -313,6 +444,43 @@ def test_mtp_policy_rejects_a_floor_below_the_protected_minimum() -> None:
     # never be silently lowered below the documented 8-bit MTP minimum.
     with pytest.raises(ValidationError):
         MtpPolicy(min_bits=2)
+    with pytest.raises(ValidationError, match="executable grid"):
+        MtpPolicy(candidate_bits=(5, 8))
+
+
+def test_loaded_plan_rejects_inconsistent_summary_and_identity_fields() -> None:
+    report = architecture_prior_report(_inventory(), profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(report, _request(target_bpw=6.5))
+
+    duplicate = plan.model_dump(mode="json")
+    duplicate["assignments"].append(dict(duplicate["assignments"][0]))
+    with pytest.raises(ValidationError, match="tensor names must be unique"):
+        QuantizationPlan.model_validate(duplicate)
+
+    wrong_budget = plan.model_dump(mode="json")
+    wrong_budget["effective_bpw"] = plan.target_bpw + 0.1
+    with pytest.raises(ValidationError, match="exceeds its target"):
+        QuantizationPlan.model_validate(wrong_budget)
+
+    wrong_constraint = plan.model_dump(mode="json")
+    wrong_constraint["constraints"]["effective_bpw_limit"] = plan.target_bpw + 0.1
+    with pytest.raises(ValidationError, match="does not match"):
+        QuantizationPlan.model_validate(wrong_constraint)
+
+    disabled_validation = plan.model_dump(mode="json")
+    disabled_validation["global_validation_required"] = False
+    with pytest.raises(ValidationError, match="Input should be True"):
+        QuantizationPlan.model_validate(disabled_validation)
+
+    noncanonical_grid = plan.model_dump(mode="json")
+    noncanonical_grid["candidate_bits"] = [6, 4, 6, 8, 16]
+    with pytest.raises(ValidationError, match="sorted and unique"):
+        QuantizationPlan.model_validate(noncanonical_grid)
+
+    stale_distribution = plan.model_dump(mode="json")
+    stale_distribution["assignments"][0]["parameters"] += 1
+    with pytest.raises(ValidationError, match=r"distribution.*does not match"):
+        QuantizationPlan.model_validate(stale_distribution)
 
 
 def test_plan_rejects_a_loaded_allocation_below_its_protection_floor() -> None:
@@ -332,4 +500,126 @@ def test_plan_rejects_a_loaded_allocation_below_its_protection_floor() -> None:
     payload["assignments"][lm_head_index]["bits"] = 4
 
     with pytest.raises(ValidationError, match="violates protection floors"):
+        QuantizationPlan.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "module_path",
+    [
+        "model.layers.0.mlp.experts.0.gate_proj",
+        "model.layers.0.mlp.experts.gate_up_proj",
+    ],
+)
+def test_planner_only_selects_executable_affine_method_for_fused_experts(
+    module_path: str,
+) -> None:
+    tensor = _tensor(f"{module_path}.weight", 10_000, TensorRole.EXPERT)
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/moe-model", revision="abc"),
+        tensors=[tensor],
+        total_parameters=tensor.parameters,
+        quantizable_parameters=tensor.parameters,
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    entry = report.entries[0]
+    entry.candidates.append(
+        CandidateMeasurement(
+            bits=4,
+            method=QuantMethod.DWQ,
+            group_size=64,
+            metrics=MetricVector(),
+            note="lower-loss refinement candidate",
+        )
+    )
+
+    plan = plan_quantization(
+        report,
+        _request(
+            target_bpw=4.5,
+            candidate_methods=(QuantMethod.AFFINE, QuantMethod.DWQ),
+        ),
+    )
+
+    assert plan.assignments[0].bits == 4
+    assert plan.assignments[0].method is QuantMethod.AFFINE
+
+
+def test_planner_rejects_fused_experts_without_a_common_budgeted_signature() -> None:
+    tensors = [
+        _tensor(
+            f"model.layers.0.mlp.experts.{index}.gate_proj.weight",
+            10_000,
+            TensorRole.EXPERT,
+        )
+        for index in range(2)
+    ]
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/moe-model", revision="abc"),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors),
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+        candidate_group_sizes=(64, 128),
+    )
+    report.entries[0].candidates = [
+        candidate
+        for candidate in report.entries[0].candidates
+        if candidate.bits == 16 or (candidate.bits == 4 and candidate.group_size == 64)
+    ]
+    report.entries[1].candidates = [
+        candidate
+        for candidate in report.entries[1].candidates
+        if candidate.bits == 16 or (candidate.bits == 4 and candidate.group_size == 128)
+    ]
+
+    with pytest.raises(PlanningError, match="no common precision within the budget"):
+        plan_quantization(
+            report,
+            _request(
+                target_bpw=4.5,
+                candidate_group_sizes=(64, 128),
+            ),
+        )
+
+
+def test_hardware_profile_rejects_non_executable_precision_grid() -> None:
+    with pytest.raises(ValidationError, match=r"does not support bits.*5"):
+        HardwareProfile(supported_bits=(4, 5, 16))
+    with pytest.raises(ValidationError, match=r"does not support group sizes.*7"):
+        HardwareProfile(supported_group_sizes=(7, 64))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("bits", 5),
+        ("group_size", 7),
+    ],
+)
+def test_plan_rejects_loaded_allocation_outside_declared_hardware_grid(
+    field: str,
+    value: int,
+) -> None:
+    report = architecture_prior_report(_inventory(), profile=ProfileName.AGENT_CODING)
+    plan = plan_quantization(report, _request(target_bpw=6.5))
+    assignment_index = next(
+        index
+        for index, allocation in enumerate(plan.assignments)
+        if allocation.role == TensorRole.MLP
+    )
+    payload = plan.model_dump(mode="json")
+    payload["assignments"][assignment_index][field] = value
+
+    with pytest.raises(ValidationError, match="non-executable allocations"):
         QuantizationPlan.model_validate(payload)

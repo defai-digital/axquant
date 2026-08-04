@@ -7,8 +7,9 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from safetensors.numpy import save_file
+from safetensors.numpy import load_file, save_file
 
+from axquant import source_prep
 from axquant.errors import ArtifactError
 from axquant.source_prep import (
     needs_conversion_prep,
@@ -16,6 +17,16 @@ from axquant.source_prep import (
     prepare_conversion_source,
     prepare_gemma4_unified_source,
 )
+
+
+class _NumpyMlx:
+    @staticmethod
+    def load(path: str) -> dict[str, np.ndarray]:
+        return load_file(path)
+
+    @staticmethod
+    def save_safetensors(path: str, tensors: dict[str, np.ndarray]) -> None:
+        save_file({name: np.asarray(value) for name, value in tensors.items()}, path)
 
 
 def _write_gemma4_unified_fixture(root: Path) -> Path:
@@ -89,7 +100,6 @@ def test_prepare_gemma4_unified_filters_multimodal(
 
 
 def test_filter_sharded_rejects_path_traversal_in_weight_map(tmp_path: Path) -> None:
-    pytest.importorskip("mlx.core")
     # A checkpoint's own index.json is semi-trusted (it can come from any Hub
     # repo). A `weight_map` entry pointing outside the checkpoint directory
     # must be rejected the same way `inspector.py`'s indexed-shard scan
@@ -110,6 +120,85 @@ def test_filter_sharded_rejects_path_traversal_in_weight_map(tmp_path: Path) -> 
     )
 
     with pytest.raises(ArtifactError, match="unsafe shard path"):
+        prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
+
+
+def test_filter_sharded_rejects_unindexed_tensor_in_referenced_shard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _write_gemma4_unified_fixture(tmp_path)
+    (source / "model.safetensors").unlink()
+    shard = source / "model-00001-of-00001.safetensors"
+    save_file(
+        {
+            "model.language_model.norm.weight": np.zeros((8,), dtype=np.float32),
+            "unindexed.injected.weight": np.ones((8, 8), dtype=np.float32),
+        },
+        shard,
+    )
+    (source / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "model.language_model.norm.weight": shard.name,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(source_prep, "_mlx_core", lambda: _NumpyMlx)
+
+    with pytest.raises(ArtifactError, match="unindexed"):
+        prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
+
+
+def test_filter_sharded_rejects_non_string_shard_reference(tmp_path: Path) -> None:
+    source = _write_gemma4_unified_fixture(tmp_path)
+    (source / "model.safetensors").unlink()
+    (source / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "model.language_model.norm.weight": 7,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="non-string shard reference"):
+        prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
+
+
+def test_prepare_rejects_output_that_overlaps_source_without_deleting_it(
+    tmp_path: Path,
+) -> None:
+    source = _write_gemma4_unified_fixture(tmp_path)
+    overlapping = tmp_path / "gemma4-text-path"
+    source.rename(overlapping)
+
+    with pytest.raises(ArtifactError, match="must not overlap"):
+        prepare_gemma4_unified_source(overlapping, work_dir=tmp_path)
+
+    assert (overlapping / "config.json").is_file()
+    assert (overlapping / "model.safetensors").is_file()
+
+
+def test_filter_single_shard_verifies_backend_output_coverage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _write_gemma4_unified_fixture(tmp_path)
+
+    class _DroppingMlx(_NumpyMlx):
+        @staticmethod
+        def save_safetensors(path: str, tensors: dict[str, np.ndarray]) -> None:
+            first_name = next(iter(tensors))
+            save_file({first_name: np.asarray(tensors[first_name])}, path)
+
+    monkeypatch.setattr(source_prep, "_mlx_core", lambda: _DroppingMlx)
+    with pytest.raises(ArtifactError, match="output coverage mismatch"):
         prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
 
 
@@ -166,3 +255,51 @@ def test_resolve_tekken_tokenizer_repo_for_devstral(tmp_path: Path) -> None:
     assert pack_repo == repo
     assert len(revision) == 40
     assert revision.isalnum()
+
+
+def test_tekken_prep_does_not_mutate_existing_source_provenance(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    huggingface_hub = pytest.importorskip("huggingface_hub")
+    model_dir = tmp_path / "Devstral-Small-2505-bf16"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"model_type": "mistral"}),
+        encoding="utf-8",
+    )
+    (model_dir / "tekken.json").write_text("{}", encoding="utf-8")
+    source_provenance = model_dir / "axquant_tekken_tokenizer_provenance.json"
+    source_provenance.write_text("source sentinel", encoding="utf-8")
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    for filename in (
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja",
+    ):
+        (downloads / filename).write_text(f"downloaded {filename}", encoding="utf-8")
+
+    def _download(*, repo_id: str, filename: str, revision: str) -> str:
+        assert repo_id == "mlx-community/Devstral-Small-2505-bf16"
+        assert len(revision) == 40
+        return str(downloads / filename)
+
+    monkeypatch.setattr(huggingface_hub, "hf_hub_download", _download)
+    prepared = source_prep.prepare_tekken_tokenizer_source(
+        model_dir,
+        work_dir=tmp_path / "work",
+        model_id="mistralai/Devstral-Small-2505",
+    )
+
+    assert source_provenance.read_text(encoding="utf-8") == "source sentinel"
+    prepared_provenance = json.loads(
+        (prepared / "axquant_tekken_tokenizer_provenance.json").read_text(encoding="utf-8")
+    )
+    assert set(prepared_provenance["fetched_sha256"]) == {
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja",
+    }

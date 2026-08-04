@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from axquant.benchmark import result_to_evaluation_bundle
 from axquant.cli import main
 from axquant.hardware_registry import build_hardware_profile_registry
 from axquant.planner import plan_quantization
@@ -18,7 +19,6 @@ from axquant.schema import (
     CandidateMeasurement,
     EvaluationBundle,
     EvidenceKind,
-    HardwareMetrics,
     HardwareRegistryCandidateInput,
     HardwareRegistryRequest,
     IntegrityMetrics,
@@ -46,7 +46,7 @@ from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 
 def _sensitivity() -> SensitivityReport:
-    model = ModelIdentity(model_id="Qwen/Qwen3.6-test", revision="source-revision")
+    model = ModelIdentity(model_id="Qwen/Qwen3.6-test", revision="a" * 40)
     mlp = TensorSpec(
         name="model.layers.0.mlp.down_proj.weight",
         module_path="model.layers.0.mlp.down_proj",
@@ -165,6 +165,7 @@ def _benchmark_result(
         command=["ax-engine-bench", "generate", "--json"],
         prompt_tokens=8,
         tokens_generated=32,
+        output_token_ids=list(range(32)),
         latency_seconds=1.0,
         decode_seconds=1.0,
         tokens_per_second=125.0 if mtp else 100.0,
@@ -188,58 +189,33 @@ def _benchmark_result(
         unified_memory_bytes=128 * 1024**3,
         os_version="macOS-test",
         ax_engine_version="6.11.1",
+        software_versions=_versions(),
     )
 
 
 def _evaluation(result: BenchmarkResult) -> EvaluationBundle:
-    config = result.config
-    trial = result.trials[0]
-    return EvaluationBundle(
-        model=config.model,
-        mtp_enabled=config.mtp_enabled,
-        baseline_kind=config.baseline_kind,
-        hardware=HardwareMetrics(
-            peak_memory_bytes=trial.peak_memory_bytes,
-            decode_tokens_per_second=trial.tokens_per_second,
-            mtp_effective_tokens_per_second=trial.tokens_per_second if config.mtp_enabled else None,
-            kernel_fallbacks=trial.kernel_fallbacks,
-            device_name=result.runtime_device_name,
-            chip=result.runtime_chip,
-            unified_memory_bytes=result.unified_memory_bytes,
-            os_version=result.os_version,
-        ),
-        integrity=IntegrityMetrics(
-            safetensors_valid=True,
-            index_complete=True,
-            config_valid=True,
-            mtp_layout_valid=True if config.mtp_enabled else None,
-            source_revision_pinned=True,
-        ),
-        workload=config.workload,
-        dataset_sha256=config.dataset_sha256,
+    return result_to_evaluation_bundle(
+        result,
         software_versions=_versions(),
-        random_seed=config.random_seed,
-        benchmark_metadata={
-            "prompt_count": config.prompt_count,
-            "warmup_trials": config.warmup_trials,
-            "measured_trials": config.measured_trials,
-            "successful_measured_trials": result.measured_count,
-            "failed_trials": result.failed_count,
-            "timed_out_trials": result.timed_out_count,
-            "temperature": config.temperature,
-            "top_p": config.top_p,
-            "top_k": config.top_k,
-            "max_tokens": config.max_tokens,
-            "draft_depth": config.draft_depth,
-            "power_mode": config.power_mode,
-            "quantizer": config.quantizer,
-            "quantizer_version": config.quantizer_version,
-            "ax_engine_version": result.ax_engine_version,
-        },
+    ).model_copy(
+        update={
+            "integrity": IntegrityMetrics(
+                safetensors_valid=True,
+                index_complete=True,
+                config_valid=True,
+                mtp_layout_valid=True if result.config.mtp_enabled else None,
+                source_revision_pinned=True,
+            )
+        }
     )
 
 
-def _request(tmp_path: Path, *, fallback_count: int = 0) -> Path:
+def _request(
+    tmp_path: Path,
+    *,
+    fallback_count: int = 0,
+    candidate_revision: str = "c" * 40,
+) -> Path:
     sensitivity = _sensitivity()
     plan = plan_quantization(
         sensitivity,
@@ -253,7 +229,7 @@ def _request(tmp_path: Path, *, fallback_count: int = 0) -> Path:
     candidate_id = "candidate-a"
     candidate_model = ModelIdentity(
         model_id="AutomatosX/AX-Qwen3.6-test",
-        revision="candidate-revision",
+        revision=candidate_revision,
     )
     direct_result = _benchmark_result(model=candidate_model, mtp=False)
     mtp_result = _benchmark_result(
@@ -308,7 +284,7 @@ def _request(tmp_path: Path, *, fallback_count: int = 0) -> Path:
         retention=0.99,
     )
     quality = QualityComparisonReport(
-        reference_model=ModelIdentity(model_id="baseline", revision="baseline-revision"),
+        reference_model=ModelIdentity(model_id="baseline", revision="b" * 40),
         candidate_model=candidate_model,
         dataset_sha256="quality-dataset",
         random_seed=7,
@@ -348,6 +324,8 @@ def _request(tmp_path: Path, *, fallback_count: int = 0) -> Path:
             "artifact.candidate_source_sha256": file_sha256(paths["artifact"]),
             "artifact.candidate_weight_bytes": weight_bytes,
             "artifact.weight_size_ratio": 1.05,
+            "quality.aggregate_retention": 0.99,
+            "perplexity_relative_increase": -0.05,
             "mtp.acceptance_retention": 0.97,
             "hardware.effective_speedup": 1.25,
             "hardware.peak_memory_ratio": 0.8,
@@ -391,7 +369,7 @@ def _request(tmp_path: Path, *, fallback_count: int = 0) -> Path:
         validation_sha256=file_sha256(paths["validation"]),
     )
     measurement_set = RefinementMeasurementSet(
-        refinement_sha256="refinement",
+        refinement_sha256="d" * 64,
         evaluator_version="test",
         measurements=[measurement],
     )
@@ -506,3 +484,76 @@ def test_hardware_registry_supports_multiple_hosts_for_one_candidate(tmp_path: P
         first_measurement.measurement_id,
         second_measurement.measurement_id,
     }
+
+
+def test_hardware_registry_rejects_missing_raw_kernel_telemetry(tmp_path: Path) -> None:
+    request_path = _request(tmp_path)
+    request = load_model(request_path, HardwareRegistryRequest)
+    mtp_result_path = Path(request.candidates[0].mtp_benchmark_result_file)
+    result = load_model(mtp_result_path, BenchmarkResult)
+    write_data(
+        mtp_result_path,
+        result.model_copy(
+            update={"trials": [result.trials[0].model_copy(update={"kernel_fallbacks": None})]}
+        ),
+    )
+
+    registry = build_hardware_profile_registry(request_path)
+
+    assert not registry.release_ready
+    assert registry.entries[0].kernel_evidence == "unmeasured"
+    assert any("missing kernel fallback telemetry" in issue for issue in registry.issues)
+
+
+def test_hardware_registry_rejects_evaluation_without_mtp_metrics(tmp_path: Path) -> None:
+    request_path = _request(tmp_path)
+    request = load_model(request_path, HardwareRegistryRequest)
+    mtp_evaluation_path = Path(request.candidates[0].mtp_evaluation_file)
+    evaluation = load_model(mtp_evaluation_path, EvaluationBundle)
+    write_data(mtp_evaluation_path, evaluation.model_copy(update={"mtp": None}))
+
+    registry = build_hardware_profile_registry(request_path)
+
+    assert not registry.release_ready
+    assert any("missing measured MTP metrics" in issue for issue in registry.issues)
+
+
+def test_hardware_registry_rejects_mutable_candidate_revision(tmp_path: Path) -> None:
+    registry = build_hardware_profile_registry(
+        _request(tmp_path, candidate_revision="candidate-revision")
+    )
+
+    assert not registry.release_ready
+    assert registry.entries[0].kernel_evidence == "unmeasured"
+    assert any("candidate revision is not immutable" in issue for issue in registry.issues)
+
+
+def test_hardware_registry_checks_preserved_allocation_sensitivity_metrics(
+    tmp_path: Path,
+) -> None:
+    request_path = _request(tmp_path)
+    request = load_model(request_path, HardwareRegistryRequest)
+    sensitivity_path = Path(request.candidates[0].sensitivity_file)
+    sensitivity = load_model(sensitivity_path, SensitivityReport)
+    preserved_entry = sensitivity.entries[1]
+    altered_candidate = preserved_entry.candidates[0].model_copy(
+        update={"metrics": MetricVector(output_kl=0.5)}
+    )
+    write_data(
+        sensitivity_path,
+        sensitivity.model_copy(
+            update={
+                "entries": [
+                    sensitivity.entries[0],
+                    preserved_entry.model_copy(update={"candidates": [altered_candidate]}),
+                ]
+            }
+        ),
+    )
+
+    registry = build_hardware_profile_registry(request_path)
+
+    assert not registry.release_ready
+    assert any(
+        "plan metrics differ from sensitivity evidence" in issue for issue in registry.issues
+    )

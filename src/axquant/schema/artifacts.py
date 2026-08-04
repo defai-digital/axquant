@@ -6,6 +6,7 @@ from typing import Literal
 
 from pydantic import Field, JsonValue, field_validator, model_validator
 
+from axquant.revisions import is_immutable_revision
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
 from axquant.schema.enums import (
     BaselineKind,
@@ -22,7 +23,13 @@ from axquant.schema.enums import (
     TensorRole,
 )
 from axquant.schema.inventory import ModelIdentity
-from axquant.schema.planning import MtpPolicy, PrecisionShare, QuantizationPlan
+from axquant.schema.planning import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
+    MtpPolicy,
+    PrecisionShare,
+    QuantizationPlan,
+)
 from axquant.schema.sensitivity import CalibrationEvidence
 
 
@@ -71,6 +78,32 @@ class KvCacheRuntimeMetadata(StrictModel):
     advisory_mlx_lm_kv_bits: int = Field(ge=2, le=16)
     advisory_mlx_lm_kv_group_size: int = Field(ge=1)
     advisory: Literal[True] = True
+
+    @model_validator(mode="after")
+    def executable_and_consistent(self) -> KvCacheRuntimeMetadata:
+        if not self.layer_bits or len(self.layer_bits) != len(self.layer_group_sizes):
+            raise ValueError("KV runtime layer bits and group sizes must be non-empty and aligned")
+        unsupported_bits = (
+            set(self.layer_bits) | {self.advisory_mlx_lm_kv_bits}
+        ) - AX_ENGINE_EXECUTABLE_BITS
+        if unsupported_bits:
+            raise ValueError(
+                f"AX Engine KV runtime does not support bits {sorted(unsupported_bits)}"
+            )
+        unsupported_groups = (
+            set(self.layer_group_sizes) | {self.advisory_mlx_lm_kv_group_size}
+        ) - AX_ENGINE_EXECUTABLE_GROUP_SIZES
+        if unsupported_groups:
+            raise ValueError(
+                f"AX Engine KV runtime does not support group sizes {sorted(unsupported_groups)}"
+            )
+        advisory_pair = (
+            self.advisory_mlx_lm_kv_bits,
+            self.advisory_mlx_lm_kv_group_size,
+        )
+        if advisory_pair not in set(zip(self.layer_bits, self.layer_group_sizes, strict=True)):
+            raise ValueError("KV runtime advisory precision must be an observed layer allocation")
+        return self
 
 
 class RuntimeMetadata(StrictModel):
@@ -209,8 +242,8 @@ class RecipeBundle(StrictModel):
 
     @model_validator(mode="after")
     def source_revision_is_pinned(self) -> RecipeBundle:
-        if not self.source_model.revision:
-            raise ValueError("a recipe bundle must pin the source model revision")
+        if not is_immutable_revision(self.source_model.revision):
+            raise ValueError("a recipe bundle must pin an immutable source model revision")
         return self
 
 
@@ -428,7 +461,7 @@ class ReproductionRecipe(StrictModel):
 
     @model_validator(mode="after")
     def complete_executable_recipe(self) -> ReproductionRecipe:
-        if not self.source_model.revision:
+        if not is_immutable_revision(self.source_model.revision):
             raise ValueError("reproduction source revision must be immutable")
         if (self.mtp_sidecar_file is None) != (self.mtp_sidecar_sha256 is None):
             raise ValueError("MTP sidecar path and checksum must be recorded together")
@@ -513,6 +546,13 @@ class QualityMetrics(StrictModel):
     task_scores: dict[str, float] = Field(default_factory=dict)
     json_valid_rate: float | None = Field(default=None, ge=0.0, le=1.0)
     syntax_valid_rate: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    @field_validator("task_scores")
+    @classmethod
+    def valid_task_scores(cls, value: dict[str, float]) -> dict[str, float]:
+        if any(score < 0.0 or score > 1.0 for score in value.values()):
+            raise ValueError("quality task scores must be within [0, 1]")
+        return value
 
 
 class QualityCheck(StrictModel):
@@ -643,6 +683,16 @@ class MtpMetrics(StrictModel):
         if any(score < 0.0 or score > 1.0 for score in value.values()):
             raise ValueError("MTP token accuracies must be within [0, 1]")
         return value
+
+    @model_validator(mode="after")
+    def acceptance_and_rejection_are_complements(self) -> MtpMetrics:
+        if (
+            self.acceptance_rate is not None
+            and self.rejection_rate is not None
+            and abs(self.acceptance_rate + self.rejection_rate - 1.0) > 1e-9
+        ):
+            raise ValueError("MTP acceptance and rejection rates must sum to 1")
+        return self
 
 
 class HardwareMetrics(StrictModel):
@@ -790,7 +840,7 @@ class ReleaseException(StrictModel):
 
     @model_validator(mode="after")
     def governed_exception_is_complete(self) -> ReleaseException:
-        if self.candidate_model.revision is None:
+        if not is_immutable_revision(self.candidate_model.revision):
             raise ValueError("release exception candidate revision must be immutable")
         if self.approved_at.tzinfo is None or self.expires_at.tzinfo is None:
             raise ValueError("release exception timestamps must include a timezone")
@@ -832,6 +882,13 @@ class ValidationReport(StrictModel):
     comparisons: dict[str, float | int | str | bool | None]
     release_exceptions: list[ReleaseException] = Field(default_factory=list, max_length=1)
     created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def status_is_consistent(self) -> ValidationReport:
+        expected_passed = not any(issue.severity == "error" for issue in self.issues)
+        if self.passed != expected_passed:
+            raise ValueError("validation report status is inconsistent with its issues")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -968,6 +1025,7 @@ class BenchmarkResult(StrictModel):
     unified_memory_bytes: int | None = Field(default=None, ge=0)
     os_version: str | None = None
     ax_engine_version: str | None = None
+    software_versions: SoftwareVersions | None = None
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -1018,6 +1076,12 @@ class MtpAbComparison(StrictModel):
 
     schema_version: Literal["axquant.mtp-ab-comparison.v1"] = "axquant.mtp-ab-comparison.v1"
     profile_name: str
+    model: ModelIdentity | None = None
+    runtime: RuntimeName | None = None
+    workload: str | None = None
+    dataset_sha256: str | None = None
+    random_seed: int | None = Field(default=None, ge=0)
+    generation_controls: dict[str, JsonValue] = Field(default_factory=dict)
     runtime_env: dict[str, str] = Field(default_factory=dict)
     draft_depth: int | None = Field(default=None, ge=1)
     exactness_pass: bool
@@ -1032,10 +1096,35 @@ class MtpAbComparison(StrictModel):
     release_ready: bool = False
     ax_engine_version: str | None = None
     runtime_chip: str | None = None
+    software_versions: SoftwareVersions | None = None
     phase_timing: MtpPhaseTimingSummary | None = None
     trial_comparisons: list[MtpTrialComparison] = Field(default_factory=list)
     issues: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def release_ready_comparison_is_fully_bound(self) -> MtpAbComparison:
+        """Keep legacy v1 comparisons readable but never release-ready when unbound."""
+        if not self.release_ready:
+            return self
+        if not self.exactness_pass or not self.speedup_pass or self.issues:
+            raise ValueError("release-ready MTP A/B comparison has failing checks")
+        if (
+            self.model is None
+            or not is_immutable_revision(self.model.revision)
+            or self.runtime is None
+            or not self.workload
+            or not self.dataset_sha256
+            or self.random_seed is None
+            or not self.generation_controls
+            or not self.runtime_chip
+            or not self.ax_engine_version
+            or self.software_versions is None
+        ):
+            raise ValueError("release-ready MTP A/B comparison is missing environment bindings")
+        if self.software_versions.ax_engine != self.ax_engine_version:
+            raise ValueError("MTP A/B comparison AX Engine versions are inconsistent")
+        return self
 
 
 class MtpDiagnosticReport(StrictModel):
@@ -1650,8 +1739,11 @@ class ReleaseValidationIndex(StrictModel):
         required = {ProfileName.AGENT_CODING, ProfileName.GENERAL}
         if len(profiles) != len(set(profiles)) or set(profiles) != required:
             raise ValueError("release validation index must contain both required profiles")
-        if self.release_ready != (not self.issues):
-            raise ValueError("release validation status is inconsistent with its issues")
+        expected_ready = all(entry.passed for entry in self.entries) and not self.issues
+        if self.release_ready != expected_ready:
+            raise ValueError(
+                "release validation status is inconsistent with its entries and issues"
+            )
         return self
 
 

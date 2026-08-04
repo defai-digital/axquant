@@ -24,6 +24,7 @@ def _measurement(
     memory: float,
     passed: bool = True,
     profile: ProfileName = ProfileName.AGENT_CODING,
+    chip: str = "M4 Max",
 ) -> CompleteCandidateMeasurement:
     return CompleteCandidateMeasurement(
         candidate_id=candidate_id,
@@ -45,7 +46,7 @@ def _measurement(
         peak_memory_ratio=memory,
         hardware=CompleteCandidateHardware(
             device_name="Test Mac",
-            chip="M4 Max",
+            chip=chip,
             unified_memory_bytes=128 * 1024**3,
             os_version="macOS",
             ax_engine_version="6.11.1",
@@ -166,3 +167,40 @@ def test_pareto_report_tracks_multiple_hosts_for_one_candidate() -> None:
     points = {point.measurement_id: point for point in report.points}
     assert points["candidate-m4-max"].frontier
     assert points["candidate-m3-max"].dominated_by == ["candidate-m4-max"]
+
+
+def test_pareto_report_does_not_compare_different_hardware() -> None:
+    measurements = RefinementMeasurementSet(
+        refinement_sha256="refinement",
+        evaluator_version="test",
+        measurements=[
+            _measurement(
+                "candidate",
+                measurement_id="candidate-m3",
+                bpw=5.0,
+                quality=1.0,
+                acceptance=0.98,
+                speedup=1.2,
+                memory=0.8,
+                chip="M3 Max",
+            ),
+            _measurement(
+                "candidate",
+                measurement_id="candidate-m4",
+                bpw=5.0,
+                quality=1.0,
+                acceptance=0.98,
+                speedup=1.4,
+                memory=0.8,
+                chip="M4 Max",
+            ),
+        ],
+    )
+
+    report = build_pareto_report(measurements)
+    points = {point.measurement_id: point for point in report.points}
+
+    assert points["candidate-m3"].frontier
+    assert points["candidate-m4"].frontier
+    assert not points["candidate-m3"].dominated_by
+    assert not points["candidate-m4"].dominated_by

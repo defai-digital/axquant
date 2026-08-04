@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+from pydantic import ValidationError
+
+from axquant.errors import PlanningError
 from axquant.schema import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     CandidateMeasurement,
     EvidenceKind,
     Inventory,
@@ -63,10 +68,34 @@ def architecture_prior_report(
     candidate_group_sizes: tuple[int, ...] = (),
 ) -> SensitivityReport:
     """Build architecture-prior sensitivity with optional multi-group candidates (AXQ-028)."""
-    effective_groups = candidate_group_sizes or (group_size,)
+    try:
+        inventory = Inventory.model_validate(inventory.model_dump(mode="python"))
+    except ValidationError as exc:
+        raise PlanningError(f"invalid inventory for architecture analysis: {exc}") from exc
+    if not inventory.tensors:
+        raise PlanningError("architecture analysis requires a non-empty tensor inventory")
+    if not candidate_bits:
+        raise PlanningError("architecture analysis requires at least one candidate bit-width")
+    if any(type(bits) is not int for bits in candidate_bits):
+        raise PlanningError("architecture candidate bit-widths must be integers")
+    normalized_bits = tuple(sorted(set(candidate_bits)))
+    unsupported_bits = set(normalized_bits) - AX_ENGINE_EXECUTABLE_BITS
+    if unsupported_bits:
+        raise PlanningError(
+            f"AX Engine does not support candidate bit-widths {sorted(unsupported_bits)}"
+        )
+    raw_groups = candidate_group_sizes or (group_size,)
+    if not raw_groups or any(type(size) is not int for size in raw_groups):
+        raise PlanningError("architecture candidate group sizes must be non-empty integers")
+    effective_groups = tuple(sorted(set(raw_groups)))
+    unsupported_groups = set(effective_groups) - AX_ENGINE_EXECUTABLE_GROUP_SIZES
+    if unsupported_groups:
+        raise PlanningError(
+            f"AX Engine does not support candidate group sizes {sorted(unsupported_groups)}"
+        )
     entries: list[TensorSensitivity] = []
     for tensor in inventory.tensors:
-        bits_for_tensor = candidate_bits if tensor.quantizable else (16,)
+        bits_for_tensor = normalized_bits if tensor.quantizable else (16,)
         candidates: list[CandidateMeasurement] = []
         for bits in bits_for_tensor:
             if bits == 16:

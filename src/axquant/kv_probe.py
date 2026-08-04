@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import structlog
+from pydantic import ValidationError
 
 from axquant.errors import BackendUnavailableError, ProbeError
 from axquant.probe import (
@@ -22,7 +23,10 @@ from axquant.probe import (
     _load_calibration_inputs,
     compute_token_disagreement,
 )
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     CalibrationEvidence,
     CandidateMeasurement,
     EvidenceKind,
@@ -195,21 +199,44 @@ def _kv_candidate_metrics(
         import numpy as np
     except ImportError:
         raise BackendUnavailableError("KV probing requires numpy") from None
+    if type(metric_positions) is not int or metric_positions <= 0:
+        raise ProbeError("KV metric_positions must be a positive integer")
+    if not baseline_logits or not candidate_logits:
+        raise ProbeError("KV metric computation requires non-empty baseline and candidate logits")
+    if len(baseline_logits) != len(candidate_logits):
+        raise ProbeError("KV baseline and candidate logit batches are not aligned")
     kl_values: list[float] = []
     disagreements: list[float] = []
     for reference, candidate in zip(baseline_logits, candidate_logits, strict=True):
-        reference = np.asarray(reference, dtype=np.float32)
-        candidate = np.asarray(candidate, dtype=np.float32)
+        try:
+            reference = np.asarray(reference, dtype=np.float32)
+            candidate = np.asarray(candidate, dtype=np.float32)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ProbeError(f"KV backend returned non-numeric logits: {exc}") from exc
+        if reference.ndim < 2 or candidate.ndim < 2:
+            raise ProbeError("KV backend logits must have position and vocabulary dimensions")
+        if reference.shape != candidate.shape:
+            raise ProbeError(
+                f"KV logit shape mismatch: reference {reference.shape}, candidate {candidate.shape}"
+            )
+        if reference.shape[-2] <= 0 or reference.shape[-1] <= 0:
+            raise ProbeError("KV backend returned empty position or vocabulary dimensions")
+        if not bool(np.all(np.isfinite(reference))) or not bool(np.all(np.isfinite(candidate))):
+            raise ProbeError("KV backend returned non-finite logits")
         positions = min(metric_positions, reference.shape[-2])
         reference_tail = reference[..., -positions:, :]
         candidate_tail = candidate[..., -positions:, :]
-        kl_values.append(_compute_logit_kl(reference_tail, candidate_tail))
-        disagreements.append(
-            compute_token_disagreement(
-                reference_tail.argmax(axis=-1),
-                candidate_tail.argmax(axis=-1),
-            )
+        output_kl = _compute_logit_kl(reference_tail, candidate_tail)
+        disagreement = compute_token_disagreement(
+            reference_tail.argmax(axis=-1),
+            candidate_tail.argmax(axis=-1),
         )
+        if not bool(np.isfinite(output_kl)) or output_kl < -1e-9:
+            raise ProbeError("KV output KL is non-finite or negative")
+        if not bool(np.isfinite(disagreement)):
+            raise ProbeError("KV token disagreement is non-finite")
+        kl_values.append(max(0.0, output_kl))
+        disagreements.append(disagreement)
     return MetricVector(
         output_kl=float(sum(kl_values) / len(kl_values)),
         token_disagreement=float(sum(disagreements) / len(disagreements)),
@@ -229,33 +256,78 @@ def measure_kv_sensitivity(
     backend: KvProbeBackend | None = None,
 ) -> KvSensitivityReport:
     """Measure per-layer KV-cache sensitivity over a verified calibration cache."""
+    try:
+        inventory = Inventory.model_validate(inventory.model_dump(mode="python"))
+    except ValidationError as exc:
+        raise ProbeError(f"invalid inventory for KV probing: {exc}") from exc
     if inventory.quantized_source:
         raise ProbeError("measured KV sensitivity requires an unquantized BF16 source inventory")
-    if inventory.model.revision is None:
+    if not is_immutable_revision(inventory.model.revision):
         raise ProbeError("measured KV sensitivity requires a revision-pinned source model")
     layer_count = inventory.architecture_profile.text_layer_count
     if layer_count is None:
         raise ProbeError("measured KV sensitivity requires a known text layer count")
+    if not candidate_bits or any(type(bits) is not int for bits in candidate_bits):
+        raise ProbeError("KV candidate bit-widths must be non-empty integers")
+    unsupported_bits = set(candidate_bits) - AX_ENGINE_EXECUTABLE_BITS
+    if unsupported_bits:
+        raise ProbeError(
+            f"AX Engine KV probing does not support bit-widths {sorted(unsupported_bits)}"
+        )
     quantized_bits = tuple(sorted({bits for bits in candidate_bits if bits < 16}))
     if not quantized_bits:
         raise ProbeError("KV probing requires at least one quantized candidate bit-width")
+    if type(group_size) is not int or group_size not in AX_ENGINE_EXECUTABLE_GROUP_SIZES:
+        raise ProbeError(f"AX Engine KV probing does not support group size {group_size!r}")
+    if type(token_budget) is not int or token_budget <= 0:
+        raise ProbeError("KV token_budget must be a positive integer")
+    if type(metric_positions) is not int or metric_positions <= 0:
+        raise ProbeError("KV metric_positions must be a positive integer")
     if backend is None:
         backend = MlxKvProbeBackend()
+
+    resolved_model_dir = Path(model_dir).expanduser().resolve()
+    if not resolved_model_dir.is_dir():
+        raise ProbeError(f"KV probe model directory does not exist: {resolved_model_dir}")
+    if inventory.model.local_path is None:
+        raise ProbeError("measured KV sensitivity requires a local-path-bound inventory")
+    if Path(inventory.model.local_path).expanduser().resolve() != resolved_model_dir:
+        raise ProbeError("KV probe model directory does not match the inventory source")
 
     cache_path = Path(calibration_cache).expanduser().resolve()
     cache_manifest, batches, measured_tokens = _load_calibration_inputs(
         cache_path,
         token_budget=token_budget,
     )
-    if cache_manifest.model.model_id != inventory.model.model_id:
+    if (
+        cache_manifest.model.model_id != inventory.model.model_id
+        or cache_manifest.model.format != inventory.model.format
+    ):
         raise ProbeError("calibration cache model does not match the probe model")
     if cache_manifest.model.revision != inventory.model.revision:
         raise ProbeError("calibration cache revision does not match the probe revision")
     if cache_manifest.profile != profile:
         raise ProbeError("calibration cache profile does not match the probe profile")
+    if not cache_manifest.calibration_evaluation_separation_attested:
+        raise ProbeError(
+            "measured KV sensitivity requires calibration/evaluation separation attestation"
+        )
+    calibration_dataset_id = _calibration_dataset_id(cache_path, cache_manifest)
 
-    backend.load_model(Path(model_dir).expanduser().resolve())
-    quantizable = backend.quantizable_layers()
+    backend.load_model(resolved_model_dir)
+    try:
+        quantizable = set(backend.quantizable_layers())
+    except TypeError as exc:
+        raise ProbeError("KV backend returned an invalid quantizable-layer set") from exc
+    invalid_layers = [
+        layer
+        for layer in quantizable
+        if type(layer) is not int or layer < 0 or layer >= layer_count
+    ]
+    if invalid_layers:
+        raise ProbeError(f"KV backend returned out-of-range layer indices: {invalid_layers!r}")
+    if not quantizable:
+        raise ProbeError("KV backend found no quantizable standard-attention cache layers")
     baseline = [
         backend.forward_logits(batch, layer_bits=None, group_size=group_size) for batch in batches
     ]
@@ -317,7 +389,7 @@ def measure_kv_sensitivity(
         )
 
     calibration = CalibrationEvidence(
-        dataset_id=_calibration_dataset_id(cache_path, cache_manifest),
+        dataset_id=calibration_dataset_id,
         dataset_sha256=cache_manifest.dataset_sha256,
         samples=cache_manifest.samples,
         domains=cache_manifest.domains,

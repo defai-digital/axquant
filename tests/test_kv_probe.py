@@ -19,7 +19,7 @@ from axquant.schema import (
     ModelIdentity,
     ProfileName,
 )
-from axquant.serde import stable_sha256, write_data
+from axquant.serde import file_sha256, stable_sha256, write_data
 
 
 class _FakeTokenizer:
@@ -79,7 +79,12 @@ class _FakeKvBackend:
         return logits
 
 
-def _calibration_cache(tmp_path: Path, identity: ModelIdentity) -> Path:
+def _calibration_cache(
+    tmp_path: Path,
+    identity: ModelIdentity,
+    *,
+    separation_attested: bool = True,
+) -> Path:
     dataset = tmp_path / "calibration.jsonl"
     dataset.write_text(
         "\n".join(
@@ -95,14 +100,16 @@ def _calibration_cache(tmp_path: Path, identity: ModelIdentity) -> Path:
         model=identity,
         profile=ProfileName.AGENT_CODING,
         dataset_id=str(dataset),
-        dataset_sha256="",
+        dataset_sha256=file_sha256(dataset),
         samples=2,
         domains=[],
         sequence_length=32,
         random_seed=11,
-        calibration_evaluation_separation_attested=True,
+        calibration_evaluation_separation_attested=separation_attested,
     )
-    cache_manifest = tokenize_calibration(
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
+    tokenize_calibration(
         model=identity,
         dataset_path=dataset,
         output_dir=cache,
@@ -113,22 +120,15 @@ def _calibration_cache(tmp_path: Path, identity: ModelIdentity) -> Path:
         calibration_manifest_sha256=stable_sha256(
             calibration.model_dump(mode="json", exclude={"created_at"})
         ),
-        separation_attested=True,
+        separation_attested=separation_attested,
     )
-    calibration.dataset_sha256 = cache_manifest.dataset_sha256
-    calibration.domains = cache_manifest.domains
-    write_data(cache / "calibration_manifest.json", calibration)
-    cache_manifest.calibration_manifest_sha256 = stable_sha256(
-        calibration.model_dump(mode="json", exclude={"created_at"})
-    )
-    write_data(cache / "tokenized_cache_manifest.json", cache_manifest)
     return cache
 
 
 def _measured_report(qwen36_model_dir: Path, tmp_path: Path) -> KvSensitivityReport:
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
         local_path=str(qwen36_model_dir),
     )
     inventory = inspect_model(
@@ -201,11 +201,53 @@ def test_measured_kv_allocation_rejects_prior_reports_and_bad_budget(
         allocate_kv_cache_measured(prior)
 
 
-def test_measure_kv_sensitivity_requires_pinned_revision(
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("bits", 5, r"bit widths.*5"),
+        ("group_size", 7, r"group sizes.*7"),
+    ],
+)
+def test_measured_kv_allocation_rejects_non_executable_candidate_grid(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    field: str,
+    value: int,
+    message: str,
+) -> None:
+    report = _measured_report(qwen36_model_dir, tmp_path)
+    first_entry = report.entries[0]
+    invalid_candidate = first_entry.candidates[0].model_copy(update={field: value})
+    invalid_entry = first_entry.model_copy(
+        update={"candidates": [invalid_candidate, *first_entry.candidates[1:]]}
+    )
+    invalid_report = report.model_copy(update={"entries": [invalid_entry, *report.entries[1:]]})
+
+    with pytest.raises(PlanningError, match=message):
+        allocate_kv_cache_measured(invalid_report)
+
+
+def test_measured_kv_allocation_rejects_non_executable_report_group(
     qwen36_model_dir: Path,
     tmp_path: Path,
 ) -> None:
-    inventory = inspect_model(qwen36_model_dir, model_id="Qwen/Qwen3.6-27B")
+    report = _measured_report(qwen36_model_dir, tmp_path).model_copy(update={"group_size": 7})
+
+    with pytest.raises(PlanningError, match=r"group sizes.*7"):
+        allocate_kv_cache_measured(report)
+
+
+@pytest.mark.parametrize("revision", [None, "main"])
+def test_measure_kv_sensitivity_requires_pinned_revision(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    revision: str | None,
+) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision=revision,
+    )
     with pytest.raises(ProbeError, match="revision-pinned"):
         measure_kv_sensitivity(
             inventory,
@@ -229,7 +271,7 @@ def test_converter_binds_measured_kv_report(
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
     )
     prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
     plan = plan_quantization(
@@ -273,7 +315,7 @@ def test_publication_gate_reproduces_measured_kv_allocation(
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
     )
     prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
     plan = plan_quantization(
@@ -320,7 +362,7 @@ def test_hybrid_architecture_marks_non_kv_layers_unsupported(
 ) -> None:
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
-        revision="revision-pinned",
+        revision="a" * 40,
         local_path=str(qwen36_model_dir),
     )
     inventory = inspect_model(
@@ -376,3 +418,237 @@ def test_kv_candidate_metrics_applies_softmax_before_kl() -> None:
 
     expected = _softmax_kl(reference_logits[0, 0], candidate_logits[0, 0])
     assert metrics.output_kl == pytest.approx(expected, rel=1e-5)
+
+
+def test_kv_candidate_metrics_rejects_empty_and_non_finite_logits() -> None:
+    with pytest.raises(ProbeError, match="non-empty"):
+        _kv_candidate_metrics([], [], metric_positions=1)
+    with pytest.raises(ProbeError, match="positive integer"):
+        _kv_candidate_metrics(
+            [np.zeros((1, 1, 2), dtype=np.float32)],
+            [np.zeros((1, 1, 2), dtype=np.float32)],
+            metric_positions=0,
+        )
+    invalid = np.array([[[0.0, np.nan]]], dtype=np.float32)
+    with pytest.raises(ProbeError, match="non-finite logits"):
+        _kv_candidate_metrics([invalid], [invalid], metric_positions=1)
+
+
+def test_measure_kv_sensitivity_rejects_unbound_model_directory(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+    )
+    different_model = tmp_path / "different-model"
+    different_model.mkdir()
+
+    with pytest.raises(ProbeError, match="does not match the inventory source"):
+        measure_kv_sensitivity(
+            inventory,
+            model_dir=different_model,
+            calibration_cache=tmp_path / "unused",
+            profile=ProfileName.AGENT_CODING,
+            backend=_FakeKvBackend(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("candidate_bits", "group_size", "message"),
+    [
+        ((5,), 64, "bit-widths"),
+        ((4,), 7, "group size"),
+        ((16,), 64, "quantized candidate"),
+    ],
+)
+def test_measure_kv_sensitivity_rejects_non_executable_candidate_grid(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    candidate_bits: tuple[int, ...],
+    group_size: int,
+    message: str,
+) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+    )
+    with pytest.raises(ProbeError, match=message):
+        measure_kv_sensitivity(
+            inventory,
+            model_dir=qwen36_model_dir,
+            calibration_cache=tmp_path / "unused",
+            profile=ProfileName.AGENT_CODING,
+            candidate_bits=candidate_bits,
+            group_size=group_size,
+            backend=_FakeKvBackend(),
+        )
+
+
+def test_measure_kv_sensitivity_requires_calibration_separation_attestation(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    cache = _calibration_cache(tmp_path, identity, separation_attested=False)
+
+    with pytest.raises(ProbeError, match="separation attestation"):
+        measure_kv_sensitivity(
+            inventory,
+            model_dir=qwen36_model_dir,
+            calibration_cache=cache,
+            profile=ProfileName.AGENT_CODING,
+            candidate_bits=(4,),
+            token_budget=32,
+            backend=_FakeKvBackend(),
+        )
+
+
+def test_measure_kv_sensitivity_rejects_empty_backend_layer_set(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    cache = _calibration_cache(tmp_path, identity)
+
+    with pytest.raises(ProbeError, match="no quantizable"):
+        measure_kv_sensitivity(
+            inventory,
+            model_dir=qwen36_model_dir,
+            calibration_cache=cache,
+            profile=ProfileName.AGENT_CODING,
+            candidate_bits=(4,),
+            token_budget=32,
+            backend=_FakeKvBackend(quantizable=set()),
+        )
+
+
+def test_unified_sensitivity_rejects_cross_revision_kv_binding(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.analyzer import architecture_prior_report
+    from axquant.unified_sensitivity import bind_unified_sensitivity
+
+    kv_report = _measured_report(qwen36_model_dir, tmp_path)
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=kv_report.model.model_id,
+        revision=kv_report.model.revision,
+    )
+    weight_report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+    )
+    different_revision = kv_report.model_copy(
+        update={"model": kv_report.model.model_copy(update={"revision": "b" * 40})}
+    )
+
+    with pytest.raises(PlanningError, match="model lineage"):
+        bind_unified_sensitivity(
+            weight_report,
+            kv_sensitivity=different_revision,
+        )
+
+
+def test_unified_sensitivity_revalidates_metrics_and_empty_entries(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.analyzer import architecture_prior_report
+    from axquant.unified_sensitivity import bind_unified_sensitivity
+
+    kv_report = _measured_report(qwen36_model_dir, tmp_path)
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=kv_report.model.model_id,
+        revision=kv_report.model.revision,
+    )
+    weight_report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+    )
+    with pytest.raises(PlanningError, match="non-empty entries"):
+        bind_unified_sensitivity(weight_report.model_copy(update={"entries": []}))
+
+    first_entry = kv_report.entries[0]
+    first_candidate = first_entry.candidates[0]
+    invalid_candidate = first_candidate.model_copy(
+        update={"metrics": first_candidate.metrics.model_copy(update={"output_kl": float("nan")})}
+    )
+    invalid_entry = first_entry.model_copy(
+        update={"candidates": [invalid_candidate, *first_entry.candidates[1:]]}
+    )
+    invalid_kv = kv_report.model_copy(update={"entries": [invalid_entry, *kv_report.entries[1:]]})
+    with pytest.raises(PlanningError, match="invalid KV sensitivity report"):
+        bind_unified_sensitivity(weight_report, kv_sensitivity=invalid_kv)
+
+
+def test_unified_sensitivity_plan_without_kv_stays_off(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.analyzer import architecture_prior_report
+    from axquant.planner import plan_quantization
+    from axquant.schema import PlanRequest
+    from axquant.unified_sensitivity import attach_binding_warning, bind_unified_sensitivity
+
+    kv_report = _measured_report(qwen36_model_dir, tmp_path)
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=kv_report.model.model_id,
+        revision=kv_report.model.revision,
+    )
+    weight_report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+    )
+    plan = plan_quantization(
+        weight_report,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=14.0,
+            allow_unmeasured=True,
+        ),
+    )
+    binding = bind_unified_sensitivity(
+        weight_report,
+        kv_sensitivity=kv_report,
+        plan=plan,
+    )
+    assert binding.kv_sensitivity_sha256 is not None
+    assert binding.kv_allocation_basis == "off"
+    attach_binding_warning(plan, binding)
+    assert any("unified sensitivity binding" in warning for warning in plan.warnings)
+    with pytest.raises(PlanningError, match="weight-only plan"):
+        attach_binding_warning(
+            plan,
+            binding.model_copy(update={"kv_allocation_basis": "measured"}),
+        )
+
+    mismatched_plan = plan.model_copy(
+        update={"source_model": plan.source_model.model_copy(update={"revision": "b" * 40})}
+    )
+    with pytest.raises(PlanningError, match="plan source model"):
+        bind_unified_sensitivity(weight_report, plan=mismatched_plan)

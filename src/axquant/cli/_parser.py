@@ -5,6 +5,8 @@ from datetime import datetime
 
 from axquant.profiles import implemented_profiles
 from axquant.schema import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     ConvertLadderName,
     MtpSidecarLayout,
     ProfileName,
@@ -47,6 +49,43 @@ def _group_sizes(value: str) -> tuple[int, ...]:
     result = tuple(sorted(set(parsed)))
     if not result:
         raise argparse.ArgumentTypeError("at least one group size is required")
+    return result
+
+
+def _kv_bits(value: str) -> tuple[int, ...]:
+    result = _bits(value)
+    unsupported = sorted(set(result) - AX_ENGINE_EXECUTABLE_BITS)
+    if unsupported:
+        choices = ",".join(str(bits) for bits in sorted(AX_ENGINE_EXECUTABLE_BITS))
+        raise argparse.ArgumentTypeError(
+            f"unsupported KV precision(s) {unsupported}; choose from {choices}"
+        )
+    return result
+
+
+def _kv_bit(value: str) -> int:
+    try:
+        result = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid KV precision {value!r}") from exc
+    if result not in AX_ENGINE_EXECUTABLE_BITS:
+        choices = ",".join(str(bits) for bits in sorted(AX_ENGINE_EXECUTABLE_BITS))
+        raise argparse.ArgumentTypeError(
+            f"unsupported KV precision {result}; choose from {choices}"
+        )
+    return result
+
+
+def _kv_group_size(value: str) -> int:
+    try:
+        result = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid KV group size {value!r}") from exc
+    if result not in AX_ENGINE_EXECUTABLE_GROUP_SIZES:
+        choices = ",".join(str(size) for size in sorted(AX_ENGINE_EXECUTABLE_GROUP_SIZES))
+        raise argparse.ArgumentTypeError(
+            f"unsupported KV group size {result}; choose from {choices}"
+        )
     return result
 
 
@@ -348,8 +387,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=ProfileName.AGENT_CODING,
     )
     analyze_kv_parser.add_argument("--calibration", required=True)
-    analyze_kv_parser.add_argument("--bits", type=_bits, default=(4, 6, 8))
-    analyze_kv_parser.add_argument("--group-size", type=int, default=64)
+    analyze_kv_parser.add_argument("--bits", type=_kv_bits, default=(4, 6, 8))
+    analyze_kv_parser.add_argument("--group-size", type=_kv_group_size, default=64)
     analyze_kv_parser.add_argument("--token-budget", type=int, default=2048)
     analyze_kv_parser.add_argument("--metric-positions", type=int, default=32)
     analyze_kv_parser.add_argument("--output", default="kv_sensitivity.json")
@@ -412,7 +451,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
     plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
-    plan_parser.add_argument("--kv-default-bits", type=int, default=4)
+    plan_parser.add_argument("--kv-default-bits", type=_kv_bit, default=4)
     plan_parser.add_argument("--kv-analysis", help="KV sensitivity report for --kv-cache measured")
     plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
     plan_parser.add_argument("--output", default="quantization-plans")
@@ -480,7 +519,7 @@ def _build_parser() -> argparse.ArgumentParser:
     quantize_parser.add_argument(
         "--profile",
         choices=[profile.value for profile in implemented_profiles()],
-        default=ProfileName.GENERAL.value,
+        default=None,
     )
     quantize_parser.add_argument(
         "--ladder",
@@ -494,7 +533,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="target average BPW (prior default 4.8)",
     )
-    quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default="off")
+    quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default=None)
     quantize_parser.add_argument(
         "--recipe",
         help="Recipe bundle file or directory; replaces prior-based planning",
@@ -713,9 +752,9 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare_parser = subparsers.add_parser("publish-prepare")
     prepare_parser.add_argument("--model", required=True)
     prepare_parser.add_argument("--repo", required=True)
-    prepare_parser.add_argument("--validation-index", required=True)
-    prepare_parser.add_argument("--hardware-registry", required=True)
-    prepare_parser.add_argument("--pareto-report", required=True)
+    prepare_parser.add_argument("--validation-index")
+    prepare_parser.add_argument("--hardware-registry")
+    prepare_parser.add_argument("--pareto-report")
     prepare_parser.add_argument("--release-audit-request")
 
     publish_parser = subparsers.add_parser("publish")

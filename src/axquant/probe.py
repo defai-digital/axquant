@@ -21,12 +21,14 @@ from axquant.activation_cache import (
     verify_cache_integrity,
 )
 from axquant.awq import apply_mlx_awq_scale
+from axquant.calibration import calibration_manifest_sha256
 from axquant.capture_binding import LoadedActivationCapture, activation_capture_metadata
 from axquant.dwq import apply_mlx_dwq_clip
 from axquant.errors import BackendUnavailableError, PlanningError, ProbeError
 from axquant.gptq import apply_mlx_gptq_refine
 from axquant.module_paths import mlx_module_aliases
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     CalibrationEvidence,
     CalibrationManifest,
@@ -555,7 +557,7 @@ def _calibration_dataset_id(cache_dir: Path, cache_manifest: TokenizedCacheManif
     if not source.is_file():
         raise ProbeError("calibration cache is missing its bound calibration manifest")
     manifest = load_model(source, CalibrationManifest)
-    actual_sha256 = stable_sha256(manifest.model_dump(mode="json", exclude={"created_at"}))
+    actual_sha256 = calibration_manifest_sha256(manifest)
     if actual_sha256 != expected_sha256:
         raise ProbeError("calibration cache manifest checksum does not match its cache binding")
     same_model = (
@@ -756,7 +758,7 @@ def probe_tensor_sensitivity(
     """
     if inventory.quantized_source:
         raise ProbeError("measured sensitivity requires an unquantized BF16 source inventory")
-    if config.model.revision is None:
+    if not is_immutable_revision(config.model.revision):
         raise ProbeError("measured sensitivity requires a revision-pinned source model")
     if config.module_group_probing:
         raise ProbeError(
@@ -851,7 +853,8 @@ def probe_tensor_sensitivity(
             CalibrationManifest,
         ).random_seed
     if base_report is not None:
-        assert base_report.calibration is not None
+        if base_report.calibration is None:
+            raise ProbeError("base sensitivity report has no calibration provenance")
         base_calibration = base_report.calibration
         compatible_dataset_ids = {calibration_dataset_id, str(cache_path)}
         if (
@@ -912,7 +915,8 @@ def probe_tensor_sensitivity(
     for tensor in inventory.tensors:
         base_entry = base_entries.get(tensor.name)
         if tensor.name not in target_tensors:
-            assert base_entry is not None
+            if base_entry is None:
+                raise ProbeError(f"base sensitivity is missing tensor {tensor.name}")
             entries.append(base_entry)
             continue
         # Check resume state
@@ -1157,8 +1161,8 @@ def probe_tensor_sensitivity(
     if calibration_random_seed is not None:
         calibration_metadata["calibration_random_seed"] = calibration_random_seed
     if base_report is not None:
-        assert base_sha256 is not None
-        assert base_report.calibration is not None
+        if base_sha256 is None or base_report.calibration is None:
+            raise ProbeError("base sensitivity provenance is incomplete")
         calibration_metadata.update(
             {
                 "base_sensitivity_sha256": base_sha256,

@@ -8,7 +8,12 @@ import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from axquant.capture_binding import LoadedActivationCapture, activation_capture_metadata
+import numpy as np
+from _capture_helpers import load_test_activation_capture
+from safetensors.numpy import save_file
+
+from axquant.calibration import calibration_manifest_sha256
+from axquant.capture_binding import activation_capture_metadata
 from axquant.cli import main
 from axquant.pareto import build_pareto_report
 from axquant.planner import plan_quantization
@@ -20,6 +25,7 @@ from axquant.refinement import (
 )
 from axquant.release_audit import (
     _activation_capture_artifact_issues,
+    _artifact_issues,
     _sensitivity_lineage_issues,
     _sensitivity_measurement_issues,
     _wheel_identity,
@@ -95,9 +101,14 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
+_SOURCE_REVISION = "a" * 40
+_BASELINE_REVISION = "b" * 40
+_CANDIDATE_REVISION = "c" * 40
+_OTHER_REVISION = "d" * 40
+
 
 def _sensitivity() -> SensitivityReport:
-    source = ModelIdentity(model_id="Qwen/Qwen3.6-test", revision="source-revision")
+    source = ModelIdentity(model_id="Qwen/Qwen3.6-test", revision=_SOURCE_REVISION)
     calibration = CalibrationEvidence(
         dataset_id="calibration",
         dataset_sha256="a" * 64,
@@ -327,7 +338,7 @@ def _benchmark_index(
         else:
             model = ModelIdentity(
                 model_id=f"fixture/{kind.value}",
-                revision=f"{kind.value}-revision",
+                revision=_BASELINE_REVISION,
             )
         evaluation_path = tmp_path / f"{profile.value}-{kind.value}.json"
         write_data(
@@ -398,8 +409,14 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
     plan = _plan(sensitivity)
     artifact = tmp_path / "artifact"
     artifact.mkdir()
-    (artifact / "model.safetensors").write_bytes(b"weights")
-    (artifact / "mtp.safetensors").write_bytes(b"mtp")
+    save_file(
+        {"model.layers.0.mlp.down_proj.weight": np.zeros((1,), dtype=np.float32)},
+        artifact / "model.safetensors",
+    )
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        artifact / "mtp.safetensors",
+    )
     (artifact / "model-manifest.json").write_text("{}\n", encoding="utf-8")
     (artifact / "README.md").write_text("# release\n", encoding="utf-8")
     calibration = CalibrationManifest(
@@ -419,7 +436,7 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         update={
             "metadata": {
                 **plan.calibration.metadata,
-                "calibration_manifest_sha256": file_sha256(artifact / "calibration_manifest.json"),
+                "calibration_manifest_sha256": calibration_manifest_sha256(calibration),
                 "calibration_random_seed": calibration.random_seed,
             }
         }
@@ -435,6 +452,9 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
     write_data(artifact / "quantization_plan.json", plan)
     runtime = build_runtime_metadata(plan, artifact)
     write_data(artifact / "axquant_runtime.json", runtime)
+    main_weight_bytes = (artifact / "model.safetensors").stat().st_size
+    mtp_weight_bytes = (artifact / "mtp.safetensors").stat().st_size
+    total_weight_bytes = main_weight_bytes + mtp_weight_bytes
     manifest = ArtifactManifest(
         axquant_version="1.0.0",
         source_model=plan.source_model,
@@ -445,12 +465,12 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         effective_bpw=plan.effective_bpw,
         logical_parameters=1088,
         main_logical_parameters=1088,
-        weight_file_size_bytes=10,
-        main_weight_file_size_bytes=7,
-        mtp_weight_file_size_bytes=3,
+        weight_file_size_bytes=total_weight_bytes,
+        main_weight_file_size_bytes=main_weight_bytes,
+        mtp_weight_file_size_bytes=mtp_weight_bytes,
         protected_weight_file_size_bytes=0,
-        measured_total_bpw=10 * 8 / 1088,
-        measured_main_bpw=7 * 8 / 1088,
+        measured_total_bpw=total_weight_bytes * 8 / 1088,
+        measured_main_bpw=main_weight_bytes * 8 / 1088,
         weight_distribution=plan.weight_distribution,
         mtp_distribution=plan.mtp_distribution,
         mtp_present=True,
@@ -471,10 +491,10 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
 
     candidate = ModelIdentity(
         model_id="AutomatosX/AXQuant-test",
-        revision="candidate-revision",
+        revision=_CANDIDATE_REVISION,
         local_path=str(artifact.resolve()),
     )
-    reference = ModelIdentity(model_id="fixture/uniform6", revision="uniform6-revision")
+    reference = ModelIdentity(model_id="fixture/uniform6", revision=_BASELINE_REVISION)
     validation_entries: list[ReleaseValidationEntry] = []
     for profile, dataset in (
         (ProfileName.AGENT_CODING, "b" * 64),
@@ -599,14 +619,17 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         common_evidence_paths[name] = path
     sensitivity_evidence_path = hardware_evidence / "sensitivity.json"
     write_data(sensitivity_evidence_path, sensitivity)
+    parent_main_weight_bytes = manifest.main_weight_file_size_bytes - 1
+    parent_weight_bytes = parent_main_weight_bytes + manifest.mtp_weight_file_size_bytes
     parent_artifact = manifest.model_copy(
         update={
             "plan_sha256": parent_sha,
+            "target_class": parent_plan.target_class,
             "effective_bpw": parent_plan.effective_bpw,
-            "weight_file_size_bytes": 9,
-            "main_weight_file_size_bytes": 6,
-            "measured_total_bpw": 9 * 8 / 1088,
-            "measured_main_bpw": 6 * 8 / 1088,
+            "weight_file_size_bytes": parent_weight_bytes,
+            "main_weight_file_size_bytes": parent_main_weight_bytes,
+            "measured_total_bpw": parent_weight_bytes * 8 / 1088,
+            "measured_main_bpw": parent_main_weight_bytes * 8 / 1088,
             "weight_distribution": parent_plan.weight_distribution,
             "mtp_distribution": parent_plan.mtp_distribution,
             "mtp_policy": parent_plan.mtp,
@@ -662,6 +685,8 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         acceptance: float,
         speedup: float,
         peak_memory_ratio: float,
+        quality_retention: float,
+        perplexity_ratio: float,
     ) -> ValidationReport:
         return ValidationReport(
             reference_model=reference,
@@ -674,6 +699,8 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
                 "artifact.candidate_source_sha256": file_sha256(artifact_path),
                 "artifact.candidate_weight_bytes": (artifact_manifest.weight_file_size_bytes),
                 "artifact.weight_size_ratio": 1.05,
+                "quality.aggregate_retention": quality_retention,
+                "perplexity_relative_increase": perplexity_ratio - 1.0,
                 "mtp.acceptance_retention": acceptance,
                 "hardware.effective_speedup": speedup,
                 "hardware.peak_memory_ratio": peak_memory_ratio,
@@ -695,6 +722,8 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         acceptance=0.96,
         speedup=1.21,
         peak_memory_ratio=0.9,
+        quality_retention=0.98,
+        perplexity_ratio=1.02,
     )
     selected_validation = complete_validation(
         artifact_path=candidate_evidence_paths["selected"]["artifact"],
@@ -702,6 +731,8 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         acceptance=0.97,
         speedup=1.25,
         peak_memory_ratio=0.8,
+        quality_retention=0.99,
+        perplexity_ratio=0.9,
     )
     write_data(candidate_evidence_paths["parent"]["validation"], parent_validation)
     write_data(candidate_evidence_paths["selected"]["validation"], selected_validation)
@@ -933,12 +964,12 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
         baselines=[
             _baseline(
                 BaselineKind.UNIFORM_4BIT,
-                ModelIdentity(model_id="fixture/uniform4", revision="uniform4"),
+                ModelIdentity(model_id="fixture/uniform4", revision=_BASELINE_REVISION),
             ),
             _baseline(BaselineKind.UNIFORM_6BIT, reference),
             _baseline(
                 BaselineKind.MIXED_PRECISION,
-                ModelIdentity(model_id="fixture/mixed", revision="mixed"),
+                ModelIdentity(model_id="fixture/mixed", revision=_BASELINE_REVISION),
             ),
         ],
         runtime_checks_requested=True,
@@ -1263,7 +1294,7 @@ def test_release_audit_reverifies_an_approved_size_exception(
         kind="uniform-4bit",
         model=ModelIdentity(
             model_id="fixture/uniform4",
-            revision="uniform4",
+            revision=_BASELINE_REVISION,
         ),
         logical_parameters=1088,
         weight_bytes=8,
@@ -1320,14 +1351,19 @@ def test_release_audit_reverifies_an_approved_size_exception(
     for entry in validation_index.entries:
         validation_path = Path(entry.validation_file)
         validation = load_model(validation_path, ValidationReport)
-        validation.passed = False
-        validation.issues = [
-            ValidationIssue(
-                severity="error",
-                metric="artifact.weight_size_ratio",
-                message="ratio 1.2500 exceeds 1.1000",
-            )
-        ]
+        validation = ValidationReport.model_validate(
+            {
+                **validation.model_dump(mode="json"),
+                "passed": False,
+                "issues": [
+                    ValidationIssue(
+                        severity="error",
+                        metric="artifact.weight_size_ratio",
+                        message="ratio 1.2500 exceeds 1.1000",
+                    )
+                ],
+            }
+        )
         validation.comparisons.update(
             {
                 "artifact.weight_size_ratio": 1.25,
@@ -1520,7 +1556,7 @@ def test_release_audit_rejects_cross_profile_candidate_mismatch(tmp_path: Path) 
     changed_entry = general_entry.model_copy(
         update={
             "candidate_model": general_entry.candidate_model.model_copy(
-                update={"revision": "different-candidate"}
+                update={"revision": _OTHER_REVISION}
             )
         }
     )
@@ -1556,6 +1592,35 @@ def test_release_audit_binds_calibration_manifest(tmp_path: Path) -> None:
 
     assert not audit.release_ready
     assert "M3: calibration manifest is missing or checksum-mismatched" in audit.blockers
+
+
+def test_artifact_audit_rejects_symlinks_and_underreported_weight_bytes(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    artifact = Path(request.artifact_directory)
+    manifest = load_model(artifact / "axquant_manifest.json", ArtifactManifest)
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"secret")
+    (artifact / "leak.bin").symlink_to(outside)
+
+    issues = _artifact_issues(artifact, manifest)
+
+    assert any("artifact tree contains symlinks" in issue for issue in issues)
+
+    (artifact / "leak.bin").unlink()
+    extra = artifact / "extra.safetensors"
+    extra.write_bytes(b"extra")
+    manifest.files.append(
+        ArtifactFile(
+            path=extra.name,
+            size_bytes=extra.stat().st_size,
+            sha256=file_sha256(extra),
+        )
+    )
+
+    issues = _artifact_issues(artifact, manifest)
+
+    assert "artifact manifest Safetensors bytes do not match measured weight bytes" in issues
 
 
 def test_release_audit_requires_measured_parent_for_refinement_gain(tmp_path: Path) -> None:
@@ -1800,6 +1865,14 @@ def test_release_audit_binds_packaged_awq_capture_manifest(tmp_path: Path) -> No
     sensitivity = _sensitivity()
     plan = _plan(sensitivity)
     target = next(assignment for assignment in plan.assignments if assignment.bits < 16)
+    plan.hardware = plan.hardware.model_copy(
+        update={
+            "supported_methods": (
+                *plan.hardware.supported_methods,
+                QuantMethod.AWQ,
+            )
+        }
+    )
     target.method = QuantMethod.AWQ
     assert sensitivity.calibration is not None
     assert plan.calibration is not None
@@ -1812,16 +1885,15 @@ def test_release_audit_binds_packaged_awq_capture_manifest(tmp_path: Path) -> No
         calibration_dataset_id=plan.calibration.dataset_id,
         max_rows=4,
     )
-    capture = LoadedActivationCapture(
+    capture = load_test_activation_capture(
+        tmp_path,
         manifest=capture_manifest,
-        manifest_sha256=stable_sha256(capture_manifest),
         activations={},
-        source_dir=tmp_path,
     )
+    capture_manifest = capture.manifest
     binding = activation_capture_metadata(capture)
     sensitivity.calibration.metadata.update(binding)
     plan.calibration.metadata.update(binding)
-    write_data(tmp_path / "activation_capture_manifest.json", capture_manifest)
 
     assert _activation_capture_artifact_issues(tmp_path, sensitivity, plan) == []
 
@@ -2078,4 +2150,4 @@ def test_release_audit_recomputes_complete_objective_from_quality_file(
     m6 = next(check for check in audit.checks if check.gate_id == "M6")
 
     assert not m6.passed
-    assert any("complete-model objective cannot be reproduced" in issue for issue in m6.issues)
+    assert any("complete-model measurement evidence is invalid" in issue for issue in m6.issues)

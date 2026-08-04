@@ -7,20 +7,32 @@ import pytest
 from axquant import publisher
 from axquant.errors import PublishingError
 from axquant.publisher import (
+    _copy_exact_publication_file,
     _package_release_audit,
     _require_release_audit,
+    _require_release_validation,
     _rerun_release_audit,
     publish_model,
 )
 from axquant.schema import (
+    DirectQualityEvaluation,
+    DirectQualityTaskOutcome,
+    DirectReleaseValidationIndex,
+    DirectValidationEntry,
     ModelIdentity,
     ProfileName,
+    QualityGenerationConfig,
     ReleaseAudit,
     ReleaseAuditCheck,
     ReleaseValidationEntry,
     ReleaseValidationIndex,
+    SoftwareVersions,
 )
 from axquant.serde import file_sha256, load_model, write_data
+
+_SOURCE_REVISION = "a" * 40
+_REFERENCE_REVISION = "b" * 40
+_CANDIDATE_REVISION = "c" * 40
 
 
 def _release_audit(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
@@ -61,12 +73,12 @@ def _release_audit(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
         request_sha256="request",
         candidate_model=ModelIdentity(
             model_id="AutomatosX/AXQuant-test",
-            revision="candidate-revision",
+            revision=_CANDIDATE_REVISION,
             local_path=str(artifact.resolve()),
         ),
         source_model=ModelIdentity(
             model_id="Qwen/Qwen3.6-test",
-            revision="source-revision",
+            revision=_SOURCE_REVISION,
         ),
         toolkit_version="1.0.0",
         wheel_sha256="wheel",
@@ -158,7 +170,7 @@ def test_executed_publication_rechecks_audit_after_preparation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     audit_path, paths = _release_audit(tmp_path)
-    audit = load_model(audit_path, ReleaseAudit)
+    audit = _bind_release_ready_validation(audit_path, paths)
     request_path = tmp_path / "release-audit-request.json"
     request_path.write_text("{}\n", encoding="utf-8")
 
@@ -195,13 +207,36 @@ def test_authorizing_release_audit_is_packaged_without_overwrite(tmp_path: Path)
     assert file_sha256(packaged) == file_sha256(audit_path)
 
     packaged.write_text('{"fixture":"different"}\n', encoding="utf-8")
-    with pytest.raises(PublishingError, match="differs from the authorizing audit"):
+    with pytest.raises(PublishingError, match="differs from the authorizing source"):
         _package_release_audit(audit_path, artifact)
 
 
+def test_packaged_publication_files_reject_directory_collisions(tmp_path: Path) -> None:
+    audit_path, _paths = _release_audit(tmp_path)
+    artifact = tmp_path / "artifact"
+    audit_target = artifact / "release_audit.json"
+    audit_target.mkdir()
+
+    with pytest.raises(PublishingError, match="target is not a regular file"):
+        _package_release_audit(audit_path, artifact)
+    assert not (audit_target / audit_path.name).exists()
+
+    registry_source = tmp_path / "registry.json"
+    registry_source.write_text("{}\n", encoding="utf-8")
+    registry_target = artifact / "certification" / "certified_checkpoint_registry.json"
+    registry_target.mkdir(parents=True)
+    with pytest.raises(PublishingError, match="target is not a regular file"):
+        _copy_exact_publication_file(
+            registry_source,
+            registry_target,
+            label="certification registry",
+        )
+    assert not (registry_target / registry_source.name).exists()
+
+
 def _release_ready_validation_index(repo_id: str) -> ReleaseValidationIndex:
-    candidate = ModelIdentity(model_id=repo_id, revision="candidate-revision")
-    reference = ModelIdentity(model_id="fixture/reference", revision="rev")
+    candidate = ModelIdentity(model_id=repo_id, revision=_CANDIDATE_REVISION)
+    reference = ModelIdentity(model_id="fixture/reference", revision=_REFERENCE_REVISION)
     return ReleaseValidationIndex(
         entries=[
             ReleaseValidationEntry(
@@ -220,6 +255,175 @@ def _release_ready_validation_index(repo_id: str) -> ReleaseValidationIndex:
         release_ready=True,
         issues=[],
     )
+
+
+def _direct_release_ready_validation_index(
+    tmp_path: Path,
+    repo_id: str,
+) -> tuple[Path, Path]:
+    generation = QualityGenerationConfig(
+        prompt_format="raw",
+        max_sequence_length=128,
+        max_generation_tokens=32,
+    )
+    software = SoftwareVersions(
+        axquant="1.0.0",
+        python="3.13",
+        safetensors="0.6",
+        pydantic="2",
+    )
+    entries: list[DirectValidationEntry] = []
+    candidate_to_mutate: Path | None = None
+    for profile in (ProfileName.AGENT_CODING, ProfileName.GENERAL):
+        prefix = profile.value
+        evaluation_manifest = tmp_path / f"{prefix}-evaluation-manifest.json"
+        reference_path = tmp_path / f"{prefix}-reference.json"
+        candidate_path = tmp_path / f"{prefix}-candidate.json"
+        evaluation_manifest.write_text('{"fixture":"manifest"}\n', encoding="utf-8")
+        common = {
+            "profile": profile,
+            "model_artifact_sha256": "a" * 64,
+            "evaluation_manifest_sha256": file_sha256(evaluation_manifest),
+            "dataset_sha256": "b" * 64,
+            "tokenizer_sha256": "c" * 64,
+            "generation": generation,
+            "random_seed": 7,
+            "evaluated_tokens": 1,
+            "software_versions": software,
+            "perplexity": 1.0,
+            "outcomes": [
+                DirectQualityTaskOutcome(
+                    task_id=f"{prefix}-task",
+                    score=1.0,
+                    scored_tokens=1,
+                    output_sha256="d" * 64,
+                )
+            ],
+        }
+        write_data(
+            reference_path,
+            DirectQualityEvaluation(
+                model=ModelIdentity(
+                    model_id="Qwen/reference",
+                    revision=_REFERENCE_REVISION,
+                ),
+                **common,
+            ),
+        )
+        write_data(
+            candidate_path,
+            DirectQualityEvaluation(
+                model=ModelIdentity(model_id=repo_id, revision=_CANDIDATE_REVISION),
+                **common,
+            ),
+        )
+        entries.append(
+            DirectValidationEntry(
+                profile=profile,
+                evaluation_manifest_file=evaluation_manifest.name,
+                evaluation_manifest_sha256=file_sha256(evaluation_manifest),
+                reference_evaluation_file=reference_path.name,
+                reference_evaluation_sha256=file_sha256(reference_path),
+                candidate_evaluation_file=candidate_path.name,
+                candidate_evaluation_sha256=file_sha256(candidate_path),
+                passed=True,
+            )
+        )
+        candidate_to_mutate = candidate_path
+    overlap = tmp_path / "general-overlap.json"
+    overlap.write_text('{"fixture":"overlap"}\n', encoding="utf-8")
+    index_path = tmp_path / "direct-validation-index.json"
+    write_data(
+        index_path,
+        DirectReleaseValidationIndex(
+            entries=entries,
+            general_calibration_overlap_report_file=overlap.name,
+            general_calibration_overlap_report_sha256=file_sha256(overlap),
+            release_ready=True,
+        ),
+    )
+    assert candidate_to_mutate is not None
+    return index_path, candidate_to_mutate
+
+
+def test_direct_publication_rejects_stale_validation_dependency(tmp_path: Path) -> None:
+    repo_id = "AutomatosX/AXQuant-test"
+    validation_path, candidate_path = _direct_release_ready_validation_index(tmp_path, repo_id)
+    _require_release_validation(validation_index_path=validation_path, repo_id=repo_id)
+
+    candidate_path.write_text(
+        candidate_path.read_text(encoding="utf-8") + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PublishingError, match="checksum does not match its index"):
+        _require_release_validation(validation_index_path=validation_path, repo_id=repo_id)
+
+
+def _bind_release_ready_validation(
+    audit_path: Path,
+    paths: dict[str, Path],
+) -> ReleaseAudit:
+    repo_id = "AutomatosX/AXQuant-test"
+    write_data(paths["release_validation_index"], _release_ready_validation_index(repo_id))
+    audit = load_model(audit_path, ReleaseAudit)
+    rebound_checks = [
+        check.model_copy(
+            update={
+                "evidence_sha256": {
+                    **check.evidence_sha256,
+                    "release_validation_index": file_sha256(paths["release_validation_index"]),
+                }
+            }
+        )
+        if check.gate_id == "M2"
+        else check
+        for check in audit.checks
+    ]
+    audit = audit.model_copy(update={"checks": rebound_checks})
+    write_data(audit_path, audit)
+    return audit
+
+
+def test_executed_publication_reruns_full_audit_after_preparation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    audit_path, paths = _release_audit(tmp_path)
+    audit = _bind_release_ready_validation(audit_path, paths)
+    request_path = tmp_path / "release-audit-request.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    prepared = False
+
+    def prepare(**_kwargs: object) -> list[Path]:
+        nonlocal prepared
+        prepared = True
+        return []
+
+    def rebuild(_path: Path) -> ReleaseAudit:
+        if prepared:
+            return audit.model_copy(update={"wheel_sha256": "post-prepare-drift"})
+        return audit
+
+    monkeypatch.setattr(publisher, "prepare_publication", prepare)
+    monkeypatch.setattr(publisher, "build_release_audit", rebuild)
+    monkeypatch.setattr(
+        publisher,
+        "HfApi",
+        lambda: pytest.fail("post-preparation audit drift must prevent Hub access"),
+    )
+
+    with pytest.raises(PublishingError, match="does not match a fresh audit rerun"):
+        publish_model(
+            model_dir=tmp_path / "artifact",
+            repo_id="AutomatosX/AXQuant-test",
+            validation_index_path=paths["release_validation_index"],
+            hardware_registry_path=paths["hardware_registry"],
+            pareto_report_path=paths["pareto_report"],
+            release_audit_path=audit_path,
+            release_audit_request_path=request_path,
+            execute=True,
+        )
 
 
 def test_dry_run_publication_never_touches_the_hub(
@@ -254,34 +458,70 @@ def test_dry_run_publication_never_touches_the_hub(
     assert files == []
 
 
+def test_publication_rejects_symlinks_before_preparation_or_upload(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"secret")
+    (artifact / "leak.bin").symlink_to(outside)
+    monkeypatch.setattr(
+        publisher,
+        "prepare_publication",
+        lambda **_kwargs: pytest.fail("unsafe artifact must fail before preparation"),
+    )
+
+    with pytest.raises(PublishingError, match="artifact tree contains symlinks"):
+        publish_model(
+            model_dir=artifact,
+            repo_id="AutomatosX/AXQuant-test",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+        )
+
+
+@pytest.mark.parametrize(
+    ("execute", "private"),
+    [
+        ("false", False),
+        (False, 1),
+    ],
+)
+def test_publication_rejects_non_boolean_execution_controls(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    execute: object,
+    private: object,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    monkeypatch.setattr(
+        publisher,
+        "prepare_publication",
+        lambda **_kwargs: pytest.fail("invalid controls must fail before preparation"),
+    )
+
+    with pytest.raises(PublishingError, match="controls must be booleans"):
+        publish_model(
+            model_dir=artifact,
+            repo_id="AutomatosX/AXQuant-test",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+            execute=execute,  # type: ignore[arg-type]
+            private=private,  # type: ignore[arg-type]
+        )
+
+
 def test_executed_publication_uploads_only_after_every_gate_passes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     repo_id = "AutomatosX/AXQuant-test"
     audit_path, paths = _release_audit(tmp_path)
-    audit = load_model(audit_path, ReleaseAudit)
-
-    # Replace the placeholder release-validation-index fixture with a real,
-    # schema-valid ReleaseValidationIndex (publish_model loads and checks it
-    # directly, unlike the other M-gate evidence files which stay opaque
-    # bytes bound only by checksum), then re-bind the audit's M2 checksum to
-    # match the new content.
-    write_data(paths["release_validation_index"], _release_ready_validation_index(repo_id))
-    rebound_checks = [
-        check.model_copy(
-            update={
-                "evidence_sha256": {
-                    **check.evidence_sha256,
-                    "release_validation_index": file_sha256(paths["release_validation_index"]),
-                }
-            }
-        )
-        if check.gate_id == "M2"
-        else check
-        for check in audit.checks
-    ]
-    audit = audit.model_copy(update={"checks": rebound_checks})
-    write_data(audit_path, audit)
+    audit = _bind_release_ready_validation(audit_path, paths)
 
     request_path = tmp_path / "release-audit-request.json"
     request_path.write_text("{}\n", encoding="utf-8")

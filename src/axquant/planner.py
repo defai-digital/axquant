@@ -5,14 +5,13 @@ from dataclasses import dataclass
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
-from axquant.module_paths import fused_expert_module
+from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.naming import target_class_for_bpw
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
-    PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
-)
-from axquant.schema import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     Allocation,
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -32,6 +31,9 @@ from axquant.schema import (
     SensitivityReport,
     TensorRole,
     TensorSensitivity,
+)
+from axquant.schema import (
+    PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
 )
 from axquant.serde import stable_sha256
 from axquant.versioning import collect_versions
@@ -58,6 +60,76 @@ class _Choice:
         return self.options[self.index]
 
 
+_PrecisionSignature = tuple[int, QuantMethod, int | None]
+
+
+def _harmonize_choice_group(
+    members: list[_Choice],
+    *,
+    label: str,
+    running_storage_bits: float,
+    target_storage_bits: float,
+    reason: str | None = None,
+) -> float:
+    """Select one common executable signature for tensors sharing physical storage."""
+
+    option_maps = [
+        {
+            (
+                option.measurement.bits,
+                option.measurement.method,
+                option.measurement.group_size,
+            ): (index, option)
+            for index, option in enumerate(member.options)
+        }
+        for member in members
+    ]
+    common_signatures = set(option_maps[0])
+    for option_map in option_maps[1:]:
+        common_signatures &= set(option_map)
+    feasible: list[tuple[float, float, _PrecisionSignature]] = []
+    current_group_storage = sum(
+        member.selected.storage_bpw * member.entry.tensor.parameters for member in members
+    )
+    for signature in common_signatures:
+        options = [option_map[signature][1] for option_map in option_maps]
+        candidate_group_storage = sum(
+            option.storage_bpw * member.entry.tensor.parameters
+            for member, option in zip(members, options, strict=True)
+        )
+        if (
+            running_storage_bits - current_group_storage + candidate_group_storage
+            > target_storage_bits + 1e-6
+        ):
+            continue
+        aggregate_loss = sum(
+            option.ranking_loss * member.entry.tensor.parameters
+            for member, option in zip(members, options, strict=True)
+        )
+        feasible.append((aggregate_loss, -candidate_group_storage, signature))
+    if not feasible:
+        raise PlanningError(f"{label} has no common precision within the budget")
+    _, _, selected_signature = min(
+        feasible,
+        key=lambda candidate: (
+            candidate[0],
+            candidate[1],
+            candidate[2][0],
+            candidate[2][1].value,
+            candidate[2][2] or 0,
+        ),
+    )
+    selected_group_storage = 0.0
+    for member, option_map in zip(members, option_maps, strict=True):
+        selected_index, selected_option = option_map[selected_signature]
+        member.index = selected_index
+        member.upgraded = selected_index > 0
+        if reason is not None:
+            member.policy_reason = reason
+        selected_group_storage += selected_option.storage_bpw * member.entry.tensor.parameters
+    return running_storage_bits + selected_group_storage - current_group_storage
+
+
 def _current_policy_profile(profile: ArchitectureProfile) -> ArchitectureProfile:
     """Stamp the registry's current tier onto a recorded profile (AXQ-017).
 
@@ -82,6 +154,18 @@ def storage_bpw(bits: int, group_size: int | None) -> float:
     return bits + 32.0 / group_size
 
 
+def _require_executable_kv_bits(*values: int) -> None:
+    unsupported = sorted(set(values) - AX_ENGINE_EXECUTABLE_BITS)
+    if unsupported:
+        raise PlanningError(f"AX Engine KV cache does not support bit widths {unsupported}")
+
+
+def _require_executable_kv_group_sizes(*values: int) -> None:
+    unsupported = sorted(set(values) - AX_ENGINE_EXECUTABLE_GROUP_SIZES)
+    if unsupported:
+        raise PlanningError(f"AX Engine KV cache does not support group sizes {unsupported}")
+
+
 def allocate_kv_cache(
     layer_count: int,
     *,
@@ -98,6 +182,8 @@ def allocate_kv_cache(
     """
     if layer_count < 1:
         raise PlanningError("KV-cache planning requires a positive text layer count")
+    _require_executable_kv_bits(default_bits, min_bits)
+    _require_executable_kv_group_sizes(group_size)
     if default_bits < min_bits:
         raise PlanningError("KV-cache default bits cannot fall below the policy floor")
     boundary = max(1, -(-layer_count // 10))
@@ -143,6 +229,17 @@ def allocate_kv_cache_measured(
         raise PlanningError("measured KV allocation requires a measured sensitivity report")
     if max_output_kl <= 0.0:
         raise PlanningError("the KV output-KL budget must be positive")
+    _require_executable_kv_bits(min_bits)
+    _require_executable_kv_group_sizes(report.group_size)
+    for entry in report.entries:
+        _require_executable_kv_bits(*(candidate.bits for candidate in entry.candidates))
+        _require_executable_kv_group_sizes(
+            *(
+                candidate.group_size
+                for candidate in entry.candidates
+                if candidate.group_size is not None
+            )
+        )
     layers: list[KvLayerAllocation] = []
     chosen_bits: list[int] = []
     for entry in sorted(report.entries, key=lambda item: item.layer_index):
@@ -281,6 +378,12 @@ def _options_for(
     allowed_groups = set(request.effective_group_sizes())
     method_filter = set(request.candidate_methods)
     role = entry.tensor.role
+    # MLX-LM exposes both per-expert checkpoint tensors and packed expert
+    # tensors through fused SwitchLinear modules.  Predicate/conversion can
+    # only execute affine packing for those modules, so do not let refinement
+    # candidates produce a plan that the conversion preflight must reject.
+    fused_expert = fused_expert_module(entry.tensor.module_path) is not None
+    packed_expert = bool(packed_expert_runtime_modules(entry.tensor.module_path))
     if role.is_mtp and request.mtp.mode != "disabled":
         allowed_bits &= set(request.mtp.candidate_bits)
         if minimum_bits == 16:
@@ -293,6 +396,11 @@ def _options_for(
         and candidate.bits >= minimum_bits
         and candidate.bits in request.hardware.supported_bits
         and candidate.method in request.hardware.supported_methods
+        and (
+            not (fused_expert or packed_expert)
+            or candidate.bits == 16
+            or candidate.method == QuantMethod.AFFINE
+        )
         and (
             candidate.bits == 16
             or (
@@ -404,6 +512,9 @@ def plan_quantization(
     for entry in report.entries:
         options, reason = _options_for(entry, request, weights, evidence_kind=report.evidence_kind)
         choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
+    tensor_names = [choice.entry.tensor.name for choice in choices]
+    if len(tensor_names) != len(set(tensor_names)):
+        raise PlanningError("analysis report contains duplicate tensor entries")
     total_parameters = sum(choice.entry.tensor.parameters for choice in choices)
     if total_parameters <= 0:
         raise PlanningError("analysis report contains no parameters")
@@ -456,20 +567,61 @@ def plan_quantization(
         running_storage_bits += best[2]
 
     # Fused MoE experts quantize as one MLX-LM switch module, so every member
-    # of a group must share one precision. Normalize each group to its
-    # minimum selected storage option: strictly budget-safe (storage can only
-    # shrink) and deterministic.
+    # of a group must share one executable (bits, method, group-size)
+    # signature. Option ladders are tensor-specific; equal list indexes do not
+    # imply equal signatures.
     expert_groups: dict[str, list[_Choice]] = {}
     for choice in choices:
         fused = fused_expert_module(choice.entry.tensor.module_path)
         if fused is not None:
             expert_groups.setdefault(fused, []).append(choice)
-    for members in expert_groups.values():
-        floor_index = min(member.index for member in members)
-        for member in members:
-            if member.index != floor_index:
-                member.index = floor_index
-                member.upgraded = floor_index > 0
+    for fused_module, members in expert_groups.items():
+        running_storage_bits = _harmonize_choice_group(
+            members,
+            label=f"fused expert module {fused_module}",
+            running_storage_bits=running_storage_bits,
+            target_storage_bits=target_storage_bits,
+        )
+
+    # Tied tensors share one physical weight. A plan that assigns different
+    # packing signatures cannot be executed consistently and can also cause
+    # the fail-closed conversion predicate to see only one side of the tie.
+    choices_by_tensor = {choice.entry.tensor.name: choice for choice in choices}
+    tied_graph: dict[str, set[str]] = {}
+    for choice in choices:
+        name = choice.entry.tensor.name
+        tied_to = choice.entry.tensor.tied_to
+        if tied_to is None:
+            continue
+        if tied_to == name:
+            raise PlanningError(f"tensor {name} cannot be tied to itself")
+        if tied_to not in choices_by_tensor:
+            raise PlanningError(f"tensor {name} is tied to missing tensor {tied_to}")
+        tied_graph.setdefault(name, set()).add(tied_to)
+        tied_graph.setdefault(tied_to, set()).add(name)
+    visited_tied: set[str] = set()
+    for start in sorted(tied_graph):
+        if start in visited_tied:
+            continue
+        stack = [start]
+        component: list[str] = []
+        while stack:
+            name = stack.pop()
+            if name in visited_tied:
+                continue
+            visited_tied.add(name)
+            component.append(name)
+            stack.extend(sorted(tied_graph.get(name, ()), reverse=True))
+        if len(component) < 2:
+            continue
+        group_name = ", ".join(sorted(component))
+        running_storage_bits = _harmonize_choice_group(
+            [choices_by_tensor[name] for name in sorted(component)],
+            label=f"tied-weight group [{group_name}]",
+            running_storage_bits=running_storage_bits,
+            target_storage_bits=target_storage_bits,
+            reason="tied-weight group harmonized at one executable precision",
+        )
 
     allocations: list[Allocation] = []
     for choice in choices:

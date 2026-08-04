@@ -35,8 +35,11 @@ def test_nemotron_is_thin_and_nano_only_convertible() -> None:
         "model_type": "nemotron_h",
         "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         "num_hidden_layers": 52,
+        "hidden_size": 2688,
         "n_routed_experts": 128,
         "num_experts_per_tok": 6,
+        "n_shared_experts": 1,
+        "moe_intermediate_size": 1856,
     }
     assert (
         adapter.profile("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16", nano).support_tier

@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 from math import isfinite
 from pathlib import Path
 
+from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import CAPTURE_METADATA_KEYS, activation_capture_evidence_issues
 from axquant.certification.common import (
     architecture_fingerprint,
@@ -30,6 +31,7 @@ from axquant.schema import (
     ActivationCaptureManifest,
     ArtifactManifest,
     BaselineKind,
+    CalibrationManifest,
     CodingOverlapReport,
     CodingScorer,
     CodingSuiteManifest,
@@ -1547,7 +1549,12 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
             expected_calibration = sensitivity.calibration.metadata.get(
                 "calibration_manifest_sha256"
             )
-            if expected_calibration != file_sha256(calibration_path):
+            calibration_manifest = load_model(calibration_path, CalibrationManifest)
+            if not isinstance(expected_calibration, str) or not calibration_manifest_matches(
+                calibration_path,
+                calibration_manifest,
+                expected_calibration,
+            ):
                 n3_issues.append("packaged calibration manifest differs from measured evidence")
         if any(key in sensitivity.calibration.metadata for key in CAPTURE_METADATA_KEYS):
             capture_path = artifact / "activation_capture_manifest.json"

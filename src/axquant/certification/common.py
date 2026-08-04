@@ -123,7 +123,22 @@ def architecture_fingerprint(
 
 def source_checkpoint_files(model_dir: str | Path, inventory: Inventory) -> list[Path]:
     directory = Path(model_dir).expanduser().resolve()
-    relative_names = set(inventory.source_files)
+    inventory_weight_names = set(inventory.source_files)
+    if len(inventory_weight_names) != len(inventory.source_files):
+        raise ArtifactError("source inventory contains duplicate weight-file paths")
+    actual_weight_names = {
+        path.relative_to(directory).as_posix()
+        for path in directory.rglob("*.safetensors")
+        if path.is_file()
+    }
+    if actual_weight_names != inventory_weight_names:
+        missing = sorted(inventory_weight_names - actual_weight_names)
+        untracked = sorted(actual_weight_names - inventory_weight_names)
+        raise ArtifactError(
+            "source inventory Safetensors membership differs from the checkpoint: "
+            f"missing={missing}, untracked={untracked}"
+        )
+    relative_names = set(inventory_weight_names)
     relative_names.update(name for name in _METADATA_FILES if (directory / name).is_file())
     relative_names.update(name for name in _TOKENIZER_FILES if (directory / name).is_file())
     files: list[Path] = []

@@ -24,6 +24,7 @@ STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
 HF_DST="${EXT_ROOT}/huggingface"
 MODELS_DST="${EXT_ROOT}/models"
+RSYNC_FLAGS=(-aH --partial --progress --stats)
 
 # Ext4T2 top-level entries that are NOT LLM model dirs
 EXCLUDE_OLD_NAMES=(
@@ -41,17 +42,107 @@ EXCLUDE_OLD_NAMES=(
 )
 
 usage() {
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 
 die() { log "ERROR: $*"; exit 1; }
 
-require_mounts() {
-  [[ -d "$EXT_ROOT" ]] || die "$EXT_ROOT not mounted"
-  mkdir -p "$HF_DST/hub" "$HF_DST/xet" "$HF_DST/datasets" "$MODELS_DST" "$LOG_DIR"
-  mkdir -p "$EXT_ROOT/axquant"/{models,axq-publish,logs,work,smokes}
+validate_configuration() {
+  for path in "$EXT_ROOT" "$EXT_OLD" "$NAS_MODELS" "$HF_HOME_LOCAL"; do
+    [[ "$path" == /* && "$path" != *"//"* && "$path" != */ ]] || {
+      die "path must be absolute and canonical: $path"
+    }
+    [[ "/$path/" != *"/../"* && "/$path/" != *"/./"* ]] || {
+      die "path must not contain dot components: $path"
+    }
+  done
+  [[ "$EXT_ROOT" != "/" && "$EXT_ROOT" != "/Volumes" ]] || {
+    die "refusing broad Ext4T root: $EXT_ROOT"
+  }
+  for path in "$EXT_ROOT" "$EXT_OLD" "$NAS_MODELS"; do
+    [[ "$path" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "mount path contains unsafe characters: $path"
+  done
+  [[ "$HF_HOME_LOCAL" == "$HOME/"* && "$HF_HOME_LOCAL" != "$HOME" ]] || {
+    die "HF_HOME_LOCAL must be a child of HOME"
+  }
+}
+
+require_ext4t() {
+  [[ -d "$EXT_ROOT" && ! -L "$EXT_ROOT" ]] || die "$EXT_ROOT is not a real mounted directory"
+  local mounted_at
+  mounted_at="$(df -P "$EXT_ROOT" 2>/dev/null | awk 'NR == 2 {print $NF}')"
+  [[ "$mounted_at" == "$EXT_ROOT" ]] || {
+    die "$EXT_ROOT is not a mounted volume (df reports ${mounted_at:-unknown})"
+  }
+}
+
+require_dedicated_source() {
+  local path="$1"
+  local label="$2"
+  [[ -d "$path" && ! -L "$path" ]] || die "$label must be a real directory: $path"
+  local mounted_at
+  mounted_at="$(df -P "$path" 2>/dev/null | awk 'NR == 2 {print $NF}')"
+  [[ -n "$mounted_at" && "$mounted_at" != "/" ]] || {
+    die "$label is not on a dedicated mounted filesystem: $path"
+  }
+  [[ "$path" == "$mounted_at" || "$path" == "$mounted_at/"* ]] || {
+    die "$label path is outside its reported mount $mounted_at: $path"
+  }
+}
+
+ensure_real_dir() {
+  local path="$1"
+  [[ ! -L "$path" ]] || die "managed directory must not be a symlink: $path"
+  [[ ! -e "$path" || -d "$path" ]] || die "managed path is not a directory: $path"
+  mkdir -p "$path"
+}
+
+ensure_home_dir() {
+  local path="$1"
+  [[ "$path" == "$HOME" || "$path" == "$HOME/"* ]] || die "path is outside HOME: $path"
+  local relative="${path#"$HOME"}"
+  relative="${relative#/}"
+  local current="$HOME"
+  local -a components=()
+  local component
+  IFS='/' read -r -a components <<<"$relative"
+  for component in "${components[@]}"; do
+    [[ -n "$component" ]] || continue
+    current="$current/$component"
+    ensure_real_dir "$current"
+  done
+}
+
+safe_output_file() {
+  local path="$1"
+  [[ ! -L "$path" ]] || die "refusing symlinked output file: $path"
+  [[ ! -e "$path" || -f "$path" ]] || die "output path is not a regular file: $path"
+}
+
+ensure_link() {
+  local target="$1"
+  local link="$2"
+  if [[ -L "$link" ]]; then
+    [[ "$(readlink "$link")" == "$target" ]] || die "$link points somewhere unexpected"
+  elif [[ -e "$link" ]]; then
+    die "$link exists and is not a symlink"
+  else
+    ln -s "$target" "$link"
+  fi
+}
+
+prepare_layout() {
+  require_ext4t
+  local path
+  for path in \
+    "$HF_DST" "$HF_DST/hub" "$HF_DST/xet" "$HF_DST/datasets" \
+    "$MODELS_DST" "${EXT_ROOT}/logs" "$LOG_DIR" "${EXT_ROOT}/axquant" \
+    "${EXT_ROOT}/axquant/models" "${EXT_ROOT}/axquant/axq-publish" \
+    "${EXT_ROOT}/axquant/logs" "${EXT_ROOT}/axquant/work" "${EXT_ROOT}/axquant/smokes"; do
+    ensure_real_dir "$path"
+  done
 }
 
 is_excluded_old() {
@@ -63,31 +154,32 @@ is_excluded_old() {
   return 1
 }
 
-rsync_flags() {
-  # openrsync (macOS stock) is ~2.6.9-compatible: no --info=*, no --partial-dir
-  echo -aH --partial --progress --stats
-}
-
 sync_hf_from_nas() {
-  [[ -d "$NAS_MODELS/hub" ]] || die "NAS hub missing: $NAS_MODELS/hub (is data-models mounted?)"
+  require_dedicated_source "$NAS_MODELS" "NAS model cache"
+  [[ -d "$NAS_MODELS/hub" && ! -L "$NAS_MODELS/hub" ]] || {
+    die "NAS hub must be a real directory: $NAS_MODELS/hub"
+  }
+  [[ -d "$NAS_MODELS/xet" && ! -L "$NAS_MODELS/xet" ]] || {
+    die "NAS xet cache must be a real directory: $NAS_MODELS/xet"
+  }
   local logf="${LOG_DIR}/rsync-hf-hub-${STAMP}.log"
+  safe_output_file "$logf"
   log "sync HF hub: $NAS_MODELS/hub/ -> $HF_DST/hub/"
-  # shellcheck disable=SC2046
-  rsync $(rsync_flags) \
+  rsync "${RSYNC_FLAGS[@]}" \
     --exclude '.DS_Store' \
     "$NAS_MODELS/hub/" "$HF_DST/hub/" | tee -a "$logf"
   log "sync HF xet: $NAS_MODELS/xet/ -> $HF_DST/xet/"
   logf="${LOG_DIR}/rsync-hf-xet-${STAMP}.log"
-  # shellcheck disable=SC2046
-  rsync $(rsync_flags) \
+  safe_output_file "$logf"
+  rsync "${RSYNC_FLAGS[@]}" \
     --exclude '.DS_Store' \
     "$NAS_MODELS/xet/" "$HF_DST/xet/" | tee -a "$logf"
 
   # Local-only HF metadata / small caches
   if [[ -d "${HF_HOME_LOCAL}/datasets" && ! -L "${HF_HOME_LOCAL}/datasets" ]]; then
     log "sync local datasets -> $HF_DST/datasets/"
-    # shellcheck disable=SC2046
-    rsync $(rsync_flags) "${HF_HOME_LOCAL}/datasets/" "$HF_DST/datasets/" \
+    safe_output_file "${LOG_DIR}/rsync-hf-datasets-${STAMP}.log"
+    rsync "${RSYNC_FLAGS[@]}" "${HF_HOME_LOCAL}/datasets/" "$HF_DST/datasets/" \
       | tee -a "${LOG_DIR}/rsync-hf-datasets-${STAMP}.log"
   fi
   for f in token stored_tokens .agent_harnesses.json .check_for_update_done CACHEDIR.TAG; do
@@ -97,12 +189,18 @@ sync_hf_from_nas() {
     fi
   done
 
+  safe_output_file "${LOG_DIR}/hf-sync-complete.txt"
   date -u +%Y-%m-%dT%H:%M:%SZ >"${LOG_DIR}/hf-sync-complete.txt"
   log "HF NAS sync complete -> ${LOG_DIR}/hf-sync-complete.txt"
 }
 
 sync_llm_from_ext4t2() {
-  [[ -d "$EXT_OLD" ]] || die "$EXT_OLD not mounted"
+  require_dedicated_source "$EXT_OLD" "Ext4T2"
+  local old_mount
+  old_mount="$(df -P "$EXT_OLD" 2>/dev/null | awk 'NR == 2 {print $NF}')"
+  [[ "$old_mount" == "$EXT_OLD" ]] || {
+    die "$EXT_OLD is not an exact mount point (df reports ${old_mount:-unknown})"
+  }
   local name src logf
   local count=0
   for src in "$EXT_OLD"/*; do
@@ -113,18 +211,23 @@ sync_llm_from_ext4t2() {
     [[ -d "$src" ]] || continue
     count=$((count + 1))
     logf="${LOG_DIR}/rsync-llm-${name}-${STAMP}.log"
+    safe_output_file "$logf"
     log "sync LLM [$count]: $name"
-    # shellcheck disable=SC2046
-    rsync $(rsync_flags) \
+    ensure_real_dir "$MODELS_DST/$name"
+    rsync "${RSYNC_FLAGS[@]}" \
       --exclude '.DS_Store' \
       "$src/" "$MODELS_DST/$name/" | tee -a "$logf"
   done
+  safe_output_file "${LOG_DIR}/llm-sync-complete.txt"
   date -u +%Y-%m-%dT%H:%M:%SZ >"${LOG_DIR}/llm-sync-complete.txt"
   log "LLM Ext4T2 sync complete ($count dirs) -> ${LOG_DIR}/llm-sync-complete.txt"
 }
 
 relink_hf() {
-  require_mounts
+  prepare_layout
+  [[ -f "${LOG_DIR}/hf-sync-complete.txt" ]] || {
+    die "HF sync completion marker is missing; run --sync-hf or --sync-only first"
+  }
   [[ -d "$HF_DST/hub" ]] || die "missing $HF_DST/hub — run sync first"
   # Require at least one hub model entry so we do not point at an empty cache by accident
   local n
@@ -140,35 +243,43 @@ relink_hf() {
     fi
   done
 
-  mkdir -p "${HOME}/.cache"
+  ensure_home_dir "$(dirname "$HF_HOME_LOCAL")"
   local backup=""
+  local create_hf_link=1
   if [[ -L "$HF_HOME_LOCAL" ]]; then
     local cur
     cur="$(readlink "$HF_HOME_LOCAL")"
     if [[ "$cur" == "$HF_DST" ]]; then
       log "HF already linked: $HF_HOME_LOCAL -> $cur"
-      return 0
+      create_hf_link=0
+    else
+      log "replacing existing HF symlink $cur -> $HF_DST"
+      rm "$HF_HOME_LOCAL"
     fi
-    log "replacing existing HF symlink $cur -> $HF_DST"
-    rm "$HF_HOME_LOCAL"
   elif [[ -d "$HF_HOME_LOCAL" ]]; then
     backup="${HF_HOME_LOCAL}.pre-ext4t-${STAMP}"
+    [[ ! -e "$backup" && ! -L "$backup" ]] || die "backup path already exists: $backup"
     log "backing up $HF_HOME_LOCAL -> $backup"
     mv "$HF_HOME_LOCAL" "$backup"
+  elif [[ -e "$HF_HOME_LOCAL" ]]; then
+    die "$HF_HOME_LOCAL exists and is not a directory or symlink"
   fi
 
-  ln -sfn "$HF_DST" "$HF_HOME_LOCAL"
-  log "linked $HF_HOME_LOCAL -> $HF_DST"
+  if [[ "$create_hf_link" -eq 1 ]]; then
+    ln -s "$HF_DST" "$HF_HOME_LOCAL"
+    log "linked $HF_HOME_LOCAL -> $HF_DST"
+  fi
 
   # Convenience: ~/models already points at ~/.cache/huggingface/hub for many tools
   if [[ -L "${HOME}/models" ]]; then
-    log "~/models -> $(readlink "${HOME}/models")"
+    log "${HOME}/models -> $(readlink "${HOME}/models")"
   fi
 
   # Ext4T-side convenience links (mirror old Ext4T2 pattern, but local)
-  ln -sfn "$HF_DST" "${EXT_ROOT}/data-models-hf"
-  ln -sfn "$MODELS_DST" "${EXT_ROOT}/llm-models"
+  ensure_link "$HF_DST" "${EXT_ROOT}/data-models-hf"
+  ensure_link "$MODELS_DST" "${EXT_ROOT}/llm-models"
 
+  safe_output_file "${LOG_DIR}/hf-relink.txt"
   {
     echo "relinked_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "hf_home_local=$HF_HOME_LOCAL"
@@ -193,7 +304,7 @@ show_status() {
     echo "$HF_HOME_LOCAL -> $(readlink "$HF_HOME_LOCAL")"
   elif [[ -d "$HF_HOME_LOCAL" ]]; then
     echo "$HF_HOME_LOCAL is a real directory"
-    ls -la "$HF_HOME_LOCAL" | head -20
+    find "$HF_HOME_LOCAL" -mindepth 1 -maxdepth 1 -print | sed -n '1,20p'
   else
     echo "$HF_HOME_LOCAL missing"
   fi
@@ -212,7 +323,7 @@ show_status() {
 }
 
 verify_layout() {
-  require_mounts
+  require_ext4t
   local ok=1
   echo "=== verify ==="
   if [[ -L "$HF_HOME_LOCAL" && "$(readlink "$HF_HOME_LOCAL")" == "$HF_DST" ]]; then
@@ -250,28 +361,29 @@ verify_layout() {
 
 main() {
   local mode="${1:-all}"
+  validate_configuration
   case "$mode" in
     -h|--help) usage; exit 0 ;;
     --status) show_status; exit 0 ;;
     --verify) verify_layout; exit 0 ;;
     --sync-only)
-      require_mounts
+      prepare_layout
       sync_hf_from_nas
       sync_llm_from_ext4t2
       ;;
     --sync-hf)
-      require_mounts
+      prepare_layout
       sync_hf_from_nas
       ;;
     --sync-llm)
-      require_mounts
+      prepare_layout
       sync_llm_from_ext4t2
       ;;
     --relink-only)
       relink_hf
       ;;
     all|"")
-      require_mounts
+      prepare_layout
       log "starting full migration onto $EXT_ROOT"
       sync_hf_from_nas
       sync_llm_from_ext4t2

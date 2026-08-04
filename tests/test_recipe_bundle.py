@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -18,14 +19,18 @@ from axquant.schema import (
     QuantizationPlan,
     RecipeBundle,
 )
-from axquant.serde import load_model, write_data
+from axquant.serde import file_sha256, load_model, write_data
+
+_SOURCE_REVISION = "a" * 40
+_OTHER_REVISION = "b" * 40
+_REMOTE_REVISION = "d" * 40
 
 
 def _inventory(model_dir: Path) -> Inventory:
     return inspect_model(
         model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision=_SOURCE_REVISION,
     )
 
 
@@ -72,6 +77,24 @@ def test_bundle_directory_resolution(qwen36_model_dir: Path, tmp_path: Path) -> 
     assert resolved_plan.source_model.model_id == "Qwen/Qwen3.6-27B"
 
 
+def test_bundle_rebinds_plan_to_equivalent_local_checkpoint(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    original_plan = load_model(bundle_path.parent / "plan.json", QuantizationPlan)
+    copied_model = tmp_path / "copied-model"
+    shutil.copytree(qwen36_model_dir, copied_model)
+    copied_inventory = _inventory(copied_model)
+
+    _, resolved_plan = resolve_recipe_plan(bundle_path, inventory=copied_inventory)
+
+    assert original_plan.source_model.local_path == str(qwen36_model_dir.resolve())
+    assert resolved_plan.source_model.local_path == str(copied_model.resolve())
+    assert resolved_plan.source_model.model_id == original_plan.source_model.model_id
+    assert resolved_plan.source_model.revision == original_plan.source_model.revision
+
+
 def test_bundle_detects_payload_tampering(qwen36_model_dir: Path, tmp_path: Path) -> None:
     _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
     payload = bundle_path.parent / "plan.json"
@@ -80,12 +103,84 @@ def test_bundle_detects_payload_tampering(qwen36_model_dir: Path, tmp_path: Path
         load_recipe_bundle(bundle_path)
 
 
+def test_bundle_rejects_invalid_lineage_without_partial_output(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, _plan(inventory))
+    output = tmp_path / "invalid-bundle"
+
+    with pytest.raises(ArtifactError, match="lineage digest"):
+        export_recipe_bundle(
+            plan=plan_path,
+            output_dir=output,
+            bundle_id="invalid",
+            lineage={"sensitivity": "not-a-sha256"},
+        )
+
+    assert not (output / "plan.json").exists()
+    assert not (output / "axquant_recipe_bundle.json").exists()
+
+
+def test_bundle_load_rejects_invalid_record_lineage(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    record = load_model(bundle_path, RecipeBundle).model_copy(
+        update={"lineage": {"sensitivity": "not-a-sha256"}}
+    )
+    write_data(bundle_path, record)
+
+    with pytest.raises(ArtifactError, match="lineage digest"):
+        load_recipe_bundle(bundle_path)
+
+
+def test_export_rejects_invalid_record_before_copying_plan(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, _plan(inventory))
+    output = tmp_path / "invalid-record"
+
+    with pytest.raises(ValueError, match="at least 1 character"):
+        export_recipe_bundle(
+            plan=plan_path,
+            output_dir=output,
+            bundle_id="",
+        )
+
+    assert not (output / "plan.json").exists()
+
+
+def test_bundle_rejects_payload_path_escape(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    outside = tmp_path / "outside-plan.json"
+    outside.write_bytes((bundle_path.parent / "plan.json").read_bytes())
+    record = load_model(bundle_path, RecipeBundle).model_copy(
+        update={
+            "payload_file": "../outside-plan.json",
+            "payload_sha256": file_sha256(outside),
+        }
+    )
+    write_data(bundle_path, record)
+    with pytest.raises(ArtifactError, match="safe normalized relative path"):
+        load_recipe_bundle(bundle_path)
+
+
 def test_bundle_rejects_model_identity_mismatch(qwen36_model_dir: Path, tmp_path: Path) -> None:
     _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
     other = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-Other",
-        revision="source-revision",
+        revision=_SOURCE_REVISION,
     )
     with pytest.raises(ArtifactError, match=r"targets Qwen/Qwen3\.6-27B"):
         resolve_recipe_plan(bundle_path, inventory=other)
@@ -96,17 +191,56 @@ def test_bundle_rejects_revision_mismatch(qwen36_model_dir: Path, tmp_path: Path
     pinned = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="another-revision",
+        revision=_OTHER_REVISION,
     )
     with pytest.raises(ArtifactError, match="pins revision"):
         resolve_recipe_plan(bundle_path, inventory=pinned)
 
 
-def test_bundle_requires_pinned_revision() -> None:
-    with pytest.raises(ValueError, match="pin the source model revision"):
+def test_bundle_rejects_unpinned_target_inventory(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    unpinned = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+    )
+    with pytest.raises(ArtifactError, match="unpinned inventory"):
+        resolve_recipe_plan(bundle_path, inventory=unpinned)
+
+
+def test_bundle_rejects_plan_source_identity_mismatch(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    payload = bundle_path.parent / "plan.json"
+    plan = load_model(payload, QuantizationPlan)
+    write_data(
+        payload,
+        plan.model_copy(
+            update={
+                "source_model": plan.source_model.model_copy(
+                    update={"model_id": "Qwen/Other-Model"}
+                )
+            }
+        ),
+    )
+    record = load_model(bundle_path, RecipeBundle).model_copy(
+        update={"payload_sha256": file_sha256(payload)}
+    )
+    write_data(bundle_path, record)
+    with pytest.raises(ArtifactError, match="plan source identity"):
+        resolve_recipe_plan(bundle_path, inventory=inventory)
+
+
+@pytest.mark.parametrize("revision", [None, "main"])
+def test_bundle_requires_pinned_revision(revision: str | None) -> None:
+    with pytest.raises(ValueError, match="immutable source model revision"):
         RecipeBundle(
             bundle_id="unpinned",
-            source_model=ModelIdentity(model_id="Qwen/Qwen3.6-27B"),
+            source_model=ModelIdentity(model_id="Qwen/Qwen3.6-27B", revision=revision),
             evidence_kind="architecture_prior",
             payload_kind="plan",
             payload_file="plan.json",
@@ -157,14 +291,18 @@ def test_remote_bundle_resolution_requires_revision_pin() -> None:
         _parse_remote_reference("hf://AutomatosX/AX-Model@")
     with pytest.raises(ArtifactError, match=r"hf://OWNER/REPO"):
         _parse_remote_reference("hf://not-a-repo@rev")
-    repo, revision, path = _parse_remote_reference("hf://AutomatosX/AX-Model@abc123")
+    with pytest.raises(ArtifactError, match="safe normalized relative path"):
+        _parse_remote_reference(f"hf://AutomatosX/AX-Model@{_REMOTE_REVISION}/../bundle.json")
+    with pytest.raises(ArtifactError, match="pin a revision"):
+        _parse_remote_reference("hf://AutomatosX/AX-Model@main")
+    repo, revision, path = _parse_remote_reference(f"hf://AutomatosX/AX-Model@{_REMOTE_REVISION}")
     assert (repo, revision, path) == (
         "AutomatosX/AX-Model",
-        "abc123",
+        _REMOTE_REVISION,
         "axquant_recipe_bundle.json",
     )
     repo, revision, path = _parse_remote_reference(
-        "hf://AutomatosX/AX-Model@abc123/recipe/axquant_recipe_bundle.json"
+        f"hf://AutomatosX/AX-Model@{_REMOTE_REVISION}/recipe/axquant_recipe_bundle.json"
     )
     assert path == "recipe/axquant_recipe_bundle.json"
 
@@ -188,10 +326,11 @@ def test_remote_bundle_resolves_and_verifies(
     monkeypatch.setattr(
         recipes,
         "hf_hub_download",
-        _fake_hub(remote_root, expected_revision="deadbeef"),
+        _fake_hub(remote_root, expected_revision=_REMOTE_REVISION),
     )
     reference = (
-        "hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@deadbeef/recipe/axquant_recipe_bundle.json"
+        "hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit"
+        f"@{_REMOTE_REVISION}/recipe/axquant_recipe_bundle.json"
     )
     record, resolved_plan = resolve_recipe_plan(reference, inventory=inventory)
     assert record.bundle_id == "qwen36-27b-remote-r1"
@@ -207,7 +346,9 @@ def test_remote_bundle_download_failure_is_artifact_error(
     monkeypatch.setattr(
         recipes,
         "hf_hub_download",
-        _fake_hub(tmp_path / "empty", expected_revision="deadbeef"),
+        _fake_hub(tmp_path / "empty", expected_revision=_REMOTE_REVISION),
     )
     with pytest.raises(ArtifactError, match="download failed"):
-        recipes.load_recipe_bundle("hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@deadbeef")
+        recipes.load_recipe_bundle(
+            f"hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@{_REMOTE_REVISION}"
+        )

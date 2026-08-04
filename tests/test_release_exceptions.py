@@ -10,6 +10,7 @@ from axquant.cli import main
 from axquant.errors import ValidationGateError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
+from axquant.profiles import thresholds_for
 from axquant.release_exceptions import (
     apply_release_exception,
     release_exception_allows_size,
@@ -24,16 +25,19 @@ from axquant.schema import (
     ReleaseExceptionTarget,
     ValidationIssue,
     ValidationReport,
-    ValidationThresholds,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
+
+_SOURCE_REVISION = "a" * 40
+_BASELINE_REVISION = "b" * 40
+_CANDIDATE_REVISION = "c" * 40
 
 
 def _plan(qwen36_model_dir: Path):
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
-        revision="source-revision",
+        revision=_SOURCE_REVISION,
     )
     sensitivity = architecture_prior_report(
         inventory,
@@ -53,7 +57,7 @@ def _evidence(tmp_path: Path, qwen36_model_dir: Path):
     plan = _plan(qwen36_model_dir)
     candidate_model = ModelIdentity(
         model_id="AutomatosX/Qwen3.6-27B-AXQuant",
-        revision="candidate-revision",
+        revision=_CANDIDATE_REVISION,
     )
     candidate_size = ArtifactSizeEvidence(
         kind="candidate",
@@ -67,7 +71,7 @@ def _evidence(tmp_path: Path, qwen36_model_dir: Path):
         kind="uniform-4bit",
         model=ModelIdentity(
             model_id="Qwen/Qwen3.6-27B-MLX-4bit",
-            revision="baseline-revision",
+            revision=_BASELINE_REVISION,
         ),
         logical_parameters=1000,
         weight_bytes=500,
@@ -87,12 +91,12 @@ def _evidence(tmp_path: Path, qwen36_model_dir: Path):
     validation = ValidationReport(
         reference_model=ModelIdentity(
             model_id="Qwen/Qwen3.6-27B-MLX-6bit",
-            revision="reference-revision",
+            revision=_BASELINE_REVISION,
         ),
         candidate_model=candidate_model,
         profile=ProfileName.AGENT_CODING,
         passed=False,
-        thresholds=ValidationThresholds(max_weight_size_ratio=1.1),
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
         issues=[
             ValidationIssue(
                 severity="error",
@@ -166,6 +170,18 @@ def test_governed_size_exception_changes_only_the_size_gate(
     assert release_exception_allows_size(result, plan=plan) == exception
 
 
+def test_release_exception_rejects_mutable_candidate_revision(
+    tmp_path: Path,
+    qwen36_model_dir: Path,
+) -> None:
+    _plan_model, _validation, exception, _paths = _evidence(tmp_path, qwen36_model_dir)
+    payload = exception.model_dump(mode="json")
+    payload["candidate_model"]["revision"] = "main"
+
+    with pytest.raises(ValueError, match="candidate revision must be immutable"):
+        ReleaseException.model_validate(payload)
+
+
 def test_governed_size_exception_does_not_waive_an_unrelated_failure(
     tmp_path: Path,
     qwen36_model_dir: Path,
@@ -205,6 +221,36 @@ def test_release_exception_rejects_tampered_evidence(
             exception,
             plan=plan,
             validation=validation,
+            evidence_files=paths,
+        )
+
+
+def test_release_exception_rejects_stale_thresholds_and_boolean_metrics(
+    tmp_path: Path,
+    qwen36_model_dir: Path,
+) -> None:
+    plan, validation, exception, paths = _evidence(tmp_path, qwen36_model_dir)
+    with pytest.raises(ValidationGateError, match="authoritative profile thresholds"):
+        verify_release_exception(
+            exception,
+            plan=plan,
+            validation=validation.model_copy(
+                update={
+                    "thresholds": validation.thresholds.model_copy(
+                        update={"min_effective_speedup": 1.0}
+                    )
+                }
+            ),
+            evidence_files=paths,
+        )
+
+    comparisons = dict(validation.comparisons)
+    comparisons["artifact.weight_size_ratio"] = True
+    with pytest.raises(ValidationGateError, match="observed value does not match"):
+        verify_release_exception(
+            exception,
+            plan=plan,
+            validation=validation.model_copy(update={"comparisons": comparisons}),
             evidence_files=paths,
         )
 

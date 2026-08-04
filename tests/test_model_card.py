@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
@@ -51,9 +53,18 @@ def _development_artifact(qwen36_model_dir: Path, tmp_path: Path) -> Path:
     (directory / "README.md").write_text("# old card\n", encoding="utf-8")
     (directory / "LICENSE").write_text("Apache License 2.0 fixture\n", encoding="utf-8")
     (directory / "model-manifest.json").write_text("{}\n", encoding="utf-8")
-    (directory / "model.safetensors").write_bytes(b"weights")
-    (directory / "mtp.safetensors").write_bytes(b"mtp")
-    (directory / "vision.safetensors").write_bytes(b"vision")
+    save_file(
+        {"model.layers.0.mlp.down_proj.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "model.safetensors",
+    )
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "mtp.safetensors",
+    )
+    save_file(
+        {"visual.patch_embed.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "vision.safetensors",
+    )
     write_data(directory / "axquant_plan.json", plan)
     runtime = build_runtime_metadata(plan, directory)
     write_data(directory / "axquant_runtime.json", runtime)
@@ -180,4 +191,40 @@ def test_development_model_card_rejects_product_class_mismatch(
             artifact_dir=directory,
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
             product_class="4bit",
+        )
+
+
+def test_development_model_card_rejects_stale_execution_before_mutating(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    plan_path = directory / "axquant_plan.json"
+    original_plan = load_model(plan_path, QuantizationPlan)
+    execution_path = directory / "axquant_quantizer_execution.json"
+    execution = load_model(execution_path, QuantizerExecutionManifest)
+    execution.plan_sha256 = "f" * 64
+    write_data(execution_path, execution)
+
+    with pytest.raises(ArtifactError, match="execution does not bind"):
+        prepare_development_model_card(
+            artifact_dir=directory,
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        )
+
+    assert load_model(plan_path, QuantizationPlan) == original_plan
+
+
+def test_development_model_card_rejects_symlinked_artifact_root(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    linked = tmp_path / "linked-artifact"
+    linked.symlink_to(directory, target_is_directory=True)
+
+    with pytest.raises(ArtifactError, match="must not be a symlink"):
+        prepare_development_model_card(
+            artifact_dir=linked,
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
         )

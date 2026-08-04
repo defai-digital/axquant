@@ -6,7 +6,10 @@ from pathlib import Path
 
 import structlog
 from huggingface_hub import HfApi
+from pydantic import ValidationError
 
+from axquant.artifact_paths import artifact_tree_files
+from axquant.certification.common import bound_file
 from axquant.certification.dispatch import (
     CertificationAudit,
     build_certification_audit,
@@ -18,9 +21,10 @@ from axquant.certification.registry import (
     DIRECT_CERTIFICATION_ALLOWED_CLAIMS,
     append_certified_checkpoint,
 )
-from axquant.errors import PublishingError
+from axquant.errors import AxquantError, PublishingError
 from axquant.release_audit import build_release_audit
 from axquant.reporting import prepare_publication
+from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactManifest,
     DirectQualityEvaluation,
@@ -36,6 +40,129 @@ from axquant.serde import file_sha256, load_model, read_data
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _publication_files(directory: Path) -> list[Path]:
+    try:
+        return artifact_tree_files(directory)
+    except ValueError as exc:
+        raise PublishingError(str(exc)) from exc
+
+
+def _copy_exact_publication_file(source: Path, target: Path, *, label: str) -> Path:
+    """Copy a packaged evidence file without overwriting or nesting into collisions."""
+
+    if not source.is_file():
+        raise PublishingError(f"{label} source is not a regular file: {source}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        if not target.is_file():
+            raise PublishingError(f"{label} target is not a regular file: {target}")
+        if file_sha256(target) != file_sha256(source):
+            raise PublishingError(f"packaged {label} differs from the authorizing source")
+        return target
+    if source != target.resolve():
+        shutil.copy2(source, target)
+    return target
+
+
+def _load_release_validation(
+    *,
+    validation_index_path: str | Path,
+    repo_id: str,
+) -> None:
+    """Validate the exact release index and its direct-track dependencies."""
+
+    source = Path(validation_index_path).expanduser().resolve()
+    validation_payload = read_data(source)
+    if (
+        isinstance(validation_payload, dict)
+        and validation_payload.get("schema_version") == "axquant.direct-release-validation-index.v1"
+    ):
+        direct_validation = load_model(source, DirectReleaseValidationIndex)
+        if not direct_validation.release_ready:
+            raise PublishingError("publication requires a release-ready validation index")
+        for entry in direct_validation.entries:
+            bound_file(
+                source.parent,
+                entry.evaluation_manifest_file,
+                entry.evaluation_manifest_sha256,
+                f"{entry.profile.value} evaluation manifest",
+            )
+            bound_file(
+                source.parent,
+                entry.reference_evaluation_file,
+                entry.reference_evaluation_sha256,
+                f"{entry.profile.value} reference evaluation",
+            )
+            candidate_path = bound_file(
+                source.parent,
+                entry.candidate_evaluation_file,
+                entry.candidate_evaluation_sha256,
+                f"{entry.profile.value} candidate evaluation",
+            )
+            candidate = load_model(candidate_path, DirectQualityEvaluation)
+            if candidate.model.model_id != repo_id:
+                raise PublishingError("release validation candidate does not match the repository")
+        bound_file(
+            source.parent,
+            direct_validation.general_calibration_overlap_report_file,
+            direct_validation.general_calibration_overlap_report_sha256,
+            "general calibration overlap report",
+        )
+        return
+
+    release_validation = load_model(source, ReleaseValidationIndex)
+    if not release_validation.release_ready:
+        raise PublishingError("publication requires a release-ready validation index")
+    validation_models = {entry.candidate_model.model_id for entry in release_validation.entries}
+    if validation_models != {repo_id}:
+        raise PublishingError("release validation candidate does not match the repository")
+
+
+def _require_release_validation(
+    *,
+    validation_index_path: str | Path,
+    repo_id: str,
+) -> None:
+    try:
+        _load_release_validation(
+            validation_index_path=validation_index_path,
+            repo_id=repo_id,
+        )
+    except PublishingError:
+        raise
+    except (AxquantError, ValidationError, OSError, ValueError) as exc:
+        raise PublishingError(f"release validation is invalid: {exc}") from exc
+
+
+def _require_direct_request_inputs(
+    *,
+    request_path: str | Path,
+    validation_index_path: str | Path,
+    hardware_registry_path: str | Path,
+    pareto_report_path: str | Path,
+) -> Qwen3NextReleaseAuditRequest:
+    source = Path(request_path).expanduser().resolve()
+    request = load_certification_request(source)
+    if not isinstance(request, Qwen3NextReleaseAuditRequest):
+        raise PublishingError("direct publication requires a direct certification request")
+    expected = {
+        "validation index": (source.parent / request.release_validation_index).resolve(),
+        "hardware registry": (source.parent / request.hardware_registry).resolve(),
+        "Pareto report": (source.parent / request.pareto_report).resolve(),
+    }
+    supplied = {
+        "validation index": Path(validation_index_path).expanduser().resolve(),
+        "hardware registry": Path(hardware_registry_path).expanduser().resolve(),
+        "Pareto report": Path(pareto_report_path).expanduser().resolve(),
+    }
+    mismatched = [label for label in expected if expected[label] != supplied[label]]
+    if mismatched:
+        raise PublishingError(
+            f"direct publication arguments do not match its request: {sorted(mismatched)}"
+        )
+    return request
 
 
 def _require_release_audit(
@@ -56,7 +183,9 @@ def _require_release_audit(
     if isinstance(audit, Qwen3NextReleaseAudit):
         if not audit.release_ready:
             raise PublishingError("executed publication requires a release-ready N0-N8 audit")
-        if audit.candidate_model.model_id != repo_id or not audit.candidate_model.revision:
+        if audit.candidate_model.model_id != repo_id or not is_immutable_revision(
+            audit.candidate_model.revision
+        ):
             raise PublishingError("release audit candidate identity does not match the repository")
         candidate_path = audit.candidate_model.local_path
         if candidate_path is None or Path(candidate_path).expanduser().resolve() != model_dir:
@@ -89,7 +218,9 @@ def _require_release_audit(
         raise PublishingError("executed publication requires a release-ready M0-M8 audit")
     if audit.toolkit_version != "1.0.0":
         raise PublishingError("executed publication requires an exact AXQuant 1.0.0 audit")
-    if audit.candidate_model.model_id != repo_id or not audit.candidate_model.revision:
+    if audit.candidate_model.model_id != repo_id or not is_immutable_revision(
+        audit.candidate_model.revision
+    ):
         raise PublishingError("release audit candidate identity does not match the repository")
     candidate_path = audit.candidate_model.local_path
     if candidate_path is None or Path(candidate_path).expanduser().resolve() != model_dir:
@@ -121,19 +252,13 @@ def _require_release_audit(
 def _package_release_audit(audit_path: str | Path, model_dir: Path) -> Path:
     source = Path(audit_path).expanduser().resolve()
     audit = load_certification_audit(source)
+    _publication_files(model_dir)
     target = (
         model_dir / "certification" / "audit.json"
         if isinstance(audit, Qwen3NextReleaseAudit)
         else model_dir / "release_audit.json"
     )
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if target.is_file():
-        if file_sha256(target) != file_sha256(source):
-            raise PublishingError("packaged release_audit.json differs from the authorizing audit")
-        return target
-    if source != target.resolve():
-        shutil.copy2(source, target)
-    return target
+    return _copy_exact_publication_file(source, target, label="release audit")
 
 
 def _rerun_release_audit(
@@ -175,9 +300,15 @@ def publish_model(
     execute: bool = False,
     private: bool = False,
 ) -> list[str]:
-    directory = Path(model_dir).expanduser().resolve()
+    if type(execute) is not bool or type(private) is not bool:
+        raise PublishingError("publication execute/private controls must be booleans")
+    supplied_directory = Path(model_dir).expanduser()
+    if supplied_directory.is_symlink():
+        raise PublishingError("artifact root is a symlink")
+    directory = supplied_directory.resolve()
     if not directory.is_dir():
         raise PublishingError(f"model directory does not exist: {directory}")
+    _publication_files(directory)
     if not _REPO_ID.fullmatch(repo_id):
         raise PublishingError("Hub repository must use the owner/name form")
     audit: CertificationAudit | None = None
@@ -192,6 +323,8 @@ def publish_model(
         )
         if release_audit_request_path is None:
             raise PublishingError("executed publication requires --release-audit-request")
+        if isinstance(audit, Qwen3NextReleaseAudit) and certification_registry_path is None:
+            raise PublishingError("executed non-MTP publication requires --certification-registry")
         _rerun_release_audit(audit=audit, request_path=release_audit_request_path)
     direct_request = False
     if release_audit_request_path is not None:
@@ -201,7 +334,21 @@ def publish_model(
             and payload.get("schema_version") == "axquant.qwen3-next-release-audit-request.v1"
         )
     if direct_request:
-        assert release_audit_request_path is not None
+        if release_audit_request_path is None:
+            raise PublishingError("direct publication requires --release-audit-request")
+        _require_direct_request_inputs(
+            request_path=release_audit_request_path,
+            validation_index_path=validation_index_path,
+            hardware_registry_path=hardware_registry_path,
+            pareto_report_path=pareto_report_path,
+        )
+    _require_release_validation(
+        validation_index_path=validation_index_path,
+        repo_id=repo_id,
+    )
+    if direct_request:
+        if release_audit_request_path is None:
+            raise PublishingError("direct publication requires --release-audit-request")
         prepare_direct_publication(
             model_dir=directory,
             repo_id=repo_id,
@@ -216,6 +363,11 @@ def publish_model(
             pareto_report_path=pareto_report_path,
         )
     if execute:
+        if audit is None:
+            raise PublishingError("executed publication requires a release audit")
+        if release_audit_request_path is None:
+            raise PublishingError("executed publication requires --release-audit-request")
+        _rerun_release_audit(audit=audit, request_path=release_audit_request_path)
         _require_release_audit(
             audit_path=release_audit_path,
             model_dir=directory,
@@ -224,8 +376,8 @@ def publish_model(
             hardware_registry_path=hardware_registry_path,
             pareto_report_path=pareto_report_path,
         )
-        assert release_audit_path is not None
-        assert audit is not None
+        if release_audit_path is None:
+            raise PublishingError("executed publication requires --release-audit")
         if isinstance(audit, Qwen3NextReleaseAudit):
             if certification_registry_path is None:
                 raise PublishingError(
@@ -242,41 +394,19 @@ def publish_model(
             )
             registry_source = Path(certification_registry_path).expanduser().resolve()
             registry_target = directory / "certification" / "certified_checkpoint_registry.json"
-            if registry_source != registry_target.resolve():
-                if registry_target.is_file() and file_sha256(registry_target) != file_sha256(
-                    registry_source
-                ):
-                    raise PublishingError("packaged certification registry differs")
-                shutil.copy2(registry_source, registry_target)
+            _copy_exact_publication_file(
+                registry_source,
+                registry_target,
+                label="certification registry",
+            )
             if not registry.entries:
                 raise PublishingError("certification registry append produced no entry")
         _package_release_audit(release_audit_path, directory)
-    validation_payload = read_data(validation_index_path)
-    if (
-        isinstance(validation_payload, dict)
-        and validation_payload.get("schema_version") == "axquant.direct-release-validation-index.v1"
-    ):
-        direct_validation = load_model(validation_index_path, DirectReleaseValidationIndex)
-        if not direct_validation.release_ready:
-            raise PublishingError("publication requires a release-ready validation index")
-        for entry in direct_validation.entries:
-            candidate = load_model(
-                Path(validation_index_path).resolve().parent / entry.candidate_evaluation_file,
-                DirectQualityEvaluation,
-            )
-            if candidate.model.model_id != repo_id:
-                raise PublishingError("release validation candidate does not match the repository")
-    else:
-        release_validation = load_model(validation_index_path, ReleaseValidationIndex)
-        if not release_validation.release_ready:
-            raise PublishingError("publication requires a release-ready validation index")
-        validation_models = {entry.candidate_model.model_id for entry in release_validation.entries}
-        if validation_models != {repo_id}:
-            raise PublishingError("release validation candidate does not match the repository")
-    files = [
-        path.relative_to(directory).as_posix()
-        for path in sorted(item for item in directory.rglob("*") if item.is_file())
-    ]
+    _require_release_validation(
+        validation_index_path=validation_index_path,
+        repo_id=repo_id,
+    )
+    files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
     if not execute:
         _LOG.info("publication_preview", repo=repo_id, files=len(files), private=private)
         return files

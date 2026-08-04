@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -18,7 +19,15 @@ from axquant.runtime import (
     check_mlx_lm_static,
     generate_ax_engine_manifest,
 )
-from axquant.schema import ModelIdentity, PlanRequest, ProfileName, RuntimeName
+from axquant.schema import (
+    KvCachePlan,
+    KvLayerAllocation,
+    ModelIdentity,
+    PlanRequest,
+    ProfileName,
+    RuntimeName,
+)
+from axquant.serde import write_data
 
 
 def _qwen_plan(model_dir: Path):
@@ -61,7 +70,7 @@ def test_ax_engine_manifest_uses_native_generator_contract(
         return subprocess.CompletedProcess(
             list(command),
             0,
-            stdout='{"schema_version":"ax.generate_manifest.v1"}',
+            stdout='{"schema_version":"ax.generate_manifest.v1","status":"ready"}',
             stderr="",
         )
 
@@ -72,6 +81,38 @@ def test_ax_engine_manifest_uses_native_generator_contract(
     )
     assert result.passed is True
     assert result.report["schema_version"] == "ax.generate_manifest.v1"
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "",
+        "not-json",
+        '{"schema_version":"ax.generate_manifest.v1"}',
+        '{"status":"ok"}',
+        '{"result":"ready","status":"blocked"}',
+    ],
+)
+def test_ax_engine_manifest_requires_parseable_ready_status(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    stdout: str,
+) -> None:
+    executable = tmp_path / "ax-engine-bench"
+    executable.write_text("", encoding="utf-8")
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        (Path(command[-1]) / "model-manifest.json").write_text("{}", encoding="utf-8")
+        return subprocess.CompletedProcess(list(command), 0, stdout=stdout, stderr="")
+
+    result = generate_ax_engine_manifest(
+        qwen36_model_dir,
+        executable=str(executable),
+        runner=runner,
+    )
+
+    assert result.passed is False
+    assert "parseable ready status" in result.stderr
 
 
 def test_ax_engine_manifest_rejects_zero_exit_validation_failure(
@@ -224,6 +265,62 @@ def test_mlx_lm_static_check_accepts_installed_cli(
     assert result.passed is True
     assert result.report["mlx_lm_importable"] is False
     assert result.report["mlx_lm_executable"] == "/opt/bin/mlx_lm.generate"
+    assert result.report["config_valid"] is True
+    assert result.report["weights_valid"] is True
+    assert result.report["main_weight_files"] == ["model.safetensors"]
+
+
+@pytest.mark.parametrize("config_text", ["{", "[]"])
+def test_mlx_lm_static_check_requires_json_object_config(
+    qwen36_model_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    config_text: str,
+) -> None:
+    (qwen36_model_dir / "config.json").write_text(config_text, encoding="utf-8")
+    monkeypatch.setattr("axquant.runtime.importlib.util.find_spec", lambda _: object())
+
+    result = check_mlx_lm_static(qwen36_model_dir)
+
+    assert result.available is True
+    assert result.passed is False
+    assert result.report["config_present"] is True
+    assert result.report["config_valid"] is False
+
+
+def test_mlx_lm_static_check_rejects_sidecars_without_main_weights(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model_dir = tmp_path / "sidecar-only"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{}", encoding="utf-8")
+    for name in ("mtp.safetensors", "mtp_head.safetensors", "vision.safetensors"):
+        (model_dir / name).write_bytes(b"sidecar")
+    monkeypatch.setattr("axquant.runtime.importlib.util.find_spec", lambda _: object())
+
+    result = check_mlx_lm_static(model_dir)
+
+    assert result.available is True
+    assert result.passed is False
+    assert result.report["weights_present"] is False
+    assert result.report["weights_valid"] is False
+    assert result.report["main_weight_files"] == []
+
+
+def test_mlx_lm_static_check_rejects_invalid_main_safetensors(
+    qwen36_model_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (qwen36_model_dir / "model.safetensors").write_bytes(b"not-safetensors")
+    monkeypatch.setattr("axquant.runtime.importlib.util.find_spec", lambda _: object())
+
+    result = check_mlx_lm_static(qwen36_model_dir)
+
+    assert result.available is True
+    assert result.passed is False
+    assert result.report["weights_present"] is True
+    assert result.report["weights_valid"] is False
+    assert result.report["invalid_main_weight_files"] == ["model.safetensors"]
 
 
 def test_mlx_lm_generation_check_requires_successful_output(
@@ -265,19 +362,17 @@ def test_generation_smoke_executes_advisory_kv_quantization(
     tmp_path: Path,
 ) -> None:
     """A planned KV artifact runs its advisory bits through QuantizedKVCache."""
-    import json as json_module
+    from axquant.planner import allocate_kv_cache
 
-    (qwen36_model_dir / "axquant_runtime.json").write_text(
-        json_module.dumps(
-            {
-                "kv_cache": {
-                    "allocation_basis": "architecture-prior",
-                    "advisory_mlx_lm_kv_bits": 4,
-                    "advisory_mlx_lm_kv_group_size": 64,
-                }
-            }
-        ),
-        encoding="utf-8",
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.kv_cache = allocate_kv_cache(
+        20,
+        default_bits=4,
+        group_size=64,
+    )
+    write_data(
+        qwen36_model_dir / "axquant_runtime.json",
+        build_runtime_metadata(plan, qwen36_model_dir),
     )
     executable = tmp_path / "mlx_lm.generate"
     executable.write_text("#!/bin/sh\necho OK\n", encoding="utf-8")
@@ -302,6 +397,62 @@ def test_generation_smoke_executes_advisory_kv_quantization(
         "kv_group_size": 64,
         "source": "axquant_runtime.json advisory values",
     }
+
+
+@pytest.mark.parametrize("runtime_text", ["{", "[]"])
+def test_generation_smoke_rejects_malformed_runtime_metadata(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    runtime_text: str,
+) -> None:
+    (qwen36_model_dir / "axquant_runtime.json").write_text(
+        runtime_text,
+        encoding="utf-8",
+    )
+    executable = tmp_path / "mlx_lm.generate"
+    executable.write_text("", encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match=r"axquant_runtime\.json is invalid"):
+        check_mlx_lm_generation(
+            qwen36_model_dir,
+            executable=str(executable),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("advisory_mlx_lm_kv_bits", 1),
+        ("advisory_mlx_lm_kv_bits", 5),
+        ("advisory_mlx_lm_kv_bits", "4"),
+        ("advisory_mlx_lm_kv_group_size", 0),
+        ("advisory_mlx_lm_kv_group_size", 7),
+        ("advisory_mlx_lm_kv_group_size", "64"),
+        ("advisory", False),
+    ],
+)
+def test_generation_smoke_rejects_invalid_advisory_kv_fields(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    from axquant.planner import allocate_kv_cache
+
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.kv_cache = allocate_kv_cache(20, default_bits=4, group_size=64)
+    payload = build_runtime_metadata(plan, qwen36_model_dir).model_dump(mode="json")
+    assert isinstance(payload["kv_cache"], dict)
+    payload["kv_cache"][field] = value
+    write_data(qwen36_model_dir / "axquant_runtime.json", payload)
+    executable = tmp_path / "mlx_lm.generate"
+    executable.write_text("", encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match=r"axquant_runtime\.json is invalid"):
+        check_mlx_lm_generation(
+            qwen36_model_dir,
+            executable=str(executable),
+        )
 
 
 def test_conversion_scope_rejects_generic_inventory(tiny_model_dir: Path) -> None:
@@ -334,6 +485,219 @@ def test_runtime_metadata_emits_kv_cache_table(qwen36_model_dir: Path, tmp_path:
     assert metadata.kv_cache.advisory_mlx_lm_kv_group_size == plan.group_size
     assert metadata.kv_cache.advisory is True
     assert metadata.memory_policy["kv_cache_precision"] == "planned-per-layer"
+
+
+def test_runtime_metadata_advisory_kv_values_are_an_observed_pair(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    pairs = [(4, 32)] * 3 + [(8, 64)] * 2 + [(8, 128)] * 2
+    plan.kv_cache = KvCachePlan(
+        allocation_basis="architecture-prior",
+        min_bits=4,
+        default_bits=4,
+        default_group_size=32,
+        layers=[
+            KvLayerAllocation(
+                layer_index=index,
+                bits=bits,
+                group_size=group_size,
+                reason="test allocation",
+            )
+            for index, (bits, group_size) in enumerate(pairs)
+        ],
+    )
+    output = tmp_path / "artifact"
+    output.mkdir()
+
+    metadata = build_runtime_metadata(plan, output)
+
+    assert metadata.kv_cache is not None
+    advisory = (
+        metadata.kv_cache.advisory_mlx_lm_kv_bits,
+        metadata.kv_cache.advisory_mlx_lm_kv_group_size,
+    )
+    assert advisory == (4, 32)
+    assert advisory in pairs
+
+
+def test_runtime_metadata_schema_rejects_unobserved_advisory_pair(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.kv_cache = KvCachePlan(
+        allocation_basis="architecture-prior",
+        min_bits=4,
+        default_bits=4,
+        default_group_size=32,
+        layers=[
+            KvLayerAllocation(
+                layer_index=0,
+                bits=4,
+                group_size=32,
+                reason="test allocation",
+            ),
+            KvLayerAllocation(
+                layer_index=1,
+                bits=8,
+                group_size=64,
+                reason="test allocation",
+            ),
+        ],
+    )
+    output = tmp_path / "artifact"
+    output.mkdir()
+    kv_metadata = build_runtime_metadata(plan, output).kv_cache
+    assert kv_metadata is not None
+    payload = kv_metadata.model_dump(mode="json")
+    payload["advisory_mlx_lm_kv_bits"] = 6
+
+    with pytest.raises(ValueError, match="must be an observed layer allocation"):
+        type(kv_metadata).model_validate(payload)
+
+
+def test_runtime_metadata_advisory_kv_tie_prefers_safer_pair(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    pairs = [(4, 32)] * 2 + [(8, 64)] * 2
+    plan.kv_cache = KvCachePlan(
+        allocation_basis="architecture-prior",
+        min_bits=4,
+        default_bits=4,
+        default_group_size=32,
+        layers=[
+            KvLayerAllocation(
+                layer_index=index,
+                bits=bits,
+                group_size=group_size,
+                reason="test allocation",
+            )
+            for index, (bits, group_size) in enumerate(pairs)
+        ],
+    )
+    output = tmp_path / "artifact"
+    output.mkdir()
+
+    metadata = build_runtime_metadata(plan, output)
+
+    assert metadata.kv_cache is not None
+    assert (
+        metadata.kv_cache.advisory_mlx_lm_kv_bits,
+        metadata.kv_cache.advisory_mlx_lm_kv_group_size,
+    ) == (8, 64)
+
+
+def test_runtime_metadata_does_not_infer_mtp_capability_from_policy_mode(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    assert plan.mtp.mode == "protected"
+    assert plan.mtp_distribution
+    output = tmp_path / "artifact"
+    output.mkdir()
+
+    metadata = build_runtime_metadata(plan, output)
+
+    assert metadata.mtp.detected is False
+    assert metadata.primary_runtime.mtp_support == "none"
+    assert metadata.compatible_runtimes[0].mtp_support == "none"
+    assert metadata.memory_policy["mtp_buffers"] == "not-required"
+
+
+def test_runtime_metadata_detects_alternate_mtp_sidecar_filename(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "mtp_head.safetensors").write_bytes(
+        (qwen36_model_dir / "mtp.safetensors").read_bytes()
+    )
+
+    metadata = build_runtime_metadata(_qwen_plan(qwen36_model_dir), output)
+
+    assert metadata.mtp.detected is True
+    assert metadata.mtp.sidecar_file == "mtp_head.safetensors"
+    assert metadata.primary_runtime.mtp_support == "native"
+    assert metadata.memory_policy["mtp_buffers"] == "preallocate-when-enabled"
+
+
+def test_runtime_metadata_rejects_invalid_mtp_sidecar(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "artifact"
+    output.mkdir()
+    (output / "mtp_head.safetensors").write_bytes(b"not-safetensors")
+
+    with pytest.raises(ArtifactError, match="invalid MTP Safetensors sidecar"):
+        build_runtime_metadata(_qwen_plan(qwen36_model_dir), output)
+
+
+def test_runtime_metadata_prefers_structured_mtp_sidecar_bits(
+    qwen36_model_dir: Path,
+) -> None:
+    (qwen36_model_dir / "mtplx_runtime.json").write_text(
+        json.dumps(
+            {
+                "mtp_depth_max": 3,
+                "mtp_sidecar_bits": 4,
+                "mtp_sidecar": "INT8 quantized projections",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = build_runtime_metadata(_qwen_plan(qwen36_model_dir), qwen36_model_dir)
+
+    assert metadata.mtp.draft_tokens == 3
+    assert metadata.mtp.head_precision == "4bit"
+
+
+@pytest.mark.parametrize(
+    ("contract", "message"),
+    [
+        ({"mtp_sidecar_bits": True}, "mtp_sidecar_bits"),
+        ({"mtp_sidecar_bits": 3}, "mtp_sidecar_bits"),
+        ({"mtp_sidecar_bits": "8"}, "mtp_sidecar_bits"),
+        ({"mtp_depth_max": 0}, "mtp_depth_max"),
+        ({"mtp_depth_max": True}, "mtp_depth_max"),
+        ({"mtp_sidecar": {"bits": 8}}, "mtp_sidecar must be a string"),
+    ],
+)
+def test_runtime_metadata_rejects_invalid_mtp_runtime_contract_fields(
+    qwen36_model_dir: Path,
+    contract: dict[str, object],
+    message: str,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    (qwen36_model_dir / "mtplx_runtime.json").write_text(
+        json.dumps(contract),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match=message):
+        build_runtime_metadata(plan, qwen36_model_dir)
+
+
+@pytest.mark.parametrize("contract_text", ["{", "[]"])
+def test_runtime_metadata_rejects_malformed_mtp_runtime_contract(
+    qwen36_model_dir: Path,
+    contract_text: str,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    (qwen36_model_dir / "mtplx_runtime.json").write_text(
+        contract_text,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match=r"mtplx_runtime\.json"):
+        build_runtime_metadata(plan, qwen36_model_dir)
 
 
 def test_runtime_metadata_without_kv_plan_is_unchanged(

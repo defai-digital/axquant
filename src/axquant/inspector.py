@@ -72,37 +72,42 @@ def resolve_model_dir(
 
 
 def classify_tensor(name: str, source_file: str = "") -> TensorRole:
-    value = f"{source_file}/{name}".lower()
-    if _MTP_TOKEN.search(value):
-        if any(token in value for token in ("output_head", "lm_head", "vocab_head")):
+    name_value = name.lower()
+    source_name = source_file.rsplit("/", 1)[-1].lower()
+    protected_path_value = f"{source_file}/{name}".lower()
+    if source_name in EXTERNAL_MTP_SIDECAR_FILENAMES or _MTP_TOKEN.search(name_value):
+        if any(token in protected_path_value for token in ("output_head", "lm_head", "vocab_head")):
             return TensorRole.MTP_OUTPUT
-        if any(token in value for token in ("proj", "projection")):
+        if any(token in protected_path_value for token in ("proj", "projection")):
             return TensorRole.MTP_PROJECTION
         return TensorRole.MTP_BLOCK
-    if any(
-        token in value
-        for token in (
-            "vision",
-            "visual",
-            "image",
-            "multimodal",
-            "multi_modal",  # Mistral3 multi_modal_projector (underscore form)
-            "patch_merger",
+    if (
+        any(
+            token in name_value
+            for token in (
+                "vision",
+                "visual",
+                "image",
+                "multimodal",
+                "multi_modal",  # Mistral3 multi_modal_projector (underscore form)
+                "patch_merger",
+            )
         )
+        or source_name == "vision.safetensors"
     ):
         return TensorRole.VISION
-    if "norm" in value:
+    if "norm" in name_value:
         return TensorRole.NORM
-    if any(token in value for token in ("lm_head", "output.weight", "output_layer")):
+    if any(token in name_value for token in ("lm_head", "output.weight", "output_layer")):
         return TensorRole.LM_HEAD
-    if any(token in value for token in ("embed_tokens", "token_embedding", "wte.weight")):
+    if any(token in name_value for token in ("embed_tokens", "token_embedding", "wte.weight")):
         return TensorRole.EMBEDDING
-    if "router" in value or ("expert" in value and ".gate." in value):
+    if "router" in name_value or ("expert" in name_value and ".gate." in name_value):
         return TensorRole.ROUTER
-    if "expert" in value or "switch_mlp" in value or "switch_glu" in value:
+    if "expert" in name_value or "switch_mlp" in name_value or "switch_glu" in name_value:
         return TensorRole.EXPERT
     if any(
-        token in value
+        token in name_value
         for token in (
             "self_attn",
             "attention",
@@ -115,7 +120,7 @@ def classify_tensor(name: str, source_file: str = "") -> TensorRole:
     ):
         return TensorRole.ATTENTION
     if any(
-        token in value
+        token in name_value
         for token in (
             "mlp",
             "feed_forward",
@@ -150,10 +155,12 @@ def _read_config(model_dir: Path) -> dict[str, Any]:
     return value
 
 
-def _tensor_files(model_dir: Path) -> list[Path]:
+def _tensor_files(
+    model_dir: Path,
+) -> tuple[list[Path], dict[Path, frozenset[str]] | None]:
     index_path = model_dir / "model.safetensors.index.json"
     if not index_path.is_file():
-        return sorted(model_dir.glob("*.safetensors"))
+        return sorted(model_dir.glob("*.safetensors")), None
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -161,8 +168,10 @@ def _tensor_files(model_dir: Path) -> list[Path]:
     weight_map = index.get("weight_map") if isinstance(index, dict) else None
     if not isinstance(weight_map, dict) or not weight_map:
         raise ArtifactError(f"{index_path} must contain a non-empty weight_map")
-    paths: set[Path] = set()
-    for value in weight_map.values():
+    indexed_names: dict[Path, set[str]] = {}
+    for tensor_name, value in weight_map.items():
+        if not tensor_name:
+            raise ArtifactError(f"{index_path} contains an empty tensor name")
         if not isinstance(value, str):
             raise ArtifactError(f"{index_path} contains a non-string shard reference")
         relative = Path(value)
@@ -173,7 +182,8 @@ def _tensor_files(model_dir: Path) -> list[Path]:
             raise ArtifactError(f"{index_path} references a non-Safetensors shard: {value}")
         if not shard.is_file():
             raise ArtifactError(f"{index_path} references a missing shard: {value}")
-        paths.add(shard)
+        indexed_names.setdefault(shard, set()).add(tensor_name)
+    paths = set(indexed_names)
     for name in EXTERNAL_MTP_SIDECAR_FILENAMES:
         mtp_sidecar = model_dir / name
         if mtp_sidecar.is_file():
@@ -181,7 +191,14 @@ def _tensor_files(model_dir: Path) -> list[Path]:
     vision_sidecar = model_dir / "vision.safetensors"
     if vision_sidecar.is_file():
         paths.add(vision_sidecar)
-    return sorted(paths)
+    unexpected_shards = set(model_dir.glob("*.safetensors")) - paths
+    if unexpected_shards:
+        names = sorted(path.name for path in unexpected_shards)
+        raise ArtifactError(f"{index_path} does not account for Safetensors files: {names}")
+    return (
+        sorted(paths),
+        {path: frozenset(names) for path, names in indexed_names.items()},
+    )
 
 
 def _architecture(config: dict[str, Any]) -> str | None:
@@ -220,11 +237,20 @@ def _mtp_runtime_bits(model_dir: Path) -> int | None:
         return None
     try:
         runtime = json.loads(runtime_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"invalid {runtime_path}: {exc}") from exc
+    if not isinstance(runtime, dict):
+        raise ArtifactError(f"{runtime_path} must contain a JSON object")
+    if "mtp_sidecar_bits" in runtime:
+        bits = runtime["mtp_sidecar_bits"]
+        if isinstance(bits, bool) or not isinstance(bits, int) or bits not in {4, 6, 8, 16}:
+            raise ArtifactError(f"{runtime_path} has invalid mtp_sidecar_bits")
+        return bits
+    description = runtime.get("mtp_sidecar")
+    if description is None:
         return None
-    description = runtime.get("mtp_sidecar") if isinstance(runtime, dict) else None
     if not isinstance(description, str):
-        return None
+        raise ArtifactError(f"{runtime_path} has a non-string mtp_sidecar description")
     match = _MTP_PRECISION.search(description)
     return int(match.group(1)) if match else None
 
@@ -304,11 +330,12 @@ def inspect_model(
             "the source checkpoint is already quantized; use a BF16 source or pass "
             "--allow-quantized for inventory-only work"
         )
-    tensor_files = _tensor_files(model_dir)
+    tensor_files, indexed_names = _tensor_files(model_dir)
     if not tensor_files:
         raise ArtifactError(f"{model_dir} does not contain Safetensors weights")
 
     tensors: list[TensorSpec] = []
+    unclassified_adapter_tensors: list[str] = []
     seen: set[str] = set()
     source_files: list[str] = []
     for tensor_file in tensor_files:
@@ -316,7 +343,23 @@ def inspect_model(
         source_files.append(relative_file)
         try:
             with safe_open(tensor_file, framework="numpy") as handle:
-                for name in sorted(handle.keys()):
+                actual_names = frozenset(handle.keys())
+                expected_names = (
+                    indexed_names.get(tensor_file) if indexed_names is not None else None
+                )
+                if expected_names is not None and actual_names != expected_names:
+                    missing = sorted(expected_names - actual_names)
+                    unindexed = sorted(actual_names - expected_names)
+                    details: list[str] = []
+                    if missing:
+                        details.append(f"missing tensors {missing[:10]}")
+                    if unindexed:
+                        details.append(f"unindexed tensors {unindexed[:10]}")
+                    raise ArtifactError(
+                        f"{relative_file} does not match model.safetensors.index.json: "
+                        + "; ".join(details)
+                    )
+                for name in sorted(actual_names):
                     if name in seen:
                         raise ArtifactError(f"duplicate tensor name {name}")
                     seen.add(name)
@@ -324,11 +367,21 @@ def inspect_model(
                     shape = tuple(int(value) for value in tensor_slice.get_shape())
                     dtype = str(tensor_slice.get_dtype())
                     physical_elements = math.prod(shape)
-                    role = (
+                    adapter_role = (
                         adapter.classify_tensor(name, relative_file)
                         if adapter is not None
                         else None
-                    ) or classify_tensor(name, relative_file)
+                    )
+                    unclassified_by_adapter = adapter is not None and adapter_role is None
+                    if unclassified_by_adapter:
+                        unclassified_adapter_tensors.append(name)
+                    role = (
+                        adapter_role
+                        if adapter_role is not None
+                        else TensorRole.OTHER
+                        if adapter is not None
+                        else classify_tensor(name, relative_file)
+                    )
                     quantization_metadata = name.endswith((".scales", ".biases"))
                     current_bits, current_group_size, current_method = _quantization_details(
                         name,
@@ -363,6 +416,7 @@ def inspect_model(
                         and dtype in _FLOAT_DTYPES
                         and role != TensorRole.NORM
                         and not quantization_metadata
+                        and not unclassified_by_adapter
                         # Nemotron-H MoEGate is a custom Module with a raw weight
                         # matrix and no to_quantized(); MLX-LM never visits it.
                         # Mark non-quantizable so plans stay BF16 (fail-closed
@@ -437,7 +491,23 @@ def inspect_model(
         and tensor.role != TensorRole.EXPERT
         and any(token in tensor.name.lower() for token in _FUSED_EXPERT_PATH_TOKENS)
     ]
-    if uncovered_fused_experts and (
+    vision_tensors_present = any(tensor.role == TensorRole.VISION for tensor in tensors)
+    uncovered_declared_vision = architecture_profile.vision_present and not vision_tensors_present
+    classification_coverage_notes: list[str] = []
+    if unclassified_adapter_tensors:
+        classification_coverage_notes.append(
+            "Adapter tensor classification is incomplete; conversion is disabled."
+        )
+    if uncovered_fused_experts:
+        classification_coverage_notes.append(
+            "Fused expert tensors are not fully classified; conversion is disabled."
+        )
+    if uncovered_declared_vision:
+        classification_coverage_notes.append(
+            "The config declares a vision tower but no vision tensors were classified; "
+            "conversion is disabled."
+        )
+    if classification_coverage_notes and (
         architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
     ):
         architecture_profile = architecture_profile.model_copy(
@@ -447,7 +517,7 @@ def inspect_model(
                 "optimization_scope": OptimizationScope.INVENTORY_ONLY,
                 "notes": [
                     *architecture_profile.notes,
-                    "Fused expert tensors are not fully classified; conversion is disabled.",
+                    *classification_coverage_notes,
                 ],
             }
         )
@@ -462,6 +532,12 @@ def inspect_model(
             head.tied_to = embedding.name
             tied_weight_groups.append([embedding.name, head.name])
     warnings: list[str] = []
+    if unclassified_adapter_tensors:
+        preview = unclassified_adapter_tensors[:10]
+        warnings.append(
+            "adapter tensor classification is incomplete; tensors remain protected and "
+            f"conversion is disabled: {preview}"
+        )
     if uncovered_fused_experts:
         preview = uncovered_fused_experts[:10]
         warnings.append(
@@ -481,10 +557,9 @@ def inspect_model(
     if adapter is None:
         warnings.append("No supported Qwen 3.6 adapter matched; this report is inventory-only.")
     warnings.extend(architecture_profile.notes)
-    vision_tensors_present = any(tensor.role == TensorRole.VISION for tensor in tensors)
     if vision_tensors_present:
         architecture_profile = architecture_profile.model_copy(update={"vision_present": True})
-    elif architecture_profile.vision_present:
+    elif uncovered_declared_vision:
         # The config declares a vision tower (e.g. `vision_config`) but no
         # tensor classified as VISION. This is the fail-closed backstop for
         # dense-family vision-token coverage (AXQ-018): a future spec's

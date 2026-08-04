@@ -202,8 +202,8 @@ class TokenizedCacheManifest(StrictModel):
     domain_provenance: Literal["sample-records", "declared"] = "declared"
     sequence_length: int = Field(ge=1)
     samples: int = Field(ge=1)
-    shard_count: int = Field(ge=0)
-    total_tokens: int = Field(ge=0)
+    shard_count: int = Field(ge=1)
+    total_tokens: int = Field(ge=1)
     tokenizer_revision: str | None = None
     tokenizer_sha256: str | None = None
     sample_order_sha256: str | None = None

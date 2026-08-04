@@ -179,6 +179,8 @@ from axquant.schema.inventory import (
     TensorSpec,
 )
 from axquant.schema.planning import (
+    AX_ENGINE_EXECUTABLE_BITS,
+    AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     PROTECTED_MIN_BITS,
     Allocation,
     HardwareProfile,
@@ -214,6 +216,8 @@ from axquant.schema.sensitivity import (
 
 __all__ = [
     "ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS",
+    "AX_ENGINE_EXECUTABLE_BITS",
+    "AX_ENGINE_EXECUTABLE_GROUP_SIZES",
     "PROTECTED_MIN_BITS",
     "ActivationCaptureEntry",
     "ActivationCaptureManifest",

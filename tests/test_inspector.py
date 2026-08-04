@@ -12,6 +12,7 @@ from axquant.inspector import classify_tensor, inspect_model
 from axquant.schema import (
     ArchitectureSupportLevel,
     OptimizationScope,
+    SupportTier,
     TensorRole,
 )
 from axquant.serde import write_data
@@ -30,6 +31,21 @@ def test_classifies_supported_tensor_roles() -> None:
     assert classify_tensor("vision_tower.transformer.layers.0.attention.q_proj.weight") == (
         TensorRole.VISION
     )
+    assert (
+        classify_tensor(
+            "model.layers.0.self_attn.q_proj.weight",
+            "norm-shard.safetensors",
+        )
+        == TensorRole.ATTENTION
+    )
+    assert (
+        classify_tensor(
+            "model.layers.0.self_attn.q_proj.weight",
+            "revision-shard.safetensors",
+        )
+        == TensorRole.ATTENTION
+    )
+    assert classify_tensor("encoder.block.weight", "vision.safetensors") == TensorRole.VISION
 
 
 def test_inventory_detects_mtp_ties_and_protection(tiny_model_dir: Path) -> None:
@@ -106,7 +122,7 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert vision.protected_recommendation is True
 
 
-def test_declared_vision_tower_with_uncovered_naming_warns(
+def test_declared_vision_tower_with_uncovered_naming_disables_conversion(
     qwen36_model_dir: Path,
 ) -> None:
     """AXQ-018 fail-closed backstop for vision-token classification coverage.
@@ -141,8 +157,45 @@ def test_declared_vision_tower_with_uncovered_naming_warns(
         revision="abc123",
     )
     assert inventory.architecture_profile.vision_present is True
+    assert inventory.architecture_profile.support_level == ArchitectureSupportLevel.INVENTORY_ONLY
+    assert inventory.architecture_profile.support_tier == SupportTier.INSPECT_ONLY
+    assert inventory.architecture_profile.optimization_scope == OptimizationScope.INVENTORY_ONLY
     assert not any(tensor.role == TensorRole.VISION for tensor in inventory.tensors)
     assert any("vision tower" in warning for warning in inventory.warnings)
+
+
+def test_supported_adapter_downgrades_for_unclassified_tensor(
+    qwen36_model_dir: Path,
+) -> None:
+    save_file(
+        {
+            "language_model.model.layers.0.self_attn.q_proj.weight": np.zeros(
+                (8, 8), dtype=np.float32
+            ),
+            "language_model.model.layers.0.mlp.down_proj.weight": np.zeros(
+                (8, 8), dtype=np.float32
+            ),
+            "language_model.model.layers.0.new_block.secret_projection.weight": np.zeros(
+                (8, 8), dtype=np.float32
+            ),
+            "language_model.lm_head.weight": np.zeros((16, 8), dtype=np.float32),
+            "visual.patch_embed.proj.weight": np.zeros((8, 8), dtype=np.float32),
+        },
+        qwen36_model_dir / "model.safetensors",
+    )
+
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="abc123",
+    )
+    unknown = next(tensor for tensor in inventory.tensors if "secret_projection" in tensor.name)
+
+    assert unknown.role is TensorRole.OTHER
+    assert unknown.quantizable is False
+    assert inventory.architecture_profile.support_level is (ArchitectureSupportLevel.INVENTORY_ONLY)
+    assert inventory.architecture_profile.optimization_scope is (OptimizationScope.INVENTORY_ONLY)
+    assert any("classification is incomplete" in warning for warning in inventory.warnings)
 
 
 def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
@@ -338,6 +391,141 @@ def test_inventory_recognizes_mtp_head_sidecar_filename(tmp_path: Path) -> None:
     assert "mtp_head.safetensors" in inventory.source_files
     mtp_tensor = next(t for t in inventory.tensors if t.name == "mtp.projection.weight")
     assert mtp_tensor.role == TensorRole.MTP_PROJECTION
+
+
+def test_inventory_uses_structured_mtp_sidecar_precision(tmp_path: Path) -> None:
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {"model.embed_tokens.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "model.safetensors",
+    )
+    save_file(
+        {"mtp.projection.weight": np.zeros((8, 2), dtype=np.uint32)},
+        model_dir / "mtp.safetensors",
+    )
+    (model_dir / "mtplx_runtime.json").write_text(
+        json.dumps({"mtp_sidecar_bits": 8}),
+        encoding="utf-8",
+    )
+
+    inventory = inspect_model(model_dir, allow_quantized=True)
+
+    mtp = next(tensor for tensor in inventory.tensors if tensor.name == "mtp.projection.weight")
+    assert mtp.current_bits == 8
+    assert mtp.current_precision == "8bit"
+    assert mtp.parameters == 64
+
+
+def test_inventory_rejects_invalid_structured_mtp_sidecar_precision(tmp_path: Path) -> None:
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {"mtp.projection.weight": np.zeros((8, 2), dtype=np.uint32)},
+        model_dir / "mtp.safetensors",
+    )
+    (model_dir / "mtplx_runtime.json").write_text(
+        json.dumps({"mtp_sidecar_bits": True}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="invalid mtp_sidecar_bits"):
+        inspect_model(model_dir, allow_quantized=True)
+
+
+def test_indexed_inventory_rejects_tensor_membership_drift(tmp_path: Path) -> None:
+    model_dir = tmp_path / "indexed-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {"actual.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "model-00001-of-00001.safetensors",
+    )
+    (model_dir / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "claimed.weight": "model-00001-of-00001.safetensors",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match=r"missing tensors.*unindexed tensors"):
+        inspect_model(model_dir)
+
+
+def test_indexed_inventory_rejects_tensor_mapped_to_wrong_shard(tmp_path: Path) -> None:
+    model_dir = tmp_path / "indexed-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {"first.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "model-00001-of-00002.safetensors",
+    )
+    save_file(
+        {"second.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "model-00002-of-00002.safetensors",
+    )
+    (model_dir / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "first.weight": "model-00002-of-00002.safetensors",
+                    "second.weight": "model-00001-of-00002.safetensors",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match=r"does not match model\.safetensors\.index\.json"):
+        inspect_model(model_dir)
+
+
+def test_indexed_inventory_rejects_wholly_unindexed_shard(tmp_path: Path) -> None:
+    model_dir = tmp_path / "indexed-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["TinyForCausalLM"], "model_type": "tiny"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {"first.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "model-00001-of-00001.safetensors",
+    )
+    save_file(
+        {"hidden.weight": np.zeros((8, 8), dtype=np.float32)},
+        model_dir / "unindexed.safetensors",
+    )
+    (model_dir / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "first.weight": "model-00001-of-00001.safetensors",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="does not account for Safetensors files"):
+        inspect_model(model_dir)
 
 
 def test_inventory_ignores_nested_auxiliary_safetensors(

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.errors import ValidationGateError
+from axquant.profiles import thresholds_for
 from axquant.schema import (
     ArtifactSizeEvidence,
     QuantizationPlan,
@@ -21,7 +22,15 @@ _CANDIDATE_MEASURED_BPW = "artifact.candidate_measured_bpw"
 
 
 def _same_number(left: float | int, right: float | int) -> bool:
-    return math.isclose(float(left), float(right), rel_tol=1e-12, abs_tol=1e-12)
+    if isinstance(left, bool) or isinstance(right, bool):
+        return False
+    left_value = float(left)
+    right_value = float(right)
+    return (
+        math.isfinite(left_value)
+        and math.isfinite(right_value)
+        and math.isclose(left_value, right_value, rel_tol=1e-12, abs_tol=1e-12)
+    )
 
 
 def _targets_by_metric(
@@ -46,15 +55,23 @@ def validate_release_exception_semantics(
         raise ValidationGateError("release exception has expired")
     if stable_sha256(plan) != exception.plan_sha256:
         raise ValidationGateError("release exception does not bind the selected plan")
+    if validation.thresholds != thresholds_for(validation.profile):
+        raise ValidationGateError(
+            "release exception validation does not use authoritative profile thresholds"
+        )
     if validation.candidate_model != exception.candidate_model:
         raise ValidationGateError("release exception identifies a different candidate")
 
     targets = _targets_by_metric(exception)
     for metric, target in targets.items():
         observed = validation.comparisons.get(metric)
-        if not isinstance(observed, (int, float)) or not _same_number(
-            observed,
-            target.observed_value,
+        if (
+            not isinstance(observed, (int, float))
+            or isinstance(observed, bool)
+            or not _same_number(
+                observed,
+                target.observed_value,
+            )
         ):
             raise ValidationGateError(
                 f"release exception observed value does not match validation: {metric}"
