@@ -3,7 +3,7 @@
 # Completes Ext4T factory layout after any interrupted smoke migration.
 set -euo pipefail
 
-EXT_ROOT="/Volumes/Ext4T-02"
+EXT_ROOT="/Volumes/Ext4T"
 AXQ="${EXT_ROOT}/axquant"
 ART="${HOME}/axquant-artifacts"
 MODELS="${HOME}/models"
