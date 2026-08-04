@@ -212,7 +212,11 @@ Make both target classes valid AX Engine artifacts and make the M2 Ultra a truth
 - [ ] Add deterministic greedy parity against MLX-LM on a tiny fixture.
 - [ ] Run real 4-bit and 6-bit artifact smoke on M2 Ultra.
 - [ ] Require zero kernel fallbacks and record executable commit/version/digest.
-- [x] Confirm the AX Engine core regression suite remains green (406 tests).
+- [x] Confirm the AX Engine core regression suite remains green on `macstudio-m2u`: 641 unit
+      cases (639 passed, 2 ignored), 2 integration tests passed, and 3 doctests ignored.
+- [x] Commit and push the isolated mixed-projection fix as AX Engine commit `6ded0023` on
+      `codex/qwen3-next-mixed-projection-v2`.
+- [ ] Review, merge, and release the AX Engine fix; formal evidence must pin the released commit.
 
 ### Workstream QN2-D — Metal host readiness
 
@@ -227,9 +231,12 @@ AXQuant test or release command.
 
 Current blocker: `macstudio-m2u` selects CommandLineTools and has no compatible full Xcode;
 `xcrun metal` and `xcrun metallib` are unavailable. The isolated AX Engine fix passes
-`cargo fmt`, 406 core tests, and real 4-/6-bit manifest/doctor artifact checks, but no formal Metal
-runtime, parity, zero-fallback, or performance evidence is accepted until the approved Xcode is
-installed and selected.
+`cargo fmt`, four focused mixed-projection regressions, 641 core unit cases, and both core
+integration tests. Strict Clippy reports no diagnostic in any changed range; the repository-wide
+`--all-targets --all-features -D warnings` baseline remains red with 1,563 pre-existing rule
+diagnostics (2 library and 1,561 library-test diagnostics) and is not represented as a passing
+gate. No formal Metal runtime, parity, zero-fallback, or performance evidence is accepted until the
+approved Xcode is installed and selected and the AX Engine fix is reviewed, merged, and released.
 
 ### Exit criteria
 
@@ -566,10 +573,9 @@ required certification output fails or is absent.
 ## 17. Immediate next actions
 
 1. Install/select the approved full Xcode on `macstudio-m2u` through host management.
-2. Commit/release the isolated AX Engine mixed-projection fix, then run formal Metal smoke and
-   deterministic MLX-LM parity.
-3. Commit the cert-capable AXQuant toolkit, build its checksum-bound wheel, and install that exact
-   wheel on the formal host.
+2. Review, merge, and release AX Engine commit `6ded0023`, then pin that released revision.
+3. Run formal Metal smoke and deterministic MLX-LM parity using the already installed,
+   checksum-bound AXQuant 1.2.0 wheel and the released AX Engine revision.
 4. Generate matched uniform-4/uniform-6 controls and finish the direct evidence requests/indexes.
 5. Start the new formal 4-bit capture→analyze→plan→convert cycle only after QN2–QN4 exits pass.
 
