@@ -94,9 +94,11 @@ literal:
   reject raw mappings, and calibration evidence binds the capture manifest, tokenized cache,
   cache key, and dataset identity through publication audit. Never weaken that chain.
 - **CI and releases** (`.github/workflows/`): `ci.yml` runs lint on Ubuntu and the full MLX test
-  suite on `macos-14`; `release.yml` builds dists on `v*` tags, emits `SHA256SUMS.txt`, and
-  signs them with keyless Sigstore attestation. Project docs beyond README live in `docs/`
-  (migration guide, environment compatibility, known issues).
+  suite on `macos-14`; `release.yml` builds dists on `v*` tags, emits `SHA256SUMS.txt`, signs
+  them with keyless Sigstore attestation, creates the GitHub Release with curated notes
+  extracted from the matching `CHANGELOG.md` section (missing section fails the release), and
+  publishes to PyPI via Trusted Publishing (prerelease `rc` tags go to TestPyPI). Project docs
+  beyond README live in `docs/` (migration guides, environment compatibility, known issues).
 - **MLX is a lazy optional dependency**: execution backends import it only inside conversion,
   sensitivity, quality, and runtime paths. Inspection, planning, reporting, and tests do not
   require MLX.

@@ -3,7 +3,7 @@
 #
 #   axquant mtp-diagnose \
 #     --model .internal/tmp/qwen36-manual-v0.1-artifact-v3 \
-#     --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit \
+#     --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
 #     --revision candidate-revision \
 #     --prompts .internal/tmp/benchmark-suite-v2/ax-engine-prompts-v2.jsonl \
 #     --draft-depth 1 \

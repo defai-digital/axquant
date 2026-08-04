@@ -113,23 +113,29 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.1.1` (packaging classifier: **Beta**); this worktree also
-contains unreleased next-patch hardening. Its inspection, planning,
-conversion, runtime-check, validation, and publication-gating commands are implemented and
-covered by the test suite. Certification is checkpoint- and evidence-specific; a working command
-does not by itself certify an output. `v1.1.1` is a stability release: resumable, compressed,
-shardable activation capture; a BF16-activation capture fix; ~30% lower GPTQ peak memory;
-real-hardware integration tests (`pytest -m integration` on Apple Silicon); CI on macOS plus
-signed release artifacts; and a migration guide, environment compatibility matrix, and
-known-issues list under `docs/`. `v1.1.0` added GPTQ Hessian error-compensated quantization and
-wired AWQ end to end: the `capture-activations` stage records checksum-bound per-module
-calibration activations that feed measured AWQ/GPTQ probing (`analyze
---calibration-activations`), planner selection with a `gptq-hessian` scale strategy, and
-convert-time refinement (`convert --calibration-activations`) before portable affine packing.
-See the [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.1.1) for
-detail.
+The latest tagged toolkit version is `1.2.0` (packaging classifier: **Beta**). Its inspection,
+planning, conversion, runtime-check, validation, and publication-gating commands are implemented
+and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
+command does not by itself certify an output. `v1.2.0` is a hardening release: the calibration
+evidence chain is checksum-bound end to end (capture → analyze → plan → convert → publish), the
+Qwen3-Next adapter classifies fused `switch_mlp`/`switch_glu` experts correctly (pre-fix
+artifacts must be regenerated), completed capture directories are immutable, Hub BF16 source
+preparation is revision-pinned, plain dense backbones support measured probing via
+`analyze --capture-points output`, copied MTP sidecars emit structured `mtp_sidecar_bits`
+runtime contracts, `refine` accepts `--lm-head-floor`, and mixed-precision plans are labeled by
+target BPW. `v1.1.1` was a stability release: resumable, compressed, shardable activation
+capture; a BF16-activation capture fix; ~30% lower GPTQ peak memory; real-hardware integration
+tests (`pytest -m integration` on Apple Silicon); CI on macOS plus signed release artifacts; and
+a migration guide, environment compatibility matrix, and known-issues list under `docs/`.
+`v1.1.0` added GPTQ Hessian error-compensated quantization and wired AWQ end to end: the
+`capture-activations` stage records checksum-bound per-module calibration activations that feed
+measured AWQ/GPTQ probing (`analyze --calibration-activations`), planner selection with a
+`gptq-hessian` scale strategy, and convert-time refinement (`convert --calibration-activations`)
+before portable affine packing. See the
+[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.2.0) for detail.
 
-Further reading: [migration guide (v1.0.x → v1.1.x)](docs/migration-v1.1.md),
+Further reading: [migration guide (v1.1.x → v1.2.0)](docs/migration-v1.2.md),
+[migration guide (v1.0.x → v1.1.x)](docs/migration-v1.1.md),
 [environment compatibility matrix](docs/compatibility.md), and
 [known issues](docs/known-issues.md).
 
@@ -500,6 +506,14 @@ Run `axquant COMMAND --help` for the full options of any command.
 | Command | Purpose | Current maturity |
 | --- | --- | --- |
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
+| `source-checkpoint-manifest` | Derive and bind the immutable source revision, tokenizer, architecture, and file digests for exact-checkpoint certification | Implemented |
+| `certification-policy` | Emit the frozen Qwen3-Next non-MTP certification policy and policy digest | Implemented |
+| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report | Implemented; formal use requires all pinned toolchains |
+| `evaluate-coding-suite` | Run resumable generation and network-disabled executable scoring for coding-suite v2 | Implemented; Apple Silicon/Seatbelt execution evidence required |
+| `verify-coding-suite` | Self-test every coding oracle and scorer by requiring the reference to pass and an empty mutant to fail | Implemented; run before suite freeze |
+| `evaluate-general-quality` | Evaluate the disjoint direct-track general holdout and archive every raw model output | Implemented; BF16 and candidate runs must use matched settings |
+| `direct-validation-index` | Recompute policy-bound BF16/candidate quality retention for both direct-track profiles | Implemented; emits a fail-closed index for N4 |
+| `prepare-general-overlap` | Recompute exact/near-duplicate separation between general holdout and calibration | Implemented; any match blocks direct validation |
 | `inspect` | Inventory tensors, architecture, quantization, and MTP | Implemented |
 | `calibrate` | Validate calibration input, record provenance, and build a tokenized cache (`--manifest-only` skips tokenization) | Implemented |
 | `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |

@@ -1145,6 +1145,41 @@ def test_release_audit_proves_every_milestone(tmp_path: Path) -> None:
     assert audit.toolkit_version == "1.0.0"
 
 
+def test_release_audit_v4_semantics_are_golden(tmp_path: Path) -> None:
+    audit = build_release_audit(_inputs(tmp_path))
+    semantic_projection = {
+        "schema_version": audit.schema_version,
+        "release_ready": audit.release_ready,
+        "checks": [
+            {
+                "gate_id": check.gate_id,
+                "passed": check.passed,
+                "issues": check.issues,
+            }
+            for check in audit.checks
+        ],
+        "blockers": audit.blockers,
+    }
+
+    assert stable_sha256(semantic_projection) == (
+        "7f0665b36e8f97d6cb1fe7cc062066c430b6aa79aae22f32cf8a4d901b688688"
+    )
+
+
+def test_release_audit_v4_still_rejects_a_no_mtp_artifact_at_m1(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    manifest_path = Path(request.artifact_directory) / "axquant_manifest.json"
+    manifest = load_model(manifest_path, ArtifactManifest)
+    write_data(manifest_path, manifest.model_copy(update={"mtp_present": False}))
+
+    audit = build_release_audit(request_path)
+    m1 = next(check for check in audit.checks if check.gate_id == "M1")
+
+    assert not m1.passed
+    assert "release artifact does not contain declared MTP weights" in m1.issues
+
+
 def test_release_audit_rejects_an_unapproved_embedded_exception(
     tmp_path: Path,
 ) -> None:

@@ -48,3 +48,22 @@ def test_v1_toolkit_status_is_honest_about_host_certification() -> None:
         assert "no" in readme.lower() and "certified" in readme.lower()
     else:
         assert "Development Status :: 3 - Alpha" in classifiers
+
+
+def test_changelog_has_current_version_section() -> None:
+    """The release workflow extracts curated notes from CHANGELOG.md and fails closed.
+
+    Mirror its extraction here so a missing or empty section breaks CI before a tag
+    is pushed, not during the release.
+    """
+    import re
+
+    with (_ROOT / "pyproject.toml").open("rb") as handle:
+        version = tomllib.load(handle)["project"]["version"]
+    changelog = (_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+
+    match = re.search(
+        rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.S | re.M
+    )
+    assert match is not None, f"CHANGELOG.md has no section for {version}"
+    assert match.group(1).strip(), f"CHANGELOG.md section for {version} is empty"

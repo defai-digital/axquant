@@ -354,6 +354,7 @@ def build_runtime_metadata(
         if match:
             precision = f"{match.group(1)}bit"
     mtp_detected = sidecar.is_file() or bool(plan.mtp_distribution)
+    mtp_capable = mtp_detected or plan.mtp.mode != "disabled"
     kv_metadata: KvCacheRuntimeMetadata | None = None
     if plan.kv_cache is not None:
         kv = plan.kv_cache
@@ -373,7 +374,7 @@ def build_runtime_metadata(
             compatibility_level="A",
             support_level=RuntimeSupportLevel.OPTIMIZED,
             standard_inference=True,
-            mtp_support="native",
+            mtp_support="native" if mtp_capable else "none",
             manifest="model-manifest.json",
             notes=["Runtime claims require a passing AX Engine doctor and benchmark report."],
         ),
@@ -383,7 +384,7 @@ def build_runtime_metadata(
                 compatibility_level="B",
                 support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
                 standard_inference=True,
-                mtp_support="runtime-dependent",
+                mtp_support="runtime-dependent" if mtp_capable else "none",
                 manifest="config.json",
                 notes=[
                     "Standard backbone inference is the compatibility target.",

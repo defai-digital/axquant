@@ -2,7 +2,7 @@ schema_version: axquant.compatibility-request.v2
 family: Qwen 3.6
 scope_policy: all-official-dense-sizes-at-release
 official_catalog_url: https://huggingface.co/collections/Qwen/qwen36
-catalog_verified_at: "2026-07-30T00:00:00Z"
+catalog_verified_at: "2026-08-04T00:00:00Z"
 required_dense_models:
   - model_id: Qwen/Qwen3.6-27B
     parameter_size: 27B

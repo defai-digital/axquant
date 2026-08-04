@@ -83,10 +83,11 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         investment_posture=InvestmentPosture.SECONDARY,
         priority=11,
         declared_tier=SupportTier.CONVERTIBLE,
-        cert_track=False,
+        cert_track=True,
         summary=(
             "Qwen3-Next hybrid MoE coding path (Coder-Next); fused-expert convert, "
-            "development evidence only."
+            "family tier remains convertible; exact checkpoints may pass the non-MTP N0-N8 "
+            "certification track."
         ),
         do=(
             "Ship AXQ Coder-Next packs to close the OptiQ coding catalog gap.",

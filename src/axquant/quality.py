@@ -39,6 +39,8 @@ class QualityBackend(Protocol):
 
     def generation_metadata(self) -> tuple[str, str | None]: ...
 
+    def count_tokens(self, text: str) -> int: ...
+
 
 class MlxQualityBackend:
     def __init__(self) -> None:
@@ -69,6 +71,11 @@ class MlxQualityBackend:
 
     def generation_metadata(self) -> tuple[str, str | None]:
         return self._prompt_format, self._chat_template_sha256
+
+    def count_tokens(self, text: str) -> int:
+        if self._tokenizer is None:
+            raise BenchmarkError("quality tokenizer is not loaded")
+        return len(self._tokenizer.encode(text, add_special_tokens=False))
 
     def perplexity_loss(self, text: str, max_length: int) -> tuple[float, int]:
         if self._model is None or self._tokenizer is None:
@@ -121,7 +128,8 @@ class MlxQualityBackend:
         )
 
 
-def _load_tasks(dataset: Path) -> list[QualityTask]:
+def load_quality_tasks(dataset_path: str | Path) -> list[QualityTask]:
+    dataset = Path(dataset_path).expanduser().resolve()
     tasks: list[QualityTask] = []
     try:
         with dataset.open(encoding="utf-8") as source:
@@ -223,6 +231,17 @@ def _score_check(check: QualityCheck, task: QualityTask, output: str) -> float:
     raise AssertionError(f"unhandled quality check {check.kind}")
 
 
+def score_quality_task_output(
+    task: QualityTask,
+    output: str,
+) -> tuple[float, dict[str, float]]:
+    check_scores = {
+        f"{check.kind}:{check_index}": _score_check(check, task, output)
+        for check_index, check in enumerate(task.checks)
+    }
+    return sum(check_scores.values()) / len(check_scores), check_scores
+
+
 def evaluate_quality(
     *,
     model: ModelIdentity,
@@ -236,7 +255,7 @@ def evaluate_quality(
     dataset = Path(dataset_path).expanduser().resolve()
     if not dataset.is_file():
         raise BenchmarkError(f"quality dataset does not exist: {dataset}")
-    tasks = _load_tasks(dataset)
+    tasks = load_quality_tasks(dataset)
     if max_samples is not None:
         if max_samples < 1:
             raise BenchmarkError("max_samples must be at least one")
@@ -264,11 +283,7 @@ def evaluate_quality(
                 max_generation_tokens,
                 random_seed + index,
             )
-            check_scores = {
-                f"{check.kind}:{check_index}": _score_check(check, task, output)
-                for check_index, check in enumerate(task.checks)
-            }
-            score = sum(check_scores.values()) / len(check_scores)
+            score, check_scores = score_quality_task_output(task, output)
             error = None
         except (BenchmarkError, RuntimeError, ValueError) as exc:
             output = ""

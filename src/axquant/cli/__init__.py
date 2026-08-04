@@ -92,6 +92,20 @@ def _named_paths(values: list[str]) -> dict[str, Path]:
     return result
 
 
+def _toolchain_overrides(values: list[str]) -> dict[str, str]:
+    allowed = {"python", "node", "typescript", "rust", "go", "sandbox"}
+    result: dict[str, str] = {}
+    for value in values:
+        name, separator, executable = value.partition("=")
+        if not separator or name not in allowed or not executable:
+            choices = ", ".join(sorted(allowed))
+            raise ValueError(f"toolchain must use NAME=EXECUTABLE where NAME is one of: {choices}")
+        if name in result:
+            raise ValueError(f"duplicate toolchain override: {name}")
+        result[name] = executable
+    return result
+
+
 def _run(args: argparse.Namespace) -> int:
     log = structlog.get_logger()
     if args.command == "feasibility":
@@ -161,6 +175,193 @@ def _run(args: argparse.Namespace) -> int:
             mtp=inventory.mtp_present,
         )
         return 0
+
+    if args.command == "source-checkpoint-manifest":
+        from axquant.certification.common import build_source_checkpoint_manifest
+
+        inventory = load_model(args.inventory, Inventory)
+        source_checkpoint_manifest = build_source_checkpoint_manifest(
+            args.model, inventory=inventory
+        )
+        write_data(args.output, source_checkpoint_manifest)
+        log.info(
+            "source_checkpoint_manifest_written",
+            output=str(args.output),
+            files=len(source_checkpoint_manifest.files),
+            source_revision=source_checkpoint_manifest.source_model.revision,
+        )
+        return 0
+
+    if args.command == "certification-policy":
+        from axquant.certification.policy import direct_policy, direct_policy_sha256
+
+        policy = direct_policy()
+        write_data(args.output, policy)
+        log.info(
+            "certification_policy_written",
+            output=str(args.output),
+            policy_sha256=direct_policy_sha256(),
+        )
+        return 0
+
+    if args.command == "direct-validation-index":
+        from axquant.certification.qwen3_next_direct import (
+            build_direct_release_validation_index,
+        )
+
+        direct_validation = build_direct_release_validation_index(args.request)
+        write_data(args.output, direct_validation)
+        log_method = log.info if direct_validation.release_ready else log.warning
+        log_method(
+            "direct_release_validation_index_written",
+            output=str(args.output),
+            release_ready=direct_validation.release_ready,
+            issues=len(direct_validation.issues),
+        )
+        return 0 if direct_validation.release_ready else 1
+
+    if args.command == "prepare-general-overlap":
+        from axquant.coding_suite import build_general_overlap_report
+
+        general_overlap = build_general_overlap_report(
+            general_dataset_path=args.general_dataset,
+            calibration_path=args.calibration,
+        )
+        write_data(args.output, general_overlap)
+        log_method = log.info if general_overlap.passed else log.warning
+        log_method(
+            "general_overlap_report_written",
+            output=str(args.output),
+            passed=general_overlap.passed,
+            matches=len(general_overlap.matches),
+        )
+        return 0 if general_overlap.passed else 1
+
+    if args.command == "prepare-coding-suite":
+        from axquant.coding_suite import build_coding_suite
+
+        coding_suite = build_coding_suite(
+            args.output_dir,
+            calibration_path=args.calibration,
+            random_seed=args.seed,
+            toolchain_executables=_toolchain_overrides(args.toolchain),
+        )
+        unavailable = sorted(
+            name for name, identity in coding_suite.toolchains.items() if identity == "unavailable"
+        )
+        log.info(
+            "coding_suite_prepared",
+            output=str(Path(args.output_dir) / "coding-suite-manifest.json"),
+            tasks=len(coding_suite.tasks),
+            target_tokens=sum(task.target_tokens for task in coding_suite.tasks),
+            unavailable_toolchains=unavailable,
+        )
+        return 1 if unavailable else 0
+
+    if args.command == "evaluate-coding-suite":
+        from axquant.coding_sandbox import evaluate_coding_suite
+
+        coding_model_path = Path(args.model).expanduser()
+        output_path = Path(args.output).expanduser().resolve()
+
+        def beside_output(value: str) -> Path:
+            path = Path(value).expanduser()
+            return path.resolve() if path.is_absolute() else (output_path.parent / path).resolve()
+
+        coding_evaluation = evaluate_coding_suite(
+            model=ModelIdentity(
+                model_id=args.model_id or args.model,
+                revision=args.revision,
+                local_path=(
+                    str(coding_model_path.resolve()) if coding_model_path.is_dir() else None
+                ),
+            ),
+            model_artifact_sha256=args.model_artifact_sha256,
+            manifest_path=args.manifest,
+            tokenizer_sha256=args.tokenizer_sha256,
+            output_path=output_path,
+            state_path=beside_output(args.state),
+            raw_log_dir=beside_output(args.raw_log_dir),
+            work_root=Path(args.work_root).expanduser().resolve(),
+            max_sequence_length=args.max_seq_length,
+            random_seed=args.seed,
+            executable_overrides=_toolchain_overrides(args.toolchain),
+        )
+        model_errors = sum(outcome.model_error for outcome in coding_evaluation.outcomes)
+        infrastructure_errors = sum(
+            outcome.infrastructure_error for outcome in coding_evaluation.outcomes
+        )
+        log.info(
+            "coding_suite_evaluated",
+            output=str(output_path),
+            outcomes=len(coding_evaluation.outcomes),
+            model_errors=model_errors,
+            infrastructure_errors=infrastructure_errors,
+        )
+        return 1 if model_errors or infrastructure_errors else 0
+
+    if args.command == "evaluate-general-quality":
+        from axquant.direct_quality import evaluate_general_quality
+
+        general_model_path = Path(args.model).expanduser()
+        output_path = Path(args.output).expanduser().resolve()
+        raw_log_path = Path(args.raw_log_dir).expanduser()
+        if not raw_log_path.is_absolute():
+            raw_log_path = output_path.parent / raw_log_path
+        state_path = Path(args.state).expanduser()
+        if not state_path.is_absolute():
+            state_path = output_path.parent / state_path
+        general_evaluation = evaluate_general_quality(
+            model=ModelIdentity(
+                model_id=args.model_id or args.model,
+                revision=args.revision,
+                local_path=(
+                    str(general_model_path.resolve()) if general_model_path.is_dir() else None
+                ),
+            ),
+            model_artifact_sha256=args.model_artifact_sha256,
+            dataset_path=args.dataset,
+            tokenizer_sha256=args.tokenizer_sha256,
+            output_path=output_path,
+            state_path=state_path.resolve(),
+            raw_log_dir=raw_log_path.resolve(),
+            max_sequence_length=args.max_seq_length,
+            max_generation_tokens=args.max_generation_tokens,
+            random_seed=args.seed,
+        )
+        model_errors = sum(outcome.model_error for outcome in general_evaluation.outcomes)
+        log_method = log.info if model_errors == 0 else log.warning
+        log_method(
+            "general_quality_evaluated",
+            output=str(output_path),
+            outcomes=len(general_evaluation.outcomes),
+            model_errors=model_errors,
+            perplexity=general_evaluation.perplexity,
+        )
+        return 1 if model_errors else 0
+
+    if args.command == "verify-coding-suite":
+        from axquant.coding_sandbox import verify_coding_suite
+
+        output_path = Path(args.output).expanduser().resolve()
+        raw_log_path = Path(args.raw_log_dir).expanduser()
+        if not raw_log_path.is_absolute():
+            raw_log_path = output_path.parent / raw_log_path
+        self_test = verify_coding_suite(
+            manifest_path=args.manifest,
+            output_path=output_path,
+            raw_log_dir=raw_log_path,
+            work_root=Path(args.work_root).expanduser().resolve(),
+            executable_overrides=_toolchain_overrides(args.toolchain),
+        )
+        log.info(
+            "coding_suite_verified",
+            output=str(output_path),
+            tasks=len(self_test.oracle_outcomes),
+            passed=self_test.passed,
+            issues=self_test.issues,
+        )
+        return 0 if self_test.passed else 1
 
     if args.command == "calibrate":
         model_path = Path(args.model).expanduser()
@@ -675,7 +876,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "support-matrix":
-        families = support_matrix()
+        families = support_matrix(args.certification_registry)
         for family_entry in families.entries:
             log.info(
                 "support_matrix_entry",
@@ -931,13 +1132,22 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "publish-prepare":
-        prepared_files = prepare_publication(
-            model_dir=args.model,
-            repo_id=args.repo,
-            validation_index_path=args.validation_index,
-            hardware_registry_path=args.hardware_registry,
-            pareto_report_path=args.pareto_report,
-        )
+        if args.release_audit_request:
+            from axquant.certification.packaging import prepare_direct_publication
+
+            prepared_files = prepare_direct_publication(
+                model_dir=args.model,
+                repo_id=args.repo,
+                request_path=args.release_audit_request,
+            )
+        else:
+            prepared_files = prepare_publication(
+                model_dir=args.model,
+                repo_id=args.repo,
+                validation_index_path=args.validation_index,
+                hardware_registry_path=args.hardware_registry,
+                pareto_report_path=args.pareto_report,
+            )
         log.info(
             "publication_prepared",
             model=args.model,
@@ -954,6 +1164,7 @@ def _run(args: argparse.Namespace) -> int:
             pareto_report_path=args.pareto_report,
             release_audit_path=args.release_audit,
             release_audit_request_path=args.release_audit_request,
+            certification_registry_path=args.certification_registry,
             execute=args.yes,
             private=args.private,
         )
@@ -1626,9 +1837,9 @@ def _run(args: argparse.Namespace) -> int:
         return 0 if release_index.release_ready else 1
 
     if args.command == "release-audit":
-        from axquant.release_audit import build_release_audit
+        from axquant.certification.dispatch import build_certification_audit
 
-        audit = build_release_audit(args.request)
+        audit = build_certification_audit(args.request)
         write_data(args.output, audit)
         log_method = log.info if audit.release_ready else log.warning
         log_method(

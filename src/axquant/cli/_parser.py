@@ -167,6 +167,110 @@ def _build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("--allow-download", action="store_true")
     inspect_parser.add_argument("--allow-quantized", action="store_true")
 
+    source_manifest_parser = subparsers.add_parser("source-checkpoint-manifest")
+    source_manifest_parser.add_argument("--model", required=True)
+    source_manifest_parser.add_argument("--inventory", required=True)
+    source_manifest_parser.add_argument("--output", default="source_checkpoint_manifest.json")
+
+    certification_policy_parser = subparsers.add_parser("certification-policy")
+    certification_policy_parser.add_argument("--output", default="qwen3_next_direct_policy.json")
+
+    direct_validation_parser = subparsers.add_parser(
+        "direct-validation-index",
+        help="Recompute the non-MTP direct-track BF16/candidate quality gates",
+    )
+    direct_validation_parser.add_argument("--request", required=True)
+    direct_validation_parser.add_argument(
+        "--output",
+        default="direct-release-validation-index.json",
+    )
+
+    general_overlap_parser = subparsers.add_parser(
+        "prepare-general-overlap",
+        help="Compare the direct-track general holdout with release calibration",
+    )
+    general_overlap_parser.add_argument("--general-dataset", required=True)
+    general_overlap_parser.add_argument("--calibration", required=True)
+    general_overlap_parser.add_argument("--output", default="general-overlap-report.json")
+
+    coding_suite_parser = subparsers.add_parser(
+        "prepare-coding-suite",
+        help="Build the frozen Qwen3-Next coding-suite v2 and calibration-overlap evidence",
+    )
+    coding_suite_parser.add_argument("--output-dir", required=True)
+    coding_suite_parser.add_argument("--calibration", required=True)
+    coding_suite_parser.add_argument("--seed", type=int, default=20260803)
+    coding_suite_parser.add_argument(
+        "--toolchain",
+        action="append",
+        default=[],
+        metavar="NAME=EXECUTABLE",
+        help="Override python/node/typescript/rust/go/sandbox executable; repeatable",
+    )
+
+    coding_evaluate_parser = subparsers.add_parser(
+        "evaluate-coding-suite",
+        help="Run a resumable coding-suite v2 evaluation with fail-closed sandbox scoring",
+    )
+    coding_evaluate_parser.add_argument("--model", required=True)
+    coding_evaluate_parser.add_argument("--model-id")
+    coding_evaluate_parser.add_argument("--revision", required=True)
+    coding_evaluate_parser.add_argument("--manifest", required=True)
+    coding_evaluate_parser.add_argument("--model-artifact-sha256", required=True)
+    coding_evaluate_parser.add_argument("--tokenizer-sha256", required=True)
+    coding_evaluate_parser.add_argument("--max-seq-length", type=int, default=4096)
+    coding_evaluate_parser.add_argument("--seed", type=int, default=20260803)
+    coding_evaluate_parser.add_argument("--output", default="coding-quality-evaluation.json")
+    coding_evaluate_parser.add_argument("--state", default="coding-evaluation-state.json")
+    coding_evaluate_parser.add_argument("--raw-log-dir", default="coding-raw-logs")
+    coding_evaluate_parser.add_argument(
+        "--work-root",
+        default=".internal/tmp/coding-sandbox-work",
+    )
+    coding_evaluate_parser.add_argument(
+        "--toolchain",
+        action="append",
+        default=[],
+        metavar="NAME=EXECUTABLE",
+        help="Override python/node/typescript/rust/go/sandbox executable; repeatable",
+    )
+
+    general_evaluate_parser = subparsers.add_parser(
+        "evaluate-general-quality",
+        help="Evaluate the non-MTP direct track's general holdout with raw-output evidence",
+    )
+    general_evaluate_parser.add_argument("--model", required=True)
+    general_evaluate_parser.add_argument("--model-id")
+    general_evaluate_parser.add_argument("--revision", required=True)
+    general_evaluate_parser.add_argument("--dataset", required=True)
+    general_evaluate_parser.add_argument("--model-artifact-sha256", required=True)
+    general_evaluate_parser.add_argument("--tokenizer-sha256", required=True)
+    general_evaluate_parser.add_argument("--max-seq-length", type=int, default=4096)
+    general_evaluate_parser.add_argument("--max-generation-tokens", type=int, default=256)
+    general_evaluate_parser.add_argument("--seed", type=int, default=20260803)
+    general_evaluate_parser.add_argument("--output", default="general-quality-evaluation.json")
+    general_evaluate_parser.add_argument("--state", default="general-quality-state.json")
+    general_evaluate_parser.add_argument("--raw-log-dir", default="general-quality-raw-logs")
+
+    coding_verify_parser = subparsers.add_parser(
+        "verify-coding-suite",
+        help="Prove every coding-suite oracle passes and an empty mutant is rejected",
+    )
+    coding_verify_parser.add_argument("--manifest", required=True)
+    coding_verify_parser.add_argument("--output", default="coding-suite-self-test.json")
+    coding_verify_parser.add_argument("--raw-log-dir", default="coding-self-test-logs")
+    coding_verify_parser.add_argument(
+        "--work-root",
+        default=".internal/tmp/coding-self-test-work",
+    )
+    coding_verify_parser.add_argument(
+        "--toolchain",
+        action="append",
+        default=[],
+        metavar="NAME=EXECUTABLE",
+        help="Override python/node/typescript/rust/go/sandbox executable; repeatable",
+    )
+
     calibrate_parser = subparsers.add_parser("calibrate")
     calibrate_parser.add_argument("--model", required=True)
     calibrate_parser.add_argument("--model-id")
@@ -450,6 +554,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "support-matrix",
         help="List every registered model family with tier, investment posture, and policy notes",
     )
+    support_matrix_parser.add_argument("--certification-registry")
     support_matrix_parser.add_argument("--output", help="Optional JSON output path")
 
     support_policy_parser = subparsers.add_parser(
@@ -611,6 +716,7 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--validation-index", required=True)
     prepare_parser.add_argument("--hardware-registry", required=True)
     prepare_parser.add_argument("--pareto-report", required=True)
+    prepare_parser.add_argument("--release-audit-request")
 
     publish_parser = subparsers.add_parser("publish")
     publish_parser.add_argument("--model", required=True)
@@ -620,6 +726,7 @@ def _build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("--pareto-report", required=True)
     publish_parser.add_argument("--release-audit")
     publish_parser.add_argument("--release-audit-request")
+    publish_parser.add_argument("--certification-registry")
     publish_parser.add_argument("--private", action="store_true")
     publish_parser.add_argument("--yes", action="store_true")
 

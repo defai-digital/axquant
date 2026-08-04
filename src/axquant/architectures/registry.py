@@ -8,7 +8,14 @@ from axquant.architectures.nemotron3 import Nemotron3Adapter
 from axquant.architectures.qwen36 import Qwen36Adapter
 from axquant.architectures.types import ArchitectureAdapter
 from axquant.errors import ArtifactError
-from axquant.schema import SupportMatrix, SupportMatrixEntry, SupportTier
+from axquant.schema import (
+    CertifiedCheckpointRegistry,
+    CertifiedCheckpointSummary,
+    SupportMatrix,
+    SupportMatrixEntry,
+    SupportTier,
+)
+from axquant.serde import load_model
 from axquant.support_policy import policy_for_adapter
 
 _ADAPTERS: tuple[ArchitectureAdapter, ...] = (
@@ -47,7 +54,7 @@ def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:
     return notes
 
 
-def support_matrix() -> SupportMatrix:
+def support_matrix(certification_registry: str | None = None) -> SupportMatrix:
     """The registry's declared family support matrix (AXQ-017) + investment policy."""
     entries: list[SupportMatrixEntry] = []
     for adapter in _ADAPTERS:
@@ -66,7 +73,26 @@ def support_matrix() -> SupportMatrix:
             )
         )
     entries.sort(key=lambda entry: (entry.priority, entry.adapter_id))
-    return SupportMatrix(axquant_version=__version__, entries=entries)
+    certified: list[CertifiedCheckpointSummary] = []
+    if certification_registry is not None:
+        registry = load_model(certification_registry, CertifiedCheckpointRegistry)
+        certified = [
+            CertifiedCheckpointSummary(
+                source_model=entry.certification_scope.source_model,
+                candidate_model=entry.candidate_model,
+                target_class=entry.certification_scope.target_class.value,
+                certification_track=entry.certification_scope.track.value,
+                artifact_manifest_sha256=entry.artifact_manifest_sha256,
+                release_audit_sha256=entry.release_audit_sha256,
+                hardware_scope_ids=entry.hardware_scope_ids,
+            )
+            for entry in registry.entries
+        ]
+    return SupportMatrix(
+        axquant_version=__version__,
+        entries=entries,
+        certified_checkpoints=certified,
+    )
 
 
 def adapter_for(

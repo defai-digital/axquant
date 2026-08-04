@@ -35,10 +35,48 @@ jobs:
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: "dist/*"
+      - name: Extract curated release notes from CHANGELOG.md
+        run: >-
+          python -c 'import os, pathlib, re; version =
+          os.environ["GITHUB_REF_NAME"].removeprefix("v");
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8");
+          m = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
+          text, re.S | re.M);
+          assert m and m.group(1).strip(),
+          f"CHANGELOG.md has no notes section for {version}";
+          pathlib.Path("release-notes.md").write_text(m.group(1).strip() + "\n",
+          encoding="utf-8")'
       - name: Upload artifacts to the GitHub Release
         run: |
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
-            gh release create "${GITHUB_REF_NAME}" --verify-tag --generate-notes
+            gh release create "${GITHUB_REF_NAME}" --verify-tag --notes-file release-notes.md
           gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Hand dists to the publish job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          retention-days: 1
+
+  pypi:
+    needs: dist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Drop non-package files
+        run: rm -f dist/SHA256SUMS.txt
+      # Prerelease tags (vX.Y.ZrcN) go to TestPyPI; final tags go to PyPI.
+      # Both indexes must have a Trusted Publisher configured for this workflow.
+      - name: Publish to TestPyPI (prerelease)
+        if: contains(github.ref_name, 'rc')
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+      - name: Publish to PyPI
+        if: ${{ !contains(github.ref_name, 'rc') }}
+        uses: pypa/gh-action-pypi-publish@release/v1

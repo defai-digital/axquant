@@ -44,5 +44,5 @@ else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) 
 ## Tested configuration
 
 CI (`.github/workflows/ci.yml`) runs the full suite on `macos-14` (Apple Silicon) with
-Python 3.13 and the `mlx` extra. The v1.1.1 development environment was macOS arm64,
+Python 3.13 and the `mlx` extra. The v1.2.0 development environment was macOS arm64,
 Python 3.13, `mlx 0.32.0`, `mlx-lm 0.31.3`.

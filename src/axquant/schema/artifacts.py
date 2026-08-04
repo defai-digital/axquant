@@ -166,12 +166,23 @@ class SupportMatrixEntry(StrictModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class CertifiedCheckpointSummary(StrictModel):
+    source_model: ModelIdentity
+    candidate_model: ModelIdentity
+    target_class: str = Field(min_length=1)
+    certification_track: str = Field(min_length=1)
+    artifact_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    release_audit_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    hardware_scope_ids: list[str] = Field(min_length=1)
+
+
 class SupportMatrix(StrictModel):
     """Registry-derived family support matrix (AXQ-017)."""
 
     schema_version: Literal["axquant.support-matrix.v1"] = "axquant.support-matrix.v1"
     axquant_version: str
     entries: list[SupportMatrixEntry]
+    certified_checkpoints: list[CertifiedCheckpointSummary] = Field(default_factory=list)
     policy_version: Literal["axquant.support-policy.v1"] = "axquant.support-policy.v1"
     created_at: datetime = Field(default_factory=utc_now)
 

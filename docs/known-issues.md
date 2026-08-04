@@ -1,6 +1,6 @@
 # Known issues
 
-AXQuant v1.1.x. Items here are documented limitations, not silent failures — each fails closed
+AXQuant v1.2.0. Items here are documented limitations, not silent failures — each fails closed
 or is gated behind an explicit flag.
 
 ## Quantization algorithms
@@ -64,4 +64,4 @@ or is gated behind an explicit flag.
 
 - **End-to-end quality has been validated on tiny/synthetic models only.** The 27B-class
   certification track requires a real-hardware run (capture → analyze → plan → convert →
-  validate) before any quality claim; that run is deliberately outside the v1.1.1 scope.
+  validate) before any quality claim; that run is deliberately outside the v1.2.0 scope.
