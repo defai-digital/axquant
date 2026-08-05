@@ -70,6 +70,11 @@ the section is missing — add an entry in the same change as any user-facing mo
   `set -u`, shell-config marker blocks no longer corrupt an rc file lacking a trailing
   newline, live log/publish directories are moved aside before migrate-and-delete, and
   `--status`/argument handling exit correctly.
+- Architecture-gate errors and inventory warnings name the adapter registry instead of
+  hardcoding Qwen 3.6 (the checks were already registry-wide).
+- Ext4T planning treats `axquant/logs` packages as host-local: layout moves only — no
+  cross-host mirroring, duplicate deletion, or fingerprint-driven renames of mutable log
+  trees; index loading reports the exact file and line for corrupt or incomplete records.
 
 See the [v1.1.x → v1.2.0 migration guide](docs/migration-v1.2.md) for action items.
 

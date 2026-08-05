@@ -350,17 +350,10 @@ def _pareto_options(options: list[_Option]) -> list[_Option]:
     frontier: list[_Option] = []
     best_loss = float("inf")
     for option in ordered:
+        # Ascending storage order (one option per storage key): a later option
+        # can only join the frontier by strictly improving on the best loss.
         if option.loss < best_loss - 1e-15:
             frontier.append(option)
-            best_loss = option.loss
-        elif abs(option.loss - best_loss) <= 1e-15 and (
-            not frontier or option.storage_bpw < frontier[-1].storage_bpw - 1e-15
-        ):
-            # Equal loss at strictly lower storage should replace the prior point.
-            if frontier and abs(frontier[-1].loss - option.loss) <= 1e-15:
-                frontier[-1] = option
-            else:
-                frontier.append(option)
             best_loss = option.loss
     return frontier
 
@@ -507,7 +500,7 @@ def plan_quantization(
         and not request.allow_unmeasured
     ):
         raise PlanningError(
-            "AXQuant release planning supports validated Qwen 3.6 dense checkpoints only"
+            "AXQuant release planning requires a supported architecture adapter"
         )
     weights_model = objective_for(request.profile)
     weights = weights_model.normalized()

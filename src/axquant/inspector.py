@@ -551,11 +551,11 @@ def inspect_model(
     mtp_tensors_present = any(tensor.role.is_mtp for tensor in tensors)
     if architecture_profile.mtp_declared and not mtp_tensors_present:
         warnings.append(
-            "Qwen config declares MTP but no MTP tensors were found; "
+            "the model config declares MTP but no MTP tensors were found; "
             "an external sidecar is required"
         )
     if adapter is None:
-        warnings.append("No supported Qwen 3.6 adapter matched; this report is inventory-only.")
+        warnings.append("No supported architecture adapter matched; this report is inventory-only.")
     warnings.extend(architecture_profile.notes)
     if vision_tensors_present:
         architecture_profile = architecture_profile.model_copy(update={"vision_present": True})

@@ -355,9 +355,9 @@ def audit_artifact(
         issues=list(integrity_issues),
     )
     if inventory.architecture_profile.support_level != ArchitectureSupportLevel.SUPPORTED:
-        audit.issues.append("the checkpoint does not match the supported Qwen 3.6 adapter")
+        audit.issues.append("the checkpoint does not match a supported architecture adapter")
     if inventory.architecture_profile.optimization_scope != OptimizationScope.TEXT_PATH:
-        audit.issues.append("the checkpoint is not supported for Qwen 3.6 text-path conversion")
+        audit.issues.append("the checkpoint is not supported for text-path conversion")
     if not is_immutable_revision(revision):
         audit.issues.append("the checkpoint revision is not pinned")
     # MTP evidence is only required from architectures that declare MTP (or

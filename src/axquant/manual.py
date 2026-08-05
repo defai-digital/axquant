@@ -196,7 +196,7 @@ def manual_quantization_plan(
         raise PlanningError("manual planning requires a revision-pinned source inventory")
     profile = inventory.architecture_profile
     if profile.support_level != ArchitectureSupportLevel.SUPPORTED:
-        raise PlanningError("manual planning is restricted to the supported Qwen 3.6 adapter")
+        raise PlanningError("manual planning requires a supported architecture adapter")
     matched_rules: set[str] = set()
     allocations: list[Allocation] = []
     for tensor in inventory.tensors:
