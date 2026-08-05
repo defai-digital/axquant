@@ -77,6 +77,20 @@ strict = true
 plugins = ["pydantic.mypy"]
 packages = ["axquant"]
 
+# Optional execution backends (axquant[mlx]) are not present on the Ubuntu lint
+# job. Ignore missing imports so mypy can type-check the non-MLX surface without
+# requiring Apple Silicon packages or transformers on that runner.
+[[tool.mypy.overrides]]
+module = [
+    "mlx",
+    "mlx.*",
+    "mlx_lm",
+    "mlx_lm.*",
+    "transformers",
+    "transformers.*",
+]
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["axquant"]
 branch = true
