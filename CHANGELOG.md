@@ -23,11 +23,14 @@ the section is missing — add an entry in the same change as any user-facing mo
   least-privilege.
 - Documented historical Actions red-run root causes and added `scripts/ci-local.sh` to mirror
   CI gates (including PATH-isolated non-MLX pytest) before push.
+- Release `pypi` job is gated on repository variable `ENABLE_PYPI_PUBLISH=true` so tag
+  Releases succeed with GitHub assets when Trusted Publishing is not yet configured on
+  pypi.org (set the variable only after registering a publisher).
 
 ### Notes
 
-- PyPI upload on tag Release still requires a Trusted Publisher configured on pypi.org for
-  this repository (operator step; not fixable by application code alone).
+- Real PyPI upload still requires a Trusted Publisher on pypi.org plus
+  `ENABLE_PYPI_PUBLISH=true` (operator steps in docs/ci-root-causes.md).
 - Local-only engineering/product notes stay out of the published tree: force-added
   certification docs were removed from git (still ignored on developer machines).
 

@@ -58,9 +58,26 @@ jobs:
           name: dist
           path: dist/*
           retention-days: 1
+      - name: Note PyPI publish gate
+        run: |
+          if [ "${{ vars.ENABLE_PYPI_PUBLISH }}" = "true" ]; then
+            echo "ENABLE_PYPI_PUBLISH=true — pypi job will run Trusted Publishing."
+          else
+            echo "ENABLE_PYPI_PUBLISH is not true — pypi job skipped."
+            echo "GitHub Release assets are still published by this dist job."
+            echo "After registering a Trusted Publisher on pypi.org for"
+            echo "defai-digital/axquant workflow release.yml, set the repository"
+            echo "variable ENABLE_PYPI_PUBLISH=true and re-run Release."
+            echo "See docs/ci-root-causes.md."
+          fi
 
+  # OIDC Trusted Publishing requires a matching publisher on pypi.org / test.pypi.org.
+  # Without that operator config, the exchange fails with invalid-publisher and reds
+  # every tag push even though GitHub Release assets already succeeded. Gate the job
+  # on repository variable ENABLE_PYPI_PUBLISH so Releases stay green until configured.
   pypi:
     needs: dist
+    if: ${{ vars.ENABLE_PYPI_PUBLISH == 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -73,9 +90,6 @@ jobs:
       - name: Drop non-package files
         run: rm -f dist/SHA256SUMS.txt
       # Prerelease tags (vX.Y.ZrcN) go to TestPyPI; final tags go to PyPI.
-      # Both indexes need a Trusted Publisher for owner defai-digital / repo axquant /
-      # workflow release.yml. If publish fails with invalid-publisher, configure PyPI
-      # (see docs/ci-root-causes.md) — the GitHub Release assets may already be uploaded.
       - name: Publish to TestPyPI (prerelease)
         if: contains(github.ref_name, 'rc')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -91,6 +105,6 @@ jobs:
           PyPI Trusted Publishing failed (invalid-publisher is usually missing config).
           Register a Trusted Publisher on pypi.org / test.pypi.org for:
             owner=defai-digital  repo=axquant  workflow=release.yml
-          Match GitHub Environment only if the publisher entry uses one; this job leaves
-          environment unset. Details: docs/ci-root-causes.md
+          Environment: leave empty (this job does not set one).
+          Then keep ENABLE_PYPI_PUBLISH=true. Details: docs/ci-root-causes.md
           EOF

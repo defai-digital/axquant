@@ -125,16 +125,25 @@ environment: MISSING
   `environment: MISSING`, so either no publisher exists or it was registered
   with an environment name the workflow does not use.
 
-**Operator steps (outside this repo)**
+**Workflow behaviour (in-repo)**
+
+The `pypi` job runs only when the repository variable `ENABLE_PYPI_PUBLISH` is
+exactly `true`. Until a Trusted Publisher exists on pypi.org, leave that
+variable unset so tag Releases complete green with GitHub assets only (dist job).
+Turning the variable on without a matching publisher will red the Release again.
+
+**Operator steps to enable real PyPI uploads**
 
 1. Sign in and open https://pypi.org/manage/account/publishing/.
 2. Add a pending GitHub publisher:
    - PyPI project name: `axquant`
    - Owner: `defai-digital`, Repository: `axquant`
    - Workflow: `release.yml`
-   - Environment: leave empty (the current `pypi` job does not set one)
+   - Environment: leave empty (the `pypi` job does not set one)
 3. Repeat for TestPyPI if you use `v*rc*` tags.
-4. Re-run the failed Release workflow or push a new tag after configuration.
+4. In the GitHub repo: Settings → Secrets and variables → Actions → Variables →
+   add `ENABLE_PYPI_PUBLISH` = `true`.
+5. Re-run Release for the tag (or push a new tag).
 
 ## What does *not* need “fixing” in git history
 
