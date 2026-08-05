@@ -2,22 +2,59 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 from pathlib import Path
 
 from axquant.cli._parser import _build_parser
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PUBLIC_DOCS = ("README.md", "THIRD_PARTY_NOTICES.md")
+# Published markdown outside AGENTS.md (agent-local conventions may mention
+# .internal/tmp for throwaway work, but must never ship that tree).
+_PUBLIC_MARKDOWN_GLOBS = (
+    "README.md",
+    "THIRD_PARTY_NOTICES.md",
+    "CHANGELOG.md",
+    "docs/*.md",
+    "examples/**/*.md",
+    "examples/**/*.yaml",
+    "examples/**/*.yml",
+)
 
 
 def _read(relative: str) -> str:
     return (_ROOT / relative).read_text(encoding="utf-8")
 
 
+def _public_text_paths() -> list[Path]:
+    paths: list[Path] = []
+    for pattern in _PUBLIC_MARKDOWN_GLOBS:
+        paths.extend(sorted(_ROOT.glob(pattern)))
+    return [path for path in paths if path.is_file()]
+
+
 def test_public_docs_do_not_reference_local_only_material() -> None:
-    text = "\n".join(_read(relative) for relative in _PUBLIC_DOCS)
     forbidden = (".internal/", "/Users/", "/Volumes/", "192.168.", "devop@")
-    assert not [marker for marker in forbidden if marker in text]
+    offenders: list[str] = []
+    for path in _public_text_paths():
+        text = path.read_text(encoding="utf-8")
+        for marker in forbidden:
+            if marker in text:
+                offenders.append(f"{path.relative_to(_ROOT)}: {marker}")
+    assert not offenders
+
+
+def test_internal_tree_is_not_tracked() -> None:
+    """``.internal/`` is local-only; force-adds must not re-enter the public tree."""
+    git_dir = _ROOT / ".git"
+    if not git_dir.exists():
+        return
+    listed = subprocess.check_output(
+        ["git", "-C", str(_ROOT), "ls-files", "--", ".internal"],
+        text=True,
+    )
+    tracked = [line for line in listed.splitlines() if line.strip()]
+    assert not tracked, f"tracked .internal paths (remove from index): {tracked}"
 
 
 def test_readme_cli_table_covers_every_command() -> None:

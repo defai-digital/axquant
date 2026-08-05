@@ -127,11 +127,12 @@ environment: MISSING
 
 **Operator steps (outside this repo)**
 
-1. Create the project on https://pypi.org (or claim the name).
-2. Publishing → Trusted publishers → add GitHub:
+1. Sign in and open https://pypi.org/manage/account/publishing/.
+2. Add a pending GitHub publisher:
+   - PyPI project name: `axquant`
    - Owner: `defai-digital`, Repository: `axquant`
    - Workflow: `release.yml`
-   - Environment: leave empty **or** match whatever you set on the `pypi` job
+   - Environment: leave empty (the current `pypi` job does not set one)
 3. Repeat for TestPyPI if you use `v*rc*` tags.
 4. Re-run the failed Release workflow or push a new tag after configuration.
 

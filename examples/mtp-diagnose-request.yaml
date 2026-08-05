@@ -2,15 +2,15 @@
 # Run after the release sensitivity probe frees MLX resources:
 #
 #   axquant mtp-diagnose \
-#     --model .internal/tmp/qwen36-manual-v0.1-artifact-v3 \
+#     --model /path/to/converted-axq-artifact \
 #     --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
 #     --revision candidate-revision \
-#     --prompts .internal/tmp/benchmark-suite-v2/ax-engine-prompts-v2.jsonl \
+#     --prompts /path/to/ax-engine-prompts.jsonl \
 #     --draft-depth 1 \
 #     --trials 5 \
 #     --warmup 1 \
 #     --max-tokens 64 \
-#     --output-dir .internal/tmp/mtp-diagnose-v1 \
+#     --output-dir /path/to/mtp-diagnose-output \
 #     --output mtp_diagnostic_report.json
 #
 # Profiles exercised by default:

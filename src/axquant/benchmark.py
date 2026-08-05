@@ -251,7 +251,7 @@ def _tokenize_prompts(config: BenchmarkConfig, prompts: list[str]) -> list[list[
 
 
 # Documented M2 diagnostic profiles for Qwen linear-attention exactness kill switches.
-# Values match the AX Engine 6.11.1 investigation under .internal/tmp/.
+# Values match the AX Engine 6.11.1 linear-attention kill-switch investigation.
 MTP_DIAGNOSTIC_PROFILES: dict[str, dict[str, str]] = {
     "baseline": {},
     "disable-post-input-metal": {

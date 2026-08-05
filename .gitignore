@@ -17,4 +17,6 @@ dist/
 *.npz
 .env
 credentials.json
+# Local-only product/engineering notes and scratch (never publish).
 .internal/
+**/.internal/

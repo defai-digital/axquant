@@ -52,7 +52,10 @@ if [[ "$LINT_ONLY" -eq 1 ]]; then
 fi
 
 # Isolated non-MLX env (matches Ubuntu python-compatibility install surface).
-NONMLX_VENV="${AXQUANT_CI_NONMLX_VENV:-$ROOT/.internal/tmp/ci-nonmlx-venv}"
+# Default lives under the user's cache dir — never under a published tree path.
+# Override with AXQUANT_CI_NONMLX_VENV if you want a local-only location.
+_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+NONMLX_VENV="${AXQUANT_CI_NONMLX_VENV:-$_CACHE_HOME/axquant/ci-nonmlx-venv}"
 mkdir -p "$(dirname "$NONMLX_VENV")"
 if [[ ! -x "$NONMLX_VENV/bin/python" ]]; then
   echo "==> creating non-MLX venv at $NONMLX_VENV"
@@ -60,12 +63,15 @@ if [[ ! -x "$NONMLX_VENV/bin/python" ]]; then
 fi
 echo "==> ensuring non-MLX editable install (.[dev] only)"
 "$NONMLX_VENV/bin/pip" install -e ".[dev]" -q
-"$NONMLX_VENV/bin/python" - <<'PY'
+AXQUANT_CI_NONMLX_VENV="$NONMLX_VENV" "$NONMLX_VENV/bin/python" - <<'PY'
 import importlib.util
+import os
 import sys
+
+venv = os.environ["AXQUANT_CI_NONMLX_VENV"]
 for name in ("mlx", "mlx_lm"):
     if importlib.util.find_spec(name) is not None:
-        sys.exit(f"non-MLX venv unexpectedly has {name}; recreate {sys.argv[0]}")
+        sys.exit(f"non-MLX venv unexpectedly has {name}; remove {venv} and rerun")
 print("non-MLX venv clean")
 PY
 
@@ -73,8 +79,9 @@ echo "==> mypy src (non-MLX venv)"
 "$NONMLX_VENV/bin/mypy" src
 
 echo "==> pytest -m 'not integration' (non-MLX, sanitized PATH)"
-# Drop host Homebrew/local bins so shutil.which('mlx_lm.*') cannot resurrect MLX.
-env PATH="/usr/bin:/bin:$NONMLX_VENV/bin" \
+# Prefer the non-MLX venv bin; drop host Homebrew bins so which('mlx_lm.*') cannot
+# resurrect a host install.
+env PATH="$NONMLX_VENV/bin:/usr/bin:/bin" \
   "$NONMLX_VENV/bin/pytest" -m "not integration"
 
 if [[ "$RUN_MLX" -eq 1 ]] && "$PY" -c "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('mlx') else 1)" 2>/dev/null; then

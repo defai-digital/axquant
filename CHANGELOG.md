@@ -28,6 +28,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 - PyPI upload on tag Release still requires a Trusted Publisher configured on pypi.org for
   this repository (operator step; not fixable by application code alone).
+- Local-only engineering/product notes stay out of the published tree: force-added
+  certification docs were removed from git (still ignored on developer machines).
 
 ## [1.2.0] - 2026-08-04
 
