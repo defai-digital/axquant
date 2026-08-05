@@ -14,11 +14,13 @@ def main() -> None:
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--repo-id", required=True)
     parser.add_argument("--product-class", choices=("4bit", "6bit", "8bit"), default=None)
+    parser.add_argument("--artifact-edition", type=int, default=None)
     args = parser.parse_args()
     files = prepare_development_model_card(
         artifact_dir=args.artifact,
         repo_id=args.repo_id,
         product_class=args.product_class,
+        artifact_edition=args.artifact_edition,
     )
     for path in files:
         print(path)

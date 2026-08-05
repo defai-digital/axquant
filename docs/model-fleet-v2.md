@@ -3,13 +3,15 @@
 Audit date: 2026-08-05
 Hub owner: `AutomatosX`
 Scope: every public model repository whose name contains `AXQ` and does not already carry the
-`v2` edition marker
+v2 artifact edition
 
 ## Decision
 
-Rebuild and republish all 28 existing AXQ development packs as v2 repositories. Do not overwrite
-or delete the original repositories: they remain historical development artifacts, and their Hub
-revisions stay available to existing users.
+Rebuild all 28 existing AXQ development packs as artifact edition v2 while preserving their
+original repository identifiers. The audited v2 revision is served by `main` and tagged `v2`;
+the exact artifact replaced on `main` is preserved at `legacy-pre-v2`. Edition-suffixed
+repositories were temporary migration staging and are removed only after the stable-name fleet
+passes a second complete Hub audit.
 
 This is a real checkpoint rebuild, not a model-card-only refresh. The audited fleet is
 598.301 GB across 28 repositories and 14 source checkpoints.
@@ -60,36 +62,36 @@ require the family-specific measured pipeline and release audit.
 The abbreviated Hub revisions below identify the exact historical `main` state inspected on the
 audit date. BPW is `measured_main_bpw` from that revision's `axquant_manifest.json`.
 
-| Current repository | Hub rev | AXQuant | Source pinned | BPW | Issues | v2 repository |
-| --- | --- | ---: | --- | ---: | --- | --- |
-| `AX-Devstral-Small-2505-MLX-AXQ-4bit` | `6d04a0c65dbb` | 1.0.0 | no | 4.949963 | V,U,P | `AX-Devstral-Small-2505-MLX-AXQ-4bit-v2` |
-| `AX-Devstral-Small-2505-MLX-AXQ-6bit` | `7086f12e3b3b` | 1.0.0 | no | 5.999989 | V,U,P,T | `AX-Devstral-Small-2505-MLX-AXQ-6bit-v2` |
-| `AX-gemma-4-12b-MLX-AXQ-4bit` | `5192374d4daa` | 1.0.0 | no | 4.890033 | V,U,P | `AX-gemma-4-12b-MLX-AXQ-4bit-v2` |
-| `AX-gemma-4-12b-MLX-AXQ-6bit` | `0003ab1be26a` | 1.0.0 | no | 6.000088 | V,U,P,T | `AX-gemma-4-12b-MLX-AXQ-6bit-v2` |
-| `AX-MiniCPM5-1B-MLX-AXQ-4bit` | `9fc3fb996a35` | 1.0.0 | no | 7.380428 | V,U,P,D | `AX-MiniCPM5-1B-MLX-AXQ-4bit-v2` |
-| `AX-MiniCPM5-1B-MLX-AXQ-6bit` | `f28d93155bb5` | 1.0.0 | no | 7.380428 | V,U,P,T,D | `AX-MiniCPM5-1B-MLX-AXQ-6bit-v2` |
-| `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit` | `a41e0128dd2e` | 1.0.1 | no | 5.279903 | V,U,P,R | `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2` |
-| `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit` | `8289fa74c71f` | 1.0.1 | no | 5.999990 | V,U,P,T,R | `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2` |
-| `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit` | `7db481bd6258` | 1.0.1 | no | 5.490070 | V,U,P,R | `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2` |
-| `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit` | `2e11a710290e` | 1.0.1 | no | 5.999935 | V,U,P,T,R | `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2` |
-| `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit` | `e30f2476cc20` | 1.0.0 | no | 5.150021 | V,U,P | `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2` |
-| `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit` | `0ae103ab4a51` | 1.0.0 | no | 5.999949 | V,U,P,T | `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2` |
-| `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit` | `a2bf4b597b75` | 1.0.0 | no | 4.789199 | V,U,P,S | `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2` |
-| `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit` | `84be62ed37b6` | 1.0.0 | no | 5.980108 | V,U,P,T,S | `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2` |
-| `AX-Qwen3-Coder-Next-MLX-AXQ-4bit` | `edb845770821` | 1.0.1 | no | 15.730019 | V,U,P,D,E | `AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2` |
-| `AX-Qwen3-Coder-Next-MLX-AXQ-6bit` | `9509c38ec927` | 1.0.1 | no | 15.730019 | V,U,P,T,D,E | `AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2` |
-| `AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit` | `1d020493ec6d` | 1.0.1 | no | 5.550330 | V,U,P | `AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2` |
-| `AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit` | `c807a6091e7c` | 1.0.1 | no | 8.000275 | V,U,P,T | `AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2` |
-| `AX-Qwen3-Embedding-4B-MLX-AXQ-4bit` | `db0f06460456` | 1.0.1 | no | 4.890183 | V,U,P | `AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2` |
-| `AX-Qwen3-Embedding-4B-MLX-AXQ-8bit` | `32f24f1f354a` | 1.0.1 | no | 7.999979 | V,U,P,T | `AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2` |
-| `AX-Qwen3-Embedding-8B-MLX-AXQ-4bit` | `ed2873c7a533` | 1.0.1 | no | 4.830057 | V,U,P | `AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2` |
-| `AX-Qwen3-Embedding-8B-MLX-AXQ-8bit` | `a9778699834a` | 1.0.1 | no | 7.999911 | V,U,P,T | `AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2` |
-| `AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP` | `0360978ffa26` | 1.0.0 | no | 6.736665 | V,U,P,D | `AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP` |
-| `AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP` | `fba8cc8fc328` | 1.0.0 | no | 6.736665 | V,U,P,T,D | `AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP` |
-| `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` | `c2ff69331547` | 1.0.0 | yes | 5.418315 | V,P | `AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP` |
-| `AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP` | `469c7898e707` | 1.0.0 | yes | 5.844833 | V,P,T | `AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP` |
-| `AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP` | `b87858dbcf12` | 1.0.0 | yes | 4.878782 | V,P | `AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP` |
-| `AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP` | `de13b9b581a9` | 1.0.0 | yes | 5.759473 | V,P,T | `AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP` |
+| Stable repository | Legacy Hub rev | AXQuant | Source pinned | BPW | Issues |
+| --- | --- | ---: | --- | ---: | --- |
+| `AX-Devstral-Small-2505-MLX-AXQ-4bit` | `6d04a0c65dbb` | 1.0.0 | no | 4.949963 | V,U,P |
+| `AX-Devstral-Small-2505-MLX-AXQ-6bit` | `7086f12e3b3b` | 1.0.0 | no | 5.999989 | V,U,P,T |
+| `AX-gemma-4-12b-MLX-AXQ-4bit` | `5192374d4daa` | 1.0.0 | no | 4.890033 | V,U,P |
+| `AX-gemma-4-12b-MLX-AXQ-6bit` | `0003ab1be26a` | 1.0.0 | no | 6.000088 | V,U,P,T |
+| `AX-MiniCPM5-1B-MLX-AXQ-4bit` | `9fc3fb996a35` | 1.0.0 | no | 7.380428 | V,U,P,D |
+| `AX-MiniCPM5-1B-MLX-AXQ-6bit` | `f28d93155bb5` | 1.0.0 | no | 7.380428 | V,U,P,T,D |
+| `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit` | `a41e0128dd2e` | 1.0.1 | no | 5.279903 | V,U,P,R |
+| `AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit` | `8289fa74c71f` | 1.0.1 | no | 5.999990 | V,U,P,T,R |
+| `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit` | `7db481bd6258` | 1.0.1 | no | 5.490070 | V,U,P,R |
+| `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit` | `2e11a710290e` | 1.0.1 | no | 5.999935 | V,U,P,T,R |
+| `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit` | `e30f2476cc20` | 1.0.0 | no | 5.150021 | V,U,P |
+| `AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit` | `0ae103ab4a51` | 1.0.0 | no | 5.999949 | V,U,P,T |
+| `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit` | `a2bf4b597b75` | 1.0.0 | no | 4.789199 | V,U,P,S |
+| `AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit` | `84be62ed37b6` | 1.0.0 | no | 5.980108 | V,U,P,T,S |
+| `AX-Qwen3-Coder-Next-MLX-AXQ-4bit` | `edb845770821` | 1.0.1 | no | 15.730019 | V,U,P,D,E |
+| `AX-Qwen3-Coder-Next-MLX-AXQ-6bit` | `9509c38ec927` | 1.0.1 | no | 15.730019 | V,U,P,T,D,E |
+| `AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit` | `1d020493ec6d` | 1.0.1 | no | 5.550330 | V,U,P |
+| `AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit` | `c807a6091e7c` | 1.0.1 | no | 8.000275 | V,U,P,T |
+| `AX-Qwen3-Embedding-4B-MLX-AXQ-4bit` | `db0f06460456` | 1.0.1 | no | 4.890183 | V,U,P |
+| `AX-Qwen3-Embedding-4B-MLX-AXQ-8bit` | `32f24f1f354a` | 1.0.1 | no | 7.999979 | V,U,P,T |
+| `AX-Qwen3-Embedding-8B-MLX-AXQ-4bit` | `ed2873c7a533` | 1.0.1 | no | 4.830057 | V,U,P |
+| `AX-Qwen3-Embedding-8B-MLX-AXQ-8bit` | `a9778699834a` | 1.0.1 | no | 7.999911 | V,U,P,T |
+| `AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP` | `0360978ffa26` | 1.0.0 | no | 6.736665 | V,U,P,D |
+| `AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP` | `fba8cc8fc328` | 1.0.0 | no | 6.736665 | V,U,P,T,D |
+| `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` | `c2ff69331547` | 1.0.0 | yes | 5.418315 | V,P |
+| `AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP` | `469c7898e707` | 1.0.0 | yes | 5.844833 | V,P,T |
+| `AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP` | `b87858dbcf12` | 1.0.0 | yes | 4.878782 | V,P |
+| `AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP` | `de13b9b581a9` | 1.0.0 | yes | 5.759473 | V,P,T |
 
 ## v2 rebuild and publication contract
 
@@ -103,11 +105,16 @@ Each v2 variant must satisfy all of the following:
 4. Record the corrected target class derived from the effective budget.
 5. Remove local source paths and pass the publication privacy scan.
 6. Pass MLX-LM generation before upload.
-7. Upload to a new private v2 repository, verify the uploaded tree, sizes, LFS SHA-256 values,
-   and downloaded manifest bytes, then make that verified revision public.
-8. Pass MLX-LM generation again with the public repository identity and immutable Hub revision.
-9. Keep the development-evidence banner and avoid quality, speed, MTP, or certification claims
+7. Verify each isolated rebuild's uploaded tree, sizes, LFS SHA-256 values, and downloaded
+   manifest bytes before promotion.
+8. Tag the stable repository's current revision `legacy-pre-v2`, promote the exact audited v2
+   tree to `main`, verify it again, and bind the resulting revision to tag `v2`.
+9. Pass MLX-LM generation again with the stable public repository identity and immutable Hub
+   revision.
+10. Keep the development-evidence banner and avoid quality, speed, MTP, or certification claims
    that the artifact does not support.
+11. Remove temporary edition-suffixed staging repositories only after every stable repository,
+    both tags, the catalog, and all publication evidence pass the final fleet audit.
 
 The installed AX Engine benchmark CLI did not produce a validated, parseable ready manifest for
 the representative fleet conversions. The v2 factory therefore uses
@@ -151,9 +158,12 @@ second, unrecorded tokenizer rewrite.
 
 ## Completed migration
 
-The migration completed on 2026-08-05. The final live-Hub audit established:
+The migration and stable-name cleanup completed on 2026-08-05. The final live-Hub audit
+established:
 
-- 28/28 expected v2 repositories are public, current, and receipt-bound;
+- 28/28 expected stable repositories are public, current, and receipt-bound;
+- each stable `main` equals its immutable `v2` tag, while `legacy-pre-v2` resolves to the exact
+  revision that `main` served before promotion;
 - all 28 pre-upload and post-upload MLX-LM runtime checks passed;
 - 14/14 source checkpoints resolve at their pinned immutable revisions;
 - remote trees, file sizes, non-LFS hashes, LFS SHA-256 values, downloaded manifests, plans,
@@ -161,41 +171,44 @@ The migration completed on 2026-08-05. The final live-Hub audit established:
   publication privacy all passed independent re-verification;
 - the Qwen3-Coder-Next plans contain 73,872 low-bit expert assignments per variant, with distinct
   4-bit and 6-bit payload sizes and measured main BPW below 8;
-- the fleet contains 394,448,965,023 weight bytes and 395,136,550,939 total repository bytes; and
-- all 28 v2 repositories are present in the
-  [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog).
+- the fleet contains 394,448,965,023 weight bytes and 395,136,555,823 total repository bytes;
+- all 28 stable repositories are present in the
+  [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog);
+  and
+- all 28 temporary edition-suffixed repositories were removed from the catalog and deleted only
+  after the canonical fleet audit passed; the post-deletion audit found none remaining.
 
 These remain development artifacts, not certified releases. None includes a validated native AX
 Engine manifest; the runtime evidence recorded here is for MLX-LM standard text/backbone
 inference.
 
-| Public v2 repository | Audited Hub revision | Main BPW |
-| --- | --- | ---: |
-| [`AX-Devstral-Small-2505-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit-v2) | `b547d596fc5268f36029928a7fcd91b7cb60a8f7` | 4.949963 |
-| [`AX-Devstral-Small-2505-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit-v2) | `2c14778cd319c14280f51cb6b4427647314d0fc6` | 5.999989 |
-| [`AX-MiniCPM5-1B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit-v2) | `c28c752c81d96335d2a2cfab77357ff9b195a4bf` | 7.380428 |
-| [`AX-MiniCPM5-1B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit-v2) | `26c50f8435aa52e96801496fd1cfef2d53a01457` | 7.380428 |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2) | `4bf9b3bf9da726100b2d0642ba8342e6a69cab17` | 5.610033 |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2) | `4854431159cef3d529dcef493c7699961f16caf7` | 5.999912 |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2) | `2e5b138e62ee6e54eda6ff722e19e2b38588d72a` | 5.990115 |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2) | `65dc793805794c2143c113f859fe9339a91962ec` | 5.999992 |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2) | `9937e3461228e3adf75487738b5e60f8dd54ba95` | 5.150021 |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2) | `ec0a752f1ccc8cede408399c34df1d5ef8facad9` | 5.999949 |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2) | `f21bf44e24ce40cde066e2c9faeef3291f99324e` | 4.799310 |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2) | `ea5b4fc88fc319a81c02000d818301626845bfcd` | 5.990219 |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2) | `dcebf1bf46011785f729f93fa59031aed99b15fa` | 4.797752 |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2) | `df815f1ec80c81b62119f2072034d55bc7c3ea80` | 5.998996 |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2) | `63a185caa82078a2dd7712b04b2817169ad5583d` | 5.550330 |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2) | `1ca9a9b5fb0fde6a1e05090a0a7045c27adcd74c` | 8.000275 |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2) | `6c2ea6af97b48668bb269ca58b135833d94cbd4f` | 4.890183 |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2) | `4471a236ffc039bfbd692ae6e693cd834954e8dd` | 7.999979 |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2) | `e1662c17f6ebebd30babfb92ad79b94c1a92ec5d` | 4.830057 |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2) | `f9fff0c2b21270a5bbececf8560c6bcd1282b753` | 7.999911 |
-| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP) | `246761f2d4b7a8a7a372bf293e080436b41ad7e6` | 6.736665 |
-| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP) | `f402dfda014b11ef6c5c2c06fe4971d91c08c8f8` | 6.736665 |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP) | `7d6513a57145c693989cc9fda796f2e287774504` | 5.418315 |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP) | `d5ea5f4bf870aa943f42525704d82bb44e955e73` | 5.844833 |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP) | `37759d1ea5c61a714d3664391da7ff51eceda448` | 4.878782 |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP) | `947f16be1ff49ac0bf6a2f0233c78c0f7def0dac` | 5.759473 |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-v2) | `9b01caa4c0bcff82fd15679a2a5bdfa0bb396f2e` | 4.890033 |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-v2) | `86616f7f9bc70c595c8df9173890b0733cec43ee` | 6.000088 |
+| Stable public repository | Audited `main` / `v2` revision | `legacy-pre-v2` revision | Main BPW |
+| --- | --- | --- | ---: |
+| [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | `17e0ce81a7d6aeb6729a0c84b92340e26fbe1a6d` | `6d04a0c65dbb201b9a80d12f98ba86defc711c7d` | 4.949963 |
+| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | `04be51a3173b94e0a0d859be871cfb7a749405d2` | `7086f12e3b3b0075b3668df30b712fbc7addb0e4` | 5.999989 |
+| [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | `df7ace2359f2e42684e8f35d23e4f6df6c4810fc` | `9fc3fb996a3594c3fe7bee58de4d1d7119b36bda` | 7.380428 |
+| [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | `9687cba71d5ecacea70f0467e55a4c3411b7eb19` | `f28d93155bb565a05a0a2290c0091b31bf8449f1` | 7.380428 |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | `669dda7a7d78e2fa167d6dae70128f8cf2fe778b` | `a41e0128dd2ee145caeb5cd6f1ba66ecc95c8617` | 5.610033 |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | `74cc761a1f6f3e2d0e8bbb4d3d8c15cd17ef221a` | `8289fa74c71f46d62eb78e679cc343d95d3231d7` | 5.999912 |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | `6dbeb485860fc2395204068419d081604d1bf759` | `7db481bd6258dad712a56cb3c578d6df190e44c0` | 5.990115 |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | `0821405e77f4161424b09cffd8768e2f5453d95e` | `2e11a710290e27fc3c4971314d9a4dcad306f89e` | 5.999992 |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | `91c20bd52f6c16b6b7e6f6e60b0a859ddd1ad8b0` | `e30f2476cc20dbb0a55883946f368fc815b57f88` | 5.150021 |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | `f00654783b3e3b2a020a712161eb1ac7861da348` | `0ae103ab4a5163b3bf0e615e29d9476763a42970` | 5.999949 |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | `cb2db117e80571afa466644e91ec39bd528ccf7f` | `a2bf4b597b7535fad8d64cdb6ad04a4bf291659c` | 4.799310 |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | `a4dcc84b9b7318cc206f2b17dbc1555883cf67fd` | `84be62ed37b67dcd93fa4649886de28ad2ef2a4d` | 5.990219 |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | `53dce509aa115e7fae583516b494a5dafebf31a9` | `edb845770821f874f343c61985af150f5587ba22` | 4.797752 |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | `c6f3ae556f95ce13b7d319486ad2d4d753726216` | `9509c38ec927d6b1606bca21569b3af432840986` | 5.998996 |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit) | `af35a52e317dd12b6b70d847f8c170e823bee28d` | `1d020493ec6d5aa0ead13045ab187dd4cf27bef1` | 5.550330 |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit) | `2e6255546e5f45b7eca5debda547f15b84a30836` | `c807a6091e7c49948a9cdeba7e64372f653df4e7` | 8.000275 |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit) | `05d1060acb93135650d08e65eb701653a1d9fa00` | `db0f064604567342c502837e3b66f2bfb4f133ee` | 4.890183 |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | `4abc15919c3ffc00080a1857c50d55fd401d98ee` | `32f24f1f354a0777fa4373a2cd6c28ae93e3e5a6` | 7.999979 |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | `a5cced82bfc1324b52eacbb499ac2f6463ba85f2` | `ed2873c7a533dfd76a56b2e735382cf2034275e6` | 4.830057 |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | `10854555717aa09e74c6e1b083004b399b58691e` | `a9778699834adaf73b095deb6d69c00934af9e00` | 7.999911 |
+| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | `c79379b1d22449c87bafcfa056082a2b9994dbc9` | `0360978ffa26e13483c788a53459d5e600fefd1d` | 6.736665 |
+| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | `7acb8810588f2bb3380ca96daac2afaa1ced6d19` | `fba8cc8fc3283946e02e21af6368154aa33f29bd` | 6.736665 |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | `6182ccbc41c7397ff90670f740c6d9eacfa4b09f` | `c2ff693315475640fa71a2fd6d6f95ce67ac86e9` | 5.418315 |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | `8c37715c7b5f5ebca00eda6f73be47116a3e4ebc` | `469c7898e707c0e04241270bee8914323ce78270` | 5.844833 |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | `3b496c6b1de84c700cbd2571a5a41671a8bb076c` | `b87858dbcf129c1991234683076ecf687833c6e1` | 4.878782 |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | `d339afd98930abe4c1731f0b65336f6af78acccc` | `de13b9b581a9d5ca273a752ca44169611d9bd442` | 5.759473 |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | `585587770cb4a2fc541e4570afe009d9674e6755` | `5192374d4daa6dc45d783353ccff4a64d41e293f` | 4.890033 |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | `71d438a4016762ea9c40aaf097a420fa413bfef0` | `0003ab1be26ae5a51a824ed511847c3d540c9005` | 6.000088 |

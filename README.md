@@ -26,7 +26,7 @@ multi-token-prediction (MTP) weights.
   ```
 - **Naming isn't the bit budget:** existing `4bit`/`6bit` development-pack names are planning
   classes, not fixed-width claims — for example the public
-  `AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP` pack measures ~5.42 BPW. A future certified flagship must
+  `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures ~5.42 BPW. A future certified flagship must
   use the measured-BPW form `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`; manifests remain authoritative.
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next, MiniCPM5,
   Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano — see the tier matrix under
@@ -202,51 +202,55 @@ or above the floor when the budget must be fixed.
 
 Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
 (BF16 source → `axquant quantize` → Hub upload; **not** certified releases).
-Use the `v2` repositories listed below; the unversioned predecessors remain available only as
-historical development artifacts.
+The stable repository names below now serve the audited v2 artifacts on `main`, so existing model
+identifiers continue to work. Each exact v2 revision is also tagged `v2`; the artifact previously
+served by each repository remains recoverable at `legacy-pre-v2`. Temporary migration repositories
+with edition suffixes are not part of the public catalog.
 
 Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
 present). Cards are multi-family aware and state evidence limits explicitly.
 
 The [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
-contains all 28 audited v2 packs. The BPW values below are rounded from each current public
-manifest's `measured_main_bpw`; the linked model card and manifest remain authoritative.
+contains all 28 audited packs under their stable names. The BPW values below are rounded from each
+current public manifest's `measured_main_bpw`; the linked model card and manifest remain
+authoritative.
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP) | 5.844833 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
-| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP) | 6.736665 | secondary; protection floors dominate |
-| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP) | 6.736665 | secondary; same effective floor |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-v2) | 4.890033 | secondary; vision sidecar preserved |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-v2) | 6.000088 | secondary; vision sidecar preserved |
-| [`AX-Devstral-Small-2505-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit-v2) | 4.949963 | secondary coding/agent |
-| [`AX-Devstral-Small-2505-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit-v2) | 5.999989 | secondary coding/agent |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2) | 5.150021 | secondary; vision sidecar preserved |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2) | 5.999949 | secondary; vision sidecar preserved |
-| [`AX-MiniCPM5-1B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit-v2) | 7.380428 | secondary fixture; protection floors dominate |
-| [`AX-MiniCPM5-1B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit-v2) | 7.380428 | secondary fixture; same effective floor |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2) | 4.799310 | thin Nano support |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2) | 5.990219 | thin Nano support |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2) | 5.550330 | embedding; `feature-extraction` card |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2) | 8.000275 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2) | 4.890183 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2) | 7.999979 | embedding |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2) | 4.830057 | embedding |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2) | 7.999911 | embedding |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2) | 4.797752 | corrected indexed-expert packing |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2) | 5.998996 | corrected indexed-expert packing |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2) | 5.990115 | Mistral3 language path |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2) | 5.999992 | Mistral3 language path |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2) | 5.610033 | Mistral3 language path |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2) | 5.999912 | Mistral3 language path |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.844833 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | 6.736665 | secondary; protection floors dominate |
+| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; same effective floor |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | 4.890033 | secondary; vision sidecar preserved |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | 6.000088 | secondary; vision sidecar preserved |
+| [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
+| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | 5.999949 | secondary; vision sidecar preserved |
+| [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | 7.380428 | secondary fixture; protection floors dominate |
+| [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | 7.380428 | secondary fixture; same effective floor |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | 4.799310 | thin Nano support |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | 5.990219 | thin Nano support |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit) | 5.550330 | embedding; `feature-extraction` card |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit) | 8.000275 | embedding |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit) | 4.890183 | embedding |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | 7.999979 | embedding |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | 4.830057 | embedding |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | corrected indexed-expert packing |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | corrected indexed-expert packing |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | 5.990115 | Mistral3 language path |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | 5.999912 | Mistral3 language path |
 
-**Development naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-vN][-MTP]` (**MTP last**
-when present; MLX-style bit labels, not GGUF `q4`). The class is a planning budget, not a claim
-that every tensor uses that width.
+**Development naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (MLX-style bit labels,
+not GGUF `q4`). Artifact editions are recorded in the model card and immutable Hub tags instead
+of changing the repository identifier. The class is a planning budget, not a claim that every
+tensor uses that width.
 
 **Certified naming:** `AX-<Base>-MLX-AXQ-MP-<measured-main-BPW>bpw[-MTP]`, rounded to two
 decimal places with decimal half-up rules (for example `MP-5p30bpw-MTP`). This name is generated
@@ -256,7 +260,7 @@ from audited measured bytes; `target_class` remains metadata.
 
 ```bash
 python -m pip install -U mlx-lm
-mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP \
+mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
   --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
@@ -267,8 +271,9 @@ Regenerate a public card from a local pack:
 
 ```bash
 python scripts/prepare_development_model_card.py \
-  --artifact-dir /path/to/AX-...-MLX-AXQ-6bit-v2-MTP \
-  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-v2-MTP
+  --artifact /path/to/AX-...-MLX-AXQ-6bit-MTP \
+  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-MTP \
+  --artifact-edition 2
 ```
 
 Implemented now:

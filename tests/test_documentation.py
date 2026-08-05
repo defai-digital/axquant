@@ -44,7 +44,7 @@ def test_public_docs_do_not_reference_local_only_material() -> None:
     assert not offenders
 
 
-def test_public_v2_catalog_matches_completed_migration_table() -> None:
+def test_public_stable_catalog_matches_completed_migration_table() -> None:
     readme_catalog = (
         _read("README.md")
         .split(
@@ -55,7 +55,8 @@ def test_public_v2_catalog_matches_completed_migration_table() -> None:
     )
     completion = _read("docs/model-fleet-v2.md").split("## Completed migration", 1)[1]
     repository_link = re.compile(
-        r"https://huggingface\.co/AutomatosX/(AX-[A-Za-z0-9._-]+-v2(?:-MTP)?)"
+        r"https://huggingface\.co/AutomatosX/"
+        r"(AX-[A-Za-z0-9._-]+-MLX-AXQ-(?:4bit|6bit|8bit)(?:-MTP)?)"
     )
     readme_repositories = repository_link.findall(readme_catalog)
     completion_repositories = repository_link.findall(completion)
@@ -63,6 +64,9 @@ def test_public_v2_catalog_matches_completed_migration_table() -> None:
     assert len(readme_repositories) == 28
     assert len(set(readme_repositories)) == 28
     assert set(completion_repositories) == set(readme_repositories)
+    assert "legacy-pre-v2" in readme_catalog
+    assert "tagged `v2`" in readme_catalog
+    assert not re.search(r"https://huggingface\.co/AutomatosX/[^)\s]+-v2(?:-MTP)?", readme_catalog)
     assert "(factory)" not in readme_catalog
     assert "regeneration required" not in readme_catalog
 

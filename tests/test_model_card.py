@@ -217,6 +217,41 @@ def test_development_model_card_supports_versioned_fleet_names(
     assert "AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP" in readme
 
 
+def test_development_model_card_marks_v2_at_stable_repository_name(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        product_class="6bit",
+        artifact_edition=2,
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "| Artifact edition | `v2` |" in readme
+    assert "**Stable-name v2.**" in readme
+    assert "`legacy-pre-v2`" in readme
+    assert "AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP" in readme
+    assert "AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP" in readme
+    assert "AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP" not in readme
+
+
+def test_development_model_card_rejects_conflicting_artifact_edition(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+
+    with pytest.raises(ArtifactError, match="edition does not match"):
+        prepare_development_model_card(
+            artifact_dir=directory,
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
+            artifact_edition=3,
+        )
+
+
 def test_embedding_model_card_links_4bit_and_8bit_v2_siblings(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -232,6 +267,25 @@ def test_embedding_model_card_links_4bit_and_8bit_v2_siblings(
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" in readme
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2" in readme
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-6bit-v2" not in readme
+
+
+def test_embedding_model_card_links_stable_4bit_and_8bit_siblings(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit",
+        product_class="4bit",
+        artifact_edition=2,
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-6bit" not in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" not in readme
 
 
 def test_development_model_card_does_not_claim_ax_engine_without_native_manifest(

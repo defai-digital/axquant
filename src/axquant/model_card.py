@@ -38,6 +38,18 @@ _REFRESHABLE_FILES = frozenset(
 )
 
 
+def _resolve_artifact_edition(
+    repo_edition: str | None,
+    artifact_edition: int | None,
+) -> int | None:
+    if artifact_edition is not None and (type(artifact_edition) is not int or artifact_edition < 1):
+        raise ArtifactError("artifact edition must be a positive integer")
+    inferred = int(repo_edition.removeprefix("-v")) if repo_edition else None
+    if artifact_edition is not None and inferred is not None and artifact_edition != inferred:
+        raise ArtifactError("explicit artifact edition does not match the Hub repository name")
+    return artifact_edition if artifact_edition is not None else inferred
+
+
 def _public_identity(identity: ModelIdentity) -> ModelIdentity:
     return identity.model_copy(update={"local_path": None})
 
@@ -196,6 +208,7 @@ def render_development_model_card(
     execution: QuantizerExecutionManifest,
     mtp_sidecar: ProtectedTensorSidecarManifest | None,
     vision_sidecar: ProtectedTensorSidecarManifest | None,
+    artifact_edition: int | None = None,
 ) -> str:
     """Render an evidence-safe Hub card for a development AXQ checkpoint."""
 
@@ -215,14 +228,17 @@ def render_development_model_card(
     ):
         raise ArtifactError("artifact manifest and plan use different source identities")
     stem = match.group("stem")
-    edition = match.group("edition") or ""
+    repo_edition = match.group("edition") or ""
+    resolved_edition = _resolve_artifact_edition(
+        match.group("edition"),
+        artifact_edition,
+    )
     suffix = "-MTP" if name.endswith("-MTP") else ""
     is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
     higher_precision_class = "8bit" if is_embedding_pack else "6bit"
-    four_bit_repo = f"{repo_id.split('/', 1)[0]}/{stem}-4bit{edition}{suffix}"
-    higher_precision_repo = (
-        f"{repo_id.split('/', 1)[0]}/{stem}-{higher_precision_class}{edition}{suffix}"
-    )
+    owner = repo_id.split("/", 1)[0]
+    four_bit_repo = f"{owner}/{stem}-4bit{repo_edition}{suffix}"
+    higher_precision_repo = f"{owner}/{stem}-{higher_precision_class}{repo_edition}{suffix}"
     density = "dense" if plan.architecture_profile.dense else "mixture of experts (MoE)"
     product_family = plan.architecture_profile.product_family or "unknown"
     source_arch = source.architecture or plan.architecture_profile.config_model_type or "unrecorded"
@@ -271,6 +287,8 @@ def render_development_model_card(
     family_tag = product_family.replace(" ", "-").lower()
     pipeline_tag = "feature-extraction" if is_embedding_pack else "text-generation"
     optional_tags = [family_tag, product_class, precision_tag]
+    if resolved_edition is not None:
+        optional_tags.append(f"v{resolved_edition}")
     if is_embedding_pack:
         optional_tags.extend(("embedding", "sentence-similarity"))
     if has_mtp:
@@ -307,7 +325,16 @@ def render_development_model_card(
             "(embeddings, norms, and other protected tensors remain higher precision)."
         )
     total_bpw_label = "Measured total BPW, including MTP" if has_mtp else "Measured total BPW"
-    edition_row = f"| Artifact edition | `{edition.removeprefix('-')}` |\n" if edition else ""
+    edition_row = (
+        f"| Artifact edition | `v{resolved_edition}` |\n" if resolved_edition is not None else ""
+    )
+    stable_name_notice = (
+        "\n> **Stable-name v2.** `main` serves the audited v2 artifact for backward "
+        "compatibility. The same revision is tagged `v2`; the replaced artifact remains "
+        "recoverable at `legacy-pre-v2`.\n"
+        if resolved_edition == 2 and not repo_edition
+        else ""
+    )
     mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
     if has_native_manifest:
         ax_engine_runtime_status = (
@@ -404,6 +431,7 @@ the BF16 source model. {sidecar_blurb}
 > **Development evidence — not a certified AXQuant release.** This package has conversion and
 > artifact-integrity records, but it does not publish measured quality, long-context, kernel-speed,
 > or MTP-speed evidence. Do not interpret the AXQ product label as a benchmark claim.
+{stable_name_notice}
 
 ## Model details
 
@@ -602,6 +630,7 @@ def prepare_development_model_card(
     artifact_dir: str | Path,
     repo_id: str,
     product_class: str | None = None,
+    artifact_edition: int | None = None,
 ) -> list[Path]:
     """Sanitize public provenance and materialize a detailed development model card.
 
@@ -630,6 +659,10 @@ def prepare_development_model_card(
     resolved_class = product_class or inferred_class
     if resolved_class != inferred_class:
         raise ArtifactError("explicit product class does not match the Hub repository name")
+    resolved_edition = _resolve_artifact_edition(
+        match.group("edition"),
+        artifact_edition,
+    )
 
     manifest_path = directory / "axquant_manifest.json"
     plan_path = directory / "axquant_plan.json"
@@ -687,6 +720,7 @@ def prepare_development_model_card(
             execution=execution,
             mtp_sidecar=mtp_sidecar,
             vision_sidecar=vision_sidecar,
+            artifact_edition=resolved_edition,
         ),
     )
     _refresh_manifest_records(directory, manifest)

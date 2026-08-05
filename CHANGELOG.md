@@ -10,10 +10,11 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ### Added
 
-- Versioned development-artifact naming (`-vN` before an optional `-MTP` suffix) and the completed
-  28-repository AXQ v2 migration from 14 immutable sources. Every public replacement has a
-  receipt-bound revision, passing pre/post-upload MLX-LM checks, reverified Hub tree and hashes,
-  evidence-safe sibling links/model-card metadata, and a verified catalog entry.
+- Explicit development-artifact edition metadata and the completed 28-repository AXQ v2
+  migration from 14 immutable sources. Stable repository names now serve receipt-bound v2
+  revisions on `main` and tag `v2`, while `legacy-pre-v2` preserves each replaced artifact.
+  Every promoted revision passed pre/post-upload MLX-LM checks, reverified Hub trees and hashes,
+  evidence-safe sibling links/model-card metadata, and a verified stable-name catalog entry.
 - Additive `qwen36-mtp-v2` flagship certification contracts: path-neutral `CheckpointKey` and
   `CandidateKey`, frozen campaigns with disjoint dataset roles, exact-`mbp-m5` preflight,
   formal-cycle/holdout consumption state, durable archive proof, independent review, clean-host
@@ -52,8 +53,8 @@ the section is missing — add an entry in the same change as any user-facing mo
   checkpoint; AXQuant's unindexed-Safetensors rejection remains strict.
 - Development cards no longer advertise an AX Engine serve path when the package has no validated
   native `model-manifest.json`; MLX-LM remains the documented standard text/backbone path.
-- Qwen3 Embedding development cards link their real 4-bit/8-bit v2 siblings instead of a
-  nonexistent 6-bit variant.
+- Qwen3 Embedding development cards link their real stable-name 4-bit/8-bit siblings instead of
+  a nonexistent 6-bit variant.
 - Release-bound identity comparisons ignore absolute `local_path` while preserving it as
   execution provenance; checkpoint/candidate byte digests still fail closed on content drift.
 - Generation-smoke no longer requires the `mlx_lm` Python package; advisory KV / runtime
