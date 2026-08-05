@@ -522,8 +522,12 @@ def _load_calibration_inputs(
             if len(current) == manifest.sequence_length:
                 packed_inputs.append(np.asarray(current, dtype=np.int32))
                 current = []
-    if current:
+    if len(current) >= 2:
         packed_inputs.append(np.asarray(current, dtype=np.int32))
+    elif current:
+        # A single-token remainder cannot be probed (forward passes need at
+        # least two tokens); drop it instead of aborting the whole run.
+        measured_tokens -= len(current)
     replay_batches: list[Any] = []
     index = 0
     while index < len(packed_inputs):

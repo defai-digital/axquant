@@ -39,9 +39,16 @@ sync_and_verify() {
   ensure_real_dir "$destination"
   # Preserve existing destination files. A same-name content conflict is reported by
   # the checksum pass below and leaves both source and destination in place.
-  rsync -aH --ignore-existing "$source/" "$destination/"
+  rsync -aH --ignore-existing --exclude '.DS_Store' "$source/" "$destination/"
   local differences
-  differences="$(rsync -aHnc --itemize-changes "$source/" "$destination/")"
+  # Content-only verify: --ignore-existing never aligns times/perms on files
+  # already present, so attribute-only itemize lines (leading '.') must not
+  # block the migration. Content differences itemize as '>', '<', 'c', 'h',
+  # or '*deleting' and stay fatal.
+  differences="$(
+    rsync -rlHnc --itemize-changes --exclude '.DS_Store' "$source/" "$destination/" \
+      | grep -Ev '^\.' || true
+  )"
   [[ -z "$differences" ]] || {
     echo "$differences" >&2
     die "checksum verification failed: $source -> $destination"
@@ -76,10 +83,30 @@ echo "HF cache -> $(readlink "${HOME}/.cache/huggingface")"
 # Ensure artifact symlinks for publish/logs. This script replaces children of ART,
 # so following a symlinked ART root would make its deletion boundary meaningless.
 ensure_real_dir "$ART"
-if [[ -d "$ART/axq-publish" && ! -L "$ART/axq-publish" ]]; then
-  sync_and_verify "$ART/axq-publish" "$AXQ/axq-publish"
-  safe_remove_tree "$ART/axq-publish" "$ART"
-fi
+
+# Migrate a live directory by moving it aside first: writers landing between
+# the checksum verify and the delete would otherwise be erased silently, while
+# after the rename late writers fail loudly. A leftover *.migrating dir from an
+# interrupted run is merged before anything else.
+migrate_live_dir() {
+  local source="$1"
+  local destination="$2"
+  local staging="${source}.migrating"
+  if [[ -d "$staging" && ! -L "$staging" ]]; then
+    sync_and_verify "$staging" "$destination"
+    safe_remove_tree "$staging" "$(dirname "$staging")"
+  fi
+  if [[ -d "$source" && ! -L "$source" ]]; then
+    [[ ! -e "$staging" && ! -L "$staging" ]] || {
+      die "unmergeable migration staging path exists: $staging"
+    }
+    mv "$source" "$staging"
+    sync_and_verify "$staging" "$destination"
+    safe_remove_tree "$staging" "$(dirname "$staging")"
+  fi
+}
+
+migrate_live_dir "$ART/axq-publish" "$AXQ/axq-publish"
 if [[ -L "$ART/axq-publish" ]]; then
   [[ "$(readlink "$ART/axq-publish")" == "$AXQ/axq-publish" ]] || {
     die "$ART/axq-publish points somewhere unexpected"
@@ -88,10 +115,7 @@ else
   ln -s "$AXQ/axq-publish" "$ART/axq-publish"
 fi
 
-if [[ -d "$ART/logs" && ! -L "$ART/logs" ]]; then
-  sync_and_verify "$ART/logs" "$AXQ/logs"
-  safe_remove_tree "$ART/logs" "$ART"
-fi
+migrate_live_dir "$ART/logs" "$AXQ/logs"
 if [[ -L "$ART/logs" ]]; then
   [[ "$(readlink "$ART/logs")" == "$AXQ/logs" ]] || {
     die "$ART/logs points somewhere unexpected"

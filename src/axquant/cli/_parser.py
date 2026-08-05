@@ -76,6 +76,19 @@ def _kv_bit(value: str) -> int:
     return result
 
 
+def _kv_default_bit(value: str) -> int:
+    result = _kv_bit(value)
+    if result < 4:
+        # Probe grids may measure 2/3-bit KV, but every allocator enforces the
+        # 4-bit policy floor, so sub-4 defaults would only fail at plan time.
+        choices = ",".join(str(bits) for bits in sorted(AX_ENGINE_EXECUTABLE_BITS) if bits >= 4)
+        raise argparse.ArgumentTypeError(
+            f"unsupported KV default precision {result}; the policy floor is 4-bit "
+            f"(choose from {choices})"
+        )
+    return result
+
+
 def _kv_group_size(value: str) -> int:
     try:
         result = int(value)
@@ -451,7 +464,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
     plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
-    plan_parser.add_argument("--kv-default-bits", type=_kv_bit, default=4)
+    plan_parser.add_argument("--kv-default-bits", type=_kv_default_bit, default=4)
     plan_parser.add_argument("--kv-analysis", help="KV sensitivity report for --kv-cache measured")
     plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
     plan_parser.add_argument("--output", default="quantization-plans")

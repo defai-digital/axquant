@@ -48,11 +48,13 @@ def annotate_experimental_low_bit_plan(plan: QuantizationPlan) -> QuantizationPl
     warnings = list(plan.warnings)
     if EXPERIMENTAL_WARNING not in warnings:
         warnings.append(EXPERIMENTAL_WARNING)
-    warnings.append(
+    details = (
         "Experimental low-bit assignments present: "
         + ", ".join(f"{bits}-bit" for bits in experimental_bits)
         + f"; preferred fine group size is {PREFERRED_EXPERIMENTAL_GROUP_SIZE}."
     )
+    if details not in warnings:
+        warnings.append(details)
     min_quant = min(
         (assignment.bits for assignment in plan.assignments if assignment.bits < 16),
         default=16,

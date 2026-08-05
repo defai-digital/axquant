@@ -86,11 +86,14 @@ ensure_home_dir() {
   [[ "$path" == "$HOME" || "$path" == "$HOME/"* ]] || die "path is outside HOME: $path"
   local relative="${path#"$HOME"}"
   relative="${relative#/}"
+  # path == HOME: nothing to create, and expanding the resulting empty array
+  # crashes bash 3.2 under set -u
+  [[ -n "$relative" ]] || return 0
   local current="$HOME"
   local -a components=()
   local component
   IFS='/' read -r -a components <<<"$relative"
-  for component in "${components[@]}"; do
+  for component in ${components[@]+"${components[@]}"}; do
     [[ -n "$component" ]] || continue
     current="$current/$component"
     ensure_real_dir "$current"
@@ -274,6 +277,9 @@ EOF
   else
     cp "$ZSHRC" "$tmp"
   fi
+  # a config without a trailing newline would glue the begin marker onto the
+  # user's last line and break both that line and future marker matching
+  [[ ! -s "$tmp" ]] || [[ -z "$(tail -c1 "$tmp")" ]] || echo >>"$tmp"
   printf '%s\n' "$block" >>"$tmp"
   chmod "$(stat -f '%Lp' "$ZSHRC")" "$tmp"
   mv "$tmp" "$ZSHRC"

@@ -470,15 +470,16 @@ def _wheel_identity(path: Path) -> tuple[str | None, list[str]]:
                 entry_points,
             ):
                 issues.append("toolkit wheel does not expose the axquant console entry point")
-            package_init = wheel.read("axquant/__init__.py").decode("utf-8")
-            version_match = re.search(
-                r'(?m)^__version__\s*=\s*["\']([^"\']+)["\']\s*$',
-                package_init,
-            )
-            if version_match is None or version_match.group(1) != version:
-                issues.append("toolkit package version differs from distribution metadata")
+            if "axquant/__init__.py" in names:
+                package_init = wheel.read("axquant/__init__.py").decode("utf-8")
+                version_match = re.search(
+                    r'(?m)^__version__\s*=\s*["\']([^"\']+)["\']\s*$',
+                    package_init,
+                )
+                if version_match is None or version_match.group(1) != version:
+                    issues.append("toolkit package version differs from distribution metadata")
             return version, issues
-    except (OSError, UnicodeDecodeError, zipfile.BadZipFile) as exc:
+    except (OSError, KeyError, UnicodeDecodeError, zipfile.BadZipFile) as exc:
         return None, [f"toolkit wheel cannot be inspected: {exc}"]
 
 
@@ -612,7 +613,7 @@ def _benchmark_index_issues(
             issues.append(f"{entry.kind.value} benchmark hardware provenance is incomplete")
         metadata = bundle.benchmark_metadata
         missing_metadata = [
-            name for name in _BENCHMARK_METADATA_FIELDS if metadata.get(name) in {None, ""}
+            name for name in _BENCHMARK_METADATA_FIELDS if metadata.get(name) in (None, "")
         ]
         if missing_metadata:
             issues.append(f"{entry.kind.value} benchmark metadata is missing: {missing_metadata}")
@@ -923,7 +924,7 @@ def _registry_measurements(
         return None, ["hardware measurement set checksum does not match the registry"]
     try:
         measurements = load_model(path, RefinementMeasurementSet)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ArtifactError) as exc:
         return None, [f"hardware measurement set is invalid: {exc}"]
     if stable_sha256(measurements) != registry.measurement_set_sha256:
         return None, ["hardware measurement set semantic digest does not match the registry"]
@@ -1130,7 +1131,7 @@ def _calibration_issues(
         return ["calibration manifest is missing or checksum-mismatched"]
     try:
         manifest = load_model(path, CalibrationManifest)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, ArtifactError) as exc:
         return [f"calibration manifest is invalid: {exc}"]
     if not calibration_manifest_matches(path, manifest, expected_sha256):
         return ["calibration manifest is missing or checksum-mismatched"]

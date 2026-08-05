@@ -547,6 +547,14 @@ def _assert_public_consistency(directory: Path) -> None:
             identities.append(sidecar.source_model)
     if any(identity.local_path for identity in identities):
         raise ArtifactError("public AXQuant metadata contains a local source path")
+    if manifest.calibration != plan.calibration:
+        raise ArtifactError(
+            "public artifact manifest and plan record different calibration evidence"
+        )
+    if plan.calibration is not None:
+        reference = Path(plan.calibration.reference.replace("\\", "/"))
+        if reference.is_absolute() or ".." in reference.parts:
+            raise ArtifactError("public calibration evidence references a local path")
     records = {record.path: record for record in manifest.files}
     for relative in _REFRESHABLE_FILES:
         path = directory / relative
@@ -629,6 +637,13 @@ def prepare_development_model_card(
 
     manifest.source_model = _public_identity(manifest.source_model)
     manifest.plan_sha256 = plan_sha256
+    # Mirror the sanitized calibration evidence: the converter records
+    # manifest.calibration as a copy of plan.calibration, and release-audit M1
+    # requires them to stay equal — leaving the manifest copy unsanitized both
+    # leaks the local reference and breaks that invariant.
+    manifest.calibration = (
+        plan.calibration.model_copy(deep=True) if plan.calibration is not None else None
+    )
     _refresh_manifest_records(directory, manifest)
     readme = directory / "README.md"
     write_text(

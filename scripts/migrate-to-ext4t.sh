@@ -104,11 +104,14 @@ ensure_home_dir() {
   [[ "$path" == "$HOME" || "$path" == "$HOME/"* ]] || die "path is outside HOME: $path"
   local relative="${path#"$HOME"}"
   relative="${relative#/}"
+  # path == HOME: nothing to create, and expanding the resulting empty array
+  # crashes bash 3.2 under set -u
+  [[ -n "$relative" ]] || return 0
   local current="$HOME"
   local -a components=()
   local component
   IFS='/' read -r -a components <<<"$relative"
-  for component in "${components[@]}"; do
+  for component in ${components[@]+"${components[@]}"}; do
     [[ -n "$component" ]] || continue
     current="$current/$component"
     ensure_real_dir "$current"
@@ -360,6 +363,7 @@ verify_layout() {
 }
 
 main() {
+  [[ $# -le 1 ]] || die "unexpected extra arguments: ${*:2} (one mode per run; try --help)"
   local mode="${1:-all}"
   validate_configuration
   case "$mode" in
@@ -397,4 +401,4 @@ main() {
   esac
 }
 
-main "${1:-all}"
+main "$@"

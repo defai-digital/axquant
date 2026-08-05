@@ -7,11 +7,14 @@ calls behind a lazy resolution step so the module imports without the runtime.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import platform
 import random
 import re
 import shutil
+import signal
 import subprocess
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -464,12 +467,25 @@ def _run_single_trial(
     start = time.monotonic()
     try:
         if using_real_runner:
-            completed = subprocess.run(
+            # Run in a new session so a timeout can kill the whole process
+            # group: subprocess.run would only kill /usr/bin/time and leave
+            # the ax-engine grandchild running, contaminating later trials.
+            process = subprocess.Popen(
                 command,
-                check=False,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=config.timeout_seconds,
+                start_new_session=True,
+            )
+            try:
+                stdout, stderr = process.communicate(timeout=config.timeout_seconds)
+            except subprocess.TimeoutExpired:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.communicate()
+                raise
+            completed = subprocess.CompletedProcess(
+                command, process.returncode, stdout, stderr
             )
         else:
             completed = runner(command)
@@ -827,13 +843,20 @@ def result_to_evaluation_bundle(
     # Aggregate MTP metrics
     mtp_metrics: MtpMetrics | None = None
     if config.mtp_enabled and measured:
-        total_accepted = sum(t.mtp_accepted_tokens or 0 for t in measured)
-        total_proposed = sum(t.mtp_proposed_tokens or 0 for t in measured)
+        # Ratios must pair numerator and denominator over the same trials:
+        # trials whose backend reported no MTP counters (e.g. direct fallback)
+        # would otherwise dilute the averages and inflate tokens-per-forward.
+        accepted_reporting = [t for t in measured if t.mtp_accepted_tokens is not None]
+        total_accepted = sum(t.mtp_accepted_tokens or 0 for t in accepted_reporting)
+        total_proposed = sum(t.mtp_proposed_tokens or 0 for t in accepted_reporting)
         acceptance_rate = total_accepted / total_proposed if total_proposed > 0 else None
-        avg_accepted = total_accepted / len(measured) if measured else None
-        total_decode_steps = sum(t.mtp_decode_steps or 0 for t in measured)
+        avg_accepted = (
+            total_accepted / len(accepted_reporting) if accepted_reporting else None
+        )
+        steps_reporting = [t for t in measured if t.mtp_decode_steps is not None]
+        total_decode_steps = sum(t.mtp_decode_steps or 0 for t in steps_reporting)
         effective_tpf = (
-            sum(t.tokens_generated for t in measured) / total_decode_steps
+            sum(t.tokens_generated for t in steps_reporting) / total_decode_steps
             if total_decode_steps > 0
             else None
         )

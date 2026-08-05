@@ -325,7 +325,8 @@ def publish_model(
             raise PublishingError("executed publication requires --release-audit-request")
         if isinstance(audit, Qwen3NextReleaseAudit) and certification_registry_path is None:
             raise PublishingError("executed non-MTP publication requires --certification-registry")
-        _rerun_release_audit(audit=audit, request_path=release_audit_request_path)
+        # The audit rerun happens once, after preparation, so it binds the
+        # exact artifact state that is uploaded.
     direct_request = False
     if release_audit_request_path is not None:
         payload = read_data(release_audit_request_path)

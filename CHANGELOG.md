@@ -40,6 +40,36 @@ the section is missing — add an entry in the same change as any user-facing mo
   **Pre-fix artifacts may have retained most expert weights at BF16 and must be regenerated.**
 - Capture resume now fails closed on binding drift (model, cache, `--max-rows`, segments, token
   budget) instead of silently mixing runs.
+- AWQ/GPTQ convert-time refinement no longer crashes on bfloat16 module weights (the default
+  dtype of real checkpoints).
+- Affine/DWQ/AWQ quantizers build the per-group grid from the float16-stored scale (rounded
+  up, never down), restoring the documented ≤ scale/2 per-element round-trip bound.
+- `plan`/`refine` inject BF16 for policy-preserved tensors (norms, LM head, vision) when 16 is
+  omitted from `--bits`, matching manual planning, instead of failing per tensor; manual
+  tied-weight harmonization now refreshes scale/outlier strategies and stored BPW.
+- Feasibility audits require MTP evidence only from MTP-declaring architectures, making the
+  Qwen3-Next direct-track N0 gate satisfiable with tool-produced reports.
+- Measured probe/KV-probe runs no longer abort when the calibration token count leaves a
+  single-token trailing replay batch.
+- The `kv-exec` runtime check now fails when executed per-layer KV bits differ from the plan
+  (previously reported but not enforced), and benchmark trial timeouts kill the whole
+  AX Engine process group instead of orphaning the generation.
+- MTP benchmark aggregates pair numerators and denominators over counter-reporting trials
+  only, instead of inflating `effective_tokens_per_forward` when some trials lack counters.
+- `prepare_development_model_card` sanitizes the manifest's calibration reference along with
+  the plan's (local-path leak that also broke the release-audit M1 equality invariant).
+- Release audit records issues instead of crashing on wheels missing `axquant/__init__.py`,
+  corrupt measurement-set or calibration files, and non-scalar benchmark metadata; hardware
+  registry checks record all-failed raw benchmarks instead of raising.
+- `--kv-default-bits` rejects sub-policy-floor values (2/3) at parse time instead of failing
+  late in planning.
+- `scripts/hf_to_mlx_bf16.py` writes the lm_head-synthesized shard aside and swaps atomically;
+  saving onto the mmap-backed source silently corrupted every tensor in the shard.
+- Ext4T scripts: union-sync verification compares content only (mtime-only differences no
+  longer deadlock syncs), empty-array expansions no longer crash stock macOS bash 3.2 under
+  `set -u`, shell-config marker blocks no longer corrupt an rc file lacking a trailing
+  newline, live log/publish directories are moved aside before migrate-and-delete, and
+  `--status`/argument handling exit correctly.
 
 See the [v1.1.x → v1.2.0 migration guide](docs/migration-v1.2.md) for action items.
 

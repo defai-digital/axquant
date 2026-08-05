@@ -38,7 +38,9 @@ fi
 declare -a SSH_ARGS=()
 read -r -a SSH_ARGS <<<"$SSH_OPTS"
 RSYNC_SSH="ssh"
-for ssh_arg in "${SSH_ARGS[@]}"; do
+# ${arr[@]+...} guard: expanding an empty array (SSH_OPTS="") crashes
+# bash 3.2 under set -u
+for ssh_arg in ${SSH_ARGS[@]+"${SSH_ARGS[@]}"}; do
   printf -v RSYNC_SSH '%s %q' "$RSYNC_SSH" "$ssh_arg"
 done
 
@@ -112,7 +114,7 @@ ssh_peer() {
   shift
   # Arguments are fixed command tokens in this script; peer names are validated.
   # shellcheck disable=SC2029
-  ssh "${SSH_ARGS[@]}" "$peer" "$@"
+  ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$peer" "$@"
 }
 
 require_peer_ext4t() {
@@ -176,12 +178,17 @@ verify_transfer() {
   local dst="$2"
   local label="$3"
   local differences
+  # Content-only verify: --ignore-existing transfers never align times/perms
+  # on files present on both sides, so attribute-only itemize lines (leading
+  # '.') must not fail the verify; content lines ('>', '<', 'c', 'h',
+  # '*deleting') stay fatal.
   differences="$(
-    rsync -aHnc --itemize-changes \
+    rsync -rlHnc --itemize-changes \
       --exclude '.DS_Store' \
       --exclude '.rsync-partial' \
       -e "$RSYNC_SSH" \
-      "$src" "$dst"
+      "$src" "$dst" \
+      | grep -Ev '^\.' || true
   )"
   [[ -z "$differences" ]] || {
     echo "$differences" >&2
@@ -194,12 +201,16 @@ verify_peer() {
   local remote
   remote="$(remote_hf_path "$peer")"
   local differences
+  # Content-only comparison: attribute-only itemize lines (leading '.') are
+  # expected after --ignore-existing union passes and must not fail the
+  # verify; content lines and '*deleting' stay fatal.
   differences="$(
-    rsync -aHnc --delete --itemize-changes \
+    rsync -rlHnc --delete --itemize-changes \
       --exclude '.DS_Store' \
       --exclude '.rsync-partial' \
       -e "$RSYNC_SSH" \
-      "${HF_LOCAL}/" "${peer}:${remote}/"
+      "${HF_LOCAL}/" "${peer}:${remote}/" \
+      | grep -Ev '^\.' || true
   )"
   [[ -z "$differences" ]] || {
     echo "$differences" >&2
@@ -247,8 +258,11 @@ merge_and_backup() {
   local destination="$2"
   local stamp backup differences
   rsync -aH --partial --ignore-existing --exclude '.DS_Store' "$source/" "$destination/"
+  # Content-only comparison: --ignore-existing leaves attribute differences on
+  # files present on both sides; only content itemize lines are conflicts.
   differences="$(
-    rsync -aHnc --itemize-changes --exclude '.DS_Store' "$source/" "$destination/"
+    rsync -rlHnc --itemize-changes --exclude '.DS_Store' "$source/" "$destination/" \
+      | grep -Ev '^\.' || true
   )"
   [[ -z "$differences" ]] || {
     echo "$differences" >&2
@@ -338,6 +352,9 @@ if [[ "$begin_count" -eq 1 ]]; then
 else
   cp "$ZSHRC" "$tmp"
 fi
+# a config without a trailing newline would glue the begin marker onto the
+# user's last line and break both that line and future marker matching
+[[ ! -s "$tmp" ]] || [[ -z "$(tail -c1 "$tmp")" ]] || echo >>"$tmp"
 cat >>"$tmp" <<'EOF'
 # >>> axquant-ext4t-hf >>>
 # Local Ext4T Hugging Face cache (shared standard: M2U / M3 / M5)
@@ -437,7 +454,9 @@ show_status() {
     validate_peer "$p"
     echo
     echo "=== peer $p ==="
-    if ! ssh "${SSH_ARGS[@]}" -o ConnectTimeout=8 "$p" true 2>/dev/null; then
+    # the probe timeout must come first: OpenSSH keeps the FIRST value of a
+    # repeated option, so a ConnectTimeout inside SSH_ARGS would override it
+    if ! ssh -o ConnectTimeout=8 ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$p" true 2>/dev/null; then
       echo "UNREACHABLE"
       continue
     fi

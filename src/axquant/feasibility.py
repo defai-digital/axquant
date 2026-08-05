@@ -360,17 +360,26 @@ def audit_artifact(
         audit.issues.append("the checkpoint is not supported for Qwen 3.6 text-path conversion")
     if not is_immutable_revision(revision):
         audit.issues.append("the checkpoint revision is not pinned")
-    if not inventory.mtp_present or mtp_parameters <= 0:
+    # MTP evidence is only required from architectures that declare MTP (or
+    # checkpoints that carry MTP tensors); MTP-free families (e.g. the
+    # Qwen3-Next direct track) must be able to reach a complete audit.
+    expects_mtp = inventory.architecture_profile.mtp_declared or mtp_parameters > 0
+    if expects_mtp and (not inventory.mtp_present or mtp_parameters <= 0):
         audit.issues.append("MTP tensors were not found")
     audit.issues.extend(_kind_issues(audit))
 
     if target.kind != BaselineKind.BF16_SOURCE:
         required = {
             "AX Engine native manifest": integrity.native_manifest_valid,
-            "MTP sidecar": integrity.mtp_sidecar_present,
-            "MTP runtime contract": integrity.mtp_runtime_valid,
-            "MTP provenance": integrity.mtp_provenance_valid,
         }
+        if expects_mtp:
+            required.update(
+                {
+                    "MTP sidecar": integrity.mtp_sidecar_present,
+                    "MTP runtime contract": integrity.mtp_runtime_valid,
+                    "MTP provenance": integrity.mtp_provenance_valid,
+                }
+            )
         audit.issues.extend(
             f"{name} is missing or invalid" for name, valid in required.items() if not valid
         )

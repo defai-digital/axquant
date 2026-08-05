@@ -265,14 +265,19 @@ def apply_mlx_gptq_refine(
         raise PlanningError("GPTQ execution requires numpy") from exc
 
     try:
+        # bfloat16 arrays reject numpy's buffer protocol; cast via MLX then.
+        try:
+            weight_f32 = np.asarray(weight, dtype=np.float32)
+        except (RuntimeError, TypeError):
+            weight_f32 = np.asarray(mx.array(weight, dtype=mx.float32))
         refined, metadata = learn_gptq_refined_weight(
-            np.asarray(weight, dtype=np.float32),
+            weight_f32,
             activations,
             bits=bits,
             group_size=group_size,
             damping=damping,
         )
-    except (PlanningError, QuantizerError, ValueError, TypeError) as exc:
+    except (PlanningError, QuantizerError, ValueError, TypeError, RuntimeError) as exc:
         raise PlanningError(str(exc)) from exc
     try:
         candidate = mx.array(refined, dtype=weight.dtype)

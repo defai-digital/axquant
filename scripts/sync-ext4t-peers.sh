@@ -26,7 +26,9 @@ SSH_OPTS="${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterv
 declare -a SSH_ARGS
 read -r -a SSH_ARGS <<<"$SSH_OPTS"
 RSYNC_SSH="ssh"
-for ssh_arg in "${SSH_ARGS[@]}"; do
+# ${arr[@]+...} guard: expanding an empty array (SSH_OPTS="") crashes
+# bash 3.2 under set -u
+for ssh_arg in ${SSH_ARGS[@]+"${SSH_ARGS[@]}"}; do
   printf -v RSYNC_SSH '%s %q' "$RSYNC_SSH" "$ssh_arg"
 done
 
@@ -82,7 +84,7 @@ require() {
   [[ "$mounted_at" == "$EXT_ROOT" ]] || {
     die "$EXT_ROOT is not a mounted volume (df reports ${mounted_at:-unknown})"
   }
-  if ! ssh "${SSH_ARGS[@]}" "$PEER" bash -s -- "$PEER_EXT" <<'REMOTE'
+  if ! ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" bash -s -- "$PEER_EXT" <<'REMOTE'
 set -eu
 peer_ext="$1"
 test -d "$peer_ext"
@@ -100,7 +102,7 @@ REMOTE
 ensure_tree_roots() {
   local tree="$1"
   ensure_real_dir "${EXT_ROOT}/${tree}"
-  if ! ssh "${SSH_ARGS[@]}" "$PEER" bash -s -- "$PEER_EXT" "$tree" <<'REMOTE'
+  if ! ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" bash -s -- "$PEER_EXT" "$tree" <<'REMOTE'
 set -eu
 peer_ext="$1"
 tree="$2"
@@ -145,12 +147,18 @@ sync_tree() {
   push_tree "$tree"
   pull_tree "$tree"
   local differences
+  # Content-only verify: the union copy passes use --ignore-existing, which
+  # never aligns times/perms on pre-existing files, so attribute-only itemize
+  # lines (leading '.') would make this fail forever on byte-identical trees
+  # (e.g. the same model downloaded on both hosts). Content differences
+  # ('>', '<', 'c', 'h') and '*deleting' stay fatal.
   differences="$(
-    rsync -aHnc --delete --itemize-changes \
+    rsync -rlHnc --delete --itemize-changes \
       --exclude '.DS_Store' \
       --exclude '.rsync-partial' \
       -e "$RSYNC_SSH" \
-      "${EXT_ROOT}/${tree}/" "${PEER}:${PEER_EXT}/${tree}/"
+      "${EXT_ROOT}/${tree}/" "${PEER}:${PEER_EXT}/${tree}/" \
+      | grep -Ev '^\.' || true
   )"
   [[ -z "$differences" ]] || {
     echo "$differences" >&2
@@ -175,7 +183,7 @@ ensure_local_link() {
 ensure_peer_link() {
   local target="$1"
   local link="$2"
-  ssh "${SSH_ARGS[@]}" "$PEER" \
+  ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" \
     "if [ -L '$link' ]; then [ \"\$(readlink '$link')\" = '$target' ]; elif [ -e '$link' ]; then exit 1; else ln -s '$target' '$link'; fi" \
     || die "peer convenience link is missing or unsafe: $link"
 }
@@ -194,7 +202,7 @@ sync_docs() {
     fi
     local remote_kind
     remote_kind="$(
-      ssh "${SSH_ARGS[@]}" "$PEER" bash -s -- "$PEER_EXT" "$f" <<'REMOTE'
+      ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" bash -s -- "$PEER_EXT" "$f" <<'REMOTE'
 path="$1/$2"
 if test -L "$path"; then
   echo symlink
@@ -222,7 +230,7 @@ REMOTE
       local local_sha peer_sha
       local_sha="$(shasum -a 256 "${EXT_ROOT}/$f" | awk '{print $1}')"
       peer_sha="$(
-        ssh "${SSH_ARGS[@]}" "$PEER" "shasum -a 256 '${PEER_EXT}/$f' | awk '{print \$1}'"
+        ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" "shasum -a 256 '${PEER_EXT}/$f' | awk '{print \$1}'"
       )"
       [[ "$local_sha" == "$peer_sha" ]] || {
         die "root document differs between local and peer: $f"
@@ -248,7 +256,7 @@ show_status() {
   done
   echo
   echo "=== peer $PEER ==="
-  ssh "${SSH_ARGS[@]}" "$PEER" bash -s -- "$PEER_EXT" <<'REMOTE'
+  ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" bash -s -- "$PEER_EXT" <<'REMOTE'
 peer_ext="$1"
 df -h "$peer_ext" | tail -1
 for t in huggingface models axquant; do
@@ -264,7 +272,11 @@ REMOTE
   echo
   echo "=== recent peer-sync logs ==="
   find "$LOG_DIR" -mindepth 1 -maxdepth 1 -type f -print 2>/dev/null | sed -n '1,15p'
-  [[ -f "${LOG_DIR}/last-complete.txt" ]] && echo "last-complete: $(cat "${LOG_DIR}/last-complete.txt")"
+  if [[ -f "${LOG_DIR}/last-complete.txt" ]]; then
+    echo "last-complete: $(cat "${LOG_DIR}/last-complete.txt")"
+  else
+    echo "last-complete: (none)"
+  fi
 }
 
 compare_counts() {
@@ -279,14 +291,14 @@ compare_counts() {
       mismatch=1
       continue
     fi
-    if ! ssh "${SSH_ARGS[@]}" "$PEER" \
+    if ! ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" \
       "test -d '${PEER_EXT}/$t' && test ! -L '${PEER_EXT}/$t'"; then
       echo "DIFF $t missing on peer"
       mismatch=1
       continue
     fi
     l="$(find "${EXT_ROOT}/$t" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
-    r="$(ssh "${SSH_ARGS[@]}" "$PEER" "find '${PEER_EXT}/$t' -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' '")"
+    r="$(ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$PEER" "find '${PEER_EXT}/$t' -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' '")"
     if [[ "$l" == "$r" ]]; then
       echo "OK  $t local=$l peer=$r"
     else

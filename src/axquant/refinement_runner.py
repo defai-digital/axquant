@@ -580,13 +580,23 @@ def execute_refinement(
         if not measurements_path.is_file():
             step.state = "skipped"
             continue
-        completed = runner(step.command)
+        try:
+            completed = runner(step.command)
+        except OSError as exc:
+            step.state = "failed"
+            step.stderr = str(exc)[:4096]
+            continue
         step.exit_code = completed.returncode
         step.stderr = completed.stderr[-4096:]
         if completed.returncode != 0:
             step.state = "failed"
             continue
-        step.output_sha256 = _verified_outputs(step)
+        try:
+            step.output_sha256 = _verified_outputs(step)
+        except RefinementError as exc:
+            step.state = "failed"
+            step.stderr = str(exc)[:4096]
+            continue
         step.state = "completed"
         if step.step_id == "select":
             manifest.selected_result = step.expected_outputs[0]

@@ -727,7 +727,7 @@ def _quality_issues(
 
         reference_metrics = _quality_metrics(reference)
         candidate_metrics = _quality_metrics(candidate)
-        if candidate_metrics["model_errors"] != policy.model_runtime_errors_max:
+        if candidate_metrics["model_errors"] > policy.model_runtime_errors_max:
             issues.append(f"{profile.value} candidate has model errors")
         if candidate_metrics["infra_errors"] != 0 or reference_metrics["infra_errors"] != 0:
             issues.append(f"{profile.value} quality evidence has infrastructure errors")

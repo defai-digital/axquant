@@ -54,6 +54,25 @@ def _finite_weight_matrix(np: Any, weight: Any, label: str) -> Any:
     return result
 
 
+def _storage_scale(np: Any, scale: Any) -> Any:
+    """Round a float32 scale UP to its float16 storage value.
+
+    Dequantization decodes with the float16-stored scale, so the grid must be
+    built from it; rounding up (never down) keeps the stored grid's span at
+    least as wide as the measured group range, preserving the scale/2
+    per-element round-trip bound (a down-rounded scale clips the group maximum
+    by up to levels/2^11 extra steps).
+    """
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        stored = scale.astype(np.float16)
+        stored = np.where(
+            stored.astype(np.float32) < scale,
+            np.nextafter(stored, np.float16(np.inf)),
+            stored,
+        )
+        return stored.astype(np.float32)
+
+
 def _stored_affine_parameters(np: Any, scale: Any, zero_point: Any, label: str) -> tuple[Any, Any]:
     if (
         not bool(np.all(np.isfinite(scale)))
@@ -294,7 +313,13 @@ class AffinePlugin:
         w_max = w_grouped.max(axis=-1, keepdims=True)
         scale = (w_max - w_min) / ((1 << bits) - 1)
         scale = np.where(scale == 0, 1.0, scale)
-        zero_point = np.round(-w_min / scale)
+        # Build the grid at float16 storage precision: dequantize decodes with
+        # the stored parameters, so codes derived from the pre-storage float32
+        # scale drift by up to (levels / 2^11) steps and break the scale/2
+        # per-element round-trip bound.
+        scale = _storage_scale(np, scale)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            zero_point = np.round(-w_min / scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "affine")
 
         # Quantize
@@ -403,7 +428,10 @@ class AwqPlugin:
         w_max = w_grouped.max(axis=-1, keepdims=True)
         q_scale = (w_max - w_min) / ((1 << bits) - 1)
         q_scale = np.where(q_scale == 0, 1.0, q_scale)
-        zero_point = np.round(-w_min / q_scale)
+        # Build the grid at float16 storage precision (see AffinePlugin).
+        q_scale = _storage_scale(np, q_scale)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            zero_point = np.round(-w_min / q_scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, q_scale, zero_point, "AWQ")
         quantized = np.clip(
             np.round(w_grouped / q_scale + zero_point),
@@ -654,7 +682,11 @@ class DwqPlugin:
         # of `dequantize`'s `(data - zero_point) * scale` once rounding is
         # involved, and silently produces round-trip errors beyond the
         # theoretical max of `scale / 2` for a correct affine quantizer.
-        zero_point = np.round(-w_min / scale)
+        # The grid must also be built at float16 storage precision — codes
+        # derived from the pre-storage float32 scale drift past that bound.
+        scale = _storage_scale(np, scale)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            zero_point = np.round(-w_min / scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "DWQ")
         quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
 

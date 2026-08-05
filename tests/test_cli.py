@@ -102,6 +102,13 @@ def test_benchmark_ab_accepts_failed_speedup_recording() -> None:
             "5",
         ],
         [
+            "plan",
+            "--sensitivity",
+            "/evidence/weights.json",
+            "--kv-default-bits",
+            "3",
+        ],
+        [
             "analyze-kv",
             "--model",
             "/model",
@@ -135,7 +142,7 @@ def test_cli_accepts_executable_kv_grid() -> None:
             "--sensitivity",
             "/evidence/weights.json",
             "--kv-default-bits",
-            "3",
+            "6",
         ]
     )
     analyze_args = _build_parser().parse_args(
@@ -152,7 +159,7 @@ def test_cli_accepts_executable_kv_grid() -> None:
         ]
     )
 
-    assert plan_args.kv_default_bits == 3
+    assert plan_args.kv_default_bits == 6
     assert analyze_args.bits == (2, 6, 16)
     assert analyze_args.group_size == 128
 

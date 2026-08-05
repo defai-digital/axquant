@@ -30,6 +30,8 @@ _CONFIG_NAMES = (
     "merges.txt",
     "special_tokens_map.json",
     "chat_template.jinja",
+    "tokenizer.model",
+    "added_tokens.json",
 )
 _IMMUTABLE_HUB_REVISION = re.compile(r"^[0-9a-fA-F]{40}$")
 _SOURCE_PROVENANCE_NAME = "axquant_source.json"
@@ -107,7 +109,12 @@ def _prepare_with_prefix(snapshot: Path, prepared: Path) -> Path:
         tensors = dict(mx.load(str(embed_file)))
         lm_key = "lm_head.weight"
         tensors[lm_key] = tensors[embed_key]
-        mx.save_safetensors(str(embed_file), tensors)
+        # mx.load is lazy/mmap-backed: saving onto the file still being read
+        # corrupts every tensor in it, so write aside and swap atomically.
+        # The temp name must keep the .safetensors suffix or MLX appends one.
+        tmp_file = embed_file.with_name(".tmp-" + embed_file.name)
+        mx.save_safetensors(str(tmp_file), tensors)
+        tmp_file.replace(embed_file)
         weight_map[lm_key] = weight_map[embed_key]
         config_path = prepared / "config.json"
         if config_path.exists():

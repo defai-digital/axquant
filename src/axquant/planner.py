@@ -386,8 +386,11 @@ def _options_for(
     packed_expert = bool(packed_expert_runtime_modules(entry.tensor.module_path))
     if role.is_mtp and request.mtp.mode != "disabled":
         allowed_bits &= set(request.mtp.candidate_bits)
-        if minimum_bits == 16:
-            allowed_bits.add(16)
+    if minimum_bits == 16:
+        # Policy-preserved tensors (norms, LM head, vision, MTP floors) inject
+        # BF16 even when the requested quantized search grid omits 16-bit,
+        # matching manual.py and the schema loader contract.
+        allowed_bits.add(16)
     candidates = [
         candidate
         for candidate in entry.candidates

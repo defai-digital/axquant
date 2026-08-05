@@ -79,15 +79,16 @@ def _execution_summary(
     a layer that silently reverted to BF16 (e.g. a plan/model layer-index
     mismatch, or a cache type the family doesn't expose as quantizable) is a
     real runtime-fidelity failure and must not be masked by any other layer
-    having quantized successfully.
+    having quantized successfully — it fails the overall check.
     """
+    per_layer_execution = executed == [b if b < 16 else 16 for b in bits]
     return {
-        "ok": ok,
+        "ok": ok and per_layer_execution,
         "output_characters": output_characters,
         "planned_layer_bits": bits,
         "executed_layer_bits": executed,
         "quantized_layers_active": quantized_active,
-        "per_layer_execution": executed == [b if b < 16 else 16 for b in bits],
+        "per_layer_execution": per_layer_execution,
     }
 
 

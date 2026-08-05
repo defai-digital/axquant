@@ -145,11 +145,22 @@ def _harmonize_tied_weights(
                     f"tied-weight group {names} has conflicting manual methods or group sizes"
                 )
             method, group_size = next(iter(selected_signatures))
+        scale_strategy, outlier_strategy = strategy_for_measurement(
+            CandidateMeasurement(
+                bits=bits,
+                method=method,
+                group_size=group_size,
+                metrics=MetricVector(),
+            )
+        )
         for allocation in tied:
             allocation.bits = bits
             allocation.method = method
             allocation.group_size = group_size
             allocation.reason = "tied-weight group harmonized at maximum selected precision"
+            allocation.scale_strategy = scale_strategy
+            allocation.outlier_strategy = outlier_strategy
+            allocation.strategy_metadata["storage_bpw"] = storage_bpw(bits, group_size)
 
 
 def _distribution(

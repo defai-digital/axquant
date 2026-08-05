@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from axquant.benchmark import result_to_evaluation_bundle, validate_ab_invariant
-from axquant.errors import ArtifactError, RefinementError
+from axquant.errors import ArtifactError, BenchmarkError, RefinementError
 from axquant.refinement import build_complete_candidate_measurement
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
@@ -230,44 +230,52 @@ def _check_result_bundle(
         issues.append(message)
         kernel_issues.append(message)
 
-    rebuilt = result_to_evaluation_bundle(
-        result,
-        software_versions=bundle.software_versions,
-    )
-    for field_name in (
-        "peak_memory_bytes",
-        "prefill_tokens_per_second",
-        "decode_tokens_per_second",
-        "mtp_effective_tokens_per_second",
-        "kernel_fallbacks",
-        "device_name",
-        "chip",
-        "unified_memory_bytes",
-        "os_version",
-    ):
-        if getattr(bundle.hardware, field_name) != getattr(rebuilt.hardware, field_name):
-            message = f"{label} evaluation {field_name} does not match raw trials"
-            issues.append(message)
-            kernel_issues.append(message)
-    if mtp_enabled:
-        if bundle.mtp is None or rebuilt.mtp is None:
-            message = f"{label} evaluation is missing measured MTP metrics"
-            issues.append(message)
-            kernel_issues.append(message)
-        else:
-            for field_name in (
-                "token_accuracy",
-                "average_accepted_tokens",
-                "acceptance_rate",
-                "rejection_rate",
-                "effective_tokens_per_forward",
-                "repetition_rate",
-            ):
-                if getattr(bundle.mtp, field_name) != getattr(rebuilt.mtp, field_name):
-                    message = f"{label} evaluation MTP {field_name} does not match raw trials"
-                    issues.append(message)
-                    kernel_issues.append(message)
-    elif bundle.mtp is not None:
+    rebuilt: EvaluationBundle | None
+    try:
+        rebuilt = result_to_evaluation_bundle(
+            result,
+            software_versions=bundle.software_versions,
+        )
+    except BenchmarkError as exc:
+        rebuilt = None
+        message = f"{label} raw benchmark cannot rebuild evaluation metrics: {exc}"
+        issues.append(message)
+        kernel_issues.append(message)
+    if rebuilt is not None:
+        for field_name in (
+            "peak_memory_bytes",
+            "prefill_tokens_per_second",
+            "decode_tokens_per_second",
+            "mtp_effective_tokens_per_second",
+            "kernel_fallbacks",
+            "device_name",
+            "chip",
+            "unified_memory_bytes",
+            "os_version",
+        ):
+            if getattr(bundle.hardware, field_name) != getattr(rebuilt.hardware, field_name):
+                message = f"{label} evaluation {field_name} does not match raw trials"
+                issues.append(message)
+                kernel_issues.append(message)
+        if mtp_enabled:
+            if bundle.mtp is None or rebuilt.mtp is None:
+                message = f"{label} evaluation is missing measured MTP metrics"
+                issues.append(message)
+                kernel_issues.append(message)
+            else:
+                for field_name in (
+                    "token_accuracy",
+                    "average_accepted_tokens",
+                    "acceptance_rate",
+                    "rejection_rate",
+                    "effective_tokens_per_forward",
+                    "repetition_rate",
+                ):
+                    if getattr(bundle.mtp, field_name) != getattr(rebuilt.mtp, field_name):
+                        message = f"{label} evaluation MTP {field_name} does not match raw trials"
+                        issues.append(message)
+                        kernel_issues.append(message)
+    if not mtp_enabled and bundle.mtp is not None:
         message = f"{label} direct evaluation unexpectedly contains MTP metrics"
         issues.append(message)
         kernel_issues.append(message)

@@ -1028,13 +1028,16 @@ def convert_model(
         )
         # Always extract protected tensors from the original checkpoint, not the
         # prepared MLX text-path view (which filters multimodal weights).
-        source_model_dir = original_source_dir.resolve() if original_source_dir.is_dir() else Path()
-        if not source_model_dir.is_dir():
-            source_model_dir = Path(model).expanduser().resolve()
-        if not source_model_dir.is_dir():
-            source_model_dir = Path(plan.source_model.local_path or "").expanduser().resolve()
+        fallback_dirs = [original_source_dir, Path(model).expanduser()]
+        if plan.source_model.local_path:
+            fallback_dirs.append(Path(plan.source_model.local_path).expanduser())
+        source_model_dir: Path | None = None
+        for candidate_dir in fallback_dirs:
+            if candidate_dir.is_dir():
+                source_model_dir = candidate_dir.resolve()
+                break
         if any(allocation.role == TensorRole.VISION for allocation in plan.assignments):
-            if not source_model_dir.is_dir():
+            if source_model_dir is None:
                 raise ArtifactError(
                     "protected vision extraction requires a resolved local source checkpoint"
                 )
@@ -1059,7 +1062,7 @@ def convert_model(
         elif (
             plan.mtp.preserve_external_sidecar
             and any(allocation.role.is_mtp for allocation in plan.assignments)
-            and source_model_dir.is_dir()
+            and source_model_dir is not None
             and not _source_has_external_mtp_sidecar(source_model_dir)
         ):
             # Integrated MTP (e.g. Qwen 3.5): the MLX-LM text mapping drops the
