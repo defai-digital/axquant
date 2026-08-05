@@ -37,7 +37,11 @@ def validate_calibration_dataset(path: Path) -> list[str]:
     if len(samples) < _MIN_SAMPLES:
         issues.append(f"sample count {len(samples)} < {_MIN_SAMPLES} minimum")
 
-    ids: list[str] = [s["id"] for s in samples if isinstance(s.get("id"), (str, int))]
+    # Accept str or int IDs, but normalize to str so mixed types never crash
+    # sorted() and so 1 / "1" are treated as the same identity.
+    ids: list[str] = [
+        str(sample_id) for s in samples if isinstance((sample_id := s.get("id")), (str, int))
+    ]
     seen: set[str] = set()
     duplicates: set[str] = set()
     for sample_id in ids:

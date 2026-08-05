@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Merge multi-host Ext4T package indexes; report dups and a final layout plan.
 
+Content identity for delete / alias renames is proven only by
+``fingerprint_mode == "content"`` records from the indexer (full-file
+sha256 per path). cheap, incomplete, path-size/manifest, and legacy
+records are never used to recommend delete_duplicate.
+
 Usage:
   python3 scripts/plan-ext4t-from-index.py \\
     --index /Volumes/Ext4T/logs/index/m3.jsonl \\
@@ -16,6 +21,36 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+# Fingerprint modes that prove byte-identical package content. Only these
+# may drive delete_duplicate / fingerprint-based alias renames.
+_CONTENT_SAFE_MODES = frozenset({"content"})
+# Modes that must never participate in content-identity grouping at all.
+_NON_IDENTITY_MODES = frozenset({"cheap", "incomplete"})
+
+
+def fingerprint_is_content_safe(rec: dict) -> bool:
+    """True when the record's fingerprint proves full-file content identity."""
+    mode = rec.get("fingerprint_mode")
+    if mode not in _CONTENT_SAFE_MODES:
+        return False
+    fp = rec.get("manifest_sha256", "")
+    # Defensive: indexer prefixes incomplete digests even if mode drifts.
+    return not (isinstance(fp, str) and fp.startswith(("cheap:", "incomplete:")))
+
+
+def content_identity_key(rec: dict) -> str:
+    """Key used to group packages that share proven-identical content.
+
+    Content-safe fingerprints group by digest. Weak fingerprints (cheap,
+    incomplete, path-size/manifest, missing mode) each get a unique key so
+    they never collide into a false duplicate group.
+    """
+    if fingerprint_is_content_safe(rec):
+        return str(rec["manifest_sha256"])
+    # Isolate weak/legacy records: same path+size layout must not imply
+    # identical weights, and cheap/incomplete must never group for deletes.
+    return f"unverified:{rec['host']}:{rec['path']}"
 
 
 # Preferred final locations by category heuristics
@@ -93,8 +128,12 @@ def load_indexes(paths: list[Path]) -> list[dict]:
                     )
                 if obj.get("type") == "index_meta":
                     continue
-                if obj.get("fingerprint_mode") == "cheap":
-                    continue  # skip HF cheap rollups for package plan
+                mode = obj.get("fingerprint_mode")
+                # cheap HF rollups and incomplete walks never prove content
+                # identity — drop them from the package plan entirely so they
+                # cannot contribute to delete_duplicate or alias merges.
+                if mode in _NON_IDENTITY_MODES:
+                    continue
                 missing = [key for key in _REQUIRED_RECORD_KEYS if key not in obj]
                 if missing:
                     raise SystemExit(
@@ -117,10 +156,10 @@ def main() -> int:
         print("no package records", file=sys.stderr)
         return 2
 
-    # Group by content fingerprint
+    # Group by proven content identity (weak fingerprints never merge)
     by_fp: dict[str, list[dict]] = defaultdict(list)
     for r in recs:
-        by_fp[r["manifest_sha256"]].append(r)
+        by_fp[content_identity_key(r)].append(r)
 
     # Group by name (any content)
     by_name: dict[str, list[dict]] = defaultdict(list)
@@ -128,6 +167,7 @@ def main() -> int:
         by_name[r["name"]].append(r)
 
     hosts = sorted({r["host"] for r in recs})
+    unverified_count = sum(1 for r in recs if not fingerprint_is_content_safe(r))
 
     # Unique content packages
     unique_content: list[dict] = []
@@ -138,31 +178,35 @@ def main() -> int:
         paths = [(g["host"], g["path"], g["category"]) for g in group]
         host_set = sorted({g["host"] for g in group})
         cats = {g["category"] for g in group}
+        content_safe = all(fingerprint_is_content_safe(g) for g in group)
         # pick canonical name: prefer non-source slug / HF-style / AX- publish names
         canonical_name = _pick_canonical_name(names)
         final = preferred_location(canonical_name, cats, size)
         entry = {
-            "manifest_sha256": fp,
+            "manifest_sha256": group[0]["manifest_sha256"],
+            "identity_key": fp,
             "size_bytes": size,
             "file_count": group[0]["file_count"],
             "names": names,
             "canonical_name": canonical_name,
             "final_path": final,
-            # Logs are host-specific operational records, and the size-based
-            # fingerprint is too weak to prove identical content for mutable
-            # files — so log packages get layout moves only: no cross-host
-            # transfers, no fingerprint-driven deletion or renaming.
+            # Logs are host-specific operational records: they mutate between
+            # index runs, so even a content-safe snapshot is not a durable
+            # fleet identity. Log packages get layout moves only — no
+            # cross-host transfers, no fingerprint-driven deletion/renaming.
             "host_local": final.startswith("axquant/logs/"),
+            # Only full-file content fingerprints may drive destructive
+            # same-host reclaim or alias renames.
+            "content_safe": content_safe,
+            "fingerprint_mode": group[0].get("fingerprint_mode", "legacy"),
             "hosts": host_set,
-            "instances": [
-                {"host": h, "path": p, "category": c} for h, p, c in paths
-            ],
+            "instances": [{"host": h, "path": p, "category": c} for h, p, c in paths],
             "instance_count": len(group),
             "multi_host": len(host_set) > 1,
-            "multi_name": len(names) > 1,
-            "same_host_dup": len(group) > len(host_set),
+            "multi_name": len(names) > 1 and content_safe,
+            "same_host_dup": len(group) > len(host_set) and content_safe,
         }
-        if len(group) > 1:
+        if len(group) > 1 and content_safe:
             duplicate_groups.append(entry)
         unique_content.append(entry)
 
@@ -187,8 +231,8 @@ def main() -> int:
                 }
             )
 
-    # Transfer plan: for each unique content, need one copy at final_path on each host
-    # Source of truth: prefer host that already has final_path, else largest host set, prefer m2u for publish
+    # Transfer plan: for each unique content, need one copy at final_path on
+    # each host. Prefer a host already at final_path; else host_priority order.
     host_priority = ["macstudio-m2u", "m3", "local", "mbp-m5", "AKDF-M3-MAX", "m5"]
 
     def host_rank(h: str) -> int:
@@ -205,22 +249,25 @@ def main() -> int:
         # instances already at final path
         already = []
         for inst in e["instances"]:
-            if inst["path"].endswith("/" + final):
-                already.append(inst)
-            # also treat models/Name when final is models/Name
-            elif final.startswith("models/") and inst["path"].endswith(
-                "/" + final.split("/", 1)[1]
+            # exact final path, or models/Name when final is models/Name
+            if inst["path"].endswith("/" + final) or (
+                final.startswith("models/")
+                and inst["path"].endswith("/" + final.split("/", 1)[1])
+                and "/models/" in inst["path"]
+                and "/axquant/" not in inst["path"]
             ):
-                if "/models/" in inst["path"] and "/axquant/" not in inst["path"]:
-                    already.append(inst)
+                already.append(inst)
 
-        # same-host dups reclaim (never for host-local logs: the size-based
-        # fingerprint cannot prove two mutable log trees are identical)
+        # same-host dups reclaim — only when every instance has a content-safe
+        # fingerprint. cheap / incomplete / path-size / legacy fingerprints
+        # never justify delete_duplicate (false collisions on size layout).
+        # Host-local logs are also excluded: even a content-safe snapshot is
+        # not a durable identity for mutable operational trees.
         by_h: dict[str, list] = defaultdict(list)
         for inst in e["instances"]:
             by_h[inst["host"]].append(inst)
         for h, insts in by_h.items():
-            if len(insts) > 1 and not e["host_local"]:
+            if len(insts) > 1 and not e["host_local"] and e["content_safe"]:
                 # keep the copy already at the final path, else one whose
                 # basename matches the canonical name, else the first
                 keep = None
@@ -245,62 +292,63 @@ def main() -> int:
                             "path": inst["path"],
                             "keep": keep["path"],
                             "size_bytes": e["size_bytes"],
-                            "reason": "same content fingerprint on same host",
+                            "reason": (
+                                "same content-safe fingerprint on same host "
+                                f"(mode={e['fingerprint_mode']})"
+                            ),
                         }
                     )
                     deleted_paths.add((h, inst["path"]))
                     reclaimable += e["size_bytes"]
 
-        # cross-host: hosts missing this content (logs stay host-local and are
-        # never mirrored — consolidate under axquant/logs/<host>/ if needed)
-        present_hosts = set(e["hosts"])
-        # for plan we care about three fleet hosts if present in index
-        for h in hosts:
-            if e["host_local"]:
-                break
-            if h not in present_hosts:
-                if e["canonical_name"] in conflicted_names:
-                    # same name exists with different content somewhere in the
-                    # fleet — transferring would clobber; leave for the
-                    # manual-review section
-                    continue
-                # prefer a source already at the final path, else one whose
-                # basename matches the canonical name, else any instance;
-                # break ties by host_priority order.
-                candidates = (
-                    already
-                    or [
-                        inst
-                        for inst in e["instances"]
-                        if inst["path"].endswith("/" + e["canonical_name"])
-                    ]
-                    or e["instances"]
-                )
-                src = min(candidates, key=lambda inst: host_rank(inst["host"]))
-                to_path = f"/Volumes/Ext4T/{final}"
-                if (h, to_path.lower()) in planned_targets:
-                    # another content already planned onto this target path
-                    continue
-                planned_targets.add((h, to_path.lower()))
-                transfers.append(
-                    {
-                        "content": e["canonical_name"],
-                        "size_bytes": e["size_bytes"],
-                        "from_host": src["host"],
-                        "from_path": src["path"],
-                        "to_host": h,
-                        "to_path": to_path,
-                    }
-                )
+        # cross-host: hosts missing this content. Logs stay host-local.
+        # Transfers also require content-safe fingerprints — otherwise a
+        # path-size/legacy index would invent one "unique" package per host
+        # and spuriously schedule fleet copies of unproven content.
+        if not e["host_local"] and e["content_safe"]:
+            present_hosts = set(e["hosts"])
+            for h in hosts:
+                if h not in present_hosts:
+                    if e["canonical_name"] in conflicted_names:
+                        # same name exists with different content somewhere in
+                        # the fleet — transferring would clobber; leave for the
+                        # manual-review section
+                        continue
+                    # prefer a source already at the final path, else one whose
+                    # basename matches the canonical name, else any instance;
+                    # break ties by host_priority order.
+                    candidates = (
+                        already
+                        or [
+                            inst
+                            for inst in e["instances"]
+                            if inst["path"].endswith("/" + e["canonical_name"])
+                        ]
+                        or e["instances"]
+                    )
+                    src = min(candidates, key=lambda inst: host_rank(inst["host"]))
+                    to_path = f"/Volumes/Ext4T/{final}"
+                    if (h, to_path.lower()) in planned_targets:
+                        # another content already planned onto this target path
+                        continue
+                    planned_targets.add((h, to_path.lower()))
+                    transfers.append(
+                        {
+                            "content": e["canonical_name"],
+                            "size_bytes": e["size_bytes"],
+                            "from_host": src["host"],
+                            "from_path": src["path"],
+                            "to_host": h,
+                            "to_path": to_path,
+                        }
+                    )
 
         # local rename if present but wrong path
         for inst in e["instances"]:
             if (inst["host"], inst["path"]) in deleted_paths:
                 continue  # already scheduled for deletion as a same-host dup
             desired = f"/Volumes/Ext4T/{final}"
-            if inst["path"] != desired and inst["path"].endswith(
-                "/" + e["canonical_name"]
-            ):
+            if inst["path"] != desired and inst["path"].endswith("/" + e["canonical_name"]):
                 # wrong parent only
                 if Path(inst["path"]).name == e["canonical_name"]:
                     local_moves.append(
@@ -317,8 +365,10 @@ def main() -> int:
                 inst["path"] != desired
                 and Path(inst["path"]).name != e["canonical_name"]
                 and e["multi_name"]
-                # alias grouping rests on the content fingerprint, which is
-                # too weak evidence to rename mutable log trees
+                # alias grouping requires a content-safe fingerprint; never
+                # rename on cheap/incomplete/path-size collisions, and never
+                # rename mutable host-local log trees
+                and e["content_safe"]
                 and not e["host_local"]
             ):
                 # alias name — rename to canonical if this host is source of truth
@@ -353,11 +403,22 @@ def main() -> int:
     lines.append(f"Same content under multiple names: **{len(multi_name)}**")
     lines.append(f"Same-host duplicate instances: **{len(same_host_dups)}**")
     lines.append(f"Estimated reclaimable (same-host dups): **{human(reclaimable)}**")
-    lines.append(f"Estimated residual transfer (missing packages only): **{human(transfer_bytes)}**")
+    lines.append(
+        f"Estimated residual transfer (missing packages only): **{human(transfer_bytes)}**"
+    )
     lines.append(f"Name conflicts (same name, different content): **{len(name_conflicts)}**")
     lines.append(
         f"Host-local log packages (kept in place): **{len(host_local_entries)}** "
         f"({human(host_local_bytes)})"
+    )
+    lines.append(
+        f"Unverified fingerprints (path-size/legacy; not used for deletes): **{unverified_count}**"
+    )
+    lines.append("")
+    lines.append(
+        "Delete/alias actions require `fingerprint_mode=content` (full-file "
+        "sha256). cheap, incomplete, and path-size fingerprints never produce "
+        "`delete_duplicate`."
     )
     lines.append("")
     lines.append("## Final layout standard")
@@ -391,6 +452,12 @@ def main() -> int:
     lines.append("")
     lines.append("## Same-host duplicates (delete extras after verify)")
     lines.append("")
+    lines.append(
+        "Only emitted when every instance shares a **content-safe** fingerprint "
+        "(`fingerprint_mode=content`). Re-run the indexer without "
+        "`--fingerprint path-size` if this section is empty but you expect dups."
+    )
+    lines.append("")
     dups = [m for m in local_moves if m["action"] == "delete_duplicate"]
     if dups:
         lines.append("| Host | Size | Delete | Keep |")
@@ -421,11 +488,11 @@ def main() -> int:
     lines.append("")
     lines.append(
         "Logs are host-specific operational records: they mutate between index runs, "
-        "and the size-based fingerprint cannot prove two log trees hold identical "
-        "content. This plan therefore only moves them into `axquant/logs/` on their "
-        "own host — no cross-host transfers, no duplicate deletion, no "
-        "fingerprint-driven renames. To consolidate history later, copy into "
-        "per-host subdirectories (`axquant/logs/<host>/…`) instead of mirroring."
+        "so even a content-safe snapshot is not a durable fleet identity. This plan "
+        "therefore only moves them into `axquant/logs/` on their own host — no "
+        "cross-host transfers, no duplicate deletion, no fingerprint-driven renames. "
+        "To consolidate history later, copy into per-host subdirectories "
+        "(`axquant/logs/<host>/…`) instead of mirroring."
     )
     lines.append("")
     if host_local_entries:
@@ -446,7 +513,8 @@ def main() -> int:
             lines.append(f"### `{c['name']}`")
             for v in c["variants"]:
                 lines.append(
-                    f"- {v['host']}: `{v['path']}` ({human(v['size'])}, fp={v['fp']}…, {v['category']})"
+                    f"- {v['host']}: `{v['path']}` "
+                    f"({human(v['size'])}, fp={v['fp']}…, {v['category']})"
                 )
             lines.append("")
     else:
@@ -457,14 +525,18 @@ def main() -> int:
     lines.append("1. **Stop** bulk blind rsync of models/axquant (HF cache may continue).")
     lines.append("2. **Rename** alias packages to canonical names (same filesystem = instant).")
     lines.append("3. **Move** packages into final layout buckets (instant on same volume).")
-    lines.append("4. **Delete** same-host duplicates after spot-checking fingerprints.")
     lines.append(
-        "5. **Sync only missing** packages (rsync per package path, `--size-only`); "
+        "4. **Delete** same-host duplicates only where the plan lists "
+        "`delete_duplicate` (content-safe fingerprints); spot-check first."
+    )
+    lines.append(
+        "5. **Sync only missing** packages (rsync per package path, "
+        "prefer content verify over `--size-only` when possible); "
         "logs stay host-local — never add them to sync jobs."
     )
     lines.append(
-        "6. Re-run index to verify every host has the same fingerprint set "
-        "(logs excepted)."
+        "6. Re-run index with default `--fingerprint content` to verify every "
+        "host has the same content-safe fingerprint set (logs excepted)."
     )
     lines.append("")
 
@@ -489,6 +561,7 @@ def main() -> int:
                 "transfer_bytes": transfer_bytes,
                 "host_local_packages": len(host_local_entries),
                 "host_local_bytes": host_local_bytes,
+                "unverified_fingerprints": unverified_count,
             },
         }
         Path(args.json_out).write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
@@ -499,7 +572,8 @@ def main() -> int:
 def _pick_canonical_name(names: list[str]) -> str:
     def score(n: str) -> tuple:
         nl = n.lower()
-        # prefer publish AX- names, then HF-style (dots/caps), penalize -source and axquant- prefixes
+        # prefer publish AX- names, then HF-style (dots/caps);
+        # penalize -source and axquant- prefixes
         return (
             0 if n.startswith("AX-") else 1,
             0 if any(c.isupper() for c in n) and "." in n else 1,
