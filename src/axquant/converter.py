@@ -22,6 +22,7 @@ from axquant.capture_binding import (
 )
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model, resolve_model_dir
+from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
 from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.runtime import (
@@ -740,6 +741,174 @@ def _validated_plan_source_tensors(
     return actual
 
 
+def _bind_converted_tensors(
+    expected: Mapping[str, Any],
+    actual: Mapping[str, Any],
+) -> dict[str, tuple[Any, ...]]:
+    """Bind plan tensors to every strictly declared converted output component."""
+
+    bound: dict[str, tuple[Any, ...]] = {}
+    used: set[str] = set()
+    missing: list[str] = []
+    ambiguous: dict[str, list[str]] = {}
+    actual_names = set(actual)
+    fused_groups = _fused_expected_groups(expected)
+    fused_members = {member for members in fused_groups.values() for member in members}
+    for expected_name in expected:
+        if expected_name in fused_members:
+            continue
+        component_names: list[str] = []
+        invalid_matches: list[str] = []
+        binding_groups = mlx_tensor_binding_groups(expected_name)
+        for aliases in binding_groups:
+            matches = sorted(set(aliases) & actual_names)
+            if len(matches) != 1:
+                invalid_matches.extend(matches)
+                continue
+            component_names.append(matches[0])
+        if len(component_names) != len(binding_groups):
+            missing.append(expected_name)
+            continue
+        if invalid_matches or len(set(component_names)) != len(component_names):
+            ambiguous[expected_name] = sorted(set(invalid_matches + component_names))
+            continue
+        collisions = sorted(set(component_names) & used)
+        if collisions:
+            ambiguous[expected_name] = collisions
+            continue
+        used.update(component_names)
+        bound[expected_name] = tuple(actual[name] for name in component_names)
+
+    for target, members in fused_groups.items():
+        aliases = mlx_tensor_binding_groups(members[0])[0]
+        matches = sorted(set(aliases) & actual_names)
+        if len(matches) == 0:
+            missing.extend(members)
+            continue
+        if len(matches) != 1:
+            ambiguous[target] = matches
+            continue
+        output_name = matches[0]
+        if output_name in used:
+            ambiguous[target] = [output_name]
+            continue
+        used.add(output_name)
+        components = (actual[output_name],)
+        for member in members:
+            bound[member] = components
+
+    extra = sorted(set(actual) - used)
+    if missing or ambiguous or extra:
+        raise ArtifactError(
+            "converted checkpoint tensor coverage mismatch: "
+            f"missing={sorted(missing)[:10]}, "
+            f"ambiguous={dict(sorted(ambiguous.items())[:10])}, "
+            f"extra={extra[:10]}"
+        )
+    return bound
+
+
+def _fused_expected_groups(expected: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+    """Group a complete contiguous set of indexed source experts by MLX stack target."""
+
+    indexed: dict[str, list[tuple[int, str]]] = {}
+    for tensor_name in expected:
+        binding = fused_expert_tensor_target(tensor_name)
+        if binding is not None:
+            indexed.setdefault(binding[0], []).append((binding[1], tensor_name))
+
+    groups: dict[str, tuple[str, ...]] = {}
+    for output_target, members in indexed.items():
+        ordered = sorted(members)
+        indices = [index for index, _ in ordered]
+        if indices != list(range(len(ordered))):
+            raise ArtifactError(
+                f"converted expert fusion {output_target} does not have contiguous source indices: "
+                f"{indices[:10]}"
+            )
+        groups[output_target] = tuple(name for _, name in ordered)
+    return groups
+
+
+def _expected_converted_shapes(
+    tensor_name: str,
+    source_shape: tuple[int, ...],
+    bits: int,
+) -> tuple[tuple[int, ...], ...]:
+    """Derive exact output shapes, including MLX-LM's packed gate/up split."""
+
+    component_count = len(mlx_tensor_binding_groups(tensor_name))
+    if bits < 16:
+        if not source_shape or source_shape[-1] * bits % 32:
+            raise ArtifactError(
+                f"source tensor {tensor_name} cannot be packed exactly at {bits} bits"
+            )
+        final_dimension = source_shape[-1] * bits // 32
+    else:
+        final_dimension = source_shape[-1]
+
+    if component_count == 1:
+        return ((*source_shape[:-1], final_dimension),)
+    if component_count == 2 and len(source_shape) >= 2 and source_shape[-2] % 2 == 0:
+        component_shape = (
+            *source_shape[:-2],
+            source_shape[-2] // 2,
+            final_dimension,
+        )
+        return (component_shape, component_shape)
+    raise ArtifactError(
+        f"converted tensor {tensor_name} has no valid shape-conserving split "
+        f"for source shape {source_shape}"
+    )
+
+
+def _expected_fused_converted_shapes(
+    tensor_name: str,
+    source_shapes: tuple[tuple[int, ...], ...],
+    bits: int,
+) -> tuple[tuple[int, ...], ...]:
+    """Derive the exact leading-axis stack shape for indexed expert weights."""
+
+    if not source_shapes or len(set(source_shapes)) != 1:
+        raise ArtifactError(f"converted expert fusion {tensor_name} mixes source shapes")
+    component_shapes = _expected_converted_shapes(tensor_name, source_shapes[0], bits)
+    if len(component_shapes) != 1:
+        raise ArtifactError(f"converted expert fusion {tensor_name} has multiple output components")
+    return ((len(source_shapes), *component_shapes[0]),)
+
+
+def _protected_shape_matches(
+    plan: QuantizationPlan,
+    tensor_name: str,
+    source_shape: tuple[int, ...],
+    actual_shape: tuple[int, ...],
+) -> bool:
+    if actual_shape == source_shape:
+        return True
+    model_type = plan.architecture_profile.config_model_type
+    qwen_hybrid_conv1d = model_type in {
+        "qwen3_5",
+        "qwen3_5_moe",
+        "qwen3_next",
+    } and tensor_name.endswith(".linear_attn.conv1d.weight")
+    nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(".mixer.conv1d.weight")
+    if (
+        (qwen_hybrid_conv1d or nemotron_conv1d)
+        and len(source_shape) == 3
+        and source_shape[-1] != 1
+        and actual_shape == (source_shape[0], source_shape[2], source_shape[1])
+    ):
+        _LOG.info(
+            "converted_shape_transform_verified",
+            tensor=tensor_name,
+            source_shape=source_shape,
+            actual_shape=actual_shape,
+            transform=f"mlx-lm-{model_type}-conv1d-moveaxis-2-1",
+        )
+        return True
+    return False
+
+
 def _verify_converted_weights(
     staging_dir: Path,
     plan: QuantizationPlan,
@@ -777,66 +946,117 @@ def _verify_converted_weights(
         tensor.parameters for tensor in inventory.tensors if tensor.role == TensorRole.VISION
     )
     expected_tensors = {allocation.tensor: allocation for allocation in plan.assignments}
-    actual_tensors = {
+    output_tensors = {
         tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
     }
-    if set(actual_tensors) != set(expected_tensors):
-        raise ArtifactError(
-            "converted checkpoint tensor coverage mismatch: "
-            f"missing={sorted(set(expected_tensors) - set(actual_tensors))[:10]}, "
-            f"extra={sorted(set(actual_tensors) - set(expected_tensors))[:10]}"
-        )
+    actual_tensors = _bind_converted_tensors(expected_tensors, output_tensors)
+    fused_groups = _fused_expected_groups(expected_tensors)
+    fused_by_member = {
+        member: (target, members) for target, members in fused_groups.items() for member in members
+    }
+    verified_groups: set[str] = set()
     metadata_names = {tensor.name for tensor in inventory.tensors if tensor.quantization_metadata}
     for tensor_name, allocation in expected_tensors.items():
-        actual = actual_tensors[tensor_name]
-        if actual.parameters != allocation.parameters:
+        fused = fused_by_member.get(tensor_name)
+        verification_name: str
+        members: tuple[str, ...]
+        if fused is None:
+            verification_name = tensor_name
+            members = (tensor_name,)
+        else:
+            verification_name, members = fused
+        if verification_name in verified_groups:
+            continue
+        verified_groups.add(verification_name)
+
+        allocations = tuple(expected_tensors[member] for member in members)
+        packing = {(item.bits, item.group_size, item.method, item.role) for item in allocations}
+        if len(packing) != 1 or (fused is not None and allocation.role is not TensorRole.EXPERT):
             raise ArtifactError(
-                f"converted tensor {tensor_name} parameter count does not match the plan: "
-                f"{actual.parameters} != {allocation.parameters}"
+                f"converted expert fusion {verification_name} mixes plan packing or roles"
             )
-        source_shape = source_tensors[tensor_name].shape
-        if allocation.bits < 16:
-            if not source_shape or source_shape[-1] * allocation.bits % 32:
-                raise ArtifactError(
-                    f"source tensor {tensor_name} cannot be packed exactly at "
-                    f"{allocation.bits} bits"
+        allocation = allocations[0]
+        actual_components = actual_tensors[members[0]]
+        if any(
+            len(actual_tensors[member]) != len(actual_components)
+            or any(
+                member_component is not actual_component
+                for member_component, actual_component in zip(
+                    actual_tensors[member],
+                    actual_components,
+                    strict=True,
                 )
-            expected_shape = (
-                *source_shape[:-1],
-                source_shape[-1] * allocation.bits // 32,
             )
-            if (
-                actual.shape != expected_shape
-                or actual.current_bits != allocation.bits
-                or actual.current_group_size != allocation.group_size
-                or actual.current_method is not QuantMethod.AFFINE
+            for member in members[1:]
+        ):
+            raise ArtifactError(
+                f"converted expert fusion {verification_name} has inconsistent output bindings"
+            )
+        actual_parameters = sum(component.parameters for component in actual_components)
+        expected_group_parameters = sum(item.parameters for item in allocations)
+        if actual_parameters != expected_group_parameters:
+            raise ArtifactError(
+                f"converted tensor {verification_name} parameter count does not match the plan: "
+                f"{actual_parameters} != {expected_group_parameters}"
+            )
+        source_shapes = tuple(source_tensors[member].shape for member in members)
+        source_shape = source_shapes[0]
+        if fused is not None:
+            expected_shapes = _expected_fused_converted_shapes(
+                tensor_name,
+                source_shapes,
+                allocation.bits,
+            )
+        else:
+            expected_shapes = _expected_converted_shapes(
+                tensor_name,
+                source_shape,
+                allocation.bits,
+            )
+        actual_shapes = tuple(component.shape for component in actual_components)
+        if allocation.bits < 16:
+            if actual_shapes != expected_shapes or any(
+                component.current_bits != allocation.bits
+                or component.current_group_size != allocation.group_size
+                or component.current_method is not QuantMethod.AFFINE
+                for component in actual_components
             ):
                 raise ArtifactError(
-                    f"converted tensor {tensor_name} packing does not match the plan: "
-                    f"expected shape {expected_shape}, affine {allocation.bits}-bit "
-                    f"group {allocation.group_size}; found shape {actual.shape}, "
-                    f"{actual.current_method} {actual.current_bits}-bit "
-                    f"group {actual.current_group_size}"
+                    f"converted tensor {verification_name} packing does not match the plan: "
+                    f"expected shapes {expected_shapes}, affine {allocation.bits}-bit "
+                    f"group {allocation.group_size}; found shapes {actual_shapes}"
                 )
             required_metadata = {
-                f"{allocation.module_path}.scales",
-                f"{allocation.module_path}.biases",
+                f"{component.module_path}.{suffix}"
+                for component in actual_components
+                for suffix in ("scales", "biases")
             }
             missing_metadata = required_metadata - metadata_names
             if missing_metadata:
                 raise ArtifactError(
-                    f"converted tensor {tensor_name} lacks affine metadata: "
+                    f"converted tensor {verification_name} lacks affine metadata: "
                     f"{sorted(missing_metadata)}"
                 )
         else:
-            if actual.shape != source_shape:
-                raise ArtifactError(
-                    f"protected tensor {tensor_name} shape changed during conversion: "
-                    f"{actual.shape} != {source_shape}"
+            shape_matches = actual_shapes == expected_shapes
+            if len(actual_components) == 1 and not shape_matches:
+                shape_matches = _protected_shape_matches(
+                    plan,
+                    tensor_name,
+                    source_shape,
+                    actual_components[0].shape,
                 )
-            if actual.current_bits is not None and actual.current_bits < 16:
+            if not shape_matches:
                 raise ArtifactError(
-                    f"protected tensor {tensor_name} was packed below its "
+                    f"protected tensor {verification_name} shape changed during conversion: "
+                    f"{actual_shapes} != {expected_shapes}"
+                )
+            if any(
+                component.current_bits is not None and component.current_bits < 16
+                for component in actual_components
+            ):
+                raise ArtifactError(
+                    f"protected tensor {verification_name} was packed below its "
                     f"{allocation.bits}-bit plan"
                 )
     if inventory.total_parameters != expected_parameters:

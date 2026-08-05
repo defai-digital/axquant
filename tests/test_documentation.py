@@ -44,6 +44,29 @@ def test_public_docs_do_not_reference_local_only_material() -> None:
     assert not offenders
 
 
+def test_public_v2_catalog_matches_completed_migration_table() -> None:
+    readme_catalog = (
+        _read("README.md")
+        .split(
+            "### AutomatosX Hub catalog (AXQ, development)",
+            1,
+        )[1]
+        .split("**Development naming:**", 1)[0]
+    )
+    completion = _read("docs/model-fleet-v2.md").split("## Completed migration", 1)[1]
+    repository_link = re.compile(
+        r"https://huggingface\.co/AutomatosX/(AX-[A-Za-z0-9._-]+-v2(?:-MTP)?)"
+    )
+    readme_repositories = repository_link.findall(readme_catalog)
+    completion_repositories = repository_link.findall(completion)
+
+    assert len(readme_repositories) == 28
+    assert len(set(readme_repositories)) == 28
+    assert set(completion_repositories) == set(readme_repositories)
+    assert "(factory)" not in readme_catalog
+    assert "regeneration required" not in readme_catalog
+
+
 def test_internal_tree_is_not_tracked() -> None:
     """``.internal/`` is local-only; force-adds must not re-enter the public tree."""
     git_dir = _ROOT / ".git"

@@ -554,3 +554,27 @@ def test_executed_publication_uploads_only_after_every_gate_passes(
     assert calls["upload_folder"]["repo_id"] == repo_id
     assert calls["upload_folder"]["folder_path"] == tmp_path / "artifact"
     assert isinstance(files, list)
+
+
+def test_flagship_package_rejects_legacy_request_downgrade(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "public-claim.json").write_text("{}\n", encoding="utf-8")
+    legacy_request = tmp_path / "legacy-request.json"
+    write_data(
+        legacy_request,
+        {
+            "schema_version": "axquant.release-audit-request.v4",
+        },
+    )
+
+    with pytest.raises(PublishingError, match="cannot be published through an older"):
+        publish_model(
+            model_dir=artifact,
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+            release_audit_request_path=legacy_request,
+            execute=False,
+        )

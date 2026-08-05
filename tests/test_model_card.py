@@ -34,7 +34,12 @@ def _file(path: Path, *, relative_to: Path) -> ArtifactFile:
     )
 
 
-def _development_artifact(qwen36_model_dir: Path, tmp_path: Path) -> Path:
+def _development_artifact(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    *,
+    include_native_manifest: bool = True,
+) -> Path:
     inventory = inspect_model(
         qwen36_model_dir,
         model_id="Qwen/Qwen3.6-27B",
@@ -52,7 +57,8 @@ def _development_artifact(qwen36_model_dir: Path, tmp_path: Path) -> Path:
     write_data(directory / "config.json", config)
     (directory / "README.md").write_text("# old card\n", encoding="utf-8")
     (directory / "LICENSE").write_text("Apache License 2.0 fixture\n", encoding="utf-8")
-    (directory / "model-manifest.json").write_text("{}\n", encoding="utf-8")
+    if include_native_manifest:
+        (directory / "model-manifest.json").write_text("{}\n", encoding="utf-8")
     save_file(
         {"model.layers.0.mlp.down_proj.weight": np.zeros((1,), dtype=np.float32)},
         directory / "model.safetensors",
@@ -192,6 +198,62 @@ def test_development_model_card_rejects_product_class_mismatch(
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
             product_class="4bit",
         )
+
+
+def test_development_model_card_supports_versioned_fleet_names(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
+        product_class="6bit",
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "| Artifact edition | `v2` |" in readme
+    assert "AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP" in readme
+    assert "AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP" in readme
+
+
+def test_embedding_model_card_links_4bit_and_8bit_v2_siblings(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2",
+        product_class="4bit",
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-6bit-v2" not in readme
+
+
+def test_development_model_card_does_not_claim_ax_engine_without_native_manifest(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(
+        qwen36_model_dir,
+        tmp_path,
+        include_native_manifest=False,
+    )
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
+        product_class="6bit",
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "## AX Engine status" in readme
+    assert "does **not** include a validated native `model-manifest.json`" in readme
+    assert "Not established; no validated native manifest is included" in readme
+    assert "ax-engine serve" not in readme
 
 
 def test_development_model_card_rejects_stale_execution_before_mutating(

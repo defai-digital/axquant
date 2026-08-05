@@ -24,6 +24,7 @@ from axquant.coding_suite import (
     load_coding_payloads,
 )
 from axquant.errors import ArtifactError
+from axquant.identity import same_model_identity
 from axquant.quality import load_quality_tasks
 from axquant.release_audit import _artifact_issues, _wheel_identity
 from axquant.reproduction import verify_reproduction
@@ -53,6 +54,7 @@ from axquant.schema import (
     EvidenceKind,
     FeasibilityReport,
     Inventory,
+    ModelIdentity,
     NonMtpGateId,
     ProfileName,
     QuantizationPlan,
@@ -644,8 +646,8 @@ def _quality_issues(
     *,
     suite: CodingSuiteManifest,
     calibration_dataset_sha256: str,
-    reference_model: object,
-    candidate_model: object,
+    reference_model: ModelIdentity,
+    candidate_model: ModelIdentity,
     tokenizer_sha256: str,
     reference_model_artifact_sha256: str,
     candidate_model_artifact_sha256: str,
@@ -664,9 +666,9 @@ def _quality_issues(
     for profile, (reference, candidate) in evidence.items():
         issue_count_before = len(issues)
         entry = entries[profile]
-        if reference.model != reference_model:
+        if not same_model_identity(reference.model, reference_model):
             issues.append(f"{profile.value} reference quality uses the wrong BF16 model")
-        if candidate.model != candidate_model:
+        if not same_model_identity(candidate.model, candidate_model):
             issues.append(f"{profile.value} candidate quality uses the wrong candidate model")
         if reference.model_artifact_sha256 != reference_model_artifact_sha256:
             issues.append(f"{profile.value} reference quality binds the wrong BF16 artifact")
@@ -942,7 +944,7 @@ def build_direct_release_validation_index(
         issues.append("validation request policy digest differs from the wheel-owned policy")
     if candidate_manifest.axquant_version != request.required_toolkit_version:
         issues.append("candidate artifact uses another AXQuant version")
-    if candidate_manifest.source_model != source.source_model:
+    if not same_model_identity(candidate_manifest.source_model, source.source_model):
         issues.append("candidate artifact source differs from the immutable BF16 source")
     issues.extend(_coding_manifest_issues(coding_path, coding))
     issues.extend(
@@ -1418,7 +1420,7 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
             or provenance.source_revision != scope.source_model.revision
         ):
             n0_issues.append("source conversion provenance differs from certification scope")
-    if source_manifest.source_model != inventory.model:
+    if not same_model_identity(source_manifest.source_model, inventory.model):
         n0_issues.append("source checkpoint manifest identity differs from inventory")
     if (
         source_manifest.config_sha256 != actual_fingerprint.config_sha256
@@ -1719,12 +1721,12 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
         n7_issues.append("direct Pareto report cannot be rebuilt from measurements")
     if refinement.selected_candidate_id not in pareto.frontier_candidate_ids:
         n7_issues.append("selected candidate is not on the direct Pareto frontier")
-    if compatibility_request.source_model != scope.source_model:
+    if not same_model_identity(compatibility_request.source_model, scope.source_model):
         n7_issues.append("compatibility request source differs from certification scope")
     if compatibility_request.target_class is not scope.target_class:
         n7_issues.append("compatibility request target class differs")
     if (
-        compatibility.source_model != compatibility_request.source_model
+        not same_model_identity(compatibility.source_model, compatibility_request.source_model)
         or compatibility.target_class is not compatibility_request.target_class
         or compatibility.artifact_manifest_sha256 != file_sha256(manifest_path)
         or not compatibility.release_ready

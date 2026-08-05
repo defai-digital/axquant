@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 
 from axquant.errors import BenchmarkError
+from axquant.identity import same_model_identity
 from axquant.quality import (
     MlxQualityBackend,
     QualityBackend,
@@ -74,7 +75,7 @@ def evaluate_general_quality(
         state = load_model(state_file, DirectGeneralQualityState)
         if (
             state.dataset_sha256 != expected_state.dataset_sha256
-            or state.model != expected_state.model
+            or not same_model_identity(state.model, expected_state.model)
             or state.model_artifact_sha256 != expected_state.model_artifact_sha256
             or state.tokenizer_sha256 != expected_state.tokenizer_sha256
             or state.generation != expected_state.generation

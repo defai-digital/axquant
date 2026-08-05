@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from axquant.errors import ArtifactError, PlanningError
+from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactSizeEvidence,
     EvaluationBundle,
@@ -173,7 +174,9 @@ def build_scoreboard(
             and abs(aggregate.retention - expected_retention) > 1e-9
         ):
             raise ArtifactError("quality comparison aggregate retention is inconsistent")
-        if cand_size is not None and quality.candidate_model != cand_size.model:
+        if cand_size is not None and not same_model_identity(
+            quality.candidate_model, cand_size.model
+        ):
             raise ArtifactError("quality comparison and size evidence use different candidates")
     if quality is not None and quality.aggregate.retention is not None:
         retention = float(quality.aggregate.retention)
@@ -214,11 +217,13 @@ def build_scoreboard(
     if validation is not None:
         if validation.profile != active_profile:
             raise ArtifactError("validation report profile does not match the scoreboard")
-        if cand_size is not None and validation.candidate_model != cand_size.model:
+        if cand_size is not None and not same_model_identity(
+            validation.candidate_model, cand_size.model
+        ):
             raise ArtifactError("validation report and size evidence use different candidates")
         if quality is not None and (
-            validation.candidate_model != quality.candidate_model
-            or validation.reference_model != quality.reference_model
+            not same_model_identity(validation.candidate_model, quality.candidate_model)
+            or not same_model_identity(validation.reference_model, quality.reference_model)
         ):
             raise ArtifactError("validation report and quality comparison identities differ")
         rows.append(
@@ -251,7 +256,9 @@ def build_scoreboard(
                 candidate_identities.append(quality.candidate_model)
             if validation is not None:
                 candidate_identities.append(validation.candidate_model)
-            if any(identity != mtp.model for identity in candidate_identities):
+            if any(
+                not same_model_identity(identity, mtp.model) for identity in candidate_identities
+            ):
                 raise ArtifactError("MTP A/B and candidate evidence identify different checkpoints")
         if mtp.exactness_pass != (mtp.divergent_trial_count == 0):
             raise ArtifactError("MTP A/B exactness status is inconsistent with divergent trials")
@@ -409,7 +416,10 @@ def build_scoreboard(
                     expected_identities.append(quality.reference_model)
                 if validation is not None:
                     expected_identities.append(validation.reference_model)
-            if any(identity != evaluation.model for identity in expected_identities):
+            if any(
+                not same_model_identity(identity, evaluation.model)
+                for identity in expected_identities
+            ):
                 raise ArtifactError(f"{label.lower()} identity differs from bound evidence")
             rows.append(_row(metric_id, label, status="available", value=str(Path(path).name)))
 

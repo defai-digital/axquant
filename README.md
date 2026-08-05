@@ -24,9 +24,10 @@ multi-token-prediction (MTP) weights.
   python -m pip install -e ".[mlx]"
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
-- **Naming isn't the bit budget:** a `4bit` pack name is a storage-class label, not a claim that
-  every tensor is 4-bit — for example the public `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures
-  ~5.42 BPW. Manifests carry the exact per-tensor distribution; see [Model naming](#model-naming).
+- **Naming isn't the bit budget:** existing `4bit`/`6bit` development-pack names are planning
+  classes, not fixed-width claims — for example the public
+  `AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP` pack measures ~5.42 BPW. A future certified flagship must
+  use the measured-BPW form `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`; manifests remain authoritative.
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next, MiniCPM5,
   Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano — see the tier matrix under
   [Current status](#current-status).
@@ -134,7 +135,8 @@ measured AWQ/GPTQ probing (`analyze --calibration-activations`), planner selecti
 before portable affine packing. See the
 [release notes](https://github.com/defai-digital/axquant/releases/tag/v1.2.0) for detail.
 
-Further reading: [migration guide (v1.1.x → v1.2.0)](docs/migration-v1.2.md),
+Further reading: [AXQ model fleet v2 migration and audit](docs/model-fleet-v2.md),
+[migration guide (v1.1.x → v1.2.0)](docs/migration-v1.2.md),
 [migration guide (v1.0.x → v1.1.x)](docs/migration-v1.1.md),
 [environment compatibility matrix](docs/compatibility.md), and
 [known issues](docs/known-issues.md).
@@ -200,54 +202,61 @@ or above the floor when the budget must be fixed.
 
 Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
 (BF16 source → `axquant quantize` → Hub upload; **not** certified releases).
+Use the `v2` repositories listed below; the unversioned predecessors remain available only as
+historical development artifacts.
 
 Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
 present). Cards are multi-family aware and state evidence limits explicitly.
 
-The BPW values below are rounded from each current public manifest's `measured_main_bpw`; the
-linked model card and manifest remain authoritative if a pack is rebuilt.
+The [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
+contains all 28 audited v2 packs. The BPW values below are rounded from each current public
+manifest's `measured_main_bpw`; the linked model card and manifest remain authoritative.
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | ~5.42 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | ~5.84 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | ~4.88 | primary MoE; MTP + vision sidecars |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | ~5.76 | primary MoE; MTP + vision sidecars |
-| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | ~6.74 | secondary; floors dominate 4/6 labels |
-| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | ~6.74 | secondary; same floor as 4bit-class |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | secondary; vision sidecar |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | secondary; vision sidecar |
-| [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | ~4.95 | secondary coding/agent |
-| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | ~6.00 | secondary coding/agent |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | ~5.15 | secondary; vision sidecar preserved |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | ~6.00 | secondary; vision sidecar preserved |
-| [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | ~7.38 | secondary fixture; floors dominate |
-| [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | ~7.38 | secondary fixture |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | ~4.79 | thin Nano only; no AX Engine `model-manifest` yet |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | ~5.98 | thin Nano only; no AX Engine `model-manifest` yet |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit) | ~5.55 | embedding; `feature-extraction` card |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit) | ~8.00 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit) | ~4.89 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | ~8.00 | embedding |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | (factory) | embedding; publishing |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | (factory) | embedding; publishing |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | regeneration required | pre-fix fused experts stayed BF16; do not use as low-bit evidence |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | regeneration required | regenerate with corrected `switch_mlp` expert classification |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | (factory) | Mistral3 shell; publishing |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | (factory) | Mistral3 shell; publishing |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | (factory) | Mistral3 shell; publishing |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | (factory) | Mistral3 shell; publishing |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-v2-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP) | 5.844833 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-v2-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-v2-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-v2-MTP) | 6.736665 | secondary; protection floors dominate |
+| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-v2-MTP) | 6.736665 | secondary; same effective floor |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-v2) | 4.890033 | secondary; vision sidecar preserved |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-v2) | 6.000088 | secondary; vision sidecar preserved |
+| [`AX-Devstral-Small-2505-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit-v2) | 4.949963 | secondary coding/agent |
+| [`AX-Devstral-Small-2505-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit-v2) | 5.999989 | secondary coding/agent |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit-v2) | 5.150021 | secondary; vision sidecar preserved |
+| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit-v2) | 5.999949 | secondary; vision sidecar preserved |
+| [`AX-MiniCPM5-1B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit-v2) | 7.380428 | secondary fixture; protection floors dominate |
+| [`AX-MiniCPM5-1B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit-v2) | 7.380428 | secondary fixture; same effective floor |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit-v2) | 4.799310 | thin Nano support |
+| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit-v2) | 5.990219 | thin Nano support |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit-v2) | 5.550330 | embedding; `feature-extraction` card |
+| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit-v2) | 8.000275 | embedding |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit-v2) | 4.890183 | embedding |
+| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit-v2) | 7.999979 | embedding |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2) | 4.830057 | embedding |
+| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2) | 7.999911 | embedding |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit-v2) | 4.797752 | corrected indexed-expert packing |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit-v2) | 5.998996 | corrected indexed-expert packing |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit-v2) | 5.990115 | Mistral3 language path |
+| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit-v2) | 5.999992 | Mistral3 language path |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit-v2) | 5.610033 | Mistral3 language path |
+| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit-v2) | 5.999912 | Mistral3 language path |
 
-**Naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (**MTP last** when present;
-MLX-style bit labels, not GGUF `q4`). The Hub class is a **storage budget**, not a
-claim that every tensor uses that bit width.
+**Development naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-vN][-MTP]` (**MTP last**
+when present; MLX-style bit labels, not GGUF `q4`). The class is a planning budget, not a claim
+that every tensor uses that width.
+
+**Certified naming:** `AX-<Base>-MLX-AXQ-MP-<measured-main-BPW>bpw[-MTP]`, rounded to two
+decimal places with decimal half-up rules (for example `MP-5p30bpw-MTP`). This name is generated
+from audited measured bytes; `target_class` remains metadata.
 
 **Quick load (MLX-LM):**
 
 ```bash
 python -m pip install -U mlx-lm
-mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
+mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP \
   --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
@@ -258,8 +267,8 @@ Regenerate a public card from a local pack:
 
 ```bash
 python scripts/prepare_development_model_card.py \
-  --artifact-dir /path/to/AX-...-MLX-AXQ-6bit-MTP \
-  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-MTP
+  --artifact-dir /path/to/AX-...-MLX-AXQ-6bit-v2-MTP \
+  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-v2-MTP
 ```
 
 Implemented now:
@@ -318,10 +327,11 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- **Qwen 3.6 certification is not closed.** Public packs are development artifacts. Formal
-  certification still requires same-candidate measured refinement, dual-profile quality
-  comparison, AX Engine evidence, MTP speed on that exact artifact, Pareto and hardware-registry
-  evidence, a compatibility matrix, and a passing M0–M8 audit;
+- **Qwen 3.6 certification is not closed.** Public packs are development artifacts. The additive
+  `qwen36-mtp-v2` tooling now enforces one semantic candidate, frozen disjoint data roles,
+  authorizing performance only on `mbp-m5`, holdout consumption, durable evidence, independent
+  review, lifecycle state, measured-BPW claims, and a final M0–M8 audit. Those controls are
+  implemented; the real candidate and formal evidence have not yet passed them;
 - complete-candidate interaction optimization driven by measured holdout results on a bound candidate;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
 - certification evidence for secondary families (Nemotron Super/Ultra remain inspect-only);
@@ -553,7 +563,17 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `refine-run` | Resume complete conversion, quality, MTP, validation, and selection runs | Implemented |
 | `pareto` | Report non-dominated validated candidates on named hardware | Implemented |
 | `hardware-registry` | Certify checksum-bound kernel, version, power, and shape coverage | Implemented |
-| `release-audit` | Prove every M0–M8 gate from bound release evidence | Implemented |
+| `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence across campaign datasets | Implemented |
+| `campaign-frontier` | Verify every cheapest-failure-first candidate gate and derive the eligible frontier | Implemented |
+| `campaign-freeze` | Freeze one exact `qwen36-mtp-v2` source/candidate/evidence graph | Implemented |
+| `campaign-preflight` | Verify frozen bindings, durable storage, and exact `mbp-m5` host identity | Implemented |
+| `campaign-start-formal` | Start one budgeted formal cycle only after matching preflight | Implemented |
+| `campaign-complete-formal` | Derive pass/fail from the bound completion and consume both formal holdouts | Implemented |
+| `campaign-close-no-go` | Close a pre-formal campaign without consuming its blind holdout | Implemented |
+| `campaign-record-publication` | Bind downloaded Hub bytes, revision, audit, claim, lifecycle, and runtime re-verification | Implemented |
+| `artifact-lifecycle` | Append legal development → candidate → frozen → certified/superseded/revoked transitions | Implemented |
+| `claim-render` | Generate measured-BPW public claims and the certified model card from bound evidence | Implemented |
+| `release-audit` | Dispatch historical Qwen 3.6 v4, Qwen3-Next N0–N8, or additive `qwen36-mtp-v2` M0–M8 proof | Implemented |
 | `compatibility-matrix` | Bind family-wide artifact, runtime, and validation evidence | Implemented |
 | `validate` | Apply release thresholds to external benchmark evidence | Implemented |
 | `size-evidence` | Bind authoritative candidate/uniform-4 artifact sizes | Implemented |
@@ -725,6 +745,39 @@ Publication verifies that file, packages it as `refinement_measurements.json`, p
 objective input, and rewrites the registry to packaged relative paths. Each registry entry
 identifies the exact measurement ID, allowing one candidate and plan to be certified on multiple
 named hosts.
+
+### Flagship campaign closure
+
+The certified Qwen 3.6 path starts from the exact source
+`Qwen/Qwen3.6-27B@6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`. It is separate from the
+historical v4 development audit:
+
+```bash
+axquant campaign-freeze \
+  --request flagship-campaign-request.json \
+  --output flagship-campaign.json
+
+# This authorizing preflight must run on the exact host id mbp-m5.
+axquant campaign-preflight \
+  --campaign flagship-campaign.json \
+  --output flagship-campaign-preflight.json
+
+axquant release-audit \
+  --request flagship-release-audit-request.json \
+  --output flagship-authorization-audit.json
+```
+
+An authorization-ready audit proves the frozen campaign and current M0–M8 evidence but is
+deliberately not publication-ready until the independent lifecycle and claim closure is present.
+The campaign request and every transition, raw-evidence, review, no-go, and publication record
+must remain inside the declared non-symlinked durable root. Formal preflight also requires fresh
+doctor, Metal, zero-fallback, storage, power, and thermal results bound to the exact frozen
+`mbp-m5` contract.
+After the legal `frozen → certified` event, `claim-render` creates `public-claim.json` and the
+measured-BPW `README.md`. An independent final publication review binds those exact files and the
+authorization audit under the durable campaign root; the final flagship request must pass M0–M8
+again. Preview and executed publication both rerun that exact final request. A v4 audit cannot
+authorize a package containing flagship claims or lifecycle metadata.
 
 Prepare the release directory locally, then run the aggregate proof before publishing a certified
 checkpoint:

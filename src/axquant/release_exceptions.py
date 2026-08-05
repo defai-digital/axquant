@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.errors import ValidationGateError
+from axquant.identity import same_model_identity
 from axquant.profiles import thresholds_for
 from axquant.schema import (
     ArtifactSizeEvidence,
@@ -59,7 +60,7 @@ def validate_release_exception_semantics(
         raise ValidationGateError(
             "release exception validation does not use authoritative profile thresholds"
         )
-    if validation.candidate_model != exception.candidate_model:
+    if not same_model_identity(validation.candidate_model, exception.candidate_model):
         raise ValidationGateError("release exception identifies a different candidate")
 
     targets = _targets_by_metric(exception)
@@ -131,7 +132,7 @@ def verify_release_exception(
     size_reference = load_model(resolved["size_reference"], ArtifactSizeEvidence)
     if candidate_size.kind != "candidate" or size_reference.kind != "uniform-4bit":
         raise ValidationGateError("release exception size evidence has invalid kinds")
-    if candidate_size.model != exception.candidate_model:
+    if not same_model_identity(candidate_size.model, exception.candidate_model):
         raise ValidationGateError("release exception candidate-size identity differs")
     if candidate_size.logical_parameters != size_reference.logical_parameters:
         raise ValidationGateError("release exception size evidence parameter counts differ")

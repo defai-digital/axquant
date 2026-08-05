@@ -5,6 +5,7 @@ from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
+from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
@@ -16,7 +17,10 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data, write_text
 
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
-_AXQ_NAME = re.compile(r"^(?P<stem>AX-.+-MLX-AXQ)-(?P<product_class>4bit|6bit|8bit)(?:-MTP)?$")
+_AXQ_NAME = re.compile(
+    r"^(?P<stem>AX-.+-MLX-AXQ)-(?P<product_class>4bit|6bit|8bit)"
+    r"(?P<edition>-v[1-9][0-9]*)?(?:-MTP)?$"
+)
 _PUBLIC_METADATA_FILES = (
     "axquant_manifest.json",
     "axquant_plan.json",
@@ -76,7 +80,7 @@ def _assert_input_bindings(
         raise ArtifactError("artifact manifest does not bind the input plan")
     if execution.plan_sha256 != plan_sha256:
         raise ArtifactError("quantizer execution does not bind the input plan")
-    if manifest.source_model != plan.source_model:
+    if not same_model_identity(manifest.source_model, plan.source_model):
         raise ArtifactError("artifact manifest and plan use different source identities")
     for label, sidecar, expected_role in (
         ("MTP sidecar manifest", mtp_sidecar, "mtp"),
@@ -86,7 +90,7 @@ def _assert_input_bindings(
             continue
         if sidecar.role != expected_role:
             raise ArtifactError(f"{label} declares the wrong protected tensor role")
-        if sidecar.source_model != plan.source_model:
+        if not same_model_identity(sidecar.source_model, plan.source_model):
             raise ArtifactError(f"{label} uses a different source identity")
         _assert_safe_record_path(directory, sidecar.output.path, label)
         for source in sidecar.source_files:
@@ -211,9 +215,14 @@ def render_development_model_card(
     ):
         raise ArtifactError("artifact manifest and plan use different source identities")
     stem = match.group("stem")
+    edition = match.group("edition") or ""
     suffix = "-MTP" if name.endswith("-MTP") else ""
-    four_bit_repo = f"{repo_id.split('/', 1)[0]}/{stem}-4bit{suffix}"
-    six_bit_repo = f"{repo_id.split('/', 1)[0]}/{stem}-6bit{suffix}"
+    is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
+    higher_precision_class = "8bit" if is_embedding_pack else "6bit"
+    four_bit_repo = f"{repo_id.split('/', 1)[0]}/{stem}-4bit{edition}{suffix}"
+    higher_precision_repo = (
+        f"{repo_id.split('/', 1)[0]}/{stem}-{higher_precision_class}{edition}{suffix}"
+    )
     density = "dense" if plan.architecture_profile.dense else "mixture of experts (MoE)"
     product_family = plan.architecture_profile.product_family or "unknown"
     source_arch = source.architecture or plan.architecture_profile.config_model_type or "unrecorded"
@@ -228,10 +237,9 @@ def render_development_model_card(
     mlx_lm_version = manifest.software_versions.mlx_lm or "unrecorded"
     mlx_version = manifest.software_versions.mlx or "unrecorded"
     ax_engine_version = manifest.software_versions.ax_engine or "not recorded"
+    has_native_manifest = (directory / "model-manifest.json").is_file()
     model_manifest_status = (
-        "included as `model-manifest.json`"
-        if (directory / "model-manifest.json").is_file()
-        else "not included"
+        "included as `model-manifest.json`" if has_native_manifest else "not included"
     )
     license_link = "[`LICENSE`](LICENSE) and " if (directory / "LICENSE").is_file() else ""
     source_url = _source_link(source)
@@ -249,8 +257,10 @@ def render_development_model_card(
         (
             f"| [4bit sibling](https://huggingface.co/{four_bit_repo}) | "
             "Lower-storage AXQ budget; check its exact BPW |",
-            f"| [6bit sibling](https://huggingface.co/{six_bit_repo}) | "
-            "Higher average precision near a 6-BPW budget |",
+            f"| [{higher_precision_class} sibling]"
+            f"(https://huggingface.co/{higher_precision_repo}) | "
+            f"Higher average precision near the {higher_precision_class.removesuffix('bit')}-BPW "
+            "budget |",
         )
     )
     catalog_url = "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
@@ -259,7 +269,6 @@ def render_development_model_card(
     )
     precision_tag = product_class.replace("bit", "-bit")
     family_tag = product_family.replace(" ", "-").lower()
-    is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
     pipeline_tag = "feature-extraction" if is_embedding_pack else "text-generation"
     optional_tags = [family_tag, product_class, precision_tag]
     if is_embedding_pack:
@@ -298,8 +307,13 @@ def render_development_model_card(
             "(embeddings, norms, and other protected tensors remain higher precision)."
         )
     total_bpw_label = "Measured total BPW, including MTP" if has_mtp else "Measured total BPW"
+    edition_row = f"| Artifact edition | `{edition.removeprefix('-')}` |\n" if edition else ""
     mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
-    ax_engine_section = f"""## Serve with AX Engine{" and MTP" if has_mtp else ""}
+    if has_native_manifest:
+        ax_engine_runtime_status = (
+            "Native manifest included; execution still requires a runtime check"
+        )
+        ax_engine_section = f"""## Serve with AX Engine{" and MTP" if has_mtp else ""}
 
 After installing [AX Engine](https://github.com/defai-digital/ax-engine), download the complete
 repository and serve the local directory:
@@ -313,6 +327,21 @@ This development package does not claim runtime speedups until identical-checkpo
 published. The artifact records AX Engine version `{ax_engine_version}`. Native
 `model-manifest.json` status: {model_manifest_status}.
 """
+        ax_engine_limitation = ""
+    else:
+        ax_engine_runtime_status = "Not established; no validated native manifest is included"
+        ax_engine_section = f"""## AX Engine status
+
+This package does **not** include a validated native `model-manifest.json`, so AX Engine execution
+is not established by this release. The AX Engine fields in `axquant_runtime.json` describe the
+intended compatibility contract, not observed runtime evidence. Use the MLX-LM path above for
+standard text/backbone inference. The artifact records AX Engine version
+`{ax_engine_version}`, but version discovery alone is not a runtime check.
+"""
+        ax_engine_limitation = (
+            "- AX Engine execution is not established because this package has no validated "
+            "native manifest.\n"
+        )
     vision_quality = (
         "Not evaluated or claimed; vision tensors are preserved at BF16"
         if has_vision
@@ -341,7 +370,7 @@ published. The artifact records AX Engine version `{ax_engine_version}`. Native
             "- [`axquant_vision_sidecar_manifest.json`](axquant_vision_sidecar_manifest.json): "
             "protected vision tensor provenance."
         )
-    if (directory / "model-manifest.json").is_file():
+    if has_native_manifest:
         provenance_sidecars.append(
             "- [`model-manifest.json`](model-manifest.json): AX Engine native tensor manifest."
         )
@@ -353,8 +382,8 @@ published. The artifact records AX Engine version `{ax_engine_version}`. Native
         "grows."
     )
     runtime_provenance = (
-        "- [`axquant_runtime.json`](axquant_runtime.json): AX Engine and MLX-LM compatibility "
-        "contract."
+        "- [`axquant_runtime.json`](axquant_runtime.json): declared AX Engine and MLX-LM "
+        "compatibility metadata; runtime checks remain separate evidence."
     )
 
     return f"""---
@@ -387,15 +416,15 @@ the BF16 source model. {sidecar_blurb}
 | Main-model parameters | {main_parameters} logical parameters |
 | Quantizer | AXQuant `{manifest.axquant_version}` |
 | Hub budget class | `{product_class}` |
-| AXQuant base precision class | `{manifest.target_class}` |
+{edition_row}| AXQuant base precision class | `{manifest.target_class}` |
 | Planned storage-adjusted BPW | {manifest.effective_bpw:.4f} |
 | Measured main-model BPW | {manifest.measured_main_bpw:.4f} |
 | {total_bpw_label} | **{manifest.measured_total_bpw:.4f}** |
 | Safetensors weight size | {_format_decimal_size(manifest.weight_file_size_bytes)} |
 | Approximate complete download | {package_size} |
 | Configured maximum context | {context_length} tokens; practical limits depend on unified memory |
-| Primary runtime | AX Engine, compatibility level A |
-| Compatible runtime | MLX-LM standard text inference, compatibility level B |
+| MLX-LM compatibility | Standard text inference, compatibility level B |
+| AX Engine native execution | {ax_engine_runtime_status} |
 | MTP present | `{has_mtp}` |
 | Vision sidecar present | `{has_vision}` |
 
@@ -483,6 +512,7 @@ establish MTP acceleration or vision-language quality.
 - Architecture-prior allocation is not measured sensitivity. It must not be presented as measured
   model quality.
 {mtp_limitation}{vision_limitation}{context_limitation}
+{ax_engine_limitation}
 - Upstream capabilities, limitations, biases, and responsible-use guidance still apply.
 
 ## Provenance and audit files
@@ -534,7 +564,7 @@ def _assert_public_consistency(directory: Path) -> None:
     if execution.plan_sha256 != expected_plan_sha256:
         raise ArtifactError("public quantizer execution does not bind the sanitized plan")
     identities = [manifest.source_model, plan.source_model]
-    if manifest.source_model != plan.source_model:
+    if not same_model_identity(manifest.source_model, plan.source_model):
         raise ArtifactError("public artifact manifest and plan use different source identities")
     for sidecar_name in (
         "axquant_mtp_sidecar_manifest.json",
@@ -542,7 +572,7 @@ def _assert_public_consistency(directory: Path) -> None:
     ):
         sidecar = _load_optional_sidecar(directory / sidecar_name)
         if sidecar is not None:
-            if sidecar.source_model != plan.source_model:
+            if not same_model_identity(sidecar.source_model, plan.source_model):
                 raise ArtifactError(f"public {sidecar_name} uses a different source identity")
             identities.append(sidecar.source_model)
     if any(identity.local_path for identity in identities):

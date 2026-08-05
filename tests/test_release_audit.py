@@ -107,8 +107,12 @@ _CANDIDATE_REVISION = "c" * 40
 _OTHER_REVISION = "d" * 40
 
 
-def _sensitivity() -> SensitivityReport:
-    source = ModelIdentity(model_id="Qwen/Qwen3.6-test", revision=_SOURCE_REVISION)
+def _sensitivity(
+    *,
+    source_model_id: str = "Qwen/Qwen3.6-test",
+    source_revision: str = _SOURCE_REVISION,
+) -> SensitivityReport:
+    source = ModelIdentity(model_id=source_model_id, revision=source_revision)
     calibration = CalibrationEvidence(
         dataset_id="calibration",
         dataset_sha256="a" * 64,
@@ -404,9 +408,22 @@ def _benchmark_index(
     )
 
 
-def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
-    sensitivity = _sensitivity()
+def _inputs(
+    tmp_path: Path,
+    *,
+    wheel_version: str = "1.0.0",
+    source_model_id: str = "Qwen/Qwen3.6-test",
+    source_revision: str = _SOURCE_REVISION,
+    candidate_model_id: str = "AutomatosX/AXQuant-test",
+    target_class_override: str | None = None,
+) -> Path:
+    sensitivity = _sensitivity(
+        source_model_id=source_model_id,
+        source_revision=source_revision,
+    )
     plan = _plan(sensitivity)
+    if target_class_override is not None:
+        plan = plan.model_copy(update={"target_class": target_class_override})
     artifact = tmp_path / "artifact"
     artifact.mkdir()
     save_file(
@@ -490,7 +507,7 @@ def _inputs(tmp_path: Path, *, wheel_version: str = "1.0.0") -> Path:
     write_data(artifact / "axquant_conversion_manifest.json", manifest)
 
     candidate = ModelIdentity(
-        model_id="AutomatosX/AXQuant-test",
+        model_id=candidate_model_id,
         revision=_CANDIDATE_REVISION,
         local_path=str(artifact.resolve()),
     )

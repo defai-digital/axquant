@@ -250,7 +250,7 @@ def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
     assert out_proj.quantizable is True
 
 
-def _write_qwen3_next_fixture(model_dir: Path) -> None:
+def _write_qwen3_next_fixture(model_dir: Path, *, include_mtp_experts: bool = False) -> None:
     model_dir.mkdir()
     (model_dir / "config.json").write_text(
         json.dumps(
@@ -265,18 +265,29 @@ def _write_qwen3_next_fixture(model_dir: Path) -> None:
         ),
         encoding="utf-8",
     )
-    save_file(
-        {
-            "model.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
-            "model.layers.0.mlp.gate.weight": np.zeros((4, 8), dtype=np.float32),
-            "model.layers.0.mlp.switch_mlp.gate_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
-            "model.layers.0.mlp.switch_mlp.up_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
-            "model.layers.0.mlp.switch_mlp.down_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
-            "model.norm.weight": np.zeros((8,), dtype=np.float32),
-            "lm_head.weight": np.zeros((32, 8), dtype=np.float32),
-        },
-        model_dir / "model.safetensors",
-    )
+    tensors = {
+        "model.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
+        "model.layers.0.mlp.gate.weight": np.zeros((4, 8), dtype=np.float32),
+        "model.layers.0.mlp.switch_mlp.gate_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+        "model.layers.0.mlp.switch_mlp.up_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+        "model.layers.0.mlp.switch_mlp.down_proj.weight": np.zeros((4, 8, 8), dtype=np.float32),
+        "model.norm.weight": np.zeros((8,), dtype=np.float32),
+        "lm_head.weight": np.zeros((32, 8), dtype=np.float32),
+    }
+    if include_mtp_experts:
+        tensors["mtp.layers.0.mlp.experts.gate_up_proj.weight"] = np.zeros(
+            (4, 16, 8),
+            dtype=np.float32,
+        )
+        tensors["mtp.layers.0.mlp.experts.down_proj.weight"] = np.zeros(
+            (4, 8, 8),
+            dtype=np.float32,
+        )
+        tensors["mtp.layers.0.mlp.shared_expert_gate.weight"] = np.zeros(
+            (1, 8),
+            dtype=np.float32,
+        )
+    save_file(tensors, model_dir / "model.safetensors")
 
 
 def test_qwen3_next_fused_experts_are_quantizable(tmp_path: Path) -> None:
@@ -293,6 +304,35 @@ def test_qwen3_next_fused_experts_are_quantizable(tmp_path: Path) -> None:
     assert len(experts) == 3
     assert all(tensor.role == TensorRole.EXPERT for tensor in experts)
     assert all(tensor.quantizable for tensor in experts)
+    assert inventory.architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
+    assert not any("fused expert coverage is incomplete" in item for item in inventory.warnings)
+
+
+def test_protected_mtp_fused_experts_do_not_revoke_conversion_scope(tmp_path: Path) -> None:
+    model_dir = tmp_path / "Qwen3-Coder-Next"
+    _write_qwen3_next_fixture(model_dir, include_mtp_experts=True)
+
+    inventory = inspect_model(
+        model_dir,
+        model_id="Qwen/Qwen3-Coder-Next",
+        revision="source-revision",
+    )
+
+    mtp_experts = [
+        tensor
+        for tensor in inventory.tensors
+        if tensor.name.startswith("mtp.") and ".experts." in tensor.name
+    ]
+    assert len(mtp_experts) == 2
+    assert all(tensor.role.is_mtp for tensor in mtp_experts)
+    assert all(tensor.protected_recommendation for tensor in mtp_experts)
+    mtp_shared_gate = next(
+        tensor
+        for tensor in inventory.tensors
+        if "mtp.layers.0.mlp.shared_expert_gate" in tensor.name
+    )
+    assert mtp_shared_gate.role.is_mtp
+    assert mtp_shared_gate.protected_recommendation
     assert inventory.architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
     assert not any("fused expert coverage is incomplete" in item for item in inventory.warnings)
 

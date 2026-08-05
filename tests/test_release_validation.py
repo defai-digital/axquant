@@ -296,6 +296,38 @@ def test_release_validation_index_rejects_different_candidates(tmp_path: Path) -
     assert "required profiles validate different candidate models" in index.issues
 
 
+def test_release_validation_accepts_same_candidate_at_different_host_paths(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path)
+    general = next(entry for entry in request.entries if entry.profile == ProfileName.GENERAL)
+    validation = load_model(general.validation_file, ValidationReport)
+    validation.candidate_model.local_path = "/Volumes/clean-host/candidate"
+    write_data(general.validation_file, validation)
+    benchmark = load_model(general.benchmark_index_file, BenchmarkEvidenceIndex)
+    for entry in benchmark.entries:
+        if entry.kind not in {
+            BenchmarkEvidenceKind.AXQUANT_MTP_OFF,
+            BenchmarkEvidenceKind.AXQUANT_MTP_ON,
+        }:
+            continue
+        assert entry.model is not None
+        assert entry.evaluation_file is not None
+        entry.model.local_path = "/Volumes/clean-host/candidate"
+        evaluation = load_model(entry.evaluation_file, EvaluationBundle)
+        evaluation.model.local_path = "/Volumes/clean-host/candidate"
+        write_data(entry.evaluation_file, evaluation)
+        entry.evaluation_sha256 = file_sha256(entry.evaluation_file)
+    write_data(general.benchmark_index_file, benchmark)
+    request_path = tmp_path / "request.json"
+    write_data(request_path, request)
+
+    index = build_release_validation_index(request_path)
+
+    assert index.release_ready
+    assert not index.issues
+
+
 @pytest.mark.parametrize(
     ("passed", "issues"),
     [

@@ -93,7 +93,11 @@ def classify_dense_tensor(
     # The shared expert gate controls whether the shared expert contributes;
     # it is routing state, not an expert projection, and must retain the
     # router 8-bit protection floor.
-    if "shared_expert_gate" in name_value:
+    if (
+        "shared_expert_gate" in name_value
+        and source_name not in _MTP_SIDECAR_FILENAMES
+        and not _MTP.search(name_value)
+    ):
         return TensorRole.ROUTER
     for token, role in extra_patterns:
         if token.lower() in name_value:

@@ -25,6 +25,7 @@ from typing import Any
 import structlog
 
 from axquant.errors import BackendUnavailableError, BenchmarkError, InvariantViolationError
+from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
@@ -149,7 +150,7 @@ def validate_ab_invariant(
     - the identical workload and generation controls
     - MTP disabled for direct, enabled for candidate
     """
-    if direct_config.model != mtp_config.model:
+    if not same_model_identity(direct_config.model, mtp_config.model):
         raise InvariantViolationError(
             "A/B invariant violated: model identity differs between direct and MTP runs"
         )
@@ -1141,7 +1142,7 @@ def compare_mtp_ab_results(
     issues: list[str] = []
     direct_config = direct_result.config
     mtp_config = mtp_result.config
-    if direct_config.model != mtp_config.model:
+    if not same_model_identity(direct_config.model, mtp_config.model):
         issues.append("model identity differs between direct and MTP results")
     if not is_immutable_revision(direct_config.model.revision) or not is_immutable_revision(
         mtp_config.model.revision

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 
+from axquant.identity import same_model_identity
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactSizeEvidence,
@@ -76,7 +77,7 @@ def validate_evaluations(
             issue("artifact.size_reference.kind", "size reference must be uniform 4-bit")
         if candidate_size.kind != "candidate":
             issue("artifact.candidate_size.kind", "candidate size evidence has the wrong kind")
-        if candidate_size.model != candidate.model:
+        if not same_model_identity(candidate_size.model, candidate.model):
             issue(
                 "artifact.candidate_size.model",
                 "candidate size evidence and benchmark evaluation identify different checkpoints",
@@ -145,7 +146,7 @@ def validate_evaluations(
             "candidate_direct.workload",
             "MTP-off and MTP-on candidates used different workloads",
         )
-    if candidate_direct.model != candidate.model:
+    if not same_model_identity(candidate_direct.model, candidate.model):
         issue(
             "candidate_direct.model",
             "MTP speedup requires the identical AXQuant checkpoint",

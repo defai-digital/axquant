@@ -4,6 +4,7 @@ from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
+from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactManifest,
     CalibrationManifest,
@@ -47,7 +48,7 @@ def _calibration_issues(
 ) -> list[str]:
     expected = recipe.calibration
     issues: list[str] = []
-    if manifest.model != recipe.source_model:
+    if not same_model_identity(manifest.model, recipe.source_model):
         issues.append("calibration manifest source model does not match the recipe")
     if manifest.profile != recipe.profile:
         issues.append("calibration manifest profile does not match the recipe")
@@ -160,7 +161,7 @@ def verify_reproduction(
         else:
             if stable_sha256(plan) != recipe.plan_sha256:
                 issues.append("quantization plan semantic checksum does not match the recipe")
-            if plan.source_model != recipe.source_model:
+            if not same_model_identity(plan.source_model, recipe.source_model):
                 issues.append("quantization plan source model does not match the recipe")
             if plan.profile != recipe.profile:
                 issues.append("quantization plan profile does not match the recipe")
@@ -189,7 +190,7 @@ def verify_reproduction(
         except (ArtifactError, ValueError) as exc:
             issues.append(f"immutable conversion manifest cannot be validated: {exc}")
         else:
-            if conversion_manifest.source_model != recipe.source_model:
+            if not same_model_identity(conversion_manifest.source_model, recipe.source_model):
                 issues.append("immutable conversion manifest source model does not match recipe")
             if conversion_manifest.plan_sha256 != recipe.plan_sha256:
                 issues.append("immutable conversion manifest plan checksum does not match recipe")
@@ -223,7 +224,7 @@ def verify_reproduction(
         else:
             actual_logical_parameters = manifest.logical_parameters
             actual_weight_bytes = manifest.weight_file_size_bytes
-            if manifest.source_model != recipe.source_model:
+            if not same_model_identity(manifest.source_model, recipe.source_model):
                 issues.append("reproduced artifact source model does not match the recipe")
             if manifest.plan_sha256 != recipe.plan_sha256:
                 issues.append("reproduced artifact plan checksum does not match the recipe")

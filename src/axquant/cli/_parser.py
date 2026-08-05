@@ -769,6 +769,7 @@ def _build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument("--hardware-registry")
     prepare_parser.add_argument("--pareto-report")
     prepare_parser.add_argument("--release-audit-request")
+    prepare_parser.add_argument("--release-audit")
 
     publish_parser = subparsers.add_parser("publish")
     publish_parser.add_argument("--model", required=True)
@@ -1145,6 +1146,114 @@ def _build_parser() -> argparse.ArgumentParser:
     release_audit_parser = subparsers.add_parser("release-audit")
     release_audit_parser.add_argument("--request", required=True)
     release_audit_parser.add_argument("--output", default="release_audit.json")
+    campaign_overlap_parser = subparsers.add_parser(
+        "campaign-overlap",
+        help="Build a deterministic cross-dataset overlap report for a flagship campaign",
+    )
+    campaign_overlap_parser.add_argument("--dataset", required=True)
+    campaign_overlap_parser.add_argument("--compare", action="append", required=True)
+    campaign_overlap_parser.add_argument("--threshold", type=float, default=0.9)
+    campaign_overlap_parser.add_argument("--id-field", default="id")
+    campaign_overlap_parser.add_argument("--text-field", action="append")
+    campaign_overlap_parser.add_argument("--max-comparison-pairs", type=int, default=10_000_000)
+    campaign_overlap_parser.add_argument(
+        "--output",
+        default="campaign-overlap-report.json",
+    )
+    campaign_frontier_parser = subparsers.add_parser(
+        "campaign-frontier",
+        help="Build and verify a cheapest-failure-first flagship candidate frontier",
+    )
+    campaign_frontier_parser.add_argument("--request", required=True)
+    campaign_frontier_parser.add_argument(
+        "--output",
+        default="flagship-frontier.json",
+    )
+    campaign_freeze_parser = subparsers.add_parser(
+        "campaign-freeze",
+        help="Freeze one strict qwen36-mtp-v2 flagship campaign",
+    )
+    campaign_freeze_parser.add_argument("--request", required=True)
+    campaign_freeze_parser.add_argument("--output", default="flagship-campaign.json")
+    campaign_preflight_parser = subparsers.add_parser(
+        "campaign-preflight",
+        help="Verify a frozen flagship campaign on its authorizing host",
+    )
+    campaign_preflight_parser.add_argument("--campaign", required=True)
+    campaign_preflight_parser.add_argument(
+        "--output",
+        default="flagship-campaign-preflight.json",
+    )
+    campaign_start_parser = subparsers.add_parser(
+        "campaign-start-formal",
+        help="Transition a frozen, preflighted campaign to formal_running",
+    )
+    campaign_start_parser.add_argument("--campaign", required=True)
+    campaign_start_parser.add_argument("--preflight", required=True)
+    campaign_start_parser.add_argument("--output", required=True)
+    campaign_complete_parser = subparsers.add_parser(
+        "campaign-complete-formal",
+        help="Consume the formal holdout and close the formal cycle",
+    )
+    campaign_complete_parser.add_argument("--campaign", required=True)
+    campaign_complete_parser.add_argument("--completion", required=True)
+    campaign_complete_parser.add_argument("--output", required=True)
+    campaign_close_parser = subparsers.add_parser(
+        "campaign-close-no-go",
+        help="Close a pre-formal campaign without consuming its holdout",
+    )
+    campaign_close_parser.add_argument("--campaign", required=True)
+    campaign_close_parser.add_argument("--no-go-record", required=True)
+    campaign_close_parser.add_argument("--output", required=True)
+    campaign_publication_parser = subparsers.add_parser(
+        "campaign-record-publication",
+        help="Close a release-ready campaign from downloaded publication verification",
+    )
+    campaign_publication_parser.add_argument("--campaign", required=True)
+    campaign_publication_parser.add_argument("--verification", required=True)
+    campaign_publication_parser.add_argument("--output", required=True)
+    lifecycle_parser = subparsers.add_parser(
+        "artifact-lifecycle",
+        help="Append one validated lifecycle transition and write a new registry",
+    )
+    lifecycle_parser.add_argument("--registry", required=True)
+    lifecycle_parser.add_argument("--candidate", required=True)
+    lifecycle_parser.add_argument(
+        "--to",
+        required=True,
+        choices=["development", "candidate", "frozen", "certified", "superseded", "revoked"],
+    )
+    lifecycle_parser.add_argument("--actor", required=True)
+    lifecycle_parser.add_argument("--reviewer", required=True)
+    lifecycle_parser.add_argument(
+        "--reason",
+        required=True,
+        choices=[
+            "certification_passed",
+            "formal_cycle_failed",
+            "new_certified_successor",
+            "adapter_classification_changed",
+            "packing_semantics_changed",
+            "source_or_tokenizer_changed",
+            "runtime_contract_invalidated",
+            "provenance_error",
+            "security_or_license_issue",
+        ],
+    )
+    lifecycle_parser.add_argument("--narrative", required=True)
+    lifecycle_parser.add_argument("--evidence", required=True)
+    lifecycle_parser.add_argument("--replacement-candidate")
+    lifecycle_parser.add_argument("--public-repository")
+    lifecycle_parser.add_argument("--public-revision")
+    lifecycle_parser.add_argument("--impact-scan")
+    lifecycle_parser.add_argument("--output", required=True)
+    claim_parser = subparsers.add_parser(
+        "claim-render",
+        help="Generate certified public claims and model card from bound evidence",
+    )
+    claim_parser.add_argument("--request", required=True)
+    claim_parser.add_argument("--output", default="public-claim.json")
+    claim_parser.add_argument("--model-card", default="README.md")
 
     validate_dataset_parser = subparsers.add_parser("validate-calibration-dataset")
     validate_dataset_parser.add_argument("--path", default=None)

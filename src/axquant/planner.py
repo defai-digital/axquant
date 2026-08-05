@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import heapq
 from dataclasses import dataclass
 
 from axquant.architectures.registry import declared_tier_for
@@ -61,6 +62,64 @@ class _Choice:
 
 
 _PrecisionSignature = tuple[int, QuantMethod, int | None]
+_UpgradeCandidate = tuple[float, int, float]
+
+
+def _next_upgrade_candidate(choice_index: int, choice: _Choice) -> _UpgradeCandidate | None:
+    if choice.index + 1 >= len(choice.options):
+        return None
+    current = choice.options[choice.index]
+    upgraded = choice.options[choice.index + 1]
+    delta_storage = (upgraded.storage_bpw - current.storage_bpw) * choice.entry.tensor.parameters
+    if delta_storage <= 0:
+        return None
+    benefit = current.ranking_loss - upgraded.ranking_loss
+    if benefit <= 0:
+        return None
+    efficiency = benefit * choice.entry.tensor.parameters / delta_storage
+    return efficiency, choice_index, delta_storage
+
+
+def _apply_budget_upgrades(
+    choices: list[_Choice],
+    *,
+    running_storage_bits: float,
+    target_storage_bits: float,
+) -> float:
+    """Apply the deterministic marginal-gain upgrade order in O(options log tensors).
+
+    The former full rescan selected the maximum
+    ``(efficiency, choice_index, delta_storage)`` tuple after each upgrade.
+    A max-priority queue preserves that exact ordering. An edge that no longer
+    fits can be discarded permanently because the remaining budget only
+    decreases; the next edge for a tensor is unlocked only after its current
+    edge is selected.
+    """
+
+    pending: list[tuple[float, int, float]] = []
+
+    def enqueue(choice_index: int) -> None:
+        candidate = _next_upgrade_candidate(choice_index, choices[choice_index])
+        if candidate is None:
+            return
+        efficiency, index, delta_storage = candidate
+        heapq.heappush(pending, (-efficiency, -index, -delta_storage))
+
+    for choice_index in range(len(choices)):
+        enqueue(choice_index)
+
+    while pending:
+        _negative_efficiency, negative_index, negative_delta = heapq.heappop(pending)
+        choice_index = -negative_index
+        delta_storage = -negative_delta
+        if running_storage_bits + delta_storage > target_storage_bits + 1e-6:
+            continue
+        choice = choices[choice_index]
+        choice.index += 1
+        choice.upgraded = True
+        running_storage_bits += delta_storage
+        enqueue(choice_index)
+    return running_storage_bits
 
 
 def _harmonize_choice_group(
@@ -520,8 +579,8 @@ def plan_quantization(
             choice.selected.storage_bpw * choice.entry.tensor.parameters for choice in choices
         )
 
-    # Keep a running total so the upgrade search stays O(options) per pass, not
-    # O(tensors) inside the inner loop (critical for hybrid MoE with 6k+ tensors).
+    # Keep a running total for priority-queue budget checks. The complete
+    # ladder is O(options log tensors), including 70k+ tensor hybrid MoE plans.
     running_storage_bits = current_storage_bits()
     minimum_storage_bits = running_storage_bits
     if minimum_storage_bits > target_storage_bits + 1e-6:
@@ -531,34 +590,11 @@ def plan_quantization(
             f"{minimum_bpw:.4f} BPW"
         )
 
-    while True:
-        best: tuple[float, int, float] | None = None
-        for choice_index, choice in enumerate(choices):
-            if choice.index + 1 >= len(choice.options):
-                continue
-            current = choice.options[choice.index]
-            upgraded = choice.options[choice.index + 1]
-            delta_storage = (
-                upgraded.storage_bpw - current.storage_bpw
-            ) * choice.entry.tensor.parameters
-            if delta_storage <= 0:
-                continue
-            if running_storage_bits + delta_storage > target_storage_bits + 1e-6:
-                continue
-            # Use ranking_loss so measured role preferences influence upgrade order (QP1).
-            benefit = current.ranking_loss - upgraded.ranking_loss
-            if benefit <= 0:
-                continue
-            efficiency = benefit * choice.entry.tensor.parameters / delta_storage
-            candidate = (efficiency, choice_index, delta_storage)
-            if best is None or candidate > best:
-                best = candidate
-        if best is None:
-            break
-        choice = choices[best[1]]
-        choice.index += 1
-        choice.upgraded = True
-        running_storage_bits += best[2]
+    running_storage_bits = _apply_budget_upgrades(
+        choices,
+        running_storage_bits=running_storage_bits,
+        target_storage_bits=target_storage_bits,
+    )
 
     # Fused MoE experts quantize as one MLX-LM switch module, so every member
     # of a group must share one executable (bits, method, group-size)

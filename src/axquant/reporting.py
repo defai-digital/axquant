@@ -7,6 +7,7 @@ from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import activation_capture_evidence_issues
 from axquant.errors import ArtifactError, ValidationGateError
+from axquant.identity import same_model_identity
 from axquant.planner import allocate_kv_cache_measured
 from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
@@ -191,7 +192,7 @@ def _hardware_evidence_sources(
         if (
             measurement is None
             or measurement.candidate_id != entry.candidate_id
-            or measurement.candidate_model != entry.candidate_model
+            or not same_model_identity(measurement.candidate_model, entry.candidate_model)
             or measurement.profile != entry.profile
             or measurement.plan_sha256 != entry.plan_sha256
             or measurement.artifact_manifest_sha256 != entry.artifact_manifest_sha256
@@ -281,9 +282,11 @@ def _benchmark_evidence_sources(
     mtp_model = mtp_entry.model
     if reference_model is None or direct_model is None or mtp_model is None:
         raise ValidationGateError("required benchmark evidence has no model identity")
-    if reference_model != validation.reference_model:
+    if not same_model_identity(reference_model, validation.reference_model):
         raise ValidationGateError("uniform-6 benchmark evidence does not match validation")
-    if direct_model != validation.candidate_model or mtp_model != validation.candidate_model:
+    if not same_model_identity(direct_model, validation.candidate_model) or not same_model_identity(
+        mtp_model, validation.candidate_model
+    ):
         raise ValidationGateError("AXQuant benchmark evidence does not match validation")
 
     sources: list[tuple[BenchmarkEvidenceEntry, Path]] = []
@@ -298,7 +301,7 @@ def _benchmark_evidence_sources(
         bundle = load_model(source, EvaluationBundle)
         if (
             bundle.baseline_kind != entry.kind.value
-            or bundle.model != entry.model
+            or not same_model_identity(bundle.model, entry.model)
             or bundle.workload != index.profile.value
             or bundle.dataset_sha256 != index.dataset_sha256
             or bundle.random_seed != index.random_seed
@@ -541,8 +544,8 @@ def prepare_publication(
         if (
             validation_report.profile != entry.profile
             or benchmark_index.profile != entry.profile
-            or validation_report.reference_model != entry.reference_model
-            or validation_report.candidate_model != entry.candidate_model
+            or not same_model_identity(validation_report.reference_model, entry.reference_model)
+            or not same_model_identity(validation_report.candidate_model, entry.candidate_model)
             or not validation_report.passed
             or not entry.passed
         ):
@@ -564,8 +567,8 @@ def prepare_publication(
     validation, benchmark_index, benchmark_sources = evidence[ProfileName.AGENT_CODING]
     general_validation, general_benchmark_index, general_sources = evidence[ProfileName.GENERAL]
     if (
-        validation.candidate_model != general_validation.candidate_model
-        or validation.reference_model != general_validation.reference_model
+        not same_model_identity(validation.candidate_model, general_validation.candidate_model)
+        or not same_model_identity(validation.reference_model, general_validation.reference_model)
         or benchmark_index.dataset_sha256 == general_benchmark_index.dataset_sha256
     ):
         raise ValidationGateError("required validation profiles are not matched and disjoint")
@@ -647,7 +650,7 @@ def prepare_publication(
     if not calibration_manifest_matches(calibration_path, calibration, calibration_sha256):
         raise ValidationGateError("packaged calibration manifest does not match the plan")
     if (
-        calibration.model != plan.source_model
+        not same_model_identity(calibration.model, plan.source_model)
         or calibration.profile != plan.profile
         or calibration.dataset_sha256 != plan.calibration.dataset_sha256
         or not calibration.calibration_evaluation_separation_attested
@@ -661,7 +664,7 @@ def prepare_publication(
     matching_hardware = [
         entry
         for entry in hardware_registry.entries
-        if entry.candidate_model == validation.candidate_model
+        if same_model_identity(entry.candidate_model, validation.candidate_model)
         and entry.profile == ProfileName.AGENT_CODING
         and entry.plan_sha256 == manifest.plan_sha256
         and entry.release_ready
@@ -671,7 +674,7 @@ def prepare_publication(
     matching_frontier = [
         point
         for point in pareto_report.points
-        if point.candidate_model == validation.candidate_model
+        if same_model_identity(point.candidate_model, validation.candidate_model)
         and point.plan_sha256 == manifest.plan_sha256
         and point.measurement_id in {entry.measurement_id for entry in matching_hardware}
         and point.frontier

@@ -25,6 +25,7 @@ from axquant.coding_suite import (
     probe_toolchains,
 )
 from axquant.errors import BackendUnavailableError, BenchmarkError
+from axquant.identity import same_model_identity
 from axquant.quality import MlxQualityBackend, QualityBackend
 from axquant.schema import (
     CodingEvaluationState,
@@ -759,7 +760,7 @@ def _load_or_create_state(
     state = load_model(state_path, CodingEvaluationState)
     if (
         state.suite_manifest_sha256 != expected.suite_manifest_sha256
-        or state.model != expected.model
+        or not same_model_identity(state.model, expected.model)
         or state.model_artifact_sha256 != expected.model_artifact_sha256
         or state.tokenizer_sha256 != expected.tokenizer_sha256
         or state.random_seed != expected.random_seed

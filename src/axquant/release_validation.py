@@ -4,12 +4,12 @@ import re
 from pathlib import Path
 
 from axquant.errors import ArtifactError
+from axquant.identity import model_identity_key, same_model_identity
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     BenchmarkEvidenceIndex,
     BenchmarkEvidenceKind,
     EvaluationBundle,
-    ModelIdentity,
     ReleaseValidationEntry,
     ReleaseValidationIndex,
     ReleaseValidationRequest,
@@ -29,20 +29,6 @@ _REQUIRED_BENCHMARK_KINDS = {
 def _resolved(base: Path, value: str) -> Path:
     path = Path(value).expanduser()
     return path.resolve() if path.is_absolute() else (base / path).resolve()
-
-
-def _same_model(left: ModelIdentity, right: ModelIdentity) -> bool:
-    return left == right
-
-
-def _model_key(model: ModelIdentity) -> tuple[str, str | None, str, str | None, str | None]:
-    return (
-        model.model_id,
-        model.revision,
-        model.format,
-        model.architecture,
-        model.local_path,
-    )
 
 
 def build_release_validation_index(
@@ -106,7 +92,8 @@ def build_release_validation_index(
                 issues.append(f"{label} benchmark evaluation is invalid: {exc}")
                 continue
             if (
-                evaluation.model != evidence.model
+                evidence.model is None
+                or not same_model_identity(evaluation.model, evidence.model)
                 or evaluation.runtime != evidence.runtime
                 or evaluation.mtp_enabled != evidence.mtp_enabled
                 or evaluation.baseline_kind != evidence.kind.value
@@ -122,11 +109,11 @@ def build_release_validation_index(
         reference = entry_by_kind[BenchmarkEvidenceKind.UNIFORM_6BIT].model
         direct = entry_by_kind[BenchmarkEvidenceKind.AXQUANT_MTP_OFF].model
         mtp = entry_by_kind[BenchmarkEvidenceKind.AXQUANT_MTP_ON].model
-        if reference is None or not _same_model(reference, validation.reference_model):
+        if reference is None or not same_model_identity(reference, validation.reference_model):
             issues.append(f"{requested.profile.value} uniform-6 evidence model differs")
-        if direct is None or mtp is None or not _same_model(direct, mtp):
+        if direct is None or mtp is None or not same_model_identity(direct, mtp):
             issues.append(f"{requested.profile.value} AXQuant MTP pair is not identical")
-        elif not _same_model(direct, validation.candidate_model):
+        elif not same_model_identity(direct, validation.candidate_model):
             issues.append(f"{requested.profile.value} candidate evidence model differs")
         if not is_immutable_revision(validation.candidate_model.revision):
             issues.append(f"{requested.profile.value} candidate revision is not immutable")
@@ -147,8 +134,8 @@ def build_release_validation_index(
             )
         )
 
-    candidate_models = {_model_key(entry.candidate_model) for entry in entries}
-    reference_models = {_model_key(entry.reference_model) for entry in entries}
+    candidate_models = {model_identity_key(entry.candidate_model) for entry in entries}
+    reference_models = {model_identity_key(entry.reference_model) for entry in entries}
     dataset_digests = {entry.dataset_sha256 for entry in entries if entry.dataset_sha256}
     if len(candidate_models) != 1:
         issues.append("required profiles validate different candidate models")

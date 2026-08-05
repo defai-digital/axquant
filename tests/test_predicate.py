@@ -7,7 +7,12 @@ import axquant.predicate as predicate_module
 from axquant.analyzer import architecture_prior_report
 from axquant.awq import refine_weight_with_awq
 from axquant.errors import PlanningError
-from axquant.module_paths import mlx_module_aliases
+from axquant.module_paths import (
+    fused_expert_tensor_target,
+    mlx_module_aliases,
+    mlx_tensor_aliases,
+    mlx_tensor_binding_groups,
+)
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
 from axquant.schema import (
@@ -106,6 +111,44 @@ def test_qwen_checkpoint_paths_map_to_mlx_lm_module_paths() -> None:
         "model.language_model.layers.0.mlp.down_proj"
     )
     assert "language_model.lm_head" in mlx_module_aliases("lm_head")
+
+
+def test_qwen_checkpoint_tensor_paths_map_to_mlx_lm_output_paths() -> None:
+    assert "language_model.model.layers.0.linear_attn.A_log" in mlx_tensor_aliases(
+        "model.language_model.layers.0.linear_attn.A_log"
+    )
+    assert "language_model.lm_head.weight" in mlx_tensor_aliases("lm_head.weight")
+    assert mlx_tensor_binding_groups("model.language_model.layers.0.mlp.experts.gate_up_proj") == (
+        (
+            "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight",
+            "model.language_model.layers.0.mlp.switch_mlp.gate_proj.weight",
+        ),
+        (
+            "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight",
+            "model.language_model.layers.0.mlp.switch_mlp.up_proj.weight",
+        ),
+    )
+
+
+def test_indexed_expert_tensor_paths_map_to_exact_fused_output() -> None:
+    qwen = "model.language_model.layers.3.mlp.experts.17.gate_proj.weight"
+    nemotron = "backbone.layers.8.mixer.experts.20.up_proj.weight"
+
+    assert fused_expert_tensor_target(qwen) == (
+        "model.language_model.layers.3.mlp.switch_mlp.gate_proj.weight",
+        17,
+    )
+    assert "language_model.model.layers.3.mlp.switch_mlp.gate_proj.weight" in mlx_tensor_aliases(
+        qwen
+    )
+    assert fused_expert_tensor_target(nemotron) == (
+        "backbone.layers.8.mixer.switch_mlp.fc1.weight",
+        20,
+    )
+    assert mlx_tensor_binding_groups(nemotron) == (
+        ("backbone.layers.8.mixer.switch_mlp.fc1.weight",),
+    )
+    assert fused_expert_tensor_target(nemotron.removesuffix(".weight") + ".bias") is None
 
 
 def test_dwq_refinement_executes_before_affine_packing(

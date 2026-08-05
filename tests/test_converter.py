@@ -819,6 +819,170 @@ def test_converted_weight_verification_rejects_missing_mtp_parameters(
         converter._verify_converted_weights(staging, plan)
 
 
+def test_converted_tensor_binding_accepts_only_one_to_one_mlx_wrapper_aliases() -> None:
+    expected = {
+        "lm_head.weight": object(),
+        "model.language_model.layers.0.linear_attn.A_log": object(),
+    }
+    head = object()
+    a_log = object()
+    actual = {
+        "language_model.lm_head.weight": head,
+        "language_model.model.layers.0.linear_attn.A_log": a_log,
+    }
+
+    assert converter._bind_converted_tensors(expected, actual) == {
+        "lm_head.weight": (head,),
+        "model.language_model.layers.0.linear_attn.A_log": (a_log,),
+    }
+
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(
+            expected,
+            {**actual, "lm_head.weight": object()},
+        )
+
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(
+            expected,
+            {"language_model.lm_head.weight": head},
+        )
+
+
+def test_converted_tensor_binding_proves_qwen_packed_gate_up_split() -> None:
+    tensor = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    gate = object()
+    up = object()
+    actual = {
+        "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight": gate,
+        "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight": up,
+    }
+
+    assert converter._bind_converted_tensors({tensor: object()}, actual) == {tensor: (gate, up)}
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(
+            {tensor: object()},
+            {"language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight": gate},
+        )
+
+
+def test_converted_tensor_binding_proves_indexed_expert_stack() -> None:
+    names = [f"backbone.layers.1.mixer.experts.{index}.up_proj.weight" for index in range(3)]
+    fused = object()
+    actual = {"backbone.layers.1.mixer.switch_mlp.fc1.weight": fused}
+
+    assert converter._bind_converted_tensors(dict.fromkeys(names, object()), actual) == {
+        name: (fused,) for name in names
+    }
+    with pytest.raises(ArtifactError, match="contiguous source indices"):
+        converter._bind_converted_tensors(
+            {names[0]: object(), names[2]: object()},
+            actual,
+        )
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(
+            dict.fromkeys(names, object()),
+            {**actual, "backbone.layers.1.mixer.experts.0.up_proj.weight": object()},
+        )
+
+
+def test_expected_converted_shapes_conserve_qwen_packed_gate_up_parameters() -> None:
+    gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    down = "model.language_model.layers.0.mlp.experts.down_proj"
+
+    assert converter._expected_converted_shapes(gate_up, (256, 1024, 2048), 6) == (
+        (256, 512, 384),
+        (256, 512, 384),
+    )
+    assert converter._expected_converted_shapes(gate_up, (256, 1024, 2048), 16) == (
+        (256, 512, 2048),
+        (256, 512, 2048),
+    )
+    assert converter._expected_converted_shapes(down, (256, 2048, 512), 6) == ((256, 2048, 96),)
+
+
+def test_expected_fused_shapes_conserve_nemotron_expert_parameters() -> None:
+    up = "backbone.layers.1.mixer.experts.0.up_proj.weight"
+    down = "backbone.layers.1.mixer.experts.0.down_proj.weight"
+
+    assert converter._expected_fused_converted_shapes(
+        up,
+        ((1856, 2688),) * 128,
+        4,
+    ) == ((128, 1856, 336),)
+    assert converter._expected_fused_converted_shapes(
+        down,
+        ((2688, 1856),) * 128,
+        6,
+    ) == ((128, 2688, 348),)
+    with pytest.raises(ArtifactError, match="mixes source shapes"):
+        converter._expected_fused_converted_shapes(
+            up,
+            ((1856, 2688), (1856, 1024)),
+            4,
+        )
+
+
+def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transforms(
+    qwen36_model_dir: Path,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    tensor = "model.language_model.layers.0.linear_attn.conv1d.weight"
+
+    assert converter._protected_shape_matches(
+        plan,
+        tensor,
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+    assert not converter._protected_shape_matches(
+        plan,
+        "model.language_model.layers.0.linear_attn.A_log",
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+    assert not converter._protected_shape_matches(
+        plan,
+        tensor,
+        (8192, 1, 4),
+        (8192, 2, 2),
+    )
+
+    qwen3_next_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "qwen3_next"}
+            )
+        }
+    )
+    assert converter._protected_shape_matches(
+        qwen3_next_plan,
+        tensor,
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+
+    nemotron_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "nemotron_h"}
+            )
+        }
+    )
+    assert converter._protected_shape_matches(
+        nemotron_plan,
+        "backbone.layers.0.mixer.conv1d.weight",
+        (6144, 1, 4),
+        (6144, 4, 1),
+    )
+    assert not converter._protected_shape_matches(
+        nemotron_plan,
+        tensor,
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+
+
 def test_conversion_requires_declared_mtp_sidecar(
     qwen36_model_dir: Path,
     tmp_path: Path,

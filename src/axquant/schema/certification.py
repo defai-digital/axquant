@@ -31,6 +31,7 @@ def _relative_artifact_path(value: str) -> str:
 
 class CertificationTrack(StrEnum):
     QWEN36_MTP_V1 = "qwen36-mtp-v1"
+    QWEN36_MTP_V2 = "qwen36-mtp-v2"
     QWEN3_NEXT_DIRECT_V1 = "qwen3-next-direct-v1"
 
 

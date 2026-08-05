@@ -14,6 +14,11 @@ _NEMOTRON_PROJ_TO_SWITCH = {
     "up_proj": "fc1",
     "down_proj": "fc2",
 }
+_QWEN_PACKED_EXPERT_TENSOR = re.compile(
+    r"^(?P<prefix>(?:model\.language_model|language_model\.model)\..*\.mlp)"
+    r"\.experts\.(?P<projection>gate_up_proj|down_proj)"
+    r"(?P<suffix>\.(?:weight|scales|biases))?$"
+)
 
 
 def fused_expert_module(module_path: str) -> str | None:
@@ -36,6 +41,30 @@ def fused_expert_module(module_path: str) -> str | None:
     if nemo is not None:
         switch = _NEMOTRON_PROJ_TO_SWITCH[nemo.group("proj")]
         return f"{nemo.group('prefix')}.switch_mlp.{switch}"
+    return None
+
+
+def fused_expert_tensor_target(tensor_path: str) -> tuple[str, int] | None:
+    """Return the exact MLX-LM stack target and expert index for one source weight.
+
+    Public MLX-LM sanitizers stack indexed Qwen-style and Nemotron-H expert
+    weights along a new leading expert axis. The index is returned separately
+    so converted-checkpoint verification can require a complete contiguous
+    source membership set before accepting that many-to-one transform.
+    """
+
+    if not tensor_path.endswith(".weight"):
+        return None
+    module_path = tensor_path.removesuffix(".weight")
+    match = _EXPERT_MEMBER.match(module_path)
+    if match is not None:
+        target = f"{match.group('prefix')}.switch_mlp.{match.group('proj')}.weight"
+        return target, int(match.group("index"))
+    nemo = _NEMOTRON_EXPERT_MEMBER.match(module_path)
+    if nemo is not None:
+        switch = _NEMOTRON_PROJ_TO_SWITCH[nemo.group("proj")]
+        target = f"{nemo.group('prefix')}.switch_mlp.{switch}.weight"
+        return target, int(nemo.group("index"))
     return None
 
 
@@ -106,3 +135,59 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
     elif module_path == "language_model.lm_head":
         aliases.add("lm_head")
     return tuple(sorted(aliases))
+
+
+def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
+    """Return aliases for the Qwen wrapper-only tensor-path rewrite."""
+
+    aliases = {tensor_path}
+    checkpoint_prefix = "model.language_model."
+    mlx_prefix = "language_model.model."
+    if tensor_path.startswith(checkpoint_prefix):
+        aliases.add(f"{mlx_prefix}{tensor_path.removeprefix(checkpoint_prefix)}")
+    if tensor_path.startswith(mlx_prefix):
+        aliases.add(f"{checkpoint_prefix}{tensor_path.removeprefix(mlx_prefix)}")
+    checkpoint_head = "lm_head."
+    mlx_head = "language_model.lm_head."
+    if tensor_path.startswith(checkpoint_head):
+        aliases.add(f"{mlx_head}{tensor_path.removeprefix(checkpoint_head)}")
+    if tensor_path.startswith(mlx_head):
+        aliases.add(f"{checkpoint_head}{tensor_path.removeprefix(mlx_head)}")
+    return tuple(sorted(aliases))
+
+
+def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
+    """Return every required output component and its accepted path aliases.
+
+    Most tensors bind one-to-one after MLX-LM's Qwen wrapper rename. Indexed
+    expert weights bind many-to-one to a fused leading expert axis, while Qwen
+    3.5/3.6 packed ``gate_up_proj`` tensors bind one-to-many to separate
+    ``switch_mlp.gate_proj.weight`` and ``switch_mlp.up_proj.weight`` tensors.
+    Each inner tuple is an alias set for exactly one required output component;
+    callers separately prove complete membership for a shared fusion target.
+    """
+
+    fused = fused_expert_tensor_target(tensor_path)
+    if fused is not None:
+        return (_mlx_wrapper_tensor_aliases(fused[0]),)
+
+    packed = _QWEN_PACKED_EXPERT_TENSOR.match(tensor_path)
+    if packed is None:
+        return (_mlx_wrapper_tensor_aliases(tensor_path),)
+
+    suffix = packed.group("suffix") or ".weight"
+    projections = (
+        ("gate_proj", "up_proj") if packed.group("projection") == "gate_up_proj" else ("down_proj",)
+    )
+    return tuple(
+        _mlx_wrapper_tensor_aliases(f"{packed.group('prefix')}.switch_mlp.{projection}{suffix}")
+        for projection in projections
+    )
+
+
+def mlx_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
+    """Flatten the strict converted-tensor binding groups for lookup callers."""
+
+    return tuple(
+        sorted({alias for group in mlx_tensor_binding_groups(tensor_path) for alias in group})
+    )

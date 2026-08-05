@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from axquant.errors import ArtifactError, PlanningError
 
@@ -39,6 +40,7 @@ def model_name(
     *,
     target_class: str = "4bit",
     mtp: bool = False,
+    artifact_edition: int | None = None,
     prefix: str = "AX-",
     include_mlx: bool = True,
     quant_brand: str = _DEFAULT_QUANT_BRAND,
@@ -51,9 +53,54 @@ def model_name(
     if include_mlx:
         parts.append("MLX")
     parts.extend([quant_brand, target_class])
+    if artifact_edition is not None:
+        if type(artifact_edition) is not int or artifact_edition < 1:
+            raise ArtifactError("artifact edition must be a positive integer")
+        parts.append(f"v{artifact_edition}")
     if mtp:
         parts.append("MTP")
     result = "-".join(parts)
     if not _VALID_NAME.fullmatch(result):
         raise ArtifactError("model name components produce an unsafe model name")
+    return result
+
+
+def certified_mixed_precision_name(
+    base_model: str,
+    measured_main_bpw: float,
+    *,
+    mtp: bool,
+    prefix: str = "AX-",
+    include_mlx: bool = True,
+    quant_brand: str = _DEFAULT_QUANT_BRAND,
+) -> str:
+    """Return the claim-safe name for a certified mixed-precision checkpoint.
+
+    The public label is rounded with decimal ROUND_HALF_UP, not binary float
+    formatting, and always preserves two decimal places.
+    """
+
+    if not math.isfinite(measured_main_bpw) or not 0 < measured_main_bpw <= 16:
+        raise ArtifactError("certified measured main BPW must be finite and in (0, 16]")
+    try:
+        rounded = Decimal(str(measured_main_bpw)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+    except InvalidOperation as exc:
+        raise ArtifactError("certified measured main BPW cannot be rounded") from exc
+    encoded_bpw = format(rounded, ".2f").replace(".", "p")
+    base = base_model.rstrip("/").split("/")[-1]
+    base = _QUANT_SUFFIX.sub("", base)
+    if not _VALID_NAME.fullmatch(base):
+        raise ArtifactError(f"cannot derive a safe model name from {base_model}")
+    parts = [f"{prefix}{base}"]
+    if include_mlx:
+        parts.append("MLX")
+    parts.extend([quant_brand, "MP", f"{encoded_bpw}bpw"])
+    if mtp:
+        parts.append("MTP")
+    result = "-".join(parts)
+    if not _VALID_NAME.fullmatch(result):
+        raise ArtifactError("certified model name components produce an unsafe model name")
     return result

@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from axquant.errors import ArtifactError
+from axquant.identity import same_model_identity
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     BenchmarkEvidenceEntry,
@@ -64,7 +65,7 @@ def _resolved_bundles(
             )
         bundle = load_model(resolved, EvaluationBundle)
         mismatches: list[str] = []
-        if bundle.model != entry.model:
+        if entry.model is None or not same_model_identity(bundle.model, entry.model):
             mismatches.append("model identity")
         if bundle.runtime != entry.runtime:
             mismatches.append("runtime")
@@ -116,7 +117,7 @@ def _validate_release_comparison(
         raise ArtifactError("release-ready head-to-head evidence requires immutable revisions")
     direct = by_kind[BenchmarkEvidenceKind.AXQUANT_MTP_OFF]
     mtp = by_kind[BenchmarkEvidenceKind.AXQUANT_MTP_ON]
-    if direct.model != mtp.model:
+    if not same_model_identity(direct.model, mtp.model):
         raise ArtifactError("release-ready MTP-off/on evidence uses different checkpoints")
     hardware = {
         (

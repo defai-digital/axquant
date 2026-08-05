@@ -21,6 +21,7 @@ from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import AxquantError, PlanningError
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
+from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
@@ -66,7 +67,7 @@ def _load_matching_quality_evaluation(
     if path is None:
         return None
     result = load_model(path, QualityEvaluationResult)
-    if result.model != model:
+    if not same_model_identity(result.model, model):
         raise ValueError("quality evaluation model does not match benchmark model")
     return result
 
@@ -1161,13 +1162,50 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "publish-prepare":
         if args.release_audit_request:
-            from axquant.certification.packaging import prepare_direct_publication
-
-            prepared_files = prepare_direct_publication(
-                model_dir=args.model,
-                repo_id=args.repo,
-                request_path=args.release_audit_request,
+            from axquant.certification.dispatch import load_certification_request
+            from axquant.schema import (
+                FlagshipReleaseAuditRequest,
+                Qwen3NextReleaseAuditRequest,
             )
+
+            certification_request = load_certification_request(args.release_audit_request)
+            if isinstance(certification_request, FlagshipReleaseAuditRequest):
+                from axquant.publisher import prepare_flagship_publication
+
+                missing = [
+                    option
+                    for option, value in (
+                        ("--release-audit", args.release_audit),
+                        ("--validation-index", args.validation_index),
+                        ("--hardware-registry", args.hardware_registry),
+                        ("--pareto-report", args.pareto_report),
+                    )
+                    if value is None
+                ]
+                if missing:
+                    raise ValueError("flagship publish-prepare requires " + ", ".join(missing))
+                prepared_files = prepare_flagship_publication(
+                    model_dir=args.model,
+                    repo_id=args.repo,
+                    request_path=args.release_audit_request,
+                    audit_path=args.release_audit,
+                    validation_index_path=args.validation_index,
+                    hardware_registry_path=args.hardware_registry,
+                    pareto_report_path=args.pareto_report,
+                )
+            elif isinstance(certification_request, Qwen3NextReleaseAuditRequest):
+                from axquant.certification.packaging import prepare_direct_publication
+
+                prepared_files = prepare_direct_publication(
+                    model_dir=args.model,
+                    repo_id=args.repo,
+                    request_path=args.release_audit_request,
+                )
+            else:
+                raise ValueError(
+                    "legacy M0-M8 requests use validation, hardware, and Pareto inputs "
+                    "without --release-audit-request"
+                )
         else:
             missing = [
                 option
@@ -1891,6 +1929,234 @@ def _run(args: argparse.Namespace) -> int:
             blockers=len(audit.blockers),
         )
         return 0 if audit.release_ready else 1
+
+    if args.command == "campaign-overlap":
+        from axquant.dataset_overlap import (
+            DEFAULT_TEXT_FIELDS,
+            build_campaign_overlap_report,
+        )
+
+        overlap = build_campaign_overlap_report(
+            dataset_path=args.dataset,
+            compared_paths=args.compare,
+            similarity_threshold=args.threshold,
+            id_field=args.id_field,
+            text_fields=tuple(args.text_field or DEFAULT_TEXT_FIELDS),
+            max_comparison_pairs=args.max_comparison_pairs,
+        )
+        write_data(args.output, overlap)
+        log_method = log.info if overlap.passed else log.warning
+        log_method(
+            "campaign_overlap_report_written",
+            output=str(args.output),
+            passed=overlap.passed,
+            exact_matches=overlap.exact_match_count,
+            near_duplicates=overlap.near_duplicate_count,
+            comparison_pairs=overlap.comparison_pair_count,
+        )
+        return 0 if overlap.passed else 1
+
+    if args.command == "campaign-frontier":
+        from axquant.campaign import build_flagship_frontier
+
+        frontier = build_flagship_frontier(
+            request_path=args.request,
+            output_path=args.output,
+        )
+        log.info(
+            "flagship_frontier_written",
+            output=str(args.output),
+            candidates=len(frontier.entries),
+            eligible=len(frontier.feasible_candidate_sha256),
+            search_budget=frontier.search_budget,
+            search_used=frontier.search_used,
+        )
+        return 0
+
+    if args.command == "campaign-freeze":
+        from axquant.campaign import freeze_campaign
+
+        campaign = freeze_campaign(request_path=args.request, output_path=args.output)
+        log.info(
+            "flagship_campaign_frozen",
+            output=str(args.output),
+            campaign_id=campaign.campaign_id,
+            formal_host=campaign.formal_host.host_id,
+        )
+        return 0
+
+    if args.command == "campaign-preflight":
+        from axquant.campaign import preflight_campaign
+
+        preflight = preflight_campaign(
+            campaign_path=args.campaign,
+            output_path=args.output,
+        )
+        log_method = log.info if preflight.passed else log.warning
+        log_method(
+            "flagship_campaign_preflight_written",
+            output=str(args.output),
+            campaign_id=preflight.campaign_id,
+            passed=preflight.passed,
+            issues=len(preflight.issues),
+        )
+        return 0 if preflight.passed else 1
+
+    if args.command == "campaign-start-formal":
+        from axquant.campaign import start_formal_campaign
+        from axquant.schema import CampaignPreflight, FlagshipCampaign
+
+        campaign = load_model(args.campaign, FlagshipCampaign)
+        preflight = load_model(args.preflight, CampaignPreflight)
+        running = start_formal_campaign(
+            campaign=campaign,
+            preflight=preflight,
+            output_path=args.output,
+        )
+        log.info(
+            "flagship_formal_cycle_started",
+            output=str(args.output),
+            campaign_id=running.campaign_id,
+        )
+        return 0
+
+    if args.command == "campaign-complete-formal":
+        from axquant.campaign import complete_formal_campaign
+        from axquant.schema import FlagshipCampaign
+
+        formal_campaign = load_model(args.campaign, FlagshipCampaign)
+        completed_campaign = complete_formal_campaign(
+            campaign=formal_campaign,
+            completion_path=args.completion,
+            output_path=args.output,
+        )
+        log.info(
+            "flagship_formal_cycle_completed",
+            output=str(args.output),
+            campaign_id=completed_campaign.campaign_id,
+            state=completed_campaign.state.value,
+        )
+        return 0
+
+    if args.command == "campaign-close-no-go":
+        from axquant.campaign import close_campaign_no_go
+
+        no_go_campaign = close_campaign_no_go(
+            campaign_path=args.campaign,
+            no_go_record_path=args.no_go_record,
+            output_path=args.output,
+        )
+        log.info(
+            "flagship_campaign_closed_no_go",
+            output=str(args.output),
+            campaign_id=no_go_campaign.campaign_id,
+        )
+        return 0
+
+    if args.command == "campaign-record-publication":
+        from axquant.campaign import record_campaign_publication
+
+        published_campaign = record_campaign_publication(
+            campaign_path=args.campaign,
+            verification_path=args.verification,
+            output_path=args.output,
+        )
+        log.info(
+            "flagship_campaign_publication_verified",
+            output=str(args.output),
+            campaign_id=published_campaign.campaign_id,
+        )
+        return 0
+
+    if args.command == "artifact-lifecycle":
+        from axquant.lifecycle import transition_lifecycle
+        from axquant.schema import (
+            ArtifactLifecycleRegistry,
+            ArtifactLifecycleState,
+            BoundFile,
+            CandidateKey,
+            LifecycleReason,
+            SemanticImpactScan,
+        )
+
+        lifecycle_output_path = Path(args.output).expanduser().resolve()
+        unresolved_lifecycle_evidence = Path(args.evidence).expanduser()
+        if unresolved_lifecycle_evidence.is_symlink():
+            raise ValueError("lifecycle evidence must not be a symlink")
+        lifecycle_evidence_path = unresolved_lifecycle_evidence.resolve()
+        if not lifecycle_evidence_path.is_file():
+            raise ValueError("lifecycle evidence must be an existing file")
+        try:
+            lifecycle_evidence_relative = lifecycle_evidence_path.relative_to(
+                lifecycle_output_path.parent
+            ).as_posix()
+        except ValueError as exc:
+            raise ValueError("lifecycle evidence must be inside the output registry root") from exc
+        lifecycle_registry = load_model(args.registry, ArtifactLifecycleRegistry)
+        lifecycle_candidate = load_model(args.candidate, CandidateKey)
+        replacement_candidate = (
+            load_model(args.replacement_candidate, CandidateKey)
+            if args.replacement_candidate
+            else None
+        )
+        impact_scan = load_model(args.impact_scan, SemanticImpactScan) if args.impact_scan else None
+        if impact_scan is not None:
+            impact_scan_path = Path(args.impact_scan).expanduser().resolve()
+            impact_evidence_unresolved = impact_scan_path.parent / impact_scan.evidence.path
+            impact_evidence_path = impact_evidence_unresolved.resolve()
+            try:
+                impact_evidence_path.relative_to(impact_scan_path.parent)
+            except ValueError as exc:
+                raise ValueError("impact scan evidence escapes its evidence root") from exc
+            if (
+                impact_evidence_unresolved.is_symlink()
+                or not impact_evidence_path.is_file()
+                or impact_evidence_path.stat().st_size != impact_scan.evidence.size_bytes
+                or file_sha256(impact_evidence_path) != impact_scan.evidence.sha256
+            ):
+                raise ValueError("impact scan evidence is missing, unsafe, or changed")
+        updated = transition_lifecycle(
+            registry=lifecycle_registry,
+            candidate=lifecycle_candidate,
+            new_state=ArtifactLifecycleState(args.to),
+            actor=args.actor,
+            reviewer=args.reviewer,
+            reason=LifecycleReason(args.reason),
+            narrative=args.narrative,
+            authorizing_evidence=BoundFile(
+                path=lifecycle_evidence_relative,
+                sha256=file_sha256(lifecycle_evidence_path),
+                size_bytes=lifecycle_evidence_path.stat().st_size,
+            ),
+            replacement_candidate=replacement_candidate,
+            public_repository=args.public_repository,
+            public_revision=args.public_revision,
+            impact_scan=impact_scan,
+            output_path=lifecycle_output_path,
+        )
+        log.info(
+            "artifact_lifecycle_transition_written",
+            output=str(lifecycle_output_path),
+            state=args.to,
+            events=len(updated.events),
+        )
+        return 0
+
+    if args.command == "claim-render":
+        from axquant.claims import render_public_claim_request
+
+        public_claim = render_public_claim_request(
+            request_path=args.request,
+            claim_path=args.output,
+            model_card_path=args.model_card,
+        )
+        log.info(
+            "certified_public_claim_rendered",
+            output=str(args.output),
+            model_card=str(args.model_card),
+            repository=public_claim.public_repository,
+        )
+        return 0
 
     if args.command == "prepare-suite":
         from axquant.suites import build_benchmark_suites

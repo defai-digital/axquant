@@ -21,6 +21,7 @@ from axquant.capture_binding import (
     activation_capture_evidence_issues,
 )
 from axquant.errors import ArtifactError, RefinementError, ValidationGateError
+from axquant.identity import model_identity_key, same_model_identity
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.pareto import build_pareto_report
 from axquant.profiles import thresholds_for
@@ -220,7 +221,7 @@ def _feasibility_issues(
     if report.status != "ready-for-conversion":
         issues.append("feasibility status is not ready-for-conversion")
     source = report.source
-    if source is None or source.model != plan.source_model:
+    if source is None or not same_model_identity(source.model, plan.source_model):
         issues.append("feasibility source does not match the candidate plan")
         compared = list(report.baselines)
     else:
@@ -519,7 +520,8 @@ def _validation_evidence(
             )
             evaluation = load_model(evaluation_path, EvaluationBundle)
             if (
-                evaluation.model != benchmark_entry.model
+                benchmark_entry.model is None
+                or not same_model_identity(evaluation.model, benchmark_entry.model)
                 or evaluation.runtime != benchmark_entry.runtime
                 or evaluation.mtp_enabled != benchmark_entry.mtp_enabled
                 or evaluation.baseline_kind != benchmark_entry.kind.value
@@ -569,7 +571,7 @@ def _benchmark_index_issues(
         bundles[entry.kind] = bundle
         if (
             bundle.baseline_kind != entry.kind.value
-            or bundle.model != entry.model
+            or not same_model_identity(bundle.model, entry.model)
             or bundle.runtime != entry.runtime
             or bundle.mtp_enabled != entry.mtp_enabled
         ):
@@ -661,7 +663,7 @@ def _benchmark_index_issues(
             issues.append("benchmark evaluations use different controls")
     direct = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_OFF)
     mtp = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
-    if direct is None or mtp is None or direct.model != mtp.model:
+    if direct is None or mtp is None or not same_model_identity(direct.model, mtp.model):
         issues.append("benchmark MTP-off/on evidence does not use one identical checkpoint")
     return issues
 
@@ -861,9 +863,9 @@ def _compatibility_request_issues(
         if stable_sha256(plan) != manifest.plan_sha256 or entry.plan_sha256 != manifest.plan_sha256:
             issues.append(f"compatibility plan binding changed for {artifact}")
         if (
-            entry.source_model != manifest.source_model
+            not same_model_identity(entry.source_model, manifest.source_model)
             or entry.profile != validation.profile
-            or entry.candidate_model != validation.candidate_model
+            or not same_model_identity(entry.candidate_model, validation.candidate_model)
         ):
             issues.append(f"compatibility identity/profile evidence changed for {artifact}")
         if not validation.passed or entry.validation_passed != validation.passed:
@@ -1136,7 +1138,7 @@ def _calibration_issues(
     if not calibration_manifest_matches(path, manifest, expected_sha256):
         return ["calibration manifest is missing or checksum-mismatched"]
     if (
-        manifest.model != plan.source_model
+        not same_model_identity(manifest.model, plan.source_model)
         or manifest.profile != plan.profile
         or manifest.dataset_id != evidence.dataset_id
         or manifest.dataset_sha256 != evidence.dataset_sha256
@@ -1298,7 +1300,7 @@ def _sensitivity_lineage_link_issues(
         issues.append("sensitivity lineage refinement backend differs from provenance")
     if parent.evidence_kind != EvidenceKind.MEASURED:
         issues.append("sensitivity lineage parent is not measured release evidence")
-    if child.model != parent.model or child.profile != parent.profile:
+    if not same_model_identity(child.model, parent.model) or child.profile != parent.profile:
         issues.append("sensitivity lineage model/profile changed")
     if child.architecture_profile.model_dump(exclude={"notes"}) != (
         parent.architecture_profile.model_dump(exclude={"notes"})
@@ -1512,7 +1514,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     m1_issues = _artifact_issues(artifact, manifest)
     if stable_sha256(plan) != manifest.plan_sha256:
         m1_issues.append("artifact manifest does not bind axquant_plan.json")
-    if manifest.source_model != plan.source_model:
+    if not same_model_identity(manifest.source_model, plan.source_model):
         m1_issues.append("artifact and plan source models differ")
     if (
         manifest.profile != plan.profile
@@ -1570,11 +1572,11 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     if not validation_index.release_ready:
         m2_issues.append("release validation index did not pass")
     candidate_models = {
-        stable_sha256(validation.candidate_model)
+        model_identity_key(validation.candidate_model)
         for validation, _benchmark in validation_evidence.values()
     }
     reference_models = {
-        stable_sha256(validation.reference_model)
+        model_identity_key(validation.reference_model)
         for validation, _benchmark in validation_evidence.values()
     }
     dataset_digests = {
@@ -1588,8 +1590,8 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     for profile, (validation, _benchmark) in validation_evidence.items():
         index_entry = validation_entries_by_profile[profile]
         if (
-            index_entry.reference_model != validation.reference_model
-            or index_entry.candidate_model != validation.candidate_model
+            not same_model_identity(index_entry.reference_model, validation.reference_model)
+            or not same_model_identity(index_entry.candidate_model, validation.candidate_model)
             or index_entry.dataset_sha256 != _benchmark.dataset_sha256
             or index_entry.passed != validation.passed
             or validation.profile != profile
@@ -1646,7 +1648,10 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     m3_issues.extend(_calibration_issues(artifact, sensitivity, plan))
     if stable_sha256(sensitivity) != plan.analysis_sha256:
         m3_issues.append("plan does not bind the measured sensitivity report")
-    if sensitivity.model != plan.source_model or sensitivity.profile != plan.profile:
+    if (
+        not same_model_identity(sensitivity.model, plan.source_model)
+        or sensitivity.profile != plan.profile
+    ):
         m3_issues.append("sensitivity report and plan identity/profile differ")
     # The support tier is current registry policy, not recorded evidence: a plan
     # legitimately carries a newer tier than the report it was built from
@@ -1826,8 +1831,8 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     matching_compatibility = [
         entry
         for entry in compatibility.entries
-        if entry.candidate_model == candidate_model
-        and entry.source_model == plan.source_model
+        if same_model_identity(entry.candidate_model, candidate_model)
+        and same_model_identity(entry.source_model, plan.source_model)
         and entry.plan_sha256 == manifest.plan_sha256
         and entry.artifact_manifest_sha256 == file_sha256(manifest_path)
         and entry.ax_engine_check_sha256 == file_sha256(paths["ax_engine"])
@@ -1942,7 +1947,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
             or selected_history is None
             or any(
                 measurement.plan_sha256 != refinement.selected_plan_sha256
-                or measurement.candidate_model != candidate_model
+                or not same_model_identity(measurement.candidate_model, candidate_model)
                 or measurement.profile != plan.profile
                 or not measurement.validation_passed
                 for measurement in selected_measurements
@@ -1985,7 +1990,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         entry
         for entry in hardware.entries
         if entry.candidate_id == refinement.selected_candidate_id
-        and entry.candidate_model == candidate_model
+        and same_model_identity(entry.candidate_model, candidate_model)
         and entry.profile == plan.profile
         and entry.plan_sha256 == manifest.plan_sha256
         and entry.release_ready
@@ -1995,7 +2000,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         for point in pareto.points
         if point.candidate_id == refinement.selected_candidate_id
         and point.measurement_id in {entry.measurement_id for entry in matching_hardware}
-        and point.candidate_model == candidate_model
+        and same_model_identity(point.candidate_model, candidate_model)
         and point.plan_sha256 == manifest.plan_sha256
         and point.frontier
         and point.candidate_id in pareto.frontier_candidate_ids
@@ -2054,7 +2059,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         m8_issues.append("reproduction recipe targets another candidate repository")
     if recipe.plan_sha256 != manifest.plan_sha256:
         m8_issues.append("reproduction recipe does not bind the release plan")
-    if recipe.source_model != plan.source_model:
+    if not same_model_identity(recipe.source_model, plan.source_model):
         m8_issues.append("reproduction recipe source differs from the release plan")
     if (
         recipe.calibration != plan.calibration

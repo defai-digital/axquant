@@ -8,8 +8,54 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Added
+
+- Versioned development-artifact naming (`-vN` before an optional `-MTP` suffix) and the completed
+  28-repository AXQ v2 migration from 14 immutable sources. Every public replacement has a
+  receipt-bound revision, passing pre/post-upload MLX-LM checks, reverified Hub tree and hashes,
+  evidence-safe sibling links/model-card metadata, and a verified catalog entry.
+- Additive `qwen36-mtp-v2` flagship certification contracts: path-neutral `CheckpointKey` and
+  `CandidateKey`, frozen campaigns with disjoint dataset roles, exact-`mbp-m5` preflight,
+  formal-cycle/holdout consumption state, durable archive proof, independent review, clean-host
+  reproduction review, a separate final publication-claim review, and final M0–M8 dispatch.
+- Append-only artifact lifecycle events and semantic impact scans. Certified candidates become
+  ineligible for certified rendering/publication after `superseded` or `revoked`.
+- Deterministic measured-BPW certified naming, bound public metric claims, and generated
+  certified model cards.
+- CLI commands `campaign-freeze`, `campaign-preflight`, `campaign-start-formal`,
+  `campaign-complete-formal`, `campaign-close-no-go`, `campaign-overlap`,
+  `campaign-frontier`, `campaign-record-publication`, `artifact-lifecycle`, and `claim-render`.
+- Checksum-bound cheapest-failure-first frontier/no-go records and formal raw-evidence/custodian
+  attestations, so candidate selection, formal failure, and no-feasible-candidate closure are
+  evidence-backed rather than boolean declarations.
+- Downloaded publication inventory and runtime-verification records; `published` campaign state is
+  unreachable until the exact Hub revision, checkpoint bytes, final audit, claim, lifecycle,
+  AX Engine/MLX-LM smokes, and zero-fallback result are reverified.
+- A fail-closed flagship publication privacy scan for credentials, private host/path data,
+  oversized or invalid text evidence, sensitive filenames, and formal raw holdout files. It
+  rechecks the exact post-packaging tree and scans legitimate large `tokenizer.json` assets
+  without treating them as oversized evidence.
+- A non-symlinked durable-root boundary for the complete campaign/state-transition tree and
+  six-part formal-host evidence whose results bind the exact frozen `mbp-m5` contract.
+
 ### Fixed
 
+- Converted-checkpoint verification now accepts only documented MLX-LM output identities:
+  one-to-one wrapper aliases, Qwen packed gate/up one-to-many splits, contiguous indexed-expert
+  many-to-one stacks, and the exact Qwen 3.5/Qwen3-Next/Nemotron-H `Conv1d` sanitize-axis
+  transforms. Membership, precision, parameter count, metadata, and shapes remain fail-closed.
+- Budget allocation preserves the deterministic marginal-gain order with a priority queue instead
+  of rescanning every tensor after every upgrade, removing quadratic planning time on
+  74,000-tensor Qwen3-Coder-Next checkpoints.
+- The AXQ v2 migration uses immutable Mistral-published BF16 sources and materializes only
+  `model.safetensors.index.json`-bound shards when upstream also ships a redundant consolidated
+  checkpoint; AXQuant's unindexed-Safetensors rejection remains strict.
+- Development cards no longer advertise an AX Engine serve path when the package has no validated
+  native `model-manifest.json`; MLX-LM remains the documented standard text/backbone path.
+- Qwen3 Embedding development cards link their real 4-bit/8-bit v2 siblings instead of a
+  nonexistent 6-bit variant.
+- Release-bound identity comparisons ignore absolute `local_path` while preserving it as
+  execution provenance; checkpoint/candidate byte digests still fail closed on content drift.
 - Generation-smoke no longer requires the `mlx_lm` Python package; advisory KV / runtime
   metadata is validated before install gates so Ubuntu non-MLX CI matches Mac developer paths.
 - Gemma4 sharded source prep validates index shard paths and types before importing MLX.
@@ -18,6 +64,9 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ### Changed
 
+- Existing `4bit`/`6bit` repository names remain development identifiers. A certified flagship
+  must use generated `MP-<measured-main-BPW>bpw[-MTP]` naming and cannot downgrade to the
+  historical Qwen 3.6 v4 audit/publisher path.
 - CI and release workflows use current Node 24 GitHub Actions majors and grant permissions
   per job, reducing deprecated-runtime warnings while keeping PyPI OIDC and build provenance
   least-privilege.

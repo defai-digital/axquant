@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from axquant.errors import ArtifactError
+from axquant.identity import same_model_identity
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     BenchmarkEvidenceEntry,
@@ -257,7 +258,7 @@ def build_benchmark_evidence_index(
 
     direct = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_OFF)
     mtp = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
-    if direct is not None and mtp is not None and direct.model != mtp.model:
+    if direct is not None and mtp is not None and not same_model_identity(direct.model, mtp.model):
         issues.append("AXQuant MTP-off/on evidence does not use the identical checkpoint")
 
     return BenchmarkEvidenceIndex(

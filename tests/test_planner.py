@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import copy
+
 import pytest
 from pydantic import ValidationError
 
+import axquant.planner as planner_module
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
 from axquant.planner import plan_quantization, storage_bpw
@@ -84,6 +87,89 @@ def test_storage_cost_includes_affine_metadata() -> None:
     assert storage_bpw(16, None) == 16.0
     assert storage_bpw(4, 32) == 5.0
     assert storage_bpw(4, 128) == 4.25
+
+
+@pytest.mark.parametrize("target_bpw", [4.5, 5.0, 6.0, 8.0])
+def test_priority_queue_budget_upgrades_match_legacy_full_scan(target_bpw: float) -> None:
+    tensors = [
+        _tensor(
+            f"model.layers.{index}.mlp.down_proj.weight",
+            1_000 + index * 137,
+            TensorRole.MLP,
+        )
+        for index in range(12)
+    ]
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/upgrade-order", revision="abc"),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors),
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+        candidate_group_sizes=(32, 64, 128),
+    )
+    request = _request(
+        target_bpw=target_bpw,
+        candidate_group_sizes=(32, 64, 128),
+    )
+    weights = planner_module.objective_for(request.profile).normalized()
+    choices = []
+    for entry in report.entries:
+        options, reason = planner_module._options_for(
+            entry,
+            request,
+            weights,
+            evidence_kind=report.evidence_kind,
+        )
+        choices.append(
+            planner_module._Choice(
+                entry=entry,
+                options=options,
+                policy_reason=reason,
+            )
+        )
+    legacy_choices = copy.deepcopy(choices)
+    queued_choices = copy.deepcopy(choices)
+    total_parameters = sum(choice.entry.tensor.parameters for choice in choices)
+    target_storage_bits = target_bpw * total_parameters
+    initial_storage_bits = sum(
+        choice.selected.storage_bpw * choice.entry.tensor.parameters for choice in choices
+    )
+
+    legacy_storage_bits = initial_storage_bits
+    while True:
+        best: tuple[float, int, float] | None = None
+        for choice_index, choice in enumerate(legacy_choices):
+            candidate = planner_module._next_upgrade_candidate(choice_index, choice)
+            if candidate is None:
+                continue
+            if legacy_storage_bits + candidate[2] > target_storage_bits + 1e-6:
+                continue
+            if best is None or candidate > best:
+                best = candidate
+        if best is None:
+            break
+        legacy_choice = legacy_choices[best[1]]
+        legacy_choice.index += 1
+        legacy_choice.upgraded = True
+        legacy_storage_bits += best[2]
+
+    queued_storage_bits = planner_module._apply_budget_upgrades(
+        queued_choices,
+        running_storage_bits=initial_storage_bits,
+        target_storage_bits=target_storage_bits,
+    )
+
+    assert queued_storage_bits == pytest.approx(legacy_storage_bits)
+    assert [(choice.index, choice.upgraded) for choice in queued_choices] == [
+        (choice.index, choice.upgraded) for choice in legacy_choices
+    ]
 
 
 def test_multi_group_prior_emits_group_grid_and_strategy_metadata() -> None:

@@ -8,6 +8,7 @@ from typing import Literal
 
 from axquant.benchmark import result_to_evaluation_bundle, validate_ab_invariant
 from axquant.errors import ArtifactError, BenchmarkError, RefinementError
+from axquant.identity import same_model_identity
 from axquant.refinement import build_complete_candidate_measurement
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
@@ -110,7 +111,7 @@ def _check_result_bundle(
     kernel_issues: list[str],
 ) -> None:
     config = result.config
-    if config.model != bundle.model:
+    if not same_model_identity(config.model, bundle.model):
         issues.append(f"{label} raw result and evaluation identify different checkpoints")
     if config.runtime != bundle.runtime:
         issues.append(f"{label} raw result and evaluation use different runtimes")
@@ -339,7 +340,10 @@ def _coverage(
         message = "candidate plan does not bind the supplied sensitivity report"
         issues.append(message)
         kernel_issues.append(message)
-    if sensitivity.model != plan.source_model or sensitivity.profile != plan.profile:
+    if (
+        not same_model_identity(sensitivity.model, plan.source_model)
+        or sensitivity.profile != plan.profile
+    ):
         message = "sensitivity report identity/profile does not match the candidate plan"
         issues.append(message)
         kernel_issues.append(message)
@@ -604,7 +608,7 @@ def build_hardware_profile_registry(
             message = "complete measurement does not bind the supplied validation report"
             issues.append(message)
             kernel_issues.append(message)
-        if validation.candidate_model != measurement.candidate_model:
+        if not same_model_identity(validation.candidate_model, measurement.candidate_model):
             issues.append("validation and complete measurement candidate identities differ")
         if not is_immutable_revision(measurement.candidate_model.revision):
             message = "complete measurement candidate revision is not immutable"
@@ -656,11 +660,11 @@ def build_hardware_profile_registry(
             issues=issues,
             kernel_issues=kernel_issues,
         )
-        if direct_evaluation.model != mtp_evaluation.model:
+        if not same_model_identity(direct_evaluation.model, mtp_evaluation.model):
             message = "direct and MTP evaluations use different candidate checkpoints"
             issues.append(message)
             kernel_issues.append(message)
-        if mtp_evaluation.model != measurement.candidate_model:
+        if not same_model_identity(mtp_evaluation.model, measurement.candidate_model):
             issues.append("evaluation and complete measurement candidate identities differ")
         for field_name in ("device_name", "chip", "unified_memory_bytes", "os_version"):
             if getattr(direct_evaluation.hardware, field_name) != getattr(

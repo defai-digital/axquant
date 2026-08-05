@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import structlog
 
 from axquant.errors import RefinementError, ValidationGateError
+from axquant.identity import same_model_identity
 from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.planner import plan_quantization, storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for, thresholds_for
@@ -139,7 +140,7 @@ def _require_plan_report_binding(
     if stable_sha256(report) != plan.analysis_sha256:
         raise RefinementError("refinement sensitivity report does not bind the candidate plan")
     if (
-        report.model != plan.source_model
+        not same_model_identity(report.model, plan.source_model)
         or report.profile != plan.profile
         or report.evidence_kind != plan.evidence_kind
         or report.calibration != plan.calibration
@@ -1078,7 +1079,7 @@ def build_complete_candidate_measurement(
     if artifact.plan_sha256 != plan_sha256:
         raise RefinementError("artifact manifest does not match the refinement candidate plan")
     if (
-        artifact.source_model != plan.source_model
+        not same_model_identity(artifact.source_model, plan.source_model)
         or artifact.calibration != plan.calibration
         or artifact.target_class != plan.target_class
         or artifact.mtp_policy != plan.mtp
@@ -1097,9 +1098,9 @@ def build_complete_candidate_measurement(
         raise RefinementError("artifact manifest metadata differs from the candidate plan")
     if artifact.profile != plan.profile or validation.profile != plan.profile:
         raise RefinementError("artifact, validation, and candidate plan profiles differ")
-    if quality.candidate_model != validation.candidate_model:
+    if not same_model_identity(quality.candidate_model, validation.candidate_model):
         raise RefinementError("quality and validation candidate identities differ")
-    if quality.reference_model != validation.reference_model:
+    if not same_model_identity(quality.reference_model, validation.reference_model):
         raise RefinementError("quality and validation reference identities differ")
     if validation.thresholds != thresholds_for(plan.profile):
         raise RefinementError("validation does not use the authoritative profile thresholds")

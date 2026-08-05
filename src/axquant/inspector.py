@@ -489,6 +489,7 @@ def inspect_model(
         if len(tensor.shape) == 3
         and tensor.dtype in _FLOAT_DTYPES
         and tensor.role != TensorRole.EXPERT
+        and not tensor.role.is_mtp
         and any(token in tensor.name.lower() for token in _FUSED_EXPERT_PATH_TOKENS)
     ]
     vision_tensors_present = any(tensor.role == TensorRole.VISION for tensor in tensors)
