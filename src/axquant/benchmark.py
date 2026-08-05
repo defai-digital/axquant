@@ -484,9 +484,7 @@ def _run_single_trial(
                     os.killpg(process.pid, signal.SIGKILL)
                 process.communicate()
                 raise
-            completed = subprocess.CompletedProcess(
-                command, process.returncode, stdout, stderr
-            )
+            completed = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
         else:
             completed = runner(command)
     except subprocess.TimeoutExpired:
@@ -850,9 +848,7 @@ def result_to_evaluation_bundle(
         total_accepted = sum(t.mtp_accepted_tokens or 0 for t in accepted_reporting)
         total_proposed = sum(t.mtp_proposed_tokens or 0 for t in accepted_reporting)
         acceptance_rate = total_accepted / total_proposed if total_proposed > 0 else None
-        avg_accepted = (
-            total_accepted / len(accepted_reporting) if accepted_reporting else None
-        )
+        avg_accepted = total_accepted / len(accepted_reporting) if accepted_reporting else None
         steps_reporting = [t for t in measured if t.mtp_decode_steps is not None]
         total_decode_steps = sum(t.mtp_decode_steps or 0 for t in steps_reporting)
         effective_tpf = (

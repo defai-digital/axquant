@@ -7,14 +7,14 @@ emits a JSON line with:
   - manifest_sha256: content identity fingerprint (see fingerprint_mode)
   - fingerprint_mode: content | incomplete | manifest | cheap
   - top_files: largest files (relpath, size) for human review
-  - unreadable_files: paths that failed content hashing (incomplete only)
+  - unreadable_files: paths that failed traversal or content hashing (incomplete only)
 
 Default fingerprint (content):
   sha256 of sorted "relpath\\tsize\\tfile_sha256" lines. Each file_sha256 is
   the full-file sha256 of that file's bytes. Two packages match only when
   every relative path has the same size and the same byte content.
 
-On any unreadable file the mode becomes incomplete and the planner must not
+On any unreadable path the mode becomes incomplete and the planner must not
 use the fingerprint for delete_duplicate (or any other content-identity
 action). cheap mode (HF rollups) hashes only total size + file count and is
 likewise never safe for deletion.
@@ -85,7 +85,22 @@ def dir_size_and_manifest(
     total = 0
     nfiles = 0
     root = root.resolve()
-    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+
+    def record_walk_error(error: OSError) -> None:
+        """Record directories that ``os.walk`` could not inspect."""
+        failed_name = error.filename
+        failed = Path(os.fsdecode(failed_name)) if failed_name is not None else root
+        try:
+            rel = failed.relative_to(root).as_posix()
+        except ValueError:
+            rel = str(failed)
+        unreadable.append(rel)
+
+    for dirpath, dirnames, filenames in os.walk(
+        root,
+        followlinks=False,
+        onerror=record_walk_error,
+    ):
         # prune noisy / huge non-content dirs
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES and not d.startswith(".")]
         base = Path(dirpath)

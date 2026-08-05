@@ -89,6 +89,34 @@ def test_unreadable_file_marks_incomplete(tmp_path: Path) -> None:
     assert "bad.bin" in unreadable
 
 
+def test_unreadable_directory_marks_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pkg = _write_pkg(tmp_path, "model", {"ok.bin": b"data"})
+    blocked = pkg / "blocked"
+    blocked.mkdir()
+
+    def walk_with_blocked_directory(
+        root: Path,
+        *,
+        followlinks: bool,
+        onerror,
+    ):
+        assert followlinks is False
+        assert onerror is not None
+        yield os.fspath(root), ["blocked"], ["ok.bin"]
+        onerror(PermissionError(13, "permission denied", os.fspath(blocked)))
+
+    monkeypatch.setattr(indexer.os, "walk", walk_with_blocked_directory)
+
+    _, _, fp, _, mode, unreadable = indexer.dir_size_and_manifest(pkg)
+
+    assert mode == "incomplete"
+    assert fp.startswith("incomplete:")
+    assert "blocked" in unreadable
+
+
 def test_planner_deletes_only_content_safe_same_host_dups(tmp_path: Path) -> None:
     # Two same-host instances with identical content-safe fingerprints
     content_fp = "a" * 64

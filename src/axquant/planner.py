@@ -499,9 +499,7 @@ def plan_quantization(
         report.architecture_profile.support_level != ArchitectureSupportLevel.SUPPORTED
         and not request.allow_unmeasured
     ):
-        raise PlanningError(
-            "AXQuant release planning requires a supported architecture adapter"
-        )
+        raise PlanningError("AXQuant release planning requires a supported architecture adapter")
     weights_model = objective_for(request.profile)
     weights = weights_model.normalized()
     choices: list[_Choice] = []

@@ -287,6 +287,9 @@ def check_mlx_lm_generation(
 ) -> RuntimeCheck:
     directory = Path(model_dir).expanduser().resolve()
     model = _model_identity(directory, model_identity)
+    # Fail closed on advisory KV / runtime metadata before install or runner gates so
+    # invalid artifacts raise even when mlx-lm is not importable (non-MLX CI path).
+    kv_execution = _advisory_kv_execution(directory)
     static = check_mlx_lm_static(directory, model_identity=model)
     resolved = _resolve_executable(executable)
     if resolved is None:
@@ -299,14 +302,24 @@ def check_mlx_lm_generation(
             report={"static_check_passed": static.passed},
             stderr=f"executable not found: {executable}",
         )
-    if not static.passed:
+    # Generation-smoke uses an external executable + runner. Require artifact
+    # readiness (config + weights), not Python package install — that would block
+    # non-MLX hosts that still exercise CLI generation via a resolved binary.
+    config_valid = bool(static.report.get("config_valid"))
+    weights_valid = bool(static.report.get("weights_valid"))
+    artifact_ready = config_valid and weights_valid
+    if not artifact_ready:
         return RuntimeCheck(
             model=model,
             runtime=RuntimeName.MLX_LM,
             check_kind="generation-smoke",
             available=True,
             passed=False,
-            report={"static_check_passed": False},
+            report={
+                "static_check_passed": False,
+                "config_valid": config_valid,
+                "weights_valid": weights_valid,
+            },
             stderr="static MLX-LM compatibility check failed",
         )
     command = [resolved]
@@ -326,7 +339,6 @@ def check_mlx_lm_generation(
             "false",
         ]
     )
-    kv_execution = _advisory_kv_execution(directory)
     if kv_execution is not None:
         command.extend(
             [
@@ -375,6 +387,8 @@ def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
     same KV precision the plan declared instead of silently ignoring it.
     BF16 advisories (16-bit) keep the runtime default.
     """
+    from pydantic import ValidationError
+
     runtime_path = directory / "axquant_runtime.json"
     if not runtime_path.is_file():
         return None
@@ -399,7 +413,7 @@ def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
             if raw_kv.get("advisory") is not True:
                 raise ArtifactError("kv_cache.advisory must be true")
         metadata = load_model(runtime_path, RuntimeMetadata)
-    except (ArtifactError, ValueError) as exc:
+    except (ArtifactError, ValueError, ValidationError, TypeError) as exc:
         raise ArtifactError(f"axquant_runtime.json is invalid: {exc}") from exc
     kv = metadata.kv_cache
     if kv is None:

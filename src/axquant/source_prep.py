@@ -421,7 +421,6 @@ def _verify_saved_tensor_names(mx: Any, path: Path, expected: set[str]) -> None:
 
 def _filter_sharded(source: Path, prepared: Path) -> None:
     """Filter a sharded checkpoint; write one consolidated safetensors file."""
-    mx = _mlx_core()
     source = source.resolve()
     index_path = source / "model.safetensors.index.json"
     try:
@@ -463,6 +462,9 @@ def _filter_sharded(source: Path, prepared: Path) -> None:
         indexed_names.setdefault(shard_path, set()).add(tensor_name)
         shard_labels[shard_path] = shard_name
 
+    # Index path safety is pure validation and must surface without MLX so
+    # non-MLX installs (and CI) reject unsafe shard maps before backend work.
+    mx = _mlx_core()
     filtered: dict[str, Any] = {}
     for shard_path in sorted(indexed_names):
         shard_name = shard_labels[shard_path]
