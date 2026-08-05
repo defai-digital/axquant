@@ -6,6 +6,29 @@ All notable changes to AXQuant are documented here. The format follows
 matching section from this file as the curated GitHub Release notes and fails the release when
 the section is missing — add an entry in the same change as any user-facing modification.
 
+## [Unreleased]
+
+### Fixed
+
+- Generation-smoke no longer requires the `mlx_lm` Python package; advisory KV / runtime
+  metadata is validated before install gates so Ubuntu non-MLX CI matches Mac developer paths.
+- Gemma4 sharded source prep validates index shard paths and types before importing MLX.
+- mypy on the Ubuntu lint job ignores missing optional `mlx` / `mlx_lm` / `transformers`
+  modules (they are only installed via `axquant[mlx]`).
+
+### Changed
+
+- CI and release workflows use current Node 24 GitHub Actions majors and grant permissions
+  per job, reducing deprecated-runtime warnings while keeping PyPI OIDC and build provenance
+  least-privilege.
+- Documented historical Actions red-run root causes and added `scripts/ci-local.sh` to mirror
+  CI gates (including PATH-isolated non-MLX pytest) before push.
+
+### Notes
+
+- PyPI upload on tag Release still requires a Trusted Publisher configured on pypi.org for
+  this repository (operator step; not fixable by application code alone).
+
 ## [1.2.0] - 2026-08-04
 
 ### Added

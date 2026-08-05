@@ -99,11 +99,20 @@ def test_prepare_gemma4_unified_filters_multimodal(
     assert "model.vision_embedder.patch_dense.weight" in original
 
 
-def test_filter_sharded_rejects_path_traversal_in_weight_map(tmp_path: Path) -> None:
+def test_filter_sharded_rejects_path_traversal_in_weight_map(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # A checkpoint's own index.json is semi-trusted (it can come from any Hub
     # repo). A `weight_map` entry pointing outside the checkpoint directory
     # must be rejected the same way `inspector.py`'s indexed-shard scan
     # already rejects it, not silently followed with `mx.load`.
+    # Force the MLX import path to explode so a regression that reorders
+    # validation after `_mlx_core()` fails the same way Ubuntu CI does.
+    def _mlx_must_not_run() -> object:
+        raise AssertionError("shard path validation must run before MLX import")
+
+    monkeypatch.setattr(source_prep, "_mlx_core", _mlx_must_not_run)
     source = _write_gemma4_unified_fixture(tmp_path)
     (source / "model.safetensors").unlink()
     (source / "model.safetensors.index.json").write_text(
@@ -153,7 +162,14 @@ def test_filter_sharded_rejects_unindexed_tensor_in_referenced_shard(
         prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
 
 
-def test_filter_sharded_rejects_non_string_shard_reference(tmp_path: Path) -> None:
+def test_filter_sharded_rejects_non_string_shard_reference(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _mlx_must_not_run() -> object:
+        raise AssertionError("shard type validation must run before MLX import")
+
+    monkeypatch.setattr(source_prep, "_mlx_core", _mlx_must_not_run)
     source = _write_gemma4_unified_fixture(tmp_path)
     (source / "model.safetensors").unlink()
     (source / "model.safetensors.index.json").write_text(

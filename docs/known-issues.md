@@ -60,6 +60,16 @@ or is gated behind an explicit flag.
   BF16. Their low-bit repository names are not proof of low effective BPW; regenerate and rerun
   measured size/quality gates with the post-v1.1.1 fix before republishing.
 
+## CI and release
+
+- **Ubuntu non-MLX jobs are the hard gate, not macOS MLX.** Generation-smoke and gemma4
+  shard-path contracts must pass with `.[dev]` only. Run `./scripts/ci-local.sh` before
+  pushing; see [ci-root-causes.md](ci-root-causes.md) for the historical red-run analysis.
+- **PyPI Trusted Publishing is operator configuration.** The Release workflow builds and
+  attaches GitHub Release assets, but upload to pypi.org fails until a Trusted Publisher is
+  registered for `defai-digital/axquant` workflow `release.yml`. The package is not on
+  PyPI until that is done. Steps are in [ci-root-causes.md](ci-root-causes.md).
+
 ## Validated scope
 
 - **End-to-end quality has been validated on tiny/synthetic models only.** The 27B-class

@@ -30,6 +30,24 @@ from axquant.schema import (
 from axquant.serde import write_data
 
 
+def _simulate_ubuntu_without_mlx(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Match Ubuntu CI: no mlx_lm import and no mlx_lm.* on PATH.
+
+    Host Macs often have both; without this, generation-smoke tests pass locally
+    while the same code fails on python-compatibility jobs. See
+    docs/ci-root-causes.md.
+    """
+
+    monkeypatch.setattr("axquant.runtime.importlib.util.find_spec", lambda _name: None)
+
+    def _which(name: str) -> str | None:
+        if name.startswith("mlx_lm"):
+            return None
+        return None
+
+    monkeypatch.setattr("axquant.runtime.shutil.which", _which)
+
+
 def _qwen_plan(model_dir: Path):
     inventory = inspect_model(
         model_dir,
@@ -326,7 +344,9 @@ def test_mlx_lm_static_check_rejects_invalid_main_safetensors(
 def test_mlx_lm_generation_check_requires_successful_output(
     qwen36_model_dir: Path,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _simulate_ubuntu_without_mlx(monkeypatch)
     executable = tmp_path / "mlx_lm.generate"
     executable.write_text("", encoding="utf-8")
 
@@ -360,10 +380,12 @@ def test_mlx_lm_generation_check_requires_successful_output(
 def test_generation_smoke_executes_advisory_kv_quantization(
     qwen36_model_dir: Path,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A planned KV artifact runs its advisory bits through QuantizedKVCache."""
     from axquant.planner import allocate_kv_cache
 
+    _simulate_ubuntu_without_mlx(monkeypatch)
     plan = _qwen_plan(qwen36_model_dir)
     plan.kv_cache = allocate_kv_cache(
         20,
@@ -404,7 +426,9 @@ def test_generation_smoke_rejects_malformed_runtime_metadata(
     qwen36_model_dir: Path,
     tmp_path: Path,
     runtime_text: str,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _simulate_ubuntu_without_mlx(monkeypatch)
     (qwen36_model_dir / "axquant_runtime.json").write_text(
         runtime_text,
         encoding="utf-8",
@@ -436,9 +460,11 @@ def test_generation_smoke_rejects_invalid_advisory_kv_fields(
     tmp_path: Path,
     field: str,
     value: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from axquant.planner import allocate_kv_cache
 
+    _simulate_ubuntu_without_mlx(monkeypatch)
     plan = _qwen_plan(qwen36_model_dir)
     plan.kv_cache = allocate_kv_cache(20, default_bits=4, group_size=64)
     payload = build_runtime_metadata(plan, qwen36_model_dir).model_dump(mode="json")

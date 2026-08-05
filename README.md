@@ -868,6 +868,16 @@ width. The manifest contains the actual precision distribution and effective bit
 
 ## Development
 
+A Mac with MLX installed will **not** catch Ubuntu CI failures. Prefer the local CI mirror:
+
+```bash
+./scripts/ci-local.sh
+```
+
+That runs ruff, format, mypy, then a **non-MLX** venv with a sanitized `PATH` (matching
+GitHub Actions `python-compatibility`), and the host MLX suite when available. See
+[docs/ci-root-causes.md](docs/ci-root-causes.md).
+
 ```bash
 .venv/bin/pytest
 .venv/bin/ruff check .
@@ -879,6 +889,8 @@ Tests use small synthetic Safetensors fixtures and do not require real model wei
 
 ## Documentation
 
+- [GitHub Actions root causes and prevention](docs/ci-root-causes.md)
+- [Known issues](docs/known-issues.md)
 - [Third-party notices and research references](THIRD_PARTY_NOTICES.md)
 
 Product requirements, the architecture decision register, technical specifications, and the

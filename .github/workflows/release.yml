@@ -4,17 +4,16 @@ on:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
-
 jobs:
   dist:
     runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Verify tag matches package version
@@ -30,9 +29,9 @@ jobs:
       - name: Generate SHA256SUMS
         run: |
           cd dist
-          shasum -a 256 * > SHA256SUMS.txt
+          shasum -a 256 -- * > SHA256SUMS.txt
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
       - name: Extract curated release notes from CHANGELOG.md
@@ -54,7 +53,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Hand dists to the publish job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/*
@@ -63,15 +62,20 @@ jobs:
   pypi:
     needs: dist
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist
       - name: Drop non-package files
         run: rm -f dist/SHA256SUMS.txt
       # Prerelease tags (vX.Y.ZrcN) go to TestPyPI; final tags go to PyPI.
-      # Both indexes must have a Trusted Publisher configured for this workflow.
+      # Both indexes need a Trusted Publisher for owner defai-digital / repo axquant /
+      # workflow release.yml. If publish fails with invalid-publisher, configure PyPI
+      # (see docs/ci-root-causes.md) — the GitHub Release assets may already be uploaded.
       - name: Publish to TestPyPI (prerelease)
         if: contains(github.ref_name, 'rc')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -80,3 +84,13 @@ jobs:
       - name: Publish to PyPI
         if: ${{ !contains(github.ref_name, 'rc') }}
         uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Trusted publisher guidance
+        if: failure()
+        run: |
+          cat <<'EOF'
+          PyPI Trusted Publishing failed (invalid-publisher is usually missing config).
+          Register a Trusted Publisher on pypi.org / test.pypi.org for:
+            owner=defai-digital  repo=axquant  workflow=release.yml
+          Match GitHub Environment only if the publisher entry uses one; this job leaves
+          environment unset. Details: docs/ci-root-causes.md
+          EOF
