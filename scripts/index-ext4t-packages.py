@@ -83,9 +83,9 @@ def package_roots(ext_root: Path, trees: list[str]) -> list[tuple[str, Path]]:
             for child in sorted(base.iterdir()):
                 if child.name.startswith("."):
                     continue
-                if child.is_dir() and not child.is_symlink():
-                    out.append(("models", child))
-                elif child.is_symlink() and child.is_dir():
+                # is_dir() follows symlinks, so this covers real model dirs
+                # and symlinked ones alike
+                if child.is_dir():
                     out.append(("models", child))
         elif tree == "axquant":
             # packages live one level down under known buckets; also index nested work/*

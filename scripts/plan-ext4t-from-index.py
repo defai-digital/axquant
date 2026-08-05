@@ -60,19 +60,47 @@ def human(n: int) -> str:
     return f"{n}B"
 
 
+_REQUIRED_RECORD_KEYS = (
+    "host",
+    "category",
+    "name",
+    "path",
+    "size_bytes",
+    "file_count",
+    "manifest_sha256",
+)
+
+
 def load_indexes(paths: list[Path]) -> list[dict]:
     recs: list[dict] = []
     for p in paths:
         with p.open(encoding="utf-8") as f:
-            for line in f:
+            for line_number, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
                     continue
-                obj = json.loads(line)
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise SystemExit(
+                        f"ERROR: {p}:{line_number}: invalid JSON ({exc.msg}); the index "
+                        "looks truncated or corrupt — re-run the indexer for this host"
+                    ) from exc
+                if not isinstance(obj, dict):
+                    raise SystemExit(
+                        f"ERROR: {p}:{line_number}: expected a JSON object, "
+                        f"got {type(obj).__name__}"
+                    )
                 if obj.get("type") == "index_meta":
                     continue
                 if obj.get("fingerprint_mode") == "cheap":
                     continue  # skip HF cheap rollups for package plan
+                missing = [key for key in _REQUIRED_RECORD_KEYS if key not in obj]
+                if missing:
+                    raise SystemExit(
+                        f"ERROR: {p}:{line_number}: record is missing {missing}; "
+                        "re-run the indexer for this host"
+                    )
                 recs.append(obj)
     return recs
 
@@ -120,6 +148,11 @@ def main() -> int:
             "names": names,
             "canonical_name": canonical_name,
             "final_path": final,
+            # Logs are host-specific operational records, and the size-based
+            # fingerprint is too weak to prove identical content for mutable
+            # files — so log packages get layout moves only: no cross-host
+            # transfers, no fingerprint-driven deletion or renaming.
+            "host_local": final.startswith("axquant/logs/"),
             "hosts": host_set,
             "instances": [
                 {"host": h, "path": p, "category": c} for h, p, c in paths
@@ -181,12 +214,13 @@ def main() -> int:
                 if "/models/" in inst["path"] and "/axquant/" not in inst["path"]:
                     already.append(inst)
 
-        # same-host dups reclaim
+        # same-host dups reclaim (never for host-local logs: the size-based
+        # fingerprint cannot prove two mutable log trees are identical)
         by_h: dict[str, list] = defaultdict(list)
         for inst in e["instances"]:
             by_h[inst["host"]].append(inst)
         for h, insts in by_h.items():
-            if len(insts) > 1:
+            if len(insts) > 1 and not e["host_local"]:
                 # keep the copy already at the final path, else one whose
                 # basename matches the canonical name, else the first
                 keep = None
@@ -217,10 +251,13 @@ def main() -> int:
                     deleted_paths.add((h, inst["path"]))
                     reclaimable += e["size_bytes"]
 
-        # cross-host: hosts missing this content
+        # cross-host: hosts missing this content (logs stay host-local and are
+        # never mirrored — consolidate under axquant/logs/<host>/ if needed)
         present_hosts = set(e["hosts"])
         # for plan we care about three fleet hosts if present in index
         for h in hosts:
+            if e["host_local"]:
+                break
             if h not in present_hosts:
                 if e["canonical_name"] in conflicted_names:
                     # same name exists with different content somewhere in the
@@ -280,6 +317,9 @@ def main() -> int:
                 inst["path"] != desired
                 and Path(inst["path"]).name != e["canonical_name"]
                 and e["multi_name"]
+                # alias grouping rests on the content fingerprint, which is
+                # too weak evidence to rename mutable log trees
+                and not e["host_local"]
             ):
                 # alias name — rename to canonical if this host is source of truth
                 local_moves.append(
@@ -301,6 +341,8 @@ def main() -> int:
 
     # Naive transfer volume if we only ship missing packages (one copy each)
     transfer_bytes = sum(t["size_bytes"] for t in transfers)
+    host_local_entries = [e for e in unique_content if e["host_local"]]
+    host_local_bytes = sum(e["size_bytes"] for e in host_local_entries)
 
     lines: list[str] = []
     lines.append("# Ext4T fleet index plan")
@@ -313,6 +355,10 @@ def main() -> int:
     lines.append(f"Estimated reclaimable (same-host dups): **{human(reclaimable)}**")
     lines.append(f"Estimated residual transfer (missing packages only): **{human(transfer_bytes)}**")
     lines.append(f"Name conflicts (same name, different content): **{len(name_conflicts)}**")
+    lines.append(
+        f"Host-local log packages (kept in place): **{len(host_local_entries)}** "
+        f"({human(host_local_bytes)})"
+    )
     lines.append("")
     lines.append("## Final layout standard")
     lines.append("")
@@ -325,8 +371,8 @@ def main() -> int:
     lines.append("    work/                # prep, candidates, temps")
     lines.append("    smokes/              # smoke candidates")
     lines.append("    certification/       # cert evidence")
-    lines.append("    logs/")
-    lines.append("  logs/                  # migration / sync / index logs")
+    lines.append("    logs/                # host-local run logs (never fleet-synced)")
+    lines.append("  logs/                  # host-local migration / sync / index logs")
     lines.append("```")
     lines.append("")
     lines.append("## Same content, multiple names (rename instead of re-copy)")
@@ -371,6 +417,28 @@ def main() -> int:
     else:
         lines.append("_All unique packages already present on every indexed host._")
     lines.append("")
+    lines.append("## Host-local logs (kept in place)")
+    lines.append("")
+    lines.append(
+        "Logs are host-specific operational records: they mutate between index runs, "
+        "and the size-based fingerprint cannot prove two log trees hold identical "
+        "content. This plan therefore only moves them into `axquant/logs/` on their "
+        "own host — no cross-host transfers, no duplicate deletion, no "
+        "fingerprint-driven renames. To consolidate history later, copy into "
+        "per-host subdirectories (`axquant/logs/<host>/…`) instead of mirroring."
+    )
+    lines.append("")
+    if host_local_entries:
+        lines.append("| Size | Package | Host(s) | Final path |")
+        lines.append("|------|---------|---------|------------|")
+        for e in sorted(host_local_entries, key=lambda x: -x["size_bytes"]):
+            lines.append(
+                f"| {human(e['size_bytes'])} | `{e['canonical_name']}` | "
+                f"{', '.join(e['hosts'])} | `{e['final_path']}` |"
+            )
+    else:
+        lines.append("_None indexed._")
+    lines.append("")
     lines.append("## Name conflicts (manual review — do not auto-merge)")
     lines.append("")
     if name_conflicts:
@@ -390,8 +458,14 @@ def main() -> int:
     lines.append("2. **Rename** alias packages to canonical names (same filesystem = instant).")
     lines.append("3. **Move** packages into final layout buckets (instant on same volume).")
     lines.append("4. **Delete** same-host duplicates after spot-checking fingerprints.")
-    lines.append("5. **Sync only missing** packages (rsync per package path, `--size-only`).")
-    lines.append("6. Re-run index to verify every host has the same fingerprint set.")
+    lines.append(
+        "5. **Sync only missing** packages (rsync per package path, `--size-only`); "
+        "logs stay host-local — never add them to sync jobs."
+    )
+    lines.append(
+        "6. Re-run index to verify every host has the same fingerprint set "
+        "(logs excepted)."
+    )
     lines.append("")
 
     text = "\n".join(lines) + "\n"
@@ -413,6 +487,8 @@ def main() -> int:
                 "unique_bytes": total_unique,
                 "reclaimable_bytes": reclaimable,
                 "transfer_bytes": transfer_bytes,
+                "host_local_packages": len(host_local_entries),
+                "host_local_bytes": host_local_bytes,
             },
         }
         Path(args.json_out).write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
