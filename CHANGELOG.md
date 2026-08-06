@@ -8,6 +8,36 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Changed
+
+- **Quantized MTP sidecars now emit AX Engine's executable MLX-packed layout**
+  (`mlx-affine-packed-u32`): `mx.quantize` uint32-packed codes plus BF16 group
+  scales/biases under the engine's `<base>.scales` / `<base>.biases` key
+  convention, each tensor verified by an `mx.dequantize` round trip against
+  the BF16-cast source. This replaces the 1.3.0 `axquant-portable-affine-u8`
+  format, which no runtime could execute (the capability gate always refused,
+  so no artifact was ever produced in it). Reading the engine's
+  `mtp_take_weight` loader showed the executable contract already exists —
+  AXQuant now targets it instead of inventing a second layout.
+
+### Added
+
+- `quantize-mtp-sidecar --runtime-json` stamps `mtp_sidecar_bits` into
+  `mtplx_runtime.json` (via `annotate_mtp_runtime_sidecar_bits`) so the engine
+  dequantizes packed projections at the declared width instead of the 4-bit
+  default; sidecar bits are restricted to the engine runtime contract
+  (2/4/6/8).
+- The capability probe records the engine's reported `supported_bits` and
+  `packing` when present (`ax-engine mtp-capability` output), and sidecar
+  quantization fails closed when the requested bits or emitted packing fall
+  outside the reported capability.
+- `benchmark-kernels --from-ax-engine` ingests the engine's
+  `ax-engine.kernel-latency-raw.v1` document (emitted by the new
+  `axquant-kernel-latency-probe` microbench) into a host-scoped
+  `axquant.kernel-latency.v1` table with `runtime=ax-engine` entries; the
+  planner's latency provider now infers the runtime from single-runtime
+  tables, so engine tables plug into `plan --latency-table` directly.
+
 ## [1.3.0] - 2026-08-06
 
 ### Added

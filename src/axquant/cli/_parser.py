@@ -857,6 +857,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "to --capability-command for air-gapped evidence flows)",
     )
     quantize_mtp_parser.add_argument("--manifest-output", default="mtp_sidecar_quantized.json")
+    quantize_mtp_parser.add_argument(
+        "--runtime-json",
+        help="optional mtplx_runtime.json to stamp with mtp_sidecar_bits so "
+        "the engine dequantizes the packed sidecar at the right width",
+    )
 
     kv_quality_parser = subparsers.add_parser("kv-serving-quality")
     kv_quality_parser.add_argument(
@@ -895,6 +900,12 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_kernels_parser.add_argument("--iterations", type=int, default=20)
     benchmark_kernels_parser.add_argument("--warmup", type=int, default=5)
     benchmark_kernels_parser.add_argument("--seed", type=int, default=0)
+    benchmark_kernels_parser.add_argument(
+        "--from-ax-engine",
+        help="ingest an ax-engine.kernel-latency-raw.v1 document (emitted by "
+        "the engine's axquant-kernel-latency-probe) instead of measuring the "
+        "MLX runtime in-process; entries bind as runtime=ax-engine",
+    )
     benchmark_kernels_parser.add_argument("--output", default="kernel_latency.json")
 
     benchmark_parser = subparsers.add_parser("benchmark")

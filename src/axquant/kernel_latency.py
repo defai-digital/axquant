@@ -189,13 +189,23 @@ def measure_mlx_kernel_latency(
 def decode_latency_provider(
     table: KernelLatencyTable,
     *,
-    runtime: RuntimeName = RuntimeName.MLX_LM,
+    runtime: RuntimeName | None = None,
 ) -> Callable[[int, int | None, QuantMethod, int], float | None]:
     """Planner-facing lookup mapping a candidate to measured decode latency.
 
     Methods collapse to their packing-equivalence class before lookup, so a
     table measured once per (bits, group) serves every refinement method.
+    When ``runtime`` is omitted it is inferred from the table, which must
+    then be single-runtime — a mixed table requires an explicit choice.
     """
+    if runtime is None:
+        runtimes = {entry.runtime for entry in table.entries}
+        if len(runtimes) != 1:
+            raise PlanningError(
+                "kernel latency table mixes runtimes "
+                f"{sorted(item.value for item in runtimes)}; pass runtime explicitly"
+            )
+        runtime = next(iter(runtimes))
 
     def lookup(
         bits: int,

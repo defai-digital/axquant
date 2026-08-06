@@ -866,6 +866,10 @@ def _run(args: argparse.Namespace) -> int:
             capability=capability,
         )
         write_data(args.manifest_output, sidecar_manifest)
+        if args.runtime_json:
+            from axquant.mtp_sidecar import annotate_mtp_runtime_sidecar_bits
+
+            annotate_mtp_runtime_sidecar_bits(args.runtime_json, args.bits)
         log.info(
             "quantized_mtp_sidecar_written",
             output=str(args.output),
@@ -918,6 +922,68 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "benchmark-kernels":
         from axquant.kernel_latency import measure_mlx_kernel_latency
+
+        if args.from_ax_engine:
+            import json as _json
+
+            from axquant.schema import KernelLatencyEntry
+            from axquant.versioning import collect_versions
+
+            raw_document = _json.loads(
+                Path(args.from_ax_engine).expanduser().read_text(encoding="utf-8")
+            )
+            if (
+                not isinstance(raw_document, dict)
+                or raw_document.get("schema_version") != "ax-engine.kernel-latency-raw.v1"
+            ):
+                raise ArtifactError(
+                    "--from-ax-engine expects an ax-engine.kernel-latency-raw.v1 document"
+                )
+            raw_entries = raw_document.get("entries")
+            if not isinstance(raw_entries, list) or not raw_entries:
+                raise ArtifactError("ax-engine kernel latency document has no entries")
+            try:
+                ingested = [
+                    KernelLatencyEntry(
+                        runtime=RuntimeName.AX_ENGINE,
+                        bits=int(item["bits"]),
+                        group_size=(
+                            int(item["group_size"]) if item.get("group_size") is not None else None
+                        ),
+                        method=(
+                            QuantMethod.BF16 if item.get("method") == "bf16" else QuantMethod.AFFINE
+                        ),
+                        hidden_size=int(item["hidden_size"]),
+                        decode_median_us=float(item["decode_median_us"]),
+                        prefill_median_us=float(item["prefill_median_us"]),
+                        dispersion=float(item.get("dispersion") or 0.0),
+                        iterations=int(item["iterations"]),
+                    )
+                    for item in raw_entries
+                ]
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ArtifactError(f"ax-engine kernel latency entry is malformed: {exc}") from exc
+            reported_engine = str(raw_document.get("ax_engine_version") or "")
+            table = KernelLatencyTable(
+                host_id=args.host_id,
+                chip=args.chip,
+                os_version=args.os_version,
+                software_versions=collect_versions().model_copy(
+                    update={"ax_engine": reported_engine or None}
+                ),
+                warmup_iterations=int(raw_document.get("warmup_iterations") or 0),
+                entries=ingested,
+                warnings=[str(item) for item in raw_document.get("warnings") or []],
+            )
+            write_data(args.output, table)
+            log.info(
+                "kernel_latency_table_written",
+                output=args.output,
+                entries=len(table.entries),
+                host_id=table.host_id,
+                source="ax-engine",
+            )
+            return 0
 
         table = measure_mlx_kernel_latency(
             host_id=args.host_id,

@@ -388,13 +388,14 @@ def _capability(*, ok: bool = True, mtp_enabled: bool = True) -> AxEngineMtpCapa
     return AxEngineMtpCapabilityCheck(
         ok=ok,
         mtp_enabled=mtp_enabled,
-        layout="ax-engine-qwen36-v1-quantized",
+        layout="ax-engine-qwen36-v1",
         ax_engine_version="6.11.1",
     )
 
 
 def test_quantized_sidecar_is_a_separate_gated_artifact(tmp_path: Path) -> None:
     np = pytest.importorskip("numpy")
+    mx = pytest.importorskip("mlx.core")
     source = tmp_path / "mtp.safetensors"
     _write_quantizable_sidecar(source)
     source_digest = file_sha256(source)
@@ -411,6 +412,7 @@ def test_quantized_sidecar_is_a_separate_gated_artifact(tmp_path: Path) -> None:
     # The byte-preserved default is untouched (ADR-0005).
     assert file_sha256(source) == source_digest
     assert manifest.byte_preserved_default_retained is True
+    assert manifest.packing == "mlx-affine-packed-u32"
     assert manifest.output.sha256 == file_sha256(output)
     assert manifest.source_sidecar.sha256 == source_digest
 
@@ -421,28 +423,86 @@ def test_quantized_sidecar_is_a_separate_gated_artifact(tmp_path: Path) -> None:
         assert by_name[name].quantized
         assert by_name[name].bits == 4 and by_name[name].group_size == 64
 
-    # Round-trip one projection from the emitted codes/scales/biases.
+    # Round-trip one projection exactly the way the engine's mtp_take_weight
+    # consumes it: `<name>` packed U32 codes plus `<base>.scales` /
+    # `<base>.biases` BF16 arrays fed to MLX dequantize.
     blob = output.read_bytes()
     header_len = struct.unpack("<Q", blob[:8])[0]
     header = json.loads(blob[8 : 8 + header_len].decode("utf-8"))
     data_base = 8 + header_len
     name = sorted(QWEN36_MTP_PROJECTION_TENSORS)[0]
+    base = name.removesuffix(".weight")
 
-    def _read(entry_name: str, dtype: object) -> object:
+    def _payload(entry_name: str) -> tuple[bytes, list[int], str]:
         entry = header[entry_name]
         start, end = entry["data_offsets"]
-        array = np.frombuffer(blob[data_base + start : data_base + end], dtype=dtype)
-        return array.reshape(entry["shape"])
+        return blob[data_base + start : data_base + end], entry["shape"], entry["dtype"]
 
-    codes = _read(name, np.uint8).astype(np.float32)
-    scales = _read(f"{name}.scales", np.float16).astype(np.float32)
-    biases = _read(f"{name}.biases", np.float16).astype(np.float32)
-    reconstructed = (codes.reshape(4, 1, 64) - biases.reshape(4, 1, 1)) * scales.reshape(4, 1, 1)
-    original = np.array(
-        [((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64)], dtype=np.float32
-    ).reshape(4, 64)
-    max_step = float(scales.max())
-    assert np.max(np.abs(reconstructed.reshape(4, 64) - original)) <= max_step
+    codes_bytes, codes_shape, codes_dtype = _payload(name)
+    assert codes_dtype == "U32"
+    assert codes_shape == [4, 8]  # 64 columns * 4 bits / 32 bits per word
+    scales_bytes, scales_shape, scales_dtype = _payload(f"{base}.scales")
+    biases_bytes, _, biases_dtype = _payload(f"{base}.biases")
+    assert scales_dtype == "BF16" and biases_dtype == "BF16"
+    assert scales_shape == [4, 1]
+
+    def _bf16_to_f32(payload: bytes, shape: list[int]) -> object:
+        as_u32 = np.frombuffer(payload, dtype=np.uint16).astype(np.uint32) << 16
+        return as_u32.view(np.float32).reshape(shape)
+
+    codes = np.frombuffer(codes_bytes, dtype=np.uint32).reshape(codes_shape)
+    scales = _bf16_to_f32(scales_bytes, scales_shape)
+    biases = _bf16_to_f32(biases_bytes, scales_shape)
+    reconstructed = np.asarray(
+        mx.dequantize(
+            mx.array(codes),
+            mx.array(scales),
+            mx.array(biases),
+            group_size=64,
+            bits=4,
+        ).astype(mx.float32)
+    )
+    # Compare against the BF16-cast source — the quantizer's actual input —
+    # so the one-grid-step bound is exact.
+    original = _bf16_to_f32(
+        _bf16_payload(tuple(((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64))),
+        [4, 64],
+    )
+    max_step = float(np.max(np.abs(scales)))
+    assert np.max(np.abs(reconstructed - original)) <= max_step + 1e-6
+
+
+def test_quantized_sidecar_respects_capability_bit_and_packing_limits(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("mlx.core")
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    output = tmp_path / "mtp.quantized.safetensors"
+
+    limited = _capability().model_copy(update={"supported_bits": [4, 8]})
+    with pytest.raises(ArtifactError, match="not executable"):
+        quantize_qwen36_mtp_sidecar(source, output, bits=2, capability=limited)
+    wrong_packing = _capability().model_copy(update={"packing": "some-other-packing"})
+    with pytest.raises(ArtifactError, match="packing"):
+        quantize_qwen36_mtp_sidecar(source, output, bits=4, capability=wrong_packing)
+    assert not output.exists()
+
+
+def test_annotate_mtp_runtime_sidecar_bits_updates_atomically(tmp_path: Path) -> None:
+    from axquant.mtp_sidecar import annotate_mtp_runtime_sidecar_bits
+
+    runtime_path = tmp_path / "mtplx_runtime.json"
+    runtime_path.write_text(
+        json.dumps({"layout": "ax-engine-qwen36-v1", "mtp_depth_max": 1}),
+        encoding="utf-8",
+    )
+    annotate_mtp_runtime_sidecar_bits(runtime_path, 8)
+    payload = json.loads(runtime_path.read_text(encoding="utf-8"))
+    assert payload["mtp_sidecar_bits"] == 8
+    assert payload["layout"] == "ax-engine-qwen36-v1"
+    with pytest.raises(ArtifactError, match="must be one of"):
+        annotate_mtp_runtime_sidecar_bits(runtime_path, 3)
 
 
 def test_quantized_sidecar_fails_closed_without_capability(tmp_path: Path) -> None:
@@ -464,12 +524,18 @@ def test_quantized_sidecar_refuses_to_overwrite_the_default(tmp_path: Path) -> N
 
 
 def _capability_json_command(tmp_path: Path, name: str, **overrides: object) -> str:
-    """Command string for a stub capability probe (quoting-safe via a script)."""
+    """Command string for a stub capability probe (quoting-safe via a script).
+
+    The payload mirrors the real `ax-engine mtp-capability` output shape.
+    """
     payload = {
         "ok": True,
         "mtp_enabled": True,
-        "layout": "ax-engine-qwen36-v1-quantized",
-        "ax_engine_version": "6.11.1",
+        "layout": "ax-engine-qwen36-v1",
+        "quantized_sidecar": True,
+        "supported_bits": [2, 4, 6, 8, 16],
+        "packing": "mlx-affine-packed-u32",
+        "ax_engine_version": "6.13.1",
     }
     payload.update(overrides)
     script = tmp_path / f"capability_probe_{name}.py"
@@ -484,8 +550,10 @@ def test_capability_probe_executes_a_real_command(tmp_path: Path) -> None:
     command = shlex.split(_capability_json_command(tmp_path, "ok"))
     check = probe_ax_engine_mtp_capability(command)
     assert check.ok and check.mtp_enabled
-    assert check.layout == "ax-engine-qwen36-v1-quantized"
-    assert check.ax_engine_version == "6.11.1"
+    assert check.layout == "ax-engine-qwen36-v1"
+    assert check.supported_bits == [2, 4, 6, 8, 16]
+    assert check.packing == "mlx-affine-packed-u32"
+    assert check.ax_engine_version == "6.13.1"
 
 
 def test_capability_probe_fails_closed_on_bad_output() -> None:
@@ -526,7 +594,8 @@ def test_quantize_mtp_sidecar_cli_runs_the_capability_probe(tmp_path: Path) -> N
         == 0
     )
     manifest = load_model(manifest_path, QuantizedMtpSidecarManifest)
-    assert manifest.capability.layout == "ax-engine-qwen36-v1-quantized"
+    assert manifest.capability.layout == "ax-engine-qwen36-v1"
+    assert manifest.packing == "mlx-affine-packed-u32"
     assert output.exists()
 
 

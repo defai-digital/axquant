@@ -356,6 +356,12 @@ class AxEngineMtpCapabilityCheck(StrictModel):
     mtp_enabled: bool
     layout: str = Field(min_length=1)
     ax_engine_version: str = Field(min_length=1)
+    # Optional detail newer probes report (`ax-engine mtp-capability`): the
+    # loader's accepted sidecar bit widths and packing label. Empty on older
+    # recorded checks; when present, sidecar quantization validates against
+    # them.
+    supported_bits: list[int] = Field(default_factory=list)
+    packing: str = ""
 
 
 class QuantizedMtpSidecarManifest(StrictModel):
@@ -363,13 +369,14 @@ class QuantizedMtpSidecarManifest(StrictModel):
 
     Always emitted *alongside* the byte-preserved default, never replacing it,
     and only after a passing AX Engine capability check for the quantized
-    layout. The packing is the portable affine contract with uint8 codes plus
-    fp32 scales/biases per group (``axquant-portable-affine-u8``).
+    layout. The packing is AX Engine's executable MLX-native layout —
+    ``mx.quantize`` uint32-packed codes plus BF16 group scales/biases under
+    the engine's key convention (``mlx-affine-packed-u32``).
     """
 
     schema_version: Literal["axquant.mtp-sidecar-quantized.v1"] = "axquant.mtp-sidecar-quantized.v1"
     generated_by: str = Field(min_length=1)
-    packing: Literal["axquant-portable-affine-u8"] = "axquant-portable-affine-u8"
+    packing: Literal["mlx-affine-packed-u32"] = "mlx-affine-packed-u32"
     source_sidecar: MtpSidecarFileBinding
     output: MtpSidecarFileBinding
     default_bits: int = Field(ge=2, le=16)

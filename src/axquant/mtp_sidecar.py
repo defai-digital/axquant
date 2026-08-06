@@ -16,7 +16,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from axquant.errors import ArtifactError, QuantizerError
+from axquant.errors import ArtifactError
 from axquant.schema import (
     AxEngineMtpCapabilityCheck,
     BytePreservedMtpSidecarManifest,
@@ -625,6 +625,23 @@ def prepare_qwen36_mtp_sidecar(
     return _validate_prepared_manifest(manifest_path, output_sidecar, source_model)
 
 
+def _f32_to_bf16_bytes(np: Any, values: Any) -> bytes:
+    """Round-to-nearest-even BF16 serialization of a float32 array."""
+    as_bits = np.ascontiguousarray(values, dtype=np.float32).view(np.uint32)
+    rounded = as_bits + 0x7FFF + ((as_bits >> 16) & 1)
+    return (rounded >> 16).astype(np.uint16).tobytes()
+
+
+# Packing label shared with AX Engine's `mtp-capability` report: MLX-native
+# affine packing (uint32-packed codes + BF16 group scales/biases), exactly
+# what `mx.quantize` emits and the engine's `mtp_take_weight` executes.
+MLX_PACKED_MTP_PACKING = "mlx-affine-packed-u32"
+# Bits AXQuant emits for quantized sidecar projections; a subset of the
+# engine loader's accepted set restricted to the `mtp_sidecar_bits` runtime
+# contract (2/4/6/8 — 16 means byte-preserved, 3 is out of contract).
+_QUANTIZED_MTP_BITS = (2, 4, 6, 8)
+
+
 def quantize_qwen36_mtp_sidecar(
     source_path: str | Path,
     output_path: str | Path,
@@ -637,36 +654,61 @@ def quantize_qwen36_mtp_sidecar(
     """Emit an opt-in quantized MTP sidecar next to the byte-preserved default.
 
     ADR-0005 / RM-40: the byte-preserved sidecar stays the default and is
-    never touched; this writes a *separate* artifact using the portable
-    affine contract (uint8 codes + fp16 group scales/biases). It fails closed
-    unless the supplied AX Engine capability check proves the runtime
-    executes the quantized layout with MTP enabled. Norm tensors and any
-    projection whose input dimension does not divide the group size are
-    preserved at BF16 inside the quantized sidecar.
+    never touched; this writes a *separate* artifact in AX Engine's executable
+    MLX-packed layout — `mx.quantize` uint32-packed codes plus BF16 group
+    scales/biases under the engine's `<base>.scales` / `<base>.biases` key
+    convention — so the engine's `mtp_take_weight` consumes it directly.
+    Every packed tensor is verified by an `mx.dequantize` round trip before
+    writing. It fails closed unless the supplied AX Engine capability check
+    proves the runtime executes the quantized layout with MTP enabled. Norm
+    tensors and any projection whose input dimension does not divide the
+    group size are preserved at BF16 inside the quantized sidecar.
+
+    The consuming runtime resolves bits from `mtp_sidecar_bits` in
+    `mtplx_runtime.json`; use ``annotate_mtp_runtime_sidecar_bits`` to stamp
+    it when packaging.
     """
     if not (capability.ok and capability.mtp_enabled):
         raise ArtifactError(
             "quantized MTP sidecar requires a passing AX Engine capability "
             "check with MTP enabled; byte-preserved remains the default"
         )
+    if bits not in _QUANTIZED_MTP_BITS:
+        raise ArtifactError(
+            f"quantized MTP sidecar bits must be one of {_QUANTIZED_MTP_BITS}, got {bits}"
+        )
+    if capability.supported_bits and bits not in capability.supported_bits:
+        raise ArtifactError(
+            f"AX Engine capability reports supported bits "
+            f"{sorted(capability.supported_bits)}; {bits}-bit is not executable"
+        )
+    if capability.packing and capability.packing != MLX_PACKED_MTP_PACKING:
+        raise ArtifactError(
+            f"AX Engine capability reports packing {capability.packing!r}; "
+            f"this writer emits {MLX_PACKED_MTP_PACKING!r}"
+        )
     try:
         import numpy as np
     except ImportError as exc:
         raise ArtifactError("quantized MTP sidecar requires numpy") from exc
-    from axquant.quantizers import require_plugin
-    from axquant.schema import QuantMethod
+    try:
+        import mlx.core as mx
+    except ImportError as exc:
+        raise ArtifactError(
+            "quantized MTP sidecar requires MLX: the engine-executable packing "
+            "is produced by mx.quantize itself"
+        ) from exc
 
     source = Path(source_path).expanduser().resolve()
     destination = Path(output_path).expanduser().resolve()
     if destination == source:
         raise ArtifactError("quantized MTP sidecar must not overwrite the byte-preserved sidecar")
     layout = _parse_qwen36_layout(source)
-    plugin = require_plugin(QuantMethod.AFFINE)
 
     records: list[QuantizedMtpTensorRecord] = []
     header: dict[str, Any] = {
         "__metadata__": {
-            "format": "axquant-portable-affine-u8",
+            "format": MLX_PACKED_MTP_PACKING,
             "default_bits": str(bits),
             "group_size": str(group_size),
         }
@@ -710,31 +752,63 @@ def quantize_qwen36_mtp_sidecar(
                 )
                 continue
             as_uint16 = np.frombuffer(raw, dtype=np.uint16).astype(np.uint32)
-            weight = (as_uint16 << 16).view(np.float32).reshape(tensor.shape)
+            weight_f32 = (as_uint16 << 16).view(np.float32).reshape(tensor.shape)
+            weight_mx = mx.array(np.ascontiguousarray(weight_f32)).astype(mx.bfloat16)
             try:
-                quantized = plugin.quantize(
-                    np.ascontiguousarray(weight), bits=bits, group_size=group_size
+                packed, scales, biases = mx.quantize(weight_mx, group_size=group_size, bits=bits)
+                reconstructed = mx.dequantize(
+                    packed, scales, biases, group_size=group_size, bits=bits
                 )
-            except QuantizerError as exc:
+                mx.eval(packed, scales, biases, reconstructed)
+            except (ValueError, RuntimeError) as exc:
                 raise ArtifactError(
                     f"quantized MTP sidecar cannot pack {name} at {bits}-bit "
                     f"group {group_size}: {exc}"
                 ) from exc
+
             out_features = tensor.shape[0]
             groups = in_features // group_size
-            codes = np.ascontiguousarray(
-                quantized.data.reshape(out_features, in_features), dtype=np.uint8
+            packed_np = np.asarray(packed)
+            if packed_np.dtype != np.uint32 or packed_np.shape[0] != out_features:
+                raise ArtifactError(f"unexpected MLX packing for {name}")
+            # The engine infers group size as (packed_cols * 32 / bits) /
+            # scale_cols; assert the inference resolves to our group so an
+            # MLX packing change can never ship a silently mis-typed sidecar.
+            inferred_group = (packed_np.shape[1] * 32 // bits) // groups
+            if inferred_group != group_size:
+                raise ArtifactError(
+                    f"engine group inference would resolve {inferred_group} "
+                    f"for {name}, expected {group_size}"
+                )
+            # Round-trip guard: the dequantized grid must stay within one
+            # grid step of the quantizer's actual input (the BF16-cast
+            # weights) everywhere.
+            error = mx.abs(reconstructed.astype(mx.float32) - weight_mx.astype(mx.float32))
+            max_error = float(mx.max(error).item())
+            max_step = float(mx.max(mx.abs(scales.astype(mx.float32))).item())
+            if not math.isfinite(max_error) or max_error > max_step + 1e-6:
+                raise ArtifactError(
+                    f"quantized MTP round-trip error {max_error:.6f} exceeds "
+                    f"the grid step {max_step:.6f} for {name}"
+                )
+
+            base = name.removesuffix(".weight")
+            scales_f32 = np.asarray(scales.astype(mx.float32))
+            biases_f32 = np.asarray(biases.astype(mx.float32))
+            codes_payload = np.ascontiguousarray(packed_np).tobytes()
+            _emit(name, "U32", tuple(int(v) for v in packed_np.shape), codes_payload)
+            _emit(
+                f"{base}.scales",
+                "BF16",
+                (out_features, groups),
+                _f32_to_bf16_bytes(np, scales_f32.reshape(out_features, groups)),
             )
-            scales = np.ascontiguousarray(
-                np.asarray(quantized.scales, dtype=np.float16).reshape(out_features, groups)
+            _emit(
+                f"{base}.biases",
+                "BF16",
+                (out_features, groups),
+                _f32_to_bf16_bytes(np, biases_f32.reshape(out_features, groups)),
             )
-            biases = np.ascontiguousarray(
-                np.asarray(quantized.biases, dtype=np.float16).reshape(out_features, groups)
-            )
-            codes_payload = codes.tobytes()
-            _emit(name, "U8", (out_features, in_features), codes_payload)
-            _emit(f"{name}.scales", "F16", (out_features, groups), scales.tobytes())
-            _emit(f"{name}.biases", "F16", (out_features, groups), biases.tobytes())
             records.append(
                 QuantizedMtpTensorRecord(
                     name=name,
@@ -830,12 +904,49 @@ def probe_ax_engine_mtp_capability(
         raise ArtifactError("AX Engine capability probe emitted no JSON object") from exc
     if not isinstance(payload, dict):
         raise ArtifactError("AX Engine capability probe output is not a JSON object")
+    reported_bits = payload.get("supported_bits")
+    supported_bits = (
+        [bits for bits in reported_bits if isinstance(bits, int) and not isinstance(bits, bool)]
+        if isinstance(reported_bits, list)
+        else []
+    )
     try:
         return AxEngineMtpCapabilityCheck(
             ok=payload.get("ok") is True,
             mtp_enabled=payload.get("mtp_enabled") is True,
             layout=str(payload.get("layout") or ""),
             ax_engine_version=str(payload.get("ax_engine_version") or ""),
+            supported_bits=supported_bits,
+            packing=str(payload.get("packing") or ""),
         )
     except ValidationError as exc:
         raise ArtifactError(f"AX Engine capability probe output is incomplete: {exc}") from exc
+
+
+def annotate_mtp_runtime_sidecar_bits(runtime_path: str | Path, bits: int) -> None:
+    """Stamp `mtp_sidecar_bits` into an existing `mtplx_runtime.json` atomically.
+
+    The engine resolves quantized sidecar bit width from this hint; without
+    it, packed projections dequantize under the default 4-bit assumption and
+    an 8-bit sidecar silently expands to the wrong shape.
+    """
+    if bits not in _QUANTIZED_MTP_BITS:
+        raise ArtifactError(f"mtp_sidecar_bits must be one of {_QUANTIZED_MTP_BITS}, got {bits}")
+    path = Path(runtime_path).expanduser().resolve()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"cannot read MTP runtime config {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ArtifactError(f"MTP runtime config is not a JSON object: {path}")
+    payload["mtp_sidecar_bits"] = bits
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        temporary.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        os.replace(temporary, path)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+        raise

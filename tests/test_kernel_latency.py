@@ -196,3 +196,98 @@ def test_latency_table_never_overrides_quality_outside_epsilon() -> None:
     # Even a 50x faster kernel cannot buy a quality regression beyond epsilon.
     assert plan.assignments[0].group_size == 32
     assert plan.cost_model == "kernel-latency"
+
+
+def test_benchmark_kernels_ingests_ax_engine_raw_document(tmp_path) -> None:
+    import json
+
+    from axquant.cli import main
+    from axquant.serde import load_model
+
+    raw = {
+        "schema_version": "ax-engine.kernel-latency-raw.v1",
+        "ax_engine_version": "6.13.1",
+        "prefill_rows": 512,
+        "warmup_iterations": 5,
+        "entries": [
+            {
+                "method": "bf16",
+                "bits": 16,
+                "group_size": None,
+                "hidden_size": 2048,
+                "decode_median_us": 235.9,
+                "prefill_median_us": 691.8,
+                "dispersion": 0.14,
+                "iterations": 20,
+            },
+            {
+                "method": "affine",
+                "bits": 4,
+                "group_size": 64,
+                "hidden_size": 2048,
+                "decode_median_us": 152.8,
+                "prefill_median_us": 560.0,
+                "dispersion": 0.05,
+                "iterations": 20,
+            },
+        ],
+        "warnings": [],
+    }
+    raw_path = tmp_path / "engine_raw.json"
+    raw_path.write_text(json.dumps(raw), encoding="utf-8")
+    output_path = tmp_path / "kernel_latency.json"
+
+    assert (
+        main(
+            [
+                "benchmark-kernels",
+                "--host-id",
+                "macstudio-m2u",
+                "--chip",
+                "Apple M2 Ultra",
+                "--os-version",
+                "15.5",
+                "--from-ax-engine",
+                str(raw_path),
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    table = load_model(output_path, KernelLatencyTable)
+    assert {entry.runtime for entry in table.entries} == {RuntimeName.AX_ENGINE}
+    assert table.software_versions.ax_engine == "6.13.1"
+    # The provider infers the single runtime, so an engine table plugs into
+    # `plan --latency-table` without extra flags; methods collapse to the
+    # affine packing class.
+    lookup = decode_latency_provider(table)
+    assert lookup(4, 64, QuantMethod.GPTQ_ACT, 2048) == pytest.approx(152.8)
+    assert lookup(16, None, QuantMethod.BF16, 2048) == pytest.approx(235.9)
+
+
+def test_benchmark_kernels_rejects_malformed_ax_engine_document(tmp_path) -> None:
+    import json
+
+    from axquant.cli import main
+
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"schema_version": "something-else"}), encoding="utf-8")
+    assert (
+        main(
+            [
+                "benchmark-kernels",
+                "--host-id",
+                "h",
+                "--chip",
+                "c",
+                "--os-version",
+                "o",
+                "--from-ax-engine",
+                str(bad),
+                "--output",
+                str(tmp_path / "out.json"),
+            ]
+        )
+        == 2
+    )
