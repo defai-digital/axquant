@@ -942,6 +942,18 @@ def _run(args: argparse.Namespace) -> int:
             raw_entries = raw_document.get("entries")
             if not isinstance(raw_entries, list) or not raw_entries:
                 raise ArtifactError("ax-engine kernel latency document has no entries")
+            unknown_methods = sorted(
+                {
+                    str(item.get("method"))
+                    for item in raw_entries
+                    if isinstance(item, dict) and item.get("method") not in ("bf16", "affine")
+                }
+            )
+            if unknown_methods:
+                raise ArtifactError(
+                    "ax-engine kernel latency document reports methods this toolkit "
+                    f"does not recognize: {unknown_methods}; refusing to relabel them"
+                )
             try:
                 ingested = [
                     KernelLatencyEntry(

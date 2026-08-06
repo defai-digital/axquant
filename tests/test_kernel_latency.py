@@ -291,3 +291,49 @@ def test_benchmark_kernels_rejects_malformed_ax_engine_document(tmp_path) -> Non
         )
         == 2
     )
+
+
+def test_benchmark_kernels_rejects_unknown_engine_methods(tmp_path) -> None:
+    import json
+
+    from axquant.cli import main
+
+    raw = {
+        "schema_version": "ax-engine.kernel-latency-raw.v1",
+        "ax_engine_version": "6.13.1",
+        "warmup_iterations": 5,
+        "entries": [
+            {
+                "method": "mxfp4",
+                "bits": 4,
+                "group_size": 32,
+                "hidden_size": 2048,
+                "decode_median_us": 100.0,
+                "prefill_median_us": 500.0,
+                "dispersion": 0.05,
+                "iterations": 20,
+            }
+        ],
+        "warnings": [],
+    }
+    raw_path = tmp_path / "raw.json"
+    raw_path.write_text(json.dumps(raw), encoding="utf-8")
+    # An unrecognized packing method must never be silently relabeled affine.
+    assert (
+        main(
+            [
+                "benchmark-kernels",
+                "--host-id",
+                "h",
+                "--chip",
+                "c",
+                "--os-version",
+                "o",
+                "--from-ax-engine",
+                str(raw_path),
+                "--output",
+                str(tmp_path / "out.json"),
+            ]
+        )
+        == 2
+    )

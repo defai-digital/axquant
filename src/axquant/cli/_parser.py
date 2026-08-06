@@ -860,7 +860,9 @@ def _build_parser() -> argparse.ArgumentParser:
     quantize_mtp_parser.add_argument(
         "--runtime-json",
         help="optional mtplx_runtime.json to stamp with mtp_sidecar_bits so "
-        "the engine dequantizes the packed sidecar at the right width",
+        "the engine dequantizes the packed sidecar at the right width; stamp "
+        "the packaging copy — rewriting a bound bundle's file invalidates its "
+        "recorded sha256 binding",
     )
 
     kv_quality_parser = subparsers.add_parser("kv-serving-quality")

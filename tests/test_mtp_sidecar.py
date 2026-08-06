@@ -482,7 +482,11 @@ def test_quantized_sidecar_respects_capability_bit_and_packing_limits(
 
     limited = _capability().model_copy(update={"supported_bits": [4, 8]})
     with pytest.raises(ArtifactError, match="not executable"):
-        quantize_qwen36_mtp_sidecar(source, output, bits=2, capability=limited)
+        quantize_qwen36_mtp_sidecar(source, output, bits=6, capability=limited)
+    # 2-bit is out of AXQuant's own mtp_sidecar_bits runtime contract even
+    # though the engine loader would tolerate the hint.
+    with pytest.raises(ArtifactError, match="must be one of"):
+        quantize_qwen36_mtp_sidecar(source, output, bits=2, capability=_capability())
     wrong_packing = _capability().model_copy(update={"packing": "some-other-packing"})
     with pytest.raises(ArtifactError, match="packing"):
         quantize_qwen36_mtp_sidecar(source, output, bits=4, capability=wrong_packing)

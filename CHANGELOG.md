@@ -38,6 +38,20 @@ the section is missing — add an entry in the same change as any user-facing mo
   planner's latency provider now infers the runtime from single-runtime
   tables, so engine tables plug into `plan --latency-table` directly.
 
+### Fixed
+
+- Quantized MTP sidecar bits are restricted to {4, 6, 8} — the intersection
+  of the engine loader's tolerance with AXQuant's own `mtp_sidecar_bits`
+  runtime contract. Previously a 2-bit sidecar could be produced that
+  AXQuant's inspector and runtime validators would then reject.
+- `benchmark-kernels --from-ax-engine` refuses documents reporting packing
+  methods the toolkit does not recognize instead of silently relabeling them
+  as affine measurements.
+- `annotate_mtp_runtime_sidecar_bits` (and `--runtime-json` help) now states
+  that stamping rewrites the file and therefore invalidates any recorded
+  sha256 binding to the original — stamp packaging copies, not validated
+  bundles.
+
 ## [1.3.0] - 2026-08-06
 
 ### Added

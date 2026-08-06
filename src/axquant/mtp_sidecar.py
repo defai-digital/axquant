@@ -636,10 +636,12 @@ def _f32_to_bf16_bytes(np: Any, values: Any) -> bytes:
 # affine packing (uint32-packed codes + BF16 group scales/biases), exactly
 # what `mx.quantize` emits and the engine's `mtp_take_weight` executes.
 MLX_PACKED_MTP_PACKING = "mlx-affine-packed-u32"
-# Bits AXQuant emits for quantized sidecar projections; a subset of the
-# engine loader's accepted set restricted to the `mtp_sidecar_bits` runtime
-# contract (2/4/6/8 — 16 means byte-preserved, 3 is out of contract).
-_QUANTIZED_MTP_BITS = (2, 4, 6, 8)
+# Bits AXQuant emits for quantized sidecar projections: the intersection of
+# the engine loader's accepted set with AXQuant's own `mtp_sidecar_bits`
+# runtime contract ({4, 6, 8, 16}, enforced by inspector.py and runtime.py;
+# 16 means byte-preserved). The engine also tolerates 2-bit hints, but an
+# artifact AXQuant's own validators reject can never ship.
+_QUANTIZED_MTP_BITS = (4, 6, 8)
 
 
 def quantize_qwen36_mtp_sidecar(
@@ -936,6 +938,12 @@ def annotate_mtp_runtime_sidecar_bits(runtime_path: str | Path, bits: int) -> No
     The engine resolves quantized sidecar bit width from this hint; without
     it, packed projections dequantize under the default 4-bit assumption and
     an 8-bit sidecar silently expands to the wrong shape.
+
+    Mutating the file changes its bytes, so any recorded binding to the
+    original (for example a prepared-bundle manifest's runtime sha256) stops
+    matching afterwards — by design. Stamp the packaging *copy* that ships
+    with the quantized sidecar, never a validated byte-preserved or prepared
+    bundle in place.
     """
     if bits not in _QUANTIZED_MTP_BITS:
         raise ArtifactError(f"mtp_sidecar_bits must be one of {_QUANTIZED_MTP_BITS}, got {bits}")
