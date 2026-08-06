@@ -9,25 +9,43 @@ Phases are gates, not sprints: a phase exits on criteria, not dates. Phase 0
 overlaps nothing; Phases 1–3 may overlap where dependencies allow; Phase 4
 items land opportunistically once their gates open.
 
-## Status snapshot (2026-08-06)
+## Status snapshot (2026-08-06, post-wiring)
 
-Code for the flag-gated workstreams landed and passes the full suite on the
-`macstudio-m2u` development host (formal evidence still binds to `mbp-m5`):
+Toolkit code for this roadmap is done — CLI and gate wiring included — and the
+full suite, ruff, and mypy pass on the `macstudio-m2u` development host.
+What remains is measurement, certification, and deferred scope:
 
-| Workstream | Code | Remaining to exit |
+```text
+[A] Toolkit code for this roadmap     ~ DONE
+[B] Deferred features                 = NOT DONE by design (vision tower,
+                                        per-expert MoE, domain LoRA/SFT)
+[C] Real 27B measurement round        = NOT DONE  <- next battlefield
+[D] Flagship certification (Phase 0)  = NOT DONE  <- official trust anchor
+```
+
+| Workstream | Code + wiring | Remaining to exit (real evidence, not unit tests) |
 | --- | --- | --- |
-| 1.1 act-order GPTQ (`gptq-act`) | ✅ landed | measurement round on the reference model (both profiles) |
-| 1.2 frontier + near-tie surfacing | ✅ landed | same measurement round |
-| 1.3 interaction optimization + role guard | ✅ landed | real candidate run on development roles |
-| 2.1 MTP bundle admissibility | ✅ landed | formal host run after Phase 0 exit |
-| 2.2 measured-KV serving-quality report | ✅ landed | real dual-profile KV evaluation data |
-| 3.1–3.3 kernel-latency harness + planner | ✅ landed (`benchmark-kernels`, `plan --latency-table`) | tables on formal + dev hosts (3.2), re-plan measurement (3.4), kernel wishlist (3.5) |
-| 4.1 quantized MTP sidecar | ✅ landed (library + gate) | AX Engine capability check implementation + converter/CLI opt-in wiring |
-| 4.3 2/3-bit robust-trunk hardening | ✅ landed | stability evidence per pack |
-| Phase 0 certification closure | — | operational; untouched by this code (ADR-0001) |
+| 1.1 act-order GPTQ (`gptq-act`) | ✅ probe/plan/convert/audit + `--methods gptq-act` | 27B measurement round, both profiles |
+| 1.2 frontier + near-tie surfacing | ✅ | same measurement round |
+| 1.3 interaction optimization | ✅ `refine-select --interaction` + role guard | real bound-candidate evaluations on development roles |
+| 2.1 MTP bundle admissibility | ✅ enforced by flagship M7 | formal-host A/B run after Phase 0 exit |
+| 2.2 measured-KV serving quality | ✅ `kv-serving-quality` + kv_exec binding | dual-profile short/long-context measurements |
+| 3.1–3.3 kernel-latency planning | ✅ `benchmark-kernels` + `plan --latency-table` | tables on `mbp-m5` + dev hosts (3.2), re-plan decode measurement (3.4), kernel wishlist to AX Engine (3.5) |
+| 4.1 quantized MTP sidecar | ✅ `quantize-mtp-sidecar` + live capability probe | an AX Engine build that actually reports the quantized MTP layout; see the open product question below |
+| 4.3 2/3-bit robust trunk | ✅ | stability evidence per pack |
+| Phase 0 certification | — (operational, untouched per ADR-0001) | the entire campaign → formal → M0–M8 chain |
 
-README's "Still incomplete" list is deliberately unchanged: bullets close only
-on met acceptance criteria with measured evidence, not on merged code.
+**Open product question (owner decision).** The tech spec originally sketched
+sidecar quantization as a `convert` flag; it landed as the standalone
+`quantize-mtp-sidecar` command instead, because the capability gate needs a
+live AX Engine probe that plain conversion environments may not have, and
+ADR-0001 keeps the convert critical path frozen during the campaign. If the
+product intent is "one-shot `convert` also emits the quantized sidecar," that
+is a deliberate follow-up wiring decision, not an oversight — decide it
+explicitly before adding the flag.
+
+README's "Still incomplete" list stays the public scoreboard: entries close
+only on met acceptance criteria with measured evidence, never on merged code.
 
 ```text
 Phase 0  Certification closure          (RM-01/02)        ── blocks all claims

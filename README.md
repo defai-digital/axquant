@@ -351,15 +351,21 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   authorizing performance only on `mbp-m5`, holdout consumption, durable evidence, independent
   review, lifecycle state, measured-BPW claims, and a final M0–M8 audit. Those controls are
   implemented; the real candidate and formal evidence have not yet passed them;
-- complete-candidate interaction optimization driven by measured holdout results on a bound candidate;
+- interaction-optimization evidence: the toolkit path exists
+  (`refine-select --interaction`, holdout-safe by construction), but no bound candidate has yet
+  been optimized against real measured development-role evaluations;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
 - certification evidence for secondary families (Nemotron Super/Ultra remain inspect-only);
-- dedicated quantization of external MTP sidecars;
-- measured KV serving-quality evidence (the implemented gate proves plan provenance and
-  reproducibility; quality claims still require ordinary dual-profile evaluation evidence);
-- vision-tower quantization (Qwen3-VL language paths convert, but vision towers remain BF16);
-- per-expert (unfused) MoE precision: packed expert stacks quantize as fused switch modules
-  with one precision per group — finer per-expert splits would need MLX-LM-side support.
+- quantized external MTP sidecars in production: `quantize-mtp-sidecar` and its fail-closed AX
+  Engine capability probe exist, but no AX Engine build yet reports the quantized MTP layout as
+  executable, so every shipped sidecar remains byte-preserved;
+- measured KV serving-quality evidence: the report-only artifact and `kv-serving-quality`
+  command exist, but the dual-profile short/long-context measurements that would fill them have
+  not been run;
+- vision-tower quantization (deferred scope — Qwen3-VL language paths convert, but vision towers
+  remain BF16 until vision-specific evaluation evidence exists);
+- per-expert (unfused) MoE precision (deferred scope — packed expert stacks quantize as fused
+  switch modules with one precision per group; finer splits need MLX-LM-side support).
 
 The `validation-index`, `hardware-registry`, `compatibility-matrix`, and `release-audit` commands
 enforce release gate order, dual-profile completeness, and evidence binding.
