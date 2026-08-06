@@ -36,6 +36,32 @@ multi-token-prediction (MTP) weights.
   cleared the full M0–M8 release audit — every public pack today is development evidence, not a
   certified release. [Current status](#current-status) states exactly what remains open.
 
+## Quickstart
+
+This path creates a **development** conversion from a local, unquantized Safetensors checkpoint.
+It is the quickest way to verify compatibility; it is not a substitute for the measured
+calibration, evaluation, and release-audit evidence required for a public quality or performance
+claim.
+
+On Apple Silicon with Python 3.11 or later:
+
+```bash
+git clone https://github.com/defai-digital/axquant.git
+cd axquant
+python3 -m venv .venv
+.venv/bin/pip install -e ".[mlx]"
+
+MODEL=/absolute/path/to/bf16-safetensors-model
+.venv/bin/axquant inspect --model "$MODEL" --output inventory.json
+.venv/bin/axquant quantize "$MODEL" --output ./AXQuant-output --target-bpw 4.8
+```
+
+Read `inventory.json` before conversion: it records the adapter, support tier, protection
+boundaries, and any blocking source-layout issue. Use an explicit `--target-bpw` at or above the
+reported floor when the budget must be fixed. For a measured or publishable workflow, continue
+with [measured planning and validation](#measured-planning-and-validation) before making a
+quality or performance claim.
+
 ## How it works
 
 ```text
@@ -123,11 +149,30 @@ Its design centers on:
 The latest tagged toolkit version is `1.3.0` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
-command does not by itself certify an output. `v1.3.0` adds measured, holdout-safe interaction
-selection; kernel-latency-aware planning; a report-only KV serving-quality artifact; and formal
-MTP A/B admissibility. It also introduces the opt-in, capability-gated Qwen 3.6 quantized MTP
-sidecar while retaining the byte-preserved default. See the
-[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.3.0) for detail.
+command does not by itself certify an output.
+
+### v1.3.0 at a glance
+
+- Measured, holdout-safe interaction selection and kernel-latency-aware near-tie planning.
+- A report-only measured KV serving-quality artifact plus formal MTP A/B admissibility checks.
+- An opt-in, capability-gated Qwen 3.6 quantized MTP sidecar; byte preservation remains the
+  default.
+
+See the [v1.3.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.3.0)
+for the complete change list and download verification instructions.
+
+### Support snapshot
+
+| Scope | Use today | Public certification status |
+| --- | --- | --- |
+| Qwen 3.6 language paths | `convertible`; primary certification track | No certified public pack yet |
+| Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
+| Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
+| Nemotron 3 Nano | `convertible` thin path | Development evidence only |
+| Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
+
+The detailed registry-derived matrix below is authoritative. Run `axquant support-matrix` for the
+exact tier of a checkpoint before beginning work.
 
 Further reading: [AXQ model fleet v2 migration and audit](docs/model-fleet-v2.md),
 [migration guide (v1.1.x → v1.2.0)](docs/migration-v1.2.md),
@@ -385,7 +430,7 @@ For development, install the test and lint tools as well:
 python -m pip install -e ".[dev,mlx]"
 ```
 
-## Quick start: simple development convert
+## Simple development conversion
 
 AXQuant uses a **two-door** model:
 
