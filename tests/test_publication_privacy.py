@@ -82,7 +82,7 @@ def test_publication_privacy_rejects_paths_tokens_private_hosts_and_raw_holdout(
         require_publication_privacy(tmp_path)
 
 
-def test_flagship_publication_rescans_files_added_during_preparation(
+def test_flagship_publication_rescans_files_added_after_request_scan(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -110,15 +110,18 @@ def test_flagship_publication_rescans_files_added_during_preparation(
         "_require_flagship_request_inputs",
         lambda **_kwargs: None,
     )
-    monkeypatch.setattr(publisher, "_rerun_release_audit", lambda **_kwargs: None)
-    monkeypatch.setattr(publisher, "_require_release_validation", lambda **_kwargs: None)
 
-    def prepare_with_leak(**_kwargs: object) -> list[Path]:
+    def rerun_with_leak(**_kwargs: object) -> None:
         leaked = artifact / "packaged-evidence.json"
         leaked.write_text('{"producer":"/Users/operator/private/run"}\n', encoding="utf-8")
-        return [leaked]
 
-    monkeypatch.setattr(publisher, "prepare_publication", prepare_with_leak)
+    monkeypatch.setattr(publisher, "_rerun_release_audit", rerun_with_leak)
+    monkeypatch.setattr(publisher, "_require_release_validation", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        publisher,
+        "prepare_publication",
+        lambda **_kwargs: pytest.fail("flagship publication must skip legacy preparation"),
+    )
 
     with pytest.raises(PublishingError, match="privacy scan failed"):
         publisher.publish_model(

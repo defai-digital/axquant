@@ -516,7 +516,11 @@ def _distribution(
     *,
     mtp_only: bool = False,
 ) -> dict[str, PrecisionShare]:
-    selected = [choice for choice in choices if not mtp_only or choice.entry.tensor.role.is_mtp]
+    selected = [
+        choice
+        for choice in choices
+        if choice.entry.tensor.parameters > 0 and (not mtp_only or choice.entry.tensor.role.is_mtp)
+    ]
     total = sum(choice.entry.tensor.parameters for choice in selected)
     if total == 0:
         return {}

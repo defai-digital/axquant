@@ -35,12 +35,15 @@ def _count_jsonl(path: Path) -> int:
             for line_number, line in enumerate(source, 1):
                 if not line.strip():
                     continue
-                value = json.loads(line)
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise ArtifactError(
+                        f"invalid JSONL in {path}:{line_number}: {exc.msg}"
+                    ) from exc
                 if not isinstance(value, dict):
                     raise ArtifactError(f"{path}:{line_number} must contain a JSON object")
                 samples += 1
-    except json.JSONDecodeError as exc:
-        raise ArtifactError(f"invalid JSONL in {path}:{exc.lineno}: {exc.msg}") from exc
     except OSError as exc:
         raise ArtifactError(f"cannot read calibration dataset {path}: {exc}") from exc
     if samples == 0:

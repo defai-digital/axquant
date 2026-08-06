@@ -16,6 +16,7 @@ from axquant.schema import (
     QuantizationPlan,
     QuantMethod,
     TensorRole,
+    TensorSpec,
 )
 from axquant.serde import load_model, write_data
 
@@ -254,3 +255,61 @@ def test_manual_tied_weights_reject_conflicting_quantizers(
     ]
     with pytest.raises(PlanningError, match="conflicting manual methods"):
         manual_quantization_plan(inventory, _recipe(rules=rules))
+
+
+def _expert_tensor(name: str, module_path: str) -> TensorSpec:
+    return TensorSpec(
+        name=name,
+        module_path=module_path,
+        shape=(64, 64),
+        dtype="BF16",
+        parameters=4096,
+        role=TensorRole.EXPERT,
+        quantizable=True,
+        file="model.safetensors",
+        current_precision="bf16",
+    )
+
+
+@pytest.mark.parametrize(
+    ("module_path", "method"),
+    [
+        ("model.layers.0.mlp.experts.0.gate_proj", QuantMethod.AWQ),
+        ("model.layers.0.mlp.experts.gate_up_proj", QuantMethod.DWQ),
+    ],
+)
+def test_manual_rejects_non_affine_method_on_fused_and_packed_experts(
+    qwen36_model_dir: Path,
+    module_path: str,
+    method: QuantMethod,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    inventory.tensors.append(_expert_tensor(f"{module_path}.weight", module_path))
+    rule = ManualPrecisionRule(
+        rule_id="expert-refinement",
+        bits=4,
+        method=method,
+        module_glob=f"*{module_path.removeprefix('model.')}",
+        group_size=64,
+        reason="unexecutable refinement on a fused/packed expert module",
+    )
+    with pytest.raises(PlanningError, match="affine"):
+        manual_quantization_plan(inventory, _recipe(rules=[rule]))
+
+
+def test_manual_rejects_mixed_precisions_within_fused_expert_group(
+    qwen36_model_dir: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    for index in range(2):
+        module_path = f"model.layers.0.mlp.experts.{index}.gate_proj"
+        inventory.tensors.append(_expert_tensor(f"{module_path}.weight", module_path))
+    rule = ManualPrecisionRule(
+        rule_id="expert0-6bit",
+        bits=6,
+        method=QuantMethod.AFFINE,
+        module_glob="*experts.0.gate_proj",
+        reason="asymmetric precision inside one switch module",
+    )
+    with pytest.raises(PlanningError, match="fused expert module"):
+        manual_quantization_plan(inventory, _recipe(rules=[rule]))

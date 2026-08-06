@@ -419,3 +419,48 @@ def test_packed_expert_rejects_non_affine_refinement() -> None:
 
     with pytest.raises(PlanningError, match=r"packed expert tensor.*requires the affine method"):
         build_quant_predicate(packed_plan, execute_refinement=False)
+
+
+def test_weight_suffixed_module_paths_keep_packed_and_fused_tracking() -> None:
+    """Lookup keys are normalized in __init__; __call__ must normalize the same way."""
+    plan = _mlp_plan()
+    packed = plan.assignments[0].model_copy(
+        update={
+            "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "module_path": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "role": TensorRole.EXPERT,
+            "bits": 4,
+            "method": QuantMethod.AFFINE,
+            "group_size": 64,
+        }
+    )
+    packed_plan = plan.model_copy(update={"assignments": [packed]})
+    predicate = build_quant_predicate(packed_plan, execute_refinement=False)
+
+    gate = predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
+    assert isinstance(gate, dict)
+    # One split runtime module visited is not complete coverage.
+    assert predicate.unmatched_quantized_modules() == {packed.module_path}
+
+    up = predicate("model.layers.0.mlp.switch_mlp.up_proj", object())
+    assert isinstance(up, dict)
+    assert predicate.unmatched_quantized_modules() == set()
+
+    members = [
+        plan.assignments[0].model_copy(
+            update={
+                "tensor": f"model.layers.0.mlp.experts.{index}.gate_proj.weight",
+                "module_path": f"model.layers.0.mlp.experts.{index}.gate_proj.weight",
+                "role": TensorRole.EXPERT,
+                "bits": 4,
+                "method": QuantMethod.AFFINE,
+                "group_size": 64,
+            }
+        )
+        for index in (0, 1)
+    ]
+    fused_plan = plan.model_copy(update={"assignments": members})
+    fused_predicate = build_quant_predicate(fused_plan, execute_refinement=False)
+    result = fused_predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
+    assert isinstance(result, dict)
+    assert fused_predicate.unmatched_quantized_modules() == set()

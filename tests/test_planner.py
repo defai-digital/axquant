@@ -253,6 +253,38 @@ def test_planner_respects_budget_and_external_mtp_protection() -> None:
     assert plan.mtp_distribution["bf16"].fraction == 1.0
 
 
+def test_planner_distribution_skips_zero_parameter_tensors() -> None:
+    # A zero-parameter tensor alone at its precision must not record an empty
+    # distribution label: the QuantizationPlan validator ignores zero-parameter
+    # allocations, so recording one fails plan construction with a
+    # ValidationError (matching manual.py's _distribution).
+    tensors = [
+        _tensor("model.layers.0.mlp.down_proj.weight", 10_000, TensorRole.MLP),
+        _tensor(
+            "model.layers.0.empty_norm.weight",
+            0,
+            TensorRole.NORM,
+            quantizable=False,
+        ),
+    ]
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/model", revision="abc"),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors),
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+
+    plan = plan_quantization(report, _request(target_bpw=6.5))
+
+    assert "bf16" not in plan.weight_distribution
+    assert sum(share.parameters for share in plan.weight_distribution.values()) == 10_000
+
+
 def test_planner_harmonizes_tied_weights_at_one_executable_signature() -> None:
     trunk = _tensor("model.layers.0.mlp.down_proj.weight", 10_000, TensorRole.MLP)
     embedding = _tensor("model.embed_tokens.weight", 100, TensorRole.EMBEDDING)

@@ -594,7 +594,9 @@ def publish_model(
             repo_id=repo_id,
             request_path=release_audit_request_path,
         )
-    else:
+    elif not flagship_request:
+        # Flagship packages are pre-assembled and validated above; the legacy
+        # preparer would overwrite the certified model card (README.md).
         prepare_publication(
             model_dir=directory,
             repo_id=repo_id,
@@ -647,9 +649,9 @@ def publish_model(
         repo_id=repo_id,
     )
     if flagship_request:
-        # Preparation and audit packaging can add public text artifacts after
-        # the request-level scan. Re-scan the exact final tree immediately
-        # before previewing or uploading it.
+        # Audit packaging can add public text artifacts after the request-level
+        # scan. Re-scan the exact final tree immediately before previewing or
+        # uploading it.
         require_publication_privacy(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
     if not execute:

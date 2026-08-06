@@ -82,7 +82,8 @@ class PlanPredicate:
             for alias in aliases:
                 existing = self._aliases.get(alias)
                 if existing is not None and existing.module_path != allocation.module_path:
-                    if fused is not None and fused_expert_module(existing.module_path) == fused:
+                    existing_path = _without_weight_suffix(existing.module_path)
+                    if fused is not None and fused_expert_module(existing_path) == fused:
                         # Members of one fused group intentionally share the
                         # fused alias; keep the first representative.
                         continue
@@ -136,11 +137,12 @@ class PlanPredicate:
         allocation = self.lookup(normalized_path)
         if allocation is None:
             return False
-        packed_requirements = self._packed_requirements.get(allocation.module_path)
+        allocation_path = _without_weight_suffix(allocation.module_path)
+        packed_requirements = self._packed_requirements.get(allocation_path)
         if packed_requirements is None:
             self.matched.add(allocation.module_path)
         else:
-            seen = self._packed_seen[allocation.module_path]
+            seen = self._packed_seen[allocation_path]
             for index, aliases in enumerate(packed_requirements):
                 if normalized_path in aliases or any(
                     alias.endswith(f".{normalized_path}") or normalized_path.endswith(f".{alias}")
@@ -149,7 +151,7 @@ class PlanPredicate:
                     seen.add(index)
             if len(seen) == len(packed_requirements):
                 self.matched.add(allocation.module_path)
-        fused = fused_expert_module(allocation.module_path)
+        fused = fused_expert_module(allocation_path)
         if fused is not None:
             # Quantizing the fused switch module covers every member expert.
             for member in self._fused_members.get(fused, ()):

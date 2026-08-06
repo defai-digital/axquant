@@ -678,6 +678,25 @@ def test_probe_rejects_mutable_revision_alias(qwen36_model_dir: Path) -> None:
         probe_tensor_sensitivity(inventory, config=config)
 
 
+def test_probe_rejects_model_identity_mismatch(qwen36_model_dir: Path) -> None:
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+    )
+    mismatched_id = inventory.model.model_copy(update={"model_id": "org/other-model"})
+    config = ProbeConfig(model=mismatched_id, calibration_cache="/nonexistent-cache")
+    with pytest.raises(ProbeError, match="does not match the inventory model"):
+        probe_tensor_sensitivity(inventory, config=config)
+
+    mismatched_path = inventory.model.model_copy(
+        update={"local_path": str(qwen36_model_dir.parent)}
+    )
+    config = ProbeConfig(model=mismatched_path, calibration_cache="/nonexistent-cache")
+    with pytest.raises(ProbeError, match="does not match the inventory source"):
+        probe_tensor_sensitivity(inventory, config=config)
+
+
 def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -746,6 +765,58 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             refined.calibration.metadata[CAPTURE_MANIFEST_SHA256_KEY]
             == bound_activations.manifest_sha256
         )
+
+
+def test_probe_refinement_skips_failed_affine_packing_control(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """A failed AFFINE placeholder must not become the refinement hardware-cost control."""
+    inventory, config, _report = _base_probe_report(tmp_path, qwen36_model_dir)
+
+    class _AffineFailingBackend(_MeasuredFakeBackend):
+        def quantize_module(
+            self,
+            module_path: str,
+            bits: int,
+            group_size: int,
+            method: QuantMethod = QuantMethod.AFFINE,
+        ) -> None:
+            if method == QuantMethod.AFFINE:
+                raise ProbeError("simulated affine packing failure")
+            super().quantize_module(module_path, bits, group_size, method)
+
+    report = probe_tensor_sensitivity(
+        inventory,
+        config=config.model_copy(
+            update={
+                "candidate_bits": (4,),
+                "candidate_methods": (QuantMethod.AFFINE, QuantMethod.DWQ),
+            }
+        ),
+        backend=_AffineFailingBackend(),
+    )
+    quantized_entry = next(
+        entry
+        for entry in report.entries
+        if any(candidate.bits == 4 for candidate in entry.candidates)
+    )
+    affine = next(
+        candidate
+        for candidate in quantized_entry.candidates
+        if candidate.bits == 4 and candidate.method == QuantMethod.AFFINE
+    )
+    assert not affine.supported
+    dwq = next(
+        candidate
+        for candidate in quantized_entry.candidates
+        if candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+    )
+    assert dwq.supported
+    assert dwq.metrics.peak_memory_cost > 0.0
+    assert dwq.metrics.prefill_latency_cost > 0.0
+    assert dwq.note is not None
+    assert "hardware costs normalized" not in dwq.note
 
 
 def test_probe_rejects_capture_bound_to_another_cache(

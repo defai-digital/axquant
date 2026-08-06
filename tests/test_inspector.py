@@ -48,6 +48,16 @@ def test_classifies_supported_tensor_roles() -> None:
     assert classify_tensor("encoder.block.weight", "vision.safetensors") == TensorRole.VISION
 
 
+def test_classifies_qwen_moe_router_gate_names() -> None:
+    # Qwen MoE routers are named `mlp.gate` (no `router`/`expert` token) and the
+    # shared expert gate is routing state; both must stay router-protected.
+    assert classify_tensor("model.layers.1.mlp.gate.weight") == TensorRole.ROUTER
+    assert classify_tensor("model.layers.1.mlp.shared_expert_gate.weight") == TensorRole.ROUTER
+    # The `_proj` projections are not routers and keep their roles.
+    assert classify_tensor("model.layers.1.mlp.gate_proj.weight") == TensorRole.MLP
+    assert classify_tensor("model.layers.1.mlp.experts.0.gate_proj.weight") == TensorRole.EXPERT
+
+
 def test_inventory_detects_mtp_ties_and_protection(tiny_model_dir: Path) -> None:
     inventory = inspect_model(tiny_model_dir, model_id="org/tiny", revision="abc123")
     assert inventory.mtp_present is True

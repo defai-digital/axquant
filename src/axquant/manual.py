@@ -4,6 +4,7 @@ from fnmatch import fnmatchcase
 
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
+from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.naming import target_class_for_bpw
 from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
@@ -110,6 +111,17 @@ def _precision(
         raise PlanningError(
             f"hardware profile does not support group size {group_size} for {tensor.name}"
         )
+    # Per-expert checkpoint tensors and packed expert tensors both fuse into
+    # MLX-LM switch modules that conversion can only pack affinely (see
+    # planner.py and predicate.py), so reject refinement methods at plan time
+    # instead of producing a plan the conversion preflight must reject.
+    fused_module = fused_expert_module(tensor.module_path)
+    packed_modules = packed_expert_runtime_modules(tensor.module_path)
+    if bits < 16 and method != QuantMethod.AFFINE and (fused_module or packed_modules):
+        raise PlanningError(
+            f"manual recipe assigns {method.value} to expert tensor {tensor.name}; "
+            "conversion can only execute affine packing for fused/packed expert modules"
+        )
     if rule is not None:
         reason = f"manual rule {rule.rule_id}: {rule.reason}"
     elif policy_reason is not None:
@@ -161,6 +173,28 @@ def _harmonize_tied_weights(
             allocation.scale_strategy = scale_strategy
             allocation.outlier_strategy = outlier_strategy
             allocation.strategy_metadata["storage_bpw"] = storage_bpw(bits, group_size)
+
+
+def _enforce_fused_expert_signatures(allocations: list[Allocation]) -> None:
+    """Reject mixed signatures inside one fused MLX-LM switch module group.
+
+    Planner harmonizes fused expert groups to one executable (bits, method,
+    group-size) signature because MLX-LM quantizes a switch module as a single
+    unit. Manual recipes state each precision explicitly, so a mixed group is a
+    recipe error and fails fast here rather than at the conversion predicate.
+    """
+    groups: dict[str, list[Allocation]] = {}
+    for allocation in allocations:
+        fused = fused_expert_module(allocation.module_path)
+        if fused is not None:
+            groups.setdefault(fused, []).append(allocation)
+    for fused, members in sorted(groups.items()):
+        signatures = {(member.bits, member.method.value, member.group_size) for member in members}
+        if len(signatures) > 1:
+            raise PlanningError(
+                f"fused expert module {fused} mixes precisions {sorted(signatures)}; "
+                "every expert in a switch group must share one assignment"
+            )
 
 
 def _distribution(
@@ -235,6 +269,7 @@ def manual_quantization_plan(
     if unmatched and not recipe.allow_unmatched_rules:
         raise PlanningError(f"manual precision rules matched no tensors: {unmatched}")
     _harmonize_tied_weights(allocations, inventory.tied_weight_groups, recipe)
+    _enforce_fused_expert_signatures(allocations)
     total_parameters = sum(allocation.parameters for allocation in allocations)
     if total_parameters <= 0:
         raise PlanningError("source inventory contains no logical parameters")

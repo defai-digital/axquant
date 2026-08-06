@@ -765,6 +765,17 @@ def probe_tensor_sensitivity(
         raise ProbeError("measured sensitivity requires an unquantized BF16 source inventory")
     if not is_immutable_revision(config.model.revision):
         raise ProbeError("measured sensitivity requires a revision-pinned source model")
+    if config.model.model_id != inventory.model.model_id:
+        raise ProbeError("probe model does not match the inventory model")
+    if config.model.revision != inventory.model.revision:
+        raise ProbeError("probe revision does not match the inventory revision")
+    if config.model.format != inventory.model.format:
+        raise ProbeError("probe model format does not match the inventory format")
+    if config.model.local_path is not None and inventory.model.local_path is not None:
+        probe_model_dir = Path(config.model.local_path).expanduser().resolve()
+        inventory_model_dir = Path(inventory.model.local_path).expanduser().resolve()
+        if probe_model_dir != inventory_model_dir:
+            raise ProbeError("probe model directory does not match the inventory source")
     if config.module_group_probing:
         raise ProbeError(
             "module-group probing is not available in the tensor-isolation backend; "
@@ -1036,6 +1047,7 @@ def probe_tensor_sensitivity(
                                 if candidate.bits == bits
                                 and candidate.method == QuantMethod.AFFINE
                                 and candidate.group_size == group_size
+                                and candidate.supported
                             ),
                             None,
                         )

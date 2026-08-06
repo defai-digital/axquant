@@ -114,8 +114,12 @@ def generate_ax_engine_manifest(
         "--validate",
         str(directory),
     ]
+    # Remove any manifest left by a previous run so the existence check below
+    # proves this run created it.
+    manifest_path = directory / "model-manifest.json"
+    manifest_path.unlink(missing_ok=True)
     completed = runner(command)
-    manifest_exists = (directory / "model-manifest.json").is_file()
+    manifest_exists = manifest_path.is_file()
     report = _json_report(completed.stdout)
     declared_ready = _reports_ready(report)
     diagnostics = f"{completed.stdout}\n{completed.stderr}".casefold()

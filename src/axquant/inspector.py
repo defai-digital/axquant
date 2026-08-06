@@ -107,7 +107,15 @@ def classify_tensor(name: str, source_file: str = "") -> TensorRole:
         return TensorRole.LM_HEAD
     if any(token in name_value for token in ("embed_tokens", "token_embedding", "wte.weight")):
         return TensorRole.EMBEDDING
-    if "router" in name_value or ("expert" in name_value and ".gate." in name_value):
+    if (
+        "router" in name_value
+        or ".mlp.gate." in name_value
+        or "shared_expert_gate" in name_value
+        or ("expert" in name_value and ".gate." in name_value)
+    ):
+        # Qwen-style MoE routers are named `mlp.gate` (distinct from the
+        # `gate_proj` expert/MLP projections, which carry the `_proj` suffix);
+        # `shared_expert_gate` is routing state, not an expert projection.
         return TensorRole.ROUTER
     if "expert" in name_value or "switch_mlp" in name_value or "switch_glu" in name_value:
         return TensorRole.EXPERT

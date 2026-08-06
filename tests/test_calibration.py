@@ -85,3 +85,20 @@ def test_calibration_rejects_non_object_jsonl(tmp_path: Path) -> None:
             random_seed=0,
             separation_attested=False,
         )
+
+
+def test_calibration_reports_jsonl_line_number_for_invalid_json(tmp_path: Path) -> None:
+    dataset = tmp_path / "bad.jsonl"
+    dataset.write_text('{"text":"one"}\n{"text":"two"}\nnot-json\n', encoding="utf-8")
+    with pytest.raises(ArtifactError) as excinfo:
+        prepare_calibration(
+            model=ModelIdentity(model_id="org/model"),
+            dataset=dataset,
+            output_dir=tmp_path / "cache",
+            profile=ProfileName.GENERAL,
+            domains=["general"],
+            sequence_length=128,
+            random_seed=0,
+            separation_attested=False,
+        )
+    assert f"{dataset}:3:" in str(excinfo.value)

@@ -9,6 +9,7 @@ from typing import ClassVar
 import pytest
 
 from axquant.activation_cache import (
+    _tokenizer_sha256,
     compute_cache_key,
     is_cache_complete,
     load_cache_manifest,
@@ -532,3 +533,29 @@ class TestLoadManifest:
     def test_invalid_manifest(self, tmp_path: Path) -> None:
         (tmp_path / "tokenized_cache_manifest.json").write_text("not json", encoding="utf-8")
         assert load_cache_manifest(tmp_path) is None
+
+
+class _FakeAddedToken:
+    """Non-JSON-serializable stand-in for ``transformers.AddedToken``."""
+
+    def __init__(self, content: str) -> None:
+        self.content = content
+
+    def __str__(self) -> str:
+        return self.content
+
+
+class TestTokenizerSha256:
+    def test_non_serializable_special_tokens_are_normalized(self) -> None:
+        tokenizer = _FakeTokenizer()
+        tokenizer.special_tokens_map = {  # type: ignore[assignment]
+            "eos_token": _FakeAddedToken("</s>"),
+            "pad_token": "<pad>",
+        }
+
+        first = _tokenizer_sha256(tokenizer)
+        second = _tokenizer_sha256(tokenizer)
+
+        assert first == second
+        plain = _FakeTokenizer()
+        assert first == _tokenizer_sha256(plain)

@@ -135,6 +135,33 @@ def test_ax_engine_manifest_requires_parseable_ready_status(
     assert "parseable ready status" in result.stderr
 
 
+def test_ax_engine_manifest_rejects_stale_manifest_from_previous_run(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    executable = tmp_path / "ax-engine-bench"
+    executable.write_text("", encoding="utf-8")
+    # A manifest left behind by an earlier run must not satisfy this run.
+    (qwen36_model_dir / "model-manifest.json").write_text("{}", encoding="utf-8")
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            list(command),
+            0,
+            stdout='{"schema_version":"ax.generate_manifest.v1","status":"ready"}',
+            stderr="",
+        )
+
+    result = generate_ax_engine_manifest(
+        qwen36_model_dir,
+        executable=str(executable),
+        runner=runner,
+    )
+
+    assert result.passed is False
+    assert "did not create model-manifest.json" in result.stderr
+
+
 def test_ax_engine_manifest_rejects_zero_exit_validation_failure(
     qwen36_model_dir: Path,
     tmp_path: Path,

@@ -206,11 +206,13 @@ def _tokenizer_sha256(tokenizer: Any) -> str:
         vocabulary = tokenizer.get_vocab()
     except (AttributeError, TypeError):
         vocabulary = {}
+    special_tokens_map = getattr(tokenizer, "special_tokens_map", {}) or {}
+    special_tokens = {str(key): str(value) for key, value in special_tokens_map.items()}
     return stable_sha256(
         {
             "class": type(tokenizer).__name__,
             "vocabulary": vocabulary,
-            "special_tokens": getattr(tokenizer, "special_tokens_map", {}),
+            "special_tokens": special_tokens,
         }
     )
 
