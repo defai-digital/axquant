@@ -8,6 +8,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-06
+
 ### Added
 
 - Group-preserving GPTQ act-order as the new `gptq-act` method (ADR-0002): groups process in
@@ -280,6 +282,7 @@ See the [v1.1.x → v1.2.0 migration guide](docs/migration-v1.2.md) for action i
   adapters (Qwen 3.6 primary track, Qwen 3.5, Gemma-4, MiniCPM5, Mistral/Devstral, Mistral3,
   Nemotron 3 Nano), and AX Engine runtime manifests.
 
+[1.3.0]: https://github.com/defai-digital/axquant/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/defai-digital/axquant/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/defai-digital/axquant/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/defai-digital/axquant/compare/v1.0.2...v1.1.0

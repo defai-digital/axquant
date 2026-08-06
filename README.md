@@ -120,26 +120,14 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.2.0` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.3.0` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
-command does not by itself certify an output. `v1.2.0` is a hardening release: the calibration
-evidence chain is checksum-bound end to end (capture → analyze → plan → convert → publish), the
-Qwen3-Next adapter classifies fused `switch_mlp`/`switch_glu` experts correctly (pre-fix
-artifacts must be regenerated), completed capture directories are immutable, Hub BF16 source
-preparation is revision-pinned, plain dense backbones support measured probing via
-`analyze --capture-points output`, copied MTP sidecars emit structured `mtp_sidecar_bits`
-runtime contracts, `refine` accepts `--lm-head-floor`, and mixed-precision plans are labeled by
-target BPW. `v1.1.1` was a stability release: resumable, compressed, shardable activation
-capture; a BF16-activation capture fix; ~30% lower GPTQ peak memory; real-hardware integration
-tests (`pytest -m integration` on Apple Silicon); CI on macOS plus signed release artifacts; and
-a migration guide, environment compatibility matrix, and known-issues list under `docs/`.
-`v1.1.0` added GPTQ Hessian error-compensated quantization and wired AWQ end to end: the
-`capture-activations` stage records checksum-bound per-module calibration activations that feed
-measured AWQ/GPTQ probing (`analyze --calibration-activations`), planner selection with a
-`gptq-hessian` scale strategy, and convert-time refinement (`convert --calibration-activations`)
-before portable affine packing. See the
-[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.2.0) for detail.
+command does not by itself certify an output. `v1.3.0` adds measured, holdout-safe interaction
+selection; kernel-latency-aware planning; a report-only KV serving-quality artifact; and formal
+MTP A/B admissibility. It also introduces the opt-in, capability-gated Qwen 3.6 quantized MTP
+sidecar while retaining the byte-preserved default. See the
+[release notes](https://github.com/defai-digital/axquant/releases/tag/v1.3.0) for detail.
 
 Further reading: [AXQ model fleet v2 migration and audit](docs/model-fleet-v2.md),
 [migration guide (v1.1.x → v1.2.0)](docs/migration-v1.2.md),
