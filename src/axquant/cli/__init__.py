@@ -34,7 +34,13 @@ from axquant.recipes import export_recipe_bundle
 from axquant.reporting import plan_markdown, prepare_publication, validation_markdown
 from axquant.reproduction import verify_reproduction
 from axquant.revisions import is_immutable_revision
-from axquant.runtime import check_ax_engine, check_mlx_lm_generation, check_mlx_lm_static
+from axquant.runtime import (
+    check_ax_engine,
+    check_mlx_audio_transcription,
+    check_mlx_lm_generation,
+    check_mlx_lm_static,
+    check_mlx_vlm_generation,
+)
 from axquant.schema import (
     BaselineKind,
     BenchmarkConfig,
@@ -722,6 +728,9 @@ def _run(args: argparse.Namespace) -> int:
             runtime_smoke=args.runtime_smoke,
             ax_engine=args.ax_engine,
             mlx_lm=args.mlx_lm,
+            python=args.python,
+            audio_input=args.audio_input,
+            image_input=args.image_input,
             ax_engine_manifest=args.ax_engine_manifest,
         )
         if args.json_output:
@@ -1289,6 +1298,8 @@ def _run(args: argparse.Namespace) -> int:
             revision=args.revision,
             local_path=(str(runtime_model_path.resolve()) if runtime_model_path.is_dir() else None),
         )
+        if args.static_only and args.runtime != RuntimeName.MLX_LM.value:
+            raise PlanningError("--static-only is only valid with --runtime mlx-lm")
         if args.runtime == "mlx-lm-kv":
             from axquant.runtime import check_mlx_lm_kv_layered
 
@@ -1303,14 +1314,32 @@ def _run(args: argparse.Namespace) -> int:
             )
             return 0 if result.passed else 1
         runtime = RuntimeName(args.runtime)
-        result = (
-            check_ax_engine(
+        if runtime == RuntimeName.AX_ENGINE:
+            result = check_ax_engine(
                 args.model,
                 executable=args.ax_engine,
                 model_identity=runtime_model,
             )
-            if runtime == RuntimeName.AX_ENGINE
-            else (
+        elif runtime == RuntimeName.MLX_AUDIO:
+            if not args.audio_input:
+                raise PlanningError("--runtime mlx-audio requires --audio-input")
+            result = check_mlx_audio_transcription(
+                args.model,
+                audio=args.audio_input,
+                executable=args.python,
+                model_identity=runtime_model,
+            )
+        elif runtime == RuntimeName.MLX_VLM:
+            if not args.image_input:
+                raise PlanningError("--runtime mlx-vlm requires --image-input")
+            result = check_mlx_vlm_generation(
+                args.model,
+                image=args.image_input,
+                executable=args.python,
+                model_identity=runtime_model,
+            )
+        else:
+            result = (
                 check_mlx_lm_static(args.model, model_identity=runtime_model)
                 if args.static_only
                 else check_mlx_lm_generation(
@@ -1319,7 +1348,6 @@ def _run(args: argparse.Namespace) -> int:
                     model_identity=runtime_model,
                 )
             )
-        )
         write_data(args.output, result)
         log.info(
             "runtime_check_completed",

@@ -24,7 +24,12 @@ from axquant.ladders import get_ladder, plan_request_for_ladder
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.recipes import resolve_recipe_plan
-from axquant.runtime import check_ax_engine, check_mlx_lm_generation
+from axquant.runtime import (
+    check_ax_engine,
+    check_mlx_audio_transcription,
+    check_mlx_lm_generation,
+    check_mlx_vlm_generation,
+)
 from axquant.schema import (
     ConvertLadderName,
     ModelIdentity,
@@ -40,7 +45,35 @@ _POLICY_MIN_BPW = re.compile(
 
 DEVELOPMENT_NOTE = "This artifact is development evidence; it is not a certified AXQuant release."
 
-RuntimeSmoke = Literal["none", "mlx-lm", "ax-engine"]
+RuntimeSmoke = Literal["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"]
+
+
+def _validate_runtime_smoke(
+    smoke: RuntimeSmoke,
+    *,
+    adapter_id: str,
+    audio_input: str | Path | None,
+    image_input: str | Path | None,
+) -> None:
+    required = {
+        "qwen3-asr-v1": "mlx-audio",
+        "qwen3-vl-v1": "mlx-vlm",
+    }.get(adapter_id)
+    if required is not None and smoke not in {"none", required}:
+        raise PlanningError(
+            f"{adapter_id} uses {required}; --runtime-smoke {smoke} would test the wrong runtime"
+        )
+    if required is None and smoke in {"mlx-audio", "mlx-vlm"}:
+        raise PlanningError(
+            f"--runtime-smoke {smoke} is only valid for its promoted multimodal adapter"
+        )
+    media = audio_input if smoke == "mlx-audio" else image_input if smoke == "mlx-vlm" else None
+    if smoke in {"mlx-audio", "mlx-vlm"}:
+        option = "--audio-input" if smoke == "mlx-audio" else "--image-input"
+        if media is None:
+            raise PlanningError(f"--runtime-smoke {smoke} requires {option}")
+        if not Path(media).expanduser().is_file():
+            raise PlanningError(f"{option} does not identify a file: {media}")
 
 
 def _runtime_smoke_check(
@@ -50,12 +83,33 @@ def _runtime_smoke_check(
     model_id: str,
     ax_engine: str,
     mlx_lm: str,
+    python: str,
+    audio_input: str | Path | None,
+    image_input: str | Path | None,
 ) -> RuntimeCheck | None:
     if smoke == "none":
         return None
     identity = ModelIdentity(model_id=model_id, local_path=str(output))
     if smoke == "ax-engine":
         return check_ax_engine(str(output), executable=ax_engine, model_identity=identity)
+    if smoke == "mlx-audio":
+        if audio_input is None:
+            raise PlanningError("--runtime-smoke mlx-audio requires --audio-input")
+        return check_mlx_audio_transcription(
+            str(output),
+            audio=audio_input,
+            executable=python,
+            model_identity=identity,
+        )
+    if smoke == "mlx-vlm":
+        if image_input is None:
+            raise PlanningError("--runtime-smoke mlx-vlm requires --image-input")
+        return check_mlx_vlm_generation(
+            str(output),
+            image=image_input,
+            executable=python,
+            model_identity=identity,
+        )
     return check_mlx_lm_generation(str(output), executable=mlx_lm, model_identity=identity)
 
 
@@ -76,6 +130,9 @@ def quick_convert(
     runtime_smoke: RuntimeSmoke = "none",
     ax_engine: str = "ax-engine",
     mlx_lm: str = "mlx_lm.generate",
+    python: str = "python3",
+    audio_input: str | Path | None = None,
+    image_input: str | Path | None = None,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
     allow_download: bool = False,
 ) -> QuickConversionSummary:
@@ -91,6 +148,12 @@ def quick_convert(
             f"the {architecture.product_family} family is inspect-only; quantize requires the "
             "convertible or certified tier and its promotion evidence (AXQ-017)"
         )
+    _validate_runtime_smoke(
+        runtime_smoke,
+        adapter_id=architecture.adapter_id,
+        audio_input=audio_input,
+        image_input=image_input,
+    )
     resolved_ladder = get_ladder(ladder)
     if recipe is not None and ladder not in {
         ConvertLadderName.PRIOR,
@@ -192,6 +255,9 @@ def quick_convert(
         model_id=manifest.source_model.model_id,
         ax_engine=ax_engine,
         mlx_lm=mlx_lm,
+        python=python,
+        audio_input=audio_input,
+        image_input=image_input,
     )
     development = not plan.evidence_kind.release_quality
     notes = [

@@ -130,6 +130,10 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
             aliases.add(f"{mlx_prefix}{candidate.removeprefix(checkpoint_prefix)}")
         if candidate.startswith(mlx_prefix):
             aliases.add(f"{checkpoint_prefix}{candidate.removeprefix(mlx_prefix)}")
+        if candidate.startswith("model.visual."):
+            aliases.add(f"vision_tower.{candidate.removeprefix('model.visual.')}")
+        if candidate.startswith("vision_tower."):
+            aliases.add(f"model.visual.{candidate.removeprefix('vision_tower.')}")
     if module_path == "lm_head":
         aliases.add("language_model.lm_head")
     elif module_path == "language_model.lm_head":
@@ -147,6 +151,10 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         aliases.add(f"{mlx_prefix}{tensor_path.removeprefix(checkpoint_prefix)}")
     if tensor_path.startswith(mlx_prefix):
         aliases.add(f"{checkpoint_prefix}{tensor_path.removeprefix(mlx_prefix)}")
+    if tensor_path.startswith("model.visual."):
+        aliases.add(f"vision_tower.{tensor_path.removeprefix('model.visual.')}")
+    if tensor_path.startswith("vision_tower."):
+        aliases.add(f"model.visual.{tensor_path.removeprefix('vision_tower.')}")
     checkpoint_head = "lm_head."
     mlx_head = "language_model.lm_head."
     if tensor_path.startswith(checkpoint_head):

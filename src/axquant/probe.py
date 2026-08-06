@@ -80,6 +80,7 @@ _PROBE_MIN_BITS = {
     TensorRole.LM_HEAD: 8,
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
+    TensorRole.AUDIO: 16,
 }
 
 

@@ -6,10 +6,11 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from collections import Counter
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from safetensors import SafetensorError, safe_open
 
@@ -48,7 +49,9 @@ def _run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
 def _resolve_executable(executable: str) -> str | None:
     path = Path(executable).expanduser()
     if path.parent != Path("."):
-        return str(path.resolve()) if path.is_file() else None
+        # Preserve a virtual-environment Python symlink: resolving it to the
+        # Homebrew framework binary drops the venv's site-packages.
+        return str(path.absolute()) if path.is_file() else None
     return shutil.which(executable)
 
 
@@ -377,6 +380,138 @@ def check_mlx_lm_generation(
     )
 
 
+def _check_multimodal_generation(
+    model_dir: str | Path,
+    *,
+    runtime: RuntimeName,
+    check_kind: Literal["transcription-smoke", "vision-generation-smoke"],
+    executable: str,
+    module: str,
+    media_flag: str,
+    media_path: str | Path,
+    runner: CommandRunner,
+    model_identity: ModelIdentity | None,
+) -> RuntimeCheck:
+    directory = Path(model_dir).expanduser().resolve()
+    model = _model_identity(directory, model_identity)
+    media = Path(media_path).expanduser().resolve()
+    resolved = _resolve_executable(executable)
+    if resolved is None:
+        return RuntimeCheck(
+            model=model,
+            runtime=runtime,
+            check_kind=check_kind,
+            available=False,
+            passed=False,
+            stderr=f"executable not found: {executable}",
+        )
+    if not media.is_file():
+        return RuntimeCheck(
+            model=model,
+            runtime=runtime,
+            check_kind=check_kind,
+            available=True,
+            passed=False,
+            stderr=f"QA media input not found: {media}",
+        )
+    command = [resolved, "-m", module]
+    command.extend(["--model", str(directory), media_flag, str(media)])
+    if runtime is RuntimeName.MLX_AUDIO:
+        temporary = tempfile.TemporaryDirectory(prefix="axquant-asr-smoke-")
+        output_stem = Path(temporary.name) / "transcript"
+        transcript = output_stem.with_suffix(".txt")
+        command.extend(
+            [
+                "--output-path",
+                str(output_stem),
+                "--format",
+                "txt",
+                "--max-tokens",
+                "32",
+            ]
+        )
+    else:
+        temporary = None
+        transcript = None
+        command.extend(
+            [
+                "--prompt",
+                "Read the image and answer briefly.",
+                "--max-tokens",
+                "16",
+                "--temperature",
+                "0",
+                "--no-verbose",
+            ]
+        )
+    try:
+        completed = runner(command)
+        if transcript is not None:
+            output = transcript.read_text(encoding="utf-8").strip() if transcript.is_file() else ""
+        else:
+            output = completed.stdout.strip()
+    finally:
+        if temporary is not None:
+            temporary.cleanup()
+    return RuntimeCheck(
+        model=model,
+        runtime=runtime,
+        check_kind=check_kind,
+        available=True,
+        passed=completed.returncode == 0 and bool(output),
+        command=command,
+        exit_code=completed.returncode,
+        report={
+            "scope": "load-and-multimodal-generation",
+            "output_characters": len(output),
+            "media_input": media.name,
+        },
+        stderr=completed.stderr,
+    )
+
+
+def check_mlx_audio_transcription(
+    model_dir: str | Path,
+    *,
+    audio: str | Path,
+    executable: str = "python3",
+    runner: CommandRunner = _run,
+    model_identity: ModelIdentity | None = None,
+) -> RuntimeCheck:
+    return _check_multimodal_generation(
+        model_dir,
+        runtime=RuntimeName.MLX_AUDIO,
+        check_kind="transcription-smoke",
+        executable=executable,
+        module="mlx_audio.stt.generate",
+        media_flag="--audio",
+        media_path=audio,
+        runner=runner,
+        model_identity=model_identity,
+    )
+
+
+def check_mlx_vlm_generation(
+    model_dir: str | Path,
+    *,
+    image: str | Path,
+    executable: str = "python3",
+    runner: CommandRunner = _run,
+    model_identity: ModelIdentity | None = None,
+) -> RuntimeCheck:
+    return _check_multimodal_generation(
+        model_dir,
+        runtime=RuntimeName.MLX_VLM,
+        check_kind="vision-generation-smoke",
+        executable=executable,
+        module="mlx_vlm.generate",
+        media_flag="--image",
+        media_path=image,
+        runner=runner,
+        model_identity=model_identity,
+    )
+
+
 def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
     """Read the artifact's advisory MLX-LM KV quantization, if planned.
 
@@ -513,8 +648,16 @@ def build_runtime_metadata(
             advisory_mlx_lm_kv_bits=advisory_pair[0],
             advisory_mlx_lm_kv_group_size=advisory_pair[1],
         )
-    return RuntimeMetadata(
-        primary_runtime=RuntimeProfile(
+    adapter_id = plan.architecture_profile.adapter_id
+    modality_runtime = (
+        RuntimeName.MLX_AUDIO
+        if adapter_id == "qwen3-asr-v1"
+        else RuntimeName.MLX_VLM
+        if adapter_id == "qwen3-vl-v1"
+        else None
+    )
+    if modality_runtime is None:
+        primary_runtime = RuntimeProfile(
             name=RuntimeName.AX_ENGINE,
             compatibility_level="A",
             support_level=RuntimeSupportLevel.OPTIMIZED,
@@ -522,8 +665,8 @@ def build_runtime_metadata(
             mtp_support="native" if mtp_capable else "none",
             manifest="model-manifest.json",
             notes=["Runtime claims require a passing AX Engine doctor and benchmark report."],
-        ),
-        compatible_runtimes=[
+        )
+        compatible_runtimes = [
             RuntimeProfile(
                 name=RuntimeName.MLX_LM,
                 compatibility_level="B",
@@ -536,7 +679,22 @@ def build_runtime_metadata(
                     "AXQuant MTP metadata may be ignored by MLX-LM.",
                 ],
             )
-        ],
+        ]
+    else:
+        runtime_label = "MLX-Audio" if modality_runtime is RuntimeName.MLX_AUDIO else "MLX-VLM"
+        primary_runtime = RuntimeProfile(
+            name=modality_runtime,
+            compatibility_level="A",
+            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+            standard_inference=True,
+            mtp_support="none",
+            manifest="config.json",
+            notes=[f"{runtime_label} loads the protected modality tower and AXQ language decoder."],
+        )
+        compatible_runtimes = []
+    return RuntimeMetadata(
+        primary_runtime=primary_runtime,
+        compatible_runtimes=compatible_runtimes,
         optimization_scope=plan.architecture_profile.optimization_scope,
         mtp=MtpRuntimeMetadata(
             detected=mtp_detected,

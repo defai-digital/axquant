@@ -30,6 +30,7 @@ _ROLE_SENSITIVITY = {
     TensorRole.MTP_BLOCK: 1.10,
     TensorRole.MTP_OUTPUT: 1.35,
     TensorRole.VISION: 0.90,
+    TensorRole.AUDIO: 0.90,
     TensorRole.OTHER: 0.60,
 }
 

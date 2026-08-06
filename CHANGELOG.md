@@ -10,6 +10,11 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ### Added
 
+- Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct text-path conversion through public MLX-Audio and
+  MLX-VLM APIs, protected BF16 modality towers, architecture-specific runtime metadata, media
+  generation smokes, and four stable-name AXQ v2 development repositories.
+- Revision-pinned Qwen3-ASR BF16 normalization in `scripts/hf_to_mlx_bf16.py`; the helper forces
+  the public MLX-Audio STT backend and records the key/layout remap in `axquant_source.json`.
 - Explicit development-artifact edition metadata and the completed 28-repository AXQ v2
   migration from 14 immutable sources. Stable repository names now serve receipt-bound v2
   revisions on `main` and tag `v2`, while `legacy-pre-v2` preserves each replaced artifact.
@@ -41,6 +46,14 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ### Fixed
 
+- Qwen3-ASR inspection now rejects the unnormalized upstream `thinker.*` layout for planning and
+  conversion instead of counting its duplicated tied LM head as an independently convertible
+  tensor. The error points to the pinned BF16 normalization helper.
+- Multimodal runtime smokes require real transcript/image-generation output: ASR no longer passes
+  on log text without a transcript, VLM runs non-verbose, and simple conversion rejects a smoke
+  from the wrong architecture backend before conversion.
+- Qwen3-ASR and Qwen3-VL model-card commands now use MLX-Audio's required `--output-path` and
+  MLX-VLM's supported `--temperature` option.
 - Converted-checkpoint verification now accepts only documented MLX-LM output identities:
   one-to-one wrapper aliases, Qwen packed gate/up one-to-many splits, contiguous indexed-expert
   many-to-one stacks, and the exact Qwen 3.5/Qwen3-Next/Nemotron-H `Conv1d` sanitize-axis

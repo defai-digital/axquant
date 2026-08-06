@@ -6,9 +6,10 @@ AXQuant is a command-line toolkit that converts a supported, unquantized Safeten
 into an AXQuant-optimized MLX checkpoint for Apple Silicon.
 
 It inspects the model, creates an auditable mixed-precision plan, converts the weights through
-public MLX-LM interfaces, and writes the manifests and validation metadata needed by AX Engine.
+public MLX-LM, MLX-Audio, or MLX-VLM interfaces, and writes the manifests and validation metadata
+needed by the selected runtime.
 AXQuant can assign 4-bit, 6-bit, 8-bit, or BF16 precision per tensor while protecting sensitive
-components such as normalization layers, output heads, routers, vision tensors, and
+components such as normalization layers, output heads, routers, vision/audio tensors, and
 multi-token-prediction (MTP) weights.
 
 > AXQuant improves deployment efficiency; it does not train the source model or add new learned
@@ -28,9 +29,9 @@ multi-token-prediction (MTP) weights.
   classes, not fixed-width claims — for example the public
   `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures ~5.42 BPW. A future certified flagship must
   use the measured-BPW form `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`; manifests remain authoritative.
-- **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next, MiniCPM5,
-  Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano — see the tier matrix under
-  [Current status](#current-status).
+- **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
+  Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
+  see the tier matrix under [Current status](#current-status).
 - **Where it stands:** the toolkit is feature-complete and tested, but no checkpoint has yet
   cleared the full M0–M8 release audit — every public pack today is development evidence, not a
   certified release. [Current status](#current-status) states exactly what remains open.
@@ -38,7 +39,7 @@ multi-token-prediction (MTP) weights.
 ## How it works
 
 ```text
-BF16 Safetensors checkpoint supported by MLX-LM
+BF16 Safetensors checkpoint supported by its promoted MLX backend
         (pin a revision for measured/release evidence)
                          │
                          ▼
@@ -64,14 +65,18 @@ The intended user journey is:
 ### Input
 
 AXQuant converts unquantized Safetensors checkpoints of families at the `convertible` tier or
-above through MLX-LM — currently Qwen 3.6 (27B dense + 35B-A3B MoE), Qwen 3.5 dense, MiniCPM5
-dense, Gemma-4, Mistral/Devstral dense, Mistral3 language shells, and Nemotron 3 Nano-30B-A3B
-(thin). A pinned source revision is mandatory for measured sensitivity and release evidence; an
-unpinned local source is permitted only for development workflows. MoE expert stacks quantize as
-fused switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The
-checkpoint must use the expected configuration and indexed Safetensors layout. Remaining
-recognized families (for example Nemotron Super/Ultra) stay inspect-only until promotion evidence
-exists.
+above through the public runtime backend promoted for that architecture. Text families use
+MLX-LM. Qwen3-VL uses MLX-VLM with its vision tower protected at BF16. Qwen3-ASR uses MLX-Audio
+with its audio tower protected at BF16; the pinned upstream `thinker.*` checkpoint must first be
+normalized with `scripts/hf_to_mlx_bf16.py`, which records `axquant_source.json`. Planning directly
+from the unnormalized ASR export is rejected because it contains a duplicated tied LM head and
+runtime-specific tensor layouts.
+
+A pinned source revision is mandatory for measured sensitivity and release evidence; an unpinned
+local source is permitted only for development workflows. MoE expert stacks quantize as fused
+switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The checkpoint
+must use the expected configuration and indexed Safetensors layout. Remaining recognized families
+(for example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
 
 ### Output
 
@@ -80,11 +85,12 @@ A successful conversion produces a new portable MLX model directory containing:
 - mixed-precision model weights and standard MLX configuration files;
 - the exact quantization plan used for the conversion;
 - an AXQuant artifact manifest with checksums and provenance;
-- AX Engine and MLX-LM runtime metadata;
+- architecture-specific runtime metadata for AX Engine, MLX-LM, MLX-Audio, or MLX-VLM;
 - an AX Engine native manifest when the runtime tool is available;
 - a byte-preserved external MTP sidecar by default, or an explicitly prepared development
   sidecar with transform-level provenance;
-- a raw, checksummed BF16 sidecar for protected vision tensors when MLX-LM excludes them.
+- a raw, checksummed BF16 sidecar for protected vision tensors when MLX-LM excludes them, or
+  protected modality tensors in the main MLX-Audio/MLX-VLM checkpoint.
 
 The artifact manifest records authoritative main-model and total logical parameters, physical
 Safetensors bytes, and measured BPW. The language-model output remains usable as a standard MLX
@@ -164,6 +170,8 @@ release audit. The current tier matrix:
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
 | **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; development claims only; fused experts |
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
+| **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
+| **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
@@ -176,14 +184,14 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | Area | Current support |
 | --- | --- |
 | Platform | Apple Silicon with MLX |
-| Conversion input | Unquantized Safetensors checkpoint supported by MLX-LM; revision pin required for measured/release evidence |
-| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells (development evidence) |
+| Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
+| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
-| Primary runtime | AX Engine |
-| Compatibility runtime | MLX-LM standard inference |
+| Primary runtime | AX Engine for text tracks; MLX-Audio for Qwen3-ASR; MLX-VLM for Qwen3-VL |
+| Compatibility runtime | Architecture-specific standard inference; generic text artifacts use MLX-LM |
 | Output integrity | Atomic conversion, exact parameter coverage, measured BPW, checksums, manifests, and runtime metadata |
 
 ### Development evidence
@@ -211,10 +219,10 @@ Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
 present). Cards are multi-family aware and state evidence limits explicitly.
 
-The [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
-contains all 28 audited packs under their stable names. The BPW values below are rounded from each
-current public manifest's `measured_main_bpw`; the linked model card and manifest remain
-authoritative.
+The table below lists 32 audited packs under their stable names; the
+[AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
+provides a browsable catalog. The BPW values are rounded from each current public manifest's
+`measured_main_bpw`; the linked model card and manifest remain authoritative.
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
@@ -242,6 +250,10 @@ authoritative.
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | corrected indexed-expert packing |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | corrected indexed-expert packing |
+| [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |
+| [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
+| [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
+| [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit) | 7.999975 | MLX-VLM; protected BF16 vision tower |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | 5.990115 | Mistral3 language path |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
@@ -284,19 +296,21 @@ Implemented now:
 - portable AWQ activation-scale search and GPTQ Hessian error compensation with convert-time refinement and affine packing;
 - checksum-bound per-module activation capture (`capture-activations`) feeding AWQ/GPTQ probes and conversion;
 - Qwen 3.6 tensor classification, MTP detection, and vision protection;
+- Qwen3-ASR and Qwen3-VL text-path quantization through public MLX-Audio/MLX-VLM backends,
+  with BF16 modality-tower protection and real media runtime smokes;
 - auditable manual recipes with mandatory precision floors;
 - mixed-precision planning from compatible sensitivity reports;
-- MLX-LM conversion with plan-to-module coverage checks;
+- architecture-specific MLX conversion with plan-to-module coverage checks;
 - atomic output staging that prevents partial final checkpoints;
 - AX Engine manifest generation and runtime readiness checks;
 - identical-checkpoint AX Engine MTP off/on benchmarking with greedy-output equality;
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
 - guarded Hugging Face publication;
-- tiered family support with declarative adapters (Qwen 3.6 primary; Qwen 3.5, MiniCPM5,
-  Gemma-4, Mistral/Devstral, Mistral3, and Nemotron Nano at `convertible`; Nemotron
-  Super/Ultra remain inspect-only), including byte-preserving extraction of integrated MTP
-  heads and protected vision into canonical checksummed sidecars;
+- tiered family support with declarative adapters (Qwen 3.6 primary; Qwen 3.5, Qwen3-ASR,
+  Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral, Mistral3, and Nemotron Nano at
+  `convertible`; Nemotron Super/Ultra remain inspect-only), including byte-preserving extraction
+  of integrated MTP heads and protected vision into canonical checksummed sidecars;
 - development Hub model cards (`axquant.model_card` / `scripts/prepare_development_model_card.py`)
   that sanitize provenance and document evidence limits for public packs;
 - `axquant quantize`: one-command development conversion with explicit development-evidence
@@ -343,7 +357,7 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 - dedicated quantization of external MTP sidecars;
 - measured KV serving-quality evidence (the implemented gate proves plan provenance and
   reproducibility; quality claims still require ordinary dual-profile evaluation evidence);
-- VLM optimization (vision towers are preserved, not optimized);
+- vision-tower quantization (Qwen3-VL language paths convert, but vision towers remain BF16);
 - per-expert (unfused) MoE precision: packed expert stacks quantize as fused switch modules
   with one precision per group — finer per-expert splits would need MLX-LM-side support.
 
@@ -359,7 +373,7 @@ Requirements:
 
 - Python 3.11 or newer;
 - Apple Silicon for MLX-backed conversion;
-- an unquantized Safetensors source checkpoint supported by MLX-LM;
+- an unquantized Safetensors source checkpoint supported by its promoted MLX backend;
 - `ax-engine-bench` when AX Engine manifest generation is required.
 
 Create an environment and install AXQuant with the MLX backend:
@@ -405,6 +419,32 @@ axquant quantize \
 
 # Hub id (download opt-in; pin a revision for reproducibility)
 axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision REVISION_SHA
+```
+
+Qwen3-ASR requires one pinned BF16 normalization step before inspection or planning:
+
+```bash
+python scripts/hf_to_mlx_bf16.py \
+  --hf-id Qwen/Qwen3-ASR-1.7B \
+  --revision REVISION_SHA \
+  --mlx-path /models/Qwen3-ASR-1.7B-MLX-BF16 \
+  --work /models/.axquant-source-work
+
+axquant quantize /models/Qwen3-ASR-1.7B-MLX-BF16 \
+  --target-bpw 6.91 \
+  --runtime-smoke mlx-audio \
+  --audio-input ./sample.wav
+```
+
+Qwen3-VL converts from its pinned upstream BF16 checkpoint through MLX-VLM:
+
+```bash
+axquant quantize /models/Qwen3-VL-8B-Instruct \
+  --model-id Qwen/Qwen3-VL-8B-Instruct \
+  --revision REVISION_SHA \
+  --target-bpw 6.36 \
+  --runtime-smoke mlx-vlm \
+  --image-input ./sample.png
 ```
 
 Defaults on the simple path:
@@ -511,7 +551,9 @@ axquant runtime-check \
   --output runtime-check.json
 ```
 
-Use `--runtime mlx-lm` to perform the MLX-LM generation smoke. `--static-only` is a development
+Use `--runtime mlx-lm` to perform the MLX-LM generation smoke. Qwen3-ASR uses
+`--runtime mlx-audio --audio-input ./sample.wav`; Qwen3-VL uses
+`--runtime mlx-vlm --image-input ./sample.png`. `--static-only` is an MLX-LM development
 diagnostic.
 
 ## CLI workflow
@@ -545,13 +587,13 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `scoreboard` | Certification scoreboard from plan + optional size/quality/MTP evidence (MTP speed owned by AX Engine) | Implemented |
 | `bind-sensitivity` | Bind weight (+ optional KV) sensitivity digests into one lineage artifact | Implemented |
 | `recovery-rank` | Rank quantized tensors for opt-in recovery by sensitivity (not implied by convert) | Implemented |
-| `deferred-features` | List fail-closed deferred expansion features (VLM quant, per-expert unfused, domain LoRA) | Implemented |
+| `deferred-features` | List fail-closed deferred expansion features (vision-tower quant, per-expert unfused, domain LoRA) | Implemented |
 | `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
 | `support-matrix` | List families with tier, investment posture, priority, and policy notes | Implemented |
 | `support-policy` | Print family investment best practices (primary/secondary/thin) | Implemented |
 | `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
 | `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for checkpoints at the `convertible` tier or above |
-| `runtime-check` | Run AX Engine readiness or actual MLX-LM generation | Implemented |
+| `runtime-check` | Run AX Engine readiness or actual MLX-LM, MLX-Audio, or MLX-VLM generation | Implemented |
 | `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |
 | `evaluate-quality` | Run MLX perplexity and scored generation tasks | Implemented |
 | `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |

@@ -24,6 +24,11 @@ from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
+from axquant.multimodal_backend import (
+    conversion_backend,
+    convert_multimodal,
+    preflight_multimodal,
+)
 from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.runtime import (
     assert_conversion_scope,
@@ -906,6 +911,28 @@ def _protected_shape_matches(
             transform=f"mlx-lm-{model_type}-conv1d-moveaxis-2-1",
         )
         return True
+    qwen3_vl_patch_embed = (
+        model_type == "qwen3_vl"
+        and tensor_name.endswith(".visual.patch_embed.proj.weight")
+        and len(source_shape) == 5
+        and actual_shape
+        == (
+            source_shape[0],
+            source_shape[2],
+            source_shape[3],
+            source_shape[4],
+            source_shape[1],
+        )
+    )
+    if qwen3_vl_patch_embed:
+        _LOG.info(
+            "converted_shape_transform_verified",
+            tensor=tensor_name,
+            source_shape=source_shape,
+            actual_shape=actual_shape,
+            transform="mlx-vlm-qwen3-vl-conv3d-out-dhw-in",
+        )
+        return True
     return False
 
 
@@ -944,6 +971,14 @@ def _verify_converted_weights(
     )
     actual_vision_parameters = sum(
         tensor.parameters for tensor in inventory.tensors if tensor.role == TensorRole.VISION
+    )
+    expected_audio_parameters = sum(
+        allocation.parameters
+        for allocation in plan.assignments
+        if allocation.role == TensorRole.AUDIO
+    )
+    actual_audio_parameters = sum(
+        tensor.parameters for tensor in inventory.tensors if tensor.role == TensorRole.AUDIO
     )
     expected_tensors = {allocation.tensor: allocation for allocation in plan.assignments}
     output_tensors = {
@@ -1074,6 +1109,11 @@ def _verify_converted_weights(
             "converted checkpoint vision parameter coverage mismatch: "
             f"expected {expected_vision_parameters}, found {actual_vision_parameters}"
         )
+    if actual_audio_parameters != expected_audio_parameters:
+        raise ArtifactError(
+            "converted checkpoint audio parameter coverage mismatch: "
+            f"expected {expected_audio_parameters}, found {actual_audio_parameters}"
+        )
 
     weight_files = [staging_dir / relative for relative in inventory.source_files]
     if not weight_files:
@@ -1186,31 +1226,46 @@ def convert_model(
                 original=str(original_source_dir),
                 prepared=convert_model_ref,
             )
+        backend = conversion_backend(plan)
         predicate = build_quant_predicate(
             plan,
             execute_refinement=False,
             calibration_activations=calibration_activations,
         )
         _LOG.info("conversion_preflight_started", model=convert_model_ref)
-        _preflight_coverage(convert_model_ref, convert_revision, predicate)
-        convert, _ = _mlx_api()
+        if backend == "mlx-lm":
+            _preflight_coverage(convert_model_ref, convert_revision, predicate)
+        else:
+            preflight_multimodal(Path(convert_model_ref), plan, predicate)
         predicate = build_quant_predicate(plan, calibration_activations=calibration_activations)
         default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:
-            convert(
-                convert_model_ref,
-                mlx_path=str(staging_dir),
-                quantize=True,
-                q_group_size=plan.group_size,
-                q_bits=default_quantized_bits,
-                quant_predicate=predicate,
-                revision=convert_revision,
-            )
+            if backend == "mlx-lm":
+                convert, _ = _mlx_api()
+                convert(
+                    convert_model_ref,
+                    mlx_path=str(staging_dir),
+                    quantize=True,
+                    q_group_size=plan.group_size,
+                    q_bits=default_quantized_bits,
+                    quant_predicate=predicate,
+                    revision=convert_revision,
+                )
+            else:
+                convert_multimodal(
+                    Path(convert_model_ref),
+                    staging_dir,
+                    plan,
+                    predicate,
+                    default_quantized_bits,
+                )
         except Exception as exc:
-            raise ArtifactError(f"MLX-LM conversion failed: {exc}") from exc
+            raise ArtifactError(f"{backend} conversion failed: {exc}") from exc
         unmatched = predicate.unmatched_quantized_modules()
         if unmatched:
-            raise PlanningError(f"MLX-LM did not visit planned modules: {sorted(unmatched)[:10]}")
+            raise PlanningError(
+                f"{backend} did not visit planned modules: {sorted(unmatched)[:10]}"
+            )
         execution_records = [
             QuantizerExecutionRecord(
                 method=allocation.method,
@@ -1227,7 +1282,7 @@ def convert_model(
                         else (
                             "GPTQ Hessian error compensation followed by portable affine packing"
                             if allocation.method.value == "gptq"
-                            else "MLX-LM affine packing"
+                            else f"{backend} affine packing"
                         )
                     )
                 ),
@@ -1256,7 +1311,9 @@ def convert_model(
             if candidate_dir.is_dir():
                 source_model_dir = candidate_dir.resolve()
                 break
-        if any(allocation.role == TensorRole.VISION for allocation in plan.assignments):
+        if backend == "mlx-lm" and any(
+            allocation.role == TensorRole.VISION for allocation in plan.assignments
+        ):
             if source_model_dir is None:
                 raise ArtifactError(
                     "protected vision extraction requires a resolved local source checkpoint"

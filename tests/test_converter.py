@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -10,13 +11,14 @@ from safetensors import safe_open
 from safetensors.numpy import save_file
 
 import axquant.converter as converter
+import axquant.multimodal_backend as multimodal_backend
 from axquant.analyzer import architecture_prior_report
 from axquant.capture_binding import (
     CAPTURE_MANIFEST_SHA256_KEY,
     LoadedActivationCapture,
     activation_capture_metadata,
 )
-from axquant.errors import ArtifactError, PlanningError
+from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
@@ -54,6 +56,296 @@ def _plan(model_dir: Path) -> QuantizationPlan:
             allow_unmeasured=True,
         ),
     )
+
+
+def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    assert multimodal_backend.conversion_backend(plan) == "mlx-lm"
+    asr_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen3-asr-v1"}
+            )
+        }
+    )
+    assert multimodal_backend.conversion_backend(asr_plan) == "mlx-audio"
+    vlm_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen3-vl-v1"}
+            )
+        }
+    )
+    assert multimodal_backend.conversion_backend(vlm_plan) == "mlx-vlm"
+    predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
+    observed: dict[str, object] = {}
+
+    def fake_convert(source: str, **kwargs) -> None:
+        observed["source"] = source
+        observed.update(kwargs)
+
+    monkeypatch.setattr(
+        multimodal_backend,
+        "_import",
+        lambda module, *, extra: SimpleNamespace(convert=fake_convert),
+    )
+    destination = tmp_path / "converted"
+    multimodal_backend.convert_multimodal(
+        qwen36_model_dir,
+        destination,
+        vlm_plan,
+        predicate,
+        4,
+    )
+
+    assert observed["source"] == str(qwen36_model_dir)
+    assert observed["mlx_path"] == destination
+    assert observed["quantize"] is True
+    assert observed["q_group_size"] == vlm_plan.group_size
+    assert observed["q_bits"] == 4
+    assert observed["q_mode"] == "affine"
+    assert observed["quant_method"] == "rtn"
+    assert observed["quant_predicate"] is predicate
+
+
+def test_audio_backend_uses_public_stt_model_and_mlx_quantization_contract(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen3-asr-v1"}
+    )
+    quantized = [allocation.module_path for allocation in plan.assignments if allocation.bits < 16]
+    observed: dict[str, object] = {"loaded_dtypes": []}
+
+    class FakeModelConfig:
+        def __init__(self) -> None:
+            self.model_path: Path | None = None
+
+        @classmethod
+        def from_dict(cls, config: dict[str, object]) -> FakeModelConfig:
+            observed["model_config"] = config
+            return cls()
+
+    class FakeModel:
+        def __init__(self, config: FakeModelConfig) -> None:
+            observed["model_path"] = config.model_path
+
+        def named_modules(self):
+            return [(path, object()) for path in quantized]
+
+        def sanitize(self, weights: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+            observed["sanitized"] = True
+            return weights
+
+        def load_weights(self, weights: list[tuple[str, np.ndarray]]) -> None:
+            loaded_dtypes = observed["loaded_dtypes"]
+            assert isinstance(loaded_dtypes, list)
+            loaded_dtypes.append([value.dtype for _, value in weights])
+
+        def parameters(self) -> dict[str, np.ndarray]:
+            return {"decoder.weight": np.ones((2, 2), dtype=np.float32)}
+
+    fake_domain = SimpleNamespace(value="stt")
+    fake_audio = SimpleNamespace(
+        Domain=SimpleNamespace(STT=fake_domain),
+        MODEL_CONVERSION_DTYPES={"float16"},
+        load_config=lambda source: {"torch_dtype": "float16"},
+        get_model_type=lambda config, source, domain: "qwen3_asr",
+        get_model_class=lambda model_type, domain: SimpleNamespace(
+            ModelConfig=FakeModelConfig,
+            Model=FakeModel,
+        ),
+        load_weights=lambda source: {"decoder.weight": np.ones((2, 2), dtype=np.float32)},
+        copy_model_files=lambda source, destination: (destination / "tokenizer.json").write_text(
+            "{}", encoding="utf-8"
+        ),
+    )
+    fake_mlx = SimpleNamespace(float16=np.float16)
+    fake_mlx_utils = SimpleNamespace(
+        tree_flatten=lambda parameters: list(parameters.items()),
+    )
+
+    def quantize_model(
+        model,
+        config,
+        group_size,
+        bits,
+        *,
+        mode,
+        quant_predicate,
+    ):
+        observed.update(
+            {
+                "group_size": group_size,
+                "bits": bits,
+                "mode": mode,
+            }
+        )
+        for path in quantized:
+            quant_predicate(path, object())
+        return model, dict(config)
+
+    fake_mlx_lm_utils = SimpleNamespace(
+        quantize_model=quantize_model,
+        save_model=lambda destination, model, *, donate_model: (
+            destination / "model.safetensors"
+        ).write_bytes(b"fake"),
+        save_config=lambda config, *, config_path: config_path.write_text(
+            json.dumps(config), encoding="utf-8"
+        ),
+    )
+
+    def fake_import(module: str, *, extra: str):
+        return {
+            "mlx_audio.convert": fake_audio,
+            "mlx.core": fake_mlx,
+            "mlx.utils": fake_mlx_utils,
+            "mlx_lm.utils": fake_mlx_lm_utils,
+        }[module]
+
+    monkeypatch.setattr(multimodal_backend, "_import", fake_import)
+    preflight = build_quant_predicate(plan, execute_refinement=False)
+    multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, preflight)
+    assert preflight.unmatched_quantized_modules() == set()
+
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    destination = tmp_path / "converted-audio"
+    multimodal_backend.convert_multimodal(
+        qwen36_model_dir,
+        destination,
+        plan,
+        predicate,
+        6,
+    )
+
+    assert observed["model_path"] == qwen36_model_dir
+    assert observed["sanitized"] is True
+    assert observed["group_size"] == plan.group_size
+    assert observed["bits"] == 6
+    assert observed["mode"] == "affine"
+    assert observed["loaded_dtypes"][-1] == [np.dtype(np.float16)]
+    assert predicate.unmatched_quantized_modules() == set()
+    assert (
+        json.loads((destination / "config.json").read_text(encoding="utf-8"))["model_type"]
+        == "qwen3_asr"
+    )
+    assert (destination / "tokenizer.json").is_file()
+    assert (destination / "model.safetensors").is_file()
+
+
+def test_multimodal_preflight_visits_all_vlm_plan_modules_and_fails_closed(
+    qwen36_model_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen3-vl-v1"}
+    )
+    quantized = [allocation.module_path for allocation in plan.assignments if allocation.bits < 16]
+    assert quantized
+
+    class FakeModel:
+        def __init__(self, paths: list[str]) -> None:
+            self._paths = paths
+
+        def named_modules(self):
+            return [(path, object()) for path in self._paths]
+
+    loaded_paths = list(quantized)
+    monkeypatch.setattr(
+        multimodal_backend,
+        "_import",
+        lambda module, *, extra: SimpleNamespace(
+            load_model=lambda source, *, lazy: FakeModel(loaded_paths)
+        ),
+    )
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
+    assert predicate.unmatched_quantized_modules() == set()
+
+    loaded_paths.pop()
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    with pytest.raises(PlanningError, match="plan modules do not match the MLX-VLM model"):
+        multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
+
+
+def test_multimodal_backend_rejects_wrong_calls_and_wraps_backend_failures(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    with pytest.raises(PlanningError, match="multimodal preflight called for the MLX-LM"):
+        multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
+    with pytest.raises(PlanningError, match="multimodal conversion called for the MLX-LM"):
+        multimodal_backend.convert_multimodal(
+            qwen36_model_dir,
+            tmp_path / "wrong-backend",
+            plan,
+            predicate,
+            4,
+        )
+
+    vlm_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen3-vl-v1"}
+            )
+        }
+    )
+    predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
+    monkeypatch.setattr(
+        multimodal_backend,
+        "_import",
+        lambda module, *, extra: SimpleNamespace(
+            convert=lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("conversion boom"))
+        ),
+    )
+    with pytest.raises(ArtifactError, match="mlx-vlm conversion failed: conversion boom"):
+        multimodal_backend.convert_multimodal(
+            qwen36_model_dir,
+            tmp_path / "failed-vlm",
+            vlm_plan,
+            predicate,
+            4,
+        )
+
+
+def test_multimodal_backend_reports_missing_dependency_and_bad_audio_resolution(
+    qwen36_model_dir: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_module(module: str):
+        raise ModuleNotFoundError(module)
+
+    monkeypatch.setattr(multimodal_backend.importlib, "import_module", missing_module)
+    with pytest.raises(BackendUnavailableError, match="install mlx-vlm"):
+        multimodal_backend._import("mlx_vlm.utils", extra="mlx-vlm")
+
+    domain = SimpleNamespace(value="stt")
+    fake_audio = SimpleNamespace(
+        load_config=lambda source: {},
+        Domain=SimpleNamespace(STT=domain),
+        get_model_type=lambda config, source, selected_domain: "qwen3",
+    )
+    monkeypatch.setattr(
+        multimodal_backend,
+        "_import",
+        lambda module, *, extra: fake_audio,
+    )
+    with pytest.raises(
+        ArtifactError,
+        match="requires MLX-Audio to resolve domain=stt and model_type=qwen3_asr",
+    ):
+        multimodal_backend._audio_model(qwen36_model_dir)
 
 
 def _write_fake_converted_checkpoint(
@@ -980,6 +1272,39 @@ def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transfo
         tensor,
         (8192, 1, 4),
         (8192, 4, 1),
+    )
+
+
+def test_protected_shape_matching_allows_qwen3_vl_conv3d_sanitize_transform(
+    qwen36_model_dir: Path,
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    qwen3_vl_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "qwen3_vl"}
+            )
+        }
+    )
+    tensor = "model.visual.patch_embed.proj.weight"
+
+    assert converter._protected_shape_matches(
+        qwen3_vl_plan,
+        tensor,
+        (1152, 3, 2, 16, 16),
+        (1152, 2, 16, 16, 3),
+    )
+    assert not converter._protected_shape_matches(
+        qwen3_vl_plan,
+        "model.visual.blocks.0.attn.qkv.weight",
+        (1152, 3, 2, 16, 16),
+        (1152, 2, 16, 16, 3),
+    )
+    assert not converter._protected_shape_matches(
+        qwen3_vl_plan,
+        tensor,
+        (1152, 3, 2, 16, 16),
+        (1152, 16, 16, 2, 3),
     )
 
 

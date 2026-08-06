@@ -92,6 +92,7 @@ _RELEASE_PROBE_MIN_BITS = {
     TensorRole.LM_HEAD: 16,
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
+    TensorRole.AUDIO: 16,
 }
 _ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
 _ACTIVATION_CAPTURE_MANIFEST = "activation_capture_manifest.json"

@@ -11,7 +11,7 @@ from safetensors.numpy import save_file
 import axquant.converter as converter
 from axquant.cli import main
 from axquant.errors import PlanningError
-from axquant.quantize import DEVELOPMENT_NOTE, quick_convert
+from axquant.quantize import DEVELOPMENT_NOTE, _validate_runtime_smoke, quick_convert
 from axquant.schema import (
     ArtifactManifest,
     EvidenceKind,
@@ -115,6 +115,49 @@ def test_quick_convert_refuses_inspect_only_families(tiny_model_dir: Path, tmp_p
         quick_convert(
             model=str(tiny_model_dir),
             output=tmp_path / "refused",
+        )
+
+
+def test_quick_convert_runtime_smoke_requires_matching_multimodal_backend(
+    tmp_path: Path,
+) -> None:
+    audio = tmp_path / "sample.wav"
+    image = tmp_path / "sample.png"
+    audio.write_bytes(b"audio")
+    image.write_bytes(b"image")
+
+    _validate_runtime_smoke(
+        "mlx-audio",
+        adapter_id="qwen3-asr-v1",
+        audio_input=audio,
+        image_input=None,
+    )
+    _validate_runtime_smoke(
+        "mlx-vlm",
+        adapter_id="qwen3-vl-v1",
+        audio_input=None,
+        image_input=image,
+    )
+    with pytest.raises(PlanningError, match="wrong runtime"):
+        _validate_runtime_smoke(
+            "mlx-lm",
+            adapter_id="qwen3-asr-v1",
+            audio_input=audio,
+            image_input=None,
+        )
+    with pytest.raises(PlanningError, match="requires --image-input"):
+        _validate_runtime_smoke(
+            "mlx-vlm",
+            adapter_id="qwen3-vl-v1",
+            audio_input=None,
+            image_input=None,
+        )
+    with pytest.raises(PlanningError, match="only valid"):
+        _validate_runtime_smoke(
+            "mlx-audio",
+            adapter_id="qwen3-dense-v1",
+            audio_input=audio,
+            image_input=None,
         )
 
 

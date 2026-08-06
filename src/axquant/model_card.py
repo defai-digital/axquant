@@ -244,6 +244,9 @@ def render_development_model_card(
     source_arch = source.architecture or plan.architecture_profile.config_model_type or "unrecorded"
     has_mtp = bool(manifest.mtp_present) or mtp_sidecar is not None
     has_vision = vision_sidecar is not None or bool(plan.architecture_profile.vision_present)
+    has_audio = bool(plan.architecture_profile.audio_present)
+    is_asr = product_family == "qwen3-asr"
+    is_vlm = product_family == "qwen3-vl"
     context_length = _context_length(directory)
     group_sizes = sorted(
         {assignment.group_size for assignment in plan.assignments if assignment.group_size}
@@ -285,7 +288,16 @@ def render_development_model_card(
     )
     precision_tag = product_class.replace("bit", "-bit")
     family_tag = product_family.replace(" ", "-").lower()
-    pipeline_tag = "feature-extraction" if is_embedding_pack else "text-generation"
+    pipeline_tag = (
+        "automatic-speech-recognition"
+        if is_asr
+        else "image-text-to-text"
+        if is_vlm
+        else "feature-extraction"
+        if is_embedding_pack
+        else "text-generation"
+    )
+    library_name = "mlx-audio" if is_asr else "mlx"
     optional_tags = [family_tag, product_class, precision_tag]
     if resolved_edition is not None:
         optional_tags.append(f"v{resolved_edition}")
@@ -295,6 +307,8 @@ def render_development_model_card(
         optional_tags.append("mtp")
     if has_vision:
         optional_tags.append("vision")
+    if has_audio:
+        optional_tags.extend(("audio", "speech-to-text", "mlx-audio"))
     tag_block = "\n".join(
         f"- {tag}"
         for tag in (
@@ -313,11 +327,13 @@ def render_development_model_card(
         sidecar_blurb_parts.append("multi-token-prediction (MTP) head")
     if has_vision:
         sidecar_blurb_parts.append("vision tower")
+    if has_audio:
+        sidecar_blurb_parts.append("audio tower")
     if sidecar_blurb_parts:
         sidecar_blurb = (
             "The language path is quantized while the "
             + " and ".join(sidecar_blurb_parts)
-            + " are preserved as BF16 sidecars when present."
+            + " are preserved at BF16 in the checkpoint (or a bound sidecar when present)."
         )
     else:
         sidecar_blurb = (
@@ -330,8 +346,8 @@ def render_development_model_card(
     )
     stable_name_notice = (
         "\n> **Stable-name v2.** `main` serves the audited v2 artifact for backward "
-        "compatibility. The same revision is tagged `v2`; the replaced artifact remains "
-        "recoverable at `legacy-pre-v2`.\n"
+        "compatibility. The same revision is tagged `v2`; when this repository replaced an "
+        "earlier artifact, that prior revision remains recoverable at `legacy-pre-v2`.\n"
         if resolved_edition == 2 and not repo_edition
         else ""
     )
@@ -361,8 +377,8 @@ published. The artifact records AX Engine version `{ax_engine_version}`. Native
 
 This package does **not** include a validated native `model-manifest.json`, so AX Engine execution
 is not established by this release. The AX Engine fields in `axquant_runtime.json` describe the
-intended compatibility contract, not observed runtime evidence. Use the MLX-LM path above for
-standard text/backbone inference. The artifact records AX Engine version
+intended compatibility contract, not observed runtime evidence. Use the architecture-specific MLX
+runtime path above. The artifact records AX Engine version
 `{ax_engine_version}`, but version discovery alone is not a runtime check.
 """
         ax_engine_limitation = (
@@ -372,7 +388,12 @@ standard text/backbone inference. The artifact records AX Engine version
     vision_quality = (
         "Not evaluated or claimed; vision tensors are preserved at BF16"
         if has_vision
-        else "Not applicable (no vision sidecar in this package)"
+        else "Not applicable (no vision tower in this package)"
+    )
+    speech_quality = (
+        "Not evaluated or claimed; audio tensors are preserved at BF16"
+        if has_audio
+        else "Not applicable"
     )
     mtp_limitation = (
         "- MTP may be ignored outside AX Engine and its speedup is unmeasured for this exact "
@@ -381,7 +402,7 @@ standard text/backbone inference. The artifact records AX Engine version
         else ""
     )
     vision_limitation = (
-        "- Vision weights are byte-preserved at BF16, but this release does not claim validated "
+        "- Vision weights are preserved at BF16, but this release does not claim validated "
         "VLM quality.\n"
         if has_vision
         else ""
@@ -392,7 +413,13 @@ standard text/backbone inference. The artifact records AX Engine version
             "- [`axquant_mtp_sidecar_manifest.json`]"
             "(axquant_mtp_sidecar_manifest.json): MTP tensor provenance."
         )
-    if has_vision:
+    audio_limitation = (
+        "- Audio weights are preserved at BF16, but this release does not claim measured "
+        "transcription quality versus the BF16 source.\n"
+        if has_audio
+        else ""
+    )
+    if vision_sidecar is not None:
         provenance_sidecars.append(
             "- [`axquant_vision_sidecar_manifest.json`](axquant_vision_sidecar_manifest.json): "
             "protected vision tensor provenance."
@@ -409,13 +436,74 @@ standard text/backbone inference. The artifact records AX Engine version
         "grows."
     )
     runtime_provenance = (
-        "- [`axquant_runtime.json`](axquant_runtime.json): declared AX Engine and MLX-LM "
+        "- [`axquant_runtime.json`](axquant_runtime.json): declared AX Engine and MLX "
         "compatibility metadata; runtime checks remain separate evidence."
     )
+    if is_asr:
+        runtime_label = "MLX-Audio"
+        runtime_section = f"""## Run with MLX-Audio
+
+```bash
+python -m pip install -U mlx-audio
+python -m mlx_audio.stt.generate \\
+  --model {repo_id} \\
+  --audio ./audio.wav \\
+  --output-path ./transcript \\
+  --format txt
+```
+
+The protected audio tower and AXQ language decoder are loaded together by MLX-Audio. The artifact
+records MLX `{mlx_version}`; conversion used the Qwen3-ASR implementation supplied by MLX-Audio.
+"""
+    elif is_vlm:
+        runtime_label = "MLX-VLM"
+        runtime_section = f"""## Run with MLX-VLM
+
+```bash
+python -m pip install -U mlx-vlm
+python -m mlx_vlm.generate \\
+  --model {repo_id} \\
+  --image ./image.png \\
+  --prompt "Describe this image." \\
+  --max-tokens 128 \\
+  --temperature 0.0
+```
+
+The protected vision tower and AXQ language decoder are loaded together by MLX-VLM. The artifact
+records MLX `{mlx_version}`; runtime QA is reported separately from model-quality claims.
+"""
+    else:
+        runtime_label = "MLX-LM"
+        runtime_section = f"""## Run with MLX-LM
+
+```bash
+python -m pip install -U mlx-lm
+mlx_lm.generate \\
+  --model {repo_id} \\
+  --prompt "Explain mixed-precision quantization in three sentences." \\
+  --max-tokens 128 \\
+  --temp 0.0
+```
+
+MLX-LM compatibility covers standard **text/backbone inference**. It may ignore AXQuant runtime
+metadata and optional sidecars (`vision.safetensors`, `mtp.safetensors`); this command therefore
+does not establish MTP acceleration or vision-language quality. The artifact records MLX
+`{mlx_version}` and MLX-LM `{mlx_lm_version}` from conversion.
+"""
+    modality_layout_rows = ""
+    if has_vision:
+        vision_layout = (
+            "protected BF16 sidecar"
+            if vision_sidecar is not None
+            else "protected BF16 in main shards"
+        )
+        modality_layout_rows += f"- Vision weights: {vision_layout}.\n"
+    if has_audio:
+        modality_layout_rows += "- Audio weights: protected BF16 in main shards.\n"
 
     return f"""---
 license: apache-2.0
-library_name: mlx
+library_name: {library_name}
 base_model: {source.model_id}
 base_model_relation: quantized
 pipeline_tag: {pipeline_tag}
@@ -451,10 +539,11 @@ the BF16 source model. {sidecar_blurb}
 | Safetensors weight size | {_format_decimal_size(manifest.weight_file_size_bytes)} |
 | Approximate complete download | {package_size} |
 | Configured maximum context | {context_length} tokens; practical limits depend on unified memory |
-| MLX-LM compatibility | Standard text inference, compatibility level B |
+| Primary MLX runtime | {runtime_label} |
 | AX Engine native execution | {ax_engine_runtime_status} |
 | MTP present | `{has_mtp}` |
-| Vision sidecar present | `{has_vision}` |
+| Vision present | `{has_vision}` |
+| Audio present | `{has_audio}` |
 
 This repository contains MLX Safetensors. It does **not** contain PyTorch or GGUF weights.
 
@@ -484,22 +573,7 @@ hf download {repo_id} --local-dir ./{name}
 Allow at least {package_size} of free disk space. Pin the resulting Hub commit in reproducible
 deployments rather than relying indefinitely on `main`.
 
-## Run with MLX-LM
-
-```bash
-python -m pip install -U mlx-lm
-mlx_lm.generate \\
-  --model {repo_id} \\
-  --prompt "Explain mixed-precision quantization in three sentences." \\
-  --max-tokens 128 \\
-  --temp 0.0
-```
-
-MLX-LM compatibility covers standard **text/backbone inference**. It may ignore AXQuant runtime
-metadata and optional sidecars (`vision.safetensors`, `mtp.safetensors`); this command therefore
-does not establish MTP acceleration or vision-language quality. The artifact records MLX
-`{mlx_version}` and MLX-LM `{mlx_lm_version}` from conversion.
-
+{runtime_section}
 {ax_engine_section}
 ## Quantization layout
 
@@ -511,7 +585,7 @@ does not establish MTP acceleration or vision-language quality. The artifact rec
 - Group sizes used by quantized assignments: `{", ".join(map(str, group_sizes)) or "none"}`.
 - MTP sidecar: {mtp_detail}.
 - Vision sidecar: {vision_detail}.
-- Optimization scope: `{plan.architecture_profile.optimization_scope.value}`.
+{modality_layout_rows}- Optimization scope: `{plan.architecture_profile.optimization_scope.value}`.
 - Support tier: `{plan.architecture_profile.support_tier.value}`.
 
 BF16 sidecars, when present, are included in total download size. Their presence does not by itself
@@ -529,6 +603,7 @@ establish MTP acceleration or vision-language quality.
 | MTP acceptance and speed | {mtp_evidence} |
 | AX Engine kernel evidence | `{manifest.runtime.ax_engine.kernel_evidence}` |
 | Vision-language quality | {vision_quality} |
+| Speech-recognition quality | {speech_quality} |
 | Long-context quality | {long_context_status} |
 | Release certification | **Not certified**; formal AXQuant M0-M8 gates are not closed |
 
@@ -539,7 +614,7 @@ establish MTP acceleration or vision-language quality.
   KV-cache policy, runtime buffers, and other processes using unified memory.
 - Architecture-prior allocation is not measured sensitivity. It must not be presented as measured
   model quality.
-{mtp_limitation}{vision_limitation}{context_limitation}
+{mtp_limitation}{vision_limitation}{audio_limitation}{context_limitation}
 {ax_engine_limitation}
 - Upstream capabilities, limitations, biases, and responsible-use guidance still apply.
 
@@ -554,8 +629,8 @@ establish MTP acceleration or vision-language quality.
 
 All published provenance uses repository-relative paths. Local source paths are stripped before
 publication. The checkpoint was converted from BF16 rather than re-quantized from an OptiQ
-artifact. Parallel OptiQ repositories use a different quantizer and should not be assumed to have
-identical BPW or quality.
+artifact. If an OptiQ repository is published separately, it uses a different quantizer and
+should not be assumed to have identical BPW or quality.
 
 ## License
 

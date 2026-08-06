@@ -44,7 +44,7 @@ def test_public_docs_do_not_reference_local_only_material() -> None:
     assert not offenders
 
 
-def test_public_stable_catalog_matches_completed_migration_table() -> None:
+def test_public_stable_catalog_preserves_migration_and_lists_multimodal_additions() -> None:
     readme_catalog = (
         _read("README.md")
         .split(
@@ -60,10 +60,19 @@ def test_public_stable_catalog_matches_completed_migration_table() -> None:
     )
     readme_repositories = repository_link.findall(readme_catalog)
     completion_repositories = repository_link.findall(completion)
+    multimodal_additions = {
+        "AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit",
+        "AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit",
+        "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit",
+        "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
+    }
 
-    assert len(readme_repositories) == 28
-    assert len(set(readme_repositories)) == 28
-    assert set(completion_repositories) == set(readme_repositories)
+    assert len(readme_repositories) == 32
+    assert len(set(readme_repositories)) == 32
+    assert len(completion_repositories) == 28
+    assert len(set(completion_repositories)) == 28
+    assert set(completion_repositories) < set(readme_repositories)
+    assert set(readme_repositories) - set(completion_repositories) == multimodal_additions
     assert "legacy-pre-v2" in readme_catalog
     assert "tagged `v2`" in readme_catalog
     assert not re.search(r"https://huggingface\.co/AutomatosX/[^)\s]+-v2(?:-MTP)?", readme_catalog)

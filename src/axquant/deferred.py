@@ -1,7 +1,7 @@
 """Fail-closed gates for deferred expansion features (P2).
 
-VLM optimization, per-expert unfused MoE splits, and domain LoRA/SFT are
-intentionally unavailable until MLX-LM / AX Engine execution evidence exists.
+Vision-tower optimization, per-expert unfused MoE splits, and domain LoRA/SFT are
+intentionally unavailable until their public MLX / AX Engine execution evidence exists.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from axquant.schema import DeferredFeature, SupportTier
 
 _MESSAGES: dict[DeferredFeature, str] = {
     DeferredFeature.VLM_OPTIMIZATION: (
-        "VLM optimization is deferred (P2): vision towers are preserved as BF16 "
-        "sidecars, not quantized. Enable only when AX Engine and MLX-LM provide a "
-        "validated vision quant path."
+        "Vision-tower optimization is deferred (P2): promoted VLM language paths may be "
+        "quantized, but vision towers remain protected at BF16 in the main checkpoint or a "
+        "sidecar. Enable only when a public MLX runtime provides a validated vision quant path."
     ),
     DeferredFeature.PER_EXPERT_UNFUSED: (
         "Per-expert (unfused) MoE precision is deferred (P2): packed expert stacks "

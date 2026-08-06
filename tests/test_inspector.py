@@ -122,6 +122,69 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert vision.protected_recommendation is True
 
 
+def test_qwen3_asr_upstream_layout_requires_normalized_bf16_source(tmp_path: Path) -> None:
+    config = {
+        "architectures": ["Qwen3ASRForConditionalGeneration"],
+        "model_type": "qwen3_asr",
+        "thinker_config": {
+            "text_config": {
+                "model_type": "qwen3",
+                "num_hidden_layers": 1,
+                "tie_word_embeddings": True,
+            },
+            "audio_config": {"encoder_layers": 1},
+        },
+    }
+    source = tmp_path / "upstream-asr"
+    source.mkdir()
+    write_data(source / "config.json", config)
+    save_file(
+        {
+            "thinker.audio_tower.proj.weight": np.zeros((8, 8), dtype=np.float32),
+            "thinker.model.embed_tokens.weight": np.zeros((16, 8), dtype=np.float32),
+            "thinker.model.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
+            "thinker.lm_head.weight": np.zeros((16, 8), dtype=np.float32),
+        },
+        source / "model.safetensors",
+    )
+
+    upstream = inspect_model(
+        source,
+        model_id="Qwen/Qwen3-ASR-1.7B",
+        revision="a" * 40,
+    )
+    assert upstream.architecture_profile.support_tier is SupportTier.INSPECT_ONLY
+    assert upstream.architecture_profile.optimization_scope is OptimizationScope.INVENTORY_ONLY
+    assert any("hf_to_mlx_bf16.py" in warning for warning in upstream.warnings)
+
+    normalized = tmp_path / "normalized-asr"
+    normalized.mkdir()
+    write_data(normalized / "config.json", config)
+    write_data(
+        normalized / "axquant_source.json",
+        {
+            "schema_version": "axquant.source-conversion.v1",
+            "source_model": "Qwen/Qwen3-ASR-1.7B",
+            "source_revision": "a" * 40,
+            "dtype": "bfloat16",
+            "key_remap_applied": True,
+        },
+    )
+    save_file(
+        {
+            "audio_tower.proj.weight": np.zeros((8, 8), dtype=np.float32),
+            "model.embed_tokens.weight": np.zeros((16, 8), dtype=np.float32),
+            "model.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
+        },
+        normalized / "model.safetensors",
+    )
+
+    prepared = inspect_model(normalized)
+    assert prepared.architecture_profile.support_tier is SupportTier.CONVERTIBLE
+    assert prepared.architecture_profile.optimization_scope is OptimizationScope.TEXT_PATH
+    assert prepared.architecture_profile.audio_present is True
+
+
 def test_declared_vision_tower_with_uncovered_naming_disables_conversion(
     qwen36_model_dir: Path,
 ) -> None:

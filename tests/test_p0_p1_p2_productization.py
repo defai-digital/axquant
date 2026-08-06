@@ -188,7 +188,7 @@ def test_unified_sensitivity_binding(qwen36_model_dir: Path) -> None:
 def test_deferred_features_fail_closed() -> None:
     matrix = deferred_feature_matrix()
     assert {item["feature"] for item in matrix} == {item.value for item in DeferredFeature}
-    with pytest.raises(PlanningError, match="VLM optimization"):
+    with pytest.raises(PlanningError, match="Vision-tower optimization"):
         require_feature(DeferredFeature.VLM_OPTIMIZATION)
     with pytest.raises(PlanningError, match="Per-expert"):
         require_feature(DeferredFeature.PER_EXPERT_UNFUSED)

@@ -25,6 +25,8 @@ This matrix covers **runtime environments**. For the model-family support matrix
 | --- | --- | --- |
 | `mlx` | `>= 0.29` | capture-activations, analyze (measured), analyze-kv, convert, evaluate-quality, runtime paths |
 | `mlx-lm` | `>= 0.31` | same as above |
+| `mlx-audio` | `>= 0.4.7` | Qwen3-ASR BF16 normalization, conversion, and transcription smoke |
+| `mlx-vlm` | `>= 0.6.10` | Qwen3-VL conversion and image-to-text smoke |
 
 Without the `mlx` extra these commands fail closed with `BackendUnavailableError`; everything
 else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) runs anywhere.
@@ -45,4 +47,5 @@ else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) 
 
 CI (`.github/workflows/ci.yml`) runs the full suite on `macos-14` (Apple Silicon) with
 Python 3.13 and the `mlx` extra. The v1.2.0 development environment was macOS arm64,
-Python 3.13, `mlx 0.32.0`, `mlx-lm 0.31.3`.
+Python 3.13, `mlx 0.32.0`, `mlx-lm 0.31.3`, `mlx-audio 0.4.7`, and
+`mlx-vlm 0.6.10`.

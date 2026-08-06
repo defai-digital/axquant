@@ -241,6 +241,39 @@ def test_quantize_planning_overrides_are_unset_unless_explicit() -> None:
     assert explicit.kv_cache == "prior"
 
 
+@pytest.mark.parametrize("runtime", ["ax-engine", "mlx-audio", "mlx-vlm", "mlx-lm-kv"])
+def test_runtime_check_rejects_static_only_for_non_mlx_lm(runtime: str) -> None:
+    assert (
+        main(
+            [
+                "runtime-check",
+                "--model",
+                "/model",
+                "--runtime",
+                runtime,
+                "--static-only",
+            ]
+        )
+        == 2
+    )
+
+
+@pytest.mark.parametrize(
+    ("runtime", "required_option"),
+    [
+        ("mlx-audio", "--audio-input"),
+        ("mlx-vlm", "--image-input"),
+    ],
+)
+def test_runtime_check_requires_matching_media_input(
+    runtime: str,
+    required_option: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["runtime-check", "--model", "/model", "--runtime", runtime]) == 2
+    assert required_option in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("command", ["benchmark", "benchmark-ab"])
 def test_benchmark_rejects_mismatched_quality_before_backend_execution(
     command: str,

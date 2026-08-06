@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Download (if needed) and convert a Hub model to MLX BF16 for AXQuant.
+"""Download (if needed) and convert a Hub model to normalized MLX BF16 for AXQuant.
 
 Sentence-Transformers / embedding exports often store weights without the
 ``model.`` prefix. This helper remaps keys (including multi-shard checkpoints)
-before ``mlx_lm convert``.
+before ``mlx_lm convert``. Qwen3-ASR sources are normalized through the public
+MLX-Audio STT converter so duplicated tied weights and convolution layouts match
+the runtime model before AXQuant inspection and planning.
 """
 
 from __future__ import annotations
@@ -162,6 +164,57 @@ def prepare_hf_dir(hf_id: str, revision: str, work: Path, prepared: Path) -> Pat
     return snap
 
 
+def _model_type(directory: Path) -> str | None:
+    config_path = directory / "config.json"
+    if not config_path.is_file():
+        return None
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read source config.json: {exc}") from exc
+    if not isinstance(config, dict):
+        raise SystemExit("source config.json must contain an object")
+    value = config.get("model_type")
+    return value if isinstance(value, str) else None
+
+
+def _conversion_command(source: Path, staging: Path) -> tuple[list[str], bool]:
+    """Return the public conversion command and whether it normalizes tensor keys/layouts."""
+
+    if _model_type(source) == "qwen3_asr":
+        return (
+            [
+                sys.executable,
+                "-m",
+                "mlx_audio.convert",
+                "--hf-path",
+                str(source),
+                "--mlx-path",
+                str(staging),
+                "--dtype",
+                "bfloat16",
+                "--model-domain",
+                "stt",
+            ],
+            True,
+        )
+    return (
+        [
+            sys.executable,
+            "-m",
+            "mlx_lm",
+            "convert",
+            "--hf-path",
+            str(source),
+            "--mlx-path",
+            str(staging),
+            "--dtype",
+            "bfloat16",
+        ],
+        False,
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hf-id", required=True)
@@ -185,18 +238,7 @@ def main(argv: list[str] | None = None) -> None:
     prepared = temporary_root / "prepared-source"
     try:
         hf_dir = prepare_hf_dir(args.hf_id, args.revision, args.work, prepared)
-        cmd = [
-            sys.executable,
-            "-m",
-            "mlx_lm",
-            "convert",
-            "--hf-path",
-            str(hf_dir),
-            "--mlx-path",
-            str(staging),
-            "--dtype",
-            "bfloat16",
-        ]
+        cmd, backend_remaps = _conversion_command(hf_dir, staging)
         print("run", " ".join(cmd))
         subprocess.check_call(cmd)
         if not (staging / "config.json").is_file() or not list(staging.glob("*.safetensors")):
@@ -208,7 +250,7 @@ def main(argv: list[str] | None = None) -> None:
                     "source_model": args.hf_id,
                     "source_revision": args.revision.lower(),
                     "dtype": "bfloat16",
-                    "key_remap_applied": hf_dir == prepared,
+                    "key_remap_applied": hf_dir == prepared or backend_remaps,
                 },
                 indent=2,
                 sort_keys=True,

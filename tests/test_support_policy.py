@@ -74,11 +74,12 @@ def test_support_matrix_includes_posture_and_sorted_priority() -> None:
     assert by_id["mistral-devstral-dense-v1"].investment_posture == "secondary"
 
 
-def test_convertible_adapters_match_macstudio_smoke_coverage() -> None:
-    """Every declared-convertible adapter is in the macstudio-m2u smoke set.
+def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
+    """Every declared-convertible adapter is in the conversion-host smoke set.
 
-    Keeps the remote family matrix and registry from drifting: if a family is
-    declared convertible it must be named here so operators know to smoke it.
+    Keeps the remote family matrix and registry from drifting. Qwen3-ASR and
+    Qwen3-VL use their architecture runtimes on mbp-m5; the text families also
+    remain in the macstudio-m2u coverage set.
     """
     matrix = support_matrix()
     convertible = {
@@ -92,6 +93,8 @@ def test_convertible_adapters_match_macstudio_smoke_coverage() -> None:
         "qwen35-dense-v1",
         "qwen3-next-v1",
         "qwen3-dense-v1",
+        "qwen3-asr-v1",
+        "qwen3-vl-v1",
         "minicpm5-dense-v1",
         "gemma4-dense-v1",
         "mistral-devstral-dense-v1",

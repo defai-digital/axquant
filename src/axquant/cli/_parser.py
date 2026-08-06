@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime
 
 from axquant.profiles import implemented_profiles
@@ -564,11 +565,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     quantize_parser.add_argument(
         "--runtime-smoke",
-        choices=["none", "mlx-lm", "ax-engine"],
+        choices=["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"],
         default="none",
     )
     quantize_parser.add_argument("--ax-engine", default="ax-engine")
     quantize_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
+    quantize_parser.add_argument(
+        "--python",
+        default=sys.executable,
+        help="Python executable for MLX-Audio and MLX-VLM runtime smokes",
+    )
+    quantize_parser.add_argument("--audio-input")
+    quantize_parser.add_argument("--image-input")
     quantize_parser.add_argument(
         "--ax-engine-manifest",
         choices=["required", "if-available", "skip"],
@@ -808,7 +816,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     runtime_parser.add_argument("--ax-engine", default="ax-engine")
     runtime_parser.add_argument("--mlx-lm", default="mlx_lm.generate")
-    runtime_parser.add_argument("--static-only", action="store_true")
+    runtime_parser.add_argument(
+        "--python",
+        default=sys.executable,
+        help="Python executable for MLX-Audio and MLX-VLM runtime checks",
+    )
+    runtime_parser.add_argument("--audio-input")
+    runtime_parser.add_argument("--image-input")
+    runtime_parser.add_argument(
+        "--static-only",
+        action="store_true",
+        help="Run the static compatibility diagnostic (valid only with --runtime mlx-lm)",
+    )
     runtime_parser.add_argument("--output", default="runtime_check.json")
 
     benchmark_parser = subparsers.add_parser("benchmark")

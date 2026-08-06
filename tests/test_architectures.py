@@ -135,6 +135,76 @@ def test_registry_resolves_qwen35_family_as_convertible() -> None:
     assert profile.text_layer_count == 36
 
 
+def test_registry_resolves_qwen3_asr_with_nested_text_and_audio_configs() -> None:
+    config = {
+        "model_type": "qwen3_asr",
+        "thinker_config": {
+            "text_config": {"num_hidden_layers": 28},
+            "audio_config": {"encoder_layers": 24},
+        },
+    }
+    adapter = adapter_for("Qwen/Qwen3-ASR-1.7B", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen3-asr-v1"
+    profile = adapter.profile("Qwen/Qwen3-ASR-1.7B", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.text_layer_count == 28
+    assert profile.audio_present is True
+    assert (
+        adapter.classify_tensor("audio_tower.layers.0.self_attn.q_proj.weight", "model.safetensors")
+        is TensorRole.AUDIO
+    )
+    assert (
+        adapter.classify_tensor("model.layers.0.self_attn.q_proj.weight", "model.safetensors")
+        is TensorRole.ATTENTION
+    )
+
+
+def test_registry_resolves_qwen3_vl_and_protects_vision_tower() -> None:
+    config = {
+        "model_type": "qwen3_vl",
+        "text_config": {"num_hidden_layers": 36},
+        "vision_config": {"depth": 27},
+    }
+    adapter = adapter_for("Qwen/Qwen3-VL-8B-Instruct", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen3-vl-v1"
+    profile = adapter.profile("Qwen/Qwen3-VL-8B-Instruct", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.text_layer_count == 36
+    assert profile.vision_present is True
+    assert (
+        adapter.classify_tensor("model.visual.blocks.0.attn.qkv.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+
+
+@pytest.mark.parametrize(
+    ("reference", "model_type"),
+    [
+        ("Qwen/Qwen3-ASR-0.6B", "qwen3_asr"),
+        ("Qwen/Qwen3-ASR-17B", "qwen3_asr"),
+        ("Qwen/Qwen3-VL-4B-Instruct", "qwen3_vl"),
+        ("Qwen/Qwen3-VL-18B-Instruct", "qwen3_vl"),
+        ("Qwen/Qwen3-VL-8B-Thinking", "qwen3_vl"),
+    ],
+)
+def test_unpromoted_qwen3_multimodal_variants_remain_inventory_only(
+    reference: str,
+    model_type: str,
+) -> None:
+    config = {
+        "model_type": model_type,
+        "num_hidden_layers": 28,
+        "text_config": {"num_hidden_layers": 28},
+        "thinker_config": {
+            "text_config": {"num_hidden_layers": 28},
+            "audio_config": {"encoder_layers": 24},
+        },
+    }
+    assert adapter_for(reference, config) is None
+
+
 def test_qwen35_moe_or_missing_layers_stays_inspect_only() -> None:
     """The convertible tier applies to dense checkpoints only (fail closed)."""
     moe_config = {
@@ -382,6 +452,8 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-next-v1": SupportTier.CONVERTIBLE,
         "qwen3-dense-v1": SupportTier.CONVERTIBLE,
+        "qwen3-asr-v1": SupportTier.CONVERTIBLE,
+        "qwen3-vl-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,

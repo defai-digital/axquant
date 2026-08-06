@@ -78,6 +78,54 @@ def test_hub_bf16_conversion_is_revision_pinned_and_atomic(
     }
 
 
+def test_qwen3_asr_bf16_conversion_uses_public_mlx_audio_stt_backend(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps({"model_type": "qwen3_asr"}),
+        encoding="utf-8",
+    )
+    output = tmp_path / "candidate"
+    observed: list[str] = []
+
+    monkeypatch.setattr(
+        helper,
+        "prepare_hf_dir",
+        lambda hf_id, revision, work, prepared: source,
+    )
+
+    def fake_convert(command: list[str]) -> None:
+        observed.extend(command)
+        staging = Path(command[command.index("--mlx-path") + 1])
+        staging.mkdir()
+        (staging / "config.json").write_text("{}", encoding="utf-8")
+        (staging / "model.safetensors").write_bytes(b"weights")
+
+    monkeypatch.setattr(helper.subprocess, "check_call", fake_convert)
+
+    helper.main(
+        [
+            "--hf-id",
+            "Qwen/Qwen3-ASR-1.7B",
+            "--revision",
+            "c" * 40,
+            "--mlx-path",
+            str(output),
+            "--work",
+            str(tmp_path / "work"),
+        ]
+    )
+
+    assert observed[:3] == [helper.sys.executable, "-m", "mlx_audio.convert"]
+    assert observed[observed.index("--model-domain") + 1] == "stt"
+    assert observed[observed.index("--dtype") + 1] == "bfloat16"
+    provenance = json.loads((output / "axquant_source.json").read_text(encoding="utf-8"))
+    assert provenance["key_remap_applied"] is True
+
+
 def test_hub_bf16_conversion_rejects_mutable_revision_and_existing_output(
     tmp_path: Path,
 ) -> None:

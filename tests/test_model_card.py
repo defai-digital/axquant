@@ -10,7 +10,7 @@ from safetensors.numpy import save_file
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
 from axquant.inspector import inspect_model
-from axquant.model_card import prepare_development_model_card
+from axquant.model_card import prepare_development_model_card, render_development_model_card
 from axquant.planner import plan_quantization
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
@@ -308,6 +308,78 @@ def test_development_model_card_does_not_claim_ax_engine_without_native_manifest
     assert "does **not** include a validated native `model-manifest.json`" in readme
     assert "Not established; no validated native manifest is included" in readme
     assert "ax-engine serve" not in readme
+
+
+def test_multimodal_model_cards_use_executable_runtime_commands(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    execution = load_model(
+        directory / "axquant_quantizer_execution.json",
+        QuantizerExecutionManifest,
+    )
+
+    asr_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={
+                    "adapter_id": "qwen3-asr-v1",
+                    "product_family": "qwen3-asr",
+                    "config_model_type": "qwen3_asr",
+                    "vision_present": False,
+                    "audio_present": True,
+                }
+            )
+        }
+    )
+    asr_card = render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit",
+        product_class="6bit",
+        manifest=manifest.model_copy(update={"mtp_present": False}),
+        plan=asr_plan,
+        execution=execution,
+        mtp_sidecar=None,
+        vision_sidecar=None,
+        artifact_edition=2,
+    )
+    assert "library_name: mlx-audio" in asr_card
+    assert "pipeline_tag: automatic-speech-recognition" in asr_card
+    assert "--output-path ./transcript" in asr_card
+    assert "--format txt" in asr_card
+    assert "If an OptiQ repository is published separately" in asr_card
+
+    vlm_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={
+                    "adapter_id": "qwen3-vl-v1",
+                    "product_family": "qwen3-vl",
+                    "config_model_type": "qwen3_vl",
+                    "vision_present": True,
+                    "audio_present": False,
+                }
+            )
+        }
+    )
+    vlm_card = render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
+        product_class="6bit",
+        manifest=manifest.model_copy(update={"mtp_present": False}),
+        plan=vlm_plan,
+        execution=execution,
+        mtp_sidecar=None,
+        vision_sidecar=None,
+        artifact_edition=2,
+    )
+    assert "library_name: mlx" in vlm_card
+    assert "pipeline_tag: image-text-to-text" in vlm_card
+    assert "--temperature 0.0" in vlm_card
+    assert "--temp 0.0" not in vlm_card
 
 
 def test_development_model_card_rejects_stale_execution_before_mutating(

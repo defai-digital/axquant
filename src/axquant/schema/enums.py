@@ -15,6 +15,7 @@ class TensorRole(StrEnum):
     MTP_BLOCK = "mtp_block"
     MTP_OUTPUT = "mtp_output"
     VISION = "vision"
+    AUDIO = "audio"
     OTHER = "other"
 
     @property
@@ -78,6 +79,8 @@ class ProfileName(StrEnum):
 class RuntimeName(StrEnum):
     AX_ENGINE = "ax-engine"
     MLX_LM = "mlx-lm"
+    MLX_AUDIO = "mlx-audio"
+    MLX_VLM = "mlx-vlm"
 
 
 class RuntimeSupportLevel(StrEnum):

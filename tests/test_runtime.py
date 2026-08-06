@@ -15,8 +15,10 @@ from axquant.runtime import (
     assert_conversion_scope,
     build_runtime_metadata,
     check_ax_engine,
+    check_mlx_audio_transcription,
     check_mlx_lm_generation,
     check_mlx_lm_static,
+    check_mlx_vlm_generation,
     generate_ax_engine_manifest,
 )
 from axquant.schema import (
@@ -170,6 +172,33 @@ def test_runtime_metadata_declares_ax_primary_and_mlx_fallback(
     assert metadata.mtp.head_precision == "8bit"
     assert metadata.ax_engine.decode_kernel is None
     assert metadata.ax_engine.kernel_evidence == "unmeasured"
+
+
+@pytest.mark.parametrize(
+    ("adapter_id", "runtime"),
+    [
+        ("qwen3-asr-v1", RuntimeName.MLX_AUDIO),
+        ("qwen3-vl-v1", RuntimeName.MLX_VLM),
+    ],
+)
+def test_runtime_metadata_declares_architecture_specific_multimodal_primary(
+    qwen36_model_dir: Path,
+    adapter_id: str,
+    runtime: RuntimeName,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": adapter_id}
+    )
+
+    metadata = build_runtime_metadata(plan, qwen36_model_dir)
+
+    assert metadata.primary_runtime.name is runtime
+    assert metadata.primary_runtime.compatibility_level == "A"
+    assert metadata.primary_runtime.standard_inference is True
+    assert metadata.primary_runtime.mtp_support == "none"
+    assert metadata.primary_runtime.manifest == "config.json"
+    assert metadata.compatible_runtimes == []
 
 
 def test_ax_engine_doctor_contract_is_machine_readable(
@@ -375,6 +404,92 @@ def test_mlx_lm_generation_check_requires_successful_output(
     assert result.model == identity
     assert result.report["scope"] == "load-and-generation"
     assert result.report["kv_cache_execution"] == "runtime-default"
+
+
+@pytest.mark.parametrize(
+    ("runtime", "media_flag", "checker"),
+    [
+        (RuntimeName.MLX_AUDIO, "--audio", check_mlx_audio_transcription),
+        (RuntimeName.MLX_VLM, "--image", check_mlx_vlm_generation),
+    ],
+)
+def test_multimodal_runtime_checks_bind_media_and_require_output(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    runtime: RuntimeName,
+    media_flag: str,
+    checker,
+) -> None:
+    executable = tmp_path / "python3"
+    executable.write_text("", encoding="utf-8")
+    media = tmp_path / ("sample.wav" if runtime is RuntimeName.MLX_AUDIO else "sample.png")
+    media.write_bytes(b"qa")
+    seen: list[str] = []
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        seen.extend(command)
+        if runtime is RuntimeName.MLX_AUDIO:
+            output_stem = Path(command[command.index("--output-path") + 1])
+            output_stem.with_suffix(".txt").write_text("transcribed audio", encoding="utf-8")
+            stdout = ""
+        else:
+            stdout = "described image"
+        return subprocess.CompletedProcess(list(command), 0, stdout=stdout, stderr="")
+
+    kwargs = {"audio": media} if runtime is RuntimeName.MLX_AUDIO else {"image": media}
+    result = checker(
+        qwen36_model_dir,
+        executable=str(executable),
+        runner=runner,
+        **kwargs,
+    )
+
+    assert result.runtime is runtime
+    assert result.passed is True
+    assert seen[:3] == [str(executable.absolute()), "-m", result.command[2]]
+    assert media_flag in seen
+    assert str(media.resolve()) in seen
+    assert result.report["media_input"] == media.name
+    if runtime is RuntimeName.MLX_AUDIO:
+        assert "--language" not in seen
+    else:
+        assert "--no-verbose" in seen
+
+
+@pytest.mark.parametrize(
+    ("runtime", "checker", "media_kwarg", "media_name"),
+    [
+        (RuntimeName.MLX_AUDIO, check_mlx_audio_transcription, "audio", "sample.wav"),
+        (RuntimeName.MLX_VLM, check_mlx_vlm_generation, "image", "sample.png"),
+    ],
+)
+def test_multimodal_runtime_checks_reject_log_only_or_empty_output(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    runtime: RuntimeName,
+    checker,
+    media_kwarg: str,
+    media_name: str,
+) -> None:
+    executable = tmp_path / "runtime-python"
+    executable.write_text("", encoding="utf-8")
+    media = tmp_path / media_name
+    media.write_bytes(b"qa")
+
+    def runner(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        stdout = "conversion logs without a transcript" if runtime is RuntimeName.MLX_AUDIO else " "
+        return subprocess.CompletedProcess(list(command), 0, stdout=stdout, stderr="")
+
+    result = checker(
+        qwen36_model_dir,
+        executable=str(executable),
+        runner=runner,
+        **{media_kwarg: media},
+    )
+
+    assert result.passed is False
+    assert result.report["output_characters"] == 0
+    assert result.command[:3] == [str(executable.absolute()), "-m", result.command[2]]
 
 
 def test_generation_smoke_executes_advisory_kv_quantization(

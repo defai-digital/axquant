@@ -6,9 +6,10 @@ This file provides guidance to Qoder (qoder.com) when working with code in this 
 
 AXQuant is an independent, MLX-native post-training quantization (PTQ) toolkit for supported LLM
 checkpoints on Apple Silicon. Qwen 3.6 is the primary certification track; promoted secondary
-adapters cover Qwen 3.5, Gemma-4, MiniCPM5, Mistral/Devstral, Mistral3 language paths, and
-Nemotron 3 Nano. AXQuant plans MTP-aware, workload-aware mixed-precision assignments and converts
-them through public MLX-LM APIs. It does not reuse mlx-optiq code, data, or metadata.
+adapters cover Qwen 3.5, Qwen3-ASR 1.7B, Qwen3-VL 8B Instruct, Gemma-4, MiniCPM5,
+Mistral/Devstral, Mistral3 language paths, and Nemotron 3 Nano. AXQuant plans MTP-aware,
+workload-aware mixed-precision assignments and converts them through public MLX-LM, MLX-Audio,
+and MLX-VLM APIs. It does not reuse mlx-optiq code, data, or metadata.
 
 ## Commands
 
@@ -40,8 +41,8 @@ literal:
 1. **feasibility** — audits reference baselines (4-bit, 6-bit, mixed, BF16 source) and runtime
    availability before any conversion work begins (`feasibility.py`).
 2. **inspect** — reads Safetensors index files directly (no MLX import), reconstructs logical
-   tensors, classifies roles via architecture adapters, detects protected MTP/vision tensors, and
-   emits an `Inventory` (`inspector.py`).
+   tensors, classifies roles via architecture adapters, detects protected MTP/vision/audio
+   tensors, and emits an `Inventory` (`inspector.py`).
 3. **calibrate / tokenize-calibration** — records dataset provenance in a
    `CalibrationManifest` and optionally creates a deterministic tokenized cache
    (`calibration.py`, `activation_cache.py`).
@@ -59,10 +60,11 @@ literal:
    the same `QuantizationPlan` schema.
 7. **convert** — atomic conversion: preflight verifies plan↔model module coverage via
    `PlanPredicate`, executes any AWQ/GPTQ weight refinement from `capture-activations` calibration
-   before packing, runs `mlx_lm.convert` into a temp staging dir, preserves protected MTP/vision
-   sidecars (or applies the explicit validated Qwen 3.6 MTP transform), generates AX Engine
-   manifest + runtime metadata, then renames staging→final so a partial checkpoint never appears
-   at the output path (`converter.py`, `predicate.py`, `runtime.py`).
+   before packing, runs the promoted public MLX conversion backend into a temp staging dir,
+   preserves protected MTP/vision/audio weights (or applies the explicit validated Qwen 3.6 MTP
+   transform), generates runtime metadata, then renames staging→final so a partial checkpoint
+   never appears at the output path (`converter.py`, `multimodal_backend.py`, `predicate.py`,
+   `runtime.py`).
 8. **runtime / evaluate / benchmark / validate** — collects runtime, quality, size, and MTP
    evidence and applies profile-specific thresholds to matched reference/candidate bundles
    (`runtime.py`, `quality.py`, `benchmark.py`, `validator.py`, `profiles.py`).
@@ -81,8 +83,8 @@ literal:
   or out-of-scope checkpoints remain inventory-only.
 - **Evidence gating**: `EvidenceKind.ARCHITECTURE_PRIOR` blocks `plan` and `convert` unless
   `--allow-unmeasured` is passed. This is intentional — never weaken it.
-- **Fail-closed conversion**: `PlanPredicate` tracks which plan modules MLX-LM actually visited;
-  unmatched quantized modules abort the conversion.
+- **Fail-closed conversion**: `PlanPredicate` tracks which plan modules the selected MLX backend
+  actually visited; unmatched quantized modules abort the conversion.
 - **Activation capture** (`capture.py`): `capture-activations` replays a verified tokenized
   cache with recording wrappers on eligible `nn.Linear` modules and writes checksum-bound
   per-module fp16 activations (`ActivationCaptureManifest`) for weight-refinement backends;
@@ -119,7 +121,8 @@ model weights or network access are needed.
 
 - Do not import from, vendor, translate, or copy mlx-optiq implementation code, tests,
   documentation, calibration data, or generated metadata.
-- Build against public MLX and MLX-LM interfaces and independently defined AXQuant schemas.
+- Build against public MLX, MLX-LM, MLX-Audio, and MLX-VLM interfaces and independently defined
+  AXQuant schemas.
 - Record every calibration input, source revision, objective, and planner decision in manifests.
 - Never label architecture-prior output as measured sensitivity.
 - Conversion must fail closed when a plan does not cover the modules it claims to quantize.

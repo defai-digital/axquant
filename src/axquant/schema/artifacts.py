@@ -127,6 +127,8 @@ class RuntimeCheck(StrictModel):
         "doctor",
         "static-compatibility",
         "generation-smoke",
+        "transcription-smoke",
+        "vision-generation-smoke",
         "kv-layered-generation-smoke",
     ]
     available: bool
@@ -262,7 +264,7 @@ class QuickConversionSummary(StrictModel):
     target_bpw: float = Field(gt=0.0, le=16.0)
     measured_total_bpw: float = Field(gt=0.0)
     output_path: str
-    runtime_smoke: Literal["none", "mlx-lm", "ax-engine"] = "none"
+    runtime_smoke: Literal["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"] = "none"
     runtime_smoke_passed: bool | None = None
     development_evidence: bool
     notes: list[str] = Field(default_factory=list)

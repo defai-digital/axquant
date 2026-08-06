@@ -137,6 +137,9 @@ def simple_convert(
     runtime_smoke: RuntimeSmoke = "none",
     ax_engine: str = "ax-engine",
     mlx_lm: str = "mlx_lm.generate",
+    python: str = "python3",
+    audio_input: str | Path | None = None,
+    image_input: str | Path | None = None,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
     mtp_sidecar: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
@@ -226,6 +229,9 @@ def simple_convert(
         runtime_smoke=runtime_smoke,
         ax_engine=ax_engine,
         mlx_lm=mlx_lm,
+        python=python,
+        audio_input=audio_input,
+        image_input=image_input,
         ax_engine_manifest=ax_engine_manifest,
         allow_download=False,  # already resolved above
     )
@@ -269,6 +275,12 @@ axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision <
 
 # Optional: profile, KV prior, smoke
 axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8 --kv-cache prior --runtime-smoke mlx-lm
+
+# Architecture-specific media smokes
+axquant quantize /models/Qwen3-ASR-1.7B-MLX-BF16 --target-bpw 6.91 \\
+  --runtime-smoke mlx-audio --audio-input ./sample.wav
+axquant quantize /models/Qwen3-VL-8B-Instruct --target-bpw 6.36 \\
+  --runtime-smoke mlx-vlm --image-input ./sample.png
 ```
 
 Defaults: ladder `prior` (groups 32,64), auto output name

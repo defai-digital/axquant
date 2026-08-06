@@ -81,6 +81,11 @@ def classify_tensor(name: str, source_file: str = "") -> TensorRole:
         if any(token in protected_path_value for token in ("proj", "projection")):
             return TensorRole.MTP_PROJECTION
         return TensorRole.MTP_BLOCK
+    if any(
+        token in name_value
+        for token in ("audio_tower", "audio_model", "audio_encoder", "audio_projector")
+    ):
+        return TensorRole.AUDIO
     if (
         any(
             token in name_value
@@ -452,6 +457,7 @@ def inspect_model(
                                 TensorRole.MTP_BLOCK,
                                 TensorRole.MTP_OUTPUT,
                                 TensorRole.VISION,
+                                TensorRole.AUDIO,
                             },
                             protection_reason=(
                                 f"default {role.value} protection policy"
@@ -465,6 +471,7 @@ def inspect_model(
                                     TensorRole.MTP_BLOCK,
                                     TensorRole.MTP_OUTPUT,
                                     TensorRole.VISION,
+                                    TensorRole.AUDIO,
                                 }
                                 else None
                             ),
@@ -494,6 +501,11 @@ def inspect_model(
     ]
     vision_tensors_present = any(tensor.role == TensorRole.VISION for tensor in tensors)
     uncovered_declared_vision = architecture_profile.vision_present and not vision_tensors_present
+    audio_tensors_present = any(tensor.role == TensorRole.AUDIO for tensor in tensors)
+    uncovered_declared_audio = architecture_profile.audio_present and not audio_tensors_present
+    unprepared_qwen3_asr = architecture_profile.adapter_id == "qwen3-asr-v1" and any(
+        tensor.name.startswith("thinker.") for tensor in tensors
+    )
     classification_coverage_notes: list[str] = []
     if unclassified_adapter_tensors:
         classification_coverage_notes.append(
@@ -507,6 +519,16 @@ def inspect_model(
         classification_coverage_notes.append(
             "The config declares a vision tower but no vision tensors were classified; "
             "conversion is disabled."
+        )
+    if uncovered_declared_audio:
+        classification_coverage_notes.append(
+            "The config declares an audio tower but no audio tensors were classified; "
+            "conversion is disabled."
+        )
+    if unprepared_qwen3_asr:
+        classification_coverage_notes.append(
+            "The upstream Qwen3-ASR tensor layout must first be normalized to an MLX-Audio "
+            "BF16 checkpoint with scripts/hf_to_mlx_bf16.py; conversion is disabled."
         )
     if classification_coverage_notes and (
         architecture_profile.support_level == ArchitectureSupportLevel.SUPPORTED
@@ -545,6 +567,12 @@ def inspect_model(
             "fused expert coverage is incomplete; tensors must classify as expert before "
             f"conversion: {preview}"
         )
+    if unprepared_qwen3_asr:
+        warnings.append(
+            "upstream Qwen3-ASR thinker.* tensors include a duplicated tied LM head and "
+            "runtime-specific layouts; prepare the pinned source with "
+            "scripts/hf_to_mlx_bf16.py before planning or conversion"
+        )
     if quantized_source:
         warnings.append(
             "logical parameter counts were reconstructed from packed quantization metadata"
@@ -572,6 +600,13 @@ def inspect_model(
         warnings.append(
             "config declares a vision tower but no tensor classified as vision; "
             "vision-tower naming may not be covered by the role classifier"
+        )
+    if audio_tensors_present:
+        architecture_profile = architecture_profile.model_copy(update={"audio_present": True})
+    elif uncovered_declared_audio:
+        warnings.append(
+            "config declares an audio tower but no tensor classified as audio; "
+            "audio-tower naming may not be covered by the role classifier"
         )
     weight_bytes = sum(path.stat().st_size for path in tensor_files)
     mtp_weight_bytes = sum(

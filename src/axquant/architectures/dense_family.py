@@ -49,6 +49,12 @@ _VISION_TOKENS = (
     "multimodal",
     "patch_merger",
 )
+_AUDIO_TOKENS = (
+    "audio_tower",
+    "audio_model",
+    "audio_encoder",
+    "audio_projector",
+)
 _LM_HEAD_TOKENS = ("lm_head", "output.weight", "output_layer")
 _EMBEDDING_TOKENS = ("embed_tokens", "token_embedding")
 _ATTENTION_TOKENS = (
@@ -112,6 +118,8 @@ def classify_dense_tensor(
         if any(token in protected_path_value for token in _MTP_PROJECTION_TOKENS):
             return TensorRole.MTP_PROJECTION
         return TensorRole.MTP_BLOCK
+    if any(token in name_path_value for token in _AUDIO_TOKENS):
+        return TensorRole.AUDIO
     if source_name == _VISION_SIDECAR_FILENAME or any(
         token in name_path_value for token in _VISION_TOKENS
     ):
@@ -153,6 +161,7 @@ class DenseFamilySpec:
     support_tier: SupportTier
     layer_count_keys: tuple[str, ...] = ("num_hidden_layers",)
     text_config_key: str | None = None
+    audio_config_key: str | None = None
     exclude_reference_pattern: str | None = None
     extra_role_patterns: tuple[tuple[str, TensorRole], ...] = ()
     notes: tuple[str, ...] = ()
@@ -189,11 +198,20 @@ class DenseFamilyAdapter:
             return False
         return any(self._reference.search(reference) for reference in references)
 
+    @staticmethod
+    def _nested_scope(config: dict[str, Any], dotted_key: str | None) -> dict[str, Any] | None:
+        if dotted_key is None:
+            return None
+        value: object = config
+        for key in dotted_key.split("."):
+            if not isinstance(value, dict):
+                return None
+            value = value.get(key)
+        return value if isinstance(value, dict) else None
+
     def _text_scope(self, config: dict[str, Any]) -> dict[str, Any]:
-        if self.spec.text_config_key is not None:
-            nested = config.get(self.spec.text_config_key)
-            if isinstance(nested, dict):
-                return nested
+        if nested := self._nested_scope(config, self.spec.text_config_key):
+            return nested
         return config
 
     def profile(self, model_reference: str, config: dict[str, Any]) -> ArchitectureProfile:
@@ -240,6 +258,7 @@ class DenseFamilyAdapter:
             text_layer_count=layer_count,
             mtp_declared=bool(scope.get("mtp_num_hidden_layers")),
             vision_present=isinstance(config.get("vision_config"), dict),
+            audio_present=(self._nested_scope(config, self.spec.audio_config_key) is not None),
             notes=notes,
         )
 
@@ -250,6 +269,32 @@ class DenseFamilyAdapter:
 _QWEN36_REFERENCE = r"qwen[._-]?3[._-]?6"
 
 DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
+    DenseFamilySpec(
+        adapter_id="qwen3-asr-v1",
+        product_family="qwen3-asr",
+        model_types=("qwen3_asr",),
+        reference_pattern=(r"(?:^|[/_.-])qwen[._-]?3[._-]asr[._-]1[._]7b(?:$|[/_.-])"),
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="thinker_config.text_config",
+        audio_config_key="thinker_config.audio_config",
+        extra_role_patterns=(("audio_tower", TensorRole.AUDIO),),
+        notes=(
+            "The promoted Qwen3-ASR 1.7B language decoder converts through MLX-Audio.",
+            "The complete audio tower remains protected at BF16.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="qwen3-vl-v1",
+        product_family="qwen3-vl",
+        model_types=("qwen3_vl",),
+        reference_pattern=(r"(?:^|[/_.-])qwen[._-]?3[._-]vl[._-]8b[._-]instruct(?:$|[/_.-])"),
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        notes=(
+            "The promoted Qwen3-VL 8B Instruct language decoder converts through MLX-VLM.",
+            "The complete vision tower remains protected at BF16.",
+        ),
+    ),
     DenseFamilySpec(
         adapter_id="qwen3-next-v1",
         product_family="qwen3-next",

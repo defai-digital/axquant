@@ -386,6 +386,7 @@ PROTECTED_MIN_BITS: dict[TensorRole, int] = {
     TensorRole.LM_HEAD: 16,
     TensorRole.ROUTER: 8,
     TensorRole.VISION: 16,
+    TensorRole.AUDIO: 16,
 }
 
 

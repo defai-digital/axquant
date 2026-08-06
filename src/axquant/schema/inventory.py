@@ -44,6 +44,7 @@ class ArchitectureProfile(StrictModel):
     text_layer_count: int | None = Field(default=None, ge=1)
     mtp_declared: bool = False
     vision_present: bool = False
+    audio_present: bool = False
     notes: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
