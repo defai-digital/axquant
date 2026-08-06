@@ -129,7 +129,11 @@ def _validate_mtp_sidecar_provenance(source: Path) -> None:
         raise ArtifactError("MTP sidecar provenance binds a different sidecar path")
     expected_size = mtp.get("size_bytes")
     expected_sha256 = mtp.get("sha256")
-    if not isinstance(expected_size, int) or source.stat().st_size != expected_size:
+    if (
+        isinstance(expected_size, bool)
+        or not isinstance(expected_size, int)
+        or source.stat().st_size != expected_size
+    ):
         raise ArtifactError("MTP sidecar provenance size does not match the sidecar")
     if not isinstance(expected_sha256, str) or file_sha256(source) != expected_sha256.lower():
         raise ArtifactError("MTP sidecar provenance checksum does not match the sidecar")
@@ -591,10 +595,10 @@ def _extract_protected_sidecar(
         if (
             not isinstance(dtype, str)
             or not isinstance(shape, list)
-            or not all(isinstance(value, int) for value in shape)
+            or not all(isinstance(value, int) and not isinstance(value, bool) for value in shape)
             or not isinstance(offsets, list)
             or len(offsets) != 2
-            or not all(isinstance(value, int) for value in offsets)
+            or not all(isinstance(value, int) and not isinstance(value, bool) for value in offsets)
         ):
             raise ArtifactError(f"invalid source tensor entry for {allocation.tensor}")
         selected.append(

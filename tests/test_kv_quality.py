@@ -88,6 +88,14 @@ def test_report_requires_exact_per_layer_execution() -> None:
             execution_summary={**_passing_execution(), "quantized_layers_active": 0},
             results=_dual_profile_matrix(),
         )
+    # Booleans are int subclasses; `True` must not masquerade as one active layer.
+    with pytest.raises(ArtifactError, match="active quantized KV layer"):
+        build_kv_serving_quality_report(
+            model=ModelIdentity(model_id="org/model", revision="a" * 40),
+            kv_plan=kv_plan,
+            execution_summary={**_passing_execution(), "quantized_layers_active": True},
+            results=_dual_profile_matrix(),
+        )
 
 
 def test_schema_requires_short_and_long_context_for_both_profiles() -> None:

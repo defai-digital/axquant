@@ -294,8 +294,12 @@ def _quantization_details(
     bits = quantization.get("bits")
     group_size = quantization.get("group_size")
     mode = quantization.get("mode", "affine")
-    parsed_bits = int(bits) if isinstance(bits, int) else None
-    parsed_group_size = int(group_size) if isinstance(group_size, int) else None
+    parsed_bits = int(bits) if isinstance(bits, int) and not isinstance(bits, bool) else None
+    parsed_group_size = (
+        int(group_size)
+        if isinstance(group_size, int) and not isinstance(group_size, bool)
+        else None
+    )
     try:
         method = QuantMethod(str(mode))
     except ValueError:
