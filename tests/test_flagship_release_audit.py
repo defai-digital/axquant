@@ -118,7 +118,9 @@ def _source_manifest(root: Path) -> tuple[Path, SourceCheckpointManifest]:
     return path, manifest
 
 
-def _flagship_fixture(root: Path) -> tuple[Path, FlagshipReleaseAuditRequest]:
+def _flagship_fixture(
+    root: Path, *, target_class: str = "4bit"
+) -> tuple[Path, FlagshipReleaseAuditRequest]:
     probe = root / "probe.safetensors"
     save_file(
         {"model.layers.0.mlp.down_proj.weight": np.zeros((1,), dtype=np.float32)},
@@ -136,7 +138,7 @@ def _flagship_fixture(root: Path) -> tuple[Path, FlagshipReleaseAuditRequest]:
         source_model_id=_SOURCE_ID,
         source_revision=_SOURCE_REVISION,
         candidate_model_id=candidate_repository,
-        target_class_override="4bit",
+        target_class_override=target_class,
     )
     legacy_request = load_model(legacy_request_path, ReleaseAuditRequest)
     legacy_audit = build_release_audit(legacy_request_path)
@@ -847,3 +849,23 @@ def test_flagship_audit_cannot_be_rerun_through_legacy_request(tmp_path: Path) -
             audit=audit,
             request_path=tmp_path / request.legacy_release_audit_request,
         )
+
+
+def test_flagship_audit_accepts_6bit_target_class(tmp_path: Path) -> None:
+    request_path, _ = _flagship_fixture(tmp_path, target_class="6bit")
+
+    audit = build_flagship_release_audit(request_path)
+
+    m0 = next(check for check in audit.checks if check.gate_id == "M0")
+    assert not any("target class" in issue for issue in m0.issues)
+    assert audit.authorization_ready
+
+
+def test_flagship_audit_rejects_unsupported_target_class(tmp_path: Path) -> None:
+    request_path, _ = _flagship_fixture(tmp_path, target_class="5bit")
+
+    audit = build_flagship_release_audit(request_path)
+
+    m0 = next(check for check in audit.checks if check.gate_id == "M0")
+    assert any("target class" in issue for issue in m0.issues)
+    assert not audit.authorization_ready

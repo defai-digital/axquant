@@ -48,6 +48,11 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
+# Precision classes a flagship campaign may certify. The campaign, plan, and
+# artifact manifest must all agree on one of these classes; the certified
+# identity itself flows from the candidate key and measured BPW, not the label.
+_FLAGSHIP_TARGET_CLASSES = frozenset({"4bit", "6bit"})
+
 _REQUIRED_ARCHIVE_NAMES = {
     "activation-capture-or-sentinel",
     "calibration-manifest",
@@ -489,8 +494,11 @@ def build_flagship_release_audit(
         m0.append("flagship campaign is not frozen")
     if campaign.certification_track != "qwen36-mtp-v2":
         m0.append("campaign does not declare qwen36-mtp-v2")
-    if campaign.target_class != "4bit":
-        m0.append("flagship campaign target class must be 4bit")
+    if campaign.target_class not in _FLAGSHIP_TARGET_CLASSES:
+        m0.append(
+            "flagship campaign target class must be one of "
+            + ", ".join(sorted(_FLAGSHIP_TARGET_CLASSES))
+        )
     if (
         campaign.source.model.model_id != FLAGSHIP_SOURCE_MODEL_ID
         or campaign.source.model.revision != FLAGSHIP_SOURCE_REVISION
