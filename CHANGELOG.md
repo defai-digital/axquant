@@ -8,6 +8,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-06
+
 ### Fixed
 
 - `campaign-overlap` normalization now tokenizes non-ASCII scripts
