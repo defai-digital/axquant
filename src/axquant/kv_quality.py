@@ -47,7 +47,11 @@ def build_kv_serving_quality_report(
             "a layer that reverted to BF16 invalidates the measurement"
         )
     quantized_active = execution_summary.get("quantized_layers_active")
-    if not isinstance(quantized_active, int) or quantized_active < 1:
+    if (
+        isinstance(quantized_active, bool)
+        or not isinstance(quantized_active, int)
+        or quantized_active < 1
+    ):
         raise ArtifactError(
             "KV serving-quality evidence requires at least one active quantized KV layer"
         )

@@ -370,14 +370,24 @@ def _formal_mtp_admissibility_issues(
     validation_path = Path(legacy_request.release_validation_index).expanduser()
     if not validation_path.is_absolute():
         validation_path = (legacy_request_path.parent / validation_path).resolve()
-    validation_index = load_model(validation_path, ReleaseValidationIndex)
+    # Audits run against archived evidence roots, so an unreadable or invalid
+    # file must surface as a named gate issue, never crash the whole audit.
+    try:
+        validation_index = load_model(validation_path, ReleaseValidationIndex)
+    except (ArtifactError, OSError, ValueError) as exc:
+        return [f"release validation index is unreadable for MTP admissibility: {exc}"]
     issues: list[str] = []
     for entry in validation_index.entries:
         benchmark_path = Path(entry.benchmark_index_file).expanduser()
         if not benchmark_path.is_absolute():
             benchmark_path = (validation_path.parent / benchmark_path).resolve()
-        benchmark = load_model(benchmark_path, BenchmarkEvidenceIndex)
+        try:
+            benchmark = load_model(benchmark_path, BenchmarkEvidenceIndex)
+        except (ArtifactError, OSError, ValueError) as exc:
+            issues.append(f"{entry.profile.value}: benchmark index is unreadable: {exc}")
+            continue
         bundles: dict[BenchmarkEvidenceKind, EvaluationBundle] = {}
+        unreadable = False
         for benchmark_entry in benchmark.entries:
             if benchmark_entry.kind not in (
                 BenchmarkEvidenceKind.AXQUANT_MTP_OFF,
@@ -389,11 +399,21 @@ def _formal_mtp_admissibility_issues(
             bundle_path = Path(benchmark_entry.evaluation_file).expanduser()
             if not bundle_path.is_absolute():
                 bundle_path = (benchmark_path.parent / bundle_path).resolve()
-            bundles[benchmark_entry.kind] = load_model(bundle_path, EvaluationBundle)
+            try:
+                bundles[benchmark_entry.kind] = load_model(bundle_path, EvaluationBundle)
+            except (ArtifactError, OSError, ValueError) as exc:
+                issues.append(
+                    f"{entry.profile.value}: {benchmark_entry.kind.value} bundle is "
+                    f"unreadable: {exc}"
+                )
+                unreadable = True
         mtp_off = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_OFF)
         mtp_on = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
         if mtp_off is None or mtp_on is None:
-            issues.append(f"{entry.profile.value}: formal MTP off/on bundle pair is unavailable")
+            if not unreadable:
+                issues.append(
+                    f"{entry.profile.value}: formal MTP off/on bundle pair is unavailable"
+                )
             continue
         issues.extend(
             f"{entry.profile.value}: {issue}"

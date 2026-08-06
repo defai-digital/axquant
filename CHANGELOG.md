@@ -51,6 +51,13 @@ the section is missing — add an entry in the same change as any user-facing mo
   that stamping rewrites the file and therefore invalidates any recorded
   sha256 binding to the original — stamp packaging copies, not validated
   bundles.
+- KV serving-quality reports reject a boolean `quantized_layers_active` in
+  the execution summary instead of counting `true` as one active layer.
+- The flagship M7 MTP-admissibility helper guards its own evidence loads
+  (unreadable files become named gate issues if reached), and a regression
+  test pins the audit-level contract: a damaged benchmark bundle aborts the
+  whole audit with a named checksum error rather than emitting gate verdicts
+  against a tampered evidence set.
 
 ## [1.3.0] - 2026-08-06
 

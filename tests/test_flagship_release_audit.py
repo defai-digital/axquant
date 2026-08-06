@@ -12,7 +12,7 @@ from axquant.campaign import campaign_bound_files, preflight_campaign
 from axquant.certification.dispatch import build_certification_audit
 from axquant.certification.flagship import build_flagship_release_audit
 from axquant.claims import render_public_claim_request
-from axquant.errors import PublishingError
+from axquant.errors import ArtifactError, PublishingError
 from axquant.identity import (
     candidate_key_from_artifacts,
     checkpoint_key_from_source_manifest,
@@ -869,3 +869,17 @@ def test_flagship_audit_rejects_unsupported_target_class(tmp_path: Path) -> None
     m0 = next(check for check in audit.checks if check.gate_id == "M0")
     assert any("target class" in issue for issue in m0.issues)
     assert not audit.authorization_ready
+
+
+def test_flagship_audit_fails_closed_on_a_damaged_mtp_bundle(
+    tmp_path: Path,
+) -> None:
+    request_path, _ = _flagship_fixture(tmp_path)
+    corrupted = next(tmp_path.rglob("agent-coding-axquant-mtp-on.json"))
+    corrupted.write_text("{not valid json", encoding="utf-8")
+
+    # Evidence integrity is a precondition of auditing at all: a damaged
+    # bundle must abort the audit with a named checksum error (fail closed),
+    # not produce gate verdicts against a tampered evidence set.
+    with pytest.raises(ArtifactError, match="checksum does not match"):
+        build_flagship_release_audit(request_path)
