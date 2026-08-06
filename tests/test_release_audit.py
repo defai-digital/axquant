@@ -69,6 +69,7 @@ from axquant.schema import (
     IntegrityMetrics,
     MetricVector,
     ModelIdentity,
+    MtpMetrics,
     OfficialDenseCheckpointRequirement,
     OptimizationScope,
     ParetoReport,
@@ -351,6 +352,21 @@ def _benchmark_index(
                 model=model,
                 mtp_enabled=kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON,
                 baseline_kind=kind.value,
+                # RM-20 admissibility requires the MTP-on half of the pair to
+                # carry real acceptance metrics and effective throughput.
+                mtp=(
+                    MtpMetrics(
+                        token_accuracy={"1": 0.8},
+                        average_accepted_tokens=0.8,
+                        acceptance_rate=0.8,
+                        rejection_rate=0.2,
+                        effective_tokens_per_forward=1.8,
+                        repetition_rate=0.01,
+                        divergence_rate=0.0,
+                    )
+                    if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON
+                    else None
+                ),
                 integrity=IntegrityMetrics(
                     safetensors_valid=True,
                     index_complete=True,
@@ -364,6 +380,9 @@ def _benchmark_index(
                     chip="Apple M3 Max",
                     unified_memory_bytes=128 * 1024**3,
                     os_version="macOS-test",
+                    mtp_effective_tokens_per_second=(
+                        12.0 if kind == BenchmarkEvidenceKind.AXQUANT_MTP_ON else None
+                    ),
                 ),
                 workload=profile.value,
                 dataset_sha256=dataset,

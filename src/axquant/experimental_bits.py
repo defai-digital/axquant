@@ -7,10 +7,19 @@ always development evidence until a full release audit passes.
 
 from __future__ import annotations
 
-from axquant.schema import QuantizationPlan
+from axquant.schema import QuantizationPlan, TensorRole
 
 EXPERIMENTAL_LOW_BITS: frozenset[int] = frozenset({2, 3})
 PREFERRED_EXPERIMENTAL_GROUP_SIZE = 32
+
+# RM-42 robust-trunk hardening: experimental 2/3-bit may only land on trunk
+# tensor classes that tolerate aggressive quantization. Embeddings, heads,
+# norms, routers, and vision/audio towers are excluded by protection floors
+# already; attention projections are excluded here because low-bit attention
+# instability dominates observed 2/3-bit failures.
+ROBUST_TRUNK_ROLES: frozenset[TensorRole] = frozenset({TensorRole.MLP, TensorRole.EXPERT})
+# Cap on tensor names listed in the plan warning; the count is always exact.
+_EXPERIMENTAL_LIST_PREVIEW = 12
 
 EXPERIMENTAL_WARNING = (
     "Experimental 2/3-bit weight assignments are development evidence only. "
@@ -22,6 +31,11 @@ EXPERIMENTAL_WARNING = (
 
 def is_experimental_low_bit(bits: int) -> bool:
     return bits in EXPERIMENTAL_LOW_BITS
+
+
+def robust_trunk_role(role: TensorRole) -> bool:
+    """Whether a tensor class may accept experimental 2/3-bit assignments."""
+    return role in ROBUST_TRUNK_ROLES
 
 
 def plan_uses_experimental_low_bits(plan: QuantizationPlan) -> bool:
@@ -55,6 +69,22 @@ def annotate_experimental_low_bit_plan(plan: QuantizationPlan) -> QuantizationPl
     )
     if details not in warnings:
         warnings.append(details)
+    # RM-42: name the affected tensors (with their predicted losses) so a
+    # low-bit instability is diagnosable from the plan alone.
+    experimental_assignments = [
+        assignment for assignment in plan.assignments if is_experimental_low_bit(assignment.bits)
+    ]
+    preview = ", ".join(
+        f"{assignment.tensor}({assignment.bits}b, loss={assignment.predicted_loss:.3g})"
+        for assignment in experimental_assignments[:_EXPERIMENTAL_LIST_PREVIEW]
+    )
+    suffix = ", …" if len(experimental_assignments) > _EXPERIMENTAL_LIST_PREVIEW else ""
+    inventory_note = (
+        f"{len(experimental_assignments)} tensor(s) carry experimental low-bit "
+        f"assignments (robust trunk only): {preview}{suffix}"
+    )
+    if inventory_note not in warnings:
+        warnings.append(inventory_note)
     min_quant = min(
         (assignment.bits for assignment in plan.assignments if assignment.bits < 16),
         default=16,

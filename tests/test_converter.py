@@ -673,6 +673,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
         bits: int,
         group_size: int,
         damping: float = 0.01,
+        act_order: bool = False,
     ) -> dict[str, float | int]:
         refined, metadata = learn_gptq_refined_weight(
             module.weight,
@@ -680,6 +681,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
             bits=bits,
             group_size=group_size,
             damping=damping,
+            act_order=act_order,
         )
         module.weight = refined
         return metadata

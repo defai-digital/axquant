@@ -46,7 +46,7 @@ _DTYPE_BYTES = {
     "U64": 8,
 }
 _MTP_TOKEN = re.compile(r"(^|[./_-])(mtp|multi[_-]?token)([./_-]|$)")
-_MTP_PRECISION = re.compile(r"INT(4|6|8|16)", re.IGNORECASE)
+_MTP_PRECISION = re.compile(r"INT(16|8|6|4)(?![0-9])", re.IGNORECASE)
 _FUSED_EXPERT_PATH_TOKENS = ("switch_mlp", "switch_glu", ".experts.")
 
 

@@ -741,3 +741,64 @@ def test_plan_rejects_loaded_allocation_outside_declared_hardware_grid(
 
     with pytest.raises(ValidationError, match="non-executable allocations"):
         QuantizationPlan.model_validate(payload)
+
+
+def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> None:
+    # Upgrades can push one expert to 8-bit, discarding the ungrouped
+    # tensor's upgrade edge for lack of budget; fused-expert harmonization
+    # then forces the expert pair back to a cheaper common signature. The
+    # freed budget must be re-offered to ungrouped tensors instead of
+    # silently under-spending the target.
+    tensors = [
+        _tensor("model.layers.0.mlp.experts.0.gate_proj.weight", 1_000, TensorRole.EXPERT),
+        _tensor("model.layers.0.mlp.experts.1.gate_proj.weight", 1_000, TensorRole.EXPERT),
+        _tensor("model.layers.0.mlp.up_proj.weight", 1_000, TensorRole.MLP),
+    ]
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/moe-reupgrade", revision="abc"),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors),
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    kl_by_tensor = {
+        "model.layers.0.mlp.experts.0.gate_proj.weight": (0.9, 0.1),
+        "model.layers.0.mlp.experts.1.gate_proj.weight": (0.5, 0.2),
+        "model.layers.0.mlp.up_proj.weight": (0.4, 0.2),
+    }
+    for entry in report.entries:
+        kl_4bit, kl_8bit = kl_by_tensor[entry.tensor.name]
+        entry.candidates = [
+            CandidateMeasurement(
+                bits=4,
+                method=QuantMethod.AFFINE,
+                group_size=64,
+                metrics=MetricVector(output_kl=kl_4bit),
+            ),
+            CandidateMeasurement(
+                bits=8,
+                method=QuantMethod.AFFINE,
+                group_size=64,
+                metrics=MetricVector(output_kl=kl_8bit),
+            ),
+            CandidateMeasurement(
+                bits=16,
+                method=QuantMethod.BF16,
+                group_size=None,
+                metrics=MetricVector(),
+            ),
+        ]
+
+    plan = plan_quantization(report, _request(target_bpw=6.0, candidate_bits=(4, 8, 16)))
+
+    by_tensor = {allocation.tensor: allocation for allocation in plan.assignments}
+    # Experts stay harmonized at the only budget-feasible common signature.
+    assert by_tensor["model.layers.0.mlp.experts.0.gate_proj.weight"].bits == 4
+    assert by_tensor["model.layers.0.mlp.experts.1.gate_proj.weight"].bits == 4
+    # The freed budget funds the previously discarded ungrouped upgrade.
+    assert by_tensor["model.layers.0.mlp.up_proj.weight"].bits == 8
+    assert plan.effective_bpw == pytest.approx((4.5 + 4.5 + 8.5) / 3)

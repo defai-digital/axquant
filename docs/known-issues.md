@@ -10,8 +10,11 @@ or is gated behind an explicit flag.
   Accelerate scratch; measured 4.7 GB peak at in = 8192 on an M-series machine). Large
   `down_proj` modules (in = intermediate size) can take tens of seconds and GB-scale memory per
   module. This is inherent to second-order methods; plan for it on 27B-class checkpoints.
-- **GPTQ has no activation ordering (act-order) yet.** v1 implements the static-grid baseline;
-  act-order is a known quality improvement for low bits and may land in a future release.
+- **GPTQ act-order is group-preserving, not `g_idx`-style.** The `gptq-act` method (ADR-0002)
+  orders whole groups by aggregate Hessian mass and columns within groups by Hessian diagonal,
+  so the packed layout stays byte-compatible with portable affine packing. It therefore captures
+  less of the classic act-order gain than toolchains that ship a `g_idx` permutation tensor —
+  adoption is decided per tensor by the measured frontier, not assumed.
 - **GPTQ weight-space MSE can exceed RTN.** GPTQ minimizes the activation-weighted reconstruction
   objective, not weight distance; judge it by output metrics (`output_kl`,
   `hidden_state_error`), not `mean_quant_error`.

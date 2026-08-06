@@ -255,12 +255,14 @@ def test_gptq_refinement_executes_before_affine_packing(
         bits: int,
         group_size: int,
         damping: float = 0.01,
+        act_order: bool = False,
     ) -> dict[str, float | int]:
         del damping
         captured["module"] = module
         captured["activations"] = activations
         captured["bits"] = bits
         captured["group_size"] = group_size
+        captured["act_order"] = act_order
         return {
             "gptq_damping": 0.01,
             "calibration_rows": 32,
@@ -464,3 +466,20 @@ def test_weight_suffixed_module_paths_keep_packed_and_fused_tracking() -> None:
     result = fused_predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict)
     assert fused_predicate.unmatched_quantized_modules() == set()
+
+
+def test_unwrapped_and_nemotron_packed_expert_tensors_bind_their_switch_modules() -> None:
+    # Converted-output binding must accept every packed form the predicate,
+    # planner, and manual recipes accept — including checkpoints without the
+    # Qwen language-model wrapper and Nemotron mixer packs — or a valid MoE
+    # conversion aborts at verification after the full conversion has run.
+    groups = mlx_tensor_binding_groups("model.layers.0.mlp.experts.gate_up_proj.weight")
+    flattened = {alias for group in groups for alias in group}
+    assert "model.layers.0.mlp.switch_mlp.gate_proj.weight" in flattened
+    assert "model.layers.0.mlp.switch_mlp.up_proj.weight" in flattened
+    assert mlx_tensor_binding_groups("backbone.layers.3.mixer.experts.up_proj.weight") == (
+        ("backbone.layers.3.mixer.switch_mlp.fc1.weight",),
+    )
+    assert mlx_tensor_binding_groups("model.layers.0.mlp.experts.down_proj.scales") == (
+        ("model.layers.0.mlp.switch_mlp.down_proj.scales",),
+    )

@@ -155,9 +155,12 @@ class ProbeConfig(StrictModel):
             QuantMethod.DWQ,
             QuantMethod.AWQ,
             QuantMethod.GPTQ,
+            QuantMethod.GPTQ_ACT,
         }
         if not normalized or set(normalized) - supported:
-            raise ValueError("probe methods must contain only affine, dwq, awq, and/or gptq")
+            raise ValueError(
+                "probe methods must contain only affine, dwq, awq, gptq, and/or gptq-act"
+            )
         return normalized
 
     @field_validator("candidate_group_sizes")
@@ -275,6 +278,11 @@ class CaptureProgress(StrictModel):
     model: str
     revision: str | None = None
     cache_key_sha256: str
+    # On-disk identity of the replay model directory: without it a resume
+    # can silently mix activations recorded from two different checkpoints.
+    # ``None`` only on checkpoints written by older toolkit versions, which
+    # therefore never match a current binding and fail closed.
+    model_fingerprint_sha256: str | None = None
     max_rows: int = Field(ge=1)
     stride: int = Field(ge=1)
     token_budget: int = Field(ge=1)

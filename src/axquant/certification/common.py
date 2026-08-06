@@ -168,7 +168,13 @@ def build_source_checkpoint_manifest(
         or Path(inventory.model.local_path).resolve() != directory
     ):
         raise ArtifactError("inventory local path does not match the source checkpoint")
-    fingerprint = architecture_fingerprint(directory, inventory=inventory)
+    # The manifest only needs the config/tokenizer digests, so it must not
+    # force the Qwen3-Next architecture fingerprint: the flagship (Qwen 3.6)
+    # track requires this same manifest for its dense source. The direct
+    # track asserts the fingerprint separately during its release audit.
+    config_path = directory / "config.json"
+    if not config_path.is_file():
+        raise ArtifactError(f"source checkpoint has no config.json: {directory}")
     records = [
         SourceCheckpointFile(
             path=path.relative_to(directory).as_posix(),
@@ -179,8 +185,8 @@ def build_source_checkpoint_manifest(
     ]
     return SourceCheckpointManifest(
         source_model=inventory.model,
-        config_sha256=fingerprint.config_sha256,
-        tokenizer_sha256=fingerprint.tokenizer_sha256,
+        config_sha256=file_sha256(config_path),
+        tokenizer_sha256=tokenizer_sha256(directory),
         files=records,
     )
 

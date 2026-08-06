@@ -228,6 +228,54 @@ def test_measured_plan_selects_gptq_when_clearly_better() -> None:
     assert mlp.outlier_strategy.value == "none"
 
 
+def test_method_near_ties_are_surfaced_and_capped_explicitly() -> None:
+    report = _measured_report()
+    plan = plan_quantization(
+        report,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=5.5,
+            candidate_bits=(4, 6, 8, 16),
+            candidate_group_sizes=(32, 64, 128),
+            hardware=HardwareProfile(),
+            allow_unmeasured=False,
+        ),
+    )
+    # The fixture places DWQ 1% above AFFINE — inside the default 2% epsilon —
+    # so quantized selections must carry surfaced near ties (RM-14).
+    assert plan.method_near_ties
+    epsilon = PlanRequest.model_fields["method_near_tie_epsilon"].default
+    for tie in plan.method_near_ties:
+        assert tie.selected_method != tie.runner_up_method
+        # The recorded runner-up satisfies the surfacing invariant: within
+        # epsilon of the winner, or strictly better but displaced by a role
+        # preference override.
+        assert tie.runner_up_loss <= tie.selected_loss * (1.0 + epsilon) + 1e-12
+    margins = [tie.relative_margin for tie in plan.method_near_ties]
+    assert margins == sorted(margins), "ties must be ordered most-fragile-first"
+    assert plan.method_near_ties_omitted == 0
+
+
+def test_near_tie_epsilon_zero_only_surfaces_preference_overrides() -> None:
+    report = _measured_report()
+    plan = plan_quantization(
+        report,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=5.5,
+            candidate_bits=(4, 6, 8, 16),
+            candidate_group_sizes=(32, 64, 128),
+            method_near_tie_epsilon=0.0,
+            hardware=HardwareProfile(),
+            allow_unmeasured=False,
+        ),
+    )
+    # With epsilon 0 a tie survives only when the runner-up matched or beat
+    # the winner's raw loss (i.e. a preference override displaced it).
+    for tie in plan.method_near_ties:
+        assert tie.runner_up_loss <= tie.selected_loss + 1e-12
+
+
 def test_ranking_loss_discounts_preferred_group() -> None:
     base = 1.0
     discounted = ranking_loss(

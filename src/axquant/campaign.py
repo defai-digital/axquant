@@ -8,7 +8,7 @@ import subprocess
 from datetime import timedelta
 from pathlib import Path
 
-from axquant.errors import ArtifactError, ValidationGateError
+from axquant.errors import ArtifactError, CaptureError, ValidationGateError
 from axquant.identity import candidate_key_from_artifacts, semantic_plan_sha256
 from axquant.schema import (
     ActivationCaptureSentinel,
@@ -375,7 +375,7 @@ def _freeze_issues(campaign: FlagshipCampaign, root: Path) -> list[str]:
                 bindings.activation_capture_or_sentinel.path,
             )
             uses_capture = any(
-                assignment.method in {QuantMethod.AWQ, QuantMethod.GPTQ}
+                assignment.method in {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
                 for assignment in plan.assignments
             )
             if uses_capture:
@@ -401,7 +401,7 @@ def _freeze_issues(campaign: FlagshipCampaign, root: Path) -> list[str]:
             )
             if recomputed_candidate != campaign.candidate:
                 issues.append("campaign candidate key cannot be recomputed from bound inputs")
-        except (ArtifactError, OSError, ValueError) as exc:
+        except (ArtifactError, CaptureError, OSError, ValueError) as exc:
             issues.append(f"campaign candidate inputs are invalid: {exc}")
     roles = {dataset.role for dataset in campaign.datasets}
     dataset_ids = [dataset.dataset_id for dataset in campaign.datasets]

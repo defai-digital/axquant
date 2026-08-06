@@ -64,13 +64,18 @@ _REQUIRED_AGENT_CODING_DOMAINS = {
 _PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v6"
 # Methods that refine the float weight before identical affine packing. They
 # reuse the matching AFFINE candidate as the hardware-cost control.
-_REFINEMENT_METHODS = frozenset({QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ})
+_REFINEMENT_METHODS = frozenset(
+    {QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
+)
 # Methods whose refinement is driven by captured calibration activations.
-_ACTIVATION_DRIVEN_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_ACTIVATION_DRIVEN_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT})
 _REFINEMENT_NOTES = {
     QuantMethod.DWQ: "sampled 0.1/99.9-percentile clipping followed by affine packing",
     QuantMethod.AWQ: "activation-aware channel scaling followed by affine packing",
     QuantMethod.GPTQ: "hessian error-compensated rounding followed by affine packing",
+    QuantMethod.GPTQ_ACT: (
+        "group-preserving act-order hessian error-compensated rounding followed by affine packing"
+    ),
 }
 # Base role floors match PROTECTED_MIN_BITS. AXQ-026: probe LM-head down to 8
 # so an 8-bit LM-head plan choice is measurable; planner default floor stays 16.
@@ -199,6 +204,7 @@ class MlxProbeBackend:
                         activations=activations,
                         bits=bits,
                         group_size=group_size,
+                        act_order=method == QuantMethod.GPTQ_ACT,
                     )
             quantized_module = to_quantized(
                 group_size=group_size,
@@ -588,44 +594,62 @@ def _measure_candidate(
 ) -> MetricVector:
     import numpy as np
 
-    output_kl: list[float] = []
-    hidden_error: list[float] = []
-    cosine_distance: list[float] = []
-    token_disagreement: list[float] = []
-    task_loss_delta: list[float] = []
-    long_context_loss: list[float] = []
+    # Replay batches carry unequal sequence counts (the packed tail always
+    # forms a short batch), so every per-batch mean is weighted by its
+    # sequence count; an unweighted mean over batches would over-weight
+    # positions in small batches and make the metric depend on
+    # replay_batch_size.
+    output_kl: list[tuple[float, float]] = []
+    hidden_error: list[tuple[float, float]] = []
+    cosine_distance: list[tuple[float, float]] = []
+    token_disagreement: list[tuple[float, float]] = []
+    task_loss_delta: list[tuple[float, float]] = []
+    long_context_loss: list[tuple[float, float]] = []
     peak_memory: list[float] = []
     latency: list[float] = []
     for input_ids, reference in zip(inputs, references, strict=True):
         candidate = backend.forward(input_ids)
+        rows = float(input_ids.shape[0]) if getattr(input_ids, "ndim", 1) == 2 else 1.0
         if reference.logits is None or candidate.logits is None:
             raise ProbeError("probe backend did not return logits")
-        output_kl.append(_compute_logit_kl(reference.logits, candidate.logits))
+        output_kl.append((_compute_logit_kl(reference.logits, candidate.logits), rows))
         token_disagreement.append(
-            compute_token_disagreement(
-                np.argmax(reference.logits, axis=-1),
-                np.argmax(candidate.logits, axis=-1),
+            (
+                compute_token_disagreement(
+                    np.argmax(reference.logits, axis=-1),
+                    np.argmax(candidate.logits, axis=-1),
+                ),
+                rows,
             )
         )
         if reference.hidden_states is not None and candidate.hidden_states is not None:
             hidden_error.append(
-                compute_hidden_state_error(reference.hidden_states, candidate.hidden_states)
+                (
+                    compute_hidden_state_error(reference.hidden_states, candidate.hidden_states),
+                    rows,
+                )
             )
             cosine_distance.append(
-                compute_cosine_distance(reference.hidden_states, candidate.hidden_states)
+                (
+                    compute_cosine_distance(reference.hidden_states, candidate.hidden_states),
+                    rows,
+                )
             )
         elif require_hidden_states:
             raise ProbeError("probe backend did not return required hidden states")
         if reference.loss is not None and candidate.loss is not None:
             loss_delta = max(0.0, candidate.loss - reference.loss)
-            task_loss_delta.append(loss_delta)
+            task_loss_delta.append((loss_delta, rows))
             if int(input_ids.shape[-1]) >= long_context_min_tokens:
-                long_context_loss.append(loss_delta)
+                long_context_loss.append((loss_delta, rows))
         peak_memory.append(float(candidate.peak_memory_bytes or 0))
         latency.append(candidate.latency_seconds)
 
-    def mean(values: list[float]) -> float:
-        return float(np.mean(values)) if values else 0.0
+    def mean(values: list[tuple[float, float]]) -> float:
+        total_weight = sum(weight for _value, weight in values)
+        if total_weight <= 0:
+            return 0.0
+        return float(sum(value * weight for value, weight in values) / total_weight)
 
     reference_peak = max(
         (float(reference.peak_memory_bytes or 0) for reference in references),
@@ -985,13 +1009,17 @@ def probe_tensor_sensitivity(
             candidate_key(candidate.bits, candidate.method, candidate.group_size)
             for candidate in probe_candidates
         }
-        # Early-termination tracks cheapest loss per (method, group_size).
-        cheaper_loss: dict[tuple[QuantMethod, int], float] = {}
+        # Early-termination compares a candidate only against strictly
+        # lower-bit (genuinely cheaper) measurements on the same
+        # (method, group_size) track. Tracking a single minimum across all
+        # bit-widths would let higher-bit seeds from a base report falsely
+        # dominate a healthy low-bit candidate.
+        track_losses: dict[tuple[QuantMethod, int], dict[int, float]] = {}
         for candidate in probe_candidates:
             if candidate.bits < 16 and candidate.supported and candidate.group_size is not None:
-                loss_track = (candidate.method, candidate.group_size)
-                previous = cheaper_loss.get(loss_track)
-                cheaper_loss[loss_track] = (
+                per_bits = track_losses.setdefault((candidate.method, candidate.group_size), {})
+                previous = per_bits.get(candidate.bits)
+                per_bits[candidate.bits] = (
                     candidate.metrics.output_kl
                     if previous is None
                     else min(previous, candidate.metrics.output_kl)
@@ -1059,8 +1087,11 @@ def probe_tensor_sensitivity(
                                     ),
                                 }
                             )
-                        loss_key = (method, group_size)
-                        previous_loss = cheaper_loss.get(loss_key)
+                        per_bits = track_losses.setdefault((method, group_size), {})
+                        cheaper = [
+                            loss for track_bits, loss in per_bits.items() if track_bits < bits
+                        ]
+                        previous_loss = min(cheaper) if cheaper else None
                         dominated = (
                             previous_loss is not None
                             and metrics.output_kl > previous_loss * config.early_termination_factor
@@ -1092,10 +1123,11 @@ def probe_tensor_sensitivity(
                             )
                         )
                         existing_keys.add(cand_key)
-                        cheaper_loss[loss_key] = (
+                        recorded = per_bits.get(bits)
+                        per_bits[bits] = (
                             metrics.output_kl
-                            if previous_loss is None
-                            else min(previous_loss, metrics.output_kl)
+                            if recorded is None
+                            else min(recorded, metrics.output_kl)
                         )
                     except ProbeError as exc:
                         probe_candidates.append(

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from axquant.benchmark_evidence import formal_mtp_bundle_issues
 from axquant.campaign import (
     FLAGSHIP_SOURCE_MODEL_ID,
     FLAGSHIP_SOURCE_REVISION,
@@ -21,10 +22,13 @@ from axquant.schema import (
     ArtifactLifecycleRegistry,
     ArtifactLifecycleState,
     ArtifactManifest,
+    BenchmarkEvidenceIndex,
+    BenchmarkEvidenceKind,
     CampaignDatasetRole,
     CampaignPreflight,
     CampaignState,
     CandidateKey,
+    EvaluationBundle,
     EvidenceArchiveIndex,
     FinalPublicationReviewRecord,
     FlagshipArchiveProof,
@@ -42,6 +46,7 @@ from axquant.schema import (
     QuantMethod,
     ReleaseAuditCheck,
     ReleaseAuditRequest,
+    ReleaseValidationIndex,
     ReproductionReviewRecord,
     ReproductionVerification,
     SourceCheckpointManifest,
@@ -342,6 +347,67 @@ def _host_issues(
     return issues
 
 
+def _formal_mtp_admissibility_issues(
+    *,
+    legacy_request_path: Path,
+    legacy_request: ReleaseAuditRequest,
+    campaign: FlagshipCampaign,
+    hardware_registry: HardwareProfileRegistry,
+) -> list[str]:
+    """RM-20: MTP A/B bundles must bind the frozen formal-host contract.
+
+    The authorized device identity comes from the digest-bound hardware
+    registry (itself validated against the contract's OS and power mode), so
+    a bundle recorded on any other machine — or with drifted controls — is
+    named in the audit instead of silently authorizing speed claims.
+    """
+    identities = {
+        (entry.hardware.device_name, entry.hardware.chip) for entry in hardware_registry.entries
+    }
+    if len(identities) != 1:
+        return ["hardware registry entries disagree on the formal device identity"]
+    device_name, chip = next(iter(identities))
+    validation_path = Path(legacy_request.release_validation_index).expanduser()
+    if not validation_path.is_absolute():
+        validation_path = (legacy_request_path.parent / validation_path).resolve()
+    validation_index = load_model(validation_path, ReleaseValidationIndex)
+    issues: list[str] = []
+    for entry in validation_index.entries:
+        benchmark_path = Path(entry.benchmark_index_file).expanduser()
+        if not benchmark_path.is_absolute():
+            benchmark_path = (validation_path.parent / benchmark_path).resolve()
+        benchmark = load_model(benchmark_path, BenchmarkEvidenceIndex)
+        bundles: dict[BenchmarkEvidenceKind, EvaluationBundle] = {}
+        for benchmark_entry in benchmark.entries:
+            if benchmark_entry.kind not in (
+                BenchmarkEvidenceKind.AXQUANT_MTP_OFF,
+                BenchmarkEvidenceKind.AXQUANT_MTP_ON,
+            ):
+                continue
+            if benchmark_entry.status != "available" or not benchmark_entry.evaluation_file:
+                continue
+            bundle_path = Path(benchmark_entry.evaluation_file).expanduser()
+            if not bundle_path.is_absolute():
+                bundle_path = (benchmark_path.parent / bundle_path).resolve()
+            bundles[benchmark_entry.kind] = load_model(bundle_path, EvaluationBundle)
+        mtp_off = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_OFF)
+        mtp_on = bundles.get(BenchmarkEvidenceKind.AXQUANT_MTP_ON)
+        if mtp_off is None or mtp_on is None:
+            issues.append(f"{entry.profile.value}: formal MTP off/on bundle pair is unavailable")
+            continue
+        issues.extend(
+            f"{entry.profile.value}: {issue}"
+            for issue in formal_mtp_bundle_issues(
+                mtp_off=mtp_off,
+                mtp_on=mtp_on,
+                contract=campaign.formal_host,
+                authorized_device_name=device_name,
+                authorized_chip=chip,
+            )
+        )
+    return issues
+
+
 def _final_claim_issues(
     *,
     request: FlagshipReleaseAuditRequest,
@@ -536,7 +602,8 @@ def build_flagship_release_audit(
         sensitivity_path = (legacy_request_path.parent / sensitivity_path).resolve()
     activation_binding_path = _path(root, request.activation_capture_or_sentinel)
     uses_capture = any(
-        assignment.method in {QuantMethod.AWQ, QuantMethod.GPTQ} for assignment in plan.assignments
+        assignment.method in {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
+        for assignment in plan.assignments
     )
     if uses_capture:
         from axquant.capture import load_capture_activations
@@ -666,7 +733,7 @@ def build_flagship_release_audit(
             authorization=hardware_authorization,
         )
     )
-    _bind_evidence(checks_by_gate["M7"], "hardware_registry_mgp_m5", hardware_path)
+    _bind_evidence(checks_by_gate["M7"], "hardware_registry_mbp_m5", hardware_path)
     _bind_evidence(
         checks_by_gate["M7"],
         "hardware_authorization",
@@ -676,6 +743,14 @@ def build_flagship_release_audit(
         checks_by_gate["M7"],
         "hardware_authorization_attestation",
         (hardware_authorization_path.parent / hardware_authorization.attestation.path).resolve(),
+    )
+    m7.extend(
+        _formal_mtp_admissibility_issues(
+            legacy_request_path=legacy_request_path,
+            legacy_request=legacy_request,
+            campaign=campaign,
+            hardware_registry=hardware,
+        )
     )
     _bind_evidence(checks_by_gate["M7"], "reproduction_review", reproduction_path)
     _bind_evidence(

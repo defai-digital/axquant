@@ -846,9 +846,11 @@ def result_to_evaluation_bundle(
         # trials whose backend reported no MTP counters (e.g. direct fallback)
         # would otherwise dilute the averages and inflate tokens-per-forward.
         accepted_reporting = [t for t in measured if t.mtp_accepted_tokens is not None]
+        paired_reporting = [t for t in accepted_reporting if t.mtp_proposed_tokens is not None]
+        paired_accepted = sum(t.mtp_accepted_tokens or 0 for t in paired_reporting)
+        total_proposed = sum(t.mtp_proposed_tokens or 0 for t in paired_reporting)
+        acceptance_rate = paired_accepted / total_proposed if total_proposed > 0 else None
         total_accepted = sum(t.mtp_accepted_tokens or 0 for t in accepted_reporting)
-        total_proposed = sum(t.mtp_proposed_tokens or 0 for t in accepted_reporting)
-        acceptance_rate = total_accepted / total_proposed if total_proposed > 0 else None
         avg_accepted = total_accepted / len(accepted_reporting) if accepted_reporting else None
         steps_reporting = [t for t in measured if t.mtp_decode_steps is not None]
         total_decode_steps = sum(t.mtp_decode_steps or 0 for t in steps_reporting)
@@ -1356,11 +1358,14 @@ def run_mtp_ab(
         runner=runner,
         output_dir=Path(output_dir) / "mtp-on" if output_dir else None,
     )
+    # The persisted comparison must never claim a passed speed gate against a
+    # 0.0 floor: when the caller requests no enforcement floor, record the
+    # standard 1.20 release floor so speedup_pass/release_ready stay honest.
     comparison = compare_mtp_ab_results(
         direct_result,
         mtp_result,
         profile_name="benchmark-ab",
-        minimum_speedup=minimum_speedup if minimum_speedup is not None else 0.0,
+        minimum_speedup=minimum_speedup if minimum_speedup is not None else 1.20,
     )
     if output_dir is not None:
         write_data(Path(output_dir) / "mtp_ab_comparison.json", comparison)

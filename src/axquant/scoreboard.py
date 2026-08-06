@@ -260,7 +260,10 @@ def build_scoreboard(
                 not same_model_identity(identity, mtp.model) for identity in candidate_identities
             ):
                 raise ArtifactError("MTP A/B and candidate evidence identify different checkpoints")
-        if mtp.exactness_pass != (mtp.divergent_trial_count == 0):
+        # The producer legitimately emits exactness_pass=False with zero
+        # divergent trials (failed-trial / trial-set / MTP-inactive issues),
+        # so only the tampered direction is inconsistent.
+        if mtp.exactness_pass and mtp.divergent_trial_count > 0:
             raise ArtifactError("MTP A/B exactness status is inconsistent with divergent trials")
         if mtp.speedup is None:
             if mtp.speedup_pass:

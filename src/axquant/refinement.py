@@ -23,6 +23,7 @@ from axquant.profiles import objective_for, thresholds_for
 from axquant.schema import (
     Allocation,
     ArtifactManifest,
+    CampaignDatasetRole,
     CandidateEntry,
     CandidateMeasurement,
     CompleteCandidateHardware,
@@ -79,7 +80,14 @@ def _allocation_distribution(
     *,
     mtp_only: bool = False,
 ) -> dict[str, PrecisionShare]:
-    selected = [assignment for assignment in assignments if not mtp_only or assignment.role.is_mtp]
+    # Zero-parameter allocations are excluded exactly like the planner /
+    # manual `_distribution` helpers and the plan schema validator; keeping
+    # them would fail `precision_distributions_match_assignments` on rebuild.
+    selected = [
+        assignment
+        for assignment in assignments
+        if assignment.parameters > 0 and (not mtp_only or assignment.role.is_mtp)
+    ]
     total_parameters = sum(assignment.parameters for assignment in selected)
     if total_parameters == 0:
         return {}
@@ -528,15 +536,19 @@ def coordinate_descent_swap(
         if entry.tensor.tied_to is not None or alloc.tensor in tied_targets:
             # A one-coordinate mutation cannot preserve shared physical storage.
             continue
+        if fused_expert_module(alloc.module_path) is not None:
+            # A one-coordinate mutation cannot preserve fused-expert group
+            # uniformity: every expert in a switch group must share one
+            # (bits, method, group_size) signature or the conversion
+            # predicate rejects the plan.
+            continue
 
         # Try the closest precision upgrade that satisfies both the original
         # request grid and the hardware policy, and actually reduces measured
         # objective loss.
         legal_upgrades = []
+        packed_expert = bool(packed_expert_runtime_modules(alloc.module_path))
         for candidate in entry.candidates:
-            fused_or_packed_expert = fused_expert_module(alloc.module_path) is not None or bool(
-                packed_expert_runtime_modules(alloc.module_path)
-            )
             if (
                 candidate.bits > alloc.bits
                 and candidate.supported
@@ -551,7 +563,7 @@ def coordinate_descent_swap(
                     or candidate.method == QuantMethod.BF16
                 )
                 and (
-                    not fused_or_packed_expert
+                    not packed_expert
                     or candidate.bits == 16
                     or candidate.method == QuantMethod.AFFINE
                 )
@@ -943,33 +955,122 @@ def _validate_complete_measurement(
         )
 
 
+# ADR-0004: formal holdout roles are consumed-on-contact and must never feed
+# the interaction-optimization loop. Values mirror CampaignDatasetRole.
+FORMAL_HOLDOUT_ROLES = frozenset(
+    {
+        CampaignDatasetRole.FORMAL_AGENT_CODING.value,
+        CampaignDatasetRole.FORMAL_GENERAL.value,
+    }
+)
+
+
+def guard_interaction_measurement_roles(measurements: RefinementMeasurementSet) -> None:
+    """Fail closed unless every measurement proves a non-holdout dataset role."""
+    holdout = sorted(
+        {
+            measurement.measurement_id
+            for measurement in measurements.measurements
+            if measurement.dataset_role in FORMAL_HOLDOUT_ROLES
+        }
+    )
+    if holdout:
+        raise RefinementError(
+            "interaction optimization must never consume formal holdout "
+            f"measurements: {holdout[:10]}"
+        )
+    unproven = sorted(
+        {
+            measurement.measurement_id
+            for measurement in measurements.measurements
+            if not measurement.dataset_role.strip()
+        }
+    )
+    if unproven:
+        raise RefinementError(
+            "interaction optimization requires dataset-role provenance on every "
+            f"measurement; missing for: {unproven[:10]}"
+        )
+
+
+def optimize_candidate_interactions(
+    refinement: RefinementResult,
+    measurements: RefinementMeasurementSet,
+) -> RefinementResult:
+    """Measured interaction optimization on non-holdout roles (RM-11 / ADR-0004).
+
+    Runs the same checksum-bound complete-model selection as
+    ``select_complete_candidate`` but structurally cannot read formal holdout
+    evidence: every measurement must carry a development/validation dataset
+    role. The result is labeled ``interaction-development`` — it never claims
+    holdout binding, and the formal holdout still sees the frozen winner
+    exactly once.
+    """
+    guard_interaction_measurement_roles(measurements)
+    return _select_from_measurements(
+        refinement,
+        measurements,
+        mode="interaction",
+        evidence_label="interaction-development",
+        selection_note=(
+            "Selection driven by interaction-development complete-candidate "
+            "measurements (digest {digest}); formal holdout remains unconsumed."
+        ),
+    )
+
+
 def select_complete_candidate(
     refinement: RefinementResult,
     measurements: RefinementMeasurementSet,
 ) -> RefinementResult:
     """Select a candidate only from checksum-bound complete-model evidence."""
+    return _select_from_measurements(
+        refinement,
+        measurements,
+        mode="holdout",
+        evidence_label="holdout-bound",
+        selection_note=(
+            "Selection bound to holdout complete-candidate measurements (digest {digest})."
+        ),
+    )
+
+
+def _select_from_measurements(
+    refinement: RefinementResult,
+    measurements: RefinementMeasurementSet,
+    *,
+    mode: str,
+    evidence_label: str,
+    selection_note: str,
+) -> RefinementResult:
     measurement_digest = stable_sha256(measurements)
     if not measurements.evaluator_version.strip():
         raise RefinementError("measurement set evaluator version is empty")
-    configured_holdout = refinement.config.holdout_measurement_set_sha256
-    recorded_holdout = refinement.holdout_measurement_set_sha256
-    if (
-        configured_holdout is not None
-        and recorded_holdout is not None
-        and configured_holdout != recorded_holdout
-    ):
-        raise RefinementError("refinement contains conflicting holdout measurement bindings")
-    expected_holdout = configured_holdout or recorded_holdout
-    if expected_holdout is not None and measurement_digest != expected_holdout:
-        raise RefinementError(
-            "holdout measurement set digest does not match refinement binding: "
-            f"expected {expected_holdout}, got {measurement_digest}"
-        )
-    # An explicit holdout digest and the measurement set's refinement digest
-    # cannot both include one another without a circular hash. In the ordinary
-    # unconfigured workflow, require the measurement set's direct binding.
-    if expected_holdout is None and measurements.refinement_sha256 != stable_sha256(refinement):
-        raise RefinementError("measurement set does not bind the refinement result")
+    if mode == "interaction":
+        # Interaction measurements always bind the refinement result directly;
+        # any configured holdout digest describes a different, future set.
+        if measurements.refinement_sha256 != stable_sha256(refinement):
+            raise RefinementError("measurement set does not bind the refinement result")
+    else:
+        configured_holdout = refinement.config.holdout_measurement_set_sha256
+        recorded_holdout = refinement.holdout_measurement_set_sha256
+        if (
+            configured_holdout is not None
+            and recorded_holdout is not None
+            and configured_holdout != recorded_holdout
+        ):
+            raise RefinementError("refinement contains conflicting holdout measurement bindings")
+        expected_holdout = configured_holdout or recorded_holdout
+        if expected_holdout is not None and measurement_digest != expected_holdout:
+            raise RefinementError(
+                "holdout measurement set digest does not match refinement binding: "
+                f"expected {expected_holdout}, got {measurement_digest}"
+            )
+        # An explicit holdout digest and the measurement set's refinement digest
+        # cannot both include one another without a circular hash. In the ordinary
+        # unconfigured workflow, require the measurement set's direct binding.
+        if expected_holdout is None and measurements.refinement_sha256 != stable_sha256(refinement):
+            raise RefinementError("measurement set does not bind the refinement result")
     candidates_by_id = refinement.candidate_plans
     history_ids = [entry.candidate_id for entry in refinement.history]
     if len(history_ids) != len(set(history_ids)):
@@ -1038,8 +1139,11 @@ def select_complete_candidate(
     warnings = [
         warning for warning in refinement.warnings if "Proxy-only refinement" not in warning
     ]
-    warnings.append(
-        f"Selection bound to holdout complete-candidate measurements (digest {measurement_digest})."
+    warnings.append(selection_note.format(digest=measurement_digest))
+    binding_field = (
+        "interaction_measurement_set_sha256"
+        if mode == "interaction"
+        else "holdout_measurement_set_sha256"
     )
     return refinement.model_copy(
         update={
@@ -1048,8 +1152,8 @@ def select_complete_candidate(
             "selected_plan": selected_plan,
             "selected_plan_sha256": stable_sha256(selected_plan),
             "selection_basis": "complete-model",
-            "evidence_label": "holdout-bound",
-            "holdout_measurement_set_sha256": measurement_digest,
+            "evidence_label": evidence_label,
+            binding_field: measurement_digest,
             "warnings": warnings,
         }
     )
@@ -1066,6 +1170,7 @@ def build_complete_candidate_measurement(
     quality_sha256: str,
     validation: ValidationReport,
     validation_sha256: str,
+    dataset_role: str = "",
 ) -> CompleteCandidateMeasurement:
     """Build checksum-bound complete-model evidence from release artifacts."""
     for label, digest in (
@@ -1222,6 +1327,7 @@ def build_complete_candidate_measurement(
         measurement_id=measurement_id or candidate_id,
         candidate_model=validation.candidate_model,
         profile=plan.profile,
+        dataset_role=dataset_role,
         plan_sha256=plan_sha256,
         artifact_manifest_sha256=artifact_sha256,
         quality_comparison_sha256=quality_sha256,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import re
 from pathlib import Path
 
 from axquant.errors import BenchmarkError
@@ -113,11 +114,15 @@ def evaluate_general_quality(
             generated_tokens = active_backend.count_tokens(output)
             score, check_scores = score_quality_task_output(task, output)
             model_error = None
-        except (BenchmarkError, RuntimeError, ValueError) as exc:
+        except (BenchmarkError, RuntimeError, ValueError, re.error) as exc:
             output = ""
             generated_tokens = 0
             score = 0.0
-            check_scores = {}
+            # Match quality.py: a failed sample keeps every declared check at
+            # zero so validity denominators cannot silently shrink.
+            check_scores = {
+                f"{check.kind}:{check_index}": 0.0 for check_index, check in enumerate(task.checks)
+            }
             model_error = str(exc)
         completed[task.task_id] = DirectGeneralQualityModelOutput(
             task_id=task.task_id,

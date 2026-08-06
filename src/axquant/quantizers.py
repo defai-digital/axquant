@@ -321,6 +321,10 @@ class AffinePlugin:
         with np.errstate(divide="ignore", invalid="ignore"):
             zero_point = np.round(-w_min / scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "affine")
+        # Codes must use the float16-stored zero point: dequantize decodes
+        # with it, and beyond 2048 the stored value differs from the float32
+        # round result by whole quantization steps.
+        zero_point = stored_zero.astype(np.float32)
 
         # Quantize
         quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
@@ -421,6 +425,14 @@ class AwqPlugin:
         except PlanningError as exc:
             raise QuantizerError(str(exc)) from exc
 
+        channel_scales_meta = search_meta["awq_channel_scales"]
+        if not isinstance(channel_scales_meta, list):
+            raise QuantizerError("AWQ search metadata is missing channel scales")
+        # Scale with the float16-rounded values recorded in the metadata:
+        # dequantize divides by those, so scaling with the float32 originals
+        # would leave a systematic per-channel error in the reconstruction.
+        channel_scales = np.asarray(channel_scales_meta, dtype=np.float32)
+
         out_features, in_features = w.shape
         w_scaled = w * channel_scales[np.newaxis, :]
         w_grouped = w_scaled.reshape(out_features, in_features // group_size, group_size)
@@ -433,15 +445,13 @@ class AwqPlugin:
         with np.errstate(divide="ignore", invalid="ignore"):
             zero_point = np.round(-w_min / q_scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, q_scale, zero_point, "AWQ")
+        # Codes must use the float16-stored zero point (see AffinePlugin).
+        zero_point = stored_zero.astype(np.float32)
         quantized = np.clip(
             np.round(w_grouped / q_scale + zero_point),
             0,
             (1 << bits) - 1,
         )
-
-        channel_scales_meta = search_meta["awq_channel_scales"]
-        if not isinstance(channel_scales_meta, list):
-            raise QuantizerError("AWQ search metadata is missing channel scales")
         return QuantizedWeight(
             data=quantized.astype(np.uint8),
             scales=stored_scale,
@@ -509,9 +519,13 @@ class GptqPlugin:
     convert-time GPTQ refinement in ``axquant.gptq``.
     """
 
+    # Group-preserving act-order (ADR-0002) is a separate registered method so
+    # sensitivity candidates and plans distinguish the two orderings.
+    _act_order = False
+
     @property
     def method_id(self) -> QuantMethod:
-        return QuantMethod.GPTQ
+        return QuantMethod.GPTQ_ACT if self._act_order else QuantMethod.GPTQ
 
     @property
     def supported_bits(self) -> tuple[int, ...]:
@@ -556,16 +570,19 @@ class GptqPlugin:
                 calibration,
                 bits=bits,
                 group_size=group_size,
+                act_order=self._act_order,
             )
         except PlanningError as exc:
             raise QuantizerError(str(exc)) from exc
 
         # The refined weight sits on the static per-group grid of the original
-        # weight, so re-deriving that grid makes the integer codes exact.
+        # weight, so re-deriving that grid makes the integer codes exact. The
+        # min/max extension to zero must stay in lockstep with
+        # ``gptq._static_group_grid``.
         out_features, in_features = w.shape
         w_grouped = w.reshape(out_features, in_features // group_size, group_size)
-        w_min = w_grouped.min(axis=-1, keepdims=True)
-        w_max = w_grouped.max(axis=-1, keepdims=True)
+        w_min = np.minimum(w_grouped.min(axis=-1, keepdims=True), 0.0)
+        w_max = np.maximum(w_grouped.max(axis=-1, keepdims=True), 0.0)
         q_scale = (w_max - w_min) / ((1 << bits) - 1)
         q_scale = np.where(q_scale == 0, 1.0, q_scale)
         zero_point = np.clip(np.round(-w_min / q_scale), 0, (1 << bits) - 1)
@@ -583,12 +600,13 @@ class GptqPlugin:
             biases=stored_zero,
             bits=bits,
             group_size=group_size,
-            method=QuantMethod.GPTQ,
+            method=self.method_id,
             metadata={
                 "original_shape": list(original_shape),
                 "gptq_damping": float(refine_meta["gptq_damping"]),
                 "calibration_rows": int(refine_meta["calibration_rows"]),
                 "mean_quant_error": float(refine_meta["mean_quant_error"]),
+                "act_order": int(refine_meta["act_order"]),
             },
         )
 
@@ -606,6 +624,17 @@ class GptqPlugin:
             supported_group_sizes=self.supported_group_sizes,
             label="GPTQ",
         )
+
+
+class GptqActPlugin(GptqPlugin):
+    """Group-preserving act-order GPTQ plugin (ADR-0002).
+
+    Identical grid, group membership, and packed layout as ``GptqPlugin``;
+    only the column processing order follows the activation ordering, so
+    high-salience groups and columns quantize first.
+    """
+
+    _act_order = True
 
 
 class DwqPlugin:
@@ -688,6 +717,8 @@ class DwqPlugin:
         with np.errstate(divide="ignore", invalid="ignore"):
             zero_point = np.round(-w_min / scale)
         stored_scale, stored_zero = _stored_affine_parameters(np, scale, zero_point, "DWQ")
+        # Codes must use the float16-stored zero point (see AffinePlugin).
+        zero_point = stored_zero.astype(np.float32)
         quantized = np.clip(np.round(w_grouped / scale + zero_point), 0, (1 << bits) - 1)
 
         return QuantizedWeight(
@@ -748,6 +779,7 @@ def _register_defaults() -> None:
     registry.register(AwqPlugin())
     registry.register(DwqPlugin())
     registry.register(GptqPlugin())
+    registry.register(GptqActPlugin())
 
 
 # Register defaults on module import

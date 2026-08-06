@@ -87,7 +87,11 @@ def _precision(
     if rule is None and bits < minimum:
         bits = minimum
         method = QuantMethod.BF16 if bits == 16 else QuantMethod.AFFINE
-    if tensor.role.is_mtp and recipe.mtp.mode != "disabled":
+    # BF16 is always admissible for MTP tensors regardless of the policy's
+    # quantized candidate grid: protection floors (external sidecar, non-
+    # quantizable shapes) legitimately force 16-bit, matching planner.py's
+    # re-admittance of 16 for floored tensors.
+    if tensor.role.is_mtp and recipe.mtp.mode != "disabled" and bits < 16:
         allowed = set(recipe.mtp.candidate_bits)
         if bits not in allowed:
             if rule is not None:

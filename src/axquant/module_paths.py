@@ -14,11 +14,7 @@ _NEMOTRON_PROJ_TO_SWITCH = {
     "up_proj": "fc1",
     "down_proj": "fc2",
 }
-_QWEN_PACKED_EXPERT_TENSOR = re.compile(
-    r"^(?P<prefix>(?:model\.language_model|language_model\.model)\..*\.mlp)"
-    r"\.experts\.(?P<projection>gate_up_proj|down_proj)"
-    r"(?P<suffix>\.(?:weight|scales|biases))?$"
-)
+_PACKED_TENSOR_SUFFIXES = (".weight", ".scales", ".biases")
 
 
 def fused_expert_module(module_path: str) -> str | None:
@@ -179,18 +175,20 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
     if fused is not None:
         return (_mlx_wrapper_tensor_aliases(fused[0]),)
 
-    packed = _QWEN_PACKED_EXPERT_TENSOR.match(tensor_path)
-    if packed is None:
+    # Packed expert tensors must use the same alias rule as preflight and the
+    # quantization predicate (`_packed_expert_aliases`): a prefix-restricted
+    # rule here would accept a plan whose converted output can never bind.
+    packed_suffix = ".weight"
+    packed_module = tensor_path
+    for storage_suffix in _PACKED_TENSOR_SUFFIXES:
+        if tensor_path.endswith(storage_suffix):
+            packed_suffix = storage_suffix
+            packed_module = tensor_path.removesuffix(storage_suffix)
+            break
+    packed_aliases = _packed_expert_aliases(packed_module)
+    if not packed_aliases:
         return (_mlx_wrapper_tensor_aliases(tensor_path),)
-
-    suffix = packed.group("suffix") or ".weight"
-    projections = (
-        ("gate_proj", "up_proj") if packed.group("projection") == "gate_up_proj" else ("down_proj",)
-    )
-    return tuple(
-        _mlx_wrapper_tensor_aliases(f"{packed.group('prefix')}.switch_mlp.{projection}{suffix}")
-        for projection in projections
-    )
+    return tuple(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}") for alias in packed_aliases)
 
 
 def mlx_tensor_aliases(tensor_path: str) -> tuple[str, ...]:

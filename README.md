@@ -599,6 +599,9 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |
 | `benchmark` | Collect AX Engine runtime evidence | Implemented |
 | `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
+| `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
+| `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
+| `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |
 | `mtp-diagnose` | Run the MTP kill-switch diagnostic matrix | Implemented; diagnostic evidence only |
 | `benchmark-index` | Bind every required baseline or record why it is unavailable | Implemented |
 | `validation-index` | Require disjoint passing agent-coding and general evidence | Implemented |

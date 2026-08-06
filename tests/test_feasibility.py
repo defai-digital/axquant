@@ -458,3 +458,99 @@ def test_feasibility_cli_writes_json_and_markdown(tmp_path: Path) -> None:
         )
         == 1
     )
+
+
+def _qwen3_next_config(bits: int | None = None) -> dict[str, object]:
+    config: dict[str, object] = {
+        "architectures": ["Qwen3NextForCausalLM"],
+        "model_type": "qwen3_next",
+        "num_hidden_layers": 1,
+        "hidden_size": 2048,
+        "vocab_size": 151936,
+    }
+    if bits is not None:
+        config["quantization"] = {
+            "bits": bits,
+            "group_size": 64,
+            "mode": "affine",
+        }
+    return config
+
+
+def _mtp_free_quantized_baseline(tmp_path: Path, bits: int) -> Path:
+    model_dir = tmp_path / f"qwen3-next-{bits}bit"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(_qwen3_next_config(bits)),
+        encoding="utf-8",
+    )
+    shard_name = "model-00001-of-00001.safetensors"
+    packed_elements = 256 * bits // 32
+    save_file(
+        {
+            "language_model.model.layers.0.mlp.down_proj.weight": np.zeros(
+                (8, packed_elements // 8),
+                dtype=np.uint32,
+            ),
+            "language_model.model.layers.0.input_layernorm.weight": np.zeros(
+                (8,),
+                dtype=np.float32,
+            ),
+        },
+        model_dir / shard_name,
+    )
+    _write_shared_files(model_dir, shard_name)
+    (model_dir / "model-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "ax.native_model.v1",
+                "tensors": [
+                    {
+                        "name": "language_model.model.layers.0.mlp.down_proj.weight",
+                        "role": "mlp",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return model_dir
+
+
+def _mtp_free_bf16_source(tmp_path: Path) -> Path:
+    model_dir = tmp_path / "qwen3-next-bf16"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(_qwen3_next_config()),
+        encoding="utf-8",
+    )
+    shard_name = "model-00001-of-00001.safetensors"
+    _save_raw_safetensors(
+        {
+            "language_model.model.layers.0.mlp.down_proj.weight": ("BF16", (16, 16)),
+            "language_model.model.layers.0.input_layernorm.weight": ("BF16", (8,)),
+        },
+        model_dir / shard_name,
+    )
+    _write_shared_files(model_dir, shard_name)
+    return model_dir
+
+
+def test_feasibility_reaches_ready_for_mtp_free_checkpoints(tmp_path: Path) -> None:
+    # MTP-free families (the Qwen3-Next direct track) must be able to reach
+    # ready-for-conversion; only a mixed set (some checkpoints with MTP,
+    # some without) is a blocker.
+    four = _mtp_free_quantized_baseline(tmp_path, 4)
+    six = _mtp_free_quantized_baseline(tmp_path, 6)
+    source = _mtp_free_bf16_source(tmp_path)
+
+    report = assess_feasibility(
+        reference_4bit=_target(four, BaselineKind.UNIFORM_4BIT, "a" * 40),
+        reference_6bit=_target(six, BaselineKind.UNIFORM_6BIT, "b" * 40),
+        source_bf16=_target(source, BaselineKind.BF16_SOURCE, "c" * 40),
+    )
+
+    assert report.status == "ready-for-conversion"
+    assert report.blockers == []
+    assert report.checks["mtp_tensors_present"] is False
+    assert all(audit.mtp_logical_parameters == 0 for audit in report.baselines)

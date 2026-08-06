@@ -10,6 +10,53 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ### Added
 
+- Group-preserving GPTQ act-order as the new `gptq-act` method (ADR-0002): groups process in
+  descending Hessian-mass order and columns by Hessian diagonal, while group membership and the
+  portable affine packed layout stay byte-compatible with static-grid GPTQ. Registered as a
+  distinct probe/plan/convert method label so the measured frontier — not the literature —
+  decides adoption per tensor.
+- Measured-holdout-safe interaction optimization (`optimize_candidate_interactions`, ADR-0004):
+  complete-candidate selection driven by measured evaluations on development dataset roles,
+  with a fail-closed guard that rejects formal-holdout or missing `dataset_role` provenance and
+  a separate `interaction_measurement_set_sha256` binding so the formal holdout binding stays
+  free for final selection.
+- Kernel-latency-aware planning (ADR-0003): `benchmark-kernels` measures decode/prefill GEMM
+  latency per (bits, group size) on the current host into a host-scoped
+  `axquant.kernel-latency.v1` table; `plan --latency-table` re-ranks candidates by measured
+  kernel speed strictly inside the quality near-tie window and records
+  `cost_model` / `kernel_latency_sha256` / host provenance on the plan. Without a table,
+  planning is bit-identical to before.
+- Method near-tie surfacing (RM-14): plans record `method_near_ties` (capped, most fragile
+  first, with an explicit omitted count) wherever a losing packing method lands within the
+  configurable `method_near_tie_epsilon` of the winner at the same storage key.
+- Report-only measured-KV serving-quality artifact (`axquant.kv-serving-quality.v1`, RM-21):
+  binds the executed per-layer KV plan digest to dual-profile short/long-context quality
+  retention versus BF16 KV, and fails closed unless the mlx-lm-kv runtime check proved exact
+  per-layer execution.
+- Formal MTP A/B admissibility (`formal_mtp_bundle_issues`, RM-20): an MTP off/on evaluation
+  pair is authorizing only when both halves bind the frozen formal-host contract (device, chip,
+  OS, power mode), share identical controls, datasets, seeds, and checkpoint, and report zero
+  kernel fallbacks.
+- Opt-in quantized MTP sidecar (`quantize_qwen36_mtp_sidecar`, ADR-0005): a separate
+  `axquant-portable-affine-u8` artifact emitted alongside the untouched byte-preserved default,
+  gated on a recorded passing AX Engine capability check for the quantized MTP layout.
+- End-to-end CLI and audit wiring for the new evidence paths: `refine-select --interaction`
+  runs the holdout-safe interaction selection; `quantize-mtp-sidecar` executes a live AX Engine
+  capability probe (`--capability-command`, subprocess JSON contract) or consumes a recorded
+  check (`--capability-result`) before emitting the quantized sidecar; `kv-serving-quality`
+  builds the report-only KV artifact from an executed plan, kv_exec summary, and measured
+  results; and the flagship M7 gate now loads both MTP A/B bundles from the release validation
+  chain and enforces `formal_mtp_bundle_issues` against the frozen `mbp-m5` contract and the
+  digest-bound hardware-registry device identity.
+
+### Changed
+
+- Experimental 2/3-bit assignment is restricted to robust-trunk tensor classes (MLP and expert
+  projections, RM-42); attention and all protected roles keep 4-bit-and-up candidates, and
+  experimental plans now list every low-bit tensor with its predicted loss in the plan warnings.
+- The default hardware profile is `ax-engine-apple-silicon-affine-dwq-v3`, adding `gptq-act`
+  to the supported method set. Previously serialized plans keep their recorded v2 profile.
+
 - Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct text-path conversion through public MLX-Audio and
   MLX-VLM APIs, protected BF16 modality towers, architecture-specific runtime metadata, media
   generation smokes, and four stable-name AXQ v2 development repositories.

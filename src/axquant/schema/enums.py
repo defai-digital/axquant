@@ -32,6 +32,9 @@ class QuantMethod(StrEnum):
     AWQ = "awq"
     DWQ = "dwq"
     GPTQ = "gptq"
+    # Group-preserving act-order GPTQ (ADR-0002): same portable affine packing
+    # as ``gptq``, distinct label so the probe measures it as its own candidate.
+    GPTQ_ACT = "gptq-act"
     BF16 = "bf16"
 
 

@@ -145,6 +145,7 @@ def _probe_methods(value: str) -> tuple[QuantMethod, ...]:
         QuantMethod.DWQ,
         QuantMethod.AWQ,
         QuantMethod.GPTQ,
+        QuantMethod.GPTQ_ACT,
     }
     if unsupported:
         names = ", ".join(sorted(method.value for method in unsupported))
@@ -464,6 +465,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "quality evidence",
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
+    plan_parser.add_argument(
+        "--latency-table",
+        help="optional axquant.kernel-latency.v1 table (ADR-0003): re-ranks "
+        "candidates by measured kernel speed inside the quality near-tie "
+        "window; without it planning is bit-identical to abstract-BPW",
+    )
     plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
     plan_parser.add_argument("--kv-default-bits", type=_kv_default_bit, default=4)
     plan_parser.add_argument("--kv-analysis", help="KV sensitivity report for --kv-cache measured")
@@ -830,6 +837,66 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     runtime_parser.add_argument("--output", default="runtime_check.json")
 
+    quantize_mtp_parser = subparsers.add_parser("quantize-mtp-sidecar")
+    quantize_mtp_parser.add_argument(
+        "--sidecar",
+        required=True,
+        help="byte-preserved MTP sidecar Safetensors (stays untouched; ADR-0005)",
+    )
+    quantize_mtp_parser.add_argument("--output", required=True)
+    quantize_mtp_parser.add_argument("--bits", type=int, default=4)
+    quantize_mtp_parser.add_argument("--group-size", type=int, default=64)
+    quantize_mtp_parser.add_argument(
+        "--capability-command",
+        help="AX Engine capability probe command executed as a subprocess; its "
+        "JSON output must prove the runtime executes the quantized MTP layout",
+    )
+    quantize_mtp_parser.add_argument(
+        "--capability-result",
+        help="previously recorded AxEngineMtpCapabilityCheck JSON (alternative "
+        "to --capability-command for air-gapped evidence flows)",
+    )
+    quantize_mtp_parser.add_argument("--manifest-output", default="mtp_sidecar_quantized.json")
+
+    kv_quality_parser = subparsers.add_parser("kv-serving-quality")
+    kv_quality_parser.add_argument(
+        "--plan",
+        required=True,
+        help="quantization plan JSON whose kv_cache section was executed",
+    )
+    kv_quality_parser.add_argument(
+        "--execution-summary",
+        required=True,
+        help="JSON summary emitted by the mlx-lm-kv execution run (axquant.kv_exec)",
+    )
+    kv_quality_parser.add_argument(
+        "--results",
+        required=True,
+        help="JSON array of per-profile, per-context KV quality results",
+    )
+    kv_quality_parser.add_argument(
+        "--kv-sensitivity-sha256",
+        help="override for the measured KV sensitivity digest; defaults to the "
+        "plan's own kv_cache binding",
+    )
+    kv_quality_parser.add_argument("--output", default="kv_serving_quality.json")
+
+    benchmark_kernels_parser = subparsers.add_parser("benchmark-kernels")
+    benchmark_kernels_parser.add_argument(
+        "--host-id",
+        required=True,
+        help="hardware-registry host identifier the timings bind to (ADR-0003)",
+    )
+    benchmark_kernels_parser.add_argument("--chip", required=True)
+    benchmark_kernels_parser.add_argument("--os-version", required=True)
+    benchmark_kernels_parser.add_argument("--bits", type=_bits, default=(2, 3, 4, 6, 8))
+    benchmark_kernels_parser.add_argument("--group-sizes", type=_group_sizes, default=(32, 64, 128))
+    benchmark_kernels_parser.add_argument("--hidden-sizes", type=_group_sizes, default=(2048, 4096))
+    benchmark_kernels_parser.add_argument("--iterations", type=int, default=20)
+    benchmark_kernels_parser.add_argument("--warmup", type=int, default=5)
+    benchmark_kernels_parser.add_argument("--seed", type=int, default=0)
+    benchmark_kernels_parser.add_argument("--output", default="kernel_latency.json")
+
     benchmark_parser = subparsers.add_parser("benchmark")
     benchmark_parser.add_argument("--model", required=True)
     benchmark_parser.add_argument("--model-id")
@@ -1130,6 +1197,13 @@ def _build_parser() -> argparse.ArgumentParser:
     refine_select_parser = subparsers.add_parser("refine-select")
     refine_select_parser.add_argument("--refinement", required=True)
     refine_select_parser.add_argument("--measurements", required=True)
+    refine_select_parser.add_argument(
+        "--interaction",
+        action="store_true",
+        help="ADR-0004 interaction optimization: select from measured "
+        "development-role evidence only; fails closed on formal-holdout or "
+        "missing dataset-role provenance and never consumes the holdout binding",
+    )
     refine_select_parser.add_argument("--output", default="refinement_selected.json")
     refine_measure_parser = subparsers.add_parser("refine-measure")
     refine_measure_parser.add_argument("--refinement", required=True)

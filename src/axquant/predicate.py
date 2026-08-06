@@ -14,7 +14,7 @@ from axquant.module_paths import (
 )
 from axquant.schema import Allocation, QuantizationPlan
 
-_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq"})
+_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act"})
 
 
 def _without_weight_suffix(path: str) -> str:
@@ -173,7 +173,7 @@ class PlanPredicate:
                 bits=allocation.bits,
                 group_size=group_size,
             )
-        if allocation.method.value == "gptq" and self._execute_refinement:
+        if allocation.method.value in ("gptq", "gptq-act") and self._execute_refinement:
             group_size = allocation.group_size
             if group_size is None:
                 raise PlanningError(
@@ -185,6 +185,7 @@ class PlanPredicate:
                 activations=calibration,
                 bits=allocation.bits,
                 group_size=group_size,
+                act_order=allocation.method.value == "gptq-act",
             )
         return {
             "group_size": allocation.group_size,
@@ -228,7 +229,7 @@ def build_quant_predicate(
     calibration_assignments = [
         allocation
         for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.method.value in ("awq", "gptq")
+        if allocation.bits < 16 and allocation.method.value in ("awq", "gptq", "gptq-act")
     ]
     if calibration_assignments and execute_refinement and not calibration_activations:
         missing = sorted(allocation.module_path for allocation in calibration_assignments)

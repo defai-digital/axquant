@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import heapq
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
-from axquant.experimental_bits import annotate_experimental_low_bit_plan
+from axquant.experimental_bits import (
+    EXPERIMENTAL_LOW_BITS,
+    annotate_experimental_low_bit_plan,
+    robust_trunk_role,
+)
+from axquant.kernel_latency import decode_latency_provider
 from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
@@ -19,9 +25,11 @@ from axquant.schema import (
     ArchitectureSupportLevel,
     CandidateMeasurement,
     EvidenceKind,
+    KernelLatencyTable,
     KvCachePlan,
     KvLayerAllocation,
     KvSensitivityReport,
+    MethodNearTie,
     MetricVector,
     OutlierStrategy,
     PlanningConstraints,
@@ -40,6 +48,9 @@ from axquant.schema import (
 from axquant.serde import stable_sha256
 from axquant.versioning import collect_versions
 
+# RM-14 cap on surfaced near ties; the omitted count is always recorded.
+_MAX_NEAR_TIES = 256
+
 
 @dataclass(frozen=True)
 class _Option:
@@ -47,6 +58,13 @@ class _Option:
     loss: float
     storage_bpw: float
     ranking_loss: float
+    # Best losing option with a different method at the same storage key whose
+    # loss lands within the request's near-tie epsilon (RM-14).
+    near_tie: CandidateMeasurement | None = None
+    near_tie_loss: float = 0.0
+    # Measured decode latency for this configuration (ADR-0003); None when no
+    # kernel-latency table was supplied or the configuration was not measured.
+    decode_latency_us: float | None = None
 
 
 @dataclass
@@ -56,6 +74,7 @@ class _Choice:
     index: int = 0
     upgraded: bool = False
     policy_reason: str | None = None
+    latency_polished: bool = False
 
     @property
     def selected(self) -> _Option:
@@ -63,22 +82,27 @@ class _Choice:
 
 
 _PrecisionSignature = tuple[int, QuantMethod, int | None]
-_UpgradeCandidate = tuple[float, int, float]
+_UpgradeCandidate = tuple[float, int, float, int]
 
 
 def _next_upgrade_candidate(choice_index: int, choice: _Choice) -> _UpgradeCandidate | None:
-    if choice.index + 1 >= len(choice.options):
-        return None
     current = choice.options[choice.index]
-    upgraded = choice.options[choice.index + 1]
-    delta_storage = (upgraded.storage_bpw - current.storage_bpw) * choice.entry.tensor.parameters
-    if delta_storage <= 0:
-        return None
-    benefit = current.ranking_loss - upgraded.ranking_loss
-    if benefit <= 0:
-        return None
-    efficiency = benefit * choice.entry.tensor.parameters / delta_storage
-    return efficiency, choice_index, delta_storage
+    for target_index in range(choice.index + 1, len(choice.options)):
+        upgraded = choice.options[target_index]
+        delta_storage = (
+            upgraded.storage_bpw - current.storage_bpw
+        ) * choice.entry.tensor.parameters
+        if delta_storage <= 0:
+            continue
+        benefit = current.ranking_loss - upgraded.ranking_loss
+        if benefit <= 0:
+            # Role-preference discounts make ranking loss non-monotone along
+            # the raw-loss frontier; a non-improving rung must not dead-end
+            # the chain while later rungs still improve within the budget.
+            continue
+        efficiency = benefit * choice.entry.tensor.parameters / delta_storage
+        return efficiency, choice_index, delta_storage, target_index
+    return None
 
 
 def _apply_budget_upgrades(
@@ -97,26 +121,26 @@ def _apply_budget_upgrades(
     edge is selected.
     """
 
-    pending: list[tuple[float, int, float]] = []
+    pending: list[tuple[float, int, float, int]] = []
 
     def enqueue(choice_index: int) -> None:
         candidate = _next_upgrade_candidate(choice_index, choices[choice_index])
         if candidate is None:
             return
-        efficiency, index, delta_storage = candidate
-        heapq.heappush(pending, (-efficiency, -index, -delta_storage))
+        efficiency, index, delta_storage, target_index = candidate
+        heapq.heappush(pending, (-efficiency, -index, -delta_storage, target_index))
 
     for choice_index in range(len(choices)):
         enqueue(choice_index)
 
     while pending:
-        _negative_efficiency, negative_index, negative_delta = heapq.heappop(pending)
+        _negative_efficiency, negative_index, negative_delta, target_index = heapq.heappop(pending)
         choice_index = -negative_index
         delta_storage = -negative_delta
         if running_storage_bits + delta_storage > target_storage_bits + 1e-6:
             continue
         choice = choices[choice_index]
-        choice.index += 1
+        choice.index = target_index
         choice.upgraded = True
         running_storage_bits += delta_storage
         enqueue(choice_index)
@@ -389,7 +413,7 @@ def strategy_for_measurement(
         return ScaleStrategy.NONE, OutlierStrategy.NONE
     if measurement.method == QuantMethod.AWQ:
         return ScaleStrategy.CHANNEL_AWQ, OutlierStrategy.NONE
-    if measurement.method == QuantMethod.GPTQ:
+    if measurement.method in (QuantMethod.GPTQ, QuantMethod.GPTQ_ACT):
         return ScaleStrategy.GPTQ_HESSIAN, OutlierStrategy.NONE
     if measurement.method == QuantMethod.DWQ:
         return ScaleStrategy.GROUP_AFFINE, OutlierStrategy.PERCENTILE_CLIP_DWQ
@@ -425,6 +449,7 @@ def _options_for(
     weights: dict[str, float],
     *,
     evidence_kind: EvidenceKind,
+    latency_lookup: Callable[[int, int | None, QuantMethod, int], float | None] | None = None,
 ) -> tuple[list[_Option], str | None]:
     """Build a bits x group x method option ladder under hard floors (AXQ-028/QP1)."""
     minimum_bits, reason = _minimum_bits(entry, request)
@@ -453,6 +478,9 @@ def _options_for(
         and candidate.bits >= minimum_bits
         and candidate.bits in request.hardware.supported_bits
         and candidate.method in request.hardware.supported_methods
+        # RM-42: experimental 2/3-bit stays on the robust trunk; other roles
+        # keep their 4-bit-and-up candidates even when low bits are requested.
+        and (candidate.bits not in EXPERIMENTAL_LOW_BITS or robust_trunk_role(role))
         and (
             not (fused_expert or packed_expert)
             or candidate.bits == 16
@@ -476,9 +504,21 @@ def _options_for(
             f"{entry.tensor.name} has no candidate satisfying the precision and hardware policy"
         )
     # Collapse same storage key (bits, group_size) with role-aware method preference.
+    tensor_shape = entry.tensor.shape
+    hidden_size = int(tensor_shape[-1]) if len(tensor_shape) >= 2 else 0
     options_by_key: dict[tuple[int, int | None], list[_Option]] = {}
     for candidate in candidates:
         raw_loss = _loss(candidate.metrics, weights)
+        decode_latency_us = (
+            latency_lookup(
+                candidate.bits,
+                candidate.group_size,
+                candidate.method,
+                hidden_size,
+            )
+            if latency_lookup is not None and hidden_size > 0
+            else None
+        )
         option = _Option(
             measurement=candidate,
             loss=raw_loss,
@@ -490,6 +530,7 @@ def _options_for(
                 group_size=candidate.group_size,
                 evidence_kind=evidence_kind,
             ),
+            decode_latency_us=decode_latency_us,
         )
         key = (candidate.bits, candidate.group_size)
         options_by_key.setdefault(key, []).append(option)
@@ -509,8 +550,62 @@ def _options_for(
                 best_loss_at_key=best_loss,
             ):
                 selected = option
+        runner_up = None
+        for option in options:
+            if option.measurement.method == selected.measurement.method:
+                continue
+            if runner_up is None or option.loss < runner_up.loss:
+                runner_up = option
+        if (
+            runner_up is not None
+            and runner_up.loss <= selected.loss * (1.0 + request.method_near_tie_epsilon) + 1e-15
+        ):
+            selected = replace(
+                selected,
+                near_tie=runner_up.measurement,
+                near_tie_loss=runner_up.loss,
+            )
         best_by_storage_key[key] = selected
     return _pareto_options(list(best_by_storage_key.values())), reason
+
+
+def _latency_polish(choices: list[_Choice], *, epsilon: float) -> int:
+    """Swap selections to measured-faster options at equal storage and quality.
+
+    ADR-0003 re-ranking inside the quality-feasible set: a swap never
+    increases storage (budget stays satisfied), never leaves the quality
+    epsilon window, and requires measured latency on both sides. Returns the
+    number of swapped tensors. Only ungrouped choices are polished — fused
+    expert and tied-weight groups keep their harmonized signatures.
+    """
+    swapped = 0
+    for choice in choices:
+        selected = choice.selected
+        selected_latency = selected.decode_latency_us
+        if selected_latency is None:
+            continue
+        best_index = choice.index
+        best_latency = selected_latency
+        best_loss = selected.loss
+        for index, option in enumerate(choice.options):
+            option_latency = option.decode_latency_us
+            if index == choice.index or option_latency is None:
+                continue
+            if option.storage_bpw > selected.storage_bpw + 1e-12:
+                continue
+            if option.loss > selected.loss * (1.0 + epsilon) + 1e-15:
+                continue
+            if option_latency < best_latency - 1e-9 or (
+                abs(option_latency - best_latency) <= 1e-9 and option.loss < best_loss
+            ):
+                best_index = index
+                best_latency = option_latency
+                best_loss = option.loss
+        if best_index != choice.index:
+            choice.index = best_index
+            choice.latency_polished = True
+            swapped += 1
+    return swapped
 
 
 def _distribution(
@@ -542,6 +637,8 @@ def _distribution(
 def plan_quantization(
     report: SensitivityReport,
     request: PlanRequest,
+    *,
+    kernel_latency: KernelLatencyTable | None = None,
 ) -> QuantizationPlan:
     if request.candidate_count > 1:
         # Top-N generation is handled by the refinement module;
@@ -567,9 +664,16 @@ def plan_quantization(
         raise PlanningError("AXQuant release planning requires a supported architecture adapter")
     weights_model = objective_for(request.profile)
     weights = weights_model.normalized()
+    latency_lookup = decode_latency_provider(kernel_latency) if kernel_latency is not None else None
     choices: list[_Choice] = []
     for entry in report.entries:
-        options, reason = _options_for(entry, request, weights, evidence_kind=report.evidence_kind)
+        options, reason = _options_for(
+            entry,
+            request,
+            weights,
+            evidence_kind=report.evidence_kind,
+            latency_lookup=latency_lookup,
+        )
         choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
     tensor_names = [choice.entry.tensor.name for choice in choices]
     if len(tensor_names) != len(set(tensor_names)):
@@ -659,12 +763,57 @@ def plan_quantization(
             reason="tied-weight group harmonized at one executable precision",
         )
 
+    # A tensor belonging to both a tied component and a fused expert group
+    # could let tied harmonization silently break expert-group uniformity;
+    # fail closed here (mirroring manual._enforce_fused_expert_signatures)
+    # instead of emitting a plan the conversion predicate must reject.
+    for fused_module, members in sorted(expert_groups.items()):
+        member_signatures = {
+            (
+                member.selected.measurement.bits,
+                member.selected.measurement.method.value,
+                member.selected.measurement.group_size,
+            )
+            for member in members
+        }
+        if len(member_signatures) > 1:
+            raise PlanningError(
+                f"fused expert module {fused_module} mixes precisions "
+                f"{sorted(member_signatures)} after tied-weight harmonization; "
+                "every expert in a switch group must share one assignment"
+            )
+
+    # Harmonization can lower running storage (a group forced down to a
+    # cheaper common signature), re-opening budget that the one-pass ladder
+    # above already discarded edges against. Re-offer that budget to tensors
+    # outside every harmonized group so the plan does not silently
+    # under-spend its target; group members stay untouched so harmonization
+    # is preserved.
+    grouped_tensor_names = {
+        member.entry.tensor.name for members in expert_groups.values() for member in members
+    }
+    grouped_tensor_names.update(visited_tied)
+    ungrouped_choices = [
+        choice for choice in choices if choice.entry.tensor.name not in grouped_tensor_names
+    ]
+    if ungrouped_choices:
+        running_storage_bits = _apply_budget_upgrades(
+            ungrouped_choices,
+            running_storage_bits=running_storage_bits,
+            target_storage_bits=target_storage_bits,
+        )
+
+    if latency_lookup is not None and ungrouped_choices:
+        _latency_polish(ungrouped_choices, epsilon=request.method_near_tie_epsilon)
+
     allocations: list[Allocation] = []
     for choice in choices:
         selected = choice.selected
         measurement = selected.measurement
         if choice.policy_reason:
             reason = choice.policy_reason
+        elif choice.latency_polished:
+            reason = "kernel-latency preferred within the quality near-tie window"
         elif choice.upgraded:
             reason = "selected by marginal quality gain per storage bit"
         else:
@@ -690,6 +839,29 @@ def plan_quantization(
                 },
             )
         )
+
+    near_ties: list[MethodNearTie] = []
+    for choice in choices:
+        selected = choice.selected
+        if selected.near_tie is None:
+            continue
+        denominator = max(selected.loss, selected.near_tie_loss, 1e-12)
+        near_ties.append(
+            MethodNearTie(
+                tensor=choice.entry.tensor.name,
+                bits=selected.measurement.bits,
+                group_size=selected.measurement.group_size,
+                selected_method=selected.measurement.method,
+                selected_loss=selected.loss,
+                runner_up_method=selected.near_tie.method,
+                runner_up_loss=selected.near_tie_loss,
+                relative_margin=abs(selected.near_tie_loss - selected.loss) / denominator,
+            )
+        )
+    # Most fragile composition choices first; the cap is explicit, never silent.
+    near_ties.sort(key=lambda tie: (tie.relative_margin, tie.tensor))
+    near_ties_omitted = max(0, len(near_ties) - _MAX_NEAR_TIES)
+    near_ties = near_ties[:_MAX_NEAR_TIES]
 
     nominal_bpw = (
         sum(choice.selected.measurement.bits * choice.entry.tensor.parameters for choice in choices)
@@ -736,6 +908,13 @@ def plan_quantization(
         assignments=allocations,
         weight_distribution=_distribution(choices),
         mtp_distribution=_distribution(choices, mtp_only=True),
+        method_near_ties=near_ties,
+        method_near_ties_omitted=near_ties_omitted,
+        cost_model="kernel-latency" if kernel_latency is not None else "abstract-bpw",
+        kernel_latency_sha256=(
+            stable_sha256(kernel_latency) if kernel_latency is not None else None
+        ),
+        kernel_latency_host_id=(kernel_latency.host_id if kernel_latency is not None else None),
         warnings=warnings,
     )
     return annotate_experimental_low_bit_plan(plan)

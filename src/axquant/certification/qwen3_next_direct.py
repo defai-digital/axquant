@@ -1734,6 +1734,20 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
         n7_issues.append("Qwen3-Next compatibility matrix is not release-ready for this artifact")
     if not reproduction.passed or reproduction.recipe_sha256 != stable_sha256(recipe):
         n7_issues.append("reproduction verification is not passing or recipe-bound")
+    # The recipe/verification pair must describe the artifact being certified,
+    # not merely be internally consistent for some other artifact.
+    if recipe.plan_sha256 != stable_sha256(plan):
+        n7_issues.append("reproduction recipe binds another quantization plan")
+    if not _same_source(recipe.source_model, scope.source_model):
+        n7_issues.append("reproduction recipe source differs from the certification scope")
+    manifest_file_records = {
+        (record.path, record.size_bytes, record.sha256) for record in manifest.files
+    }
+    recipe_weight_records = {
+        (record.path, record.size_bytes, record.sha256) for record in recipe.expected_weight_files
+    }
+    if not recipe_weight_records.issubset(manifest_file_records):
+        n7_issues.append("reproduction recipe weight files differ from the release artifact")
     rerun_reproduction = verify_reproduction(
         recipe_path=paths["recipe"], artifact_dir=reproduction.artifact_path
     )

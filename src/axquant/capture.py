@@ -326,10 +326,33 @@ def _load_resume_progress(
     if resumed_binding != binding:
         raise CaptureError(
             "existing capture progress does not match this invocation "
-            "(model, revision, cache, max_rows, stride, token budget, segment_batches, "
-            "or target modules differ); use a fresh output directory"
+            "(model, revision, cache, model directory fingerprint, max_rows, stride, "
+            "token budget, segment_batches, or target modules differ); "
+            "use a fresh output directory"
         )
     return progress
+
+
+def _model_directory_fingerprint(model_path: Path) -> str:
+    """On-disk identity of the replay model for the resume binding.
+
+    Content-hashes the small metadata files and records (name, size) for
+    every weight shard, so a re-resolved snapshot, re-run source prep, or a
+    different model directory fails the resume binding instead of silently
+    mixing activations from two models. A same-shape in-place weight
+    overwrite with byte-identical file sizes and metadata is not detectable
+    at this cost; full shard hashing would add minutes per resume on large
+    checkpoints.
+    """
+    records: list[list[Any]] = []
+    for name in ("config.json", "model.safetensors.index.json"):
+        path = model_path / name
+        if path.is_file():
+            records.append([name, path.stat().st_size, file_sha256(path)])
+    for path in sorted(model_path.rglob("*.safetensors")):
+        if path.is_file():
+            records.append([path.relative_to(model_path).as_posix(), path.stat().st_size, ""])
+    return stable_sha256(records)
 
 
 def _verify_source_provenance(
@@ -517,6 +540,7 @@ def capture_calibration_activations(
         "model": cache_manifest.model.model_id,
         "revision": cache_manifest.model.revision,
         "cache_key_sha256": cache_manifest.cache_key_sha256,
+        "model_fingerprint_sha256": _model_directory_fingerprint(model_path),
         "max_rows": max_rows,
         "stride": stride,
         "token_budget": budget,

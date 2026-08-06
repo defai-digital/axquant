@@ -451,7 +451,9 @@ def assess_feasibility(
     architecture_match = _matching(compared, "adapter_id") and _matching(
         compared, "optimization_scope"
     )
-    mtp_present = all(audit.mtp_logical_parameters > 0 for audit in compared)
+    mtp_flags = [audit.mtp_logical_parameters > 0 for audit in compared]
+    mtp_present = all(mtp_flags)
+    mtp_consistent = len(set(mtp_flags)) <= 1
     revisions_pinned = all(is_immutable_revision(audit.model.revision) for audit in compared)
     ax_checks = [
         check
@@ -488,8 +490,13 @@ def assess_feasibility(
         blockers.append("logical parameter counts differ across supplied checkpoints")
     if not architecture_match:
         blockers.append("architecture profiles differ across supplied checkpoints")
-    if not mtp_present:
-        blockers.append("one or more supplied checkpoints do not contain MTP tensors")
+    # MTP-free families (e.g. the Qwen3-Next direct track) must be able to
+    # reach ready-for-conversion: per-audit ``expects_mtp`` issues already
+    # fail closed for MTP-declaring architectures, and the flagship release
+    # audit still requires ``checks["mtp_tensors_present"]``. Only a mixed
+    # set — some checkpoints with MTP tensors, some without — is a blocker.
+    if not mtp_consistent:
+        blockers.append("supplied checkpoints disagree on MTP tensor presence")
     if not revisions_pinned:
         blockers.append("one or more supplied checkpoint revisions are not pinned")
     if run_runtime_checks and not ax_engine_ready:

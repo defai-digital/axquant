@@ -603,7 +603,7 @@ def _mtp_contract_values(contract: dict[str, Any]) -> tuple[int | None, str | No
         if sidecar_description is not None and not isinstance(sidecar_description, str):
             raise ArtifactError("mtplx_runtime.json mtp_sidecar must be a string")
         if isinstance(sidecar_description, str):
-            match = re.search(r"INT(4|6|8|16)", sidecar_description.upper())
+            match = re.search(r"INT(16|8|6|4)(?![0-9])", sidecar_description.upper())
             if match:
                 precision_bits = int(match.group(1))
     precision = f"{precision_bits}bit" if precision_bits is not None else None

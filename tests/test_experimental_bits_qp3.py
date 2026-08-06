@@ -129,6 +129,39 @@ def test_planner_labels_experimental_2bit_plan() -> None:
     )
 
 
+def test_experimental_low_bits_restricted_to_robust_trunk() -> None:
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.GENERAL,
+        candidate_bits=(2, 3, 4, 16),
+        group_size=32,
+    )
+    plan = plan_quantization(
+        report,
+        PlanRequest(
+            profile=ProfileName.GENERAL,
+            target_bpw=4.0,
+            candidate_bits=(2, 3, 4, 16),
+            group_size=32,
+            allow_unmeasured=True,
+            hardware=HardwareProfile(),
+        ),
+    )
+    experimental = [item for item in plan.assignments if item.bits in (2, 3)]
+    # The tight budget must still place experimental bits — but only on trunk.
+    assert experimental
+    assert all(item.role in {TensorRole.MLP, TensorRole.EXPERT} for item in experimental)
+    attention = [item for item in plan.assignments if item.role == TensorRole.ATTENTION]
+    assert attention and all(item.bits >= 4 for item in attention)
+    # RM-42 annotation names the affected tensors for diagnosability.
+    assert any("robust trunk only" in warning for warning in plan.warnings)
+    assert any(
+        experimental[0].tensor.split(".")[-2] in warning
+        for warning in plan.warnings
+        if "robust trunk only" in warning
+    )
+
+
 def test_manual_experimental_recipe_example_loads(qwen36_model_dir: Path) -> None:
     """Drive the shipped YAML through load_model + manual_quantization_plan (QP3)."""
     from axquant.inspector import inspect_model
@@ -175,7 +208,10 @@ def test_annotate_is_idempotent() -> None:
         report,
         PlanRequest(
             profile=ProfileName.GENERAL,
-            target_bpw=5.0,
+            # RM-42 keeps attention at >= 4 bits, so the policy minimum for
+            # this inventory is ~5.76 BPW (attention rides at BF16 on a
+            # (2, 16) grid); 6.0 still forces the MLP trunk down to 2-bit.
+            target_bpw=6.0,
             candidate_bits=(2, 16),
             group_size=32,
             allow_unmeasured=True,

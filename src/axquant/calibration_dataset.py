@@ -11,7 +11,19 @@ _MIN_LONG_CONTEXT_CHARS = 2000
 
 
 def _text_length(sample: dict[str, Any]) -> int:
-    """Character count of the sample text; null / non-string text counts as 0."""
+    """Character count of the sample's text content.
+
+    Mirrors the tokenizer pipeline's precedence (``_sample_text``): chat
+    ``messages`` content when present, then ``text``. Null / non-string
+    values count as 0.
+    """
+    messages = sample.get("messages")
+    if isinstance(messages, list) and messages:
+        return sum(
+            len(content)
+            for message in messages
+            if isinstance(message, dict) and isinstance(content := message.get("content"), str)
+        )
     text = sample.get("text")
     return len(text) if isinstance(text, str) else 0
 
@@ -23,14 +35,18 @@ def validate_calibration_dataset(path: Path) -> list[str]:
 
     samples: list[dict[str, Any]] = []
     try:
-        for line_number, line in enumerate(path.read_text().splitlines(), 1):
-            if not line.strip():
-                continue
-            obj = json.loads(line)
-            if not isinstance(obj, dict):
-                issues.append(f"line {line_number}: not a JSON object")
-                continue
-            samples.append(obj)
+        # Split on newlines only, exactly like the tokenizer pipeline's
+        # ``_read_dataset``: str.splitlines() would also split on U+2028 and
+        # friends, rejecting datasets the cache builder accepts.
+        with path.open(encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, 1):
+                if not line.strip():
+                    continue
+                obj = json.loads(line)
+                if not isinstance(obj, dict):
+                    issues.append(f"line {line_number}: not a JSON object")
+                    continue
+                samples.append(obj)
     except json.JSONDecodeError as exc:
         return [f"invalid JSONL: {exc}"]
 

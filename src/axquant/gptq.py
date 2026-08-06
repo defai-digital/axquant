@@ -55,8 +55,12 @@ def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, An
 
     out_features, in_features = weight.shape
     w_grouped = weight.reshape(out_features, in_features // group_size, group_size)
-    w_min = w_grouped.min(axis=-1)
-    w_max = w_grouped.max(axis=-1)
+    # The range must include zero: the zero point below is clamped to
+    # [0, qmax], and a group that does not straddle zero would otherwise
+    # land its true zero point outside that window, collapsing the
+    # dequantization grid onto [0, w_max - w_min] away from the weights.
+    w_min = np.minimum(w_grouped.min(axis=-1), 0.0)
+    w_max = np.maximum(w_grouped.max(axis=-1), 0.0)
     scale = (w_max - w_min) / ((1 << bits) - 1)
     scale = np.where(scale == 0, 1.0, scale)
     zero = np.clip(np.round(-w_min / scale), 0, (1 << bits) - 1)
@@ -92,6 +96,31 @@ def _cholesky_inv_upper(hessian: Any) -> Any:
     return result
 
 
+def _group_preserving_permutation(diag: Any, group_size: int) -> tuple[Any, Any]:
+    """Column ordering for act-order that never moves a column across groups.
+
+    Whole groups are ordered by descending aggregate Hessian-diagonal mass and
+    columns inside each group by descending diagonal, so high-salience columns
+    quantize first and push their rounding error into lower-salience columns —
+    while every column keeps its original group, scale, and packed position.
+    Returns ``(perm, group_order)``; both use stable sorts for determinism.
+    """
+    try:
+        import numpy as np
+    except ImportError as exc:
+        raise PlanningError("GPTQ execution requires numpy") from exc
+
+    n_groups = diag.shape[0] // group_size
+    group_mass = diag.reshape(n_groups, group_size).sum(axis=1)
+    group_order = np.argsort(-group_mass, kind="stable")
+    perm_parts = []
+    for group_index in group_order:
+        base = int(group_index) * group_size
+        inner = np.argsort(-diag[base : base + group_size], kind="stable")
+        perm_parts.append(base + inner)
+    return np.concatenate(perm_parts), group_order
+
+
 def learn_gptq_refined_weight(
     weight: Any,
     activations: Any,
@@ -100,6 +129,7 @@ def learn_gptq_refined_weight(
     group_size: int,
     damping: float = _DEFAULT_DAMPING,
     block_size: int = _DEFAULT_BLOCK_SIZE,
+    act_order: bool = False,
 ) -> tuple[Any, dict[str, float | int]]:
     """Refine a weight matrix with classic GPTQ error compensation.
 
@@ -108,6 +138,11 @@ def learn_gptq_refined_weight(
     not-yet-quantized columns via the damped inverse-Hessian Cholesky factor,
     in blocks of ``block_size`` columns (LazyBatchUpdates). The refined matrix
     approximates the source weights under the calibration activations.
+
+    With ``act_order`` the processing order follows the group-preserving
+    activation ordering (ADR-0002): group membership and the packed layout are
+    identical to the static order, only the error-propagation sequence changes,
+    so the output still satisfies the portable affine contract.
     """
     try:
         import numpy as np
@@ -136,6 +171,8 @@ def learn_gptq_refined_weight(
         raise PlanningError("GPTQ block_size must be a positive integer") from exc
     if resolved_block_size <= 0:
         raise PlanningError("GPTQ block_size must be a positive integer")
+    if not isinstance(act_order, bool):
+        raise PlanningError("GPTQ act_order must be a boolean")
 
     w = _as_numpy(weight)
     if w.ndim != 2:
@@ -170,6 +207,12 @@ def learn_gptq_refined_weight(
     dead = np.diag(hessian) == 0.0
     hessian[dead, dead] = 1.0
 
+    perm = None
+    group_order = None
+    if act_order:
+        perm, group_order = _group_preserving_permutation(np.diag(hessian).copy(), group_size)
+        hessian = hessian[np.ix_(perm, perm)]
+
     # Damped factorization, escalating damping x10 up to three attempts. The
     # diagonal is damped in place on a copy -- no identity matrix is ever
     # materialized, keeping peak memory at a few in^2 float32 buffers.
@@ -196,8 +239,14 @@ def learn_gptq_refined_weight(
         raise PlanningError("GPTQ Hessian factorization failed even after damping escalation")
 
     group_scale, group_zero = _static_group_grid(w, bits, group_size)
+    if act_order:
+        # Groups travel as units, so reordering the per-group grid columns by
+        # ``group_order`` keeps ``j // group_size`` lookups correct in the
+        # permuted domain; the grid values themselves are untouched.
+        group_scale = group_scale[:, group_order]
+        group_zero = group_zero[:, group_order]
     qmax = (1 << bits) - 1
-    working = w.copy()
+    working = w[:, perm].copy() if act_order else w.copy()
     refined = np.zeros_like(w)
     for block_start in range(0, in_features, resolved_block_size):
         block_end = min(block_start + resolved_block_size, in_features)
@@ -225,6 +274,11 @@ def learn_gptq_refined_weight(
             if not bool(np.all(np.isfinite(working[:, block_end:]))):
                 raise PlanningError("GPTQ block update produced non-finite weights")
 
+    if act_order:
+        unpermuted = np.empty_like(refined)
+        unpermuted[:, perm] = refined
+        refined = unpermuted
+
     if not bool(np.all(np.isfinite(refined))):
         raise PlanningError("GPTQ refinement produced non-finite weights")
     with np.errstate(over="ignore", invalid="ignore"):
@@ -241,6 +295,7 @@ def learn_gptq_refined_weight(
         "bits": bits,
         "group_size": group_size,
         "mean_quant_error": mean_quant_error,
+        "act_order": int(act_order),
     }
     return refined.astype(np.float32), metadata
 
@@ -252,6 +307,7 @@ def apply_mlx_gptq_refine(
     bits: int,
     group_size: int,
     damping: float = _DEFAULT_DAMPING,
+    act_order: bool = False,
 ) -> dict[str, float | int]:
     """Mutate ``module.weight`` with portable GPTQ refinement before affine packing."""
     try:
@@ -278,6 +334,7 @@ def apply_mlx_gptq_refine(
             bits=bits,
             group_size=group_size,
             damping=damping,
+            act_order=act_order,
         )
     except (PlanningError, QuantizerError, ValueError, TypeError, RuntimeError) as exc:
         raise PlanningError(str(exc)) from exc

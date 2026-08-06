@@ -331,6 +331,68 @@ class BytePreservedMtpSidecarManifest(StrictModel):
     total_payload_bytes: int = Field(ge=1)
 
 
+class QuantizedMtpTensorRecord(StrictModel):
+    """Per-tensor packing record inside a quantized MTP sidecar (ADR-0005)."""
+
+    name: str = Field(min_length=1)
+    quantized: bool
+    bits: int = Field(ge=2, le=16)
+    group_size: int | None = Field(default=None, ge=1)
+    payload_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def preserved_is_bf16(self) -> QuantizedMtpTensorRecord:
+        if not self.quantized and self.bits != 16:
+            raise ValueError("preserved sidecar tensors must record 16 bits")
+        if self.quantized and self.group_size is None:
+            raise ValueError("quantized sidecar tensors require a group size")
+        return self
+
+
+class AxEngineMtpCapabilityCheck(StrictModel):
+    """Recorded AX Engine capability probe for a quantized MTP layout."""
+
+    ok: bool
+    mtp_enabled: bool
+    layout: str = Field(min_length=1)
+    ax_engine_version: str = Field(min_length=1)
+
+
+class QuantizedMtpSidecarManifest(StrictModel):
+    """Opt-in quantized MTP sidecar artifact (ADR-0005 / RM-40).
+
+    Always emitted *alongside* the byte-preserved default, never replacing it,
+    and only after a passing AX Engine capability check for the quantized
+    layout. The packing is the portable affine contract with uint8 codes plus
+    fp32 scales/biases per group (``axquant-portable-affine-u8``).
+    """
+
+    schema_version: Literal["axquant.mtp-sidecar-quantized.v1"] = "axquant.mtp-sidecar-quantized.v1"
+    generated_by: str = Field(min_length=1)
+    packing: Literal["axquant-portable-affine-u8"] = "axquant-portable-affine-u8"
+    source_sidecar: MtpSidecarFileBinding
+    output: MtpSidecarFileBinding
+    default_bits: int = Field(ge=2, le=16)
+    group_size: int = Field(ge=1)
+    tensors: list[QuantizedMtpTensorRecord] = Field(min_length=1)
+    capability: AxEngineMtpCapabilityCheck
+    byte_preserved_default_retained: Literal[True] = True
+
+    @model_validator(mode="after")
+    def capability_gate_passed(self) -> QuantizedMtpSidecarManifest:
+        if not (self.capability.ok and self.capability.mtp_enabled):
+            raise ValueError(
+                "quantized MTP sidecar requires a passing AX Engine capability "
+                "check with MTP enabled"
+            )
+        names = [tensor.name for tensor in self.tensors]
+        if len(names) != len(set(names)):
+            raise ValueError("quantized MTP sidecar tensor names must be unique")
+        if not any(tensor.quantized for tensor in self.tensors):
+            raise ValueError("quantized MTP sidecar must quantize at least one tensor")
+        return self
+
+
 class PreparedMtpInputBinding(StrictModel):
     manifest: MtpSidecarFileBinding
     mtp: MtpSidecarFileBinding
@@ -1209,9 +1271,17 @@ class RefinementResult(StrictModel):
     selected_plan: QuantizationPlan
     selected_plan_sha256: str
     selection_basis: Literal["proxy", "complete-model"]
-    # QP1: proxy-only runs are always development evidence.
-    evidence_label: Literal["proxy-development", "holdout-bound"] = "proxy-development"
+    # QP1: proxy-only runs are always development evidence. ADR-0004:
+    # interaction-development marks measured selection on non-holdout roles.
+    evidence_label: Literal["proxy-development", "holdout-bound", "interaction-development"] = (
+        "proxy-development"
+    )
     holdout_measurement_set_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    # ADR-0004: digest of the non-holdout measurement set that drove
+    # interaction optimization; never doubles as the holdout binding above.
+    interaction_measurement_set_sha256: str | None = Field(
+        default=None, min_length=64, max_length=64
+    )
     warnings: list[str] = Field(default_factory=list)
     iterations_used: int = Field(ge=0)
     evaluations_used: int = Field(ge=0)
@@ -1262,6 +1332,10 @@ class CompleteCandidateMeasurement(StrictModel):
     peak_memory_ratio: float = Field(gt=0.0)
     hardware: CompleteCandidateHardware
     validation_passed: bool
+    # ADR-0004 provenance: which campaign dataset role produced this
+    # measurement. Empty on legacy artifacts; interaction optimization fails
+    # closed on empty or formal-holdout roles.
+    dataset_role: str = Field(default="", pattern=r"^$|^[a-z][a-z0-9-]*$")
 
     @model_validator(mode="after")
     def default_measurement_id(self) -> CompleteCandidateMeasurement:

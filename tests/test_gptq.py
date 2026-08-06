@@ -14,8 +14,8 @@ def _rtn_group_affine(weight: np.ndarray, bits: int, group_size: int) -> np.ndar
     """Plain round-to-nearest group-affine quantize-dequantize (no compensation)."""
     out_features, in_features = weight.shape
     w_grouped = weight.reshape(out_features, in_features // group_size, group_size)
-    w_min = w_grouped.min(axis=-1, keepdims=True)
-    w_max = w_grouped.max(axis=-1, keepdims=True)
+    w_min = np.minimum(w_grouped.min(axis=-1, keepdims=True), 0.0)
+    w_max = np.maximum(w_grouped.max(axis=-1, keepdims=True), 0.0)
     scale = (w_max - w_min) / ((1 << bits) - 1)
     scale = np.where(scale == 0, 1.0, scale)
     zero = np.clip(np.round(-w_min / scale), 0, (1 << bits) - 1)
@@ -207,3 +207,105 @@ def test_apply_mlx_gptq_refine_does_not_mutate_when_materialization_fails(
         )
 
     assert module.weight is original
+
+
+def _skewed_fixture() -> tuple[np.ndarray, np.ndarray]:
+    """Column importance rises with index: static left-to-right order quantizes
+    the high-salience columns last, where no later column can absorb their
+    rounding error — the regime act-order exists for."""
+    rng = np.random.default_rng(21)
+    weight = rng.standard_normal((64, 128)).astype(np.float32)
+    activations = rng.standard_normal((512, 128)).astype(np.float32)
+    activations *= np.linspace(0.05, 8.0, 128, dtype=np.float32)[np.newaxis, :]
+    return weight, activations
+
+
+def test_act_order_output_sits_exactly_on_the_static_affine_grid() -> None:
+    weight, activations = _skewed_fixture()
+    refined, _ = learn_gptq_refined_weight(
+        weight, activations, bits=4, group_size=32, act_order=True
+    )
+
+    # Portable-contract check (ADR-0002): the act-order result must decompose
+    # onto the per-group grid of the ORIGINAL weight, exactly as the static
+    # path does — group membership and packed layout are indistinguishable.
+    out_features, in_features = weight.shape
+    w_grouped = weight.reshape(out_features, in_features // 32, 32)
+    w_min = np.minimum(w_grouped.min(axis=-1, keepdims=True), 0.0)
+    w_max = np.maximum(w_grouped.max(axis=-1, keepdims=True), 0.0)
+    scale = np.where(w_max == w_min, 1.0, (w_max - w_min) / 15.0)
+    zero = np.clip(np.round(-w_min / scale), 0, 15)
+    refined_grouped = refined.reshape(out_features, in_features // 32, 32)
+    codes = np.round(refined_grouped / scale) + zero
+    assert codes.min() >= 0 and codes.max() <= 15
+    reconstructed = ((codes - zero) * scale).reshape(weight.shape)
+    np.testing.assert_allclose(reconstructed, refined, rtol=0.0, atol=1e-6)
+
+
+def test_act_order_improves_output_reconstruction_on_skewed_salience() -> None:
+    weight, activations = _skewed_fixture()
+    static, _ = learn_gptq_refined_weight(weight, activations, bits=4, group_size=32)
+    ordered, _ = learn_gptq_refined_weight(
+        weight, activations, bits=4, group_size=32, act_order=True
+    )
+
+    reference = activations @ weight.T
+    static_mse = float(np.mean((reference - activations @ static.T) ** 2))
+    ordered_mse = float(np.mean((reference - activations @ ordered.T) ** 2))
+    assert ordered_mse < static_mse
+
+
+def test_act_order_is_deterministic_and_flagged_in_metadata() -> None:
+    weight, activations = _skewed_fixture()
+    refined_a, meta_a = learn_gptq_refined_weight(
+        weight, activations, bits=4, group_size=32, act_order=True
+    )
+    refined_b, meta_b = learn_gptq_refined_weight(
+        weight, activations, bits=4, group_size=32, act_order=True
+    )
+    np.testing.assert_array_equal(refined_a, refined_b)
+    assert meta_a["act_order"] == 1 and meta_b["act_order"] == 1
+    _, static_meta = learn_gptq_refined_weight(weight, activations, bits=4, group_size=32)
+    assert static_meta["act_order"] == 0
+
+
+def test_act_order_rejects_non_boolean_flag() -> None:
+    with pytest.raises(PlanningError, match="act_order must be a boolean"):
+        learn_gptq_refined_weight(
+            np.ones((2, 32), dtype=np.float32),
+            np.ones((4, 32), dtype=np.float32),
+            bits=4,
+            group_size=32,
+            act_order=1,  # type: ignore[arg-type]
+        )
+
+
+def test_group_preserving_permutation_never_crosses_groups() -> None:
+    rng = np.random.default_rng(5)
+    diag = rng.uniform(0.1, 100.0, size=128).astype(np.float32)
+    perm, group_order = gptq._group_preserving_permutation(diag, 32)
+
+    assert sorted(perm.tolist()) == list(range(128))
+    # Every block of 32 permuted positions must map into one original group.
+    for block_index in range(4):
+        block = perm[block_index * 32 : (block_index + 1) * 32]
+        groups = set(int(column) // 32 for column in block)
+        assert groups == {int(group_order[block_index])}
+    # Groups are visited in descending aggregate mass.
+    masses = diag.reshape(4, 32).sum(axis=1)
+    assert list(group_order) == sorted(range(4), key=lambda g: -masses[g])
+
+
+def test_gptq_grid_covers_groups_that_do_not_straddle_zero() -> None:
+    rng = np.random.default_rng(11)
+    weight = rng.standard_normal((4, 64)).astype(np.float32)
+    weight[:, :32] = 10.0 + 0.2 * rng.standard_normal((4, 32)).astype(np.float32)
+    activations = rng.standard_normal((256, 64)).astype(np.float32)
+
+    refined, _ = learn_gptq_refined_weight(weight, activations, bits=4, group_size=32)
+
+    # The affine grid must include zero: with the zero point clamped to
+    # [0, qmax], an all-positive group otherwise collapses its grid onto
+    # [0, range] far away from the weights (~|w| reconstruction error).
+    offset_error = float(np.mean(np.abs(refined[:, :32] - weight[:, :32])))
+    assert offset_error < 1.0

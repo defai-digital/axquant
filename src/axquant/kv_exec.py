@@ -57,7 +57,7 @@ def _build_layer_caches(model: Any, bits: list[int], groups: list[int]) -> list[
             # hybrid families) keep the model's own cache object.
             caches.append(cache)
         del index
-    if replaced == 0:
+    if replaced == 0 and any(layer_bits < 16 for layer_bits in bits):
         raise ValueError(
             "no layer accepted a quantized KV cache; the family's cache layout "
             "does not expose standard KV layers for the planned precisions"

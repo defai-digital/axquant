@@ -7,15 +7,18 @@ import math
 import os
 import shutil
 import struct
+import subprocess
 import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
-from axquant.errors import ArtifactError
+from axquant.errors import ArtifactError, QuantizerError
 from axquant.schema import (
+    AxEngineMtpCapabilityCheck,
     BytePreservedMtpSidecarManifest,
     ModelIdentity,
     MtpSidecarFileBinding,
@@ -24,6 +27,8 @@ from axquant.schema import (
     PreparedMtpSidecarManifest,
     PreparedMtpTensorPayload,
     PreparedMtpTransform,
+    QuantizedMtpSidecarManifest,
+    QuantizedMtpTensorRecord,
 )
 from axquant.serde import file_sha256, load_model, write_data
 
@@ -618,3 +623,219 @@ def prepare_qwen36_mtp_sidecar(
     )
     write_data(manifest_path, manifest)
     return _validate_prepared_manifest(manifest_path, output_sidecar, source_model)
+
+
+def quantize_qwen36_mtp_sidecar(
+    source_path: str | Path,
+    output_path: str | Path,
+    *,
+    bits: int = 4,
+    group_size: int = 64,
+    capability: AxEngineMtpCapabilityCheck,
+    generated_by: str = "axquant",
+) -> QuantizedMtpSidecarManifest:
+    """Emit an opt-in quantized MTP sidecar next to the byte-preserved default.
+
+    ADR-0005 / RM-40: the byte-preserved sidecar stays the default and is
+    never touched; this writes a *separate* artifact using the portable
+    affine contract (uint8 codes + fp16 group scales/biases). It fails closed
+    unless the supplied AX Engine capability check proves the runtime
+    executes the quantized layout with MTP enabled. Norm tensors and any
+    projection whose input dimension does not divide the group size are
+    preserved at BF16 inside the quantized sidecar.
+    """
+    if not (capability.ok and capability.mtp_enabled):
+        raise ArtifactError(
+            "quantized MTP sidecar requires a passing AX Engine capability "
+            "check with MTP enabled; byte-preserved remains the default"
+        )
+    try:
+        import numpy as np
+    except ImportError as exc:
+        raise ArtifactError("quantized MTP sidecar requires numpy") from exc
+    from axquant.quantizers import require_plugin
+    from axquant.schema import QuantMethod
+
+    source = Path(source_path).expanduser().resolve()
+    destination = Path(output_path).expanduser().resolve()
+    if destination == source:
+        raise ArtifactError("quantized MTP sidecar must not overwrite the byte-preserved sidecar")
+    layout = _parse_qwen36_layout(source)
+    plugin = require_plugin(QuantMethod.AFFINE)
+
+    records: list[QuantizedMtpTensorRecord] = []
+    header: dict[str, Any] = {
+        "__metadata__": {
+            "format": "axquant-portable-affine-u8",
+            "default_bits": str(bits),
+            "group_size": str(group_size),
+        }
+    }
+    payloads: list[bytes] = []
+    offset = 0
+
+    def _emit(name: str, dtype: str, shape: tuple[int, ...], payload: bytes) -> None:
+        nonlocal offset
+        header[name] = {
+            "dtype": dtype,
+            "shape": list(shape),
+            "data_offsets": [offset, offset + len(payload)],
+        }
+        payloads.append(payload)
+        offset += len(payload)
+
+    with source.open("rb") as stream:
+        for name in sorted(layout.tensors):
+            tensor = layout.tensors[name]
+            stream.seek(layout.data_base + tensor.start)
+            raw = stream.read(tensor.byte_count)
+            if len(raw) != tensor.byte_count:
+                raise ArtifactError(f"unexpected end of MTP payload for {name}")
+            in_features = tensor.shape[-1]
+            quantizable = (
+                len(tensor.shape) == 2
+                and name not in QWEN36_MTP_NORM_TENSORS
+                and in_features % group_size == 0
+            )
+            if not quantizable:
+                _emit(name, tensor.dtype, tensor.shape, raw)
+                records.append(
+                    QuantizedMtpTensorRecord(
+                        name=name,
+                        quantized=False,
+                        bits=16,
+                        group_size=None,
+                        payload_sha256=hashlib.sha256(raw).hexdigest(),
+                    )
+                )
+                continue
+            as_uint16 = np.frombuffer(raw, dtype=np.uint16).astype(np.uint32)
+            weight = (as_uint16 << 16).view(np.float32).reshape(tensor.shape)
+            try:
+                quantized = plugin.quantize(
+                    np.ascontiguousarray(weight), bits=bits, group_size=group_size
+                )
+            except QuantizerError as exc:
+                raise ArtifactError(
+                    f"quantized MTP sidecar cannot pack {name} at {bits}-bit "
+                    f"group {group_size}: {exc}"
+                ) from exc
+            out_features = tensor.shape[0]
+            groups = in_features // group_size
+            codes = np.ascontiguousarray(
+                quantized.data.reshape(out_features, in_features), dtype=np.uint8
+            )
+            scales = np.ascontiguousarray(
+                np.asarray(quantized.scales, dtype=np.float16).reshape(out_features, groups)
+            )
+            biases = np.ascontiguousarray(
+                np.asarray(quantized.biases, dtype=np.float16).reshape(out_features, groups)
+            )
+            codes_payload = codes.tobytes()
+            _emit(name, "U8", (out_features, in_features), codes_payload)
+            _emit(f"{name}.scales", "F16", (out_features, groups), scales.tobytes())
+            _emit(f"{name}.biases", "F16", (out_features, groups), biases.tobytes())
+            records.append(
+                QuantizedMtpTensorRecord(
+                    name=name,
+                    quantized=True,
+                    bits=bits,
+                    group_size=group_size,
+                    payload_sha256=hashlib.sha256(codes_payload).hexdigest(),
+                )
+            )
+
+    header_bytes = json.dumps(header, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    # Safetensors convention: pad the header with spaces so the payload region
+    # begins on an 8-byte boundary (mirrors the official writers).
+    header_bytes += b" " * ((-len(header_bytes)) % 8)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        with temporary.open("wb") as output:
+            output.write(struct.pack("<Q", len(header_bytes)))
+            output.write(header_bytes)
+            for payload in payloads:
+                output.write(payload)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, destination)
+    except BaseException:
+        with contextlib.suppress(FileNotFoundError):
+            temporary.unlink()
+        raise
+
+    return QuantizedMtpSidecarManifest(
+        generated_by=generated_by,
+        source_sidecar=MtpSidecarFileBinding(
+            path=source.name,
+            size_bytes=source.stat().st_size,
+            sha256=file_sha256(source),
+        ),
+        output=MtpSidecarFileBinding(
+            path=destination.name,
+            size_bytes=destination.stat().st_size,
+            sha256=file_sha256(destination),
+        ),
+        default_bits=bits,
+        group_size=group_size,
+        tensors=records,
+        capability=capability,
+    )
+
+
+def probe_ax_engine_mtp_capability(
+    command: Sequence[str],
+    *,
+    timeout: float = 120.0,
+) -> AxEngineMtpCapabilityCheck:
+    """Execute a real AX Engine capability probe for the quantized MTP layout.
+
+    Runs the given command (an AX Engine doctor/capability invocation) as a
+    subprocess and parses the last stdout line as a JSON object carrying
+    ``ok``, ``mtp_enabled``, ``layout``, and ``ax_engine_version``. Every
+    failure mode — missing binary, timeout, non-zero exit, malformed output,
+    missing fields — fails closed: the recorded capability is what the
+    runtime reported, never what a caller asserted.
+    """
+    if not command:
+        raise ArtifactError("AX Engine capability probe requires a command")
+    try:
+        completed = subprocess.run(
+            list(command),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except OSError as exc:
+        raise ArtifactError(f"AX Engine capability probe could not run: {exc}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ArtifactError(
+            f"AX Engine capability probe timed out after {timeout} seconds"
+        ) from exc
+    if completed.returncode != 0:
+        detail = (completed.stderr or completed.stdout).strip()[:500]
+        raise ArtifactError(f"AX Engine capability probe exited {completed.returncode}: {detail}")
+    lines = [line for line in completed.stdout.strip().splitlines() if line.strip()]
+    if not lines:
+        raise ArtifactError("AX Engine capability probe emitted no output")
+    try:
+        payload = json.loads(lines[-1])
+    except json.JSONDecodeError as exc:
+        raise ArtifactError("AX Engine capability probe emitted no JSON object") from exc
+    if not isinstance(payload, dict):
+        raise ArtifactError("AX Engine capability probe output is not a JSON object")
+    try:
+        return AxEngineMtpCapabilityCheck(
+            ok=payload.get("ok") is True,
+            mtp_enabled=payload.get("mtp_enabled") is True,
+            layout=str(payload.get("layout") or ""),
+            ax_engine_version=str(payload.get("ax_engine_version") or ""),
+        )
+    except ValidationError as exc:
+        raise ArtifactError(f"AX Engine capability probe output is incomplete: {exc}") from exc

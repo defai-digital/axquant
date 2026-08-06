@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from axquant.benchmark_evidence import build_benchmark_evidence_index
+from axquant.benchmark_evidence import build_benchmark_evidence_index, formal_mtp_bundle_issues
 from axquant.cli import main
 from axquant.schema import (
     BenchmarkEvidenceIndex,
@@ -12,6 +12,7 @@ from axquant.schema import (
     BenchmarkEvidenceKind,
     BenchmarkEvidenceRequest,
     EvaluationBundle,
+    FormalHostContract,
     HardwareMetrics,
     IntegrityMetrics,
     ModelIdentity,
@@ -369,3 +370,89 @@ def test_benchmark_request_cannot_silently_omit_optional_baseline(tmp_path: Path
 
     with pytest.raises(ValueError, match="explicitly list every baseline"):
         BenchmarkEvidenceRequest.model_validate(payload)
+
+
+def _contract(**overrides: str) -> FormalHostContract:
+    defaults = {
+        "hardware_id": "mbp-m5/apple-m3-max/fixture",
+        "os_version": "macOS-test",
+        "power_mode": "AC power",
+        "storage_contract": "internal-ssd",
+        "thermal_protocol": "ambient-22c",
+        "operator": "operator-a",
+    }
+    defaults.update(overrides)
+    return FormalHostContract(**defaults)
+
+
+def test_formal_mtp_pair_is_admissible_on_the_contract_host() -> None:
+    issues = formal_mtp_bundle_issues(
+        mtp_off=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_OFF),
+        mtp_on=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON),
+        contract=_contract(),
+        authorized_device_name="Mac15,9",
+        authorized_chip="Apple M3 Max",
+    )
+    assert issues == []
+
+
+def test_formal_mtp_pair_rejects_an_unauthorized_host() -> None:
+    issues = formal_mtp_bundle_issues(
+        mtp_off=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_OFF),
+        mtp_on=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON),
+        contract=_contract(),
+        authorized_device_name="Mac14,13",
+        authorized_chip="Apple M2 Ultra",
+    )
+    assert any("not the authorized formal device" in issue for issue in issues)
+    assert any("not the authorized formal chip" in issue for issue in issues)
+
+
+def test_formal_mtp_pair_rejects_contract_os_and_power_drift() -> None:
+    issues = formal_mtp_bundle_issues(
+        mtp_off=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_OFF),
+        mtp_on=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON),
+        contract=_contract(os_version="macOS-frozen-other", power_mode="battery"),
+        authorized_device_name="Mac15,9",
+        authorized_chip="Apple M3 Max",
+    )
+    assert any("differs from the frozen contract OS" in issue for issue in issues)
+    assert any("power mode differs" in issue for issue in issues)
+
+
+def test_formal_mtp_pair_rejects_dataset_and_control_drift() -> None:
+    drifted_on = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON, dataset_sha256="d" * 64)
+    drifted_on = drifted_on.model_copy(
+        update={
+            "benchmark_metadata": {
+                **drifted_on.benchmark_metadata,
+                "max_tokens": 1024,
+            }
+        }
+    )
+    issues = formal_mtp_bundle_issues(
+        mtp_off=_bundle(BenchmarkEvidenceKind.AXQUANT_MTP_OFF),
+        mtp_on=drifted_on,
+        contract=_contract(),
+        authorized_device_name="Mac15,9",
+        authorized_chip="Apple M3 Max",
+    )
+    assert any("different datasets" in issue for issue in issues)
+    assert any("different benchmark controls" in issue for issue in issues)
+
+
+def test_formal_mtp_pair_requires_mtp_metrics_and_zero_fallbacks() -> None:
+    broken_on = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_ON).model_copy(update={"mtp": None})
+    fallback_off = _bundle(BenchmarkEvidenceKind.AXQUANT_MTP_OFF)
+    fallback_off = fallback_off.model_copy(
+        update={"hardware": fallback_off.hardware.model_copy(update={"kernel_fallbacks": 2})}
+    )
+    issues = formal_mtp_bundle_issues(
+        mtp_off=fallback_off,
+        mtp_on=broken_on,
+        contract=_contract(),
+        authorized_device_name="Mac15,9",
+        authorized_chip="Apple M3 Max",
+    )
+    assert any("missing MTP metrics" in issue for issue in issues)
+    assert any("kernel fallbacks" in issue for issue in issues)

@@ -79,7 +79,7 @@ class HardwareProfile(StrictModel):
     # AX_ENGINE_2BIT_EXPERIMENTAL=1 / AX_ENGINE_3BIT_EXPERIMENTAL=1 gates.
     # Low-bit artifacts are development evidence; release certification
     # still runs the ordinary quality/runtime gates.
-    name: str = "ax-engine-apple-silicon-affine-dwq-v2"
+    name: str = "ax-engine-apple-silicon-affine-dwq-v3"
     runtime: RuntimeName = RuntimeName.AX_ENGINE
     supported_bits: tuple[int, ...] = (2, 3, 4, 6, 8, 16)
     supported_methods: tuple[QuantMethod, ...] = (
@@ -87,6 +87,7 @@ class HardwareProfile(StrictModel):
         QuantMethod.AWQ,
         QuantMethod.DWQ,
         QuantMethod.GPTQ,
+        QuantMethod.GPTQ_ACT,
         QuantMethod.BF16,
     )
     supported_group_sizes: tuple[int, ...] = (32, 64, 128)
@@ -178,6 +179,8 @@ class ManualPlanRecipe(StrictModel):
             raise ValueError("AX Engine is the only supported primary runtime")
         if self.hardware.runtime != self.primary_runtime:
             raise ValueError("hardware profile runtime does not match the primary runtime")
+        if self.group_size not in self.hardware.supported_group_sizes:
+            raise ValueError(f"hardware profile does not support group size {self.group_size}")
         return self
 
 
@@ -202,6 +205,9 @@ class PlanRequest(StrictModel):
     minimum_mtp_speedup: float = Field(default=1.20, ge=0.0)
     # AXQ-026 opt-in: 8 lowers the LM-head weight floor for this plan only.
     lm_head_min_bits: Literal[8, 16] = 16
+    # RM-14: a losing method whose loss is within this relative margin of the
+    # winner at the same (bits, group) storage key is surfaced as a near tie.
+    method_near_tie_epsilon: float = Field(default=0.02, ge=0.0, le=1.0)
     hardware: HardwareProfile = Field(default_factory=HardwareProfile)
     mtp: MtpPolicy = Field(default_factory=MtpPolicy)
 
@@ -240,7 +246,11 @@ class PlanRequest(StrictModel):
         unsupported = set(self.candidate_bits) - set(self.hardware.supported_bits)
         if unsupported:
             raise ValueError(f"hardware profile does not support bits {sorted(unsupported)}")
-        for size in self.effective_group_sizes():
+        # The plan-level default group size is validated even when a
+        # candidate grid overrides it for planning: the emitted plan records
+        # it and QuantizationPlan rejects unsupported values after the full
+        # allocation has already run.
+        for size in {self.group_size, *self.effective_group_sizes()}:
             if size not in self.hardware.supported_group_sizes:
                 raise ValueError(f"hardware profile does not support group size {size}")
         if self.candidate_methods:
@@ -252,6 +262,61 @@ class PlanRequest(StrictModel):
                     "hardware profile does not support methods "
                     f"{sorted(method.value for method in unsupported_methods)}"
                 )
+        return self
+
+
+class KvServingQualityProfileResult(StrictModel):
+    """One measured quality point: a profile at one context length (RM-21)."""
+
+    profile: ProfileName
+    context_tokens: int = Field(ge=1)
+    bf16_kv_score: float = Field(gt=0.0)
+    quantized_kv_score: float = Field(ge=0.0)
+    retention: float = Field(ge=0.0)
+    evaluation_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class KvServingQualityReport(StrictModel):
+    """Measured-KV serving-quality evidence, report-only (RM-21 / WS-6).
+
+    Binds the executed per-layer KV plan to dual-profile quality deltas versus
+    BF16 KV on the same candidate. This artifact proposes gate thresholds; it
+    never enforces them — enforcement lands as a separate, later step once
+    thresholds are grounded in data (ADR-0001 two-step rule).
+    """
+
+    schema_version: Literal["axquant.kv-serving-quality.v1"] = "axquant.kv-serving-quality.v1"
+    model: ModelIdentity
+    kv_plan_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    kv_sensitivity_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    runtime: Literal["mlx-lm-kv"] = "mlx-lm-kv"
+    per_layer_execution_verified: Literal[True] = True
+    results: list[KvServingQualityProfileResult] = Field(min_length=2)
+    report_only: Literal[True] = True
+    created_at: datetime = Field(default_factory=utc_now)
+    warnings: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def dual_profile_context_matrix(self) -> KvServingQualityReport:
+        for required in (ProfileName.GENERAL, ProfileName.AGENT_CODING):
+            contexts = {
+                result.context_tokens for result in self.results if result.profile == required
+            }
+            if len(contexts) < 2:
+                raise ValueError(
+                    "KV serving quality requires at least short and long context "
+                    f"results for profile {required.value}"
+                )
+        for result in self.results:
+            expected = result.quantized_kv_score / result.bf16_kv_score
+            if not isclose(result.retention, expected, rel_tol=1e-9, abs_tol=1e-9):
+                raise ValueError(
+                    f"KV retention is inconsistent for {result.profile.value} at "
+                    f"{result.context_tokens} tokens"
+                )
+        keys = [(result.profile, result.context_tokens) for result in self.results]
+        if len(keys) != len(set(keys)):
+            raise ValueError("KV serving-quality results must be unique per profile/context")
         return self
 
 
@@ -438,6 +503,23 @@ class PrecisionShare(StrictModel):
     fraction: float = Field(ge=0.0, le=1.0)
 
 
+class MethodNearTie(StrictModel):
+    """A losing packing method within epsilon of the selected one (RM-14).
+
+    Surfaced so floor/profile tuning can see where the DWQ x AWQ/GPTQ
+    composition choice is fragile; purely informational, never load-bearing.
+    """
+
+    tensor: str = Field(min_length=1)
+    bits: int = Field(ge=2, le=16)
+    group_size: int | None = Field(default=None, ge=1)
+    selected_method: QuantMethod
+    selected_loss: float = Field(ge=0.0)
+    runner_up_method: QuantMethod
+    runner_up_loss: float = Field(ge=0.0)
+    relative_margin: float = Field(ge=0.0)
+
+
 class QuantizationPlan(StrictModel):
     schema_version: Literal["axquant.plan.v1"] = "axquant.plan.v1"
     quantizer: Literal["axquant"] = "axquant"
@@ -469,6 +551,15 @@ class QuantizationPlan(StrictModel):
     weight_distribution: dict[str, PrecisionShare]
     mtp_distribution: dict[str, PrecisionShare]
     kv_cache: KvCachePlan | None = None
+    # RM-14 near-tie surfacing: most fragile composition choices first, capped
+    # by the planner; ``method_near_ties_omitted`` counts what the cap dropped.
+    method_near_ties: list[MethodNearTie] = Field(default_factory=list)
+    method_near_ties_omitted: int = Field(default=0, ge=0)
+    # ADR-0003 provenance: which cost model ranked the candidates. Plans built
+    # with a kernel-latency table are scoped to that table's host.
+    cost_model: Literal["abstract-bpw", "kernel-latency"] = "abstract-bpw"
+    kernel_latency_sha256: str | None = Field(default=None, min_length=64, max_length=64)
+    kernel_latency_host_id: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
     warnings: list[str] = Field(default_factory=list)
 

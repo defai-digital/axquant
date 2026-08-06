@@ -53,7 +53,9 @@ from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.source_prep import prepare_conversion_source
 
 _LOG = structlog.get_logger()
-_ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_ACTIVATION_REFINEMENT_METHODS = frozenset(
+    {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
+)
 _CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 
 
@@ -266,7 +268,7 @@ def _declare_raw_mtp_norm_layout(output_dir: Path) -> None:
     if "mtp_sidecar_bits" not in contract:
         sidecar_description = contract.get("mtp_sidecar")
         if isinstance(sidecar_description, str):
-            match = re.search(r"INT(4|6|8|16)", sidecar_description.upper())
+            match = re.search(r"INT(16|8|6|4)(?![0-9])", sidecar_description.upper())
             if match:
                 # AX Engine prefers this structured field over its free-text
                 # heuristic, which guesses 4-bit for anything non-INT8.
@@ -1227,6 +1229,17 @@ def convert_model(
                 prepared=convert_model_ref,
             )
         backend = conversion_backend(plan)
+        if backend == "mlx-lm" and any(
+            allocation.role == TensorRole.AUDIO for allocation in plan.assignments
+        ):
+            # The mlx-lm backend has no protected-audio delivery path (the
+            # prepared text view drops audio towers and nothing restores
+            # them), so the post-conversion coverage check could never pass;
+            # fail before the expensive conversion with an accurate reason.
+            raise PlanningError(
+                "plan contains protected audio tensors the mlx-lm backend cannot "
+                "deliver; convert this checkpoint through its multimodal backend"
+            )
         predicate = build_quant_predicate(
             plan,
             execute_refinement=False,
@@ -1282,13 +1295,18 @@ def convert_model(
                         else (
                             "GPTQ Hessian error compensation followed by portable affine packing"
                             if allocation.method.value == "gptq"
-                            else f"{backend} affine packing"
+                            else (
+                                "group-preserving act-order GPTQ Hessian error compensation "
+                                "followed by portable affine packing"
+                                if allocation.method.value == "gptq-act"
+                                else f"{backend} affine packing"
+                            )
                         )
                     )
                 ),
                 metadata=(
                     predicate.method_metadata.get(allocation.module_path, {})
-                    if allocation.method.value in ("awq", "gptq")
+                    if allocation.method.value in ("awq", "gptq", "gptq-act")
                     else predicate.dwq_metadata.get(allocation.module_path, {})
                 ),
             )

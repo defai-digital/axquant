@@ -89,7 +89,9 @@ _HARDWARE_EVIDENCE_FIELDS = (
 
 # Release probes use the same role floors as planner protection policy.
 _RELEASE_PROBE_MIN_BITS = PROTECTED_MIN_BITS
-_ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
+_ACTIVATION_REFINEMENT_METHODS = frozenset(
+    {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
+)
 _ACTIVATION_CAPTURE_MANIFEST = "activation_capture_manifest.json"
 _REQUIRED_BENCHMARK_KINDS = {
     BenchmarkEvidenceKind.BF16,
@@ -1680,7 +1682,8 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     learned_methods = {
         assignment.method
         for assignment in plan.assignments
-        if assignment.method in {QuantMethod.AWQ, QuantMethod.DWQ, QuantMethod.GPTQ}
+        if assignment.method
+        in {QuantMethod.AWQ, QuantMethod.DWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
     }
     if not learned_methods:
         m4_issues.append("selected plan uses no learned refinement method")
@@ -1690,6 +1693,9 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         QuantMethod.AWQ: BenchmarkEvidenceKind.AWQ,
         QuantMethod.DWQ: BenchmarkEvidenceKind.DWQ,
         QuantMethod.GPTQ: BenchmarkEvidenceKind.GPTQ,
+        # Act-order GPTQ compares against the same uniform GPTQ baseline pack;
+        # the ordering changes refinement, not the baseline family.
+        QuantMethod.GPTQ_ACT: BenchmarkEvidenceKind.GPTQ,
     }
     missing_method_baselines = sorted(
         method.value

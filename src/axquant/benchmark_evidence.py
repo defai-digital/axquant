@@ -11,6 +11,7 @@ from axquant.schema import (
     BenchmarkEvidenceKind,
     BenchmarkEvidenceRequest,
     EvaluationBundle,
+    FormalHostContract,
     RuntimeName,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
@@ -61,6 +62,81 @@ _CONTROL_METADATA = (
 def _resolved(base: Path, value: str) -> Path:
     path = Path(value).expanduser()
     return path.resolve() if path.is_absolute() else (base / path).resolve()
+
+
+def formal_mtp_bundle_issues(
+    *,
+    mtp_off: EvaluationBundle,
+    mtp_on: EvaluationBundle,
+    contract: FormalHostContract,
+    authorized_device_name: str,
+    authorized_chip: str,
+) -> list[str]:
+    """Admissibility of an MTP A/B pair as formal speed evidence (RM-20).
+
+    A bundle pair is authorizing only when both halves ran on the frozen
+    formal host contract with identical controls, the same immutable
+    checkpoint, and zero kernel fallbacks. Anything else stays development
+    evidence — the pair is reported, never silently accepted.
+    """
+    issues: list[str] = []
+    pair = (("axquant-mtp-off", mtp_off), ("axquant-mtp-on", mtp_on))
+    for label, bundle in pair:
+        if bundle.baseline_kind != label:
+            issues.append(f"{label} bundle declares baseline kind {bundle.baseline_kind}")
+        if bundle.runtime != RuntimeName.AX_ENGINE:
+            issues.append(f"{label} formal MTP evidence must use AX Engine")
+        if not is_immutable_revision(bundle.model.revision):
+            issues.append(f"{label} model revision is not immutable")
+        hardware = bundle.hardware
+        if hardware.device_name != authorized_device_name:
+            issues.append(
+                f"{label} device {hardware.device_name!r} is not the authorized "
+                f"formal device {authorized_device_name!r} ({contract.host_id})"
+            )
+        if hardware.chip != authorized_chip:
+            issues.append(
+                f"{label} chip {hardware.chip!r} is not the authorized formal "
+                f"chip {authorized_chip!r} ({contract.host_id})"
+            )
+        if hardware.os_version != contract.os_version:
+            issues.append(
+                f"{label} OS {hardware.os_version!r} differs from the frozen "
+                f"contract OS {contract.os_version!r}"
+            )
+        if bundle.benchmark_metadata.get("power_mode") != contract.power_mode:
+            issues.append(f"{label} power mode differs from the frozen contract")
+        if hardware.kernel_fallbacks != 0:
+            issues.append(f"{label} formal MTP evidence used kernel fallbacks")
+    if mtp_off.mtp_enabled:
+        issues.append("axquant-mtp-off bundle has MTP enabled")
+    if not mtp_on.mtp_enabled:
+        issues.append("axquant-mtp-on bundle has MTP disabled")
+    if mtp_on.mtp is None:
+        issues.append("axquant-mtp-on bundle is missing MTP metrics")
+    else:
+        if mtp_on.mtp.acceptance_rate is None:
+            issues.append("axquant-mtp-on bundle is missing the MTP acceptance rate")
+        if mtp_on.hardware.mtp_effective_tokens_per_second is None:
+            issues.append("axquant-mtp-on bundle is missing effective MTP throughput")
+    if not same_model_identity(mtp_off.model, mtp_on.model):
+        issues.append("MTP off/on bundles do not use the identical checkpoint")
+    if mtp_off.dataset_sha256 != mtp_on.dataset_sha256:
+        issues.append("MTP off/on bundles use different datasets")
+    if mtp_off.random_seed != mtp_on.random_seed:
+        issues.append("MTP off/on bundles use different random seeds")
+    controls = {
+        stable_sha256(
+            {
+                field_name: bundle.benchmark_metadata.get(field_name)
+                for field_name in _CONTROL_METADATA
+            }
+        )
+        for _, bundle in pair
+    }
+    if len(controls) > 1:
+        issues.append("MTP off/on bundles use different benchmark controls")
+    return issues
 
 
 def build_benchmark_evidence_index(

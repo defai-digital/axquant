@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 import struct
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,9 +15,15 @@ from axquant.mtp_sidecar import (
     QWEN36_MTP_PROJECTION_TENSORS,
     QWEN36_MTP_TENSORS,
     prepare_qwen36_mtp_sidecar,
+    probe_ax_engine_mtp_capability,
+    quantize_qwen36_mtp_sidecar,
 )
-from axquant.schema import ModelIdentity
-from axquant.serde import file_sha256, write_data
+from axquant.schema import (
+    AxEngineMtpCapabilityCheck,
+    ModelIdentity,
+    QuantizedMtpSidecarManifest,
+)
+from axquant.serde import file_sha256, load_model, write_data
 
 
 def _float_to_bf16(value: float) -> int:
@@ -349,3 +357,213 @@ def test_copy_prepared_mtp_bundle_rejects_symlink_destination(
             copied,
             source_model=_source_model(),
         )
+
+
+def _write_quantizable_sidecar(path: Path) -> None:
+    """Sidecar whose projections (4 x 64) admit group-64 affine quantization."""
+    header: dict[str, object] = {"__metadata__": {"format": "mlx"}}
+    payload_chunks: list[bytes] = []
+    cursor = 0
+    for name in sorted(QWEN36_MTP_TENSORS):
+        if name in QWEN36_MTP_NORM_TENSORS:
+            shape = [2]
+            values = (-0.5, 0.25)
+        else:
+            shape = [4, 64]
+            values = tuple(((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64))
+        payload = _bf16_payload(values)
+        header[name] = {
+            "dtype": "BF16",
+            "shape": shape,
+            "data_offsets": [cursor, cursor + len(payload)],
+        }
+        payload_chunks.append(payload)
+        cursor += len(payload)
+    rendered = json.dumps(header, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    rendered += b" " * ((-len(rendered)) % 8)
+    path.write_bytes(struct.pack("<Q", len(rendered)) + rendered + b"".join(payload_chunks))
+
+
+def _capability(*, ok: bool = True, mtp_enabled: bool = True) -> AxEngineMtpCapabilityCheck:
+    return AxEngineMtpCapabilityCheck(
+        ok=ok,
+        mtp_enabled=mtp_enabled,
+        layout="ax-engine-qwen36-v1-quantized",
+        ax_engine_version="6.11.1",
+    )
+
+
+def test_quantized_sidecar_is_a_separate_gated_artifact(tmp_path: Path) -> None:
+    np = pytest.importorskip("numpy")
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    source_digest = file_sha256(source)
+    output = tmp_path / "mtp.quantized.safetensors"
+
+    manifest = quantize_qwen36_mtp_sidecar(
+        source,
+        output,
+        bits=4,
+        group_size=64,
+        capability=_capability(),
+    )
+
+    # The byte-preserved default is untouched (ADR-0005).
+    assert file_sha256(source) == source_digest
+    assert manifest.byte_preserved_default_retained is True
+    assert manifest.output.sha256 == file_sha256(output)
+    assert manifest.source_sidecar.sha256 == source_digest
+
+    by_name = {record.name: record for record in manifest.tensors}
+    for name in QWEN36_MTP_NORM_TENSORS:
+        assert not by_name[name].quantized and by_name[name].bits == 16
+    for name in QWEN36_MTP_PROJECTION_TENSORS:
+        assert by_name[name].quantized
+        assert by_name[name].bits == 4 and by_name[name].group_size == 64
+
+    # Round-trip one projection from the emitted codes/scales/biases.
+    blob = output.read_bytes()
+    header_len = struct.unpack("<Q", blob[:8])[0]
+    header = json.loads(blob[8 : 8 + header_len].decode("utf-8"))
+    data_base = 8 + header_len
+    name = sorted(QWEN36_MTP_PROJECTION_TENSORS)[0]
+
+    def _read(entry_name: str, dtype: object) -> object:
+        entry = header[entry_name]
+        start, end = entry["data_offsets"]
+        array = np.frombuffer(blob[data_base + start : data_base + end], dtype=dtype)
+        return array.reshape(entry["shape"])
+
+    codes = _read(name, np.uint8).astype(np.float32)
+    scales = _read(f"{name}.scales", np.float16).astype(np.float32)
+    biases = _read(f"{name}.biases", np.float16).astype(np.float32)
+    reconstructed = (codes.reshape(4, 1, 64) - biases.reshape(4, 1, 1)) * scales.reshape(4, 1, 1)
+    original = np.array(
+        [((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64)], dtype=np.float32
+    ).reshape(4, 64)
+    max_step = float(scales.max())
+    assert np.max(np.abs(reconstructed.reshape(4, 64) - original)) <= max_step
+
+
+def test_quantized_sidecar_fails_closed_without_capability(tmp_path: Path) -> None:
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    output = tmp_path / "mtp.quantized.safetensors"
+    with pytest.raises(ArtifactError, match="capability"):
+        quantize_qwen36_mtp_sidecar(source, output, capability=_capability(ok=False))
+    with pytest.raises(ArtifactError, match="capability"):
+        quantize_qwen36_mtp_sidecar(source, output, capability=_capability(mtp_enabled=False))
+    assert not output.exists()
+
+
+def test_quantized_sidecar_refuses_to_overwrite_the_default(tmp_path: Path) -> None:
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    with pytest.raises(ArtifactError, match="must not overwrite"):
+        quantize_qwen36_mtp_sidecar(source, source, capability=_capability())
+
+
+def _capability_json_command(tmp_path: Path, name: str, **overrides: object) -> str:
+    """Command string for a stub capability probe (quoting-safe via a script)."""
+    payload = {
+        "ok": True,
+        "mtp_enabled": True,
+        "layout": "ax-engine-qwen36-v1-quantized",
+        "ax_engine_version": "6.11.1",
+    }
+    payload.update(overrides)
+    script = tmp_path / f"capability_probe_{name}.py"
+    script.write_text(
+        f"import json\nprint(json.dumps({payload!r}))\n",
+        encoding="utf-8",
+    )
+    return f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}"
+
+
+def test_capability_probe_executes_a_real_command(tmp_path: Path) -> None:
+    command = shlex.split(_capability_json_command(tmp_path, "ok"))
+    check = probe_ax_engine_mtp_capability(command)
+    assert check.ok and check.mtp_enabled
+    assert check.layout == "ax-engine-qwen36-v1-quantized"
+    assert check.ax_engine_version == "6.11.1"
+
+
+def test_capability_probe_fails_closed_on_bad_output() -> None:
+    with pytest.raises(ArtifactError, match="no JSON object"):
+        probe_ax_engine_mtp_capability([sys.executable, "-c", "print('not json')"])
+    with pytest.raises(ArtifactError, match="exited 3"):
+        probe_ax_engine_mtp_capability([sys.executable, "-c", "raise SystemExit(3)"])
+    with pytest.raises(ArtifactError, match="incomplete"):
+        probe_ax_engine_mtp_capability(
+            [sys.executable, "-c", "import json; print(json.dumps({'ok': True}))"]
+        )
+    with pytest.raises(ArtifactError, match="could not run"):
+        probe_ax_engine_mtp_capability(["/nonexistent/ax-engine-doctor"])
+
+
+def test_quantize_mtp_sidecar_cli_runs_the_capability_probe(tmp_path: Path) -> None:
+    from axquant.cli import main
+
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    output = tmp_path / "mtp.quantized.safetensors"
+    manifest_path = tmp_path / "mtp_sidecar_quantized.json"
+
+    assert (
+        main(
+            [
+                "quantize-mtp-sidecar",
+                "--sidecar",
+                str(source),
+                "--output",
+                str(output),
+                "--capability-command",
+                _capability_json_command(tmp_path, "pass"),
+                "--manifest-output",
+                str(manifest_path),
+            ]
+        )
+        == 0
+    )
+    manifest = load_model(manifest_path, QuantizedMtpSidecarManifest)
+    assert manifest.capability.layout == "ax-engine-qwen36-v1-quantized"
+    assert output.exists()
+
+
+def test_quantize_mtp_sidecar_cli_rejects_failed_probe_and_ambiguous_inputs(
+    tmp_path: Path,
+) -> None:
+    from axquant.cli import main
+
+    source = tmp_path / "mtp.safetensors"
+    _write_quantizable_sidecar(source)
+    output = tmp_path / "mtp.quantized.safetensors"
+
+    assert (
+        main(
+            [
+                "quantize-mtp-sidecar",
+                "--sidecar",
+                str(source),
+                "--output",
+                str(output),
+                "--capability-command",
+                _capability_json_command(tmp_path, "fail", ok=False),
+            ]
+        )
+        == 2
+    )
+    assert not output.exists()
+    # Exactly one capability source is allowed.
+    assert (
+        main(
+            [
+                "quantize-mtp-sidecar",
+                "--sidecar",
+                str(source),
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )

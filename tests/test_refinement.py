@@ -19,6 +19,7 @@ from axquant.refinement import (
     build_complete_candidate_measurement,
     coordinate_descent_swap,
     generate_top_n_plans,
+    optimize_candidate_interactions,
     refine_candidates,
     select_complete_candidate,
 )
@@ -847,3 +848,165 @@ def test_complete_measurement_rejects_cross_bound_quality_and_artifact_metadata(
             validation=validation,
             validation_sha256=_VALIDATION_SHA,
         )
+
+
+def _interaction_records(refinement, *, role: str) -> list[CompleteCandidateMeasurement]:
+    """Passing measurements for the first two candidates, tagged with one role."""
+    records = []
+    for index, entry in enumerate(refinement.history[:2]):
+        records.append(
+            CompleteCandidateMeasurement(
+                candidate_id=entry.candidate_id,
+                candidate_model=ModelIdentity(
+                    model_id=f"AutomatosX/{entry.candidate_id}",
+                    revision=f"candidate-{index}",
+                ),
+                profile=refinement.selected_plan.profile,
+                dataset_role=role,
+                plan_sha256=entry.plan_sha256,
+                artifact_manifest_sha256=f"{index + 1:064x}",
+                quality_comparison_sha256=f"{index + 11:064x}",
+                validation_sha256=f"{index + 21:064x}",
+                measured_bpw=7.5 + index,
+                objective_loss=_complete_objective_loss(
+                    refinement.candidate_plans[entry.candidate_id],
+                    quality_retention=1.0,
+                    perplexity_ratio=1.0,
+                    mtp_acceptance_retention=0.97,
+                    mtp_speedup=1.25,
+                    peak_memory_ratio=0.8,
+                ),
+                quality_retention=1.0,
+                perplexity_ratio=1.0,
+                mtp_acceptance_retention=0.97,
+                mtp_speedup=1.25,
+                peak_memory_ratio=0.8,
+                hardware=_complete_hardware(),
+                validation_passed=True,
+            )
+        )
+    return records
+
+
+def test_interaction_optimization_selects_on_development_roles() -> None:
+    report = _make_sensitivity_report()
+    request = _make_request(target_bpw=8.0)
+    refinement = refine_candidates(
+        report,
+        request,
+        RefinementConfig(top_n=2, max_iterations=1, random_seed=7),
+    )
+    measurements = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test-v1",
+        measurements=_interaction_records(refinement, role="development-agent-coding"),
+    )
+    optimized = optimize_candidate_interactions(refinement, measurements)
+    assert optimized.selection_basis == "complete-model"
+    assert optimized.evidence_label == "interaction-development"
+    # ADR-0004: the holdout binding stays free for the later formal selection.
+    assert optimized.holdout_measurement_set_sha256 is None
+    assert optimized.interaction_measurement_set_sha256 == stable_sha256(measurements)
+    assert any("formal holdout remains unconsumed" in w for w in optimized.warnings)
+
+
+def test_interaction_optimization_rejects_formal_holdout_roles() -> None:
+    report = _make_sensitivity_report()
+    request = _make_request(target_bpw=8.0)
+    refinement = refine_candidates(
+        report,
+        request,
+        RefinementConfig(top_n=2, max_iterations=1, random_seed=7),
+    )
+    measurements = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test-v1",
+        measurements=_interaction_records(refinement, role="formal-general"),
+    )
+    with pytest.raises(RefinementError, match="formal holdout"):
+        optimize_candidate_interactions(refinement, measurements)
+
+
+def test_interaction_optimization_rejects_missing_role_provenance() -> None:
+    report = _make_sensitivity_report()
+    request = _make_request(target_bpw=8.0)
+    refinement = refine_candidates(
+        report,
+        request,
+        RefinementConfig(top_n=2, max_iterations=1, random_seed=7),
+    )
+    measurements = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test-v1",
+        measurements=_interaction_records(refinement, role=""),
+    )
+    with pytest.raises(RefinementError, match="dataset-role provenance"):
+        optimize_candidate_interactions(refinement, measurements)
+
+
+def test_refine_select_cli_interaction_path(tmp_path) -> None:
+    from axquant.cli import main
+    from axquant.schema import RefinementResult
+    from axquant.serde import load_model, write_data
+
+    report = _make_sensitivity_report()
+    request = _make_request(target_bpw=8.0)
+    refinement = refine_candidates(
+        report,
+        request,
+        RefinementConfig(top_n=2, max_iterations=1, random_seed=7),
+    )
+    development = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test-v1",
+        measurements=_interaction_records(refinement, role="development-general"),
+    )
+    refinement_path = tmp_path / "refinement.json"
+    measurements_path = tmp_path / "measurements.json"
+    output_path = tmp_path / "selected.json"
+    write_data(refinement_path, refinement)
+    write_data(measurements_path, development)
+
+    assert (
+        main(
+            [
+                "refine-select",
+                "--refinement",
+                str(refinement_path),
+                "--measurements",
+                str(measurements_path),
+                "--interaction",
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    selected = load_model(output_path, RefinementResult)
+    assert selected.evidence_label == "interaction-development"
+    assert selected.holdout_measurement_set_sha256 is None
+    assert selected.interaction_measurement_set_sha256 == stable_sha256(development)
+
+    # The same measurements tagged with a formal role must fail closed.
+    holdout = RefinementMeasurementSet(
+        refinement_sha256=stable_sha256(refinement),
+        evaluator_version="test-v1",
+        measurements=_interaction_records(refinement, role="formal-general"),
+    )
+    write_data(measurements_path, holdout)
+    # The role guard raises, so the CLI reports the failure exit code.
+    assert (
+        main(
+            [
+                "refine-select",
+                "--refinement",
+                str(refinement_path),
+                "--measurements",
+                str(measurements_path),
+                "--interaction",
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 2
+    )

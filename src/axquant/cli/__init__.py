@@ -19,7 +19,7 @@ from axquant.benchmark import (
 from axquant.calibration import calibration_manifest_sha256, prepare_calibration
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
-from axquant.errors import AxquantError, PlanningError
+from axquant.errors import ArtifactError, AxquantError, PlanningError
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model, resolve_model_dir
@@ -48,6 +48,7 @@ from axquant.schema import (
     EvaluationBundle,
     HardwareProfile,
     Inventory,
+    KernelLatencyTable,
     KvSensitivityReport,
     ManualPlanRecipe,
     ModelIdentity,
@@ -613,7 +614,10 @@ def _run(args: argparse.Namespace) -> int:
                 min_bits=args.mtp_min_bits,
             ),
         )
-        plan = plan_quantization(analysis_report, request)
+        kernel_latency_table = (
+            load_model(args.latency_table, KernelLatencyTable) if args.latency_table else None
+        )
+        plan = plan_quantization(analysis_report, request, kernel_latency=kernel_latency_table)
         if args.ladder is not None:
             plan.warnings.append(f"convert ladder: {args.ladder.value}")
         if args.kv_cache == "prior":
@@ -833,6 +837,107 @@ def _run(args: argparse.Namespace) -> int:
             "probe_capacity_written",
             output=str(args.output),
             recommended=capacity.recommended_mode.value,
+        )
+        return 0
+
+    if args.command == "quantize-mtp-sidecar":
+        import shlex
+
+        from axquant.mtp_sidecar import (
+            probe_ax_engine_mtp_capability,
+            quantize_qwen36_mtp_sidecar,
+        )
+        from axquant.schema import AxEngineMtpCapabilityCheck
+
+        if bool(args.capability_command) == bool(args.capability_result):
+            raise ArtifactError(
+                "quantize-mtp-sidecar requires exactly one of --capability-command "
+                "(live AX Engine probe) or --capability-result (recorded check)"
+            )
+        if args.capability_command:
+            capability = probe_ax_engine_mtp_capability(shlex.split(args.capability_command))
+        else:
+            capability = load_model(args.capability_result, AxEngineMtpCapabilityCheck)
+        sidecar_manifest = quantize_qwen36_mtp_sidecar(
+            args.sidecar,
+            args.output,
+            bits=args.bits,
+            group_size=args.group_size,
+            capability=capability,
+        )
+        write_data(args.manifest_output, sidecar_manifest)
+        log.info(
+            "quantized_mtp_sidecar_written",
+            output=str(args.output),
+            manifest=str(args.manifest_output),
+            default_bits=sidecar_manifest.default_bits,
+            quantized_tensors=sum(1 for t in sidecar_manifest.tensors if t.quantized),
+            layout=sidecar_manifest.capability.layout,
+        )
+        return 0
+
+    if args.command == "kv-serving-quality":
+        import json as _json
+
+        from axquant.kv_quality import build_kv_serving_quality_report
+        from axquant.schema import KvServingQualityProfileResult
+
+        kv_plan_source = load_model(args.plan, QuantizationPlan)
+        if kv_plan_source.kv_cache is None:
+            raise ArtifactError("kv-serving-quality requires a plan with a kv_cache section")
+        summary_payload = _json.loads(
+            Path(args.execution_summary).expanduser().read_text(encoding="utf-8")
+        )
+        if not isinstance(summary_payload, dict):
+            raise ArtifactError("KV execution summary must be a JSON object")
+        results_payload = _json.loads(Path(args.results).expanduser().read_text(encoding="utf-8"))
+        if not isinstance(results_payload, list):
+            raise ArtifactError("KV quality results must be a JSON array")
+        kv_results = [
+            KvServingQualityProfileResult.model_validate(item) for item in results_payload
+        ]
+        kv_serving_report = build_kv_serving_quality_report(
+            model=kv_plan_source.source_model,
+            kv_plan=kv_plan_source.kv_cache,
+            execution_summary=summary_payload,
+            results=kv_results,
+            kv_sensitivity_sha256=(
+                args.kv_sensitivity_sha256
+                if args.kv_sensitivity_sha256
+                else kv_plan_source.kv_cache.sensitivity_sha256
+            ),
+        )
+        write_data(args.output, kv_serving_report)
+        log.info(
+            "kv_serving_quality_written",
+            output=str(args.output),
+            kv_plan_sha256=kv_serving_report.kv_plan_sha256,
+            results=len(kv_serving_report.results),
+        )
+        return 0
+
+    if args.command == "benchmark-kernels":
+        from axquant.kernel_latency import measure_mlx_kernel_latency
+
+        table = measure_mlx_kernel_latency(
+            host_id=args.host_id,
+            chip=args.chip,
+            os_version=args.os_version,
+            bits_grid=args.bits,
+            group_sizes=args.group_sizes,
+            hidden_sizes=args.hidden_sizes,
+            iterations=args.iterations,
+            warmup=args.warmup,
+            seed=args.seed,
+        )
+        write_data(args.output, table)
+        for warning in table.warnings:
+            log.warning("kernel_latency_skip", detail=warning)
+        log.info(
+            "kernel_latency_table_written",
+            output=args.output,
+            entries=len(table.entries),
+            host_id=table.host_id,
         )
         return 0
 
@@ -1743,18 +1848,25 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "refine-select":
-        from axquant.refinement import select_complete_candidate
+        from axquant.refinement import (
+            optimize_candidate_interactions,
+            select_complete_candidate,
+        )
         from axquant.schema import RefinementMeasurementSet, RefinementResult
 
         refinement = load_model(args.refinement, RefinementResult)
         measurements = load_model(args.measurements, RefinementMeasurementSet)
-        selected = select_complete_candidate(refinement, measurements)
+        if args.interaction:
+            selected = optimize_candidate_interactions(refinement, measurements)
+        else:
+            selected = select_complete_candidate(refinement, measurements)
         write_data(args.output, selected)
         log.info(
             "complete_candidate_selected",
             output=str(args.output),
             candidate_id=selected.selected_candidate_id,
             plan_sha256=selected.selected_plan_sha256,
+            evidence_label=selected.evidence_label,
         )
         return 0
 

@@ -573,6 +573,45 @@ class TestResultToEvaluationBundle:
         assert bundle.mtp.token_accuracy == {"1": pytest.approx(0.75)}
         assert bundle.mtp.repetition_rate == pytest.approx(1 / 3)
 
+    def test_acceptance_rate_pairs_accepted_and_proposed_counters(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        # A trial reporting accepted tokens without proposed tokens must be
+        # excluded from the acceptance ratio: pooling its numerator against
+        # other trials' denominators inflates a release-gate metric (and can
+        # push the pooled ratio past 1.0, crashing MtpMetrics validation).
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        result = BenchmarkResult(
+            config=mtp_config,
+            trials=[
+                TrialResult(
+                    trial_index=0,
+                    output_token_ids=[1, 2, 3],
+                    tokens_generated=3,
+                    tokens_per_second=10.0,
+                    mtp_accepted_tokens=80,
+                    mtp_proposed_tokens=100,
+                ),
+                TrialResult(
+                    trial_index=1,
+                    output_token_ids=[4, 5, 6],
+                    tokens_generated=3,
+                    tokens_per_second=10.0,
+                    mtp_accepted_tokens=50,
+                    mtp_proposed_tokens=None,
+                ),
+            ],
+            measured_count=2,
+        )
+        bundle = result_to_evaluation_bundle(result)
+        assert bundle.mtp is not None
+        assert bundle.mtp.acceptance_rate == pytest.approx(0.8)
+        # The unpaired trial still contributes to the per-trial average.
+        assert bundle.mtp.average_accepted_tokens == pytest.approx(65.0)
+
     def test_prefill_throughput_uses_only_trials_with_timing(
         self,
         base_config: BenchmarkConfig,

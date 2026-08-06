@@ -36,6 +36,38 @@ class TestPluginRegistry:
         plugin = require_plugin(QuantMethod.GPTQ)
         assert plugin.method_id == QuantMethod.GPTQ
 
+    def test_gptq_act_registered(self) -> None:
+        assert is_method_available(QuantMethod.GPTQ_ACT)
+        plugin = require_plugin(QuantMethod.GPTQ_ACT)
+        assert plugin.method_id == QuantMethod.GPTQ_ACT
+
+    def test_gptq_act_shares_the_static_packed_layout(self) -> None:
+        rng = np.random.default_rng(3)
+        weight = rng.standard_normal((16, 64)).astype(np.float32)
+        activations = rng.standard_normal((128, 64)).astype(np.float32)
+        activations *= np.linspace(0.1, 4.0, 64, dtype=np.float32)[np.newaxis, :]
+
+        static = require_plugin(QuantMethod.GPTQ).quantize(
+            weight, bits=4, group_size=32, calibration=activations
+        )
+        ordered = require_plugin(QuantMethod.GPTQ_ACT).quantize(
+            weight, bits=4, group_size=32, calibration=activations
+        )
+
+        # ADR-0002 portable contract: identical shapes, grid parameters, and
+        # group structure — only the integer codes may differ.
+        assert ordered.method == QuantMethod.GPTQ_ACT
+        assert ordered.data.shape == static.data.shape
+        assert ordered.data.dtype == static.data.dtype
+        np.testing.assert_array_equal(ordered.scales, static.scales)
+        np.testing.assert_array_equal(ordered.biases, static.biases)
+        assert ordered.metadata["act_order"] == 1
+        assert static.metadata["act_order"] == 0
+
+        roundtrip = require_plugin(QuantMethod.GPTQ_ACT).dequantize(ordered)
+        assert roundtrip.shape == weight.shape
+        assert np.all(np.isfinite(roundtrip))
+
     def test_get_plugin(self) -> None:
         plugin = get_plugin(QuantMethod.AFFINE)
         assert plugin is not None
@@ -121,6 +153,28 @@ class TestAffinePlugin:
         # 8-bit should have low error
         error = np.mean((weight - reconstructed) ** 2)
         assert error < 0.1
+
+    def test_offset_group_codes_use_the_stored_zero_point(self, plugin: AffinePlugin) -> None:
+        # Groups far from zero push |zero_point| beyond float16's exact
+        # integer range (2048). Codes must be built with the float16-stored
+        # zero point that dequantize decodes with, or every element in the
+        # group shifts by the storage rounding error (up to 16 steps).
+        rng = np.random.default_rng(3)
+        weight = (8.0 + 0.01 * rng.standard_normal((8, 64))).astype(np.float32)
+        quantized = plugin.quantize(weight, bits=8, group_size=64)
+        reconstructed = plugin.dequantize(quantized)
+        scales = quantized.scales.astype(np.float32).reshape(8, 1)
+        biases = quantized.biases.astype(np.float32).reshape(8, 1)
+        # Elements inside the stored representable window must round-trip
+        # within scale/2; only edge elements clipped by the float16 zero-point
+        # granularity may exceed it.
+        window_low = (0 - biases) * scales
+        window_high = (255 - biases) * scales
+        inside = (weight >= window_low + scales / 2) & (weight <= window_high - scales / 2)
+        assert inside.sum() > 400
+        per_element_error = np.abs(reconstructed - weight)
+        bound = np.repeat(scales, 64, axis=1) / 2 + 1e-6
+        assert np.all(per_element_error[inside] <= bound[inside])
 
     def test_dequantize_rejects_tampered_codes(self, plugin: AffinePlugin) -> None:
         quantized = plugin.quantize(
