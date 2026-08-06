@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 # Mirror GitHub Actions CI gates as closely as practical on a developer machine.
 #
-# Why this exists: a Mac with MLX on PATH/site-packages will pass generation-smoke
-# and mypy paths that fail on Ubuntu `.[dev]`-only jobs. Always run this before
-# pushing to main. See docs/ci-root-causes.md.
+# Surfaces (same split as .github/workflows/ci.yml):
+#   non-MLX — isolated venv with `.[dev]` only + sanitized PATH  ≈ Ubuntu jobs
+#   MLX     — host interpreter with mlx importable               ≈ macOS job
+#
+# Why: MLX is Apple Silicon only and optional (axquant[mlx]). Ubuntu CI is the
+# hard gate for the non-MLX package contract; a green Mac pytest with MLX on
+# PATH does not prove Ubuntu will pass. Always run this before pushing to main.
+# See docs/ci-root-causes.md and CONTRIBUTING.md.
 #
 # Usage:
 #   ./scripts/ci-local.sh              # lint + non-MLX suite (+ MLX suite if importable)

@@ -1,3 +1,15 @@
+# CI surfaces (intentional split — do not collapse onto one runner):
+#
+#   Ubuntu  → non-MLX package contract: lint + tests with `.[dev]` only.
+#             MLX cannot run on Linux GitHub-hosted runners and must remain
+#             optional (`axquant[mlx]`). This job catches "works on my Mac"
+#             failures where code or tests assume mlx/mlx_lm is importable.
+#
+#   macOS   → MLX execution path: `.[dev,mlx]` unit suite + real-hardware
+#             integration when present. Apple Silicon only.
+#
+# Local mirror: ./scripts/ci-local.sh (isolated non-MLX venv + host MLX).
+# Background: docs/ci-root-causes.md
 name: CI
 
 on:
@@ -17,14 +29,29 @@ permissions:
 
 jobs:
   lint:
+    name: lint (non-MLX)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - name: Install dev dependencies
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install non-MLX dev dependencies
         run: pip install -e ".[dev]"
+      - name: Assert MLX is not on the non-MLX surface
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import sys
+
+          for name in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
+              if importlib.util.find_spec(name) is not None:
+                  sys.exit(f"non-MLX job unexpectedly has {name}")
+          print("non-MLX install surface clean")
+          PY
       - name: Ruff lint
         run: ruff check .
       - name: Ruff format
@@ -32,8 +59,11 @@ jobs:
       - name: mypy
         run: mypy src
 
+  # Job id kept as python-compatibility for historical run history / deep links.
   python-compatibility:
+    name: non-MLX (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -43,20 +73,52 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dev dependencies
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install non-MLX dev dependencies
         run: pip install -e ".[dev]"
+      - name: Assert MLX is not on the non-MLX surface
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import sys
+
+          for name in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
+              if importlib.util.find_spec(name) is not None:
+                  sys.exit(f"non-MLX job unexpectedly has {name}")
+          print("non-MLX install surface clean")
+          PY
       - name: Run non-MLX tests
+        # Match scripts/ci-local.sh: do not let a host PATH resurrect mlx_lm tools.
+        env:
+          PATH: ${{ env.pythonLocation }}/bin:/usr/bin:/bin
         run: pytest -m "not integration"
 
   test:
+    name: MLX (macOS)
     runs-on: macos-14
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install with MLX extras
         run: pip install -e ".[dev,mlx]"
+      - name: Assert MLX backend is importable
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import sys
+
+          if importlib.util.find_spec("mlx") is None:
+              sys.exit("macOS MLX job must install axquant[mlx] (mlx missing)")
+          import mlx.core  # noqa: F401 — real backend, not a stub
+
+          print("MLX install surface ready")
+          PY
       - name: Run test suite
         run: pytest -m "not integration"
       - name: Run real-hardware integration suite

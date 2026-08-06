@@ -41,7 +41,17 @@ weights.
 
 ## Run the checks
 
-The local CI mirror is the preferred full check:
+CI uses two install surfaces on purpose:
+
+| Surface | Where | Install | Purpose |
+|---------|--------|---------|---------|
+| **non-MLX** | Ubuntu Actions + local isolated venv | `.[dev]` only | Package works without Apple Silicon / MLX |
+| **MLX** | macOS Actions + host Mac with `.[mlx]` | `.[dev,mlx]` | Real MLX execution and integration |
+
+MLX cannot run on Linux GitHub runners. Ubuntu is not “wrong” — it is the gate that
+catches Mac-only assumptions. A green host pytest with MLX installed is not enough.
+
+The local CI mirror is the preferred full check (non-MLX venv + host MLX when present):
 
 ```bash
 ./scripts/ci-local.sh

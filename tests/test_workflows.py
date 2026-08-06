@@ -54,11 +54,35 @@ def test_release_workflow_dispatch_binds_tag_input() -> None:
 
 
 def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
+    """Ubuntu owns the non-MLX contract; macOS owns MLX execution."""
     text = _CI.read_text(encoding="utf-8")
     assert "python-compatibility" in text
     assert 'pip install -e ".[dev]"' in text
     assert 'pip install -e ".[dev,mlx]"' in text
     assert 'pytest -m "not integration"' in text
+    # Display names make the split obvious in the Actions UI.
+    assert "name: lint (non-MLX)" in text
+    assert "name: non-MLX (Python ${{ matrix.python-version }})" in text
+    assert "name: MLX (macOS)" in text
+    # Ubuntu non-MLX jobs must not install the mlx extra.
+    ubuntu_block = text.split("python-compatibility:")[1].split("test:")[0]
+    assert '".[dev,mlx]"' not in ubuntu_block
+    assert "runs-on: ubuntu-latest" in ubuntu_block
+    # macOS job must install mlx and run on Apple Silicon runners.
+    mlx_block = text.split("test:")[1]
+    assert '".[dev,mlx]"' in mlx_block
+    assert "runs-on: macos-14" in mlx_block
+
+
+def test_ci_workflow_asserts_install_surfaces() -> None:
+    """Fail closed if a job accidentally gets the wrong optional backend set."""
+    text = _CI.read_text(encoding="utf-8")
+    assert "Assert MLX is not on the non-MLX surface" in text
+    assert "Assert MLX backend is importable" in text
+    # Explicit package names the non-MLX surface must not import.
+    for package in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
+        assert f'"{package}"' in text or f"'{package}'" in text
+    assert "import mlx.core" in text
 
 
 def test_ci_workflow_is_retriggerable_and_cancels_superseded_runs() -> None:

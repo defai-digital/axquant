@@ -1010,15 +1010,17 @@ width. The manifest contains the actual precision distribution and effective bit
 
 ## Development
 
-A Mac with MLX installed will **not** catch Ubuntu CI failures. Prefer the local CI mirror:
+A Mac with MLX installed will **not** catch Ubuntu CI failures. CI splits surfaces on
+purpose: **Ubuntu = non-MLX** (`.[dev]` only; MLX cannot run on Linux runners) and
+**macOS = MLX** (`.[dev,mlx]`). Prefer the local CI mirror:
 
 ```bash
 ./scripts/ci-local.sh
 ```
 
 That runs ruff, format, mypy, then a **non-MLX** venv with a sanitized `PATH` (matching
-GitHub Actions `python-compatibility`), and the host MLX suite when available. See
-[docs/ci-root-causes.md](docs/ci-root-causes.md).
+GitHub Actions non-MLX jobs), and the host MLX suite when available. See
+[docs/ci-root-causes.md](docs/ci-root-causes.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 .venv/bin/pytest
