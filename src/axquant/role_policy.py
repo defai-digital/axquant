@@ -7,7 +7,9 @@ protection floors from AXQ-007 / AXQ-026.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
+from axquant.package_data import load_package_yaml
 from axquant.schema import EvidenceKind, QuantMethod, TensorRole
 
 
@@ -23,33 +25,37 @@ class RolePreference:
     ranking_discount: float = 0.97
 
 
+def _require_mapping(payload: Any, label: str) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a mapping")
+    return payload
+
+
+def _load_role_preferences() -> dict[TensorRole, RolePreference]:
+    raw = _require_mapping(load_package_yaml("role_preferences.yaml"), "role_preferences.yaml")
+    defaults = _require_mapping(raw.get("defaults"), "role_preferences.yaml defaults")
+    preferences = _require_mapping(raw.get("preferences"), "role_preferences.yaml preferences")
+    default_margin = float(defaults.get("method_loss_margin", 0.05))
+    default_discount = float(defaults.get("ranking_discount", 0.97))
+    resolved: dict[TensorRole, RolePreference] = {}
+    for role_key, entry in preferences.items():
+        role = TensorRole(str(role_key))
+        item = _require_mapping(entry, f"role_preferences.yaml preferences.{role_key}")
+        methods_raw = item.get("preferred_methods")
+        if not isinstance(methods_raw, list) or not methods_raw:
+            raise ValueError(f"role_preferences.yaml preferences.{role_key}.preferred_methods")
+        methods = tuple(QuantMethod(str(method)) for method in methods_raw)
+        resolved[role] = RolePreference(
+            preferred_methods=methods,
+            preferred_max_group_size=int(item["preferred_max_group_size"]),
+            method_loss_margin=float(item.get("method_loss_margin", default_margin)),
+            ranking_discount=float(item.get("ranking_discount", default_discount)),
+        )
+    return resolved
+
+
 # Sensitive roles favor finer groups and AWQ when measured candidates exist.
-ROLE_PREFERENCES: dict[TensorRole, RolePreference] = {
-    TensorRole.ATTENTION: RolePreference(
-        preferred_methods=(QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.AFFINE, QuantMethod.DWQ),
-        preferred_max_group_size=32,
-    ),
-    TensorRole.LM_HEAD: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE, QuantMethod.DWQ),
-        preferred_max_group_size=64,
-    ),
-    TensorRole.EMBEDDING: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE,),
-        preferred_max_group_size=64,
-    ),
-    TensorRole.ROUTER: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE,),
-        preferred_max_group_size=64,
-    ),
-    TensorRole.MLP: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.AWQ, QuantMethod.GPTQ),
-        preferred_max_group_size=64,
-    ),
-    TensorRole.EXPERT: RolePreference(
-        preferred_methods=(QuantMethod.AFFINE, QuantMethod.DWQ),
-        preferred_max_group_size=64,
-    ),
-}
+ROLE_PREFERENCES: dict[TensorRole, RolePreference] = _load_role_preferences()
 
 
 def role_preferences_active(evidence_kind: EvidenceKind) -> bool:

@@ -1,0 +1,118 @@
+# Planner objective weights and validation thresholds by profile name.
+# Keys must match ProfileName enum values that are implemented.
+
+objectives:
+  general:
+    output_kl: 0.25
+    hidden_state_error: 0.12
+    cosine_distance: 0.05
+    token_disagreement: 0.08
+    task_loss_delta: 0.15
+    mtp_acceptance_loss: 0.15
+    long_context_loss: 0.08
+    peak_memory_cost: 0.04
+    prefill_latency_cost: 0.03
+    decode_latency_cost: 0.05
+  agent-coding:
+    output_kl: 0.15
+    hidden_state_error: 0.10
+    cosine_distance: 0.03
+    token_disagreement: 0.12
+    task_loss_delta: 0.20
+    mtp_acceptance_loss: 0.22
+    long_context_loss: 0.05
+    peak_memory_cost: 0.03
+    prefill_latency_cost: 0.03
+    decode_latency_cost: 0.07
+  agent:
+    output_kl: 0.20
+    hidden_state_error: 0.15
+    cosine_distance: 0.03
+    token_disagreement: 0.07
+    task_loss_delta: 0.25
+    mtp_acceptance_loss: 0.20
+    long_context_loss: 0.05
+    peak_memory_cost: 0.02
+    prefill_latency_cost: 0.01
+    decode_latency_cost: 0.02
+  coding:
+    output_kl: 0.20
+    hidden_state_error: 0.12
+    cosine_distance: 0.03
+    token_disagreement: 0.15
+    task_loss_delta: 0.30
+    mtp_acceptance_loss: 0.12
+    long_context_loss: 0.05
+    peak_memory_cost: 0.01
+    prefill_latency_cost: 0.01
+    decode_latency_cost: 0.01
+  translation:
+    output_kl: 0.25
+    hidden_state_error: 0.12
+    cosine_distance: 0.08
+    token_disagreement: 0.10
+    task_loss_delta: 0.25
+    mtp_acceptance_loss: 0.10
+    long_context_loss: 0.05
+    peak_memory_cost: 0.01
+    prefill_latency_cost: 0.01
+    decode_latency_cost: 0.03
+  reasoning:
+    output_kl: 0.20
+    hidden_state_error: 0.15
+    cosine_distance: 0.05
+    token_disagreement: 0.08
+    task_loss_delta: 0.30
+    mtp_acceptance_loss: 0.15
+    long_context_loss: 0.05
+    peak_memory_cost: 0.005
+    prefill_latency_cost: 0.005
+    decode_latency_cost: 0.01
+  long-context:
+    output_kl: 0.15
+    hidden_state_error: 0.15
+    cosine_distance: 0.05
+    token_disagreement: 0.05
+    task_loss_delta: 0.15
+    mtp_acceptance_loss: 0.10
+    long_context_loss: 0.25
+    peak_memory_cost: 0.04
+    prefill_latency_cost: 0.03
+    decode_latency_cost: 0.03
+
+thresholds:
+  general:
+    min_effective_speedup: 1.20
+  agent-coding:
+    max_task_score_drop: 0.01
+    max_mtp_acceptance_drop: 0.02
+    max_mtp_token_accuracy_drop: 0.03
+    max_repetition_increase: 0.005
+    max_divergence_increase: 0.005
+    min_effective_speedup: 1.20
+    required_task_scores:
+      - coding
+      - tool
+      - json
+      - multilingual
+      - long_context
+  agent:
+    max_task_score_drop: 0.015
+    max_mtp_acceptance_drop: 0.02
+    max_mtp_token_accuracy_drop: 0.03
+    max_repetition_increase: 0.005
+    max_divergence_increase: 0.005
+    min_effective_speedup: 1.02
+  coding:
+    max_task_score_drop: 0.01
+    max_mtp_acceptance_drop: 0.025
+    max_mtp_token_accuracy_drop: 0.035
+    max_repetition_increase: 0.005
+    max_divergence_increase: 0.005
+  translation:
+    max_task_score_drop: 0.01
+  reasoning:
+    max_task_score_drop: 0.01
+  long-context:
+    max_task_score_drop: 0.015
+    max_mtp_acceptance_drop: 0.03

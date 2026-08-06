@@ -37,6 +37,7 @@ from axquant.release_exceptions import (
 from axquant.reproduction import verify_reproduction
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
+    PROTECTED_MIN_BITS,
     ActivationCaptureManifest,
     ArtifactManifest,
     BaselineKind,
@@ -86,14 +87,8 @@ _HARDWARE_EVIDENCE_FIELDS = (
     ("quantizer_execution_file", "quantizer_execution_sha256"),
 )
 
-_RELEASE_PROBE_MIN_BITS = {
-    TensorRole.EMBEDDING: 8,
-    TensorRole.NORM: 16,
-    TensorRole.LM_HEAD: 16,
-    TensorRole.ROUTER: 8,
-    TensorRole.VISION: 16,
-    TensorRole.AUDIO: 16,
-}
+# Release probes use the same role floors as planner protection policy.
+_RELEASE_PROBE_MIN_BITS = PROTECTED_MIN_BITS
 _ACTIVATION_REFINEMENT_METHODS = frozenset({QuantMethod.AWQ, QuantMethod.GPTQ})
 _ACTIVATION_CAPTURE_MANIFEST = "activation_capture_manifest.json"
 _REQUIRED_BENCHMARK_KINDS = {

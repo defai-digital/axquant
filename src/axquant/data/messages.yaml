@@ -1,0 +1,18 @@
+# Stable user-facing message templates (pure data). Placeholders use str.format.
+# Do not move schema_version Literals, fail-closed gates, or planner policy here.
+
+floor_reasons:
+  non_quantizable: "non-quantizable tensor preserved"
+  external_mtp_sidecar: "external MTP sidecar preserved byte-for-byte"
+  protected_mtp: "protected MTP policy"
+  protected_role: "protected {role} policy"
+  lm_head_lowered: "protected lm_head floor lowered to 8-bit under AXQ-026; release certification requires measured quality evidence"
+
+profiles:
+  not_implemented: "profile {profile!r} is reserved but not implemented"
+
+quantizer:
+  requires_numpy: "{component} execution requires numpy"
+  weight_not_numeric: "{component} weight tensor is not numeric: {error}"
+  weight_empty: "{component} weight matrix must not be empty"
+  weight_non_finite: "{component} weight matrix must contain only finite values"

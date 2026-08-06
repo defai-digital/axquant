@@ -13,24 +13,36 @@ import math
 from typing import Any
 
 from axquant.errors import PlanningError, QuantizerError
+from axquant.numeric import as_finite_float32_matrix
+from axquant.package_data import load_package_yaml
 
-_DEFAULT_ALPHA_GRID = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+def _load_awq_defaults() -> tuple[tuple[float, ...], frozenset[int], frozenset[int]]:
+    raw = load_package_yaml("quantizer_defaults.yaml")
+    if not isinstance(raw, dict) or not isinstance(raw.get("awq"), dict):
+        raise PlanningError("quantizer_defaults.yaml missing awq section")
+    section = raw["awq"]
+    grid = section.get("alpha_grid")
+    bits = section.get("supported_bits")
+    groups = section.get("supported_group_sizes")
+    if not isinstance(grid, list) or not grid:
+        raise PlanningError("quantizer_defaults.yaml awq.alpha_grid is invalid")
+    if not isinstance(bits, list) or not bits:
+        raise PlanningError("quantizer_defaults.yaml awq.supported_bits is invalid")
+    if not isinstance(groups, list) or not groups:
+        raise PlanningError("quantizer_defaults.yaml awq.supported_group_sizes is invalid")
+    return (
+        tuple(float(value) for value in grid),
+        frozenset(int(value) for value in bits),
+        frozenset(int(value) for value in groups),
+    )
+
+
+_DEFAULT_ALPHA_GRID, _SUPPORTED_BITS, _SUPPORTED_GROUP_SIZES = _load_awq_defaults()
 
 
 def _as_numpy(weight: Any) -> Any:
-    try:
-        import numpy as np
-    except ImportError as exc:
-        raise PlanningError("AWQ execution requires numpy") from exc
-    try:
-        result = np.asarray(weight, dtype=np.float32)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise PlanningError(f"AWQ weight tensor is not numeric: {exc}") from exc
-    if result.size == 0:
-        raise PlanningError("AWQ weight matrix must not be empty")
-    if not bool(np.all(np.isfinite(result))):
-        raise PlanningError("AWQ weight matrix must contain only finite values")
-    return result
+    return as_finite_float32_matrix(weight, component="AWQ")
 
 
 def _resolve_alpha_grid(value: Any) -> tuple[float, ...]:
@@ -68,9 +80,9 @@ def learn_awq_channel_scales(
     except ImportError as exc:
         raise PlanningError("AWQ execution requires numpy") from exc
 
-    if bits not in {4, 6, 8}:
+    if bits not in _SUPPORTED_BITS:
         raise PlanningError(f"AWQ does not support {bits}-bit quantization")
-    if group_size not in {32, 64, 128}:
+    if group_size not in _SUPPORTED_GROUP_SIZES:
         raise PlanningError(f"AWQ does not support group size {group_size}")
     if activations is None:
         raise PlanningError("AWQ requires calibration activations")

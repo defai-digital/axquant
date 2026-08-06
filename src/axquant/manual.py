@@ -6,6 +6,7 @@ from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.naming import target_class_for_bpw
+from axquant.package_data import message_template
 from axquant.planner import storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
 from axquant.revisions import is_immutable_revision
@@ -47,24 +48,25 @@ def _external_mtp(tensor: TensorSpec) -> bool:
 
 def _minimum_bits(tensor: TensorSpec, recipe: ManualPlanRecipe) -> tuple[int, str | None]:
     if not tensor.quantizable:
-        return 16, "non-quantizable tensor preserved"
+        return 16, message_template("floor_reasons", "non_quantizable")
     if _external_mtp(tensor) and recipe.mtp.preserve_external_sidecar:
-        return 16, "external MTP sidecar preserved byte-for-byte"
+        return 16, message_template("floor_reasons", "external_mtp_sidecar")
     if tensor.role.is_mtp and recipe.mtp.mode == "protected":
-        return recipe.mtp.min_bits, "protected MTP policy"
+        return recipe.mtp.min_bits, message_template("floor_reasons", "protected_mtp")
     # Unlike planner.py's automatic search, manual recipes have no
     # `candidate_bits` search space to respect -- each rule states its bits
     # explicitly, already schema-validated to >=2 (ManualPrecisionRule.bits),
     # so `2` here is a harmless floor for unprotected roles, not a policy
     # choice that needs to mirror planner.py's `min(candidate_bits)`.
     minimum = _PROTECTED_MIN_BITS.get(tensor.role, 2)
-    reason = f"protected {tensor.role.value} policy" if tensor.role in _PROTECTED_MIN_BITS else None
+    reason = (
+        message_template("floor_reasons", "protected_role").format(role=tensor.role.value)
+        if tensor.role in _PROTECTED_MIN_BITS
+        else None
+    )
     if tensor.role == TensorRole.LM_HEAD and recipe.lm_head_min_bits < minimum:
         minimum = recipe.lm_head_min_bits
-        reason = (
-            "protected lm_head floor lowered to 8-bit under AXQ-026; "
-            "release certification requires measured quality evidence"
-        )
+        reason = message_template("floor_reasons", "lm_head_lowered")
     return minimum, reason
 
 

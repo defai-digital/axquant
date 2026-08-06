@@ -30,6 +30,7 @@ from axquant.module_paths import mlx_module_aliases
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
+    PROTECTED_MIN_BITS,
     CalibrationEvidence,
     CalibrationManifest,
     CandidateMeasurement,
@@ -71,16 +72,11 @@ _REFINEMENT_NOTES = {
     QuantMethod.AWQ: "activation-aware channel scaling followed by affine packing",
     QuantMethod.GPTQ: "hessian error-compensated rounding followed by affine packing",
 }
+# Base role floors match PROTECTED_MIN_BITS. AXQ-026: probe LM-head down to 8
+# so an 8-bit LM-head plan choice is measurable; planner default floor stays 16.
 _PROBE_MIN_BITS = {
-    TensorRole.EMBEDDING: 8,
-    TensorRole.NORM: 16,
-    # AXQ-026: probe down to the lowest floor any governed plan may use, so an
-    # 8-bit LM-head choice is backed by a measurement instead of being
-    # unmeasurable by construction. The planner default floor stays BF16.
+    **PROTECTED_MIN_BITS,
     TensorRole.LM_HEAD: 8,
-    TensorRole.ROUTER: 8,
-    TensorRole.VISION: 16,
-    TensorRole.AUDIO: 16,
 }
 
 

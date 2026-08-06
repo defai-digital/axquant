@@ -1,0 +1,85 @@
+# Named convert ladders: prior → measured-lite → measured-full → refine-awq-dwq.
+# Keys must match ConvertLadderName enum values.
+
+order:
+  - prior
+  - measured-lite
+  - measured-full
+  - refine-awq-dwq
+
+ladders:
+  prior:
+    evidence_kind: architecture_prior
+    allow_unmeasured: true
+    candidate_bits: [4, 6, 8, 16]
+    candidate_group_sizes: [32, 64]
+    candidate_methods: [affine, bf16]
+    requires_calibration: false
+    requires_measured_sensitivity: false
+    requires_refinement: false
+    default_target_bpw: 4.8
+    estimated_relative_cost: 0.01
+    estimated_ram_multiplier_vs_4bit: 0.0
+    description: >-
+      Architecture-prior multi-group plan. Development evidence only;
+      release claims require measured sensitivity or a measured recipe bundle.
+    notes:
+      - Always available (no forward probes).
+      - Planner grid includes group sizes 32 and 64 (AXQ-028 / P0).
+
+  measured-lite:
+    evidence_kind: measured_development
+    allow_unmeasured: false
+    candidate_bits: [4, 8, 16]
+    candidate_group_sizes: [64]
+    candidate_methods: [affine, bf16]
+    requires_calibration: true
+    requires_measured_sensitivity: true
+    requires_refinement: false
+    default_target_bpw: 5.0
+    estimated_relative_cost: 0.25
+    estimated_ram_multiplier_vs_4bit: 1.0
+    description: >-
+      Lightweight measured probes: fewer bit widths and a single group size.
+      Produces measured_development evidence suitable for iteration, not certification.
+    notes:
+      - Prefer when probe capacity is measured-lite or streaming-partial.
+      - Does not run AWQ/DWQ refine.
+
+  measured-full:
+    evidence_kind: measured
+    allow_unmeasured: false
+    candidate_bits: [4, 6, 8, 16]
+    candidate_group_sizes: [32, 64, 128]
+    candidate_methods: [affine, dwq, bf16]
+    requires_calibration: true
+    requires_measured_sensitivity: true
+    requires_refinement: false
+    default_target_bpw: 4.8
+    estimated_relative_cost: 1.0
+    estimated_ram_multiplier_vs_4bit: 4.0
+    description: >-
+      Full measured grid over bits x groups x affine/DWQ methods.
+      Release-quality when the probe backend records measured evidence.
+    notes:
+      - Requires probe capacity bf16-full (or an explicit measured protocol).
+      - Use refine-awq-dwq after this when channel scales are desired.
+
+  refine-awq-dwq:
+    evidence_kind: measured
+    allow_unmeasured: false
+    candidate_bits: [4, 6, 8, 16]
+    candidate_group_sizes: [32, 64, 128]
+    candidate_methods: [affine, awq, dwq, gptq, bf16]
+    requires_calibration: true
+    requires_measured_sensitivity: true
+    requires_refinement: true
+    default_target_bpw: 4.8
+    estimated_relative_cost: 1.6
+    estimated_ram_multiplier_vs_4bit: 4.0
+    description: >-
+      Measured full grid plus AWQ/DWQ refinement candidates.
+      Highest convert cost; best scale/outlier strategy coverage.
+    notes:
+      - Run after measured-full or bind via refine-select / refine-run.
+      - Still subject to EvidenceKind and release gates.

@@ -8,6 +8,7 @@ from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.naming import target_class_for_bpw
+from axquant.package_data import message_template
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
@@ -363,19 +364,20 @@ def _external_mtp_sidecar(entry: TensorSensitivity) -> bool:
 def _minimum_bits(entry: TensorSensitivity, request: PlanRequest) -> tuple[int, str | None]:
     role = entry.tensor.role
     if not entry.tensor.quantizable:
-        return 16, "non-quantizable tensor preserved"
+        return 16, message_template("floor_reasons", "non_quantizable")
     if _external_mtp_sidecar(entry) and request.mtp.preserve_external_sidecar:
-        return 16, "external MTP sidecar preserved byte-for-byte"
+        return 16, message_template("floor_reasons", "external_mtp_sidecar")
     if role.is_mtp and request.mtp.mode == "protected":
-        return request.mtp.min_bits, "protected MTP policy"
+        return request.mtp.min_bits, message_template("floor_reasons", "protected_mtp")
     minimum = _PROTECTED_MIN_BITS.get(role, min(request.candidate_bits))
-    reason = f"protected {role.value} policy" if role in _PROTECTED_MIN_BITS else None
+    reason = (
+        message_template("floor_reasons", "protected_role").format(role=role.value)
+        if role in _PROTECTED_MIN_BITS
+        else None
+    )
     if role == TensorRole.LM_HEAD and request.lm_head_min_bits < minimum:
         minimum = request.lm_head_min_bits
-        reason = (
-            "protected lm_head floor lowered to 8-bit under AXQ-026; "
-            "release certification requires measured quality evidence"
-        )
+        reason = message_template("floor_reasons", "lm_head_lowered")
     return minimum, reason
 
 

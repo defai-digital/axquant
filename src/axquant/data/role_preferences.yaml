@@ -1,0 +1,26 @@
+# Role-aware soft preferences (AXQ-028 QP1). Never lower protection floors.
+# Defaults for method_loss_margin / ranking_discount match RolePreference dataclass.
+
+defaults:
+  method_loss_margin: 0.05
+  ranking_discount: 0.97
+
+preferences:
+  attention:
+    preferred_methods: [awq, gptq, affine, dwq]
+    preferred_max_group_size: 32
+  lm_head:
+    preferred_methods: [affine, dwq]
+    preferred_max_group_size: 64
+  embedding:
+    preferred_methods: [affine]
+    preferred_max_group_size: 64
+  router:
+    preferred_methods: [affine]
+    preferred_max_group_size: 64
+  mlp:
+    preferred_methods: [affine, dwq, awq, gptq]
+    preferred_max_group_size: 64
+  expert:
+    preferred_methods: [affine, dwq]
+    preferred_max_group_size: 64

@@ -18,26 +18,28 @@ import operator
 from typing import Any
 
 from axquant.errors import PlanningError, QuantizerError
+from axquant.numeric import as_finite_float32_matrix
+from axquant.package_data import load_package_yaml
 
-_MAX_CALIBRATION_ROWS = 4096
-_SUPPORTED_BITS = (2, 3, 4, 6, 8)
-_SUPPORTED_GROUP_SIZES = (32, 64, 128)
+
+def _gptq_defaults() -> dict[str, Any]:
+    raw = load_package_yaml("quantizer_defaults.yaml")
+    section = raw.get("gptq") if isinstance(raw, dict) else None
+    if not isinstance(section, dict):
+        raise PlanningError("quantizer_defaults.yaml missing gptq section")
+    return section
+
+
+_GPTQ_DEFAULTS = _gptq_defaults()
+_MAX_CALIBRATION_ROWS = int(_GPTQ_DEFAULTS["max_calibration_rows"])
+_SUPPORTED_BITS = tuple(int(value) for value in _GPTQ_DEFAULTS["supported_bits"])
+_SUPPORTED_GROUP_SIZES = tuple(int(value) for value in _GPTQ_DEFAULTS["supported_group_sizes"])
+_DEFAULT_DAMPING = float(_GPTQ_DEFAULTS.get("default_damping", 0.01))
+_DEFAULT_BLOCK_SIZE = int(_GPTQ_DEFAULTS.get("default_block_size", 128))
 
 
 def _as_numpy(weight: Any) -> Any:
-    try:
-        import numpy as np
-    except ImportError as exc:
-        raise PlanningError("GPTQ execution requires numpy") from exc
-    try:
-        result = np.asarray(weight, dtype=np.float32)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise PlanningError(f"GPTQ weight tensor is not numeric: {exc}") from exc
-    if result.size == 0:
-        raise PlanningError("GPTQ weight matrix must not be empty")
-    if not bool(np.all(np.isfinite(result))):
-        raise PlanningError("GPTQ weight matrix must contain only finite values")
-    return result
+    return as_finite_float32_matrix(weight, component="GPTQ")
 
 
 def _static_group_grid(weight: Any, bits: int, group_size: int) -> tuple[Any, Any]:
@@ -96,8 +98,8 @@ def learn_gptq_refined_weight(
     *,
     bits: int,
     group_size: int,
-    damping: float = 0.01,
-    block_size: int = 128,
+    damping: float = _DEFAULT_DAMPING,
+    block_size: int = _DEFAULT_BLOCK_SIZE,
 ) -> tuple[Any, dict[str, float | int]]:
     """Refine a weight matrix with classic GPTQ error compensation.
 
@@ -249,7 +251,7 @@ def apply_mlx_gptq_refine(
     activations: Any,
     bits: int,
     group_size: int,
-    damping: float = 0.01,
+    damping: float = _DEFAULT_DAMPING,
 ) -> dict[str, float | int]:
     """Mutate ``module.weight`` with portable GPTQ refinement before affine packing."""
     try:

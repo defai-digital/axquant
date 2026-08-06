@@ -7,8 +7,10 @@ relative cost so CLI defaults stay simple without hiding the evidence contract.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from axquant.errors import PlanningError
+from axquant.package_data import load_package_yaml
 from axquant.schema import (
     ConvertLadderName,
     EvidenceKind,
@@ -38,113 +40,72 @@ class ConvertLadder:
     notes: tuple[str, ...]
 
 
-_LADDERS: dict[ConvertLadderName, ConvertLadder] = {
-    ConvertLadderName.PRIOR: ConvertLadder(
-        name=ConvertLadderName.PRIOR,
-        evidence_kind=EvidenceKind.ARCHITECTURE_PRIOR,
-        allow_unmeasured=True,
-        candidate_bits=(4, 6, 8, 16),
-        candidate_group_sizes=(32, 64),
-        candidate_methods=(QuantMethod.AFFINE, QuantMethod.BF16),
-        requires_calibration=False,
-        requires_measured_sensitivity=False,
-        requires_refinement=False,
-        default_target_bpw=4.8,
-        estimated_relative_cost=0.01,
-        estimated_ram_multiplier_vs_4bit=0.0,
-        description=(
-            "Architecture-prior multi-group plan. Development evidence only; "
-            "release claims require measured sensitivity or a measured recipe bundle."
-        ),
-        notes=(
-            "Always available (no forward probes).",
-            "Planner grid includes group sizes 32 and 64 (AXQ-028 / P0).",
-        ),
-    ),
-    ConvertLadderName.MEASURED_LITE: ConvertLadder(
-        name=ConvertLadderName.MEASURED_LITE,
-        evidence_kind=EvidenceKind.MEASURED_DEVELOPMENT,
-        allow_unmeasured=False,
-        candidate_bits=(4, 8, 16),
-        candidate_group_sizes=(64,),
-        candidate_methods=(QuantMethod.AFFINE, QuantMethod.BF16),
-        requires_calibration=True,
-        requires_measured_sensitivity=True,
-        requires_refinement=False,
-        default_target_bpw=5.0,
-        estimated_relative_cost=0.25,
-        estimated_ram_multiplier_vs_4bit=1.0,
-        description=(
-            "Lightweight measured probes: fewer bit widths and a single group size. "
-            "Produces measured_development evidence suitable for iteration, not certification."
-        ),
-        notes=(
-            "Prefer when probe capacity is measured-lite or streaming-partial.",
-            "Does not run AWQ/DWQ refine.",
-        ),
-    ),
-    ConvertLadderName.MEASURED_FULL: ConvertLadder(
-        name=ConvertLadderName.MEASURED_FULL,
-        evidence_kind=EvidenceKind.MEASURED,
-        allow_unmeasured=False,
-        candidate_bits=(4, 6, 8, 16),
-        candidate_group_sizes=(32, 64, 128),
-        candidate_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.BF16),
-        requires_calibration=True,
-        requires_measured_sensitivity=True,
-        requires_refinement=False,
-        default_target_bpw=4.8,
-        estimated_relative_cost=1.0,
-        estimated_ram_multiplier_vs_4bit=4.0,
-        description=(
-            "Full measured grid over bits x groups x affine/DWQ methods. "
-            "Release-quality when the probe backend records measured evidence."
-        ),
-        notes=(
-            "Requires probe capacity bf16-full (or an explicit measured protocol).",
-            "Use refine-awq-dwq after this when channel scales are desired.",
-        ),
-    ),
-    ConvertLadderName.REFINE_AWQ_DWQ: ConvertLadder(
-        name=ConvertLadderName.REFINE_AWQ_DWQ,
-        evidence_kind=EvidenceKind.MEASURED,
-        allow_unmeasured=False,
-        candidate_bits=(4, 6, 8, 16),
-        candidate_group_sizes=(32, 64, 128),
-        candidate_methods=(
-            QuantMethod.AFFINE,
-            QuantMethod.AWQ,
-            QuantMethod.DWQ,
-            QuantMethod.GPTQ,
-            QuantMethod.BF16,
-        ),
-        requires_calibration=True,
-        requires_measured_sensitivity=True,
-        requires_refinement=True,
-        default_target_bpw=4.8,
-        estimated_relative_cost=1.6,
-        estimated_ram_multiplier_vs_4bit=4.0,
-        description=(
-            "Measured full grid plus AWQ/DWQ refinement candidates. "
-            "Highest convert cost; best scale/outlier strategy coverage."
-        ),
-        notes=(
-            "Run after measured-full or bind via refine-select / refine-run.",
-            "Still subject to EvidenceKind and release gates.",
-        ),
-    ),
-}
+def _require_mapping(payload: Any, label: str) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise ValueError(f"{label} must be a mapping")
+    return payload
+
+
+def _as_int_tuple(value: Any, label: str) -> tuple[int, ...]:
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{label} must be a non-empty list")
+    return tuple(int(item) for item in value)
+
+
+def _as_str_tuple(value: Any, label: str) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise ValueError(f"{label} must be a list")
+    return tuple(str(item) for item in value)
+
+
+def _load_ladders() -> dict[ConvertLadderName, ConvertLadder]:
+    raw = _require_mapping(load_package_yaml("convert_ladders.yaml"), "convert_ladders.yaml")
+    ladders_raw = _require_mapping(raw.get("ladders"), "convert_ladders.yaml ladders")
+    resolved: dict[ConvertLadderName, ConvertLadder] = {}
+    for key, entry in ladders_raw.items():
+        name = ConvertLadderName(str(key))
+        item = _require_mapping(entry, f"convert_ladders.yaml ladders.{key}")
+        methods = tuple(
+            QuantMethod(str(method)) for method in _as_str_tuple(item.get("candidate_methods"), key)
+        )
+        notes = _as_str_tuple(item.get("notes"), f"{key}.notes")
+        description = str(item["description"]).strip()
+        resolved[name] = ConvertLadder(
+            name=name,
+            evidence_kind=EvidenceKind(str(item["evidence_kind"])),
+            allow_unmeasured=bool(item["allow_unmeasured"]),
+            candidate_bits=_as_int_tuple(item.get("candidate_bits"), f"{key}.candidate_bits"),
+            candidate_group_sizes=_as_int_tuple(
+                item.get("candidate_group_sizes"), f"{key}.candidate_group_sizes"
+            ),
+            candidate_methods=methods,
+            requires_calibration=bool(item["requires_calibration"]),
+            requires_measured_sensitivity=bool(item["requires_measured_sensitivity"]),
+            requires_refinement=bool(item["requires_refinement"]),
+            default_target_bpw=float(item["default_target_bpw"]),
+            estimated_relative_cost=float(item["estimated_relative_cost"]),
+            estimated_ram_multiplier_vs_4bit=float(item["estimated_ram_multiplier_vs_4bit"]),
+            description=description,
+            notes=notes,
+        )
+    return resolved
+
+
+def _ladder_order() -> tuple[ConvertLadderName, ...]:
+    raw = _require_mapping(load_package_yaml("convert_ladders.yaml"), "convert_ladders.yaml")
+    order_raw = raw.get("order")
+    if not isinstance(order_raw, list) or not order_raw:
+        raise ValueError("convert_ladders.yaml order must be a non-empty list")
+    return tuple(ConvertLadderName(str(name)) for name in order_raw)
+
+
+_LADDERS: dict[ConvertLadderName, ConvertLadder] = _load_ladders()
+_LADDER_ORDER: tuple[ConvertLadderName, ...] = _ladder_order()
 
 
 def list_ladders() -> list[ConvertLadder]:
     """Return convert ladders in recommended progression order."""
-    order = (
-        ConvertLadderName.PRIOR,
-        ConvertLadderName.MEASURED_LITE,
-        ConvertLadderName.MEASURED_FULL,
-        ConvertLadderName.REFINE_AWQ_DWQ,
-    )
-    return [_LADDERS[name] for name in order]
+    return [_LADDERS[name] for name in _LADDER_ORDER]
 
 
 def get_ladder(name: ConvertLadderName | str) -> ConvertLadder:
