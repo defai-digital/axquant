@@ -20,3 +20,7 @@ credentials.json
 # Local-only product/engineering notes and scratch (never publish).
 .internal/
 **/.internal/
+# Agent convention docs (internal only; not published to GitHub).
+AGENTS.md
+Agents.md
+agents.md
