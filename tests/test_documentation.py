@@ -8,11 +8,12 @@ from pathlib import Path
 from axquant.cli._parser import _build_parser
 
 _ROOT = Path(__file__).resolve().parents[1]
-_PUBLIC_DOCS = ("README.md", "THIRD_PARTY_NOTICES.md")
+_PUBLIC_DOCS = ("README.md", "CONTRIBUTING.md", "THIRD_PARTY_NOTICES.md")
 # Published markdown outside AGENTS.md (agent-local conventions may mention
 # .internal/tmp for throwaway work, but must never ship that tree).
 _PUBLIC_MARKDOWN_GLOBS = (
     "README.md",
+    "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
     "CHANGELOG.md",
     "docs/*.md",

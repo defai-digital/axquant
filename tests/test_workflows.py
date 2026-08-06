@@ -24,6 +24,14 @@ def test_release_workflow_gates_pypi_on_enable_variable() -> None:
     assert "pypa/gh-action-pypi-publish" in text
 
 
+def test_release_workflow_uses_exact_version_tag_as_title() -> None:
+    """Created and rerun releases must display only their immutable version tag."""
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "gh release create" in text
+    assert "gh release edit" in text
+    assert text.count('--title "${GITHUB_REF_NAME}"') == 2
+
+
 def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
     text = _CI.read_text(encoding="utf-8")
     assert "python-compatibility" in text

@@ -48,7 +48,9 @@ jobs:
       - name: Upload artifacts to the GitHub Release
         run: |
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
-            gh release create "${GITHUB_REF_NAME}" --verify-tag --notes-file release-notes.md
+            gh release create "${GITHUB_REF_NAME}" --verify-tag \
+              --title "${GITHUB_REF_NAME}" --notes-file release-notes.md
+          gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
           gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

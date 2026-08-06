@@ -987,6 +987,18 @@ GitHub Actions `python-compatibility`), and the host MLX suite when available. S
 
 Tests use small synthetic Safetensors fixtures and do not require real model weights.
 
+## Contributing
+
+Contributions are warmly welcome. AXQuant is built to help Mac users get more reliable,
+efficient local inference and a better experience on Apple Silicon. Fork the repository and
+send us a pull request for bug fixes, documentation, tests, usability improvements, runtime
+compatibility, architecture adapters, or reproducible quantization research.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the fork-and-pull-request workflow, development setup,
+validation commands, and evidence requirements. For a substantial design change or new model
+family, open a [GitHub issue](https://github.com/defai-digital/axquant/issues) first so the scope
+and required promotion evidence are clear.
+
 ## Documentation
 
 - [GitHub Actions root causes and prevention](docs/ci-root-causes.md)
