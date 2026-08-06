@@ -68,11 +68,14 @@ or is gated behind an explicit flag.
 - **Ubuntu non-MLX jobs are the hard gate, not macOS MLX.** Generation-smoke and gemma4
   shard-path contracts must pass with `.[dev]` only. Run `./scripts/ci-local.sh` before
   pushing; see [ci-root-causes.md](ci-root-causes.md) for the historical red-run analysis.
-- **PyPI upload is opt-in.** The Release `pypi` job runs only when repository variable
-  `ENABLE_PYPI_PUBLISH=true`. Without a Trusted Publisher on pypi.org for
-  `defai-digital/axquant` / `release.yml`, leave the variable unset so tag Releases stay
-  green (GitHub assets still publish). Steps to enable real uploads:
-  [ci-root-causes.md](ci-root-causes.md).
+- **Install from PyPI, not the Packages tab.** `pip install axquant` uses
+  [pypi.org/project/axquant](https://pypi.org/project/axquant/). The repo
+  [Packages](https://github.com/defai-digital/axquant/packages) page is for
+  npm/container/Maven-style registries and stays empty for this Python project;
+  wheels also appear under [Releases](https://github.com/defai-digital/axquant/releases).
+- **PyPI upload is opt-in via `ENABLE_PYPI_PUBLISH`.** The Release `pypi` job runs only
+  when that repository variable is `true` and a Trusted Publisher exists on pypi.org
+  for `defai-digital/axquant` / `release.yml`. Details: [ci-root-causes.md](ci-root-causes.md).
 
 ## Validated scope
 

@@ -1,6 +1,9 @@
 # AXQuant
 
 [![CI](https://github.com/defai-digital/axquant/actions/workflows/ci.yml/badge.svg)](https://github.com/defai-digital/axquant/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/axquant.svg)](https://pypi.org/project/axquant/)
+[![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 AXQuant is a command-line toolkit that converts a supported, unquantized Safetensors checkpoint
 into an AXQuant-optimized MLX checkpoint for Apple Silicon.
@@ -16,13 +19,30 @@ multi-token-prediction (MTP) weights.
 > capabilities. Its goal is to reduce storage and unified-memory cost while preserving important
 > model quality and runtime behavior.
 
+## Install
+
+**Canonical install is [PyPI](https://pypi.org/project/axquant/)** (not the GitHub Packages tab —
+that UI is for npm/container/Maven-style registries; Python wheels ship to PyPI and as
+[GitHub Release](https://github.com/defai-digital/axquant/releases) assets).
+
+```bash
+# toolkit only (no Apple Silicon backends)
+python -m pip install axquant
+
+# Apple Silicon conversion path
+python -m pip install "axquant[mlx]"
+```
+
+Pinned release files (wheel + sdist + checksums) also appear under
+[Releases](https://github.com/defai-digital/axquant/releases).
+
 ## At a glance
 
 - **What it does:** turns a supported BF16 checkpoint into a mixed-precision MLX checkpoint for
   Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
 - **One command:**
   ```bash
-  python -m pip install -e ".[mlx]"
+  python -m pip install "axquant[mlx]"
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
 - **Naming isn't the bit budget:** existing `4bit`/`6bit` development-pack names are planning

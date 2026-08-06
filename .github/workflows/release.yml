@@ -94,6 +94,11 @@ jobs:
   # Without that operator config, the exchange fails with invalid-publisher and reds
   # every tag push even though GitHub Release assets already succeeded. Gate the job
   # on repository variable ENABLE_PYPI_PUBLISH so Releases stay green until configured.
+  #
+  # Distribution map (do not conflate these):
+  #   PyPI              → pip install axquant          (this job)
+  #   GitHub Release    → wheel/sdist assets           (dist job)
+  #   GitHub Packages   → npm/container/Maven UIs only (intentionally unused for pip)
   pypi:
     needs: dist
     if: ${{ vars.ENABLE_PYPI_PUBLISH == 'true' }}
@@ -117,6 +122,18 @@ jobs:
       - name: Publish to PyPI
         if: ${{ !contains(env.RELEASE_TAG, 'rc') }}
         uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Distribution summary
+        if: success()
+        run: |
+          {
+            echo "### Distribution channels"
+            echo ""
+            echo "| Channel | URL |"
+            echo "|---------|-----|"
+            echo "| **PyPI (canonical \`pip install\`)** | https://pypi.org/project/axquant/ |"
+            echo "| **GitHub Release assets** | https://github.com/${{ github.repository }}/releases/tag/${RELEASE_TAG} |"
+            echo "| GitHub Packages tab | unused for Python — install from PyPI |"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Trusted publisher guidance
         if: failure()
         run: |

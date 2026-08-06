@@ -51,7 +51,13 @@ dev = [
 axquant = "axquant.cli:entrypoint"
 
 [project.urls]
+# Canonical install is PyPI; GitHub Releases mirror wheels. The repo Packages
+# tab is for npm/container/etc. registries — not pip — so it stays empty by design.
+Homepage = "https://pypi.org/project/axquant/"
+Documentation = "https://github.com/defai-digital/axquant#readme"
 Repository = "https://github.com/defai-digital/axquant"
+Issues = "https://github.com/defai-digital/axquant/issues"
+Changelog = "https://github.com/defai-digital/axquant/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/axquant"]

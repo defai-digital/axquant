@@ -91,3 +91,21 @@ def test_ci_workflow_is_retriggerable_and_cancels_superseded_runs() -> None:
     assert "workflow_dispatch:" in text
     assert "concurrency:" in text
     assert "cancel-in-progress: true" in text
+
+
+def test_release_workflow_documents_distribution_channels() -> None:
+    """PyPI is canonical; GitHub Packages is not used for pip wheels."""
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "Distribution summary" in text
+    assert "pypi.org/project/axquant" in text
+    assert "GitHub Packages" in text
+    assert "unused for Python" in text
+
+
+def test_project_urls_point_at_pypi_and_github() -> None:
+    """PEP 621 project.urls must advertise the real install + source homes."""
+    text = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert 'Homepage = "https://pypi.org/project/axquant/"' in text
+    assert 'Repository = "https://github.com/defai-digital/axquant"' in text
+    assert "Issues =" in text
+    assert "Changelog =" in text

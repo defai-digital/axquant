@@ -99,14 +99,18 @@ PATH-isolated non-MLX pytest** the way CI does.
 - Regression tests monkeypatch `find_spec` / `which` so generation-smoke contracts
   hold even when MLX is installed on the host.
 
-### 5. Release: PyPI Trusted Publishing never matched this repo
+### 5. Release: PyPI Trusted Publishing (operator config)
 
-**What succeeds**
+**Status (Aug 2026)**
 
-- Tag/package version check, `python -m build`, SHA256SUMS, provenance attestation,
-  GitHub Release asset upload (e.g. `v1.2.0` has wheel/sdist on GitHub).
+- **PyPI is live:** https://pypi.org/project/axquant/ (`pip install axquant`).
+- **GitHub Releases** carry the same wheel/sdist (+ SHA256SUMS) for each tag.
+- **GitHub Packages tab is empty on purpose.** That UI is for npm, containers,
+  Maven, NuGet, RubyGems — not the public Python index. Install Python packages
+  from PyPI (or download Release assets). Do not expect
+  `github.com/.../packages` to list pip wheels.
 
-**What fails**
+**Historical failure (before Trusted Publisher + gate)**
 
 ```text
 invalid-publisher: valid token, but no corresponding publisher
@@ -114,36 +118,24 @@ invalid-publisher: valid token, but no corresponding publisher
 environment: MISSING
 ```
 
-**Interpretation**
-
-- `axquant` is **not** published on pypi.org / test.pypi.org yet (package 404).
-- PyPI Trusted Publisher must be registered for
-  `defai-digital/axquant` workflow `.github/workflows/release.yml` (and TestPyPI
-  for `rc` tags). That is **PyPI project admin configuration**, not a code bug.
-- If the publisher is created with a GitHub **Environment**, the `pypi` job must
-  set the same `environment:`; the failure claims currently show
-  `environment: MISSING`, so either no publisher exists or it was registered
-  with an environment name the workflow does not use.
-
 **Workflow behaviour (in-repo)**
 
 The `pypi` job runs only when the repository variable `ENABLE_PYPI_PUBLISH` is
-exactly `true`. Until a Trusted Publisher exists on pypi.org, leave that
-variable unset so tag Releases complete green with GitHub assets only (dist job).
-Turning the variable on without a matching publisher will red the Release again.
+exactly `true` (now set). If that variable is unset, tag Releases still complete
+green with GitHub assets only. Turning the variable on without a matching
+Trusted Publisher on pypi.org reds the Release.
 
-**Operator steps to enable real PyPI uploads**
+**Operator steps (already done for axquant; keep for new repos)**
 
 1. Sign in and open https://pypi.org/manage/account/publishing/.
-2. Add a pending GitHub publisher:
+2. Add a GitHub publisher:
    - PyPI project name: `axquant`
    - Owner: `defai-digital`, Repository: `axquant`
    - Workflow: `release.yml`
    - Environment: leave empty (the `pypi` job does not set one)
 3. Repeat for TestPyPI if you use `v*rc*` tags.
-4. In the GitHub repo: Settings → Secrets and variables → Actions → Variables →
-   add `ENABLE_PYPI_PUBLISH` = `true`.
-5. Re-run Release for the tag (or push a new tag).
+4. Repo variable `ENABLE_PYPI_PUBLISH` = `true`.
+5. Dispatch Release for the tag (or push a new tag).
 
 ## What does *not* need “fixing” in git history
 
