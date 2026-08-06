@@ -629,7 +629,7 @@ def _f32_to_bf16_bytes(np: Any, values: Any) -> bytes:
     """Round-to-nearest-even BF16 serialization of a float32 array."""
     as_bits = np.ascontiguousarray(values, dtype=np.float32).view(np.uint32)
     rounded = as_bits + 0x7FFF + ((as_bits >> 16) & 1)
-    return (rounded >> 16).astype(np.uint16).tobytes()
+    return bytes((rounded >> 16).astype(np.uint16).tobytes())
 
 
 # Packing label shared with AX Engine's `mtp-capability` report: MLX-native
@@ -780,16 +780,21 @@ def quantize_qwen36_mtp_sidecar(
                     f"engine group inference would resolve {inferred_group} "
                     f"for {name}, expected {group_size}"
                 )
-            # Round-trip guard: the dequantized grid must stay within one
-            # grid step of the quantizer's actual input (the BF16-cast
-            # weights) everywhere.
+            # Round-trip guard: the dequantized grid must stay within one grid
+            # step of the quantizer's BF16-cast input, plus one BF16 ulp — at
+            # 8-bit the grid step drops below BF16's own resolution (2^-7
+            # relative), so representation error legitimately dominates. A
+            # mis-typed packing produces errors on the order of the weight
+            # range itself, far beyond this bound.
             error = mx.abs(reconstructed.astype(mx.float32) - weight_mx.astype(mx.float32))
             max_error = float(mx.max(error).item())
             max_step = float(mx.max(mx.abs(scales.astype(mx.float32))).item())
-            if not math.isfinite(max_error) or max_error > max_step + 1e-6:
+            max_magnitude = float(mx.max(mx.abs(weight_mx.astype(mx.float32))).item())
+            bound = max_step + max_magnitude * 2.0**-7 + 1e-6
+            if not math.isfinite(max_error) or max_error > bound:
                 raise ArtifactError(
                     f"quantized MTP round-trip error {max_error:.6f} exceeds "
-                    f"the grid step {max_step:.6f} for {name}"
+                    f"the packing bound {bound:.6f} for {name}"
                 )
 
             base = name.removesuffix(".weight")
