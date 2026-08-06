@@ -101,3 +101,57 @@ def test_campaign_overlap_rejects_symlink_input(tmp_path: Path) -> None:
             dataset_path=linked,
             compared_paths=[compared],
         )
+
+
+def test_campaign_overlap_tokenizes_cjk_only_records(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset.jsonl"
+    compared = tmp_path / "compared.jsonl"
+    _jsonl(dataset, [("ja-1", "量子コンピューティングの基本原理について説明してください")])
+    _jsonl(compared, [("ja-2", "量子コンピューティングの基本原理について説明してください")])
+
+    report = build_campaign_overlap_report(
+        dataset_path=dataset,
+        compared_paths=[compared],
+    )
+
+    assert not report.passed
+    assert report.exact_match_count == 1
+    assert report.normalization_algorithm == "axquant-token-5gram-v2"
+
+
+def test_campaign_overlap_passes_disjoint_cjk_and_mixed_scripts(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset.jsonl"
+    compared = tmp_path / "compared.jsonl"
+    _jsonl(
+        dataset,
+        [
+            ("zh-1", "請解釋量子位元的疊加態如何實現平行運算"),
+            ("fr-1", "Le café du port ouvre avant le lever du soleil"),
+        ],
+    )
+    _jsonl(compared, [("ja-1", "夜市は最後の屋台が灯りを消すと閉まります")])
+
+    report = build_campaign_overlap_report(
+        dataset_path=dataset,
+        compared_paths=[compared],
+    )
+
+    assert report.passed
+    assert report.exact_match_count == 0
+    assert report.near_duplicate_count == 0
+
+
+def test_campaign_overlap_accepts_shipped_reference_calibration(tmp_path: Path) -> None:
+    import axquant
+
+    calibration = Path(axquant.__file__).parent / "data" / "reference_calibration.jsonl"
+    compared = tmp_path / "compared.jsonl"
+    _jsonl(compared, [("probe-1", "harbor dredging schedule and pier framing milestones")])
+
+    report = build_campaign_overlap_report(
+        dataset_path=calibration,
+        compared_paths=[compared],
+    )
+
+    assert report.passed
+    assert report.dataset_record_count > 100

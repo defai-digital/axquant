@@ -128,7 +128,7 @@ class CampaignOverlapReport(StrictModel):
     schema_version: Literal["axquant.campaign-overlap-report.v1"] = (
         "axquant.campaign-overlap-report.v1"
     )
-    normalization_algorithm: Literal["axquant-token-5gram-v1"] = "axquant-token-5gram-v1"
+    normalization_algorithm: Literal["axquant-token-5gram-v2"] = "axquant-token-5gram-v2"
     dataset_sha256: str = Field(pattern=_SHA256)
     compared_dataset_sha256: list[str]
     dataset_record_count: int = Field(gt=0)

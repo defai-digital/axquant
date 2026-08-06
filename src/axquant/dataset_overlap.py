@@ -11,13 +11,18 @@ from axquant.errors import ArtifactError, ValidationGateError
 from axquant.schema import CampaignOverlapMatch, CampaignOverlapReport
 from axquant.serde import file_sha256
 
-NORMALIZATION_ALGORITHM = "axquant-token-5gram-v1"
+NORMALIZATION_ALGORITHM = "axquant-token-5gram-v2"
 DEFAULT_TEXT_FIELDS = ("text", "prompt", "reference", "perplexity_text")
 DEFAULT_MAX_COMPARISON_PAIRS = 10_000_000
 
+# ASCII word runs stay whole tokens; every other letter (CJK, accented Latin,
+# Kana, Hangul, ...) becomes a single-character token so unspaced scripts still
+# produce shingles instead of failing the empty-normalization gate.
+_TOKEN_RE = re.compile(r"[a-z0-9_]+|[^\W\d_]")
+
 
 def _normalized_tokens(value: str) -> list[str]:
-    return re.findall(r"[a-z0-9_]+", value.casefold())
+    return _TOKEN_RE.findall(value.casefold())
 
 
 def _normalized_text(value: str) -> str:

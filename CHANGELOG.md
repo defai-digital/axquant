@@ -8,6 +8,20 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Fixed
+
+- `campaign-overlap` normalization now tokenizes non-ASCII scripts
+  (`axquant-token-5gram-v2`): ASCII word runs stay whole tokens and every
+  other letter (CJK, Kana, Hangul, accented Latin) becomes a
+  single-character token, so shingles exist for unspaced scripts. The v1
+  normalizer dropped every non-`[a-z0-9_]` character, which made any
+  CJK-only record — including the shipped reference calibration
+  dataset's multilingual rows — fail closed with "normalizes to empty
+  text" and blocked flagship campaign freezes. ASCII-only inputs produce
+  byte-identical reports under v2; `CampaignOverlapReport` now records
+  the v2 algorithm id. The Qwen3-Next coding-suite normalizer is
+  unchanged.
+
 ### Changed
 
 - **Quantized MTP sidecars now emit AX Engine's executable MLX-packed layout**
