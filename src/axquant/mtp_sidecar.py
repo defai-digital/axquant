@@ -687,6 +687,12 @@ def quantize_qwen36_mtp_sidecar(
             f"AX Engine capability reports packing {capability.packing!r}; "
             f"this writer emits {MLX_PACKED_MTP_PACKING!r}"
         )
+    # Path gates before optional MLX import so non-MLX callers (and Ubuntu CI)
+    # still get the ADR-0005 overwrite contract without requiring the backend.
+    source = Path(source_path).expanduser().resolve()
+    destination = Path(output_path).expanduser().resolve()
+    if destination == source:
+        raise ArtifactError("quantized MTP sidecar must not overwrite the byte-preserved sidecar")
     try:
         import numpy as np
     except ImportError as exc:
@@ -699,10 +705,6 @@ def quantize_qwen36_mtp_sidecar(
             "is produced by mx.quantize itself"
         ) from exc
 
-    source = Path(source_path).expanduser().resolve()
-    destination = Path(output_path).expanduser().resolve()
-    if destination == source:
-        raise ArtifactError("quantized MTP sidecar must not overwrite the byte-preserved sidecar")
     layout = _parse_qwen36_layout(source)
 
     records: list[QuantizedMtpTensorRecord] = []

@@ -570,6 +570,9 @@ def test_capability_probe_fails_closed_on_bad_output() -> None:
 
 
 def test_quantize_mtp_sidecar_cli_runs_the_capability_probe(tmp_path: Path) -> None:
+    # End-to-end quantize path needs MLX (mx.quantize packing); skip on non-MLX
+    # install surfaces such as Ubuntu CI python-compatibility.
+    pytest.importorskip("mlx.core")
     from axquant.cli import main
 
     source = tmp_path / "mtp.safetensors"
