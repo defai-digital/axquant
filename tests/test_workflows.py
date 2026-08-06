@@ -29,7 +29,28 @@ def test_release_workflow_uses_exact_version_tag_as_title() -> None:
     text = _RELEASE.read_text(encoding="utf-8")
     assert "gh release create" in text
     assert "gh release edit" in text
-    assert text.count('--title "${GITHUB_REF_NAME}"') == 2
+    # Titles bind to RELEASE_TAG (tag push or dispatch input), never a branch name.
+    assert text.count('--title "${RELEASE_TAG}"') == 2
+
+
+def test_release_workflow_dispatch_binds_tag_input() -> None:
+    """Manual Release runs must take an explicit tag and check out that ref.
+
+    workflow_dispatch without a tag input leaves GITHUB_REF_NAME as the branch
+    selected in the UI (usually main), which fails version asserts and would
+    title a release incorrectly.
+    """
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text
+    assert "inputs:" in text
+    assert "tag:" in text
+    assert "RELEASE_TAG:" in text
+    assert "github.event_name == 'workflow_dispatch' && inputs.tag" in text
+    assert "ref: ${{ env.RELEASE_TAG }}" in text
+    # Version check and notes extraction must use RELEASE_TAG (not branch ref_name).
+    assert 'os.environ["RELEASE_TAG"]' in text
+    assert 'os.environ["GITHUB_REF_NAME"]' not in text
+    assert "${GITHUB_REF_NAME}" not in text
 
 
 def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
@@ -38,3 +59,11 @@ def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
     assert 'pip install -e ".[dev]"' in text
     assert 'pip install -e ".[dev,mlx]"' in text
     assert 'pytest -m "not integration"' in text
+
+
+def test_ci_workflow_is_retriggerable_and_cancels_superseded_runs() -> None:
+    """Tip health needs manual re-runs and cancel-in-progress for obsolete SHAs."""
+    text = _CI.read_text(encoding="utf-8")
+    assert "workflow_dispatch:" in text
+    assert "concurrency:" in text
+    assert "cancel-in-progress: true" in text

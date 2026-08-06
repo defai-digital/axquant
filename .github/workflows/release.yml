@@ -4,6 +4,17 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Immutable release tag to build and publish (e.g. v1.3.0)"
+        required: true
+        type: string
+
+# Manual dispatch must bind to the tag input; tag pushes use github.ref_name.
+# Without this, workflow_dispatch on main leaves the ref as the branch name and
+# fails the version/tag asserts (and would create a bogus release title).
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
 
 jobs:
   dist:
@@ -14,14 +25,19 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Dispatch must check out the tag tip, not the branch that was selected
+          # in the Actions UI (usually main).
+          ref: ${{ env.RELEASE_TAG }}
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Verify tag matches package version
         run: >-
-          python -c 'import os, tomllib; version =
+          python -c 'import os, re, tomllib; version =
           tomllib.load(open("pyproject.toml", "rb"))["project"]["version"];
-          tag = os.environ["GITHUB_REF_NAME"];
+          tag = os.environ["RELEASE_TAG"];
+          assert re.fullmatch(r"v\d+\.\d+\.\d+(rc\d+)?", tag), f"tag {tag!r} is not a vX.Y.Z release tag";
           assert tag == f"v{version}", f"tag {tag!r} does not match package v{version}"'
       - name: Build sdist and wheel
         run: |
@@ -38,7 +54,7 @@ jobs:
       - name: Extract curated release notes from CHANGELOG.md
         run: >-
           python -c 'import os, pathlib, re; version =
-          os.environ["GITHUB_REF_NAME"].removeprefix("v");
+          os.environ["RELEASE_TAG"].removeprefix("v");
           text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8");
           m = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
           text, re.S | re.M);
@@ -48,11 +64,11 @@ jobs:
           encoding="utf-8")'
       - name: Upload artifacts to the GitHub Release
         run: |
-          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
-            gh release create "${GITHUB_REF_NAME}" --verify-tag \
-              --title "${GITHUB_REF_NAME}" --notes-file release-notes.md
-          gh release edit "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}"
-          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          gh release view "${RELEASE_TAG}" >/dev/null 2>&1 || \
+            gh release create "${RELEASE_TAG}" --verify-tag \
+              --title "${RELEASE_TAG}" --notes-file release-notes.md
+          gh release edit "${RELEASE_TAG}" --title "${RELEASE_TAG}"
+          gh release upload "${RELEASE_TAG}" dist/* --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Hand dists to the publish job
@@ -94,12 +110,12 @@ jobs:
         run: rm -f dist/SHA256SUMS.txt
       # Prerelease tags (vX.Y.ZrcN) go to TestPyPI; final tags go to PyPI.
       - name: Publish to TestPyPI (prerelease)
-        if: contains(github.ref_name, 'rc')
+        if: contains(env.RELEASE_TAG, 'rc')
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
       - name: Publish to PyPI
-        if: ${{ !contains(github.ref_name, 'rc') }}
+        if: ${{ !contains(env.RELEASE_TAG, 'rc') }}
         uses: pypa/gh-action-pypi-publish@release/v1
       - name: Trusted publisher guidance
         if: failure()
