@@ -78,7 +78,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
     """Every declared-convertible adapter is in the conversion-host smoke set.
 
     Keeps the remote family matrix and registry from drifting. Qwen3-ASR and
-    Qwen3-VL use their architecture runtimes on mbp-m5; the text families also
+    Qwen3-VL use their architecture runtimes on df-macbookpro-m5; the text families also
     remain in the macstudio-m2u coverage set.
     """
     matrix = support_matrix()

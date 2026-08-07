@@ -133,7 +133,7 @@ field. Latency tables are planning inputs, never quality evidence.
 
 **Design.** The A/B harness (MTP off/on, strict invariants, EvaluationBundle)
 exists. Work: bind bundle emission to the campaign hardware contract
-(`mbp-m5` scope id, preflight freshness) so an MTP bundle is admissible as
+(`df-macbookpro-m5` scope id, preflight freshness) so an MTP bundle is admissible as
 formal evidence; add acceptance-rate and effective-tok/s summary fields if not
 already first-class; wire the release-audit MTP milestone to consume the
 bundle digest.

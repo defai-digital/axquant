@@ -374,7 +374,7 @@ def test_benchmark_request_cannot_silently_omit_optional_baseline(tmp_path: Path
 
 def _contract(**overrides: str) -> FormalHostContract:
     defaults = {
-        "hardware_id": "mbp-m5/apple-m3-max/fixture",
+        "hardware_id": "df-macbookpro-m5/apple-m3-max/fixture",
         "os_version": "macOS-test",
         "power_mode": "AC power",
         "storage_contract": "internal-ssd",

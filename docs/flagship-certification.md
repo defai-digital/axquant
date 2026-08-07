@@ -16,10 +16,10 @@ quality, size, MTP, protection-floor, or fallback threshold.
 - `CandidateKey` additionally binds policy, calibration, activation capture (or an explicit
   no-capture sentinel), sensitivity, semantic plan, converted manifest, and checkpoint bytes.
 - A campaign freezes exactly one candidate, released toolkit wheel, runtime builds, three matched
-  baselines, six disjoint dataset roles, `mbp-m5` host scope, role assignments, cycle budget, and
+  baselines, six disjoint dataset roles, `df-macbookpro-m5` host scope, role assignments, cycle budget, and
   durable storage proof.
 - Formal performance, MTP, memory, and hardware-registry evidence is authorizing only when bound
-  to `mbp-m5`. A different clean host proves reproduction and path neutrality, not performance.
+  to `df-macbookpro-m5`. A different clean host proves reproduction and path neutrality, not performance.
 - The formal holdout is recorded as consumed on either pass or model failure.
 - Certification and publication require different operators and an independent reviewer.
 
@@ -49,7 +49,7 @@ state or lifecycle event in place.
    cheapest-failure-first `axquant.flagship-frontier.v1`; it retains failed candidates, rechecks
    every gate-evidence checksum, and derives formal eligibility rather than accepting it as a
    summary assertion.
-4. Run `campaign-freeze`, then run `campaign-preflight` on `mbp-m5`. Preflight requires fresh
+4. Run `campaign-freeze`, then run `campaign-preflight` on `df-macbookpro-m5`. Preflight requires fresh
    doctor, Metal, zero-fallback, storage, power, and thermal results bound to the frozen host
    contract, and independently checks the live macOS/arm64/hostname/OS-build/free-disk state.
 5. Run `campaign-start-formal`; the evaluation custodian executes both formal profiles.

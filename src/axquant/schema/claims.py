@@ -73,8 +73,8 @@ class PublicClaimManifest(StrictModel):
 
     @model_validator(mode="after")
     def claim_contract(self) -> PublicClaimManifest:
-        if "mbp-m5" not in self.hardware_scope_ids:
-            raise ValueError("certified performance scope must include mbp-m5")
+        if "df-macbookpro-m5" not in self.hardware_scope_ids:
+            raise ValueError("certified performance scope must include df-macbookpro-m5")
         if not self.runtime_versions or any(
             not key.strip() or not value.strip() for key, value in self.runtime_versions.items()
         ):

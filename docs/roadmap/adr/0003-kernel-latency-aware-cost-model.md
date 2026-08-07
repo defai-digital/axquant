@@ -24,7 +24,7 @@ ADR extends alignment from *feasible* to *fast*.
    prefill-shaped matmuls per (runtime, bits, group size, packing/method
    layout) on a named host, emitting a checksummed, hardware-scoped
    `kernel_latency` artifact bound to a hardware-registry entry — the same
-   scoping rule as all performance evidence (authorizing only on `mbp-m5`;
+   scoping rule as all performance evidence (authorizing only on `df-macbookpro-m5`;
    other hosts inform development).
 2. The planner accepts an optional latency table. When present, the cost term
    for a candidate uses measured relative latency instead of abstract bits;
@@ -45,7 +45,7 @@ ADR extends alignment from *feasible* to *fast*.
 
 ## Consequences
 
-- Plans become host-scoped when latency-driven; a plan built with an `mbp-m5`
+- Plans become host-scoped when latency-driven; a plan built with an `df-macbookpro-m5`
   table must record that scope, consistent with existing claims discipline.
 - The harness gives AX Engine a concrete kernel wishlist: configurations that
   are quality-optimal but kernel-slow are visible in one report.

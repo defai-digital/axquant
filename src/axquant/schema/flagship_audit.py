@@ -132,7 +132,7 @@ class ReproductionReviewRecord(StrictModel):
         "axquant.flagship-reproduction-review.v1"
     )
     candidate_sha256: str = Field(pattern=_SHA256)
-    producing_host_id: Literal["mbp-m5"] = "mbp-m5"
+    producing_host_id: Literal["df-macbookpro-m5"] = "df-macbookpro-m5"
     reproduction_host_id: str = Field(min_length=1)
     path_neutral_identity_verified: Literal[True] = True
     immutable_artifact_verified: Literal[True] = True
@@ -144,7 +144,7 @@ class ReproductionReviewRecord(StrictModel):
     @model_validator(mode="after")
     def host_is_independent(self) -> ReproductionReviewRecord:
         if self.reproduction_host_id == self.producing_host_id:
-            raise ValueError("clean reproduction must use a host distinct from mbp-m5")
+            raise ValueError("clean reproduction must use a host distinct from df-macbookpro-m5")
         return self
 
 
@@ -154,7 +154,7 @@ class HardwareAuthorizationRecord(StrictModel):
     )
     campaign_sha256: str = Field(pattern=_SHA256)
     candidate_sha256: str = Field(pattern=_SHA256)
-    host_id: Literal["mbp-m5"] = "mbp-m5"
+    host_id: Literal["df-macbookpro-m5"] = "df-macbookpro-m5"
     hardware_id: str = Field(min_length=1)
     hardware_registry: BoundFile
     operator: str = Field(min_length=1)

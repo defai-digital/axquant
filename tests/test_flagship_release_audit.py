@@ -202,7 +202,7 @@ def _flagship_fixture(
     hardware = load_model(hardware_path, HardwareProfileRegistry)
     hardware_entry = hardware.entries[0]
     host_contract = FormalHostContract(
-        hardware_id=f"mbp-m5/{hardware_entry.hardware.chip}",
+        hardware_id=f"df-macbookpro-m5/{hardware_entry.hardware.chip}",
         os_version=hardware_entry.hardware.os_version,
         power_mode=hardware_entry.hardware.power_mode,
         storage_contract="fixture durable evidence root with verified backup",
@@ -425,7 +425,7 @@ def _flagship_fixture(
     preflight = preflight_campaign(
         campaign_path=campaign_path,
         output_path=preflight_path,
-        observed_host_id="mbp-m5",
+        observed_host_id="df-macbookpro-m5",
     )
     assert preflight.passed
 
@@ -504,7 +504,7 @@ def _flagship_fixture(
     )
     hardware_attestation = _write_fixture(
         root,
-        "hardware/mbp-m5-attestation.sigstore.json",
+        "hardware/df-macbookpro-m5-attestation.sigstore.json",
         '{"verified": true}\n',
     )
     hardware_authorization_path = root / "hardware-authorization.json"
@@ -560,7 +560,7 @@ def _flagship_fixture(
         ("formal-raw-task", formal_raw_path),
         ("formal-agent-coding", root / formal_results["agent-coding"].path),
         ("formal-general", root / formal_results["general"].path),
-        ("hardware-mbp-m5", hardware_path),
+        ("hardware-df-macbookpro-m5", hardware_path),
         ("hardware-authorization", hardware_authorization_path),
         ("hardware-authorization-attestation", hardware_attestation),
         ("reproduction", verification_path),

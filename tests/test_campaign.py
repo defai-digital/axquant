@@ -286,14 +286,14 @@ def _campaign(root: Path, durable: Path) -> FlagshipCampaign:
             )
         )
     host_contract = FormalHostContract(
-        hardware_id="mbp-m5/apple-m5/fixture",
+        hardware_id="df-macbookpro-m5/apple-m5/fixture",
         os_version="macOS fixture",
         power_mode="high-power",
         storage_contract="durable fixture",
         thermal_protocol="cold-start then fixed warmups",
         operator="runtime-owner",
     )
-    host_scope_path = root / "hardware/mbp-m5.json"
+    host_scope_path = root / "hardware/df-macbookpro-m5.json"
     host_scope_path.parent.mkdir(parents=True, exist_ok=True)
     host_evidence: list[FormalHostEvidenceBinding] = []
     for kind in FormalHostEvidenceKind:
@@ -361,7 +361,7 @@ def _campaign(root: Path, durable: Path) -> FlagshipCampaign:
         formal_host=host_contract,
         hardware_scope=_bound(
             root,
-            "hardware/mbp-m5.json",
+            "hardware/df-macbookpro-m5.json",
             host_scope_path.read_text(encoding="utf-8"),
         ),
         hardware_scope_evidence=host_evidence,
@@ -414,7 +414,7 @@ def test_freeze_and_preflight_are_fail_closed(tmp_path: Path) -> None:
     frozen = freeze_campaign(request_path=request, output_path=frozen_path)
     result = preflight_campaign(
         campaign_path=frozen_path,
-        observed_host_id="mbp-m5",
+        observed_host_id="df-macbookpro-m5",
     )
 
     assert frozen.state.value == "frozen"
@@ -424,7 +424,7 @@ def test_freeze_and_preflight_are_fail_closed(tmp_path: Path) -> None:
     (tmp_path / campaign.policy_file.path).write_text("tampered", encoding="utf-8")
     changed = preflight_campaign(
         campaign_path=frozen_path,
-        observed_host_id="mbp-m5",
+        observed_host_id="df-macbookpro-m5",
     )
     assert not changed.passed
     assert any("policy.json" in issue for issue in changed.issues)
@@ -521,7 +521,9 @@ def test_preflight_rejects_any_host_other_than_mbp_m5(tmp_path: Path) -> None:
     )
 
     assert not result.passed
-    assert result.issues == ["campaign preflight must run on mbp-m5; observed macstudio-m2u"]
+    assert result.issues == [
+        "campaign preflight must run on df-macbookpro-m5; observed macstudio-m2u"
+    ]
 
 
 def test_campaign_roles_reject_placeholder_identity() -> None:
@@ -554,7 +556,7 @@ def test_preflight_rejects_stale_host_scope(tmp_path: Path) -> None:
 
     result = preflight_campaign(
         campaign_path=frozen_path,
-        observed_host_id="mbp-m5",
+        observed_host_id="df-macbookpro-m5",
     )
 
     assert not result.passed
@@ -623,7 +625,7 @@ def test_formal_cycle_consumes_holdout_on_pass_or_failure(tmp_path: Path) -> Non
     frozen = freeze_campaign(request_path=request, output_path=frozen_path)
     preflight = preflight_campaign(
         campaign_path=frozen_path,
-        observed_host_id="mbp-m5",
+        observed_host_id="df-macbookpro-m5",
     )
     running = start_formal_campaign(campaign=frozen, preflight=preflight)
     now = utc_now()

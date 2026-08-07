@@ -24,6 +24,6 @@ here is release evidence, a quality claim, or a certification statement.
 - Competitive comparison with other MLX quantization toolkits stays at the
   feature level only; no reading or porting of their implementations (AXQ-001).
 - Formal performance evidence is authorizing only on the frozen formal host
-  (`mbp-m5`). Everything else proves reproduction, not performance.
+  (`df-macbookpro-m5`). Everything else proves reproduction, not performance.
 - Architecture-prior analysis, smoke probes, and manual plans remain
   non-release development evidence.

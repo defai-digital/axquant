@@ -7,7 +7,7 @@
 
 The Qwen 3.6 flagship campaign (`qwen36-mtp-v2`) freezes one candidate, one
 released toolkit wheel, matched baselines, disjoint dataset roles, and the
-`mbp-m5` host scope. Meanwhile this roadmap adds algorithms (act-order GPTQ,
+`df-macbookpro-m5` host scope. Meanwhile this roadmap adds algorithms (act-order GPTQ,
 latency-aware planning) that would change planner and quantizer behavior. If
 those changes reach a frozen campaign's toolchain, the campaign's evidence
 becomes unreproducible or, worse, silently tuned.

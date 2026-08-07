@@ -46,7 +46,7 @@ class KernelLatencyTable(StrictModel):
     """Host-scoped kernel latency evidence (``axquant.kernel-latency.v1``)."""
 
     schema_version: Literal["axquant.kernel-latency.v1"] = "axquant.kernel-latency.v1"
-    # Hardware-registry host identifier the timings bind to (e.g. ``mbp-m5``).
+    # Hardware-registry host identifier the timings bind to (e.g. ``df-macbookpro-m5``).
     host_id: str = Field(min_length=1)
     chip: str = Field(min_length=1)
     os_version: str = Field(min_length=1)

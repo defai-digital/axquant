@@ -30,7 +30,7 @@ What remains is measurement, certification, and deferred scope:
 | 1.3 interaction optimization | ✅ `refine-select --interaction` + role guard | real bound-candidate evaluations on development roles |
 | 2.1 MTP bundle admissibility | ✅ enforced by flagship M7 | formal-host A/B run after Phase 0 exit |
 | 2.2 measured-KV serving quality | ✅ `kv-serving-quality` + kv_exec binding | dual-profile short/long-context measurements |
-| 3.1–3.3 kernel-latency planning | ✅ `benchmark-kernels` + `plan --latency-table` | tables on `mbp-m5` + dev hosts (3.2), re-plan decode measurement (3.4), kernel wishlist to AX Engine (3.5) |
+| 3.1–3.3 kernel-latency planning | ✅ `benchmark-kernels` + `plan --latency-table` | tables on `df-macbookpro-m5` + dev hosts (3.2), re-plan decode measurement (3.4), kernel wishlist to AX Engine (3.5) |
 | 4.1 quantized MTP sidecar | ✅ `quantize-mtp-sidecar` + live capability probe | an AX Engine build that actually reports the quantized MTP layout; see the open product question below |
 | 4.3 2/3-bit robust trunk | ✅ | stability evidence per pack |
 | Phase 0 certification | — (operational, untouched per ADR-0001) | the entire campaign → formal → M0–M8 chain |
@@ -60,7 +60,7 @@ Phase 4  Deferred scope                 (RM-40..44)       ── gated items
 ## Phase 0 — Certification closure (now)
 
 **Objective.** Close `qwen36-mtp-v2` on the real candidate: campaign-overlap →
-campaign-frontier → campaign-freeze → campaign-preflight (`mbp-m5`) → formal
+campaign-frontier → campaign-freeze → campaign-preflight (`df-macbookpro-m5`) → formal
 run → holdout completion → M0–M8 `release-audit`, then publication — or a
 recorded `closed_no_go` / `formal_failed` with archived evidence.
 
@@ -117,7 +117,7 @@ evidence; push BPW at held quality.
 | 2.3 | KV gate threshold proposal from 2.2 data | WS-6 | 2.2 |
 | 2.4 | BPW push: reference pack at lower measured BPW, unchanged eval verdicts | — | Phase 1 measurement round |
 
-**Exit criteria.** MTP bundle digest-bound to `mbp-m5` and reproduced on a
+**Exit criteria.** MTP bundle digest-bound to `df-macbookpro-m5` and reproduced on a
 clean host; KV-quality report exists for short+long context, both profiles;
 at least one lower-BPW reference pack with unchanged verdicts, or a recorded
 finding that current BPW is on the frontier.

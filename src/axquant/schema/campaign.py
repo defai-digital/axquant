@@ -446,7 +446,7 @@ class CampaignRoles(StrictModel):
 
 
 class FormalHostContract(StrictModel):
-    host_id: Literal["mbp-m5"] = "mbp-m5"
+    host_id: Literal["df-macbookpro-m5"] = "df-macbookpro-m5"
     hardware_id: str = Field(min_length=1)
     os_version: str = Field(min_length=1)
     power_mode: str = Field(min_length=1)
@@ -474,7 +474,7 @@ class FormalHostEvidenceResult(StrictModel):
     schema_version: Literal["axquant.formal-host-evidence.v1"] = "axquant.formal-host-evidence.v1"
     evidence_name: str = Field(pattern=_IDENTIFIER)
     kind: FormalHostEvidenceKind
-    host_id: Literal["mbp-m5"] = "mbp-m5"
+    host_id: Literal["df-macbookpro-m5"] = "df-macbookpro-m5"
     subject_sha256: str = Field(pattern=_SHA256)
     passed: Literal[True] = True
     command: list[str] = Field(min_length=1)
@@ -635,7 +635,7 @@ class CampaignPreflight(StrictModel):
     campaign_id: str
     campaign_sha256: str = Field(pattern=_SHA256)
     checked_at: datetime = Field(default_factory=utc_now)
-    host_id: Literal["mbp-m5"] = "mbp-m5"
+    host_id: Literal["df-macbookpro-m5"] = "df-macbookpro-m5"
     passed: bool
     issues: list[str]
     verified_files: list[BoundFile]

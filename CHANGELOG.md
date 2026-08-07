@@ -8,6 +8,20 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Changed
+
+- **The flagship formal-host identifier is now `df-macbookpro-m5`** (was
+  `mbp-m5`), following the owner's canonical DNS naming for the certification
+  machine (`df-macbookpro-m5.defai.digital`, Apple M5 Max MacBook Pro). The
+  identifier is a schema literal on the formal host contract, host evidence,
+  preflight, reproduction review, and hardware authorization records; it is
+  the mandatory certified-claim hardware scope id, the required
+  `hardware-df-macbookpro-m5` archive record name, and the exact string
+  `campaign-preflight` compares against the machine's live hostname. No
+  campaign was ever frozen and no claim was ever rendered under the old id,
+  so nothing published or bound is invalidated. Documents and audits citing
+  `mbp-m5` as the formal host now read `df-macbookpro-m5`.
+
 ## [1.4.1] - 2026-08-07
 
 ### Fixed

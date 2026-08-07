@@ -29,7 +29,7 @@ The strategic conclusion of that review, which this PRD adopts:
 ## 2. Goals
 
 1. **G1 — Close the flagship.** Complete Qwen 3.6 certification under the
-   `qwen36-mtp-v2` policy (M0–M8, dual profiles, `mbp-m5`), or record a
+   `qwen36-mtp-v2` policy (M0–M8, dual profiles, `df-macbookpro-m5`), or record a
    documented no-go. This is the trust anchor for everything else.
 2. **G2 — Quality pack.** Measurably improve quality-at-BPW using act-order
    GPTQ, measured-holdout-safe interaction optimization, and a better
@@ -76,7 +76,7 @@ P1 core value, P2 valuable, P3 opportunistic.
 ### 5.1 Certification closure (G1)
 
 - **RM-01 (P0).** Execute the frozen `qwen36-mtp-v2` campaign end to end:
-  overlap checks, frontier, freeze, preflight on `mbp-m5`, formal run, holdout
+  overlap checks, frontier, freeze, preflight on `df-macbookpro-m5`, formal run, holdout
   completion, M0–M8 release audit. Acceptance: `release-audit` returns 0 for
   the real candidate, or a `closed_no_go` / `formal_failed` record exists with
   archived evidence.
@@ -114,7 +114,7 @@ P1 core value, P2 valuable, P3 opportunistic.
 - **RM-20 (P1).** Formal MTP speed evidence: `benchmark.py` A/B (MTP off/on)
   executed under the campaign hardware contract, reporting acceptance rate and
   effective tok/s as an `EvaluationBundle`. Acceptance: bundle is digest-bound
-  to `mbp-m5` and reproducible on a clean host for path neutrality.
+  to `df-macbookpro-m5` and reproducible on a clean host for path neutrality.
 - **RM-21 (P1).** Measured-KV serving-quality evidence: dual-profile quality
   evaluation executed with measured per-layer KV plans via
   `runtime-check --runtime mlx-lm-kv`. Acceptance: quality deltas vs BF16-KV

@@ -144,7 +144,7 @@ def test_public_claim_and_card_are_generated_from_bound_metrics(tmp_path: Path) 
 
     assert claim.display_name.endswith("MP-5p30bpw-MTP")
     assert "mixed-precision" in card
-    assert "mbp-m5" in card
+    assert "df-macbookpro-m5" in card
     assert claim.audit_sha256 in card
 
 

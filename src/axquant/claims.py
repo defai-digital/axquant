@@ -94,7 +94,7 @@ def build_public_claim(
         measured_main_bpw=measured_main_bpw,
         measured_total_bpw=measured_total_bpw,
         weight_bytes=weight_bytes,
-        hardware_scope_ids=["mbp-m5"],
+        hardware_scope_ids=["df-macbookpro-m5"],
         runtime_versions=runtime_versions,
         quality_claims=quality_claims,
         performance_claims=performance_claims,
@@ -153,7 +153,7 @@ not a fixed storage claim.
 - Candidate key: `{stable_sha256(claim.candidate)}`
 - Release audit: `{claim.audit_sha256}`
 - Lifecycle event: `{claim.lifecycle_event_sha256}`
-- Authorizing performance host: `mbp-m5`
+- Authorizing performance host: `df-macbookpro-m5`
 - Independent evidence reviewer: {reviewer}
 
 Calibration data, development evaluation data, formal holdouts, and reproduction data were
@@ -177,7 +177,7 @@ Runtime versions:
 {runtime}
 
 MLX-LM compatibility is limited to the exact compatibility evidence named in the release package.
-The `mbp-m5` results authorize only the recorded hardware and software scope.
+The `df-macbookpro-m5` results authorize only the recorded hardware and software scope.
 
 ## Limitations
 

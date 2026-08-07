@@ -72,7 +72,7 @@ _REQUIRED_ARCHIVE_NAMES = {
     "formal-custodian-attestation",
     "hardware-authorization",
     "hardware-authorization-attestation",
-    "hardware-mbp-m5",
+    "hardware-df-macbookpro-m5",
     "independent-review",
     "independent-review-attestation",
     "reproduction",
@@ -309,7 +309,7 @@ def _host_issues(
     scope_path = (campaign_path.parent / campaign.hardware_scope.path).resolve()
     scope = load_model(scope_path, FormalHostScopeEvidence)
     if scope.contract != campaign.formal_host:
-        issues.append("formal host scope differs from the frozen mbp-m5 contract")
+        issues.append("formal host scope differs from the frozen df-macbookpro-m5 contract")
     if scope.evidence != campaign.hardware_scope_evidence:
         issues.append("formal host evidence differs from the frozen campaign bindings")
     issues.extend(formal_host_scope_evidence_issues(campaign_path.parent, scope))
@@ -318,9 +318,9 @@ def _host_issues(
     ) or authorization.candidate_sha256 != stable_sha256(candidate):
         issues.append("hardware authorization binds another campaign or candidate")
     if authorization.operator != campaign.formal_host.operator:
-        issues.append("hardware authorization operator differs from mbp-m5 contract")
+        issues.append("hardware authorization operator differs from df-macbookpro-m5 contract")
     if authorization.hardware_id != campaign.formal_host.hardware_id:
-        issues.append("hardware authorization identity differs from mbp-m5 contract")
+        issues.append("hardware authorization identity differs from df-macbookpro-m5 contract")
     issues.extend(
         _bound_file_issues(
             authorization_path.parent,
@@ -338,12 +338,12 @@ def _host_issues(
         )
     )
     if authorization.hardware_registry.sha256 != file_sha256(hardware_registry_path):
-        issues.append("mbp-m5 hardware authorization binds another hardware registry")
+        issues.append("df-macbookpro-m5 hardware authorization binds another hardware registry")
     for entry in hardware_registry.entries:
         if entry.hardware.os_version != campaign.formal_host.os_version:
-            issues.append(f"{entry.entry_id} hardware OS differs from mbp-m5 contract")
+            issues.append(f"{entry.entry_id} hardware OS differs from df-macbookpro-m5 contract")
         if entry.hardware.power_mode != campaign.formal_host.power_mode:
-            issues.append(f"{entry.entry_id} power mode differs from mbp-m5 contract")
+            issues.append(f"{entry.entry_id} power mode differs from df-macbookpro-m5 contract")
     return issues
 
 
@@ -592,8 +592,11 @@ def build_flagship_release_audit(
         m0.append("campaign source is not the accepted Qwen 3.6 27B immutable revision")
     if not preflight.passed or preflight.campaign_sha256 != stable_sha256(campaign):
         m0.append("campaign preflight does not pass for the frozen campaign")
-    if preflight.host_id != "mbp-m5" or campaign.formal_host.host_id != "mbp-m5":
-        m0.append("formal campaign host is not mbp-m5")
+    if (
+        preflight.host_id != "df-macbookpro-m5"
+        or campaign.formal_host.host_id != "df-macbookpro-m5"
+    ):
+        m0.append("formal campaign host is not df-macbookpro-m5")
     for bound in campaign_bound_files(campaign):
         m0.extend(
             _bound_file_issues(
