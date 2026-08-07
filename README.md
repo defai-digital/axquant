@@ -166,17 +166,24 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.5.0` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.5.1` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
 
-### v1.5.0 at a glance
+### v1.5.x at a glance
 
+- Ext4T layout planning refuses name-conflict renames and already-claimed destinations,
+  keeps logs/scripts category-first (host-local), and skips package-root symlinks so fleet
+  plans cannot clobber distinct content or delete a real tree behind a dangling link
+  (v1.5.1).
+- Coding-suite and general-holdout overlap use the same CJK-aware `axquant-token-5gram-v2`
+  tokenizer as `campaign-overlap`; GPTQ column codes use the joint `round(w/s + z)` form
+  shared with AWQ (v1.5.1).
 - The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`), matching the
   certification machine's canonical DNS identity; the id is a schema literal on the host
   contract, preflight, and certified-claim hardware scope. No campaign or claim ever bound
-  the old id.
+  the old id (v1.5.0).
 
 ### v1.4.x at a glance
 
@@ -193,7 +200,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.5.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.0)
+See the [v1.5.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.1)
 for the complete change list and download verification instructions.
 
 ### Support snapshot

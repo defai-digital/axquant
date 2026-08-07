@@ -8,6 +8,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-08-07
+
 ### Fixed
 
 - Ext4T layout planner no longer schedules `rename_or_move` /
