@@ -8,6 +8,18 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Fixed
+
+- `campaign-overlap --id-field` is now repeatable and tried in order per
+  record (default `id`, then `task_id`), so one overlap run can span
+  mixed-schema campaign datasets — calibration corpora keyed by `id`
+  alongside strict `QualityTask` suites keyed by `task_id`. Previously a
+  single id field applied to every file, and no field exists in both
+  shapes: `QualityTask` (`extra="forbid"`) rejects an added `id`, and the
+  frozen calibration dataset cannot gain a `task_id` without invalidating
+  its digest bindings. Reports are unchanged (record ids never leave the
+  loader), so existing overlap reports stay reproducible.
+
 ## [1.4.0] - 2026-08-06
 
 ### Fixed

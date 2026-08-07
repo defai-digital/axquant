@@ -1259,7 +1259,11 @@ def _build_parser() -> argparse.ArgumentParser:
     campaign_overlap_parser.add_argument("--dataset", required=True)
     campaign_overlap_parser.add_argument("--compare", action="append", required=True)
     campaign_overlap_parser.add_argument("--threshold", type=float, default=0.9)
-    campaign_overlap_parser.add_argument("--id-field", default="id")
+    campaign_overlap_parser.add_argument(
+        "--id-field",
+        action="append",
+        help="record id field; repeatable, tried in order per record (default: id, then task_id)",
+    )
     campaign_overlap_parser.add_argument("--text-field", action="append")
     campaign_overlap_parser.add_argument("--max-comparison-pairs", type=int, default=10_000_000)
     campaign_overlap_parser.add_argument(

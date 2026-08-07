@@ -141,6 +141,43 @@ def test_campaign_overlap_passes_disjoint_cjk_and_mixed_scripts(tmp_path: Path) 
     assert report.near_duplicate_count == 0
 
 
+def test_campaign_overlap_id_field_fallback_spans_mixed_schemas(tmp_path: Path) -> None:
+    calibration_style = tmp_path / "calibration.jsonl"
+    task_style = tmp_path / "tasks.jsonl"
+    calibration_style.write_text(
+        '{"id":"cal-1","text":"tidal charts for the northern harbor entrance"}\n',
+        encoding="utf-8",
+    )
+    task_style.write_text(
+        '{"task_id":"dev-1","category":"coding","prompt":"draft a parser for mooring logs"}\n',
+        encoding="utf-8",
+    )
+
+    report = build_campaign_overlap_report(
+        dataset_path=calibration_style,
+        compared_paths=[task_style],
+    )
+
+    assert report.passed
+    assert report.comparison_pair_count == 1
+
+
+def test_campaign_overlap_rejects_record_missing_all_id_fields(tmp_path: Path) -> None:
+    dataset = tmp_path / "dataset.jsonl"
+    compared = tmp_path / "compared.jsonl"
+    dataset.write_text(
+        '{"name":"no-id","text":"a record without any recognized id field"}\n',
+        encoding="utf-8",
+    )
+    _jsonl(compared, [("b", "alpha beta gamma delta epsilon")])
+
+    with pytest.raises(ValidationGateError, match=r"no string id in any of \['id', 'task_id'\]"):
+        build_campaign_overlap_report(
+            dataset_path=dataset,
+            compared_paths=[compared],
+        )
+
+
 def test_campaign_overlap_accepts_shipped_reference_calibration(tmp_path: Path) -> None:
     import axquant
 

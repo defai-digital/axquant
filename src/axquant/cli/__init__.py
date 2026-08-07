@@ -2150,6 +2150,7 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "campaign-overlap":
         from axquant.dataset_overlap import (
+            DEFAULT_ID_FIELDS,
             DEFAULT_TEXT_FIELDS,
             build_campaign_overlap_report,
         )
@@ -2158,7 +2159,7 @@ def _run(args: argparse.Namespace) -> int:
             dataset_path=args.dataset,
             compared_paths=args.compare,
             similarity_threshold=args.threshold,
-            id_field=args.id_field,
+            id_fields=tuple(args.id_field or DEFAULT_ID_FIELDS),
             text_fields=tuple(args.text_field or DEFAULT_TEXT_FIELDS),
             max_comparison_pairs=args.max_comparison_pairs,
         )

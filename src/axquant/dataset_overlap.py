@@ -12,6 +12,7 @@ from axquant.schema import CampaignOverlapMatch, CampaignOverlapReport
 from axquant.serde import file_sha256
 
 NORMALIZATION_ALGORITHM = "axquant-token-5gram-v2"
+DEFAULT_ID_FIELDS = ("id", "task_id")
 DEFAULT_TEXT_FIELDS = ("text", "prompt", "reference", "perplexity_text")
 DEFAULT_MAX_COMPARISON_PAIRS = 10_000_000
 
@@ -57,10 +58,18 @@ def _record_text(payload: dict[str, Any], text_fields: tuple[str, ...]) -> str:
     return "\n".join(values)
 
 
+def _record_id(payload: dict[str, Any], id_fields: tuple[str, ...]) -> str | None:
+    for field in id_fields:
+        value = payload.get(field)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
 def _load_records(
     path: Path,
     *,
-    id_field: str,
+    id_fields: tuple[str, ...],
     text_fields: tuple[str, ...],
 ) -> list[tuple[str, str, str]]:
     if path.is_symlink() or not path.is_file():
@@ -77,10 +86,11 @@ def _load_records(
                     raise ValidationGateError(
                         f"dataset record is not an object at {path}:{line_number}"
                     )
-                record_id = payload.get(id_field)
-                if not isinstance(record_id, str) or not record_id.strip():
+                record_id = _record_id(payload, id_fields)
+                if record_id is None:
                     raise ValidationGateError(
-                        f"dataset record has no string {id_field!r} at {path}:{line_number}"
+                        f"dataset record has no string id in any of {list(id_fields)} "
+                        f"at {path}:{line_number}"
                     )
                 if record_id in seen_ids:
                     raise ValidationGateError(
@@ -117,13 +127,18 @@ def build_campaign_overlap_report(
     dataset_path: str | Path,
     compared_paths: list[str | Path],
     similarity_threshold: float = 0.9,
-    id_field: str = "id",
+    id_fields: tuple[str, ...] = DEFAULT_ID_FIELDS,
     text_fields: tuple[str, ...] = DEFAULT_TEXT_FIELDS,
     max_comparison_pairs: int = DEFAULT_MAX_COMPARISON_PAIRS,
 ) -> CampaignOverlapReport:
     if not math.isfinite(similarity_threshold) or not 0 < similarity_threshold <= 1:
         raise ValidationGateError("overlap similarity threshold must be finite and in (0, 1]")
-    if not id_field.strip() or not text_fields or any(not field.strip() for field in text_fields):
+    if (
+        not id_fields
+        or any(not field.strip() for field in id_fields)
+        or not text_fields
+        or any(not field.strip() for field in text_fields)
+    ):
         raise ValidationGateError("overlap id/text field names must be non-empty")
     if max_comparison_pairs <= 0:
         raise ValidationGateError("maximum comparison pairs must be positive")
@@ -140,11 +155,11 @@ def build_campaign_overlap_report(
 
     source_records = _load_records(
         dataset,
-        id_field=id_field,
+        id_fields=id_fields,
         text_fields=text_fields,
     )
     compared_records = {
-        digest: _load_records(path, id_field=id_field, text_fields=text_fields)
+        digest: _load_records(path, id_fields=id_fields, text_fields=text_fields)
         for path, digest in zip(compared, compared_sha, strict=True)
     }
     comparison_pairs = len(source_records) * sum(
