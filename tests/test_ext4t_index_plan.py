@@ -356,3 +356,112 @@ def test_index_root_emits_content_mode(tmp_path: Path) -> None:
     assert recs[0]["fingerprint_mode"] == "content"
     assert recs[0]["unreadable_files"] == []
     assert len(recs[0]["manifest_sha256"]) == 64
+
+
+def test_preferred_location_keeps_logs_and_scripts_category_first() -> None:
+    # Name heuristics (smoke/tmp/candidate) must not reclassify host-local trees.
+    assert (
+        planner.preferred_location("smoke-nightly", {"axquant/logs"}, 100)
+        == "axquant/logs/smoke-nightly"
+    )
+    assert (
+        planner.preferred_location("tmp-debug", {"axquant/logs"}, 100) == "axquant/logs/tmp-debug"
+    )
+    assert (
+        planner.preferred_location("candidate-eval", {"axquant/scripts"}, 100)
+        == "axquant/scripts/candidate-eval"
+    )
+
+
+def test_planner_skips_rename_when_name_conflicts(tmp_path: Path) -> None:
+    """Same basename, different content: never schedule rename into the final path."""
+    index = tmp_path / "idx.jsonl"
+    recs = [
+        {
+            "host": "m3",
+            "category": "models",
+            "name": "Foo",
+            "path": "/Volumes/Ext4T/models/Foo",
+            "size_bytes": 1000,
+            "file_count": 1,
+            "manifest_sha256": "a" * 64,
+            "fingerprint_mode": "content",
+        },
+        {
+            "host": "m3",
+            "category": "axquant/work",
+            "name": "Foo",
+            "path": "/Volumes/Ext4T/axquant/work/Foo",
+            "size_bytes": 2000,
+            "file_count": 1,
+            "manifest_sha256": "b" * 64,
+            "fingerprint_mode": "content",
+        },
+    ]
+    index.write_text("\n".join(json.dumps(r) for r in recs) + "\n", encoding="utf-8")
+    out = tmp_path / "plan.md"
+    plan_json = tmp_path / "plan.json"
+    _run_planner(index, out, plan_json)
+
+    plan = json.loads(plan_json.read_text(encoding="utf-8"))
+    renames = [
+        m for m in plan["local_moves"] if m["action"] in {"rename_or_move", "rename_to_canonical"}
+    ]
+    assert renames == []
+    assert len(plan["name_conflicts"]) == 1
+
+
+def test_planner_logs_named_smoke_stay_host_local(tmp_path: Path) -> None:
+    content_fp = "d" * 64
+    index = tmp_path / "idx.jsonl"
+    recs = [
+        {
+            "host": "m3",
+            "category": "axquant/logs",
+            "name": "smoke-nightly",
+            "path": "/Volumes/Ext4T/axquant/logs/smoke-nightly",
+            "size_bytes": 500,
+            "file_count": 2,
+            "manifest_sha256": content_fp,
+            "fingerprint_mode": "content",
+        },
+        {
+            "host": "m3",
+            "category": "axquant/logs",
+            "name": "smoke-nightly-copy",
+            "path": "/Volumes/Ext4T/axquant/logs/smoke-nightly-copy",
+            "size_bytes": 500,
+            "file_count": 2,
+            "manifest_sha256": content_fp,
+            "fingerprint_mode": "content",
+        },
+    ]
+    index.write_text("\n".join(json.dumps(r) for r in recs) + "\n", encoding="utf-8")
+    out = tmp_path / "plan.md"
+    plan_json = tmp_path / "plan.json"
+    _run_planner(index, out, plan_json)
+
+    plan = json.loads(plan_json.read_text(encoding="utf-8"))
+    deletes = [m for m in plan["local_moves"] if m["action"] == "delete_duplicate"]
+    assert deletes == []
+    assert plan["totals"]["reclaimable_bytes"] == 0
+
+
+def test_package_root_symlink_is_skipped_or_incomplete(tmp_path: Path) -> None:
+    root = tmp_path / "Ext4T"
+    models = root / "models"
+    real = _write_pkg(models, "Real-Model", {"w.bin": b"weights"})
+    link = models / "Linked-Model"
+    link.symlink_to(real)
+
+    # Direct fingerprint of a package-root symlink is incomplete.
+    _, _, fp, _, mode, unreadable = indexer.dir_size_and_manifest(link)
+    assert mode == "incomplete"
+    assert fp.startswith("incomplete:")
+    assert unreadable
+
+    # Index discovery skips package-root symlinks entirely.
+    recs = indexer.index_root(root, "local", ["models"], skip_hf_deep=True)
+    names = {r["name"] for r in recs}
+    assert "Real-Model" in names
+    assert "Linked-Model" not in names

@@ -55,7 +55,7 @@ class CodingSuiteManifest(StrictModel):
     calibration_overlap_report_sha256: str = Field(pattern=_SHA256)
     toolchains: dict[str, str] = Field(min_length=1)
     sandbox_profile_sha256: str = Field(pattern=_SHA256)
-    normalization_algorithm: Literal["axquant-token-5gram-v1"] = "axquant-token-5gram-v1"
+    normalization_algorithm: Literal["axquant-token-5gram-v2"] = "axquant-token-5gram-v2"
     near_duplicate_threshold: float = Field(gt=0.0, le=1.0)
     random_seed: int = Field(ge=0)
     created_at: datetime = Field(default_factory=utc_now)

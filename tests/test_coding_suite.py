@@ -193,6 +193,31 @@ def test_overlap_report_fails_on_exact_normalized_content(tmp_path: Path) -> Non
     assert report.matches[0].exact
 
 
+def test_general_overlap_treats_distinct_cjk_as_non_duplicates(tmp_path: Path) -> None:
+    """v2 tokenization: pure CJK strings must not collapse to empty and match."""
+    general_task = QualityTask(
+        task_id="cjk-general",
+        category="general",
+        prompt="東京の港湾物流計画を要約してください。",
+        reference="コンテナ取扱量と潮汐スケジュールを含める。",
+        checks=[QualityCheck(kind="contains", value="港湾")],
+    )
+    general_dataset = tmp_path / "general.jsonl"
+    write_text(general_dataset, general_task.model_dump_json() + "\n")
+    calibration = _calibration(
+        tmp_path / "calibration.jsonl",
+        "京都の茶道文化について短く説明してください。",
+    )
+
+    report = build_general_overlap_report(
+        general_dataset_path=general_dataset,
+        calibration_path=calibration,
+    )
+
+    assert report.passed
+    assert report.matches == []
+
+
 def test_general_overlap_and_coding_separation_fail_on_normalized_duplicates(
     tmp_path: Path,
 ) -> None:

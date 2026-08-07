@@ -79,6 +79,14 @@ def dir_size_and_manifest(
                    safe for delete / content-identity decisions
       manifest   — path+size only (fast inventory); NOT content-safe
     """
+    # Package-root symlinks resolve to another tree's bytes. Hashing through
+    # them would collide with the real package and can schedule delete of the
+    # target while keeping a dangling link. Mark incomplete so planners drop
+    # them from content-identity actions.
+    if root.is_symlink():
+        label = f"package-symlink:{root.name}"
+        return 0, 0, f"incomplete:{label}", [], "incomplete", [label]
+
     lines: list[str] = []
     top: list[tuple[int, str]] = []
     unreadable: list[str] = []
@@ -167,8 +175,10 @@ def package_roots(ext_root: Path, trees: list[str]) -> list[tuple[str, Path]]:
             for child in sorted(base.iterdir()):
                 if child.name.startswith("."):
                     continue
-                # is_dir() follows symlinks, so this covers real model dirs
-                # and symlinked ones alike
+                # Skip package-root symlinks: content hashing would follow the
+                # target and collide with the real package for delete planning.
+                if child.is_symlink():
+                    continue
                 if child.is_dir():
                     out.append(("models", child))
         elif tree == "axquant":
@@ -183,11 +193,13 @@ def package_roots(ext_root: Path, trees: list[str]) -> list[tuple[str, Path]]:
                 "scripts",
             ):
                 bdir = base / bucket
-                if not bdir.is_dir():
+                if not bdir.is_dir() or bdir.is_symlink():
                     continue
                 # work may have a candidates grouping folder
                 for child in sorted(bdir.iterdir()):
                     if child.name.startswith(".") or child.name == ".DS_Store":
+                        continue
+                    if child.is_symlink():
                         continue
                     if not child.is_dir():
                         # small files at bucket root (README etc.) — skip
@@ -195,7 +207,11 @@ def package_roots(ext_root: Path, trees: list[str]) -> list[tuple[str, Path]]:
                     # If this is a grouping dir (only subdirs, no weight files), expand one level
                     if bucket == "work" and _looks_like_group(child):
                         for gchild in sorted(child.iterdir()):
-                            if gchild.is_dir() and not gchild.name.startswith("."):
+                            if (
+                                gchild.is_dir()
+                                and not gchild.is_symlink()
+                                and not gchild.name.startswith(".")
+                            ):
                                 out.append((f"axquant/work/{child.name}", gchild))
                         continue
                     out.append((f"axquant/{bucket}", child))
@@ -203,6 +219,8 @@ def package_roots(ext_root: Path, trees: list[str]) -> list[tuple[str, Path]]:
             # only top-level hub blobs inventory is huge; record top-level dirs only as size rollups
             for child in sorted(base.iterdir()):
                 if child.name.startswith("."):
+                    continue
+                if child.is_symlink():
                     continue
                 if child.is_dir():
                     out.append(("huggingface", child))

@@ -23,8 +23,11 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
 
 CODING_SUITE_ID = "axquant-qwen3-next-coding-v2"
-CODING_SUITE_VERSION = "2026.08.04.2"
-NORMALIZATION_ALGORITHM = "axquant-token-5gram-v1"
+CODING_SUITE_VERSION = "2026.08.07.1"
+# Shared with campaign-overlap (axquant-token-5gram-v2): ASCII word runs stay
+# whole tokens; every other letter (CJK, accented Latin, Kana, Hangul) is a
+# single-character token so unspaced scripts still produce shingles.
+NORMALIZATION_ALGORITHM = "axquant-token-5gram-v2"
 NEAR_DUPLICATE_THRESHOLD = 0.85
 SANDBOX_POLICY_CONTRACT = {
     "id": "axquant-macos-seatbelt-v2",
@@ -597,8 +600,13 @@ def reference_coding_payloads() -> list[CodingTaskPayload]:
     ]
 
 
+# ASCII word runs stay whole tokens; every other letter becomes a
+# single-character token (same pattern as dataset_overlap.NORMALIZATION_ALGORITHM).
+_TOKEN_RE = re.compile(r"[a-z0-9_]+|[^\W\d_]")
+
+
 def _normalized_tokens(value: str) -> list[str]:
-    return re.findall(r"[a-z0-9_]+", value.casefold())
+    return _TOKEN_RE.findall(value.casefold())
 
 
 def _fingerprint(value: str) -> set[tuple[str, ...]]:

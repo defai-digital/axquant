@@ -19,7 +19,7 @@ def _rtn_group_affine(weight: np.ndarray, bits: int, group_size: int) -> np.ndar
     scale = (w_max - w_min) / ((1 << bits) - 1)
     scale = np.where(scale == 0, 1.0, scale)
     zero = np.clip(np.round(-w_min / scale), 0, (1 << bits) - 1)
-    q = np.clip(np.round(w_grouped / scale) + zero, 0, (1 << bits) - 1)
+    q = np.clip(np.round(w_grouped / scale + zero), 0, (1 << bits) - 1)
     return ((q - zero) * scale).reshape(weight.shape).astype(np.float32)
 
 
@@ -30,6 +30,40 @@ def _correlated_fixture() -> tuple[np.ndarray, np.ndarray]:
     z = rng.standard_normal((256, 128)).astype(np.float32)
     activations = (z @ mixing).astype(np.float32)
     return weight, activations
+
+
+def test_gptq_encode_matches_awq_joint_round_at_half_integers() -> None:
+    """round(w/s + z) must be used; split round(w/s)+z differs at banker's edges."""
+    # Construct w/s + z == 1.5 with integer z so joint vs split disagree:
+    # round(0.5)+1 == 1, round(0.5+1) == 2 under banker's rounding.
+    scale = np.array([2.0], dtype=np.float32)
+    zero = np.array([1.0], dtype=np.float32)
+    w = np.array([1.0], dtype=np.float32)  # w/s = 0.5
+    joint = np.round(w / scale + zero)
+    split = np.round(w / scale) + zero
+    assert joint.item() != split.item()
+
+    weight = np.zeros((1, 32), dtype=np.float32)
+    weight[0, 0] = 1.0
+    # Group min/max force scale and zero similar to the half-integer case
+    # when zero straddles the group: set remaining columns so the group
+    # includes 0 and a positive max that yields the same encode path.
+    weight[0, 1:] = 0.0
+    activations = np.eye(32, dtype=np.float32)
+    refined, _ = learn_gptq_refined_weight(weight, activations, bits=4, group_size=32)
+    # Refined codes must dequantize with the joint formula without residual
+    # that only appears under the split form.
+    out_features, in_features = weight.shape
+    w_grouped = weight.reshape(out_features, in_features // 32, 32)
+    w_min = np.minimum(w_grouped.min(axis=-1, keepdims=True), 0.0)
+    w_max = np.maximum(w_grouped.max(axis=-1, keepdims=True), 0.0)
+    grid_scale = (w_max - w_min) / 15.0
+    grid_scale = np.where(grid_scale == 0, 1.0, grid_scale)
+    grid_zero = np.clip(np.round(-w_min / grid_scale), 0, 15)
+    refined_grouped = refined.reshape(out_features, in_features // 32, 32)
+    joint_codes = np.round(refined_grouped / grid_scale + grid_zero)
+    reconstructed = ((joint_codes - grid_zero) * grid_scale).reshape(weight.shape)
+    np.testing.assert_allclose(reconstructed, refined, rtol=0.0, atol=1e-5)
 
 
 def test_gptq_beats_rtn_under_correlated_activations() -> None:
@@ -236,7 +270,7 @@ def test_act_order_output_sits_exactly_on_the_static_affine_grid() -> None:
     scale = np.where(w_max == w_min, 1.0, (w_max - w_min) / 15.0)
     zero = np.clip(np.round(-w_min / scale), 0, 15)
     refined_grouped = refined.reshape(out_features, in_features // 32, 32)
-    codes = np.round(refined_grouped / scale) + zero
+    codes = np.round(refined_grouped / scale + zero)
     assert codes.min() >= 0 and codes.max() <= 15
     reconstructed = ((codes - zero) * scale).reshape(weight.shape)
     np.testing.assert_allclose(reconstructed, refined, rtol=0.0, atol=1e-6)

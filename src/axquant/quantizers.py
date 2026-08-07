@@ -585,11 +585,15 @@ class GptqPlugin:
         w_max = np.maximum(w_grouped.max(axis=-1, keepdims=True), 0.0)
         q_scale = (w_max - w_min) / ((1 << bits) - 1)
         q_scale = np.where(q_scale == 0, 1.0, q_scale)
+        # Build the grid at float16 storage precision (see AffinePlugin).
+        q_scale = _storage_scale(np, q_scale)
         zero_point = np.clip(np.round(-w_min / q_scale), 0, (1 << bits) - 1)
         stored_scale, stored_zero = _stored_affine_parameters(np, q_scale, zero_point, "GPTQ")
+        # Codes must use the float16-stored zero point (see AffinePlugin).
+        zero_point = stored_zero.astype(np.float32)
         refined_grouped = refined.reshape(out_features, in_features // group_size, group_size)
         quantized = np.clip(
-            np.round(refined_grouped / q_scale) + zero_point,
+            np.round(refined_grouped / q_scale + zero_point),
             0,
             (1 << bits) - 1,
         )

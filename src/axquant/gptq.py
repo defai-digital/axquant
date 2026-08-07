@@ -257,7 +257,10 @@ def learn_gptq_refined_weight(
                 raise PlanningError("GPTQ error compensation produced non-finite weights")
             scale_col = group_scale[:, j // group_size]
             zero_col = group_zero[:, j // group_size]
-            q_col = np.clip(np.round(w_col / scale_col) + zero_col, 0, qmax)
+            # Same encode as AWQ/portable affine: round(w/s + z). With integer
+            # zeros this matches round(w/s)+z except at banker's-rounding
+            # half-integers, where the joint form is the MSE-correct grid code.
+            q_col = np.clip(np.round(w_col / scale_col + zero_col), 0, qmax)
             deq_col = (q_col - zero_col) * scale_col
             refined[:, j] = deq_col
             err = (w_col - deq_col) / hinv_chol[j, j]

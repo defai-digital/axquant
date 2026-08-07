@@ -73,13 +73,23 @@ def is_at_final_path(path: str, final: str) -> bool:
     return path == final_absolute_path(final)
 
 
+def _category_matches(categories: set[str], prefix: str) -> bool:
+    return any(c == prefix or c.startswith(prefix + "/") for c in categories)
+
+
 # Preferred final locations by category heuristics
 def preferred_location(name: str, categories: set[str], size: int) -> str:
     n = name.lower()
 
     def has(prefix: str) -> bool:
-        return any(c == prefix or c.startswith(prefix + "/") for c in categories)
+        return _category_matches(categories, prefix)
 
+    # Host-local / reserved trees win over name heuristics so e.g.
+    # axquant/logs/smoke-nightly stays under logs (not smokes/work).
+    if has("axquant/logs"):
+        return f"axquant/logs/{name}"
+    if has("axquant/scripts"):
+        return f"axquant/scripts/{name}"
     if has("axquant/axq-publish") or name.startswith("AX-"):
         return f"axquant/axq-publish/{name}"
     if has("axquant/smokes") or "smoke" in n or n.endswith("-test"):
@@ -98,10 +108,6 @@ def preferred_location(name: str, categories: set[str], size: int) -> str:
         return f"axquant/work/{name}"
     if has("huggingface"):
         return f"huggingface/{name}"
-    if has("axquant/logs"):
-        return f"axquant/logs/{name}"
-    if has("axquant/scripts"):
-        return f"axquant/scripts/{name}"
     # default
     if size > 1_000_000_000 and ("bf16" in n or "mlx" in n or "model" in n):
         return f"models/{name}"
@@ -202,6 +208,11 @@ def main() -> int:
         # pick canonical name: prefer non-source slug / HF-style / AX- publish names
         canonical_name = _pick_canonical_name(names)
         final = preferred_location(canonical_name, cats, size)
+        # Logs are host-specific operational records: they mutate between
+        # index runs, so even a content-safe snapshot is not a durable
+        # fleet identity. Prefer category over final path so a mis-bucketed
+        # name heuristic cannot reclassify a log tree as fleet-syncable.
+        host_local = final.startswith("axquant/logs/") or _category_matches(cats, "axquant/logs")
         entry = {
             "manifest_sha256": group[0]["manifest_sha256"],
             "identity_key": fp,
@@ -210,11 +221,7 @@ def main() -> int:
             "names": names,
             "canonical_name": canonical_name,
             "final_path": final,
-            # Logs are host-specific operational records: they mutate between
-            # index runs, so even a content-safe snapshot is not a durable
-            # fleet identity. Log packages get layout moves only — no
-            # cross-host transfers, no fingerprint-driven deletion/renaming.
-            "host_local": final.startswith("axquant/logs/"),
+            "host_local": host_local,
             # Only full-file content fingerprints may drive destructive
             # same-host reclaim or alias renames.
             "content_safe": content_safe,
@@ -279,6 +286,11 @@ def main() -> int:
         final = e["final_path"]
         # instances already at exact final path (not nested lookalikes)
         already = [inst for inst in e["instances"] if is_at_final_path(inst["path"], final)]
+        desired = final_absolute_path(final)
+        # Reserve destinations already occupied so later renames/transfers
+        # cannot schedule a second writer into the same absolute path.
+        for inst in already:
+            planned_targets.add((inst["host"], desired.lower()))
 
         # same-host dups reclaim — only when every instance has a content-safe
         # fingerprint. cheap / incomplete / path-size / legacy fingerprints
@@ -349,7 +361,7 @@ def main() -> int:
                         or e["instances"]
                     )
                     src = min(candidates, key=lambda inst: host_rank(inst["host"]))
-                    to_path = final_absolute_path(final)
+                    to_path = desired
                     if (h, to_path.lower()) in planned_targets:
                         # another content already planned onto this target path
                         continue
@@ -365,12 +377,21 @@ def main() -> int:
                         }
                     )
 
-        # local rename if present but wrong path
+        # local rename if present but wrong path. Skip when the basename is a
+        # name-conflict (different content shares the name) or when another
+        # action already claims the destination — both would clobber.
+        name_conflicted = e["canonical_name"] in conflicted_names
         for inst in e["instances"]:
             if (inst["host"], inst["path"]) in deleted_paths:
                 continue  # already scheduled for deletion as a same-host dup
-            desired = final_absolute_path(final)
-            if inst["path"] != desired and Path(inst["path"]).name == e["canonical_name"]:
+            if inst["path"] == desired:
+                continue
+            dest_key = (inst["host"], desired.lower())
+            if name_conflicted:
+                continue  # leave for the name-conflict manual-review section
+            if dest_key in planned_targets:
+                continue  # destination already occupied or claimed
+            if Path(inst["path"]).name == e["canonical_name"]:
                 # wrong parent only
                 local_moves.append(
                     {
@@ -382,10 +403,9 @@ def main() -> int:
                         "reason": "align to final layout (same basename)",
                     }
                 )
+                planned_targets.add(dest_key)
             elif (
-                inst["path"] != desired
-                and Path(inst["path"]).name != e["canonical_name"]
-                and e["multi_name"]
+                e["multi_name"]
                 # alias grouping requires a content-safe fingerprint; never
                 # rename on cheap/incomplete/path-size collisions, and never
                 # rename mutable host-local log trees
@@ -403,6 +423,7 @@ def main() -> int:
                         "reason": f"alias names {e['names']} -> {e['canonical_name']}",
                     }
                 )
+                planned_targets.add(dest_key)
 
     # Summaries
     total_unique = sum(e["size_bytes"] for e in unique_content)
