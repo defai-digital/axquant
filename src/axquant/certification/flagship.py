@@ -756,7 +756,11 @@ def build_flagship_release_audit(
             authorization=hardware_authorization,
         )
     )
-    _bind_evidence(checks_by_gate["M7"], "hardware_registry_mbp_m5", hardware_path)
+    _bind_evidence(
+        checks_by_gate["M7"],
+        "hardware_registry_df_macbookpro_m5",
+        hardware_path,
+    )
     _bind_evidence(
         checks_by_gate["M7"],
         "hardware_authorization",

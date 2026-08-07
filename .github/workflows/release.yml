@@ -105,6 +105,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Deployments API only (post-publish status record). Do NOT set job-level
+      # `environment:` here — Trusted Publishing OIDC is registered with an
+      # empty environment claim.
+      deployments: write
       id-token: write
     steps:
       - uses: actions/download-artifact@v8
@@ -122,6 +126,39 @@ jobs:
       - name: Publish to PyPI
         if: ${{ !contains(env.RELEASE_TAG, 'rc') }}
         uses: pypa/gh-action-pypi-publish@release/v1
+      # Best-effort Deployments UI record. Must never red a successful upload
+      # (re-runs then hit "file already exists" on PyPI).
+      - name: Record PyPI deployment
+        if: ${{ success() && !contains(env.RELEASE_TAG, 'rc') }}
+        continue-on-error: true
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const version = process.env.RELEASE_TAG.replace(/^v/, "");
+            const releaseUrl = `https://pypi.org/project/axquant/${version}/`;
+            const logUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            // environment name is for the Deployments UI only; this job has no
+            // job-level `environment:` so OIDC still has an empty environment claim.
+            const { data: deployment } = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: process.env.RELEASE_TAG,
+              task: "deploy",
+              auto_merge: false,
+              required_contexts: [],
+              environment: "pypi",
+              production_environment: true,
+              description: `Published axquant ${version} to PyPI`,
+            });
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.id,
+              state: "success",
+              environment_url: releaseUrl,
+              log_url: logUrl,
+              description: `Published axquant ${version} to PyPI`,
+            });
       - name: Distribution summary
         if: success()
         run: |
@@ -141,6 +178,9 @@ jobs:
           PyPI Trusted Publishing failed (invalid-publisher is usually missing config).
           Register a Trusted Publisher on pypi.org / test.pypi.org for:
             owner=defai-digital  repo=axquant  workflow=release.yml
-          Environment: leave empty (this job does not set one).
+          Environment: leave empty (this job does not set job-level environment:).
+          The optional "Record PyPI deployment" step uses the Deployments API with
+          environment name "pypi" for the UI only — that is not a job environment
+          claim and must not be added to the Trusted Publisher config.
           Then keep ENABLE_PYPI_PUBLISH=true. Details: docs/ci-root-causes.md
           EOF

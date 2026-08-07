@@ -159,6 +159,59 @@ def test_planner_deletes_only_content_safe_same_host_dups(tmp_path: Path) -> Non
     assert deletes[0]["keep"] == "/Volumes/Ext4T/models/Foo-BF16"
 
 
+def test_planner_keeps_top_level_models_not_axquant_models_suffix(
+    tmp_path: Path,
+) -> None:
+    """Nested axquant/models/X must not win keep via endswith('/models/X').
+
+    preferred_location maps both models and axquant/models categories to
+    final models/{name}. A loose suffix match would treat the nested path as
+    already-final and schedule delete_duplicate on the real top-level copy.
+    """
+    content_fp = "c" * 64
+    index = tmp_path / "idx.jsonl"
+    recs = [
+        {
+            "host": "m3",
+            "category": "models",
+            "name": "Bar-BF16",
+            "path": "/Volumes/Ext4T/models/Bar-BF16",
+            "size_bytes": 2000,
+            "file_count": 2,
+            "manifest_sha256": content_fp,
+            "fingerprint_mode": "content",
+        },
+        {
+            "host": "m3",
+            "category": "axquant/models",
+            "name": "Bar-BF16",
+            "path": "/Volumes/Ext4T/axquant/models/Bar-BF16",
+            "size_bytes": 2000,
+            "file_count": 2,
+            "manifest_sha256": content_fp,
+            "fingerprint_mode": "content",
+        },
+    ]
+    index.write_text(
+        "\n".join(json.dumps(r) for r in recs) + "\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "plan.md"
+    plan_json = tmp_path / "plan.json"
+    _run_planner(index, out, plan_json)
+
+    plan = json.loads(plan_json.read_text(encoding="utf-8"))
+    deletes = [m for m in plan["local_moves"] if m["action"] == "delete_duplicate"]
+    assert len(deletes) == 1
+    assert deletes[0]["keep"] == "/Volumes/Ext4T/models/Bar-BF16"
+    assert deletes[0]["path"] == "/Volumes/Ext4T/axquant/models/Bar-BF16"
+    assert planner.is_at_final_path("/Volumes/Ext4T/models/Bar-BF16", "models/Bar-BF16")
+    assert not planner.is_at_final_path(
+        "/Volumes/Ext4T/axquant/models/Bar-BF16",
+        "models/Bar-BF16",
+    )
+
+
 def _run_planner(index: Path, out: Path, plan_json: Path) -> None:
     old = sys.argv
     try:

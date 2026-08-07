@@ -102,6 +102,26 @@ def test_release_workflow_documents_distribution_channels() -> None:
     assert "unused for Python" in text
 
 
+def test_release_workflow_records_pypi_deployment_best_effort() -> None:
+    """Post-publish Deployments UI record must not red a successful upload."""
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "Record PyPI deployment" in text
+    assert "createDeployment" in text
+    assert "deployments: write" in text
+    # Must be best-effort: API/env protection failures must not fail the job
+    # after packages are already on PyPI.
+    assert "continue-on-error: true" in text
+    # Job must not set environment: (Trusted Publishing OIDC is empty-env).
+    # Comments may mention the word; strip them before the structural check.
+    pypi_block = text.split("pypi:")[1]
+    job_header = pypi_block.split("steps:")[0]
+    header_no_comments = "\n".join(
+        line.split("#", 1)[0].rstrip() for line in job_header.splitlines()
+    )
+    assert "environment:" not in header_no_comments
+    assert 'environment: "pypi"' in pypi_block  # Deployments API name only
+
+
 def test_project_urls_point_at_pypi_and_github() -> None:
     """PEP 621 project.urls must advertise the real install + source homes."""
     text = (_ROOT / "pyproject.toml").read_text(encoding="utf-8")

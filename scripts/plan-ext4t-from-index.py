@@ -53,6 +53,26 @@ def content_identity_key(rec: dict) -> str:
     return f"unverified:{rec['host']}:{rec['path']}"
 
 
+# Absolute root for Ext4T fleet layouts. Paths in indexes are absolute under this.
+_EXT4T_ROOT = "/Volumes/Ext4T"
+
+
+def final_absolute_path(final: str) -> str:
+    """Absolute path for a relative final layout location (e.g. models/Foo)."""
+    return f"{_EXT4T_ROOT}/{final}"
+
+
+def is_at_final_path(path: str, final: str) -> bool:
+    """True when *path* is exactly the fleet final location for *final*.
+
+    Must not use endswith('/' + final): both ``models/Foo`` and
+    ``axquant/models/Foo`` end with ``/models/Foo``, and treating the
+    nested copy as already-final would keep the stray path and schedule
+    delete_duplicate on the real top-level models tree.
+    """
+    return path == final_absolute_path(final)
+
+
 # Preferred final locations by category heuristics
 def preferred_location(name: str, categories: set[str], size: int) -> str:
     n = name.lower()
@@ -233,7 +253,18 @@ def main() -> int:
 
     # Transfer plan: for each unique content, need one copy at final_path on
     # each host. Prefer a host already at final_path; else host_priority order.
-    host_priority = ["macstudio-m2u", "m3", "local", "mbp-m5", "AKDF-M3-MAX", "m5"]
+    # Peer/index host labels (SSH/index short names). Keep historical mbp-m5
+    # for existing indexes; formal certification id df-macbookpro-m5 ranks
+    # the same when operators reindex under the new name.
+    host_priority = [
+        "macstudio-m2u",
+        "m3",
+        "local",
+        "df-macbookpro-m5",
+        "mbp-m5",
+        "AKDF-M3-MAX",
+        "m5",
+    ]
 
     def host_rank(h: str) -> int:
         return host_priority.index(h) if h in host_priority else len(host_priority)
@@ -246,17 +277,8 @@ def main() -> int:
     reclaimable = 0
     for e in unique_content:
         final = e["final_path"]
-        # instances already at final path
-        already = []
-        for inst in e["instances"]:
-            # exact final path, or models/Name when final is models/Name
-            if inst["path"].endswith("/" + final) or (
-                final.startswith("models/")
-                and inst["path"].endswith("/" + final.split("/", 1)[1])
-                and "/models/" in inst["path"]
-                and "/axquant/" not in inst["path"]
-            ):
-                already.append(inst)
+        # instances already at exact final path (not nested lookalikes)
+        already = [inst for inst in e["instances"] if is_at_final_path(inst["path"], final)]
 
         # same-host dups reclaim — only when every instance has a content-safe
         # fingerprint. cheap / incomplete / path-size / legacy fingerprints
@@ -272,12 +294,12 @@ def main() -> int:
                 # basename matches the canonical name, else the first
                 keep = None
                 for inst in insts:
-                    if inst["path"].endswith("/" + final):
+                    if is_at_final_path(inst["path"], final):
                         keep = inst
                         break
                 if keep is None:
                     for inst in insts:
-                        if inst["path"].endswith("/" + e["canonical_name"]):
+                        if Path(inst["path"]).name == e["canonical_name"]:
                             keep = inst
                             break
                 if keep is None:
@@ -322,12 +344,12 @@ def main() -> int:
                         or [
                             inst
                             for inst in e["instances"]
-                            if inst["path"].endswith("/" + e["canonical_name"])
+                            if Path(inst["path"]).name == e["canonical_name"]
                         ]
                         or e["instances"]
                     )
                     src = min(candidates, key=lambda inst: host_rank(inst["host"]))
-                    to_path = f"/Volumes/Ext4T/{final}"
+                    to_path = final_absolute_path(final)
                     if (h, to_path.lower()) in planned_targets:
                         # another content already planned onto this target path
                         continue
@@ -347,20 +369,19 @@ def main() -> int:
         for inst in e["instances"]:
             if (inst["host"], inst["path"]) in deleted_paths:
                 continue  # already scheduled for deletion as a same-host dup
-            desired = f"/Volumes/Ext4T/{final}"
-            if inst["path"] != desired and inst["path"].endswith("/" + e["canonical_name"]):
+            desired = final_absolute_path(final)
+            if inst["path"] != desired and Path(inst["path"]).name == e["canonical_name"]:
                 # wrong parent only
-                if Path(inst["path"]).name == e["canonical_name"]:
-                    local_moves.append(
-                        {
-                            "action": "rename_or_move",
-                            "host": inst["host"],
-                            "from": inst["path"],
-                            "to": desired,
-                            "size_bytes": e["size_bytes"],
-                            "reason": "align to final layout (same basename)",
-                        }
-                    )
+                local_moves.append(
+                    {
+                        "action": "rename_or_move",
+                        "host": inst["host"],
+                        "from": inst["path"],
+                        "to": desired,
+                        "size_bytes": e["size_bytes"],
+                        "reason": "align to final layout (same basename)",
+                    }
+                )
             elif (
                 inst["path"] != desired
                 and Path(inst["path"]).name != e["canonical_name"]
