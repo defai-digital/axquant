@@ -166,10 +166,17 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.4.1` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.5.0` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
+
+### v1.5.0 at a glance
+
+- The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`), matching the
+  certification machine's canonical DNS identity; the id is a schema literal on the host
+  contract, preflight, and certified-claim hardware scope. No campaign or claim ever bound
+  the old id.
 
 ### v1.4.x at a glance
 
@@ -186,7 +193,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.4.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.4.1)
+See the [v1.5.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.0)
 for the complete change list and download verification instructions.
 
 ### Support snapshot
@@ -409,7 +416,7 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
 
 - **Qwen 3.6 certification is not closed.** Public packs are development artifacts. The additive
   `qwen36-mtp-v2` tooling now enforces one semantic candidate, frozen disjoint data roles,
-  authorizing performance only on `mbp-m5`, holdout consumption, durable evidence, independent
+  authorizing performance only on `df-macbookpro-m5`, holdout consumption, durable evidence, independent
   review, lifecycle state, measured-BPW claims, and a final M0–M8 audit. Those controls are
   implemented; the real candidate and formal evidence have not yet passed them;
 - interaction-optimization evidence: the toolkit path exists
@@ -683,7 +690,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence across campaign datasets | Implemented |
 | `campaign-frontier` | Verify every cheapest-failure-first candidate gate and derive the eligible frontier | Implemented |
 | `campaign-freeze` | Freeze one exact `qwen36-mtp-v2` source/candidate/evidence graph | Implemented |
-| `campaign-preflight` | Verify frozen bindings, durable storage, and exact `mbp-m5` host identity | Implemented |
+| `campaign-preflight` | Verify frozen bindings, durable storage, and exact `df-macbookpro-m5` host identity | Implemented |
 | `campaign-start-formal` | Start one budgeted formal cycle only after matching preflight | Implemented |
 | `campaign-complete-formal` | Derive pass/fail from the bound completion and consume both formal holdouts | Implemented |
 | `campaign-close-no-go` | Close a pre-formal campaign without consuming its blind holdout | Implemented |
@@ -874,7 +881,7 @@ axquant campaign-freeze \
   --request flagship-campaign-request.json \
   --output flagship-campaign.json
 
-# This authorizing preflight must run on the exact host id mbp-m5.
+# This authorizing preflight must run on the exact host id df-macbookpro-m5.
 axquant campaign-preflight \
   --campaign flagship-campaign.json \
   --output flagship-campaign-preflight.json
@@ -889,7 +896,7 @@ deliberately not publication-ready until the independent lifecycle and claim clo
 The campaign request and every transition, raw-evidence, review, no-go, and publication record
 must remain inside the declared non-symlinked durable root. Formal preflight also requires fresh
 doctor, Metal, zero-fallback, storage, power, and thermal results bound to the exact frozen
-`mbp-m5` contract.
+`df-macbookpro-m5` contract.
 After the legal `frozen → certified` event, `claim-render` creates `public-claim.json` and the
 measured-BPW `README.md`. An independent final publication review binds those exact files and the
 authorization audit under the durable campaign root; the final flagship request must pass M0–M8

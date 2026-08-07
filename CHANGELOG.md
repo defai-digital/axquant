@@ -8,6 +8,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-08-07
+
 ### Changed
 
 - **The flagship formal-host identifier is now `df-macbookpro-m5`** (was
