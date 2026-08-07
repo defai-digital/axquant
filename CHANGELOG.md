@@ -8,6 +8,8 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-07
+
 ### Fixed
 
 - `campaign-overlap --id-field` is now repeatable and tried in order per

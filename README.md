@@ -166,16 +166,19 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.4.0` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.4.1` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
 
-### v1.4.0 at a glance
+### v1.4.x at a glance
 
 - `campaign-overlap` normalization is Unicode-aware (`axquant-token-5gram-v2`): CJK and other
   non-ASCII scripts now produce real shingles instead of failing closed, unblocking flagship
   campaign freezes over multilingual datasets; ASCII-only reports are byte-identical to v1.
+- `campaign-overlap --id-field` is repeatable with ordered fallback (default `id`, then
+  `task_id`), so one overlap run spans calibration corpora and strict `QualityTask` suites
+  (v1.4.1).
 - Quantized MTP sidecars emit AX Engine's executable MLX-packed layout
   (`mlx-affine-packed-u32`) with round-trip verification, replacing the never-executable
   1.3.0 portable format; `--runtime-json` stamps `mtp_sidecar_bits`, and sidecar bits are
@@ -183,7 +186,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.4.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.4.0)
+See the [v1.4.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.4.1)
 for the complete change list and download verification instructions.
 
 ### Support snapshot
