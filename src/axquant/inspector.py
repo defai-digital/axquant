@@ -457,9 +457,8 @@ def inspect_model(
                     # FP4 expert bodies pack two 4-bit values per I8/U8 element; MLX
                     # dequant doubles the trailing dim (deepseek_v4 sanitize/load).
                     fp4_expert = _deepseek_fp4_expert_weight(name, dtype, config)
-                    logical_shape = list(shape)
                     if fp4_expert and shape:
-                        logical_shape[-1] = int(shape[-1]) * 2
+                        shape = (*shape[:-1], int(shape[-1]) * 2)
                     parameters = (
                         0
                         if quantization_metadata
@@ -477,7 +476,6 @@ def inspect_model(
                         if current_bits is not None
                         else dtype.lower()
                     )
-                    shape = logical_shape
                     # Packed MoE expert stacks are 3-D ([experts, out, in]);
                     # MLX-LM quantizes them as fused switch modules with the
                     # same per-group affine layout as 2-D linears, so they are
