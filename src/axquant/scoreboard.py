@@ -42,6 +42,12 @@ def _optional_load(path: str | Path | None, model_type: type[Any]) -> Any | None
     return load_model(resolved, model_type)
 
 
+def _positive_ratio(numerator: float | None, denominator: float | None) -> float | None:
+    if numerator is None or denominator is None or numerator <= 0.0 or denominator <= 0.0:
+        return None
+    return numerator / denominator
+
+
 def _row(
     metric_id: str,
     label: str,
@@ -98,6 +104,13 @@ def build_scoreboard(
     )
     _positive_finite(minimum_mtp_speedup, "minimum MTP speedup")
     rows: list[ScoreboardMetricRow] = []
+    size_reference_kind = "uniform-6bit" if plan_model.target_class == "6bit" else "uniform-4bit"
+    size_reference_label = "uniform-6" if size_reference_kind == "uniform-6bit" else "uniform-4"
+    size_metric_id = (
+        "size_ratio_vs_uniform6"
+        if size_reference_kind == "uniform-6bit"
+        else "size_ratio_vs_uniform4"
+    )
 
     rows.append(
         _row(
@@ -127,8 +140,10 @@ def build_scoreboard(
     ref_size = _optional_load(size_reference, ArtifactSizeEvidence)
     if cand_size is not None and cand_size.kind != "candidate":
         raise ArtifactError("candidate size evidence has the wrong kind")
-    if ref_size is not None and ref_size.kind != "uniform-4bit":
-        raise ArtifactError("size reference evidence has the wrong kind")
+    if ref_size is not None and ref_size.kind != size_reference_kind:
+        raise ArtifactError(
+            f"{plan_model.target_class} scoreboard requires {size_reference_kind} size evidence"
+        )
     if (
         cand_size is not None
         and ref_size is not None
@@ -140,8 +155,8 @@ def build_scoreboard(
         status = "pass" if ratio <= max_size_ratio_to_uniform4 else "fail"
         rows.append(
             _row(
-                "size_ratio_vs_uniform4",
-                "Size ratio vs uniform-4 reference",
+                size_metric_id,
+                f"Size ratio vs {size_reference_label} reference",
                 status=status,
                 value=round(ratio, 6),
                 threshold=max_size_ratio_to_uniform4,
@@ -151,8 +166,8 @@ def build_scoreboard(
     else:
         rows.append(
             _row(
-                "size_ratio_vs_uniform4",
-                "Size ratio vs uniform-4 reference",
+                size_metric_id,
+                f"Size ratio vs {size_reference_label} reference",
                 status="unavailable",
                 threshold=max_size_ratio_to_uniform4,
                 unit="ratio",
@@ -217,6 +232,11 @@ def build_scoreboard(
     if validation is not None:
         if validation.profile != active_profile:
             raise ArtifactError("validation report profile does not match the scoreboard")
+        if (
+            plan_model.target_class in {"4bit", "6bit"}
+            and validation.target_class != plan_model.target_class
+        ):
+            raise ArtifactError("validation report target class does not match the scoreboard")
         if cand_size is not None and not same_model_identity(
             validation.candidate_model, cand_size.model
         ):
@@ -265,11 +285,60 @@ def build_scoreboard(
         # so only the tampered direction is inconsistent.
         if mtp.exactness_pass and mtp.divergent_trial_count > 0:
             raise ArtifactError("MTP A/B exactness status is inconsistent with divergent trials")
+        measured_prompt_speedup = _positive_ratio(
+            mtp.mtp_tokens_per_second_p50,
+            mtp.direct_tokens_per_second_p50,
+        )
+        if (
+            mtp.prompt_median_speedup is not None
+            and measured_prompt_speedup is not None
+            and abs(mtp.prompt_median_speedup - measured_prompt_speedup) > 1e-9
+        ):
+            raise ArtifactError("MTP A/B prompt-median speedup is inconsistent")
+        prompt_speedup = (
+            mtp.prompt_median_speedup
+            if mtp.prompt_median_speedup is not None
+            else measured_prompt_speedup
+        )
+        measured_weighted_speedup = _positive_ratio(
+            mtp.mtp_token_weighted_decode_tps,
+            mtp.direct_token_weighted_decode_tps,
+        )
+        if (
+            mtp.token_weighted_decode_speedup is not None
+            and measured_weighted_speedup is not None
+            and abs(mtp.token_weighted_decode_speedup - measured_weighted_speedup) > 1e-9
+        ):
+            raise ArtifactError("MTP A/B token-weighted speedup is inconsistent")
+        measured_speedup = (
+            measured_prompt_speedup
+            if mtp.speedup_metric == "prompt-median-tps"
+            else measured_weighted_speedup
+        )
         if mtp.speedup is None:
             if mtp.speedup_pass:
                 raise ArtifactError("MTP A/B speed status is inconsistent with missing speedup")
-        elif mtp.speedup_pass != (mtp.speedup >= mtp.minimum_speedup):
-            raise ArtifactError("MTP A/B speed status is inconsistent with its threshold")
+        elif measured_speedup is not None and abs(mtp.speedup - measured_speedup) > 1e-9:
+            raise ArtifactError("MTP A/B speedup does not match its selected metric")
+        prompt_guardrail_pass = (
+            prompt_speedup is not None and prompt_speedup >= mtp.minimum_prompt_median_speedup
+        )
+        if (
+            mtp.prompt_median_speedup is not None
+            and mtp.prompt_median_speedup_pass != prompt_guardrail_pass
+        ):
+            raise ArtifactError("MTP A/B prompt-median guardrail status is inconsistent")
+        if measured_speedup is None and mtp.speedup_metric == "prompt-median-tps":
+            expected_speedup_pass = mtp.speedup is not None and mtp.speedup >= mtp.minimum_speedup
+        else:
+            expected_speedup_pass = (
+                mtp.speedup is not None
+                and measured_speedup is not None
+                and mtp.speedup >= mtp.minimum_speedup
+                and prompt_guardrail_pass
+            )
+        if mtp.speedup_pass != expected_speedup_pass:
+            raise ArtifactError("MTP A/B speed status is inconsistent with its thresholds")
         if mtp.release_ready:
             if mtp.measured_trial_count < 1 or mtp.failed_trial_count:
                 raise ArtifactError("release-ready MTP A/B evidence has no complete trials")
@@ -281,9 +350,14 @@ def build_scoreboard(
                 or mtp.speedup is None
             ):
                 raise ArtifactError("release-ready MTP A/B evidence is missing throughput")
-            measured_speedup = mtp.mtp_tokens_per_second_p50 / mtp.direct_tokens_per_second_p50
-            if abs(measured_speedup - mtp.speedup) > 1e-9:
-                raise ArtifactError("MTP A/B speedup does not match its measured throughput")
+            if mtp.speedup_metric == "token-weighted-decode-tps" and (
+                mtp.direct_token_weighted_decode_tps is None
+                or mtp.direct_token_weighted_decode_tps <= 0.0
+                or mtp.mtp_token_weighted_decode_tps is None
+                or mtp.mtp_token_weighted_decode_tps <= 0.0
+                or mtp.token_weighted_decode_speedup is None
+            ):
+                raise ArtifactError("release-ready MTP A/B evidence is missing weighted throughput")
         # MtpAbComparison records greedy exactness; acceptance retention is not a
         # separate field — exactness is the quality-side MTP gate in this toolkit.
         exactness_status = (
@@ -332,6 +406,9 @@ def build_scoreboard(
                         "Planner/artifact side is independent of decode pipeline speed.",
                         f"Residual gap vs {minimum_mtp_speedup:.2f}x is AX Engine ownership "
                         "(async draft / overlap).",
+                        f"speedup_metric={mtp.speedup_metric}",
+                        f"prompt_median_speedup={prompt_speedup}",
+                        f"prompt_median_floor={mtp.minimum_prompt_median_speedup}",
                         f"speedup_pass={mtp.speedup_pass}",
                     ],
                 )
@@ -428,7 +505,7 @@ def build_scoreboard(
 
     mandatory = [
         "effective_bpw",
-        "size_ratio_vs_uniform4",
+        size_metric_id,
         "quality_retention",
         "mtp_exactness",
         "mtp_speedup",

@@ -710,6 +710,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze` | Generate architecture priors or measure resumable affine/DWQ/AWQ/GPTQ/BF16 sensitivity from a calibration cache | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
+| `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |

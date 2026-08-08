@@ -90,7 +90,10 @@ def test_ax_engine_manifest_uses_native_generator_contract(
         return subprocess.CompletedProcess(
             list(command),
             0,
-            stdout='{"schema_version":"ax.generate_manifest.v1","status":"ready"}',
+            stdout=(
+                '{"schema_version":"ax.generate_manifest.v1","status":"written",'
+                '"manifest_present":true,"validation":{"passed":true}}'
+            ),
             stderr="",
         )
 
@@ -111,6 +114,18 @@ def test_ax_engine_manifest_uses_native_generator_contract(
         '{"schema_version":"ax.generate_manifest.v1"}',
         '{"status":"ok"}',
         '{"result":"ready","status":"blocked"}',
+        (
+            '{"schema_version":"ax.generate_manifest.v1","status":"already_exists",'
+            '"manifest_present":true,"validation":{"passed":true}}'
+        ),
+        (
+            '{"schema_version":"ax.generate_manifest.v1","status":"written",'
+            '"manifest_present":false,"validation":{"passed":true}}'
+        ),
+        (
+            '{"schema_version":"ax.generate_manifest.v1","status":"written",'
+            '"manifest_present":true,"validation":{"passed":false}}'
+        ),
     ],
 )
 def test_ax_engine_manifest_requires_parseable_ready_status(
@@ -148,7 +163,10 @@ def test_ax_engine_manifest_rejects_stale_manifest_from_previous_run(
         return subprocess.CompletedProcess(
             list(command),
             0,
-            stdout='{"schema_version":"ax.generate_manifest.v1","status":"ready"}',
+            stdout=(
+                '{"schema_version":"ax.generate_manifest.v1","status":"written",'
+                '"manifest_present":true,"validation":{"passed":true}}'
+            ),
             stderr="",
         )
 

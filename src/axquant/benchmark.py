@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from itertools import pairwise
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 
@@ -49,6 +49,7 @@ from axquant.versioning import collect_versions, standalone_executable_version
 log = structlog.get_logger()
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
+MtpSpeedupMetric = Literal["prompt-median-tps", "token-weighted-decode-tps"]
 
 
 def _run(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -1036,6 +1037,14 @@ def _trial_output_tokens(trial: TrialResult) -> int:
     return max(trial.tokens_generated, len(trial.output_token_ids))
 
 
+def _token_weighted_decode_tps(trials: Sequence[TrialResult]) -> float | None:
+    output_tokens = sum(_trial_output_tokens(trial) for trial in trials)
+    generation_wall_us = sum(_trial_generation_wall_us(trial) for trial in trials)
+    if output_tokens <= 0 or generation_wall_us <= 0:
+        return None
+    return output_tokens * 1_000_000 / generation_wall_us
+
+
 def _mtp_phase_timing_summary(
     direct_trials: Sequence[TrialResult],
     mtp_trials: Sequence[TrialResult],
@@ -1139,6 +1148,8 @@ def compare_mtp_ab_results(
     *,
     profile_name: str = "baseline",
     minimum_speedup: float = 1.20,
+    speedup_metric: MtpSpeedupMetric = "prompt-median-tps",
+    minimum_prompt_median_speedup: float = 1.10,
 ) -> MtpAbComparison:
     """Soft-compare MTP-off/on results without raising on greedy divergence."""
     issues: list[str] = []
@@ -1276,16 +1287,34 @@ def compare_mtp_ab_results(
 
     direct_tps = direct_result.tokens_per_second_p50
     mtp_tps = mtp_result.tokens_per_second_p50
-    speedup: float | None = None
+    prompt_median_speedup: float | None = None
     if direct_tps is not None and mtp_tps is not None and direct_tps > 0:
-        speedup = mtp_tps / direct_tps
+        prompt_median_speedup = mtp_tps / direct_tps
+    direct_weighted_tps = _token_weighted_decode_tps(list(direct_measured.values()))
+    mtp_weighted_tps = _token_weighted_decode_tps(list(mtp_measured.values()))
+    token_weighted_speedup: float | None = None
+    if direct_weighted_tps is not None and mtp_weighted_tps is not None and direct_weighted_tps > 0:
+        token_weighted_speedup = mtp_weighted_tps / direct_weighted_tps
+    if speedup_metric == "prompt-median-tps":
+        speedup = prompt_median_speedup
+    elif speedup_metric == "token-weighted-decode-tps":
+        speedup = token_weighted_speedup
+    else:
+        raise BenchmarkError(f"unsupported MTP speedup metric: {speedup_metric}")
+    prompt_median_speedup_pass = (
+        prompt_median_speedup is not None and prompt_median_speedup >= minimum_prompt_median_speedup
+    )
+    if speedup_metric == "token-weighted-decode-tps" and not prompt_median_speedup_pass:
+        issues.append(
+            "prompt-median speedup is unavailable or below the configured non-regression floor"
+        )
     exactness_pass = divergent == 0 and not any(
         issue.startswith("one or more trials failed")
         or issue.startswith("measured trial sets differ")
         or issue.startswith("MTP was not active")
         for issue in issues
     )
-    speedup_pass = speedup is not None and speedup >= minimum_speedup
+    speedup_pass = speedup is not None and speedup >= minimum_speedup and prompt_median_speedup_pass
     release_ready = exactness_pass and speedup_pass and not issues
     phase_timing = _mtp_phase_timing_summary(
         list(direct_measured.values()),
@@ -1308,8 +1337,15 @@ def compare_mtp_ab_results(
         failed_trial_count=direct_result.failed_count + mtp_result.failed_count,
         direct_tokens_per_second_p50=direct_tps,
         mtp_tokens_per_second_p50=mtp_tps,
+        direct_token_weighted_decode_tps=direct_weighted_tps,
+        mtp_token_weighted_decode_tps=mtp_weighted_tps,
+        prompt_median_speedup=prompt_median_speedup,
+        token_weighted_decode_speedup=token_weighted_speedup,
+        speedup_metric=speedup_metric,
         speedup=speedup,
         minimum_speedup=minimum_speedup,
+        minimum_prompt_median_speedup=minimum_prompt_median_speedup,
+        prompt_median_speedup_pass=prompt_median_speedup_pass,
         speedup_pass=speedup_pass,
         release_ready=release_ready,
         ax_engine_version=direct_result.ax_engine_version or mtp_result.ax_engine_version,
@@ -1332,6 +1368,8 @@ def run_mtp_ab(
     enforce_exactness: bool = True,
     enforce_speedup: bool = True,
     minimum_speedup: float | None = None,
+    speedup_metric: MtpSpeedupMetric = "prompt-median-tps",
+    minimum_prompt_median_speedup: float = 1.10,
 ) -> tuple[EvaluationBundle, EvaluationBundle]:
     """Run MTP-off and MTP-on benchmarks with A/B invariant validation.
 
@@ -1366,31 +1404,36 @@ def run_mtp_ab(
         mtp_result,
         profile_name="benchmark-ab",
         minimum_speedup=minimum_speedup if minimum_speedup is not None else 1.20,
+        speedup_metric=speedup_metric,
+        minimum_prompt_median_speedup=minimum_prompt_median_speedup,
     )
     if output_dir is not None:
         write_data(Path(output_dir) / "mtp_ab_comparison.json", comparison)
     if direct_result.failed_count or mtp_result.failed_count:
         raise BenchmarkError("MTP A/B evidence contains failed or timed-out trials")
-    if enforce_exactness:
-        for issue in comparison.issues:
-            if issue.startswith("greedy outputs differ"):
-                trial_index = int(issue.rsplit(" ", 1)[-1])
-                raise InvariantViolationError(
-                    f"A/B invariant violated: greedy outputs differ for trial {trial_index}"
-                )
-            if issue.startswith("missing output tokens"):
-                raise BenchmarkError(issue)
-            if issue.startswith("MTP was not active"):
-                raise BenchmarkError(issue)
-            if issue.startswith("measured trial sets differ"):
-                raise InvariantViolationError("A/B invariant violated: measured trial sets differ")
-            if issue.startswith("hardware chip differs"):
-                raise InvariantViolationError("A/B invariant violated: hardware chip differs")
-            if issue.startswith("AX Engine version differs"):
-                raise InvariantViolationError("A/B invariant violated: AX Engine version differs")
+    soft_exactness_issues = (
+        "greedy outputs differ",
+        "missing output tokens",
+        "MTP was not active",
+        "measured trial sets differ",
+    )
+    for issue in comparison.issues:
+        if issue.startswith("prompt-median speedup"):
+            continue
+        if runner is not _run and (
+            issue.startswith("AX Engine version is missing")
+            or issue.endswith("AX Engine result and software versions differ")
+        ):
+            continue
+        if not enforce_exactness and issue.startswith(soft_exactness_issues):
+            continue
+        if issue.startswith("missing output tokens") or issue.startswith("MTP was not active"):
+            raise BenchmarkError(issue)
+        raise InvariantViolationError(f"A/B invariant violated: {issue}")
     if enforce_speedup and minimum_speedup is not None and not comparison.speedup_pass:
         raise BenchmarkError(
-            f"MTP speedup {comparison.speedup} is below required {minimum_speedup}"
+            f"MTP {comparison.speedup_metric} speedup {comparison.speedup} is below required "
+            f"{minimum_speedup} or failed the prompt-median non-regression guardrail"
         )
 
     direct_bundle = result_to_evaluation_bundle(direct_result)

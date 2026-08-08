@@ -766,6 +766,27 @@ class TestRunMtpAb:
                 minimum_speedup=1.20,
             )
 
+    def test_ab_run_rejects_mutable_model_revision(
+        self,
+        base_config: BenchmarkConfig,
+        prompt_dataset: Path,
+    ) -> None:
+        mutable_model = base_config.model.model_copy(update={"revision": "main"})
+        direct_config = base_config.model_copy(update={"model": mutable_model})
+        mtp_config = direct_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+
+        with pytest.raises(InvariantViolationError, match="model revision is not immutable"):
+            run_mtp_ab(
+                direct_config,
+                mtp_config,
+                dataset_path=prompt_dataset,
+                executable=_TEST_EXECUTABLE,
+                runner=_fake_runner,
+                enforce_speedup=False,
+            )
+
 
 class TestMtpDiagnostics:
     def _result_with_tokens(
@@ -797,6 +818,45 @@ class TestMtpDiagnostics:
             trials=trials,
             measured_count=len(trials),
             tokens_per_second_p50=tps,
+            ax_engine_version="6.11.1",
+            runtime_chip="Apple M3 Max",
+            software_versions=_software_versions(),
+        )
+
+    def _result_with_trial_tps(
+        self,
+        config: BenchmarkConfig,
+        token_counts: list[int],
+        trial_tps: list[float],
+        *,
+        mtp_active: bool | None = None,
+    ) -> BenchmarkResult:
+        trials = [
+            TrialResult(
+                trial_index=index,
+                output_token_ids=list(range(token_count)),
+                tokens_generated=token_count,
+                decode_seconds=token_count / tps,
+                tokens_per_second=tps,
+                mtp_active=mtp_active if config.mtp_enabled else False,
+                mtp_proposed_tokens=token_count if config.mtp_enabled else 0,
+                mtp_accepted_tokens=token_count if config.mtp_enabled else 0,
+                mtp_rejected_tokens=0,
+            )
+            for index, (token_count, tps) in enumerate(zip(token_counts, trial_tps, strict=True))
+        ]
+        ordered_tps = sorted(trial_tps)
+        middle = len(ordered_tps) // 2
+        p50 = (
+            ordered_tps[middle]
+            if len(ordered_tps) % 2
+            else (ordered_tps[middle - 1] + ordered_tps[middle]) / 2
+        )
+        return BenchmarkResult(
+            config=config,
+            trials=trials,
+            measured_count=len(trials),
+            tokens_per_second_p50=p50,
             ax_engine_version="6.11.1",
             runtime_chip="Apple M3 Max",
             software_versions=_software_versions(),
@@ -858,6 +918,66 @@ class TestMtpDiagnostics:
         mutable["model"]["revision"] = "main"
         with pytest.raises(ValueError, match="missing environment bindings"):
             MtpAbComparison.model_validate(mutable)
+
+    def test_token_weighted_speedup_uses_all_decode_tokens(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        direct = self._result_with_trial_tps(base_config, [10, 100], [10.0, 10.0])
+        mtp = self._result_with_trial_tps(
+            mtp_config,
+            [10, 100],
+            [9.0, 13.0],
+            mtp_active=True,
+        )
+
+        comparison = compare_mtp_ab_results(
+            direct,
+            mtp,
+            minimum_speedup=1.20,
+            speedup_metric="token-weighted-decode-tps",
+            minimum_prompt_median_speedup=1.0,
+        )
+
+        assert comparison.prompt_median_speedup == pytest.approx(1.1)
+        assert comparison.token_weighted_decode_speedup == pytest.approx(1.2495145631)
+        assert comparison.speedup == comparison.token_weighted_decode_speedup
+        assert comparison.prompt_median_speedup_pass is True
+        assert comparison.speedup_pass is True
+        assert comparison.release_ready is True
+
+    def test_token_weighted_speedup_keeps_prompt_median_guardrail(
+        self,
+        base_config: BenchmarkConfig,
+    ) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        direct = self._result_with_trial_tps(base_config, [1, 1000], [10.0, 10.0])
+        mtp = self._result_with_trial_tps(
+            mtp_config,
+            [1, 1000],
+            [1.0, 15.0],
+            mtp_active=True,
+        )
+
+        comparison = compare_mtp_ab_results(
+            direct,
+            mtp,
+            minimum_speedup=1.20,
+            speedup_metric="token-weighted-decode-tps",
+            minimum_prompt_median_speedup=1.0,
+        )
+
+        assert comparison.token_weighted_decode_speedup is not None
+        assert comparison.token_weighted_decode_speedup > 1.20
+        assert comparison.prompt_median_speedup == pytest.approx(0.8)
+        assert comparison.prompt_median_speedup_pass is False
+        assert comparison.speedup_pass is False
+        assert comparison.release_ready is False
 
     def test_compare_requires_output_tokens_and_active_mtp(
         self,

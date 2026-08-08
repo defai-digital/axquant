@@ -80,6 +80,18 @@ def _reports_ready(report: dict[str, Any]) -> bool:
     return bool(declared_statuses) and all(status == "ready" for status in declared_statuses)
 
 
+def _manifest_generation_ready(report: dict[str, Any]) -> bool:
+    """Validate AX Engine's versioned generate-manifest JSON contract."""
+    validation = report.get("validation")
+    return (
+        report.get("schema_version") == "ax.generate_manifest.v1"
+        and report.get("status") == "written"
+        and report.get("manifest_present") is True
+        and isinstance(validation, dict)
+        and validation.get("passed") is True
+    )
+
+
 def _safetensors_has_payload(path: Path) -> bool:
     try:
         with safe_open(path, framework="numpy") as tensors:
@@ -121,7 +133,7 @@ def generate_ax_engine_manifest(
     completed = runner(command)
     manifest_exists = manifest_path.is_file()
     report = _json_report(completed.stdout)
-    declared_ready = _reports_ready(report)
+    declared_ready = _manifest_generation_ready(report)
     diagnostics = f"{completed.stdout}\n{completed.stderr}".casefold()
     validation_failed = any(
         marker in diagnostics

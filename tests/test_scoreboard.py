@@ -63,12 +63,18 @@ def _plan():
     )
 
 
-def _size_evidence(tmp_path: Path, name: str, *, weight_bytes: int) -> Path:
+def _size_evidence(
+    tmp_path: Path,
+    name: str,
+    *,
+    weight_bytes: int,
+    kind: str | None = None,
+) -> Path:
     path = tmp_path / f"{name}.json"
     write_data(
         path,
         ArtifactSizeEvidence(
-            kind="candidate" if name == "candidate" else "uniform-4bit",
+            kind=kind or ("candidate" if name == "candidate" else "uniform-4bit"),
             model=ModelIdentity(model_id="org/model", revision="abc"),
             logical_parameters=10_000,
             weight_bytes=weight_bytes,
@@ -139,6 +145,51 @@ def _mtp_ab(tmp_path: Path, *, exactness_pass: bool, speedup: float | None) -> P
     return path
 
 
+def _weighted_mtp_ab(tmp_path: Path) -> Path:
+    path = tmp_path / "weighted-mtp-ab.json"
+    write_data(
+        path,
+        MtpAbComparison(
+            profile_name="benchmark-ab",
+            model=ModelIdentity(model_id="org/model", revision="a" * 40),
+            runtime=RuntimeName.AX_ENGINE,
+            workload=ProfileName.AGENT_CODING.value,
+            dataset_sha256="a" * 64,
+            random_seed=0,
+            generation_controls={"temperature": 0.0},
+            runtime_env={"AX_TEST_MODE": "1"},
+            draft_depth=1,
+            exactness_pass=True,
+            measured_trial_count=5,
+            direct_tokens_per_second_p50=100.0,
+            mtp_tokens_per_second_p50=110.0,
+            direct_token_weighted_decode_tps=100.0,
+            mtp_token_weighted_decode_tps=125.0,
+            prompt_median_speedup=1.1,
+            token_weighted_decode_speedup=1.25,
+            speedup_metric="token-weighted-decode-tps",
+            speedup=1.25,
+            minimum_speedup=1.20,
+            minimum_prompt_median_speedup=1.10,
+            prompt_median_speedup_pass=True,
+            speedup_pass=True,
+            release_ready=True,
+            ax_engine_version="6.12.1",
+            runtime_chip="Apple M4 Max",
+            software_versions=SoftwareVersions(
+                axquant="1.0.0",
+                python="3.13",
+                mlx="0.32",
+                mlx_lm="0.31",
+                ax_engine="6.12.1",
+                safetensors="0.6",
+                pydantic="2.11",
+            ),
+        ),
+    )
+    return path
+
+
 def test_size_ratio_passes_at_or_below_the_threshold(tmp_path: Path) -> None:
     candidate = _size_evidence(tmp_path, "candidate", weight_bytes=1100)
     reference = _size_evidence(tmp_path, "reference", weight_bytes=1000)
@@ -169,6 +220,37 @@ def test_size_ratio_fails_above_the_threshold(tmp_path: Path) -> None:
     row = next(r for r in report.rows if r.metric_id == "size_ratio_vs_uniform4")
     assert row.status == "fail"
     assert report.overall_status == "fail"
+
+
+def test_six_bit_scoreboard_uses_uniform6_size_reference(tmp_path: Path) -> None:
+    plan = _plan().model_copy(update={"target_class": "6bit"})
+    candidate = _size_evidence(tmp_path, "candidate", weight_bytes=1000)
+    reference = _size_evidence(
+        tmp_path,
+        "uniform6-reference",
+        weight_bytes=1000,
+        kind="uniform-6bit",
+    )
+
+    report = build_scoreboard(
+        plan=plan,
+        candidate_size=candidate,
+        size_reference=reference,
+        max_size_ratio_to_uniform4=1.10,
+    )
+
+    row = next(item for item in report.rows if item.metric_id == "size_ratio_vs_uniform6")
+    assert row.status == "pass"
+    assert "size_ratio_vs_uniform4" not in {item.metric_id for item in report.rows}
+
+
+def test_six_bit_scoreboard_rejects_uniform4_size_reference(tmp_path: Path) -> None:
+    with pytest.raises(ArtifactError, match="requires uniform-6bit"):
+        build_scoreboard(
+            plan=_plan().model_copy(update={"target_class": "6bit"}),
+            candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),
+            size_reference=_size_evidence(tmp_path, "reference", weight_bytes=1000),
+        )
 
 
 def test_quality_retention_pass_and_fail_directions(tmp_path: Path) -> None:
@@ -209,6 +291,19 @@ def test_mtp_speedup_pass_and_fail_directions(tmp_path: Path) -> None:
     # The speed gate is AX Engine-owned, not a planner regression -- must not
     # silently pass through as "planner is fine" while still reporting fail.
     assert fail_row.owner == "ax-engine"
+
+
+def test_token_weighted_mtp_speedup_keeps_prompt_guardrail_visible(tmp_path: Path) -> None:
+    report = build_scoreboard(
+        plan=_plan(),
+        mtp_ab=_weighted_mtp_ab(tmp_path),
+        minimum_mtp_speedup=1.20,
+    )
+
+    row = next(item for item in report.rows if item.metric_id == "mtp_speedup")
+    assert row.status == "pass"
+    assert "speedup_metric=token-weighted-decode-tps" in row.notes
+    assert "prompt_median_speedup=1.1" in row.notes
 
 
 def test_mtp_exactness_divergence_fails_regardless_of_speedup(tmp_path: Path) -> None:

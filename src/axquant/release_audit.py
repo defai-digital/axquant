@@ -1585,6 +1585,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     if None in dataset_digests or len(dataset_digests) != 2:
         m2_issues.append("release profile datasets are not distinct and complete")
     validation_entries_by_profile = {entry.profile: entry for entry in validation_index.entries}
+    expected_size_reference_kind = "uniform-6bit" if plan.target_class == "6bit" else "uniform-4bit"
     for profile, (validation, _benchmark) in validation_evidence.items():
         index_entry = validation_entries_by_profile[profile]
         if (
@@ -1600,6 +1601,22 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         speedup = validation.comparisons.get("hardware.effective_speedup")
         if not validation.passed:
             m2_issues.append(f"{profile.value} validation did not pass")
+        if plan.target_class in {"4bit", "6bit"} and validation.target_class != plan.target_class:
+            m2_issues.append(
+                f"{profile.value} validation target class differs from the release plan"
+            )
+        recorded_size_reference_kind = validation.comparisons.get("artifact.size_reference_kind")
+        if (
+            plan.target_class == "6bit"
+            and recorded_size_reference_kind != expected_size_reference_kind
+        ) or (
+            recorded_size_reference_kind is not None
+            and recorded_size_reference_kind != expected_size_reference_kind
+        ):
+            m2_issues.append(
+                f"{profile.value} validation does not use the "
+                f"{expected_size_reference_kind} size policy"
+            )
         if validation.thresholds != thresholds_for(profile):
             m2_issues.append(
                 f"{profile.value} validation does not use the authoritative profile thresholds"

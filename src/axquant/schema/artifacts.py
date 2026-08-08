@@ -827,6 +827,7 @@ class ValidationThresholds(StrictModel):
     max_repetition_increase: float = Field(default=0.01, ge=0.0)
     max_divergence_increase: float = Field(default=0.01, ge=0.0)
     min_effective_speedup: float = Field(default=1.0, ge=0.0)
+    min_prompt_median_speedup: float = Field(default=1.10, ge=0.0)
     max_peak_memory_ratio: float = Field(default=1.0, gt=0.0)
     max_weight_size_ratio: float = Field(default=1.10, gt=0.0)
     minimum_aggregate_quality_retention: float = Field(default=0.98, ge=0.0, le=1.0)
@@ -839,7 +840,7 @@ class ArtifactSizeEvidence(StrictModel):
     schema_version: Literal["axquant.artifact-size-evidence.v1"] = (
         "axquant.artifact-size-evidence.v1"
     )
-    kind: Literal["uniform-4bit", "candidate"]
+    kind: Literal["uniform-4bit", "uniform-6bit", "candidate"]
     model: ModelIdentity
     logical_parameters: int = Field(gt=0)
     weight_bytes: int = Field(gt=0)
@@ -947,6 +948,7 @@ class ValidationReport(StrictModel):
     reference_model: ModelIdentity
     candidate_model: ModelIdentity
     profile: ProfileName
+    target_class: Literal["4bit", "6bit"] = "4bit"
     passed: bool
     thresholds: ValidationThresholds
     issues: list[ValidationIssue]
@@ -1161,8 +1163,18 @@ class MtpAbComparison(StrictModel):
     failed_trial_count: int = Field(default=0, ge=0)
     direct_tokens_per_second_p50: float | None = Field(default=None, ge=0.0)
     mtp_tokens_per_second_p50: float | None = Field(default=None, ge=0.0)
+    direct_token_weighted_decode_tps: float | None = Field(default=None, ge=0.0)
+    mtp_token_weighted_decode_tps: float | None = Field(default=None, ge=0.0)
+    prompt_median_speedup: float | None = Field(default=None, ge=0.0)
+    token_weighted_decode_speedup: float | None = Field(default=None, ge=0.0)
+    speedup_metric: Literal[
+        "prompt-median-tps",
+        "token-weighted-decode-tps",
+    ] = "prompt-median-tps"
     speedup: float | None = Field(default=None, ge=0.0)
     minimum_speedup: float = Field(default=1.20, ge=0.0)
+    minimum_prompt_median_speedup: float = Field(default=1.10, ge=0.0)
+    prompt_median_speedup_pass: bool = False
     speedup_pass: bool = False
     release_ready: bool = False
     ax_engine_version: str | None = None
@@ -1195,6 +1207,15 @@ class MtpAbComparison(StrictModel):
             raise ValueError("release-ready MTP A/B comparison is missing environment bindings")
         if self.software_versions.ax_engine != self.ax_engine_version:
             raise ValueError("MTP A/B comparison AX Engine versions are inconsistent")
+        if self.speedup_metric == "token-weighted-decode-tps" and (
+            self.direct_token_weighted_decode_tps is None
+            or self.direct_token_weighted_decode_tps <= 0.0
+            or self.mtp_token_weighted_decode_tps is None
+            or self.mtp_token_weighted_decode_tps <= 0.0
+            or self.token_weighted_decode_speedup is None
+            or not self.prompt_median_speedup_pass
+        ):
+            raise ValueError("release-ready token-weighted MTP evidence is incomplete")
         return self
 
 

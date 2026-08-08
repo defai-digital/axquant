@@ -13,6 +13,7 @@ from axquant.schema import (
     HardwareMetrics,
     IntegrityMetrics,
     ModelIdentity,
+    MtpAbComparison,
     MtpMetrics,
     ProfileName,
     QualityMetrics,
@@ -67,7 +68,7 @@ def _versions() -> SoftwareVersions:
 
 
 def _size(
-    kind: Literal["uniform-4bit", "candidate"],
+    kind: Literal["uniform-4bit", "uniform-6bit", "candidate"],
     weight_bytes: int,
 ) -> ArtifactSizeEvidence:
     model = (
@@ -195,6 +196,129 @@ def test_validation_passes_complete_candidate() -> None:
     assert report.comparisons["hardware.kernel_fallbacks"] == 0
     assert report.comparisons["software.mlx_lm"] == "0.31"
     assert report.comparisons["hardware.power_mode"] == "AC power"
+
+
+def test_validation_uses_bound_weighted_mtp_ab_and_absolute_exactness() -> None:
+    profile = ProfileName.AGENT_CODING
+    reference = _evaluation(mode="reference")
+    assert reference.mtp is not None
+    reference.mtp = reference.mtp.model_copy(update={"divergence_rate": None})
+    direct = _evaluation(mode="direct")
+    candidate = _evaluation(mode="mtp")
+    assert candidate.mtp is not None
+    candidate.mtp = candidate.mtp.model_copy(update={"divergence_rate": 0.0})
+    candidate.hardware = candidate.hardware.model_copy(
+        update={"mtp_effective_tokens_per_second": 112.0}
+    )
+    mtp_ab = MtpAbComparison(
+        profile_name="benchmark-ab",
+        model=candidate.model,
+        runtime=RuntimeName.AX_ENGINE,
+        workload=candidate.workload,
+        dataset_sha256=candidate.dataset_sha256,
+        random_seed=candidate.random_seed,
+        generation_controls={
+            key: candidate.benchmark_metadata[key]
+            for key in (
+                "prompt_count",
+                "warmup_trials",
+                "measured_trials",
+                "temperature",
+                "top_p",
+                "top_k",
+                "max_tokens",
+                "draft_depth",
+                "power_mode",
+                "quantizer",
+                "quantizer_version",
+            )
+        },
+        runtime_env={},
+        draft_depth=3,
+        exactness_pass=True,
+        divergent_trial_count=0,
+        measured_trial_count=5,
+        failed_trial_count=0,
+        direct_tokens_per_second_p50=100.0,
+        mtp_tokens_per_second_p50=112.0,
+        direct_token_weighted_decode_tps=100.0,
+        mtp_token_weighted_decode_tps=125.0,
+        prompt_median_speedup=1.12,
+        token_weighted_decode_speedup=1.25,
+        speedup_metric="token-weighted-decode-tps",
+        speedup=1.25,
+        minimum_speedup=1.20,
+        minimum_prompt_median_speedup=1.10,
+        prompt_median_speedup_pass=True,
+        speedup_pass=True,
+        release_ready=True,
+        ax_engine_version="6.11.1",
+        runtime_chip="M4 Max",
+        software_versions=_versions(),
+    )
+
+    report = validate_evaluations(
+        reference,
+        direct,
+        candidate,
+        profile=profile,
+        thresholds=thresholds_for(profile),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+        mtp_ab=mtp_ab,
+    )
+
+    assert report.passed is True
+    assert report.comparisons["hardware.effective_speedup"] == 1.25
+    assert report.comparisons["hardware.token_weighted_decode_speedup"] == 1.25
+    assert report.comparisons["hardware.prompt_median_speedup"] == 1.12
+    assert report.comparisons["mtp.divergence_rate"] == 0.0
+
+
+def test_six_bit_validation_uses_uniform6_size_policy() -> None:
+    profile = ProfileName.AGENT_CODING
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        _evaluation(mode="mtp"),
+        profile=profile,
+        thresholds=thresholds_for(profile),
+        target_class="6bit",
+        calibration=_calibration(),
+        size_reference=_size("uniform-6bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is True
+    assert report.target_class == "6bit"
+    assert report.comparisons["artifact.size_reference_kind"] == "uniform-6bit"
+    assert report.comparisons["artifact.uniform6_measured_bpw"] == 8.0
+
+
+@pytest.mark.parametrize(
+    ("target_class", "reference_kind"),
+    [("4bit", "uniform-6bit"), ("6bit", "uniform-4bit")],
+)
+def test_validation_rejects_size_reference_from_another_target_class(
+    target_class: Literal["4bit", "6bit"],
+    reference_kind: Literal["uniform-4bit", "uniform-6bit"],
+) -> None:
+    profile = ProfileName.AGENT_CODING
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        _evaluation(mode="mtp"),
+        profile=profile,
+        thresholds=thresholds_for(profile),
+        target_class=target_class,
+        calibration=_calibration(),
+        size_reference=_size(reference_kind, 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+
+    assert report.passed is False
+    assert any(issue.metric == "artifact.size_reference.kind" for issue in report.issues)
 
 
 def test_validation_rejects_kernel_fallbacks() -> None:

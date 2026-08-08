@@ -52,6 +52,7 @@ from axquant.schema import (
     KvSensitivityReport,
     ManualPlanRecipe,
     ModelIdentity,
+    MtpAbComparison,
     MtpPolicy,
     MtpSidecarLayout,
     PlanRequest,
@@ -674,6 +675,24 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "plan-replay":
+        from axquant.plan_replay import replay_measured_plan_file
+
+        analysis_report = load_model(args.sensitivity, SensitivityReport)
+        plan = replay_measured_plan_file(
+            analysis_report,
+            args.source_plan,
+            ax_engine_executable=args.ax_engine_bench,
+        )
+        write_data(args.output, plan)
+        log.info(
+            "measured_plan_replayed",
+            output=str(args.output),
+            effective_bpw=round(plan.effective_bpw, 6),
+            sensitivity_sha256=plan.analysis_sha256,
+        )
+        return 0
+
     if args.command == "convert":
         plan = load_model(args.plan, QuantizationPlan)
         calibration_activations = None
@@ -1149,6 +1168,7 @@ def _run(args: argparse.Namespace) -> int:
         reference = load_model(args.reference_evaluation, EvaluationBundle)
         candidate_direct = load_model(args.candidate_direct_evaluation, EvaluationBundle)
         candidate = load_model(args.candidate_evaluation, EvaluationBundle)
+        mtp_ab = load_model(args.mtp_ab, MtpAbComparison) if args.mtp_ab else None
         calibration = (
             load_model(args.calibration_manifest, CalibrationManifest)
             if args.calibration_manifest
@@ -1168,9 +1188,11 @@ def _run(args: argparse.Namespace) -> int:
             candidate,
             profile=args.profile,
             thresholds=thresholds_for(args.profile),
+            target_class=args.target_class,
             calibration=calibration,
             size_reference=size_reference,
             candidate_size=candidate_size,
+            mtp_ab=mtp_ab,
         )
         if args.release_exception:
             if not args.plan or size_reference is None or candidate_size is None:
@@ -1242,18 +1264,21 @@ def _run(args: argparse.Namespace) -> int:
             )
         else:
             feasibility = load_model(args.feasibility_report, FeasibilityReport)
+            reference_baseline_kind = (
+                BaselineKind.UNIFORM_6BIT
+                if args.reference_kind == "uniform-6bit"
+                else BaselineKind.UNIFORM_4BIT
+            )
             baseline = next(
-                (
-                    audit
-                    for audit in feasibility.baselines
-                    if audit.kind == BaselineKind.UNIFORM_4BIT
-                ),
+                (audit for audit in feasibility.baselines if audit.kind == reference_baseline_kind),
                 None,
             )
             if baseline is None or not baseline.complete:
-                raise ValueError("feasibility report has no complete uniform-4-bit baseline")
+                raise ValueError(
+                    f"feasibility report has no complete {args.reference_kind} baseline"
+                )
             evidence = ArtifactSizeEvidence(
-                kind="uniform-4bit",
+                kind=args.reference_kind,
                 model=baseline.model,
                 logical_parameters=baseline.logical_parameters,
                 weight_bytes=baseline.weight_bytes,
@@ -1667,6 +1692,8 @@ def _run(args: argparse.Namespace) -> int:
             output_dir=output_dir,
             enforce_speedup=not args.record_failed_speedup,
             minimum_speedup=args.minimum_speedup,
+            speedup_metric=args.speedup_metric,
+            minimum_prompt_median_speedup=args.minimum_prompt_median_speedup,
         )
         if quality_result is not None:
             direct_bundle.quality = quality_result.metrics
@@ -1683,8 +1710,6 @@ def _run(args: argparse.Namespace) -> int:
             runtime_env=runtime_env,
         )
         if args.record_failed_speedup:
-            from axquant.schema import MtpAbComparison
-
             mtp_ab_comparison = load_model(
                 output_dir / "mtp_ab_comparison.json",
                 MtpAbComparison,
@@ -1694,6 +1719,7 @@ def _run(args: argparse.Namespace) -> int:
                     "benchmark_ab_speedup_gate_failed",
                     output_dir=str(output_dir),
                     speedup=mtp_ab_comparison.speedup,
+                    speedup_metric=mtp_ab_comparison.speedup_metric,
                     minimum_speedup=mtp_ab_comparison.minimum_speedup,
                 )
                 return 1

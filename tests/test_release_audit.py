@@ -531,6 +531,10 @@ def _inputs(
         local_path=str(artifact.resolve()),
     )
     reference = ModelIdentity(model_id="fixture/uniform6", revision=_BASELINE_REVISION)
+    validation_target_class = "6bit" if plan.target_class == "6bit" else "4bit"
+    size_reference_kind = (
+        "uniform-6bit" if validation_target_class == "6bit" else "uniform-4bit"
+    )
     validation_entries: list[ReleaseValidationEntry] = []
     for profile, dataset in (
         (ProfileName.AGENT_CODING, "b" * 64),
@@ -540,6 +544,7 @@ def _inputs(
             reference_model=reference,
             candidate_model=candidate,
             profile=profile,
+            target_class=validation_target_class,
             passed=True,
             thresholds=thresholds_for(profile),
             issues=[],
@@ -547,6 +552,7 @@ def _inputs(
                 "mtp.acceptance_retention": 0.97,
                 "hardware.effective_speedup": 1.25,
                 "artifact.candidate_weight_bytes": manifest.weight_file_size_bytes,
+                "artifact.size_reference_kind": size_reference_kind,
             },
         )
         benchmark = _benchmark_index(

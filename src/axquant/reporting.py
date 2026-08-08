@@ -417,6 +417,7 @@ def validation_markdown(report: ValidationReport) -> str:
 | Reference | `{report.reference_model.model_id}` |
 | Candidate | `{report.candidate_model.model_id}` |
 | Profile | `{report.profile.value}` |
+| Target class | `{report.target_class}` |
 | Release gates | `{"PASS" if report.passed else "FAIL"}` |
 
 ## Comparisons

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from typing import Literal
 
 from axquant.identity import same_model_identity
 from axquant.revisions import is_immutable_revision
@@ -8,6 +9,7 @@ from axquant.schema import (
     ArtifactSizeEvidence,
     CalibrationManifest,
     EvaluationBundle,
+    MtpAbComparison,
     ProfileName,
     RuntimeName,
     ValidationIssue,
@@ -38,12 +40,18 @@ def validate_evaluations(
     *,
     profile: ProfileName,
     thresholds: ValidationThresholds,
+    target_class: Literal["4bit", "6bit"] = "4bit",
     calibration: CalibrationManifest | None = None,
     size_reference: ArtifactSizeEvidence | None = None,
     candidate_size: ArtifactSizeEvidence | None = None,
+    mtp_ab: MtpAbComparison | None = None,
 ) -> ValidationReport:
     issues: list[ValidationIssue] = []
-    comparisons: dict[str, float | int | str | bool | None] = {}
+    expected_size_reference_kind = "uniform-6bit" if target_class == "6bit" else "uniform-4bit"
+    comparisons: dict[str, float | int | str | bool | None] = {
+        "artifact.target_class": target_class,
+        "artifact.expected_size_reference_kind": expected_size_reference_kind,
+    }
 
     def issue(metric: str, message: str, severity: str = "error") -> None:
         issues.append(
@@ -70,11 +78,16 @@ def validate_evaluations(
         if thresholds.require_artifact_size:
             issue(
                 "artifact.weight_size",
-                "uniform-4-bit and candidate artifact-size evidence are required",
+                f"{expected_size_reference_kind} and candidate artifact-size evidence are required",
             )
     else:
-        if size_reference.kind != "uniform-4bit":
-            issue("artifact.size_reference.kind", "size reference must be uniform 4-bit")
+        comparisons["artifact.size_reference_kind"] = size_reference.kind
+        if size_reference.kind != expected_size_reference_kind:
+            issue(
+                "artifact.size_reference.kind",
+                f"{target_class} validation requires a {expected_size_reference_kind} "
+                "size reference",
+            )
         if candidate_size.kind != "candidate":
             issue("artifact.candidate_size.kind", "candidate size evidence has the wrong kind")
         if not same_model_identity(candidate_size.model, candidate.model):
@@ -85,17 +98,23 @@ def validate_evaluations(
         if candidate_size.logical_parameters != size_reference.logical_parameters:
             issue(
                 "artifact.logical_parameters",
-                "candidate and uniform-4-bit logical parameter counts differ",
+                "candidate and size-reference logical parameter counts differ",
             )
         size_ratio = candidate_size.weight_bytes / size_reference.weight_bytes
         comparisons["artifact.weight_size_ratio"] = size_ratio
         comparisons["artifact.candidate_measured_bpw"] = candidate_size.measured_bpw
-        comparisons["artifact.uniform4_measured_bpw"] = size_reference.measured_bpw
+        comparisons["artifact.reference_measured_bpw"] = size_reference.measured_bpw
         comparisons["artifact.candidate_weight_bytes"] = candidate_size.weight_bytes
-        comparisons["artifact.uniform4_weight_bytes"] = size_reference.weight_bytes
+        comparisons["artifact.reference_weight_bytes"] = size_reference.weight_bytes
         comparisons["artifact.logical_parameters"] = candidate_size.logical_parameters
         comparisons["artifact.candidate_source_sha256"] = candidate_size.source_sha256
-        comparisons["artifact.uniform4_source_sha256"] = size_reference.source_sha256
+        comparisons["artifact.reference_source_sha256"] = size_reference.source_sha256
+        reference_prefix = (
+            "artifact.uniform6" if size_reference.kind == "uniform-6bit" else "artifact.uniform4"
+        )
+        comparisons[f"{reference_prefix}_measured_bpw"] = size_reference.measured_bpw
+        comparisons[f"{reference_prefix}_weight_bytes"] = size_reference.weight_bytes
+        comparisons[f"{reference_prefix}_source_sha256"] = size_reference.source_sha256
         if size_ratio > thresholds.max_weight_size_ratio:
             issue(
                 "artifact.weight_size_ratio",
@@ -214,6 +233,67 @@ def validate_evaluations(
             "candidate.software.mlx_lm",
             "MTP-off and MTP-on candidates used different MLX-LM versions",
         )
+    if mtp_ab is not None:
+        comparisons["mtp_ab.release_ready"] = mtp_ab.release_ready
+        comparisons["mtp_ab.exactness_pass"] = mtp_ab.exactness_pass
+        comparisons["mtp_ab.divergent_trial_count"] = mtp_ab.divergent_trial_count
+        comparisons["mtp_ab.failed_trial_count"] = mtp_ab.failed_trial_count
+        comparisons["mtp_ab.measured_trial_count"] = mtp_ab.measured_trial_count
+        comparisons["mtp_ab.speedup_metric"] = mtp_ab.speedup_metric
+        if mtp_ab.model is None or not same_model_identity(mtp_ab.model, candidate.model):
+            issue("mtp_ab.model", "MTP A/B comparison identifies a different candidate")
+        if mtp_ab.runtime != candidate.runtime:
+            issue("mtp_ab.runtime", "MTP A/B comparison runtime differs from the candidate")
+        if mtp_ab.workload != candidate.workload:
+            issue("mtp_ab.workload", "MTP A/B comparison workload differs from the candidate")
+        if mtp_ab.dataset_sha256 != candidate.dataset_sha256:
+            issue("mtp_ab.dataset_sha256", "MTP A/B comparison dataset differs from the candidate")
+        if mtp_ab.random_seed != candidate.random_seed:
+            issue("mtp_ab.random_seed", "MTP A/B comparison seed differs from the candidate")
+        if mtp_ab.runtime_chip != candidate.hardware.chip:
+            issue("mtp_ab.runtime_chip", "MTP A/B comparison chip differs from the candidate")
+        if mtp_ab.ax_engine_version != candidate.software_versions.ax_engine:
+            issue("mtp_ab.ax_engine_version", "MTP A/B comparison AX Engine version differs")
+        if mtp_ab.software_versions != candidate.software_versions:
+            issue("mtp_ab.software_versions", "MTP A/B comparison software versions differ")
+        candidate_runtime_env = candidate.benchmark_metadata.get("runtime_env")
+        if mtp_ab.runtime_env != candidate_runtime_env:
+            issue("mtp_ab.runtime_env", "MTP A/B comparison runtime environment differs")
+        for control in (
+            "prompt_count",
+            "warmup_trials",
+            "measured_trials",
+            "temperature",
+            "top_p",
+            "top_k",
+            "max_tokens",
+            "draft_depth",
+            "power_mode",
+            "quantizer",
+            "quantizer_version",
+        ):
+            if mtp_ab.generation_controls.get(control) != candidate.benchmark_metadata.get(control):
+                issue(
+                    f"mtp_ab.generation_controls.{control}",
+                    "MTP A/B comparison control differs from the candidate bundle",
+                )
+        if not mtp_ab.release_ready:
+            issue("mtp_ab.release_ready", "MTP A/B comparison is not release-ready")
+        if not mtp_ab.exactness_pass or mtp_ab.divergent_trial_count != 0:
+            issue("mtp.exactness", "greedy MTP off/on outputs are not 100% identical")
+        if mtp_ab.failed_trial_count != 0:
+            issue("mtp_ab.failed_trial_count", "MTP A/B comparison contains failed trials")
+        if mtp_ab.measured_trial_count != candidate.benchmark_metadata.get("measured_trials"):
+            issue("mtp_ab.measured_trial_count", "MTP A/B measured-trial count differs")
+        if mtp_ab.speedup_metric != "token-weighted-decode-tps":
+            issue("mtp_ab.speedup_metric", "release validation requires token-weighted speedup")
+        if mtp_ab.minimum_speedup < thresholds.min_effective_speedup:
+            issue("mtp_ab.minimum_speedup", "MTP A/B primary speed floor is below policy")
+        if mtp_ab.minimum_prompt_median_speedup < thresholds.min_prompt_median_speedup:
+            issue(
+                "mtp_ab.minimum_prompt_median_speedup",
+                "MTP A/B prompt-median floor is below policy",
+            )
     for hardware_name in (
         "device_name",
         "chip",
@@ -618,36 +698,67 @@ def validate_evaluations(
             candidate.mtp.repetition_rate,
             check_repetition,
         )
-        require_pair(
-            "mtp.divergence_rate",
-            reference.mtp.divergence_rate,
-            candidate.mtp.divergence_rate,
-            check_divergence,
+        if mtp_ab is None:
+            require_pair(
+                "mtp.divergence_rate",
+                reference.mtp.divergence_rate,
+                candidate.mtp.divergence_rate,
+                check_divergence,
+            )
+        else:
+            comparisons["mtp.divergence_rate"] = candidate.mtp.divergence_rate
+            if candidate.mtp.divergence_rate is None:
+                issue("mtp.divergence_rate", "matched candidate divergence rate is required")
+            elif candidate.mtp.divergence_rate != 0.0:
+                issue("mtp.divergence_rate", "greedy MTP off/on divergence must be zero")
+
+    if mtp_ab is not None:
+        weighted_speedup = mtp_ab.token_weighted_decode_speedup
+        prompt_median_speedup = mtp_ab.prompt_median_speedup
+        comparisons["hardware.speedup_metric"] = "token-weighted-decode-tps"
+        comparisons["hardware.token_weighted_decode_speedup"] = weighted_speedup
+        comparisons["hardware.prompt_median_speedup"] = prompt_median_speedup
+        comparisons["hardware.effective_speedup"] = weighted_speedup
+        if weighted_speedup is None:
+            issue("hardware.token_weighted_decode_speedup", "weighted speedup is required")
+        elif weighted_speedup < thresholds.min_effective_speedup:
+            issue(
+                "hardware.token_weighted_decode_speedup",
+                f"speedup {weighted_speedup:.4f} is below {thresholds.min_effective_speedup:.4f}",
+            )
+        if prompt_median_speedup is None:
+            issue("hardware.prompt_median_speedup", "prompt-median speedup is required")
+        elif prompt_median_speedup < thresholds.min_prompt_median_speedup:
+            issue(
+                "hardware.prompt_median_speedup",
+                f"speedup {prompt_median_speedup:.4f} is below "
+                f"{thresholds.min_prompt_median_speedup:.4f}",
+            )
+    else:
+        reference_speed = candidate_direct.hardware.decode_tokens_per_second
+        candidate_speed = (
+            candidate.hardware.mtp_effective_tokens_per_second
+            if candidate.hardware.mtp_effective_tokens_per_second is not None
+            else candidate.hardware.decode_tokens_per_second
         )
 
-    reference_speed = candidate_direct.hardware.decode_tokens_per_second
-    candidate_speed = (
-        candidate.hardware.mtp_effective_tokens_per_second
-        if candidate.hardware.mtp_effective_tokens_per_second is not None
-        else candidate.hardware.decode_tokens_per_second
-    )
+        def check_speed(reference_value: float, candidate_value: float) -> None:
+            if reference_value <= 0.0:
+                issue(
+                    "hardware.effective_speedup",
+                    "direct candidate decode throughput must be positive",
+                )
+                return
+            speedup = candidate_value / reference_value
+            comparisons["hardware.effective_speedup"] = speedup
+            comparisons["hardware.speedup_metric"] = "prompt-median-tps-legacy"
+            if speedup < thresholds.min_effective_speedup:
+                issue(
+                    "hardware.effective_speedup",
+                    f"speedup {speedup:.4f} is below {thresholds.min_effective_speedup:.4f}",
+                )
 
-    def check_speed(reference_value: float, candidate_value: float) -> None:
-        if reference_value <= 0.0:
-            issue(
-                "hardware.effective_speedup",
-                "direct candidate decode throughput must be positive",
-            )
-            return
-        speedup = candidate_value / reference_value
-        comparisons["hardware.effective_speedup"] = speedup
-        if speedup < thresholds.min_effective_speedup:
-            issue(
-                "hardware.effective_speedup",
-                f"speedup {speedup:.4f} is below {thresholds.min_effective_speedup:.4f}",
-            )
-
-    require_pair("hardware.effective_speedup", reference_speed, candidate_speed, check_speed)
+        require_pair("hardware.effective_speedup", reference_speed, candidate_speed, check_speed)
 
     def check_memory(reference_value: float, candidate_value: float) -> None:
         if reference_value <= 0.0:
@@ -689,6 +800,7 @@ def validate_evaluations(
         reference_model=reference.model,
         candidate_model=candidate.model,
         profile=profile,
+        target_class=target_class,
         passed=not any(item.severity == "error" for item in issues),
         thresholds=thresholds,
         issues=issues,

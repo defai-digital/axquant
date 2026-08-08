@@ -54,6 +54,8 @@ def test_benchmark_ab_defaults_to_release_speedup_gate() -> None:
         ["benchmark-ab", "--model", "/model", "--prompts", "/prompts.jsonl"]
     )
     assert args.minimum_speedup == 1.20
+    assert args.speedup_metric == "token-weighted-decode-tps"
+    assert args.minimum_prompt_median_speedup == 1.10
     assert args.record_failed_speedup is False
     assert args.direct_baseline_kind == "axquant-mtp-off"
     assert args.mtp_baseline_kind == "axquant-mtp-on"
@@ -89,6 +91,34 @@ def test_benchmark_ab_accepts_failed_speedup_recording() -> None:
         ]
     )
     assert args.record_failed_speedup is True
+
+
+def test_validation_and_size_evidence_accept_six_bit_policy() -> None:
+    validation = _build_parser().parse_args(
+        [
+            "validate",
+            "--reference-evaluation",
+            "/reference.json",
+            "--candidate-direct-evaluation",
+            "/direct.json",
+            "--candidate-evaluation",
+            "/mtp.json",
+            "--target-class",
+            "6bit",
+        ]
+    )
+    size = _build_parser().parse_args(
+        [
+            "size-evidence",
+            "--feasibility-report",
+            "/feasibility.json",
+            "--reference-kind",
+            "uniform-6bit",
+        ]
+    )
+
+    assert validation.target_class == "6bit"
+    assert size.reference_kind == "uniform-6bit"
 
 
 @pytest.mark.parametrize(

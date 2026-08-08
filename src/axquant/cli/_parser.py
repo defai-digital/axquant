@@ -477,6 +477,15 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
     plan_parser.add_argument("--output", default="quantization-plans")
 
+    replay_plan_parser = subparsers.add_parser(
+        "plan-replay",
+        help="Replay a prior measured allocation against exact current sensitivity evidence",
+    )
+    replay_plan_parser.add_argument("--sensitivity", required=True)
+    replay_plan_parser.add_argument("--source-plan", required=True)
+    replay_plan_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
+    replay_plan_parser.add_argument("--output", default="replayed-plan.json")
+
     manual_plan_parser = subparsers.add_parser("plan-manual")
     manual_plan_parser.add_argument("--inventory", required=True)
     manual_plan_parser.add_argument("--recipe", required=True)
@@ -724,6 +733,10 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--reference-evaluation", required=True)
     validate_parser.add_argument("--candidate-direct-evaluation", required=True)
     validate_parser.add_argument("--candidate-evaluation", required=True)
+    validate_parser.add_argument(
+        "--mtp-ab",
+        help="checksum-bound MTP off/on comparison for weighted speed and exactness gates",
+    )
     validate_parser.add_argument("--calibration-manifest")
     validate_parser.add_argument("--size-reference")
     validate_parser.add_argument("--candidate-size")
@@ -740,6 +753,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_profile,
         default=ProfileName.AGENT_CODING,
     )
+    validate_parser.add_argument(
+        "--target-class",
+        choices=("4bit", "6bit"),
+        default="4bit",
+        help="Selects the matching uniform-4bit or uniform-6bit artifact-size policy",
+    )
     validate_parser.add_argument("--output", default="benchmark_report.json")
 
     size_parser = subparsers.add_parser("size-evidence")
@@ -747,6 +766,12 @@ def _build_parser() -> argparse.ArgumentParser:
     size_parser.add_argument("--feasibility-report")
     size_parser.add_argument("--model-id")
     size_parser.add_argument("--revision")
+    size_parser.add_argument(
+        "--reference-kind",
+        choices=("uniform-4bit", "uniform-6bit"),
+        default="uniform-4bit",
+        help="Baseline kind to extract from --feasibility-report",
+    )
     size_parser.add_argument("--output", default="artifact_size_evidence.json")
 
     exception_parser = subparsers.add_parser("release-exception")
@@ -1003,7 +1028,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--minimum-speedup",
         type=float,
         default=1.20,
-        help="Fail closed unless MTP median throughput is at least this multiple of direct",
+        help="Fail closed unless the selected MTP speed metric reaches this multiple of direct",
+    )
+    benchmark_ab_parser.add_argument(
+        "--speedup-metric",
+        choices=["prompt-median-tps", "token-weighted-decode-tps"],
+        default="token-weighted-decode-tps",
+        help="Metric; token-weighted decode also enforces prompt-median non-regression",
+    )
+    benchmark_ab_parser.add_argument(
+        "--minimum-prompt-median-speedup",
+        type=float,
+        default=1.10,
+        help="Typical-prompt guardrail for prompt-median throughput (default: 1.10)",
     )
     benchmark_ab_parser.add_argument(
         "--record-failed-speedup",

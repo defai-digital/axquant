@@ -83,6 +83,7 @@ objectives:
 thresholds:
   general:
     min_effective_speedup: 1.20
+    min_prompt_median_speedup: 1.10
   agent-coding:
     max_task_score_drop: 0.01
     max_mtp_acceptance_drop: 0.02
@@ -90,6 +91,7 @@ thresholds:
     max_repetition_increase: 0.005
     max_divergence_increase: 0.005
     min_effective_speedup: 1.20
+    min_prompt_median_speedup: 1.10
     required_task_scores:
       - coding
       - tool
