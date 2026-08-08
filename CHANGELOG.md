@@ -8,6 +8,15 @@ the section is missing — add an entry in the same change as any user-facing mo
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation polish: README status glance is user-facing (overlap/GPTQ/host id; Ext4T
+  fleet notes stay in script docs), from-source install is deduped, Documentation index
+  lists all published `docs/` pages, CLI and flagship notes call out
+  `axquant-token-5gram-v2` and coding-suite regeneration, MTP “still incomplete” wording
+  matches the 1.4 packing layout, known-issues/CI notes reflect live PyPI, and CHANGELOG
+  compare links cover 1.4.x–1.5.1.
+
 ## [1.5.1] - 2026-08-07
 
 ### Fixed
@@ -405,6 +414,10 @@ See the [v1.1.x → v1.2.0 migration guide](docs/migration-v1.2.md) for action i
   adapters (Qwen 3.6 primary track, Qwen 3.5, Gemma-4, MiniCPM5, Mistral/Devstral, Mistral3,
   Nemotron 3 Nano), and AX Engine runtime manifests.
 
+[1.5.1]: https://github.com/defai-digital/axquant/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/defai-digital/axquant/compare/v1.4.1...v1.5.0
+[1.4.1]: https://github.com/defai-digital/axquant/compare/v1.4.0...v1.4.1
+[1.4.0]: https://github.com/defai-digital/axquant/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/defai-digital/axquant/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/defai-digital/axquant/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/defai-digital/axquant/compare/v1.1.0...v1.1.1

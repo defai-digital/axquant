@@ -1,7 +1,8 @@
 # Known issues
 
-AXQuant v1.2.0. Items here are documented limitations, not silent failures — each fails closed
-or is gated behind an explicit flag.
+As of AXQuant **v1.5.x**. Items here are documented limitations, not silent failures — each
+fails closed or is gated behind an explicit flag. See [CHANGELOG.md](../CHANGELOG.md) for
+what changed between releases.
 
 ## Quantization algorithms
 
@@ -63,22 +64,32 @@ or is gated behind an explicit flag.
   BF16. Their low-bit repository names are not proof of low effective BPW; regenerate and rerun
   measured size/quality gates with the post-v1.1.1 fix before republishing.
 
+## Overlap and multilingual text
+
+- **Coding-suite / general-holdout overlap use `axquant-token-5gram-v2` (from v1.5.1).**
+  The same CJK-aware tokenizer as `campaign-overlap`. Manifests or reports produced under
+  the older v1 algorithm must be regenerated with `prepare-coding-suite` /
+  `prepare-general-overlap` before a formal freeze.
+- **`campaign-overlap --id-field` is repeatable** (default order: `id`, then `task_id`) so
+  one run can span calibration corpora and strict `QualityTask` suites.
+
 ## CI and release
 
 - **Ubuntu non-MLX jobs are the hard gate, not macOS MLX.** Generation-smoke and gemma4
   shard-path contracts must pass with `.[dev]` only. Run `./scripts/ci-local.sh` before
   pushing; see [ci-root-causes.md](ci-root-causes.md) for the historical red-run analysis.
-- **Install from PyPI, not the Packages tab.** `pip install axquant` uses
-  [pypi.org/project/axquant](https://pypi.org/project/axquant/). The repo
-  [Packages](https://github.com/defai-digital/axquant/packages) page is for
-  npm/container/Maven-style registries and stays empty for this Python project;
-  wheels also appear under [Releases](https://github.com/defai-digital/axquant/releases).
-- **PyPI upload is opt-in via `ENABLE_PYPI_PUBLISH`.** The Release `pypi` job runs only
-  when that repository variable is `true` and a Trusted Publisher exists on pypi.org
-  for `defai-digital/axquant` / `release.yml`. Details: [ci-root-causes.md](ci-root-causes.md).
+- **Install from PyPI, not the Packages tab.** Canonical install is
+  [pypi.org/project/axquant](https://pypi.org/project/axquant/) (`pip install axquant`).
+  The repo [Packages](https://github.com/defai-digital/axquant/packages) page is for
+  npm/container/Maven-style registries and stays empty for this Python project; wheels
+  also appear under [Releases](https://github.com/defai-digital/axquant/releases).
+- **PyPI publish is gated and enabled for this project.** The Release `pypi` job runs only
+  when repository variable `ENABLE_PYPI_PUBLISH` is `true` and a Trusted Publisher exists
+  on pypi.org for `defai-digital/axquant` / `release.yml`. For axquant both are configured,
+  so tagged releases publish to PyPI. Details: [ci-root-causes.md](ci-root-causes.md).
 
 ## Validated scope
 
 - **End-to-end quality has been validated on tiny/synthetic models only.** The 27B-class
   certification track requires a real-hardware run (capture → analyze → plan → convert →
-  validate) before any quality claim; that run is deliberately outside the v1.2.0 scope.
+  validate) before any quality claim; that formal evidence chain is still open.

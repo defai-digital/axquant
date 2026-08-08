@@ -10,12 +10,16 @@ tags can be made green.
 
 ## Snapshot (Aug 2026)
 
-Across the last ~20 workflow runs on `main` / tags:
+Historical red runs on `main` / early tags (before the product + mypy + Trusted Publishing
+fixes) looked like this:
 
-| Workflow | Pattern |
-|----------|---------|
-| **CI** | ~16 consecutive failures, then a green tip after product + mypy fixes |
-| **Release** | GitHub Release / dist often succeed; **PyPI publish fails** on Trusted Publishing |
+| Workflow | Historical pattern |
+|----------|--------------------|
+| **CI** | Long streak of Ubuntu lint / non-MLX failures; tip of `main` is green after the shipped fixes |
+| **Release** | GitHub Release / dist often succeeded while **PyPI publish failed** on missing Trusted Publishing |
+
+**Current tip:** CI on `main` and tag Releases (including PyPI when `ENABLE_PYPI_PUBLISH=true`)
+are the live gates. PyPI is published for axquant; see §5.
 
 macOS **`test`** (MLX) was frequently green while Ubuntu **`lint`** and
 **`python-compatibility`** were red — a classic “works on my Mac” split.

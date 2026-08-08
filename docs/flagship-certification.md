@@ -43,8 +43,12 @@ state or lifecycle event in place.
    temporary-report directory is not a durable root. The campaign request, state transitions, raw
    evidence, reviews, no-go/publication records, and outputs must all remain beneath that exact
    non-symlinked root.
-2. Run `campaign-overlap` once for each dataset against every other campaign dataset. Reports
-   contain record digests and similarities, not private record ids or text.
+2. Run `campaign-overlap` once for each dataset against every other campaign dataset (algorithm
+   `axquant-token-5gram-v2`; default `--id-field` order is `id` then `task_id` so calibration
+   corpora and strict `QualityTask` suites can share one run). Reports contain record digests
+   and similarities, not private record ids or text. Direct-track coding/general overlap
+   commands use the same tokenizer — regenerate any pre-v1.5.1 coding-suite manifests before
+   freeze.
 3. Run `campaign-frontier` from `axquant.flagship-frontier-request.v1` to build a complete
    cheapest-failure-first `axquant.flagship-frontier.v1`; it retains failed candidates, rechecks
    every gate-evidence checksum, and derives formal eligibility rather than accepting it as a

@@ -173,13 +173,9 @@ command does not by itself certify an output.
 
 ### v1.5.x at a glance
 
-- Ext4T layout planning refuses name-conflict renames and already-claimed destinations,
-  keeps logs/scripts category-first (host-local), and skips package-root symlinks so fleet
-  plans cannot clobber distinct content or delete a real tree behind a dangling link
-  (v1.5.1).
-- Coding-suite and general-holdout overlap use the same CJK-aware `axquant-token-5gram-v2`
-  tokenizer as `campaign-overlap`; GPTQ column codes use the joint `round(w/s + z)` form
-  shared with AWQ (v1.5.1).
+- Coding-suite and general-holdout overlap share `campaign-overlap`'s CJK-aware
+  `axquant-token-5gram-v2` tokenizer; regenerate coding-suite manifests built under v1.
+  GPTQ column codes use the joint `round(w/s + z)` form shared with AWQ (v1.5.1).
 - The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`), matching the
   certification machine's canonical DNS identity; the id is a schema literal on the host
   contract, preflight, and certified-claim hardware scope. No campaign or claim ever bound
@@ -193,15 +189,17 @@ command does not by itself certify an output.
 - `campaign-overlap --id-field` is repeatable with ordered fallback (default `id`, then
   `task_id`), so one overlap run spans calibration corpora and strict `QualityTask` suites
   (v1.4.1).
-- Quantized MTP sidecars emit AX Engine's executable MLX-packed layout
-  (`mlx-affine-packed-u32`) with round-trip verification, replacing the never-executable
-  1.3.0 portable format; `--runtime-json` stamps `mtp_sidecar_bits`, and sidecar bits are
-  capability- and contract-gated to {4, 6, 8}.
+- Quantized MTP sidecars can emit AX Engine's MLX-packed layout (`mlx-affine-packed-u32`)
+  with round-trip verification and `--runtime-json` `mtp_sidecar_bits` stamping. Capability
+  and contract gates still fail closed until an AX Engine build reports that layout as
+  executable, so **shipped public packs keep byte-preserved sidecars** (see still-incomplete
+  list below).
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
 See the [v1.5.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.1)
-for the complete change list and download verification instructions.
+and [CHANGELOG.md](CHANGELOG.md) for the complete change list and download verification
+instructions.
 
 ### Support snapshot
 
@@ -431,9 +429,10 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   been optimized against real measured development-role evaluations;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
 - certification evidence for secondary families (Nemotron Super/Ultra remain inspect-only);
-- quantized external MTP sidecars in production: `quantize-mtp-sidecar` and its fail-closed AX
-  Engine capability probe exist, but no AX Engine build yet reports the quantized MTP layout as
-  executable, so every shipped sidecar remains byte-preserved;
+- quantized external MTP sidecars in production: the toolkit can emit the engine's
+  `mlx-affine-packed-u32` layout via `quantize-mtp-sidecar` (with a fail-closed capability
+  probe), but no AX Engine build yet reports that layout as executable, so every shipped
+  public pack keeps a byte-preserved sidecar;
 - measured KV serving-quality evidence: the report-only artifact and `kv-serving-quality`
   command exist, but the dual-profile short/long-context measurements that would fill them have
   not been run;
@@ -448,28 +447,17 @@ enforce release gate order, dual-profile completeness, and evidence binding.
 Architecture-prior analysis, smoke probes, and manual plans are explicitly marked as
 non-release development evidence. They cannot support production-quality or performance claims.
 
-## Installation
+## From-source install
 
-Requirements:
-
-- Python 3.11 or newer;
-- Apple Silicon for MLX-backed conversion;
-- an unquantized Safetensors source checkpoint supported by its promoted MLX backend;
-- `ax-engine-bench` when AX Engine manifest generation is required.
-
-Create an environment and install AXQuant with the MLX backend:
+For a PyPI install, see [Install](#install). To work from a clone (Apple Silicon conversion
+needs the `mlx` extra; AX Engine manifest generation needs `ax-engine-bench` on `PATH`):
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[mlx]"
+python -m pip install -e ".[mlx]"          # conversion path
+# python -m pip install -e ".[dev,mlx]"    # plus tests and lint
 axquant --help
-```
-
-For development, install the test and lint tools as well:
-
-```bash
-python -m pip install -e ".[dev,mlx]"
 ```
 
 ## Simple development conversion
@@ -646,12 +634,12 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
 | `source-checkpoint-manifest` | Derive and bind the immutable source revision, tokenizer, architecture, and file digests for exact-checkpoint certification | Implemented |
 | `certification-policy` | Emit the frozen Qwen3-Next non-MTP certification policy and policy digest | Implemented |
-| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report | Implemented; formal use requires all pinned toolchains |
+| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report (`axquant-token-5gram-v2`) | Implemented; formal use requires all pinned toolchains; regenerate manifests after v1.5.1 |
 | `evaluate-coding-suite` | Run resumable generation and network-disabled executable scoring for coding-suite v2 | Implemented; Apple Silicon/Seatbelt execution evidence required |
 | `verify-coding-suite` | Self-test every coding oracle and scorer by requiring the reference to pass and an empty mutant to fail | Implemented; run before suite freeze |
 | `evaluate-general-quality` | Evaluate the disjoint direct-track general holdout and archive every raw model output | Implemented; BF16 and candidate runs must use matched settings |
 | `direct-validation-index` | Recompute policy-bound BF16/candidate quality retention for both direct-track profiles | Implemented; emits a fail-closed index for N4 |
-| `prepare-general-overlap` | Recompute exact/near-duplicate separation between general holdout and calibration | Implemented; any match blocks direct validation |
+| `prepare-general-overlap` | Recompute exact/near-duplicate separation between general holdout and calibration (`axquant-token-5gram-v2`) | Implemented; any match blocks direct validation |
 | `inspect` | Inventory tensors, architecture, quantization, and MTP | Implemented |
 | `calibrate` | Validate calibration input, record provenance, and build a tokenized cache (`--manifest-only` skips tokenization) | Implemented |
 | `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
@@ -694,7 +682,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `refine-run` | Resume complete conversion, quality, MTP, validation, and selection runs | Implemented |
 | `pareto` | Report non-dominated validated candidates on named hardware | Implemented |
 | `hardware-registry` | Certify checksum-bound kernel, version, power, and shape coverage | Implemented |
-| `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence across campaign datasets | Implemented |
+| `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence (`axquant-token-5gram-v2`; repeatable `--id-field`, default `id` then `task_id`) | Implemented |
 | `campaign-frontier` | Verify every cheapest-failure-first candidate gate and derive the eligible frontier | Implemented |
 | `campaign-freeze` | Freeze one exact `qwen36-mtp-v2` source/candidate/evidence graph | Implemented |
 | `campaign-preflight` | Verify frozen bindings, durable storage, and exact `df-macbookpro-m5` host identity | Implemented |
@@ -707,7 +695,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `release-audit` | Dispatch historical Qwen 3.6 v4, Qwen3-Next N0–N8, or additive `qwen36-mtp-v2` M0–M8 proof | Implemented |
 | `compatibility-matrix` | Bind family-wide artifact, runtime, and validation evidence | Implemented |
 | `validate` | Apply release thresholds to external benchmark evidence | Implemented |
-| `size-evidence` | Bind authoritative candidate/uniform-4 artifact sizes | Implemented |
+| `size-evidence` | Bind authoritative candidate/uniform-4 or uniform-6 artifact sizes | Implemented |
 | `release-exception` | Record an approved, expiring, evidence-bound size exception | Implemented |
 | `report` | Render plan and validation reports | Implemented |
 | `publish-prepare` | Assemble a release only after validation | Implemented |
@@ -769,6 +757,27 @@ axquant validate \
   --candidate-evaluation candidate-mtp-on.json \
   --size-reference uniform4-size-evidence.json \
   --candidate-size candidate-size-evidence.json \
+  --profile agent-coding \
+  --output validation.json
+```
+
+For a `6bit` certification, freeze the class explicitly and derive the size reference from the
+matching complete uniform-6 baseline. The same `max_weight_size_ratio` threshold is then applied
+to the uniform-6 denominator; a 4-bit candidate cannot switch denominators opportunistically:
+
+```bash
+axquant size-evidence \
+  --feasibility-report feasibility.json \
+  --reference-kind uniform-6bit \
+  --output uniform6-size-evidence.json
+
+axquant validate \
+  --reference-evaluation reference-evaluation.json \
+  --candidate-direct-evaluation candidate-mtp-off.json \
+  --candidate-evaluation candidate-mtp-on.json \
+  --size-reference uniform6-size-evidence.json \
+  --candidate-size candidate-size-evidence.json \
+  --target-class 6bit \
   --profile agent-coding \
   --output validation.json
 ```
@@ -853,7 +862,14 @@ Every release benchmark must name its power mode and quantizer/version. `refine-
 both raw A/B logs in the resumable output contract. Standalone baseline runs use
 `--power-mode`, `--quantizer`, and `--quantizer-version`. `benchmark-ab` derives adjacent-token
 repetition directly from emitted token IDs, records depth-one proposal accuracy, and derives
-greedy divergence from the matched A/B outputs. For a uniform-6 reference A/B, use
+greedy divergence from the matched A/B outputs. Its release speed gate defaults to
+`token-weighted-decode-tps`: total output tokens divided by total generation wall time, with the
+same calculation applied to both arms. The artifact also records the legacy prompt-median TPS
+ratio and requires it to remain at or above `1.10x`, preventing a long decode from hiding a
+typical-prompt regression. Release MTP evidence therefore requires token-weighted decode speedup
+`>=1.20x`, prompt-median speedup `>=1.10x`, and exact greedy outputs. Use
+`--speedup-metric prompt-median-tps` only when reproducing the
+legacy protocol. For a uniform-6 reference A/B, use
 `--direct-baseline-kind uniform-6bit --mtp-baseline-kind uniform-6bit`; the default kinds remain
 the AXQuant MTP-off/on release pair. Use `--record-failed-speedup` for an evidence sweep that must
 retain both evaluation bundles when only the speed floor fails: the command writes the complete
@@ -1087,9 +1103,17 @@ and required promotion evidence are clear.
 
 ## Documentation
 
-- [GitHub Actions root causes and prevention](docs/ci-root-causes.md)
-- [Known issues](docs/known-issues.md)
-- [Third-party notices and research references](THIRD_PARTY_NOTICES.md)
+| Doc | Audience |
+| --- | --- |
+| [Known issues](docs/known-issues.md) | Operators — documented limitations and fail-closed gates |
+| [Environment compatibility](docs/compatibility.md) | Operators — platforms, Python, MLX extras |
+| [Flagship certification](docs/flagship-certification.md) | Certification operators — `qwen36-mtp-v2` sequence |
+| [AXQ model fleet v2](docs/model-fleet-v2.md) | Hub pack maintainers — stable names and editions |
+| [Migration v1.1](docs/migration-v1.1.md) / [v1.2](docs/migration-v1.2.md) | Upgraders from earlier toolkit releases |
+| [CI root causes and prevention](docs/ci-root-causes.md) | Contributors — Ubuntu non-MLX vs macOS MLX, PyPI gate |
+| [Roadmap](docs/roadmap/README.md) | Contributors — open workstreams and ADRs |
+| [CHANGELOG](CHANGELOG.md) | Everyone — release notes |
+| [Third-party notices](THIRD_PARTY_NOTICES.md) | Legal — research and dependency attribution |
 
 Product requirements, the architecture decision register, technical specifications, and the
 independent-implementation policy are maintained internally and are not published in this
