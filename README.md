@@ -23,44 +23,45 @@ multi-token-prediction (MTP) weights.
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)) —
 not certified releases; full table under [Current status](#current-status).
 
-## Install
+## Install (Mac / Apple Silicon)
 
-**Canonical package is [PyPI](https://pypi.org/project/axquant/)** (not the GitHub Packages tab —
-that UI is for npm/container/Maven-style registries; Python wheels ship to PyPI and as
-[GitHub Release](https://github.com/defai-digital/axquant/releases) assets).
+AXQuant is built for **Macs with Apple Silicon** (M1–M5). Conversion and measured analysis need
+the MLX stack; that only runs on arm64 macOS. Use **Python 3.11+** (Homebrew
+`brew install python@3.13` or [python.org](https://www.python.org/downloads/macos/) both work).
 
-On macOS (Homebrew) and many Linux distros, the system Python is **externally managed**
-([PEP 668](https://peps.python.org/pep-0668/)): `python -m pip install …` into that
-interpreter fails with `externally-managed-environment`. Install into a **virtual
-environment** instead (do not use `--break-system-packages` to work around it).
+**Always install into a virtual environment.** Homebrew’s Python is
+[PEP 668](https://peps.python.org/pep-0668/) “externally managed”: a bare
+`python -m pip install axquant` against system Python fails with
+`externally-managed-environment`. That is expected — do **not** pass
+`--break-system-packages`.
 
 ```bash
-# Apple Silicon conversion path (recommended)
+# from any working directory (recommended)
 python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 python -m pip install -U pip
 python -m pip install "axquant[mlx]"
 axquant --help
-
-# Toolkit only (inspect / plan / report without MLX backends)
-# python -m pip install axquant
 ```
 
-After `source .venv/bin/activate`, `python` and `axquant` both come from the venv. You can
-also call `.venv/bin/axquant` without activating.
+With the venv active, `python` and `axquant` are both from `.venv`. Without activate, call
+`.venv/bin/axquant` directly.
 
-**CLI-only alternative:** `brew install pipx && pipx install 'axquant[mlx]'` puts `axquant` on
-your `PATH` in an isolated env. Prefer a project venv when you also need notebooks, local
-scripts, or an editable checkout.
+| Goal | Command |
+| --- | --- |
+| Full convert / analyze / evaluate (typical) | `python -m pip install "axquant[mlx]"` inside a venv |
+| Inspect / plan / report only (no Metal backends) | `python -m pip install axquant` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]'` |
 
-Pinned release files (wheel + sdist + checksums) also appear under
-[Releases](https://github.com/defai-digital/axquant/releases).
+Package index: [pypi.org/project/axquant](https://pypi.org/project/axquant/). Wheels and checksums
+also ship on [GitHub Releases](https://github.com/defai-digital/axquant/releases) (not the GitHub
+Packages tab — that UI is for npm/containers, not pip).
 
 ## At a glance
 
 - **What it does:** turns a supported BF16 checkpoint into a mixed-precision MLX checkpoint for
-  Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
-- **One command (in a venv):**
+  Mac Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
+- **Install and convert:**
   ```bash
   python3 -m venv .venv && source .venv/bin/activate
   python -m pip install "axquant[mlx]"
@@ -79,22 +80,22 @@ Pinned release files (wheel + sdist + checksums) also appear under
 
 ## Quickstart
 
-This path creates a **development** conversion from a local, unquantized Safetensors checkpoint.
-It is the quickest way to verify compatibility; it is not a substitute for the measured
-calibration, evaluation, and release-audit evidence required for a public quality or performance
-claim.
-
-On Apple Silicon with Python 3.11 or later:
+This path creates a **development** conversion from a local, unquantized Safetensors checkpoint
+on an Apple Silicon Mac. It is the quickest way to verify compatibility; it is not a substitute
+for the measured calibration, evaluation, and release-audit evidence required for a public
+quality or performance claim.
 
 ```bash
 git clone https://github.com/defai-digital/axquant.git
 cd axquant
 python3 -m venv .venv
-.venv/bin/pip install -e ".[mlx]"
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -e ".[mlx]"
 
 MODEL=/absolute/path/to/bf16-safetensors-model
-.venv/bin/axquant inspect --model "$MODEL" --output inventory.json
-.venv/bin/axquant quantize "$MODEL" --output ./AXQuant-output --target-bpw 4.8
+axquant inspect --model "$MODEL" --output inventory.json
+axquant quantize "$MODEL" --output ./AXQuant-output --target-bpw 4.8
 ```
 
 Read `inventory.json` before conversion: it records the adapter, support tier, protection
@@ -278,7 +279,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 
 | Area | Current support |
 | --- | --- |
-| Platform | Apple Silicon with MLX |
+| Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
 | Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells (development evidence) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
@@ -469,16 +470,18 @@ enforce release gate order, dual-profile completeness, and evidence binding.
 Architecture-prior analysis, smoke probes, and manual plans are explicitly marked as
 non-release development evidence. They cannot support production-quality or performance claims.
 
-## From-source install
+## From-source install (Mac)
 
-For a PyPI install, see [Install](#install). To work from a clone (Apple Silicon conversion
-needs the `mlx` extra; AX Engine manifest generation needs `ax-engine-bench` on `PATH`):
+PyPI install is under [Install](#install). For an editable checkout on Apple Silicon
+(conversion needs `.[mlx]`; AX Engine manifest generation needs `ax-engine-bench` on `PATH`):
 
 ```bash
-python3.13 -m venv .venv
+cd axquant
+python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[mlx]"          # conversion path
-# python -m pip install -e ".[dev,mlx]"    # plus tests and lint
+python -m pip install -U pip
+python -m pip install -e ".[mlx]"           # conversion path
+# python -m pip install -e ".[dev,mlx]"     # plus tests and lint
 axquant --help
 ```
 
