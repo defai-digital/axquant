@@ -225,10 +225,18 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.5.1` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.6.0` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
+
+### v1.6.x at a glance
+
+- DeepSeek V4 Flash is **development-convertible** (mixed FP4+FP8 source → dequant/affine
+  re-pack) with experimental 2/3-bit recipes and development cards for 2/3/4/6-bit product
+  classes. Requires an `mlx-lm` build that includes `deepseek_v4` (v1.6.0).
+- Convert/inventory hardening for DeepSeek sanitizer renames, FP4 expert logical params,
+  MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
 
 ### v1.5.x at a glance
 
@@ -256,7 +264,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.5.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.1)
+See the [v1.6.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.0)
 for the complete change list and download verification instructions. Past tags keep their
 notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
 tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
@@ -267,6 +275,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | --- | --- | --- |
 | Qwen 3.6 language paths | `convertible`; primary certification track | No certified public pack yet |
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
+| DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | Development evidence only |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
