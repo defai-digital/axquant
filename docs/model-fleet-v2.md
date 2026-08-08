@@ -28,7 +28,8 @@ The live Hub audit found:
 - all 28 manifests say `target_class: 4bit`, which is wrong for the 11 six-bit and three
   eight-bit product variants;
 - the MiniCPM5 and Qwen 3.5 pairs contain identical weight bytes because protection floors
-  dominate both requested budgets;
+  dominate both requested budgets (the misleading AXQ-4bit siblings were later removed from the
+  public catalog; see [Floor-collapsed 4bit retirement](#floor-collapsed-4bit-retirement));
 - both Qwen3-Coder-Next repositories contain identical 156.7 GB weight payloads at 15.7300 BPW:
   the pre-fix adapter left fused experts at BF16;
 - both Nemotron manifests identify a source repository that does not exist. The v2 source is
@@ -182,15 +183,33 @@ These remain development artifacts, not certified releases. None includes a vali
 Engine manifest; the runtime evidence recorded here is for MLX-LM standard text/backbone
 inference.
 
+### Floor-collapsed 4bit retirement
+
+On 2026-08-08 the following **AXQ-4bit** Hub repositories were **deleted** because they were
+not a real storage/quality alternative to their 6bit siblings:
+
+| Deleted 4bit repository | Canonical pack to use | Reason |
+| --- | --- | --- |
+| `AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP` | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | Identical weights; both budgets raised to ~6.97 BPW |
+| `AX-MiniCPM5-1B-MLX-AXQ-4bit` | [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | Identical weights; both budgets raised to ~7.38 BPW |
+| `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit` | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | Near-identical size/BPW (~5.99 vs ~6.00); no useful 4 vs 6 trade-off |
+
+Most other AXQ bases still publish both 4bit and 6bit (or 4bit and 8bit for embeddings) when the
+budgets produce distinct artifacts. Model-card generation records the no-4bit stems in
+`axquant.model_card` so regenerated cards do not link to removed siblings.
+
+The historical v2 audit table below still lists the pre-retirement 4bit repository IDs for
+traceability; those three 4bit rows are **no longer public Hub models**.
+
 | Stable public repository | Audited `main` / `v2` revision | `legacy-pre-v2` revision | Main BPW |
 | --- | --- | --- | ---: |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | `17e0ce81a7d6aeb6729a0c84b92340e26fbe1a6d` | `6d04a0c65dbb201b9a80d12f98ba86defc711c7d` | 4.949963 |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | `04be51a3173b94e0a0d859be871cfb7a749405d2` | `7086f12e3b3b0075b3668df30b712fbc7addb0e4` | 5.999989 |
-| [`AX-MiniCPM5-1B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-4bit) | `df7ace2359f2e42684e8f35d23e4f6df6c4810fc` | `9fc3fb996a3594c3fe7bee58de4d1d7119b36bda` | 7.380428 |
+| ~~`AX-MiniCPM5-1B-MLX-AXQ-4bit`~~ (deleted 2026-08-08) | `df7ace2359f2e42684e8f35d23e4f6df6c4810fc` | `9fc3fb996a3594c3fe7bee58de4d1d7119b36bda` | 7.380428 |
 | [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | `9687cba71d5ecacea70f0467e55a4c3411b7eb19` | `f28d93155bb565a05a0a2290c0091b31bf8449f1` | 7.380428 |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | `669dda7a7d78e2fa167d6dae70128f8cf2fe778b` | `a41e0128dd2ee145caeb5cd6f1ba66ecc95c8617` | 5.610033 |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | `74cc761a1f6f3e2d0e8bbb4d3d8c15cd17ef221a` | `8289fa74c71f46d62eb78e679cc343d95d3231d7` | 5.999912 |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit) | `6dbeb485860fc2395204068419d081604d1bf759` | `7db481bd6258dad712a56cb3c578d6df190e44c0` | 5.990115 |
+| ~~`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`~~ (deleted 2026-08-08) | `6dbeb485860fc2395204068419d081604d1bf759` | `7db481bd6258dad712a56cb3c578d6df190e44c0` | 5.990115 |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | `0821405e77f4161424b09cffd8768e2f5453d95e` | `2e11a710290e27fc3c4971314d9a4dcad306f89e` | 5.999992 |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | `91c20bd52f6c16b6b7e6f6e60b0a859ddd1ad8b0` | `e30f2476cc20dbb0a55883946f368fc815b57f88` | 5.150021 |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | `f00654783b3e3b2a020a712161eb1ac7861da348` | `0ae103ab4a5163b3bf0e615e29d9476763a42970` | 5.999949 |
@@ -204,7 +223,7 @@ inference.
 | [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | `4abc15919c3ffc00080a1857c50d55fd401d98ee` | `32f24f1f354a0777fa4373a2cd6c28ae93e3e5a6` | 7.999979 |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | `a5cced82bfc1324b52eacbb499ac2f6463ba85f2` | `ed2873c7a533dfd76a56b2e735382cf2034275e6` | 4.830057 |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | `10854555717aa09e74c6e1b083004b399b58691e` | `a9778699834adaf73b095deb6d69c00934af9e00` | 7.999911 |
-| [`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP) | `c79379b1d22449c87bafcfa056082a2b9994dbc9` | `0360978ffa26e13483c788a53459d5e600fefd1d` | 6.736665 |
+| ~~`AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`~~ (deleted 2026-08-08) | `c79379b1d22449c87bafcfa056082a2b9994dbc9` | `0360978ffa26e13483c788a53459d5e600fefd1d` | 6.736665 |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | `7acb8810588f2bb3380ca96daac2afaa1ced6d19` | `fba8cc8fc3283946e02e21af6368154aa33f29bd` | 6.736665 |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | `6182ccbc41c7397ff90670f740c6d9eacfa4b09f` | `c2ff693315475640fa71a2fd6d6f95ce67ac86e9` | 5.418315 |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | `8c37715c7b5f5ebca00eda6f73be47116a3e4ebc` | `469c7898e707c0e04241270bee8914323ce78270` | 5.844833 |

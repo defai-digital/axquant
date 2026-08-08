@@ -68,13 +68,29 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit",
         "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
     }
+    # Protection floors collapsed these AXQ-4bit siblings onto their 6bit packs; the
+    # 4bit Hub repos were deleted so the public catalog must not list them.
+    floor_collapsed_4bit = {
+        "AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP",
+        "AX-MiniCPM5-1B-MLX-AXQ-4bit",
+        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit",
+    }
+    floor_collapsed_6bit = {
+        "AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP",
+        "AX-MiniCPM5-1B-MLX-AXQ-6bit",
+        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit",
+    }
 
-    assert len(readme_repositories) == 32
-    assert len(set(readme_repositories)) == 32
-    assert len(completion_repositories) == 28
-    assert len(set(completion_repositories)) == 28
+    assert len(readme_repositories) == 29
+    assert len(set(readme_repositories)) == 29
+    # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
+    # links cover the original 28 minus those three 4bit packs (unique = 25).
+    assert len(set(completion_repositories)) == 25
     assert set(completion_repositories) < set(readme_repositories)
     assert set(readme_repositories) - set(completion_repositories) == multimodal_additions
+    assert floor_collapsed_4bit.isdisjoint(set(readme_repositories))
+    assert floor_collapsed_6bit < set(readme_repositories)
+    assert "no distinct AXQ-4bit pack" in readme_catalog.lower() or "no 4bit sibling" in readme_catalog
     assert "legacy-pre-v2" in readme_catalog
     assert "tagged `v2`" in readme_catalog
     assert not re.search(r"https://huggingface\.co/AutomatosX/[^)\s]+-v2(?:-MTP)?", readme_catalog)

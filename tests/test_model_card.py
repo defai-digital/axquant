@@ -288,6 +288,25 @@ def test_embedding_model_card_links_stable_4bit_and_8bit_siblings(
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" not in readme
 
 
+def test_floor_collapsed_model_card_omits_4bit_sibling_link(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP",
+        product_class="6bit",
+        artifact_edition=2,
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "no distinct 4bit pack" in readme
+    assert "AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP" in readme
+    assert "AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP" not in readme
+    assert "does **not** publish a separate" in readme
+
+
 def test_development_model_card_does_not_claim_ax_engine_without_native_manifest(
     qwen36_model_dir: Path,
     tmp_path: Path,

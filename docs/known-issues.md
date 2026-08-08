@@ -45,6 +45,16 @@ between published versions.
 - **Capture only wraps `nn.Linear` leaves.** Custom architectures that route through non-Linear
   projections are not captured (they are also outside the refinement predicate's scope).
 
+## Public Hub catalog
+
+- **Some bases do not publish an AXQ-4bit pack.** When protection floors raise both the ~4.8 and
+  ~6.0 BPW budgets to the same (or near-identical) artifact, publishing a separate `4bit` sibling
+  is misleading. Removed from Hugging Face (use the `6bit` pack only):
+  `AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP`, `AX-MiniCPM5-1B-MLX-AXQ-4bit`, and
+  `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`. See
+  [model-fleet-v2.md](model-fleet-v2.md#floor-collapsed-4bit-retirement) and the Hub catalog
+  section in the main README.
+
 ## Evidence and state
 
 - **Probe resume state does not survive backend version bumps** (v4 → v5 → v6 in v1.1.x). Saved

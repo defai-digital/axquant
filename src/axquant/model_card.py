@@ -37,6 +37,17 @@ _REFRESHABLE_FILES = frozenset(
     }
 )
 
+# Product stems that do not publish a distinct AXQ-4bit Hub sibling. Protection floors
+# collapse the 4.8 and 6.0 BPW budgets to the same (or near-identical) artifact, so only
+# the higher budget class remains in the public catalog.
+_NO_DISTINCT_4BIT_SIBLING_STEMS = frozenset(
+    {
+        "AX-MiniCPM5-1B-MLX-AXQ",
+        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ",
+        "AX-Qwen3.5-9B-MLX-AXQ",
+    }
+)
+
 
 def _resolve_artifact_edition(
     repo_edition: str | None,
@@ -272,16 +283,25 @@ def render_development_model_card(
         fallback_bytes=manifest.protected_weight_file_size_bytes,
     )
     main_parameters = _format_parameters(manifest.main_logical_parameters)
-    sibling_rows = "\n".join(
-        (
-            f"| [4bit sibling](https://huggingface.co/{four_bit_repo}) | "
-            "Lower-storage AXQ budget; check its exact BPW |",
-            f"| [{higher_precision_class} sibling]"
-            f"(https://huggingface.co/{higher_precision_repo}) | "
-            f"Higher average precision near the {higher_precision_class.removesuffix('bit')}-BPW "
-            "budget |",
+    if stem in _NO_DISTINCT_4BIT_SIBLING_STEMS:
+        sibling_rows = (
+            "| *(no distinct 4bit pack)* | Protection floors collapse the low-memory and "
+            f"`{higher_precision_class}` budgets for this base to the same (or near-identical) "
+            f"artifact. The public catalog publishes only "
+            f"[`{stem}-{higher_precision_class}{repo_edition}{suffix}`]"
+            f"(https://huggingface.co/{higher_precision_repo}). |"
         )
-    )
+    else:
+        sibling_rows = "\n".join(
+            (
+                f"| [4bit sibling](https://huggingface.co/{four_bit_repo}) | "
+                "Lower-storage AXQ budget; check its exact BPW |",
+                f"| [{higher_precision_class} sibling]"
+                f"(https://huggingface.co/{higher_precision_repo}) | "
+                f"Higher average precision near the "
+                f"{higher_precision_class.removesuffix('bit')}-BPW budget |",
+            )
+        )
     catalog_url = "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
     long_context_status = (
         f"{context_length}-token capacity is config metadata, not a validated claim"
@@ -554,7 +574,8 @@ tensor. Protected tensors remain at higher precision, so the exact measured BPW 
 In particular, a `6bit`-named mixed plan may retain `4bit` as its base precision while selecting
 6-bit, 8-bit, or BF16 for other tensors to meet an approximately 6-BPW total budget. Protection
 floors can also raise a `4bit`-named pack close to (or above) a `6bit` budget on small or heavily
-protected models.
+protected models. When that collapse happens, AutomatosX does **not** publish a separate
+misleading `4bit` sibling for that base.
 
 | Sibling | Intended trade-off |
 | --- | --- |
