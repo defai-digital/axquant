@@ -6,12 +6,16 @@
 - **Related:** README "Still incomplete" list, `docs/known-issues.md`,
   `docs/flagship-certification.md`, ADRs 0001–0006
 
+> **Checkpoint milestone (2026-08-08):** the exact Qwen 3.6 27B AXQ 6-bit v3 checkpoint is now
+> Tier 1 certified for quality and default-runtime stability. The M0–M8 acceleration-bearing
+> flagship objective in this PRD remains open because MTP acceleration did not meet its gates.
+
 ## 1. Background
 
 AXQuant converts Safetensors checkpoints into quality-protected mixed-precision
 MLX artifacts (4/6/8-bit + BF16, experimental 2/3-bit behind AX Engine gates)
 with an auditable evidence chain. The toolkit commands are implemented; what
-remains open is (a) the first certified flagship release, (b) a set of scope
+remains open is (a) the first MTP-accelerated certified flagship release, (b) a set of scope
 items README explicitly lists as incomplete or deferred, and (c) algorithm and
 runtime headroom identified in the 2026-08 competitive review.
 

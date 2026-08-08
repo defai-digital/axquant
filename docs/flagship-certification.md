@@ -9,6 +9,23 @@ Qwen/Qwen3.6-27B@6a9e13bd6fc8f0983b9b99948120bc37f49c13e9
 It does not certify existing development packs automatically and does not change any M0–M8
 quality, size, MTP, protection-floor, or fallback threshold.
 
+## Current certification status
+
+The exact Qwen 3.6 27B AXQ 6-bit **artifact edition v3** passed checkpoint Tier 1 on
+2026-08-08. The public record is
+[Qwen 3.6 27B AXQ 6-bit — checkpoint Tier 1 certification](certifications/qwen36-27b-axq6-tier1.md).
+
+| Claim | Status |
+| --- | --- |
+| Checkpoint size, matched-reference quality, conversion integrity | Certified |
+| Safe/stable default AX Engine text route | Certified; Qwen linear MTP uses direct fallback |
+| MTP speculative-decode speedup and exactness | **Not certified** |
+| Vision-language quality | Not certified |
+
+This is an exact-revision certificate, not an architecture-wide promotion. The v3 Hub tag and
+listed LFS hashes identify the certified weight set; the prior v2 development artifact and every
+sibling remain outside the certificate.
+
 ## Two-tier claim policy
 
 AXQuant checkpoint certification is the first tier: it proves the bound artifact's size,
@@ -27,7 +44,8 @@ for both `agent-coding` and `general` with measured plan, matched size, and qual
 Adding `--require-mtp-acceleration` selects the acceleration tier and independently requires all
 three MTP gates; the prompt guardrail cannot be hidden inside a token-weighted average. The
 historical `qwen36-mtp-v2` M0–M8 release audit remains an acceleration-bearing track and is not
-weakened or relabelled as checkpoint-only evidence.
+weakened or relabelled as checkpoint-only evidence. Its prior failed exactness result remains
+archived and blocks Tier 2; it does not revoke the independently scoped Tier 1 certificate.
 
 The formal MTP harness sets
 `AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1`. AX Engine also requires the loaded checkpoint
@@ -35,7 +53,7 @@ to satisfy its exact-arithmetic capability gate and emits explicit candidate tel
 that opt-in, Qwen linear-attention MTP remains on canonical direct decode; this switch is test
 plumbing, not a public certification override.
 
-## Trust model
+## MTP flagship trust model
 
 - `CheckpointKey` identifies source config, tokenizer, Safetensors index, and checkpoint members
   without including an absolute mount path.
@@ -63,7 +81,7 @@ development → candidate → frozen → certified → superseded
 Campaign files and lifecycle registries are written as new atomic artifacts. Do not edit a prior
 state or lifecycle event in place.
 
-## Operator sequence
+## MTP flagship operator sequence
 
 1. Create all bound files under a durable campaign root. The repository-local disposable
    temporary-report directory is not a durable root. The campaign request, state transitions, raw
@@ -124,7 +142,8 @@ marketing metrics are rejected.
 
 - Historical `axquant.release-audit.v4` remains readable and reproducible.
 - Qwen3-Next `N0`–`N8` remains unchanged.
-- Existing development packs keep their current names and status.
+- Existing development packs keep their current names and status. The only current exception is
+  the exact Qwen 3.6 27B AXQ 6-bit v3 revision listed in the Tier 1 certificate.
 - A package containing `public-claim.json` or a flagship lifecycle registry cannot be published
   through an older request.
 - Qwen3-Next/Coder artifacts produced before the v1.2.0 fused-expert classification fix remain

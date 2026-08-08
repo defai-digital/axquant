@@ -19,9 +19,11 @@ multi-token-prediction (MTP) weights.
 > capabilities. Its goal is to reduce storage and unified-memory cost while preserving important
 > model quality and runtime behavior.
 
-**Ready-made development packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
-([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)) —
-not certified releases; full table under [Current status](#current-status).
+**Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
+([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
+The Qwen 3.6 27B AXQ 6-bit v3 checkpoint is
+[Tier 1 certified](docs/certifications/qwen36-27b-axq6-tier1.md); other catalog entries remain
+development artifacts unless their own exact revision has a certificate.
 
 ## Contents
 
@@ -104,16 +106,19 @@ Packages tab; that UI is for npm/containers, not pip).
   python -m pip install 'axquant[mlx]'
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
-- **Naming isn't the bit budget:** existing `4bit`/`6bit` development-pack names are planning
+- **Naming isn't the bit budget:** `4bit`/`6bit` pack names are planning
   classes, not fixed-width claims — for example the public
-  `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures ~5.42 BPW. A future certified flagship must
-  use the measured-BPW form `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`; manifests remain authoritative.
+  `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures ~5.42 BPW. Tier 1 certification may retain a
+  stable product-class repository name when the certificate pins an immutable revision and exact
+  BPW; acceleration-bearing flagship claims use the measured-BPW form
+  `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`. Manifests remain authoritative.
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
   Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
   see the tier matrix under [Current status](#current-status).
-- **Where it stands:** the toolkit is feature-complete and tested, but no checkpoint has yet
-  cleared the full M0–M8 release audit — every public pack today is development evidence, not a
-  certified release. [Current status](#current-status) states exactly what remains open.
+- **Where it stands:** Qwen 3.6 27B AXQ 6-bit v3 is checkpoint Tier 1 certified for size,
+  matched-reference quality, conversion integrity, and the safe default text-runtime route.
+  MTP acceleration Tier 2 remains uncertified, and every other public pack remains development
+  evidence. [Current status](#current-status) states the exact scope.
 
 ## Quickstart
 
@@ -275,7 +280,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 
 | Scope | Use today | Public certification status |
 | --- | --- | --- |
-| Qwen 3.6 language paths | `convertible`; primary certification track | No certified public pack yet |
+| Qwen 3.6 language paths | `convertible`; primary certification track | Exact 27B AXQ 6-bit v3 revision is checkpoint Tier 1 certified; other revisions remain development evidence |
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | Development evidence only |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
@@ -295,13 +300,16 @@ Release artifacts are built and signed (keyless Sigstore attestation) by the rel
 verify a downloaded dist with `gh attestation verify <file> --repo defai-digital/axquant` and
 `shasum -a 256 -c SHA256SUMS.txt`.
 
-What remains evidence-gated is AXQuant's own **certified public model release**: publishing a
-checkpoint under an AXQuant quality/performance claim requires every M0–M8 gate to pass on
-formal hardware. There is **no** certified public AXQuant model release claimed here yet.
-The public Qwen 3.6 packs are development artifacts, and their release evidence chains are not
-closed. Same-candidate dual-profile quality comparison, AX Engine evidence, MTP speed, Pareto and
-hardware-registry evidence, compatibility coverage, and the full M0–M8 audit remain required. Do
-not treat any single metric as the sole remaining certification blocker.
+AXQuant separates checkpoint and acceleration claims. The exact Qwen 3.6 27B AXQ 6-bit v3
+revision has passed the public checkpoint Tier 1 policy: measured plan and size evidence, matched
+general and agent-coding quality, zero-fallback conversion, and the safe default runtime route.
+Its [certificate](docs/certifications/qwen36-27b-axq6-tier1.md) pins every threshold and hash.
+
+The historical `qwen36-mtp-v2` M0–M8 track remains the higher acceleration-bearing tier. MTP
+speed and exactness did **not** pass, so no MTP acceleration claim is made and AX Engine keeps
+Qwen linear MTP on direct fallback by default. Other Qwen 3.6 packs and revisions remain
+development artifacts until separately certified; a certificate never promotes a family by
+association.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
@@ -350,20 +358,22 @@ The default 4.8 BPW budget can be infeasible when protection floors raise the po
 budget once to the computed minimum and records that decision. Use an explicit `--target-bpw` at
 or above the floor when the budget must be fixed.
 
-### AutomatosX Hub catalog (AXQ, development)
+### AutomatosX Hub catalog (AXQ)
 
-Public **development** packs on [AutomatosX](https://huggingface.co/AutomatosX)
-(BF16 source → `axquant quantize` → Hub upload; **not** certified releases).
-The stable repository names below now serve the audited v2 artifacts on `main`, so existing model
-identifiers continue to work. Each exact v2 revision is also tagged `v2`; the artifact previously
-served by each repository remains recoverable at `legacy-pre-v2`. Temporary migration repositories
-with edition suffixes are not part of the public catalog.
+Public packs on [AutomatosX](https://huggingface.co/AutomatosX) are development evidence unless an
+exact immutable revision is linked to a certificate. The Qwen 3.6 27B AXQ 6-bit v3 entry is the
+first checkpoint Tier 1 certified exception.
+The stable repository names remain the canonical model identifiers. The certified Qwen 3.6 27B
+AXQ 6-bit repository now serves v3 on `main`; its preceding audited artifact remains pinned at
+`v2`. The other catalog entries continue to serve their audited v2 artifacts on `main`, with exact
+v2 revisions tagged `v2`. Artifacts predating v2 remain recoverable at `legacy-pre-v2`. Temporary
+migration repositories with edition suffixes are not part of the public catalog.
 
 Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
 present). Cards are multi-family aware and state evidence limits explicitly.
 
-The table below lists the current public development packs under their stable names; the
+The table below lists the current public packs under their stable names; the
 [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
 provides a browsable catalog. The BPW values are rounded from each current public manifest's
 `measured_main_bpw`; the linked model card and manifest remain authoritative.
@@ -376,7 +386,7 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.844833 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 checkpoint Tier 1 certified** ([evidence](docs/certifications/qwen36-27b-axq6-tier1.md)); MTP acceleration not certified |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
@@ -410,9 +420,11 @@ not GGUF `q4`). Artifact editions are recorded in the model card and immutable H
 of changing the repository identifier. The class is a planning budget, not a claim that every
 tensor uses that width. Not every base publishes every class — see the floor-collapse note above.
 
-**Certified naming:** `AX-<Base>-MLX-AXQ-MP-<measured-main-BPW>bpw[-MTP]`, rounded to two
-decimal places with decimal half-up rules (for example `MP-5p30bpw-MTP`). This name is generated
-from audited measured bytes; `target_class` remains metadata.
+**Certified naming:** a checkpoint Tier 1 certificate may retain the stable product-class
+repository name when it pins the exact Hub tag/commit, artifact edition, hashes, and measured BPW.
+An acceleration-bearing flagship uses
+`AX-<Base>-MLX-AXQ-MP-<measured-main-BPW>bpw[-MTP]`, rounded to two decimal places with decimal
+half-up rules (for example `MP-5p30bpw-MTP`). `target_class` remains metadata.
 
 **Quick load (MLX-LM):**
 
@@ -492,11 +504,10 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- **Qwen 3.6 certification is not closed.** Public packs are development artifacts. The additive
-  `qwen36-mtp-v2` tooling now enforces one semantic candidate, frozen disjoint data roles,
-  authorizing performance only on `df-macbookpro-m5`, holdout consumption, durable evidence, independent
-  review, lifecycle state, measured-BPW claims, and a final M0–M8 audit. Those controls are
-  implemented; the real candidate and formal evidence have not yet passed them;
+- **Qwen 3.6 MTP acceleration certification is not closed.** The 27B AXQ 6-bit v3 checkpoint has
+  passed Tier 1, but the additive `qwen36-mtp-v2` track still requires greedy exactness and both
+  speed thresholds on `df-macbookpro-m5`. Its historical failure remains evidence; sidecar
+  presence is not an acceleration claim;
 - interaction-optimization evidence: the toolkit path exists
   (`refine-select --interaction`, holdout-safe by construction), but no bound candidate has yet
   been optimized against real measured development-role evaluations;
@@ -1191,6 +1202,7 @@ and required promotion evidence are clear.
 | [Known issues](docs/known-issues.md) | Operators — documented limitations and fail-closed gates |
 | [Environment compatibility](docs/compatibility.md) | Operators — platforms, Python, MLX extras |
 | [Flagship certification](docs/flagship-certification.md) | Certification operators — `qwen36-mtp-v2` sequence |
+| [Certified checkpoints](docs/certifications/README.md) | Users and auditors — exact public verdicts, scopes, and hashes |
 | [AXQ model fleet v2](docs/model-fleet-v2.md) | Hub pack maintainers — stable names and editions |
 | [Migration v1.1](docs/migration-v1.1.md) / [v1.2](docs/migration-v1.2.md) | Upgraders from earlier toolkit releases |
 | [CI root causes and prevention](docs/ci-root-causes.md) | Contributors — Ubuntu non-MLX vs macOS MLX, PyPI gate |

@@ -1,0 +1,116 @@
+{
+  "artifact": {
+    "artifact_edition": "v3",
+    "candidate_manifest_sha256": "88269a83d0fd7bf70381745e1163f2b919e09798bcc92e352757d0f00e112c43",
+    "hub_commit": "cdd13bf81cf21818a01cf59a31fc116ef84326bc",
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+    "hub_tag": "v3",
+    "product_class": "6bit",
+    "source_model_id": "Qwen/Qwen3.6-27B",
+    "source_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9"
+  },
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-08T18:14:07.138083+00:00",
+  "datasets": {
+    "agent-coding": {
+      "samples": 76,
+      "sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19"
+    },
+    "general": {
+      "samples": 44,
+      "sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f"
+    }
+  },
+  "evidence_hashes": {
+    "agent_coding_quality_comparison_sha256": "c597ed587506170b975b3967fa8a1c9a1976e1b8da18c0f711161855dcc69739",
+    "agent_coding_scoreboard_sha256": "96b9a8a3cce12e7499a99c6a2be6f0f3c7820a61c6a74b4453c4071a09743485",
+    "general_quality_comparison_sha256": "cdf58fa463fb3114c50619726d3b2306126a7a694234538a84d6209396fae5a9",
+    "general_scoreboard_sha256": "e9d93e8572769564ee04e886ec6cedd70c9c53dcb474879a09b3cf2d5f369290",
+    "runtime_smoke_sha256": "82c717b7451811d7012691edf47e72413fce3ffeacbf8bf705508f4c36a78daa",
+    "summary_sha256": "80dd3099fb93b6f592b186be5ef3c82968e90e797750468b408a7621d46f461e"
+  },
+  "evidence_scope": "reproducible-development-suite-revalidation",
+  "host_id": "df-macbookpro-m5",
+  "mtp_acceleration": {
+    "exactness_required": 1.0,
+    "prompt_median_speedup_required": 1.1,
+    "status": "not-certified",
+    "token_weighted_decode_speedup_required": 1.2
+  },
+  "plan": {
+    "assignment_sha256": "986c3d8c479d5b6f3d042b299ac83345bdbf9a982b3d8f474b3230b7dc3bf179",
+    "effective_bpw": 5.961609247665644,
+    "evidence_kind": "measured",
+    "original_semantic_sha256": "34ae377b6a5ab65da87cec6f3ad9c63391d76336043b28b1c3018502a94cb5be",
+    "profile": "agent-coding",
+    "public_semantic_sha256": "4aa2bc527c8a66d715934ce2833a2bee2a720a7c14e29ae8f93f0b1ff39776fd",
+    "target_bpw": 5.977
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_errors": 0,
+      "candidate_score": 0.9013157894736842,
+      "json_validity_delta": 0.0,
+      "perplexity_ratio": 0.9695312633707419,
+      "reference_errors": 0,
+      "reference_score": 0.8947368421052632,
+      "retention": 1.0073529411764706,
+      "syntax_validity_delta": 0.06666666666666668,
+      "worst_task_delta": 0.0
+    },
+    "general": {
+      "candidate_errors": 0,
+      "candidate_score": 1.0,
+      "perplexity_ratio": 0.9661357781349924,
+      "reference_errors": 0,
+      "reference_score": 0.9886363636363636,
+      "retention": 1.0114942528735633,
+      "worst_task_delta": 0.0
+    }
+  },
+  "runtime_default": {
+    "ax_mlx_direct_pipeline_steps": 7,
+    "ax_mlx_mtp_model_policy": 4,
+    "ax_mlx_mtp_model_policy_active": 0,
+    "ax_mlx_mtp_model_policy_route_safe": 0,
+    "ax_mlx_qwen_linear_mtp_certification_candidate": 0,
+    "ax_mlx_qwen_linear_mtp_direct_fallback": 1,
+    "ax_mtp_decode_steps": 0,
+    "ax_mtp_requested": 0,
+    "status": "pass"
+  },
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "size": {
+    "candidate_weight_bytes": 20703029777,
+    "measured_main_bpw": 5.805848959887475,
+    "ratio_vs_uniform6": 0.876234,
+    "uniform6_reference_weight_bytes": 23627280146
+  },
+  "status": "certified",
+  "thresholds": {
+    "aggregate_retention_min": 0.99,
+    "agent_coding_perplexity_ratio_max": 1.02,
+    "candidate_errors_max": 0,
+    "general_perplexity_ratio_max": 1.03,
+    "reference_errors_max": 0,
+    "size_ratio_max": 1.0,
+    "structured_validity_delta_min": -0.01,
+    "worst_task_delta_min": -0.02
+  },
+  "toolchain": {
+    "ax_engine_commit": "0a2ec300472f4829a52e6f25389425ff2004842c",
+    "ax_engine_version": "6.13.5",
+    "axquant_commit": "726d9b9b69c5e8bc45a0186882074009ec31277d",
+    "mlx": "0.32.0",
+    "mlx_lm": "0.31.3",
+    "python": "3.13.14"
+  },
+  "weight_files": {
+    "model-00001-of-00004.safetensors": "64495f79b5d6411c9d2956e261aff4995462152510ed1ee476f4dc6000886d10",
+    "model-00002-of-00004.safetensors": "40a4d3d9e18a3e88144534f515b1aa362042d637ed6550bc706233c5612976b7",
+    "model-00003-of-00004.safetensors": "dfa8e730718a1818633c9b60fd294c31db5bd1d749cb75f89d2a4f746faf6437",
+    "model-00004-of-00004.safetensors": "96a459e4da05ba4943d6b7e9f67e860482b06d514cf46b6cda55c57193a22d80",
+    "mtp.safetensors": "22c8d2b0b639a2615df0ce0e3b100fb529184b98098c46ed74402f01d9128d78",
+    "vision.safetensors": "32396b51006e25e7aea94d287b5d81d4044fa910a40aa558db55a9f273895c00"
+  }
+}

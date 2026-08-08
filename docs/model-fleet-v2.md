@@ -16,6 +16,15 @@ passes a second complete Hub audit.
 This is a real checkpoint rebuild, not a model-card-only refresh. The audited fleet is
 598.301 GB across 28 repositories and 14 source checkpoints.
 
+## Post-v2 certified supersession
+
+On 2026-08-08, `AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP` was replaced on `main` by a materially new,
+measured **artifact edition v3** after passing
+[checkpoint Tier 1 certification](certifications/qwen36-27b-axq6-tier1.md). Its old v2 artifact
+remains available at the immutable `v2` tag; certified v3 is Hub commit
+`cdd13bf81cf21818a01cf59a31fc116ef84326bc`. This one supersession does not change the
+historical v2 audit below and does not promote any other fleet entry.
+
 ## Why a rebuild is required
 
 The live Hub audit found:
@@ -179,9 +188,9 @@ established:
 - all 28 temporary edition-suffixed repositories were removed from the catalog and deleted only
   after the canonical fleet audit passed; the post-deletion audit found none remaining.
 
-These remain development artifacts, not certified releases. None includes a validated native AX
-Engine manifest; the runtime evidence recorded here is for MLX-LM standard text/backbone
-inference.
+The v2 artifacts recorded by this audit remain development artifacts. The later Qwen 3.6 27B AXQ
+6-bit v3 supersession is the sole checkpoint Tier 1 certified exception and includes a validated
+native AX Engine manifest; its MTP acceleration tier remains uncertified.
 
 ### Floor-collapsed 4bit retirement
 
@@ -201,7 +210,7 @@ budgets produce distinct artifacts. Model-card generation records the no-4bit st
 The historical v2 audit table below still lists the pre-retirement 4bit repository IDs for
 traceability; those three 4bit rows are **no longer public Hub models**.
 
-| Stable public repository | Audited `main` / `v2` revision | `legacy-pre-v2` revision | Main BPW |
+| Stable public repository | Audited v2 revision | `legacy-pre-v2` revision | Main BPW |
 | --- | --- | --- | ---: |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | `17e0ce81a7d6aeb6729a0c84b92340e26fbe1a6d` | `6d04a0c65dbb201b9a80d12f98ba86defc711c7d` | 4.949963 |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | `04be51a3173b94e0a0d859be871cfb7a749405d2` | `7086f12e3b3b0075b3668df30b712fbc7addb0e4` | 5.999989 |

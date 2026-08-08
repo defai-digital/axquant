@@ -101,6 +101,8 @@ between published versions.
 
 ## Validated scope
 
-- **End-to-end quality has been validated on tiny/synthetic models only.** The 27B-class
-  certification track requires a real-hardware run (capture → analyze → plan → convert →
-  validate) before any quality claim; that formal evidence chain is still open.
+- **Large-model certification is exact-revision scoped.** Qwen 3.6 27B AXQ 6-bit artifact
+  edition v3 passed checkpoint Tier 1 on `df-macbookpro-m5`; see the
+  [certificate](certifications/qwen36-27b-axq6-tier1.md). This does not validate another model,
+  sibling, revision, vision path, or MTP acceleration. Other 27B-class claims still require their
+  own real-hardware evidence chain.

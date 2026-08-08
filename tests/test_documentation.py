@@ -16,6 +16,7 @@ _PUBLIC_MARKDOWN_GLOBS = (
     "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
     "docs/*.md",
+    "docs/certifications/*.md",
     "docs/releases/*.md",
     "docs/roadmap/**/*.md",
     "examples/**/*.md",
@@ -50,7 +51,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     readme_catalog = (
         _read("README.md")
         .split(
-            "### AutomatosX Hub catalog (AXQ, development)",
+            "### AutomatosX Hub catalog (AXQ)",
             1,
         )[1]
         .split("**Development naming:**", 1)[0]

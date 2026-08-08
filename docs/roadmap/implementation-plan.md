@@ -5,6 +5,10 @@
 - **Inputs:** `prd.md` (requirements), `tech-spec.md` (workstreams WS-1…10),
   ADRs 0001–0006
 
+> **Checkpoint milestone (2026-08-08):** the exact Qwen 3.6 27B AXQ 6-bit v3 checkpoint completed
+> the faster Tier 1 quality/default-runtime path. This does not exit Phase 0 below: the MTP
+> acceleration path remains uncertified and still requires the formal M0–M8 closure.
+
 Phases are gates, not sprints: a phase exits on criteria, not dates. Phase 0
 overlaps nothing; Phases 1–3 may overlap where dependencies allow; Phase 4
 items land opportunistically once their gates open.
@@ -48,7 +52,7 @@ README's "Still incomplete" list stays the public scoreboard: entries close
 only on met acceptance criteria with measured evidence, never on merged code.
 
 ```text
-Phase 0  Certification closure          (RM-01/02)        ── blocks all claims
+Phase 0  MTP certification closure      (RM-01/02)        ── blocks Tier 2 MTP claims
 Phase 1  Quality pack                   (RM-10..14)       ── algo work, flags off
 Phase 2  Speed evidence pack            (RM-20..22)       ── evidence work
 Phase 3  Runtime co-design              (RM-30/31)        ── planner cost model
