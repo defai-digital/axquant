@@ -21,12 +21,13 @@ multi-token-prediction (MTP) weights.
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
-Qwen 3.6 dense 27B packs (AXQ 6-bit v3 and AXQ 4-bit / 5.6 BPW) are
+On `df-macbookpro-m5`, Qwen 3.6 dense 27B packs (AXQ 6-bit v3 and AXQ 4-bit / 5.6 BPW) are
 [Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md) and
-[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified on
-`df-macbookpro-m5`; 35B-A3B MoE packs have [Tier 1 only](docs/certifications/README.md).
-Other catalog entries remain development artifacts unless their own exact revision has a
-certificate.
+[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified; Qwen 3.6 35B-A3B MoE
+and Gemma 4 **26B-A4B** / **31B** AXQ 4/6-bit packs have
+[checkpoint Tier 1](docs/certifications/README.md) (MTP acceleration not claimed for those).
+See the [certification index](docs/certifications/README.md) for exact Hub commits. Other catalog
+entries remain development artifacts unless their own exact revision has a certificate.
 
 ## Contents
 
