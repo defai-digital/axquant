@@ -2,7 +2,7 @@
 
 **Verdict:** certified on 2026-08-08.
 
-Hub: [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) commit `main-pending`.
+Hub: [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) commit `539f7fbd303621007d307be6139f325cbc12f7ee`.
 
 | Property | Value |
 | --- | --- |

@@ -6,7 +6,7 @@
   "host_id": "df-macbookpro-m5",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit",
-    "hub_commit": "main-pending",
+    "hub_commit": "5d8d37b8e7105eab1ac843945454a6bdbd986e35",
     "product_class": "4bit",
     "source_model_id": "google/gemma-4-31B-it",
     "source_revision": null,
