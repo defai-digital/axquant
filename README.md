@@ -25,17 +25,33 @@ not certified releases; full table under [Current status](#current-status).
 
 ## Install
 
-**Canonical install is [PyPI](https://pypi.org/project/axquant/)** (not the GitHub Packages tab —
+**Canonical package is [PyPI](https://pypi.org/project/axquant/)** (not the GitHub Packages tab —
 that UI is for npm/container/Maven-style registries; Python wheels ship to PyPI and as
 [GitHub Release](https://github.com/defai-digital/axquant/releases) assets).
 
-```bash
-# toolkit only (no Apple Silicon backends)
-python -m pip install axquant
+On macOS (Homebrew) and many Linux distros, the system Python is **externally managed**
+([PEP 668](https://peps.python.org/pep-0668/)): `python -m pip install …` into that
+interpreter fails with `externally-managed-environment`. Install into a **virtual
+environment** instead (do not use `--break-system-packages` to work around it).
 
-# Apple Silicon conversion path
+```bash
+# Apple Silicon conversion path (recommended)
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install -U pip
 python -m pip install "axquant[mlx]"
+axquant --help
+
+# Toolkit only (inspect / plan / report without MLX backends)
+# python -m pip install axquant
 ```
+
+After `source .venv/bin/activate`, `python` and `axquant` both come from the venv. You can
+also call `.venv/bin/axquant` without activating.
+
+**CLI-only alternative:** `brew install pipx && pipx install 'axquant[mlx]'` puts `axquant` on
+your `PATH` in an isolated env. Prefer a project venv when you also need notebooks, local
+scripts, or an editable checkout.
 
 Pinned release files (wheel + sdist + checksums) also appear under
 [Releases](https://github.com/defai-digital/axquant/releases).
@@ -44,8 +60,9 @@ Pinned release files (wheel + sdist + checksums) also appear under
 
 - **What it does:** turns a supported BF16 checkpoint into a mixed-precision MLX checkpoint for
   Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
-- **One command:**
+- **One command (in a venv):**
   ```bash
+  python3 -m venv .venv && source .venv/bin/activate
   python -m pip install "axquant[mlx]"
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
