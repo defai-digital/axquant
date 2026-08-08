@@ -117,9 +117,7 @@ def needs_ministral3_model_prefix_prep(model_dir: str | Path, config: dict[str, 
     if not sample_keys:
         return False
     has_unprefixed = any(
-        key == "embed_tokens.weight"
-        or key.startswith("layers.")
-        or key.startswith("embed_tokens.")
+        key == "embed_tokens.weight" or key.startswith("layers.") or key.startswith("embed_tokens.")
         for key in sample_keys
     )
     has_prefixed = any(key.startswith("model.") for key in sample_keys)
@@ -436,7 +434,9 @@ def prepare_ministral3_model_prefix_source(
 
     prepared = _prepared_directory(source, work_dir, "ministral3-model-prefix")
     sample_keys = _sample_safetensor_keys(source, limit=10_000)
-    has_lm_head = any(key == "lm_head.weight" or key.endswith(".lm_head.weight") for key in sample_keys)
+    has_lm_head = any(
+        key == "lm_head.weight" or key.endswith(".lm_head.weight") for key in sample_keys
+    )
     prepared_config = dict(config)
     # Nemotron-3-Embed-8B ships tie_word_embeddings=false without an lm_head
     # tensor (feature-extraction export). Force tie so mlx_lm.ministral3 does
