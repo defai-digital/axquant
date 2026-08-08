@@ -25,22 +25,24 @@ not certified releases; full table under [Current status](#current-status).
 
 ## Install (Mac / Apple Silicon)
 
-AXQuant is built for **Macs with Apple Silicon** (M1–M5). Conversion and measured analysis need
+AXQuant is built for **Macs with Apple Silicon** (M1-M5). Conversion and measured analysis need
 the MLX stack; that only runs on arm64 macOS. Use **Python 3.11+** (Homebrew
 `brew install python@3.13` or [python.org](https://www.python.org/downloads/macos/) both work).
 
-**Always install into a virtual environment.** Homebrew’s Python is
-[PEP 668](https://peps.python.org/pep-0668/) “externally managed”: a bare
+**Always install into a virtual environment.** Homebrew Python is
+[PEP 668](https://peps.python.org/pep-0668/) externally managed: a bare
 `python -m pip install axquant` against system Python fails with
-`externally-managed-environment`. That is expected — do **not** pass
+`externally-managed-environment`. That is expected; do **not** pass
 `--break-system-packages`.
 
+Copy the block below as a whole (plain ASCII quotes only; single-quote the extra so zsh
+does not treat `[mlx]` as a glob):
+
 ```bash
-# from any working directory (recommended)
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install "axquant[mlx]"
+python -m pip install 'axquant[mlx]'
 axquant --help
 ```
 
@@ -49,13 +51,16 @@ With the venv active, `python` and `axquant` are both from `.venv`. Without acti
 
 | Goal | Command |
 | --- | --- |
-| Full convert / analyze / evaluate (typical) | `python -m pip install "axquant[mlx]"` inside a venv |
+| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]'` inside a venv |
 | Inspect / plan / report only (no Metal backends) | `python -m pip install axquant` inside a venv |
 | Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]'` |
 
+If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
+line or paste only from the fenced block above (do not copy prose with `"` / `'` glyphs).
+
 Package index: [pypi.org/project/axquant](https://pypi.org/project/axquant/). Wheels and checksums
 also ship on [GitHub Releases](https://github.com/defai-digital/axquant/releases) (not the GitHub
-Packages tab — that UI is for npm/containers, not pip).
+Packages tab; that UI is for npm/containers, not pip).
 
 ## At a glance
 
@@ -64,7 +69,7 @@ Packages tab — that UI is for npm/containers, not pip).
 - **Install and convert:**
   ```bash
   python3 -m venv .venv && source .venv/bin/activate
-  python -m pip install "axquant[mlx]"
+  python -m pip install 'axquant[mlx]'
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
 - **Naming isn't the bit budget:** existing `4bit`/`6bit` development-pack names are planning
@@ -91,7 +96,7 @@ cd axquant
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install -e ".[mlx]"
+python -m pip install -e '.[mlx]'
 
 MODEL=/absolute/path/to/bf16-safetensors-model
 axquant inspect --model "$MODEL" --output inventory.json
@@ -480,8 +485,8 @@ cd axquant
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install -e ".[mlx]"           # conversion path
-# python -m pip install -e ".[dev,mlx]"     # plus tests and lint
+python -m pip install -e '.[mlx]'           # conversion path
+# python -m pip install -e '.[dev,mlx]'     # plus tests and lint
 axquant --help
 ```
 
