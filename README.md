@@ -21,13 +21,22 @@ multi-token-prediction (MTP) weights.
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
-On `df-macbookpro-m5`, Qwen 3.6 dense 27B packs (AXQ 6-bit v3 and AXQ 4-bit / 5.6 BPW) are
-[Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md) and
-[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified; Qwen 3.6 35B-A3B MoE
-and Gemma 4 **26B-A4B** / **31B** AXQ 4/6-bit packs have
-[checkpoint Tier 1](docs/certifications/README.md) (MTP acceleration not claimed for those).
-See the [certification index](docs/certifications/README.md) for exact Hub commits. Other catalog
-entries remain development artifacts unless their own exact revision has a certificate.
+Certification host: `df-macbookpro-m5`. Full index and Hub commits:
+[docs/certifications/](docs/certifications/README.md).
+
+| Pack family | Checkpoint Tier 1 | MTP Tier 2 (scoped) |
+| --- | --- | --- |
+| Qwen 3.6 27B AXQ 6-bit v3 | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
+| Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
+| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | Not certified |
+| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | Not certified |
+| Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | Not claimed |
+| Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | Not claimed |
+| Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | Not claimed |
+| Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | Not claimed |
+
+Other catalog entries remain development artifacts unless their own exact revision has a
+certificate.
 
 ## Contents
 
