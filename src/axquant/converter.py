@@ -1032,30 +1032,59 @@ def _expected_converted_shapes(
     )
 
 
+def _fused_member_multiplicity(members: tuple[str, ...]) -> int:
+    """How many plan tensors map to each expert index in a fused group.
+
+    DeepSeek V4 FusedSwitchGLU binds both ``w1`` and ``w3`` to
+    ``switch_mlp.gate_proj``, so each index appears twice. Qwen/Nemotron gate
+    experts bind once per index even when the expert count is even — do not
+    infer dual-concat from even group size alone.
+    """
+
+    counts: dict[int, int] = {}
+    for member in members:
+        binding = fused_expert_tensor_target(member)
+        if binding is None:
+            continue
+        index = binding[1]
+        counts[index] = counts.get(index, 0) + 1
+    if not counts:
+        return 1
+    values = set(counts.values())
+    if len(values) != 1:
+        raise ArtifactError(
+            "converted expert fusion has inconsistent per-index membership counts: "
+            f"{sorted(counts.items())[:10]}"
+        )
+    return next(iter(values))
+
+
 def _expected_fused_converted_shapes(
     tensor_name: str,
     source_shapes: tuple[tuple[int, ...], ...],
     bits: int,
+    *,
+    multiplicity: int = 1,
 ) -> tuple[tuple[int, ...], ...]:
     """Derive the exact leading-axis stack shape for indexed expert weights."""
 
     if not source_shapes or len(set(source_shapes)) != 1:
         raise ArtifactError(f"converted expert fusion {tensor_name} mixes source shapes")
+    if multiplicity < 1:
+        raise ArtifactError(f"converted expert fusion {tensor_name} has invalid multiplicity")
     base_shape = source_shapes[0]
     member_count = len(source_shapes)
-    binding = fused_expert_tensor_target(tensor_name)
-    expert_count = member_count
+    if member_count % multiplicity != 0:
+        raise ArtifactError(
+            f"converted expert fusion {tensor_name} member count {member_count} "
+            f"is not divisible by multiplicity {multiplicity}"
+        )
+    expert_count = member_count // multiplicity
     fused_base = base_shape
-    # DeepSeek V4 FusedSwitchGLU maps both w1 and w3 onto gate_proj and
-    # concatenates their output rows (axis 0 of each 2-D expert weight).
-    if (
-        binding is not None
-        and member_count % 2 == 0
-        and len(base_shape) >= 1
-        and "switch_mlp.gate_proj" in binding[0]
-    ):
-        expert_count = member_count // 2
-        fused_base = (base_shape[0] * 2, *base_shape[1:])
+    # DeepSeek V4 FusedSwitchGLU concatenates w1+w3 output rows into gate_proj
+    # (axis 0 of each 2-D expert weight) when multiplicity is 2.
+    if multiplicity > 1 and len(base_shape) >= 1:
+        fused_base = (base_shape[0] * multiplicity, *base_shape[1:])
     component_shapes = _expected_converted_shapes(tensor_name, fused_base, bits)
     if len(component_shapes) != 1:
         raise ArtifactError(f"converted expert fusion {tensor_name} has multiple output components")
@@ -1254,6 +1283,7 @@ def _verify_converted_weights(
                 tensor_name,
                 source_shapes,
                 allocation.bits,
+                multiplicity=_fused_member_multiplicity(members),
             )
         else:
             expected_shapes = _expected_converted_shapes(

@@ -1217,6 +1217,35 @@ def test_expected_fused_shapes_conserve_nemotron_expert_parameters() -> None:
         )
 
 
+def test_qwen_even_expert_count_is_not_deepseek_dual_gate_concat() -> None:
+    """Even expert counts must not trigger DeepSeek w1+w3 gate concat."""
+
+    gate = "model.layers.3.mlp.experts.0.gate_proj.weight"
+    # 64 Qwen experts (even) stack 1:1 — not 32 experts with doubled out dim.
+    assert converter._expected_fused_converted_shapes(
+        gate,
+        ((8192, 4096),) * 64,
+        4,
+        multiplicity=1,
+    ) == ((64, 8192, 512),)
+
+
+def test_deepseek_dual_w1_w3_gate_concat_shape() -> None:
+    """DeepSeek FusedSwitchGLU concatenates w1+w3 into gate_proj (multiplicity 2)."""
+
+    w1 = "layers.0.ffn.experts.0.w1.weight"
+    members = tuple(
+        f"layers.0.ffn.experts.{index}.{proj}.weight" for index in range(4) for proj in ("w1", "w3")
+    )
+    assert converter._fused_member_multiplicity(members) == 2
+    assert converter._expected_fused_converted_shapes(
+        w1,
+        ((2048, 4096),) * 8,
+        2,
+        multiplicity=2,
+    ) == ((4, 4096, 256),)
+
+
 def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transforms(
     qwen36_model_dir: Path,
 ) -> None:
