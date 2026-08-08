@@ -16,6 +16,7 @@ from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactSizeEvidence,
     EvaluationBundle,
+    ModelIdentity,
     MtpAbComparison,
     ProfileName,
     QualityComparisonReport,
@@ -25,6 +26,22 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.serde import load_model, stable_sha256
+
+
+def _same_scoreboard_identity(left: ModelIdentity, right: ModelIdentity) -> bool:
+    """Match immutable checkpoints while treating architecture as optional enrichment."""
+    if same_model_identity(left, right):
+        return True
+    return (
+        left.model_id == right.model_id
+        and left.revision == right.revision
+        and left.format == right.format
+        and (
+            left.architecture is None
+            or right.architecture is None
+            or left.architecture == right.architecture
+        )
+    )
 
 
 def _positive_finite(value: float, label: str, *, at_most_one: bool = False) -> None:
@@ -196,11 +213,11 @@ def build_scoreboard(
             and abs(aggregate.retention - expected_retention) > 1e-9
         ):
             raise ArtifactError("quality comparison aggregate retention is inconsistent")
-        if cand_size is not None and not same_model_identity(
+        if cand_size is not None and not _same_scoreboard_identity(
             quality.candidate_model, cand_size.model
         ):
             raise ArtifactError("quality comparison and size evidence use different candidates")
-        if ref_size is not None and not same_model_identity(
+        if ref_size is not None and not _same_scoreboard_identity(
             quality.reference_model, ref_size.model
         ):
             raise ArtifactError("quality comparison and size evidence use different references")
@@ -248,17 +265,17 @@ def build_scoreboard(
             and validation.target_class != plan_model.target_class
         ):
             raise ArtifactError("validation report target class does not match the scoreboard")
-        if cand_size is not None and not same_model_identity(
+        if cand_size is not None and not _same_scoreboard_identity(
             validation.candidate_model, cand_size.model
         ):
             raise ArtifactError("validation report and size evidence use different candidates")
-        if ref_size is not None and not same_model_identity(
+        if ref_size is not None and not _same_scoreboard_identity(
             validation.reference_model, ref_size.model
         ):
             raise ArtifactError("validation report and size evidence use different references")
         if quality is not None and (
-            not same_model_identity(validation.candidate_model, quality.candidate_model)
-            or not same_model_identity(validation.reference_model, quality.reference_model)
+            not _same_scoreboard_identity(validation.candidate_model, quality.candidate_model)
+            or not _same_scoreboard_identity(validation.reference_model, quality.reference_model)
         ):
             raise ArtifactError("validation report and quality comparison identities differ")
         rows.append(
@@ -292,7 +309,8 @@ def build_scoreboard(
             if validation is not None:
                 candidate_identities.append(validation.candidate_model)
             if any(
-                not same_model_identity(identity, mtp.model) for identity in candidate_identities
+                not _same_scoreboard_identity(identity, mtp.model)
+                for identity in candidate_identities
             ):
                 raise ArtifactError("MTP A/B and candidate evidence identify different checkpoints")
         # The producer legitimately emits exactness_pass=False with zero
@@ -570,7 +588,7 @@ def build_scoreboard(
                 if validation is not None:
                     expected_identities.append(validation.reference_model)
             if any(
-                not same_model_identity(identity, evaluation.model)
+                not _same_scoreboard_identity(identity, evaluation.model)
                 for identity in expected_identities
             ):
                 raise ArtifactError(f"{label.lower()} identity differs from bound evidence")

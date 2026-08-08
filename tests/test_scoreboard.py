@@ -476,6 +476,22 @@ def test_scoreboard_rejects_mismatched_reference_identity(tmp_path: Path) -> Non
         )
 
 
+def test_scoreboard_allows_missing_optional_architecture_metadata(tmp_path: Path) -> None:
+    reference_path = _size_evidence(tmp_path, "reference", weight_bytes=1000)
+    reference = load_model(reference_path, ArtifactSizeEvidence)
+    reference.model.architecture = "Qwen3_5ForConditionalGeneration"
+    write_data(reference_path, reference)
+
+    report = build_scoreboard(
+        plan=_plan(),
+        candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),
+        size_reference=reference_path,
+        quality_comparison=_quality_report(tmp_path, retention=0.99),
+    )
+
+    assert next(row for row in report.rows if row.metric_id == "quality_retention").status == "pass"
+
+
 @pytest.mark.parametrize("threshold", [float("nan"), float("inf"), 0.0, -1.0])
 def test_scoreboard_rejects_invalid_thresholds(threshold: float) -> None:
     with pytest.raises(PlanningError, match="positive and finite"):
