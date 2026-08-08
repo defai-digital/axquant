@@ -269,13 +269,14 @@ MTP_DIAGNOSTIC_PROFILES: dict[str, dict[str, str]] = {
 # suite. The exact flag alone is NOT the contract on AX Engine 6.12.x: without
 # the invariant-projection/row-exact/split-FFN companions the verifier falls
 # off the validated graph and every cycle pays a many-fold rollback and
-# verify-eval penalty (measured 2026-08-01: 0.8925x misconfigured versus
-# 1.0969x under the full contract on the same artifact/binary/host).
+# verify-eval penalty. Linear-attention recurrent state always uses singleton
+# replay: AX Engine 6.13.5's multi-token checkpoint path deterministically
+# diverged from greedy direct decode in formal testing.
 QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
     "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
-    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "1",
     "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
     "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
     "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",
