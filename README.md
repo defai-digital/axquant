@@ -23,6 +23,38 @@ multi-token-prediction (MTP) weights.
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)) —
 not certified releases; full table under [Current status](#current-status).
 
+## Contents
+
+**Start here**
+
+- [Install (Mac / Apple Silicon)](#install-mac-apple-silicon)
+- [At a glance](#at-a-glance)
+- [Quickstart](#quickstart)
+- [How it works](#how-it-works)
+- [Input and output](#input-and-output)
+- [Why AXQuant](#why-axquant)
+
+**Product status and packs**
+
+- [Current status](#current-status) (tiers, Hub catalog, known gaps)
+
+**Operators**
+
+- [From-source install (Mac)](#from-source-install-mac)
+- [Simple development conversion](#simple-development-conversion)
+- [Staged development conversion](#staged-development-conversion)
+- [CLI workflow](#cli-workflow)
+- [Measured planning and validation](#measured-planning-and-validation)
+- [Evidence and safety boundaries](#evidence-and-safety-boundaries)
+- [Model naming](#model-naming)
+
+**Contributors**
+
+- [Development](#development)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [License](#license)
+
 ## Install (Mac / Apple Silicon)
 
 AXQuant is built for **Macs with Apple Silicon** (M1-M5). Conversion and measured analysis need
@@ -785,11 +817,17 @@ axquant validate \
   --reference-evaluation reference-evaluation.json \
   --candidate-direct-evaluation candidate-mtp-off.json \
   --candidate-evaluation candidate-mtp-on.json \
+  --mtp-ab candidate-mtp-ab.json \
   --size-reference uniform4-size-evidence.json \
   --candidate-size candidate-size-evidence.json \
   --profile agent-coding \
   --output validation.json
 ```
+
+For an MTP speed claim, `--mtp-ab` binds the matched AX Engine direct/MTP comparison used for
+token-weighted decode speedup, prompt-median speedup, and greedy-output exactness. AXQuant rejects
+the bundle when its model identity, workload, software, hardware, controls, or environment do not
+match the candidate evidence.
 
 For a `6bit` certification, freeze the class explicitly and derive the size reference from the
 matching complete uniform-6 baseline. The same `max_weight_size_ratio` threshold is then applied
@@ -805,6 +843,7 @@ axquant validate \
   --reference-evaluation reference-evaluation.json \
   --candidate-direct-evaluation candidate-mtp-off.json \
   --candidate-evaluation candidate-mtp-on.json \
+  --mtp-ab candidate-mtp-ab.json \
   --size-reference uniform6-size-evidence.json \
   --candidate-size candidate-size-evidence.json \
   --target-class 6bit \
