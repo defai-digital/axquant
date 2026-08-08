@@ -286,9 +286,7 @@ def test_ministral3_model_prefix_prep_rewrites_keys_and_forces_tie(
     )
     (model_dir / "model.safetensors").write_bytes(b"fake")
 
-    assert needs_ministral3_model_prefix_prep(
-        model_dir, {"model_type": "ministral3"}
-    )
+    assert needs_ministral3_model_prefix_prep(model_dir, {"model_type": "ministral3"})
     prepared = prepare_ministral3_model_prefix_source(model_dir, work_dir=tmp_path / "work")
     cfg = json.loads((prepared / "config.json").read_text(encoding="utf-8"))
     assert cfg["tie_word_embeddings"] is True
