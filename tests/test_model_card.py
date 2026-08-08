@@ -301,7 +301,9 @@ def test_floor_collapsed_model_card_omits_4bit_sibling_link(
     )
 
     readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "Why there is no AXQ-4bit pack" in readme
     assert "no distinct 4bit pack" in readme
+    assert "6.97 BPW" in readme or "~6.97 BPW" in readme
     assert "AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP" in readme
     assert "AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP" not in readme
     assert "does **not** publish a separate" in readme

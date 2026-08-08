@@ -39,14 +39,26 @@ _REFRESHABLE_FILES = frozenset(
 
 # Product stems that do not publish a distinct AXQ-4bit Hub sibling. Protection floors
 # collapse the 4.8 and 6.0 BPW budgets to the same (or near-identical) artifact, so only
-# the higher budget class remains in the public catalog.
-_NO_DISTINCT_4BIT_SIBLING_STEMS = frozenset(
-    {
-        "AX-MiniCPM5-1B-MLX-AXQ",
-        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ",
-        "AX-Qwen3.5-9B-MLX-AXQ",
-    }
-)
+# the higher budget class remains in the public catalog. Values are short, base-specific
+# reasons rendered into the development model card.
+_NO_DISTINCT_4BIT_SIBLING_REASONS: dict[str, str] = {
+    "AX-Qwen3.5-9B-MLX-AXQ": (
+        "MTP and vision stay BF16 under protection floors, so both the ~4.8 and ~6.0 BPW "
+        "budgets rise to ~6.97 BPW with identical weight files (~8.4 GB). A separate 4bit "
+        "name would not reduce download size or runtime memory."
+    ),
+    "AX-MiniCPM5-1B-MLX-AXQ": (
+        "On this ~1B model, protected high-precision tensors dominate storage, so both the "
+        "~4.8 and ~6.0 BPW budgets land at ~7.38 BPW with identical weight files (~1.0 GB). "
+        "A separate 4bit name would not reduce download size or runtime memory."
+    ),
+    "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ": (
+        "Protection floors lift the low-memory plan to ~5.99 BPW, essentially the same as "
+        "the ~6.00 BPW pack (~6.7 GB). There is no meaningful size ladder between product "
+        "names, so only this 6bit pack is published."
+    ),
+}
+_NO_DISTINCT_4BIT_SIBLING_STEMS = frozenset(_NO_DISTINCT_4BIT_SIBLING_REASONS)
 
 
 def _resolve_artifact_edition(
@@ -283,14 +295,18 @@ def render_development_model_card(
         fallback_bytes=manifest.protected_weight_file_size_bytes,
     )
     main_parameters = _format_parameters(manifest.main_logical_parameters)
-    if stem in _NO_DISTINCT_4BIT_SIBLING_STEMS:
+    no_4bit_reason = _NO_DISTINCT_4BIT_SIBLING_REASONS.get(stem)
+    if no_4bit_reason is not None:
         sibling_rows = (
-            "| *(no distinct 4bit pack)* | Protection floors collapse the low-memory and "
-            f"`{higher_precision_class}` budgets for this base to the same (or near-identical) "
-            f"artifact. The public catalog publishes only "
+            f"| *(no distinct 4bit pack)* | {no_4bit_reason} The public catalog publishes only "
             f"[`{stem}-{higher_precision_class}{repo_edition}{suffix}`]"
             f"(https://huggingface.co/{higher_precision_repo}). |"
         )
+        why_no_4bit_section = f"""## Why there is no AXQ-4bit pack
+
+{no_4bit_reason}
+
+"""
     else:
         sibling_rows = "\n".join(
             (
@@ -302,6 +318,7 @@ def render_development_model_card(
                 f"{higher_precision_class.removesuffix('bit')}-BPW budget |",
             )
         )
+        why_no_4bit_section = ""
     catalog_url = "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
     long_context_status = (
         f"{context_length}-token capacity is config metadata, not a validated claim"
@@ -567,7 +584,7 @@ the BF16 source model. {sidecar_blurb}
 
 This repository contains MLX Safetensors. It does **not** contain PyTorch or GGUF weights.
 
-## Choosing an AXQ pack
+{why_no_4bit_section}## Choosing an AXQ pack
 
 AXQ names describe a **storage-budget product class**, not one uniform precision applied to every
 tensor. Protected tensors remain at higher precision, so the exact measured BPW is authoritative.
@@ -576,6 +593,7 @@ In particular, a `6bit`-named mixed plan may retain `4bit` as its base precision
 floors can also raise a `4bit`-named pack close to (or above) a `6bit` budget on small or heavily
 protected models. When that collapse happens, AutomatosX does **not** publish a separate
 misleading `4bit` sibling for that base.
+{"For this base, see [Why there is no AXQ-4bit pack](#why-there-is-no-axq-4bit-pack)." if no_4bit_reason is not None else ""}
 
 | Sibling | Intended trade-off |
 | --- | --- |
