@@ -1,0 +1,68 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-08T23:30:46.614717+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit",
+    "hub_commit": "main-pending",
+    "product_class": "4bit",
+    "source_model_id": "google/gemma-4-31B-it",
+    "source_revision": null,
+    "candidate_manifest_sha256": "989f7c7e0ce9a7550e239b4eadb2167f6ca495522d200081b4899e64f04d00f7"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "effective_bpw": 4.899855566924716,
+    "measured_total_bpw": 4.899922859286156,
+    "measured_main_bpw": 4.899922859286156
+  },
+  "size": {
+    "candidate_bytes": 19154465383,
+    "reference_bytes": 18412016676,
+    "ratio": 1.0403241383095085,
+    "max_size_ratio": 1.15,
+    "pass": true,
+    "candidate_bpw": 4.899922859286156,
+    "reference_bpw": 4.709996316386896
+  },
+  "quality": {
+    "agent-coding": {
+      "retention": 0.9923664122137404,
+      "candidate": 0.8552631578947368,
+      "reference": 0.8618421052631579,
+      "perplexity_ratio": 0.7969888487114675
+    },
+    "general": {
+      "retention": 1.0,
+      "candidate": 1.0,
+      "reference": 1.0,
+      "perplexity_ratio": 0.7666058512248385
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-claimed",
+    "reason": "Gemma-4 AXQ checkpoint Tier 1 only; no formal MTP acceleration certificate"
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on Apple M5 Max (df-macbookpro-m5).",
+    "Vision/multimodal quality not claimed.",
+    "Chat-template digests may differ from the mlx-community uniform reference; suite protocol matched."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "8778fc6f2d254010cb3377d70052bc42ab0b1f44f5c0be012bac313ae4ef2c78",
+    "quality-comparison-general_sha256": "1c9d5301a71fb604e567499dfe2c24aa46bca1717c1099f0feb9ac0fc88b322b",
+    "candidate-size_sha256": "b1ba587ff3cec41a3e106e043b15f40f48c6ad9e7895d5c495a70aea27a81c83",
+    "runtime-mlx-lm_sha256": "e0cff7816f535dc226739964487040ca68a98e549566fc01dcb8909d25dd4133"
+  }
+}

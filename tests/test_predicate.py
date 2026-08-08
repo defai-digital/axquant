@@ -534,3 +534,30 @@ def test_unwrapped_and_nemotron_packed_expert_tensors_bind_their_switch_modules(
     )
     scales_aliases = mlx_tensor_aliases("model.layers.0.mlp.experts.down_proj.scales")
     assert "model.layers.0.mlp.switch_mlp.down_proj.scales" in scales_aliases
+
+
+def test_gemma4_packed_experts_alias_switch_glu_runtime_modules() -> None:
+    """Gemma-4 A4B packs experts under layer.experts → switch_glu (mlx_lm sanitize)."""
+    from axquant.module_paths import mlx_module_aliases, packed_expert_runtime_modules
+
+    gate_up = "model.language_model.layers.0.experts.gate_up_proj"
+    down = "model.language_model.layers.0.experts.down_proj"
+    assert packed_expert_runtime_modules(gate_up) == (
+        "model.language_model.layers.0.experts.switch_glu.gate_proj",
+        "model.language_model.layers.0.experts.switch_glu.up_proj",
+    )
+    assert packed_expert_runtime_modules(down) == (
+        "model.language_model.layers.0.experts.switch_glu.down_proj",
+    )
+    aliases = set(mlx_module_aliases(gate_up))
+    assert "language_model.model.layers.0.experts.switch_glu.gate_proj" in aliases
+    assert "language_model.model.layers.0.experts.switch_glu.up_proj" in aliases
+    # Qwen mlp.experts packing must still resolve to switch_mlp, not switch_glu.
+    qwen = packed_expert_runtime_modules("model.language_model.layers.0.mlp.experts.gate_up_proj")
+    assert qwen[0].endswith("switch_mlp.gate_proj")
+    groups = mlx_tensor_binding_groups(
+        "model.language_model.layers.0.experts.gate_up_proj.weight"
+    )
+    flat = {a for g in groups for a in g}
+    assert "model.language_model.layers.0.experts.switch_glu.gate_proj.weight" in flat
+    assert "language_model.model.layers.0.experts.switch_glu.up_proj.weight" in flat

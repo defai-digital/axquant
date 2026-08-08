@@ -377,7 +377,10 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # remain on the original source and are restored as protected
         # sidecars. Real inspect: 677/677 tensors classified on
         # google/gemma-4-12b; conversion uses the prepared text-path view.
+        # 26B-A4B IT enables MoE (`enable_moe_block` / `num_experts`); experts
+        # quantize as fused switch modules (same path as other allow_moe families).
         support_tier=SupportTier.CONVERTIBLE,
+        allow_moe=True,
         text_config_key="text_config",
         extra_role_patterns=(
             # Per-layer residual scale scalars: norm-class protected weights.
@@ -388,7 +391,9 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         ),
         notes=(
             "Gemma-4 gemma4_unified sources convert via prepared gemma4 text-path "
-            "(multimodal tensors protected as sidecars).",
+            "(multimodal tensors protected as sidecars). Dense and MoE (A4B) IT "
+            "checkpoints are convertible; MoE artifacts are development evidence "
+            "until certified.",
         ),
     ),
     DenseFamilySpec(

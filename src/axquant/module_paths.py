@@ -117,6 +117,12 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     ``...mlp.experts.gate_up_proj`` (which MLX-LM splits into the fused
     ``switch_mlp.gate_proj`` and ``switch_mlp.up_proj`` modules) and
     ``...mlp.experts.down_proj`` (which becomes ``switch_mlp.down_proj``).
+
+    Gemma-4 MoE (A4B) ships packed experts *without* an ``mlp`` container:
+    ``...layers.N.experts.gate_up_proj`` / ``...experts.down_proj``. Public
+    ``mlx_lm.models.gemma4_text.Model.sanitize`` splits those into
+    ``...experts.switch_glu.{gate,up,down}_proj``.
+
     One plan allocation therefore covers each packed tensor's MLX modules,
     which share its single precision by construction.
     """
@@ -133,6 +139,15 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     if module_path.endswith(".mixer.experts.down_proj"):
         prefix = module_path.removesuffix(".experts.down_proj")
         return (f"{prefix}.switch_mlp.fc2",)
+    # Gemma-4 A4B (and any other family that packs experts under layer.experts
+    # without an mlp intermediate). Matched after the more specific mlp/mixer
+    # forms so Qwen/Nemotron aliases stay unchanged.
+    if module_path.endswith(".experts.gate_up_proj"):
+        base = module_path.removesuffix(".gate_up_proj")
+        return (f"{base}.switch_glu.gate_proj", f"{base}.switch_glu.up_proj")
+    if module_path.endswith(".experts.down_proj"):
+        base = module_path.removesuffix(".down_proj")
+        return (f"{base}.switch_glu.down_proj",)
     return ()
 
 

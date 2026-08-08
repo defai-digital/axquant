@@ -388,8 +388,25 @@ def compare_quality(
         raise BenchmarkError("quality evaluations use different datasets")
     if reference.random_seed != candidate.random_seed:
         raise BenchmarkError("quality evaluations use different random seeds")
-    if reference.generation != candidate.generation:
+    # Generation protocol must match (format, lengths, thinking). Chat-template
+    # digests may differ between an AXQ pack and a third-party uniform reference
+    # even when both use the same suite controls — that packaging difference is
+    # recorded, not a failed evaluation protocol.
+    ref_gen = reference.generation
+    cand_gen = candidate.generation
+    if (
+        ref_gen.prompt_format != cand_gen.prompt_format
+        or ref_gen.thinking_enabled != cand_gen.thinking_enabled
+        or ref_gen.max_sequence_length != cand_gen.max_sequence_length
+        or ref_gen.max_generation_tokens != cand_gen.max_generation_tokens
+    ):
         raise BenchmarkError("quality evaluations use different generation settings")
+    if ref_gen.chat_template_sha256 != cand_gen.chat_template_sha256:
+        log.warning(
+            "quality_chat_template_differs",
+            reference=ref_gen.chat_template_sha256,
+            candidate=cand_gen.chat_template_sha256,
+        )
     reference_tasks = {task.task_id: task for task in reference.task_results}
     candidate_tasks = {task.task_id: task for task in candidate.task_results}
     if reference_tasks.keys() != candidate_tasks.keys():

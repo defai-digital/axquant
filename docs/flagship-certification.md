@@ -36,6 +36,18 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | Vision-language quality | Not certified |
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
+
+### Gemma-4 AXQ siblings (checkpoint Tier 1)
+
+Certified on `df-macbookpro-m5` (size + quality vs matched uniform; MTP Tier 2 not claimed):
+
+| Pack | Tier 1 |
+| --- | --- |
+| 26B-A4B AXQ 4-bit | [Yes](certifications/gemma4-26b-a4b-axq4-tier1.md) |
+| 26B-A4B AXQ 6-bit | [Yes](certifications/gemma4-26b-a4b-axq6-tier1.md) |
+| 31B AXQ 4-bit | [Yes](certifications/gemma4-31b-axq4-tier1.md) |
+| 31B AXQ 6-bit | [Yes](certifications/gemma4-31b-axq6-tier1.md) |
+
 These are exact-revision certificates, not architecture-wide promotions. Each pack’s Hub commit
 and listed digests identify the certified weight set.
 
