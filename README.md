@@ -225,7 +225,7 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.6.0` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.6.1` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
@@ -237,6 +237,8 @@ command does not by itself certify an output.
   classes. Requires an `mlx-lm` build that includes `deepseek_v4` (v1.6.0).
 - Convert/inventory hardening for DeepSeek sanitizer renames, FP4 expert logical params,
   MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
+- Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
+  HC learnable scale aliases no longer invent `.scales` (v1.6.1).
 
 ### v1.5.x at a glance
 
@@ -264,7 +266,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.6.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.0)
+See the [v1.6.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.1)
 for the complete change list and download verification instructions. Past tags keep their
 notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
 tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
