@@ -19,6 +19,10 @@ multi-token-prediction (MTP) weights.
 > capabilities. Its goal is to reduce storage and unified-memory cost while preserving important
 > model quality and runtime behavior.
 
+**Ready-made development packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
+([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)) —
+not certified releases; full table under [Current status](#current-status).
+
 ## Install
 
 **Canonical install is [PyPI](https://pypi.org/project/axquant/)** (not the GitHub Packages tab —
