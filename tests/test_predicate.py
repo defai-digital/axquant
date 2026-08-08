@@ -130,6 +130,38 @@ def test_qwen_checkpoint_tensor_paths_map_to_mlx_lm_output_paths() -> None:
     )
 
 
+def test_deepseek_v4_hc_tensor_aliases_compose_model_prefix_and_rename() -> None:
+    """deepseek_v4.sanitize renames layers.* + hc_* into model.layers.*.*_hc.*."""
+
+    assert "model.layers.0.attn_hc.base" in mlx_tensor_aliases("layers.0.hc_attn_base")
+    assert "model.layers.0.attn_hc.fn" in mlx_tensor_aliases("layers.0.hc_attn_fn")
+    assert "model.layers.0.attn_hc.scale" in mlx_tensor_aliases("layers.0.hc_attn_scale")
+    assert "model.layers.0.ffn_hc.base" in mlx_tensor_aliases("layers.0.hc_ffn_base")
+    assert "model.layers.0.ffn_hc.fn" in mlx_tensor_aliases("layers.0.hc_ffn_fn")
+    assert "model.layers.0.ffn_hc.scale" in mlx_tensor_aliases("layers.0.hc_ffn_scale")
+    assert "model.hc_head.scale" in mlx_tensor_aliases("hc_head_scale")
+    assert "model.hc_head.base" in mlx_tensor_aliases("hc_head_base")
+    assert "model.hc_head.fn" in mlx_tensor_aliases("hc_head_fn")
+    assert "model.layers.0.ffn.shared_experts.gate_proj.weight" in mlx_tensor_aliases(
+        "layers.0.ffn.shared_experts.w1.weight"
+    )
+    assert "model.layers.3.ffn.gate.e_score_correction_bias" in mlx_tensor_aliases(
+        "layers.3.ffn.gate.bias"
+    )
+    assert "model.norm.weight" in mlx_tensor_aliases("norm.weight")
+
+
+def test_deepseek_mtp_experts_are_not_fused_for_sidecar_binding() -> None:
+    """MTP is byte-copied unfused; main-layer experts still fuse to switch_mlp."""
+
+    assert fused_expert_tensor_target("mtp.0.ffn.experts.0.w1.weight") is None
+    assert fused_expert_tensor_target("model.mtp.0.ffn.experts.1.w2.weight") is None
+    assert "mtp.0.ffn.experts.0.w1.weight" in mlx_tensor_aliases("mtp.0.ffn.experts.0.w1.weight")
+    fused = fused_expert_tensor_target("layers.3.ffn.experts.0.w1.weight")
+    assert fused is not None
+    assert fused[0].endswith("switch_mlp.gate_proj.weight")
+
+
 def test_indexed_expert_tensor_paths_map_to_exact_fused_output() -> None:
     qwen = "model.language_model.layers.3.mlp.experts.17.gate_proj.weight"
     nemotron = "backbone.layers.8.mixer.experts.20.up_proj.weight"
@@ -480,6 +512,5 @@ def test_unwrapped_and_nemotron_packed_expert_tensors_bind_their_switch_modules(
     assert mlx_tensor_binding_groups("backbone.layers.3.mixer.experts.up_proj.weight") == (
         ("backbone.layers.3.mixer.switch_mlp.fc1.weight",),
     )
-    assert mlx_tensor_binding_groups("model.layers.0.mlp.experts.down_proj.scales") == (
-        ("model.layers.0.mlp.switch_mlp.down_proj.scales",),
-    )
+    scales_aliases = mlx_tensor_aliases("model.layers.0.mlp.experts.down_proj.scales")
+    assert "model.layers.0.mlp.switch_mlp.down_proj.scales" in scales_aliases

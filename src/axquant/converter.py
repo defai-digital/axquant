@@ -69,6 +69,122 @@ def _mlx_api() -> tuple[Any, Any]:
     return mlx_lm.convert, mlx_lm.load
 
 
+def _dequantize_quantized_multilinear(model: Any) -> Any:
+    """Dequantize MLX-LM ``QuantizedMultiLinear`` modules left by FP8 loads.
+
+    Public ``mlx_lm.utils.dequantize_model`` only handles QuantizedLinear,
+    QuantizedEmbedding, and QuantizedSwitchLinear. DeepSeek V4 attention
+    ``wo_a`` is a ``MultiLinear`` that loads as ``QuantizedMultiLinear`` and
+    would otherwise remain 8-bit through a 16-bit plan allocation.
+    """
+
+    try:
+        mx = importlib.import_module("mlx.core")
+        tree_unflatten = importlib.import_module("mlx.utils").tree_unflatten
+        mla = importlib.import_module("mlx_lm.models.mla")
+    except ModuleNotFoundError:
+        return model
+    quantized_cls = getattr(mla, "QuantizedMultiLinear", None)
+    multilinear_cls = getattr(mla, "MultiLinear", None)
+    if quantized_cls is None or multilinear_cls is None:
+        return model
+    replacements: list[tuple[str, Any]] = []
+    for name, module in model.named_modules():
+        if not isinstance(module, quantized_cls):
+            continue
+        weight = mx.dequantize(
+            module.weight,
+            module.scales,
+            module.biases,
+            module.group_size,
+            module.bits,
+            module.mode,
+        )
+        num_heads, output_dims, input_dims = weight.shape
+        restored = multilinear_cls(input_dims, output_dims, num_heads)
+        restored.weight = weight
+        replacements.append((name, restored))
+    if replacements:
+        model.update_modules(tree_unflatten(replacements))
+        _LOG.info("dequantized_quantized_multilinear", count=len(replacements))
+    return model
+
+
+def _mlx_convert_with_optional_dequant(
+    model_ref: str,
+    *,
+    mlx_path: str,
+    quantize: bool,
+    q_group_size: int,
+    q_bits: int,
+    quant_predicate: Any,
+    revision: str | None,
+) -> None:
+    """Convert via MLX-LM, dequantizing mixed-precision sources first when needed.
+
+    DeepSeek V4 Flash ships FP4/FP8 experts that load as already-quantized MLX
+    modules without ``to_quantized``. Re-packing requires dequant then affine
+    quant under the plan predicate (lazy load keeps peak memory manageable).
+    """
+    convert, load = _mlx_api()
+    try:
+        utils = importlib.import_module("mlx_lm.utils")
+    except ModuleNotFoundError:
+        convert(
+            model_ref,
+            mlx_path=mlx_path,
+            quantize=quantize,
+            q_group_size=q_group_size,
+            q_bits=q_bits,
+            quant_predicate=quant_predicate,
+            revision=revision,
+        )
+        return
+    config_path = Path(model_ref).expanduser() / "config.json"
+    needs_dequant = False
+    if config_path.is_file():
+        try:
+            config_obj = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            config_obj = {}
+        if isinstance(config_obj, dict):
+            needs_dequant = bool(
+                config_obj.get("quantization") or config_obj.get("quantization_config")
+            )
+    if not needs_dequant or not quantize:
+        convert(
+            model_ref,
+            mlx_path=mlx_path,
+            quantize=quantize,
+            q_group_size=q_group_size,
+            q_bits=q_bits,
+            quant_predicate=quant_predicate,
+            revision=revision,
+        )
+        return
+    _LOG.info("conversion_dequant_requant_started", model=model_ref)
+    model, tokenizer, config = load(
+        model_ref,
+        revision=revision,
+        return_config=True,
+        lazy=True,
+    )
+    config.pop("quantization", None)
+    config.pop("quantization_config", None)
+    model = utils.dequantize_model(model)
+    model = _dequantize_quantized_multilinear(model)
+    model, config = utils.quantize_model(
+        model,
+        config,
+        q_group_size,
+        q_bits,
+        mode="affine",
+        quant_predicate=quant_predicate,
+    )
+    utils.save(mlx_path, model_ref, model, tokenizer, config)
+    _LOG.info("conversion_dequant_requant_completed", model=model_ref)
+
+
 def _preflight_coverage(model: str, revision: str | None, predicate: PlanPredicate) -> None:
     _, load = _mlx_api()
     try:
@@ -716,6 +832,31 @@ def _artifact_files(output_dir: Path) -> list[ArtifactFile]:
     return files
 
 
+def _is_converted_quant_sidecar_name(tensor_path: str) -> bool:
+    """True when a plan tensor is quant metadata rather than a logical weight.
+
+    Mixed-precision exports use singular ``.scale`` / ``.bias`` sidecars next to
+    weight bodies. HyperConnection learnable scales and MoE router gate biases
+    are real parameters and must remain in converted coverage.
+    """
+
+    if tensor_path.endswith((".scales", ".biases")):
+        return True
+    if tensor_path.endswith(
+        (".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale", ".hc_attn_scale", ".hc_ffn_scale")
+    ) or tensor_path in {"hc_head_scale", "model.hc_head.scale"}:
+        return False
+    if tensor_path.endswith(".scale"):
+        return True
+    if tensor_path.endswith(".ffn.gate.bias") or tensor_path.endswith(
+        ".ffn.gate.e_score_correction_bias"
+    ):
+        return False
+    if tensor_path.endswith(".bias"):
+        return True
+    return False
+
+
 def _validated_plan_source_tensors(
     source_dir: Path,
     plan: QuantizationPlan,
@@ -726,8 +867,20 @@ def _validated_plan_source_tensors(
         source_dir,
         model_id=plan.source_model.model_id,
         revision=plan.source_model.revision,
+        # Plans may bind mixed-precision exports (e.g. DeepSeek V4 Flash FP4+FP8)
+        # when produced with --allow-quantized re-pack inventory.
+        allow_quantized=True,
     )
-    expected = {allocation.tensor: allocation for allocation in plan.assignments}
+    metadata_names = {
+        tensor.name for tensor in inventory.tensors if tensor.quantization_metadata
+    }
+    # Scale/bias sidecars of mixed-precision exports are plan bookkeeping only;
+    # convert coverage compares logical weight tensors.
+    expected = {
+        allocation.tensor: allocation
+        for allocation in plan.assignments
+        if allocation.tensor not in metadata_names
+    }
     actual = {
         tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
     }
@@ -833,10 +986,22 @@ def _fused_expected_groups(expected: Mapping[str, Any]) -> dict[str, tuple[str, 
         ordered = sorted(members)
         indices = [index for index, _ in ordered]
         if indices != list(range(len(ordered))):
-            raise ArtifactError(
-                f"converted expert fusion {output_target} does not have contiguous source indices: "
-                f"{indices[:10]}"
-            )
+            # DeepSeek V4 FusedSwitchGLU stacks both w1 (gate) and w3 (up) into
+            # switch_mlp.gate_proj, so each expert index appears twice.
+            multiplicity: dict[int, int] = {}
+            for index, _ in ordered:
+                multiplicity[index] = multiplicity.get(index, 0) + 1
+            unique = sorted(multiplicity)
+            counts = set(multiplicity.values())
+            if not (
+                unique == list(range(len(unique)))
+                and len(counts) == 1
+                and next(iter(counts)) > 1
+            ):
+                raise ArtifactError(
+                    f"converted expert fusion {output_target} does not have contiguous "
+                    f"source indices: {indices[:10]}"
+                )
         groups[output_target] = tuple(name for _, name in ordered)
     return groups
 
@@ -882,10 +1047,32 @@ def _expected_fused_converted_shapes(
 
     if not source_shapes or len(set(source_shapes)) != 1:
         raise ArtifactError(f"converted expert fusion {tensor_name} mixes source shapes")
-    component_shapes = _expected_converted_shapes(tensor_name, source_shapes[0], bits)
+    base_shape = source_shapes[0]
+    member_count = len(source_shapes)
+    binding = fused_expert_tensor_target(tensor_name)
+    expert_count = member_count
+    fused_base = base_shape
+    # DeepSeek V4 FusedSwitchGLU maps both w1 and w3 onto gate_proj and
+    # concatenates their output rows (axis 0 of each 2-D expert weight).
+    if (
+        binding is not None
+        and member_count % 2 == 0
+        and len(base_shape) >= 1
+        and "switch_mlp.gate_proj" in binding[0]
+    ):
+        expert_count = member_count // 2
+        fused_base = (base_shape[0] * 2, *base_shape[1:])
+    component_shapes = _expected_converted_shapes(tensor_name, fused_base, bits)
     if len(component_shapes) != 1:
         raise ArtifactError(f"converted expert fusion {tensor_name} has multiple output components")
-    return ((len(source_shapes), *component_shapes[0]),)
+    return ((expert_count, *component_shapes[0]),)
+
+
+def _shape_element_count(shape: tuple[int, ...]) -> int:
+    total = 1
+    for dim in shape:
+        total *= dim
+    return total
 
 
 def _protected_shape_matches(
@@ -897,6 +1084,24 @@ def _protected_shape_matches(
     if actual_shape == source_shape:
         return True
     model_type = plan.architecture_profile.config_model_type
+    # deepseek_v4.sanitize reshapes 2-D Linear wo_a weights into MultiLinear 3-D
+    # ``(o_groups, o_lora_rank, -1)`` without changing element count.
+    if (
+        model_type == "deepseek_v4"
+        and tensor_name.endswith(".attn.wo_a.weight")
+        and len(source_shape) == 2
+        and len(actual_shape) == 3
+        and actual_shape[-1] == source_shape[-1]
+        and _shape_element_count(source_shape) == _shape_element_count(actual_shape)
+    ):
+        _LOG.info(
+            "converted_shape_transform_verified",
+            tensor=tensor_name,
+            source_shape=source_shape,
+            actual_shape=actual_shape,
+            transform="mlx-lm-deepseek-v4-wo_a-multilinear-reshape",
+        )
+        return True
     qwen_hybrid_conv1d = model_type in {
         "qwen3_5",
         "qwen3_5_moe",
@@ -986,7 +1191,16 @@ def _verify_converted_weights(
     actual_audio_parameters = sum(
         tensor.parameters for tensor in inventory.tensors if tensor.role == TensorRole.AUDIO
     )
-    expected_tensors = {allocation.tensor: allocation for allocation in plan.assignments}
+    # Scale/bias sidecars of mixed-precision sources are not logical converted
+    # weight tensors after affine re-pack (they become MLX quant metadata).
+    # MoE router ``*.ffn.gate.bias`` is a real parameter (DeepSeek renames it to
+    # ``e_score_correction_bias``); keep it in expected coverage.
+    expected_tensors = {
+        allocation.tensor: allocation
+        for allocation in plan.assignments
+        if allocation.parameters > 0
+        and not _is_converted_quant_sidecar_name(allocation.tensor)
+    }
     output_tensors = {
         tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
     }
@@ -1092,7 +1306,10 @@ def _verify_converted_weights(
                     f"protected tensor {verification_name} shape changed during conversion: "
                     f"{actual_shapes} != {expected_shapes}"
                 )
-            if any(
+            # Byte-preserved MTP sidecars keep the source's native packing
+            # (DeepSeek V4 Flash experts stay FP4/I8). Only non-MTP protected
+            # tensors must remain at reference (≥16-bit) precision.
+            if not allocation.role.is_mtp and any(
                 component.current_bits is not None and component.current_bits < 16
                 for component in actual_components
             ):
@@ -1258,8 +1475,7 @@ def convert_model(
         default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:
             if backend == "mlx-lm":
-                convert, _ = _mlx_api()
-                convert(
+                _mlx_convert_with_optional_dequant(
                     convert_model_ref,
                     mlx_path=str(staging_dir),
                     quantize=True,

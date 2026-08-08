@@ -745,6 +745,7 @@ def _run(args: argparse.Namespace) -> int:
             kv_cache=args.kv_cache,
             recipe=args.recipe,
             allow_download=args.allow_download,
+            allow_quantized=args.allow_quantized,
             calibration_manifest=args.calibration_manifest,
             kv_sensitivity=args.kv_sensitivity,
             mtp_sidecar=args.mtp_sidecar,

@@ -463,6 +463,73 @@ def test_quantized_inventory_reconstructs_logical_parameters(
     assert inventory.weight_bytes == (packed_model_dir / "model.safetensors").stat().st_size
 
 
+def test_deepseek_fp4_expert_weights_expand_logical_parameters(tmp_path: Path) -> None:
+    """FP4 expert bodies pack 2 values per I8 element; inventory reports logical size."""
+
+    model_dir = tmp_path / "deepseek-fp4"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["DeepseekV4ForCausalLM"],
+                "model_type": "deepseek_v4",
+                "expert_dtype": "fp4",
+                "quantization_config": {"quant_method": "fp8", "fmt": "e4m3"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            # Physical [2048, 2048] I8 → logical [2048, 4096] after FP4 unpack.
+            "layers.0.ffn.experts.0.w1.weight": np.zeros((2048, 2048), dtype=np.int8),
+            "layers.0.ffn.experts.0.w1.scale": np.ones((2048, 128), dtype=np.float32),
+            "layers.0.ffn.experts.0.w2.weight": np.zeros((4096, 1024), dtype=np.int8),
+        },
+        str(model_dir / "model.safetensors"),
+    )
+    inventory = inspect_model(model_dir, allow_quantized=True)
+    by_name = {t.name: t for t in inventory.tensors}
+    w1 = by_name["layers.0.ffn.experts.0.w1.weight"]
+    assert w1.physical_elements == 2048 * 2048
+    assert w1.parameters == 2048 * 4096
+    assert list(w1.shape) == [2048, 4096]
+    assert w1.current_bits == 4
+    w2 = by_name["layers.0.ffn.experts.0.w2.weight"]
+    assert w2.parameters == 4096 * 2048
+    assert list(w2.shape) == [4096, 2048]
+
+
+def test_deepseek_hc_learnable_scale_is_not_quant_metadata(tmp_path: Path) -> None:
+    """HyperConnection/HyperHead ``*.scale`` vectors are real params, not sidecars."""
+
+    model_dir = tmp_path / "deepseek-hc"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"architectures": ["DeepseekV4ForCausalLM"], "model_type": "deepseek_v4"}),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "model.layers.0.attn_hc.scale": np.ones((3,), dtype=np.float32),
+            "model.layers.0.ffn_hc.scale": np.ones((3,), dtype=np.float32),
+            "model.hc_head.scale": np.ones((3,), dtype=np.float32),
+            # Genuine quant sidecar still metadata.
+            "model.layers.0.attn.q_a_proj.scale": np.ones((4,), dtype=np.float32),
+            "model.layers.0.attn.q_a_proj.weight": np.ones((8, 8), dtype=np.float32),
+        },
+        str(model_dir / "model.safetensors"),
+    )
+    inventory = inspect_model(model_dir, allow_quantized=True)
+    by_name = {t.name: t for t in inventory.tensors}
+    assert by_name["model.layers.0.attn_hc.scale"].quantization_metadata is False
+    assert by_name["model.layers.0.attn_hc.scale"].parameters == 3
+    assert by_name["model.layers.0.ffn_hc.scale"].quantization_metadata is False
+    assert by_name["model.hc_head.scale"].quantization_metadata is False
+    assert by_name["model.layers.0.attn.q_a_proj.scale"].quantization_metadata is True
+    assert by_name["model.layers.0.attn.q_a_proj.scale"].parameters == 0
+
+
 def test_inventory_recognizes_mtp_head_sidecar_filename(tmp_path: Path) -> None:
     """Indexed checkpoints shipping ``mtp_head.safetensors`` (instead of
     ``mtp.safetensors``) must still have that sidecar's tensors picked up —

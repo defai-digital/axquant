@@ -580,6 +580,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Allow Hugging Face Hub download when MODEL is a Hub id (not a local path)",
     )
     quantize_parser.add_argument(
+        "--allow-quantized",
+        action="store_true",
+        help=(
+            "Allow re-quantization from an already mixed-precision / quantized source "
+            "(e.g. DeepSeek V4 Flash FP4+FP8). Development evidence only."
+        ),
+    )
+    quantize_parser.add_argument(
         "--runtime-smoke",
         choices=["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"],
         default="none",

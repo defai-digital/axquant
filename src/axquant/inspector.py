@@ -268,6 +268,31 @@ def _mtp_runtime_bits(model_dir: Path) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _deepseek_fp4_expert_weight(name: str, dtype: str, config: dict[str, Any]) -> bool:
+    """True when a tensor is a DeepSeek V4 FP4 expert body packed in I8/U8.
+
+    Official Flash/Pro exports store routed-expert weights as FP4 in int8
+    containers (``expert_dtype: fp4``). Physical last-dim length is half the
+    logical dequant width MLX-LM reconstructs after sanitize.
+    """
+
+    if dtype not in {"I8", "U8"} or not name.endswith(".weight"):
+        return False
+    if ".ffn.experts." not in name and ".mlp.experts." not in name:
+        return False
+    if ".shared_experts." in name:
+        return False
+    expert_dtype = str(config.get("expert_dtype", "")).lower()
+    if expert_dtype in {"fp4", "f4", "nvfp4", "mxfp4"}:
+        return True
+    configured = config.get("quantization_config")
+    if isinstance(configured, dict):
+        fmt = str(configured.get("fmt", "")).lower()
+        if "fp4" in fmt or fmt in {"f4", "e2m1"}:
+            return True
+    return expert_dtype == "" and str(config.get("model_type", "")).startswith("deepseek")
+
+
 def _quantization_details(
     name: str,
     dtype: str,
@@ -276,6 +301,8 @@ def _quantization_details(
     native_quantization: dict[str, dict[str, Any]],
     mtp_bits: int | None,
 ) -> tuple[int | None, int | None, QuantMethod | None]:
+    if _deepseek_fp4_expert_weight(name, dtype, config):
+        return 4, None, QuantMethod.AFFINE
     if dtype != "U32" or name.endswith((".scales", ".biases")):
         if dtype == "BF16":
             return 16, None, QuantMethod.BF16
@@ -399,7 +426,27 @@ def inspect_model(
                         if adapter is not None
                         else classify_tensor(name, relative_file)
                     )
-                    quantization_metadata = name.endswith((".scales", ".biases"))
+                    # Official DeepSeek V4 mixed-precision exports use singular
+                    # ``.scale`` (and I8/F8 weight bodies) rather than MLX's
+                    # ``.scales``/``.biases`` affine sidecar naming. HyperConnection
+                    # / HyperHead learnable ``*.scale`` vectors are real params
+                    # (mlx_lm deepseek_v4 sanitize maps hc_*_scale → *.scale).
+                    is_hc_learnable_scale = name.endswith(
+                        (".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale")
+                    ) or name in {
+                        "hc_head_scale",
+                        "model.hc_head.scale",
+                    } or name.endswith(
+                        (".hc_attn_scale", ".hc_ffn_scale")
+                    )
+                    quantization_metadata = (
+                        name.endswith((".scales", ".biases"))
+                        or (name.endswith(".scale") and not is_hc_learnable_scale)
+                    ) or (
+                        quantized_source
+                        and name.endswith(".bias")
+                        and dtype not in _FLOAT_DTYPES
+                    )
                     current_bits, current_group_size, current_method = _quantization_details(
                         name,
                         dtype,
@@ -408,9 +455,17 @@ def inspect_model(
                         native_quantization,
                         mtp_bits,
                     )
+                    # FP4 expert bodies pack two 4-bit values per I8/U8 element; MLX
+                    # dequant doubles the trailing dim (deepseek_v4 sanitize/load).
+                    fp4_expert = _deepseek_fp4_expert_weight(name, dtype, config)
+                    logical_shape = list(shape)
+                    if fp4_expert and shape:
+                        logical_shape[-1] = int(shape[-1]) * 2
                     parameters = (
                         0
                         if quantization_metadata
+                        else physical_elements * 2
+                        if fp4_expert
                         else physical_elements * 32 // current_bits
                         if dtype == "U32" and current_bits is not None
                         else physical_elements
@@ -423,14 +478,33 @@ def inspect_model(
                         if current_bits is not None
                         else dtype.lower()
                     )
+                    shape = logical_shape
                     # Packed MoE expert stacks are 3-D ([experts, out, in]);
                     # MLX-LM quantizes them as fused switch modules with the
                     # same per-group affine layout as 2-D linears, so they are
                     # quantizable. Every other non-2-D tensor stays preserved.
                     module_path = module_path_for(name)
+                    # Re-quant of mixed FP4/FP8 sources (DeepSeek V4 Flash): after
+                    # MLX sanitize/dequant, these become ordinary Linear modules.
+                    # Inventory must still mark them quantizable so architecture-
+                    # prior plans can assign 2/3/4/6-bit budgets.
+                    requant_weight = (
+                        allow_quantized
+                        and quantized_source
+                        and name.endswith(".weight")
+                        and role
+                        in {
+                            TensorRole.EXPERT,
+                            TensorRole.MLP,
+                            TensorRole.ATTENTION,
+                            TensorRole.EMBEDDING,
+                            TensorRole.LM_HEAD,
+                            TensorRole.ROUTER,
+                        }
+                    )
                     quantizable = (
                         (len(shape) == 2 or (len(shape) == 3 and role == TensorRole.EXPERT))
-                        and dtype in _FLOAT_DTYPES
+                        and (dtype in _FLOAT_DTYPES or requant_weight)
                         and role != TensorRole.NORM
                         and not quantization_metadata
                         and not unclassified_by_adapter
@@ -441,6 +515,14 @@ def inspect_model(
                         and not (
                             module_path.endswith(".mixer.gate") or ".mixer.gate." in module_path
                         )
+                        # DeepSeek V4 compressor APE is an array attribute, not a
+                        # Linear module, so MLX-LM convert never visits it.
+                        and not name.endswith(".ape")
+                        and ".ape." not in name
+                        # MoE router gates and MultiLinear wo_a are not visited by
+                        # nn.quantize (no to_quantized after load/dequant).
+                        and not module_path.endswith(".ffn.gate")
+                        and not module_path.endswith(".attn.wo_a")
                     )
                     tensors.append(
                         TensorSpec(

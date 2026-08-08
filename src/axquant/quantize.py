@@ -135,12 +135,14 @@ def quick_convert(
     image_input: str | Path | None = None,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
     allow_download: bool = False,
+    allow_quantized: bool = False,
 ) -> QuickConversionSummary:
     inventory = inspect_model(
         model,
         model_id=model_id,
         revision=revision,
         allow_download=allow_download,
+        allow_quantized=allow_quantized,
     )
     architecture = inventory.architecture_profile
     if architecture.support_tier is SupportTier.INSPECT_ONLY:

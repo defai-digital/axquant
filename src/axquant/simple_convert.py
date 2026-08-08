@@ -134,6 +134,7 @@ def simple_convert(
     kv_cache: str | None = None,
     recipe: str | Path | None = None,
     allow_download: bool = False,
+    allow_quantized: bool = False,
     runtime_smoke: RuntimeSmoke = "none",
     ax_engine: str = "ax-engine",
     mlx_lm: str = "mlx_lm.generate",
@@ -234,6 +235,7 @@ def simple_convert(
         image_input=image_input,
         ax_engine_manifest=ax_engine_manifest,
         allow_download=False,  # already resolved above
+        allow_quantized=allow_quantized,
     )
     extra_notes = [
         "Simple convert path: development evidence only (best practice: two doors).",

@@ -231,7 +231,14 @@ def manual_quantization_plan(
     recipe: ManualPlanRecipe,
 ) -> QuantizationPlan:
     if inventory.quantized_source:
-        raise PlanningError("manual planning requires an unquantized source inventory")
+        # Mixed-precision exports (e.g. DeepSeek V4 Flash FP4+FP8) may still be
+        # re-packed when inventory was produced with --allow-quantized and the
+        # expert/MLP/attention weights are marked quantizable for dequant+affine.
+        if not any(tensor.quantizable for tensor in inventory.tensors):
+            raise PlanningError(
+                "manual planning requires an unquantized source inventory "
+                "(or --allow-quantized inventory with quantizable re-pack weights)"
+            )
     if not is_immutable_revision(inventory.model.revision):
         raise PlanningError("manual planning requires a revision-pinned source inventory")
     profile = inventory.architecture_profile

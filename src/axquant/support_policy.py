@@ -187,6 +187,28 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Do not promote non-catalog Nemotron refs to convertible.",
         ),
     ),
+    FamilySupportPolicy(
+        product_family="deepseek-v4",
+        adapter_id="deepseek-v4-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=45,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin support: DeepSeek V4 Flash MoE development convert via MLX-LM "
+            "deepseek_v4. Large total-param packs; development evidence only."
+        ),
+        do=(
+            "Allow architecture-prior / experimental low-bit convert for Flash.",
+            "Label all DeepSeek V4 outputs as development evidence until certified.",
+            "Require an mlx-lm build that implements model_type=deepseek_v4.",
+        ),
+        do_not=(
+            "Do not claim certified quality, speed, or long-context scores from priors.",
+            "Do not treat V4-Pro (1.6T) as a default factory target on laptop hosts.",
+            "Do not bypass experimental labels for 2/3-bit packs.",
+        ),
+    ),
 )
 
 

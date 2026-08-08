@@ -24,7 +24,7 @@ This matrix covers **runtime environments**. For the model-family support matrix
 | Component | Requirement | Used by |
 | --- | --- | --- |
 | `mlx` | `>= 0.29` | capture-activations, analyze (measured), analyze-kv, convert, evaluate-quality, runtime paths |
-| `mlx-lm` | `>= 0.31` | same as above |
+| `mlx-lm` | `>= 0.31` | same as above; DeepSeek V4 (`model_type=deepseek_v4`) requires a build that ships `mlx_lm.models.deepseek_v4` (not all PyPI 0.31.x releases) |
 | `mlx-audio` | `>= 0.4.7` | Qwen3-ASR BF16 normalization, conversion, and transcription smoke |
 | `mlx-vlm` | `>= 0.6.10` | Qwen3-VL conversion and image-to-text smoke |
 

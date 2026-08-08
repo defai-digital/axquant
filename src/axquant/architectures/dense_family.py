@@ -25,10 +25,15 @@ from axquant.schema import (
 _MTP = re.compile(r"(^|[./_-])(mtp|multi[_-]?token)([./_-]|$)")
 _MOE_CONFIG_KEYS = (
     "num_experts",
+    "n_routed_experts",
     "num_experts_per_tok",
     "moe_intermediate_size",
     "enable_moe_block",
     "top_k_experts",
+)
+_MTP_CONFIG_KEYS = (
+    "mtp_num_hidden_layers",
+    "num_nextn_predict_layers",
 )
 
 _MTP_OUTPUT_TOKENS = ("output_head", "lm_head", "vocab_head")
@@ -55,8 +60,8 @@ _AUDIO_TOKENS = (
     "audio_encoder",
     "audio_projector",
 )
-_LM_HEAD_TOKENS = ("lm_head", "output.weight", "output_layer")
-_EMBEDDING_TOKENS = ("embed_tokens", "token_embedding")
+_LM_HEAD_TOKENS = ("lm_head", "output.weight", "output_layer", "head.weight")
+_EMBEDDING_TOKENS = ("embed_tokens", "token_embedding", "embed.weight")
 _ATTENTION_TOKENS = (
     "self_attn",
     "attention",
@@ -72,8 +77,24 @@ _ATTENTION_TOKENS = (
     "conv1d",
     "a_log",
     "dt_bias",
+    # DeepSeek V4 hybrid attention / compressed sparse attention (CSA/HCA).
+    "indexer",
+    "compressor",
+    "wo_a",
+    "wo_b",
+    "wkv",
+    "attn_sink",
+    "kv_a",
+    "kv_b",
+    "q_a",
+    "q_b",
+    "q_lora",
+    "kv_lora",
+    "mqa",
+    "csa",
+    "hca",
 )
-_MLP_TOKENS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj")
+_MLP_TOKENS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj", "ffn", "w1", "w2", "w3")
 _EXPERT_TOKENS = ("expert", "switch_mlp", "switch_glu")
 _MTP_SIDECAR_FILENAMES = frozenset({"mtp.safetensors", "mtp_head.safetensors"})
 _VISION_SIDECAR_FILENAME = "vision.safetensors"
@@ -105,6 +126,14 @@ def classify_dense_tensor(
         and not _MTP.search(name_value)
     ):
         return TensorRole.ROUTER
+    # MTP path tokens must win over family extras (e.g. shared_expert → MLP)
+    # so DeepSeek ``mtp.*.shared_experts.*`` stays protected as MTP.
+    if source_name in _MTP_SIDECAR_FILENAMES or _MTP.search(name_value):
+        if any(token in protected_path_value for token in _MTP_OUTPUT_TOKENS):
+            return TensorRole.MTP_OUTPUT
+        if any(token in protected_path_value for token in _MTP_PROJECTION_TOKENS):
+            return TensorRole.MTP_PROJECTION
+        return TensorRole.MTP_BLOCK
     for token, role in extra_patterns:
         if token.lower() in name_value:
             return role
@@ -112,12 +141,6 @@ def classify_dense_tensor(
     # Letting ordinary role tokens in a shard filename participate would make
     # (for example) every tensor in ``norm-shard.safetensors`` a norm and
     # could mask unknown tensor names as quantizable MLPs.
-    if source_name in _MTP_SIDECAR_FILENAMES or _MTP.search(name_value):
-        if any(token in protected_path_value for token in _MTP_OUTPUT_TOKENS):
-            return TensorRole.MTP_OUTPUT
-        if any(token in protected_path_value for token in _MTP_PROJECTION_TOKENS):
-            return TensorRole.MTP_PROJECTION
-        return TensorRole.MTP_BLOCK
     if any(token in name_path_value for token in _AUDIO_TOKENS):
         return TensorRole.AUDIO
     if source_name == _VISION_SIDECAR_FILENAME or any(
@@ -256,7 +279,7 @@ class DenseFamilyAdapter:
             ),
             dense=dense,
             text_layer_count=layer_count,
-            mtp_declared=bool(scope.get("mtp_num_hidden_layers")),
+            mtp_declared=any(bool(scope.get(key)) for key in _MTP_CONFIG_KEYS),
             vision_present=isinstance(config.get("vision_config"), dict),
             audio_present=(self._nested_scope(config, self.spec.audio_config_key) is not None),
             notes=notes,
@@ -414,6 +437,29 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             "Mistral3 multimodal shells (including Ministral-3): language path is "
             "optimized; vision tower is stripped by MLX-LM sanitize and preserved "
             "only when present as protected tensors in the source inventory.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="deepseek-v4-v1",
+        product_family="deepseek-v4",
+        model_types=("deepseek_v4",),
+        reference_pattern=r"deepseek[._-]?v4",
+        support_tier=SupportTier.CONVERTIBLE,
+        allow_moe=True,
+        extra_role_patterns=(
+            # Manifold-constrained hyper-connections and residual scales.
+            ("hc_", TensorRole.NORM),
+            ("mhc", TensorRole.NORM),
+            ("hyper_connection", TensorRole.NORM),
+            ("layer_scalar", TensorRole.NORM),
+            ("shared_expert", TensorRole.MLP),
+            # Official Flash export uses top-level embed/head names.
+            ("embed.weight", TensorRole.EMBEDDING),
+            ("head.weight", TensorRole.LM_HEAD),
+        ),
+        notes=(
+            "DeepSeek V4 Flash/Pro MoE: fused experts via MLX-LM deepseek_v4.",
+            "Development convert only; requires mlx-lm with deepseek_v4 support.",
         ),
     ),
 )

@@ -99,17 +99,38 @@ class PlanPredicate:
         normalized = _without_weight_suffix(path)
         if allocation := self._aliases.get(normalized):
             return allocation
-        suffix_matches = [
+        # Prefer longest alias that is a path suffix of the runtime module.
+        # Bare names like ``norm`` would otherwise match every ``*.norm`` path
+        # (DeepSeek V4 has both root norms and per-layer compressor norms).
+        ending_matches = [
+            (module_path, allocation)
+            for module_path, allocation in self._aliases.items()
+            if normalized == module_path or normalized.endswith(f".{module_path}")
+        ]
+        if ending_matches:
+            ending_matches.sort(key=lambda item: len(item[0]), reverse=True)
+            best_len = len(ending_matches[0][0])
+            best = [
+                allocation
+                for module_path, allocation in ending_matches
+                if len(module_path) == best_len
+            ]
+            unique = list({allocation.module_path: allocation for allocation in best}.values())
+            if len(unique) == 1:
+                return unique[0]
+            if len(unique) > 1:
+                raise PlanningError(f"ambiguous module path {path}")
+        prefix_matches = [
             allocation
             for module_path, allocation in self._aliases.items()
-            if module_path.endswith(f".{normalized}") or normalized.endswith(f".{module_path}")
+            if module_path.endswith(f".{normalized}")
         ]
-        suffix_matches = list(
-            {allocation.module_path: allocation for allocation in suffix_matches}.values()
+        prefix_matches = list(
+            {allocation.module_path: allocation for allocation in prefix_matches}.values()
         )
-        if len(suffix_matches) > 1:
+        if len(prefix_matches) > 1:
             raise PlanningError(f"ambiguous module path {path}")
-        return suffix_matches[0] if suffix_matches else None
+        return prefix_matches[0] if prefix_matches else None
 
     def _resolve_calibration(self, allocation: Allocation) -> Any:
         candidates = [

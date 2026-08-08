@@ -288,6 +288,45 @@ def test_qwen3_dense_does_not_claim_qwen35_or_qwen36() -> None:
     assert adapter_for("Qwen/Qwen3.6-27B", config) is None
 
 
+def test_deepseek_v4_flash_is_convertible_moe() -> None:
+    # Mirrors public deepseek-ai/DeepSeek-V4-Flash config keys (n_routed_experts,
+    # num_nextn_predict_layers) rather than Qwen-style num_experts / mtp_*.
+    config = {
+        "model_type": "deepseek_v4",
+        "architectures": ["DeepseekV4ForCausalLM"],
+        "num_hidden_layers": 43,
+        "n_routed_experts": 256,
+        "num_experts_per_tok": 6,
+        "moe_intermediate_size": 2048,
+        "num_nextn_predict_layers": 1,
+    }
+    adapter = adapter_for("deepseek-ai/DeepSeek-V4-Flash", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "deepseek-v4-v1"
+    profile = adapter.profile("deepseek-ai/DeepSeek-V4-Flash", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.product_family == "deepseek-v4"
+    assert profile.text_layer_count == 43
+    assert profile.mtp_declared is True
+    assert any("deepseek_v4" in note or "MoE" in note for note in profile.notes)
+    # CSA / fused-expert style tensor names classify.
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.attn.indexer.weight",
+            "model.safetensors",
+        )
+        is TensorRole.ATTENTION
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.ffn.switch_mlp.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+
+
 def test_qwen3_next_coder_is_convertible_moe() -> None:
     config = {
         "model_type": "qwen3_next",
@@ -459,6 +498,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
         "mistral-devstral-dense-v1": SupportTier.CONVERTIBLE,
         "mistral3-dense-v1": SupportTier.CONVERTIBLE,
+        "deepseek-v4-v1": SupportTier.CONVERTIBLE,
     }
     families = [entry.product_family for entry in matrix.entries]
     assert families[0] == "qwen3.6"

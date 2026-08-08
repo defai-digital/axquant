@@ -18,7 +18,8 @@ from axquant.serde import file_sha256, load_model, read_data, stable_sha256, wri
 
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 _AXQ_NAME = re.compile(
-    r"^(?P<stem>AX-.+-MLX-AXQ)-(?P<product_class>4bit|6bit|8bit)"
+    r"^(?P<stem>AX-.+-MLX-AXQ)-"
+    r"(?P<product_class>2bit(?:-experimental)?|3bit(?:-experimental)?|4bit|6bit|8bit)"
     r"(?P<edition>-v[1-9][0-9]*)?(?:-MTP)?$"
 )
 _PUBLIC_METADATA_FILES = (
@@ -258,9 +259,19 @@ def render_development_model_card(
     )
     suffix = "-MTP" if name.endswith("-MTP") else ""
     is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
-    higher_precision_class = "8bit" if is_embedding_pack else "6bit"
+    # Sibling ladder for Hub cross-links: low-bit experimental packs point at 4bit.
+    base_class = product_class.removesuffix("-experimental")
+    if is_embedding_pack:
+        higher_precision_class = "8bit"
+        low_precision_class = "4bit"
+    elif base_class in {"2bit", "3bit"}:
+        higher_precision_class = "4bit"
+        low_precision_class = "2bit"
+    else:
+        higher_precision_class = "6bit"
+        low_precision_class = "4bit"
     owner = repo_id.split("/", 1)[0]
-    four_bit_repo = f"{owner}/{stem}-4bit{repo_edition}{suffix}"
+    four_bit_repo = f"{owner}/{stem}-{low_precision_class}{repo_edition}{suffix}"
     higher_precision_repo = f"{owner}/{stem}-{higher_precision_class}{repo_edition}{suffix}"
     density = "dense" if plan.architecture_profile.dense else "mixture of experts (MoE)"
     product_family = plan.architecture_profile.product_family or "unknown"

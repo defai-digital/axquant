@@ -13,7 +13,19 @@ def main() -> None:
     )
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--repo-id", required=True)
-    parser.add_argument("--product-class", choices=("4bit", "6bit", "8bit"), default=None)
+    parser.add_argument(
+        "--product-class",
+        choices=(
+            "2bit",
+            "2bit-experimental",
+            "3bit",
+            "3bit-experimental",
+            "4bit",
+            "6bit",
+            "8bit",
+        ),
+        default=None,
+    )
     parser.add_argument("--artifact-edition", type=int, default=None)
     args = parser.parse_args()
     files = prepare_development_model_card(
