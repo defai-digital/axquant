@@ -27,6 +27,16 @@ _DEEPSEEK_PROJ_TO_SWITCH = {
 _PACKED_TENSOR_SUFFIXES = (".weight", ".scales", ".biases")
 
 
+def _is_hc_learnable_scale_path(path: str) -> bool:
+    """HyperConnection/HyperHead scale vectors are real params, not quant sidecars."""
+
+    return (
+        path.endswith((".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale"))
+        or path in {"hc_head_scale", "model.hc_head.scale"}
+        or path.endswith((".hc_attn_scale", ".hc_ffn_scale"))
+    )
+
+
 def fused_expert_module(module_path: str) -> str | None:
     """Map a per-expert checkpoint module to its fused MLX-LM switch module.
 
@@ -38,8 +48,14 @@ def fused_expert_module(module_path: str) -> str | None:
     Nemotron-H MoE experts use ``...mixer.experts.<i>.{up,down}_proj`` and fuse
     into ``...mixer.switch_mlp.{fc1,fc2}``.
 
+    Integrated MTP heads (``mtp.*``) are byte-preserved unfused and must not
+    map to a fictional ``mtp.*.switch_mlp.*`` module for the quant predicate.
+
     Returns ``None`` for non-expert paths.
     """
+    # deepseek_v4.sanitize drops ``mtp.*``; keep module and tensor fusion rules aligned.
+    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+        return None
     match = _EXPERT_MEMBER.match(module_path)
     if match is not None:
         return f"{match.group('prefix')}.switch_mlp.{match.group('proj')}"
@@ -268,9 +284,13 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
                 if new in candidate:
                     expanded.add(candidate.replace(new, old))
             # Singular source `.scale` becomes MLX affine `.scales` after re-pack.
-            if candidate.endswith(".scale"):
+            # Do not invent `.scales` for HyperConnection learnable scale vectors —
+            # that would make binding ambiguous if both names ever coexist.
+            if candidate.endswith(".scale") and not _is_hc_learnable_scale_path(candidate):
                 expanded.add(f"{candidate}s")
-            if candidate.endswith(".scales"):
+            if candidate.endswith(".scales") and not _is_hc_learnable_scale_path(
+                candidate.removesuffix("s")
+            ):
                 expanded.add(candidate.removesuffix("s"))
         if expanded != aliases:
             changed = True

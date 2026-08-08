@@ -8,6 +8,7 @@ from axquant.analyzer import architecture_prior_report
 from axquant.awq import refine_weight_with_awq
 from axquant.errors import PlanningError
 from axquant.module_paths import (
+    fused_expert_module,
     fused_expert_tensor_target,
     mlx_module_aliases,
     mlx_tensor_aliases,
@@ -156,10 +157,29 @@ def test_deepseek_mtp_experts_are_not_fused_for_sidecar_binding() -> None:
 
     assert fused_expert_tensor_target("mtp.0.ffn.experts.0.w1.weight") is None
     assert fused_expert_tensor_target("model.mtp.0.ffn.experts.1.w2.weight") is None
+    # Module-path fusion (quant predicate) must match tensor fusion for MTP.
+    assert fused_expert_module("mtp.0.ffn.experts.0.w1") is None
+    assert fused_expert_module("model.mtp.0.ffn.experts.1.w2") is None
     assert "mtp.0.ffn.experts.0.w1.weight" in mlx_tensor_aliases("mtp.0.ffn.experts.0.w1.weight")
     fused = fused_expert_tensor_target("layers.3.ffn.experts.0.w1.weight")
     assert fused is not None
     assert fused[0].endswith("switch_mlp.gate_proj.weight")
+    assert fused_expert_module("layers.3.ffn.experts.0.w1") is not None
+
+
+def test_hc_learnable_scale_does_not_alias_to_quant_scales() -> None:
+    """HC scale vectors must not invent ``.scales`` aliases (ambiguous binding risk)."""
+
+    aliases = set(mlx_tensor_aliases("layers.0.hc_attn_scale"))
+    assert "model.layers.0.attn_hc.scale" in aliases
+    assert "model.layers.0.attn_hc.scales" not in aliases
+    assert "layers.0.attn_hc.scales" not in aliases
+    head = set(mlx_tensor_aliases("hc_head_scale"))
+    assert "model.hc_head.scale" in head
+    assert "model.hc_head.scales" not in head
+    # Real quant sidecar still expands .scale ↔ .scales
+    quant = set(mlx_tensor_aliases("layers.0.attn.q_a_proj.scale"))
+    assert "layers.0.attn.q_a_proj.scales" in quant
 
 
 def test_indexed_expert_tensor_paths_map_to_exact_fused_output() -> None:
