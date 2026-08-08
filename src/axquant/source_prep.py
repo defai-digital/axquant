@@ -102,6 +102,30 @@ _TEKKEN_TOKENIZER_PACKS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+def needs_ministral3_model_prefix_prep(model_dir: str | Path, config: dict[str, Any]) -> bool:
+    """True when Ministral3/Nemotron-Embed weights omit the MLX ``model.`` prefix.
+
+    Public ``nvidia/Nemotron-3-Embed-*`` BF16 packs store language tensors as
+    ``embed_tokens.*`` / ``layers.*`` while ``mlx_lm.models.ministral3`` expects
+    ``model.embed_tokens.*`` / ``model.layers.*``. Convert-time prep rewrites
+    the keys into a prepared view; the source snapshot is left unchanged.
+    """
+    if str(config.get("model_type", "")) != "ministral3":
+        return False
+    directory = Path(model_dir).expanduser().resolve()
+    sample_keys = _sample_safetensor_keys(directory)
+    if not sample_keys:
+        return False
+    has_unprefixed = any(
+        key == "embed_tokens.weight"
+        or key.startswith("layers.")
+        or key.startswith("embed_tokens.")
+        for key in sample_keys
+    )
+    has_prefixed = any(key.startswith("model.") for key in sample_keys)
+    return has_unprefixed and not has_prefixed
+
+
 def needs_conversion_prep(model_dir: str | Path) -> bool:
     """True when the checkpoint requires a prepared MLX text-path view."""
     directory = Path(model_dir).expanduser().resolve()
@@ -111,7 +135,9 @@ def needs_conversion_prep(model_dir: str | Path) -> bool:
         config = _read_config(directory)
     except ArtifactError:
         return False
-    return needs_gemma4_unified_prep(config)
+    return needs_gemma4_unified_prep(config) or needs_ministral3_model_prefix_prep(
+        directory, config
+    )
 
 
 def _prepared_directory(source: Path, work_dir: str | Path, name: str) -> Path:
@@ -346,6 +372,122 @@ def prepare_tekken_tokenizer_source(
     return prepared
 
 
+def _sample_safetensor_keys(source: Path, *, limit: int = 32) -> list[str]:
+    """Read a small set of tensor names without loading full weight payloads."""
+    single = source / "model.safetensors"
+    index = source / "model.safetensors.index.json"
+    if index.is_file():
+        try:
+            payload = json.loads(
+                index.read_text(encoding="utf-8"),
+                object_pairs_hook=_json_object_without_duplicate_keys,
+            )
+        except (OSError, json.JSONDecodeError):
+            return []
+        weight_map = payload.get("weight_map") if isinstance(payload, dict) else None
+        if not isinstance(weight_map, dict):
+            return []
+        return list(weight_map.keys())[:limit]
+    if single.is_file():
+        try:
+            from safetensors import safe_open
+        except ModuleNotFoundError:
+            # Fallback via MLX when safetensors is unavailable.
+            try:
+                mx = _mlx_core()
+                return list(_load_mlx_weights(mx, single).keys())[:limit]
+            except ArtifactError:
+                return []
+        try:
+            with safe_open(str(single), framework="np") as handle:
+                return list(handle.keys())[:limit]
+        except OSError:
+            return []
+    return []
+
+
+def _prefix_ministral3_key(key: str) -> str:
+    if key.startswith("model."):
+        return key
+    if key.startswith(("layers.", "embed_tokens.", "norm.")) or key in {
+        "embed_tokens.weight",
+        "norm.weight",
+    }:
+        return f"model.{key}"
+    # lm_head and other top-level module keys stay unprefixed.
+    return key
+
+
+def prepare_ministral3_model_prefix_source(
+    source_dir: str | Path,
+    *,
+    work_dir: str | Path,
+) -> Path:
+    """Rewrite unprefixed Ministral3 language keys to ``model.*`` for MLX-LM."""
+    source = Path(source_dir).expanduser().resolve()
+    if not source.is_dir():
+        raise ArtifactError(f"ministral3 preparation requires a local directory: {source}")
+    config = _read_config(source)
+    if not needs_ministral3_model_prefix_prep(source, config):
+        raise ArtifactError(
+            "ministral3 model-prefix preparation expected unprefixed layers./embed_tokens. "
+            f"weights under model_type=ministral3 (got model_type={config.get('model_type')!r})"
+        )
+
+    prepared = _prepared_directory(source, work_dir, "ministral3-model-prefix")
+    sample_keys = _sample_safetensor_keys(source, limit=10_000)
+    has_lm_head = any(key == "lm_head.weight" or key.endswith(".lm_head.weight") for key in sample_keys)
+    prepared_config = dict(config)
+    # Nemotron-3-Embed-8B ships tie_word_embeddings=false without an lm_head
+    # tensor (feature-extraction export). Force tie so mlx_lm.ministral3 does
+    # not expect a missing head during convert preflight.
+    if not has_lm_head and not bool(prepared_config.get("tie_word_embeddings", True)):
+        prepared_config["tie_word_embeddings"] = True
+        log.info(
+            "ministral3_forced_tie_word_embeddings",
+            source=str(source),
+            reason="lm_head.weight missing from checkpoint",
+        )
+    (prepared / "config.json").write_text(
+        json.dumps(prepared_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    for name in (
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "generation_config.json",
+        "special_tokens_map.json",
+        "chat_template.jinja",
+        "sentence_bert_config.json",
+        "config_sentence_transformers.json",
+        "modules.json",
+    ):
+        candidate = source / name
+        if candidate.is_file():
+            (prepared / name).symlink_to(candidate)
+    pooling = source / "1_Pooling"
+    if pooling.is_dir():
+        (prepared / "1_Pooling").symlink_to(pooling)
+
+    weight_path = source / "model.safetensors"
+    index_path = source / "model.safetensors.index.json"
+    if weight_path.is_file():
+        _rewrite_ministral3_single_shard(weight_path, prepared / "model.safetensors")
+    elif index_path.is_file():
+        _rewrite_ministral3_sharded(source, prepared)
+    else:
+        raise ArtifactError(f"no Safetensors weights found under {source}")
+
+    log.info(
+        "ministral3_model_prefix_source_prepared",
+        source=str(source),
+        prepared=str(prepared),
+        model_type="ministral3",
+        tie_word_embeddings=bool(prepared_config.get("tie_word_embeddings")),
+    )
+    return prepared
+
+
 def prepare_conversion_source(
     source_dir: str | Path,
     *,
@@ -359,9 +501,76 @@ def prepare_conversion_source(
     config = _read_config(source)
     if needs_gemma4_unified_prep(config):
         return prepare_gemma4_unified_source(source, work_dir=work_dir)
+    if needs_ministral3_model_prefix_prep(source, config):
+        return prepare_ministral3_model_prefix_source(source, work_dir=work_dir)
     if needs_tekken_tokenizer_prep(source):
         return prepare_tekken_tokenizer_source(source, work_dir=work_dir, model_id=model_id)
     return None
+
+
+def _rewrite_ministral3_single_shard(source_file: Path, destination: Path) -> None:
+    mx = _mlx_core()
+    weights = _load_mlx_weights(mx, source_file)
+    rewritten = {_prefix_ministral3_key(str(key)): value for key, value in weights.items()}
+    if len(rewritten) != len(weights):
+        raise ArtifactError(
+            "ministral3 model-prefix rewrite collapsed tensor names; refusing convert prep"
+        )
+    mx.save_safetensors(str(destination), rewritten)
+    _verify_saved_tensor_names(mx, destination, set(rewritten))
+
+
+def _rewrite_ministral3_sharded(source: Path, prepared: Path) -> None:
+    """Rewrite each shard and the index so keys use the MLX ``model.`` prefix."""
+    source = source.resolve()
+    index_path = source / "model.safetensors.index.json"
+    try:
+        index = json.loads(
+            index_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"invalid {index_path}: {exc}") from exc
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ArtifactError("model.safetensors.index.json has no weight_map")
+
+    mx = _mlx_core()
+    new_weight_map: dict[str, str] = {}
+    shards_by_name: dict[str, dict[str, Any]] = {}
+    for tensor_name, shard_name in weight_map.items():
+        if not isinstance(tensor_name, str) or not tensor_name:
+            raise ArtifactError("model.safetensors.index.json contains an empty tensor name")
+        if not isinstance(shard_name, str) or not shard_name:
+            raise ArtifactError(
+                "model.safetensors.index.json contains a non-string shard reference"
+            )
+        relative = Path(shard_name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ArtifactError(f"index contains an unsafe shard path: {shard_name}")
+        shard_path = source / relative
+        if not shard_path.is_file():
+            raise ArtifactError(f"missing shard referenced by index: {shard_name}")
+        if shard_name not in shards_by_name:
+            weights = _load_mlx_weights(mx, shard_path)
+            shards_by_name[shard_name] = {
+                _prefix_ministral3_key(str(key)): value for key, value in weights.items()
+            }
+        new_key = _prefix_ministral3_key(tensor_name)
+        new_weight_map[new_key] = shard_name
+
+    for shard_name, weights in shards_by_name.items():
+        destination = prepared / shard_name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        mx.save_safetensors(str(destination), weights)
+        _verify_saved_tensor_names(mx, destination, set(weights))
+
+    new_index = dict(index)
+    new_index["weight_map"] = new_weight_map
+    (prepared / "model.safetensors.index.json").write_text(
+        json.dumps(new_index, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _mlx_core() -> Any:

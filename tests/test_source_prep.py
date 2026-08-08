@@ -228,6 +228,76 @@ def test_prepare_conversion_source_noop_for_qwen(tmp_path: Path) -> None:
     assert prepare_conversion_source(model_dir, work_dir=tmp_path / "work") is None
 
 
+def test_ministral3_model_prefix_prep_rewrites_keys_and_forces_tie(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Nemotron-3-Embed style: bare layers.* keys + missing lm_head."""
+    import numpy as np
+
+    from axquant.source_prep import (
+        needs_ministral3_model_prefix_prep,
+        prepare_ministral3_model_prefix_source,
+    )
+
+    model_dir = tmp_path / "Nemotron-3-Embed-1B-BF16"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "ministral3",
+                "num_hidden_layers": 2,
+                "tie_word_embeddings": False,
+                "architectures": ["Ministral3Model"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    weights = {
+        "embed_tokens.weight": np.zeros((8, 4), dtype=np.float32),
+        "layers.0.input_layernorm.weight": np.zeros((4,), dtype=np.float32),
+        "layers.0.mlp.gate_proj.weight": np.zeros((4, 4), dtype=np.float32),
+        "norm.weight": np.zeros((4,), dtype=np.float32),
+    }
+
+    class _FakeMlx:
+        @staticmethod
+        def load(path: str) -> dict[str, np.ndarray]:
+            del path
+            return dict(weights)
+
+        @staticmethod
+        def save_safetensors(path: str, payload: dict[str, np.ndarray]) -> None:
+            # Persist names only for verification (values unused).
+            Path(path).write_text("\n".join(sorted(payload)), encoding="utf-8")
+
+    monkeypatch.setattr(source_prep, "_mlx_core", lambda: _FakeMlx)
+    # Bypass real safetensors round-trip verification (fake writer).
+    monkeypatch.setattr(
+        source_prep,
+        "_verify_saved_tensor_names",
+        lambda mx, path, expected: None,
+    )
+    # Sample keys from our synthetic map without needing a real safetensors file.
+    monkeypatch.setattr(
+        source_prep,
+        "_sample_safetensor_keys",
+        lambda directory, limit=32: list(weights)[:limit],
+    )
+    (model_dir / "model.safetensors").write_bytes(b"fake")
+
+    assert needs_ministral3_model_prefix_prep(
+        model_dir, {"model_type": "ministral3"}
+    )
+    prepared = prepare_ministral3_model_prefix_source(model_dir, work_dir=tmp_path / "work")
+    cfg = json.loads((prepared / "config.json").read_text(encoding="utf-8"))
+    assert cfg["tie_word_embeddings"] is True
+    saved = (prepared / "model.safetensors").read_text(encoding="utf-8").splitlines()
+    assert "model.embed_tokens.weight" in saved
+    assert "model.layers.0.mlp.gate_proj.weight" in saved
+    assert "embed_tokens.weight" not in saved
+
+
 def test_prepare_rejects_wrong_type(tmp_path: Path) -> None:
     model_dir = tmp_path / "plain"
     model_dir.mkdir()

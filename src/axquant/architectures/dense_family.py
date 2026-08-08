@@ -428,15 +428,22 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         product_family="mistral3",
         # Mistral Small 3.x multimodal shells use model_type=mistral3 with a
         # nested text_config (language model_type often still ``mistral``).
-        model_types=("mistral3",),
-        # Include Ministral product names explicitly (not only org=mistralai).
-        reference_pattern=r"(mistral|devstral|ministral)",
+        # NVIDIA Nemotron-3-Embed-* BF16 exports use flat model_type=ministral3
+        # (Ministral3Model, is_causal=false, pooling) and load via mlx_lm
+        # ministral3 — same convert path as text Ministral3 language weights.
+        model_types=("mistral3", "ministral3"),
+        # Include Ministral product names and Nemotron-3-Embed retrieval packs.
+        reference_pattern=(
+            r"(mistral|devstral|ministral|nemotron[._-]?3?[._-]?embed|nemotron.*embed)"
+        ),
         text_config_key="text_config",
         support_tier=SupportTier.CONVERTIBLE,
         notes=(
             "Mistral3 multimodal shells (including Ministral-3): language path is "
             "optimized; vision tower is stripped by MLX-LM sanitize and preserved "
             "only when present as protected tensors in the source inventory.",
+            "Nemotron-3-Embed (model_type=ministral3) is feature-extraction only; "
+            "do not claim generative or MTP metrics.",
         ),
     ),
     DenseFamilySpec(

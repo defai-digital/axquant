@@ -250,6 +250,18 @@ def test_qwen35_spec_declines_qwen36_references() -> None:
             SupportTier.CONVERTIBLE,
         ),
         (
+            "nvidia/Nemotron-3-Embed-1B-BF16",
+            "ministral3",
+            "mistral3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
+        (
+            "nvidia/Nemotron-3-Embed-8B-BF16",
+            "ministral3",
+            "mistral3-dense-v1",
+            SupportTier.CONVERTIBLE,
+        ),
+        (
             "Qwen/Qwen3-Embedding-0.6B",
             "qwen3",
             "qwen3-dense-v1",
@@ -271,6 +283,15 @@ def test_registry_resolves_new_dense_families(
         config = {
             "model_type": "mistral3",
             "text_config": {"model_type": "mistral", "num_hidden_layers": 40},
+        }
+    # Flat Ministral3 embedding exports (Nemotron-3-Embed) have no text_config.
+    if model_type == "ministral3":
+        config = {
+            "model_type": "ministral3",
+            "num_hidden_layers": 40,
+            "architectures": ["Ministral3Model"],
+            "is_causal": False,
+            "pooling": "avg",
         }
     adapter = adapter_for(reference, config)
     assert adapter is not None

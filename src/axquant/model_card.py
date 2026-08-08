@@ -258,7 +258,17 @@ def render_development_model_card(
         artifact_edition,
     )
     suffix = "-MTP" if name.endswith("-MTP") else ""
-    is_embedding_pack = "embedding" in name.lower() or "embedding" in source.model_id.lower()
+    # Match Qwen3-Embedding* and Nemotron-3-Embed* product stems.
+    name_l = name.lower()
+    source_l = source.model_id.lower()
+    is_embedding_pack = (
+        "embedding" in name_l
+        or "embedding" in source_l
+        or "-embed-" in name_l
+        or "-embed-" in source_l
+        or name_l.endswith("-embed")
+        or source_l.endswith("-embed")
+    )
     # Sibling ladder for Hub cross-links: low-bit experimental packs point at 4bit.
     base_class = product_class.removesuffix("-experimental")
     if is_embedding_pack:
