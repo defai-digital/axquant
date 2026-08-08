@@ -71,11 +71,15 @@ def _size_evidence(
     kind: str | None = None,
 ) -> Path:
     path = tmp_path / f"{name}.json"
+    resolved_kind = kind or ("candidate" if name == "candidate" else "uniform-4bit")
     write_data(
         path,
         ArtifactSizeEvidence(
-            kind=kind or ("candidate" if name == "candidate" else "uniform-4bit"),
-            model=ModelIdentity(model_id="org/model", revision="abc"),
+            kind=resolved_kind,
+            model=ModelIdentity(
+                model_id="org/model",
+                revision="abc" if resolved_kind == "candidate" else "ref",
+            ),
             logical_parameters=10_000,
             weight_bytes=weight_bytes,
             measured_bpw=weight_bytes * 8 / 10_000,
@@ -279,6 +283,17 @@ def test_quality_retention_pass_and_fail_directions(tmp_path: Path) -> None:
     assert failing.overall_status == "fail"
 
 
+def test_scoreboard_separates_plan_and_evaluation_profiles(tmp_path: Path) -> None:
+    report = build_scoreboard(
+        plan=_plan(),
+        evaluation_profile=ProfileName.GENERAL,
+        quality_comparison=_quality_report(tmp_path, retention=0.99),
+    )
+
+    assert report.plan_profile is ProfileName.AGENT_CODING
+    assert report.profile is ProfileName.GENERAL
+
+
 def test_mtp_speedup_pass_and_fail_directions(tmp_path: Path) -> None:
     passing = build_scoreboard(
         plan=_plan(),
@@ -438,6 +453,21 @@ def test_scoreboard_rejects_mismatched_candidate_identity(tmp_path: Path) -> Non
     write_data(quality_path, quality)
 
     with pytest.raises(ArtifactError, match="different candidates"):
+        build_scoreboard(
+            plan=_plan(),
+            candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),
+            size_reference=_size_evidence(tmp_path, "reference", weight_bytes=1000),
+            quality_comparison=quality_path,
+        )
+
+
+def test_scoreboard_rejects_mismatched_reference_identity(tmp_path: Path) -> None:
+    quality_path = _quality_report(tmp_path, retention=0.99)
+    quality = load_model(quality_path, QualityComparisonReport)
+    quality.reference_model = ModelIdentity(model_id="unrelated/reference", revision="revision")
+    write_data(quality_path, quality)
+
+    with pytest.raises(ArtifactError, match="different references"):
         build_scoreboard(
             plan=_plan(),
             candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),

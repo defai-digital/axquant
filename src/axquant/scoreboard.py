@@ -77,6 +77,7 @@ def build_scoreboard(
     *,
     plan: str | Path | QuantizationPlan,
     profile: ProfileName | None = None,
+    evaluation_profile: ProfileName | None = None,
     title: str | None = None,
     candidate_size: str | Path | None = None,
     size_reference: str | Path | None = None,
@@ -96,7 +97,7 @@ def build_scoreboard(
     plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
     if profile is not None and profile != plan_model.profile:
         raise PlanningError("scoreboard profile does not match the quantization plan")
-    active_profile = plan_model.profile
+    active_profile = evaluation_profile or plan_model.profile
     _positive_finite(minimum_quality_retention, "minimum quality retention")
     _positive_finite(max_size_ratio_to_uniform4, "maximum size ratio")
     _positive_finite(
@@ -199,6 +200,10 @@ def build_scoreboard(
             quality.candidate_model, cand_size.model
         ):
             raise ArtifactError("quality comparison and size evidence use different candidates")
+        if ref_size is not None and not same_model_identity(
+            quality.reference_model, ref_size.model
+        ):
+            raise ArtifactError("quality comparison and size evidence use different references")
     if quality is not None and quality.aggregate.retention is not None:
         retention = float(quality.aggregate.retention)
         status = "pass" if retention >= minimum_quality_retention else "fail"
@@ -247,6 +252,10 @@ def build_scoreboard(
             validation.candidate_model, cand_size.model
         ):
             raise ArtifactError("validation report and size evidence use different candidates")
+        if ref_size is not None and not same_model_identity(
+            validation.reference_model, ref_size.model
+        ):
+            raise ArtifactError("validation report and size evidence use different references")
         if quality is not None and (
             not same_model_identity(validation.candidate_model, quality.candidate_model)
             or not same_model_identity(validation.reference_model, quality.reference_model)
@@ -613,6 +622,7 @@ def build_scoreboard(
     return ScoreboardReport(
         certification_tier=("mtp-acceleration" if require_mtp_acceleration else "checkpoint"),
         title=title or f"AXQuant scoreboard ({active_profile.value})",
+        plan_profile=plan_model.profile,
         profile=active_profile,
         source_model=plan_model.source_model,
         plan_sha256=stable_sha256(plan_model),
@@ -631,7 +641,8 @@ def scoreboard_markdown(report: ScoreboardReport) -> str:
         "",
         f"- Model: `{report.source_model.model_id}`",
         f"- Revision: `{report.source_model.revision or 'unpinned'}`",
-        f"- Profile: `{report.profile.value}`",
+        f"- Plan profile: `{(report.plan_profile or report.profile).value}`",
+        f"- Evaluation profile: `{report.profile.value}`",
         f"- Certification tier: `{report.certification_tier}`",
         f"- Plan digest: `{report.plan_sha256}`",
         f"- Evidence: `{report.evidence_kind.value}`",

@@ -804,6 +804,7 @@ def _run(args: argparse.Namespace) -> int:
         scoreboard_report = build_scoreboard(
             plan=args.plan,
             profile=args.profile,
+            evaluation_profile=args.evaluation_profile,
             title=args.title,
             candidate_size=args.candidate_size,
             size_reference=args.size_reference,

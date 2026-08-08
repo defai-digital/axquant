@@ -665,6 +665,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     scoreboard_parser.add_argument("--plan", required=True)
     scoreboard_parser.add_argument("--profile", type=_profile)
+    scoreboard_parser.add_argument(
+        "--evaluation-profile",
+        type=_profile,
+        help="Quality/benchmark workload represented by this scorecard (defaults to plan profile)",
+    )
     scoreboard_parser.add_argument("--title")
     scoreboard_parser.add_argument("--candidate-size")
     scoreboard_parser.add_argument("--size-reference")

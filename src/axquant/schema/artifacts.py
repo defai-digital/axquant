@@ -2046,6 +2046,7 @@ class ScoreboardReport(StrictModel):
     schema_version: Literal["axquant.scoreboard.v1"] = "axquant.scoreboard.v1"
     certification_tier: Literal["checkpoint", "mtp-acceleration"] = "checkpoint"
     title: str
+    plan_profile: ProfileName | None = None
     profile: ProfileName
     source_model: ModelIdentity
     plan_sha256: str = Field(min_length=64, max_length=64)

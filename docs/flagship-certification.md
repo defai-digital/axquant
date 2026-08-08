@@ -22,7 +22,8 @@ does not rewrite first-tier checkpoint evidence; it prevents an acceleration cla
 `-MTP` certified-performance label.
 
 Operationally, `axquant scoreboard --require-complete` is the checkpoint-tier scorecard. Run it
-for both `agent-coding` and `general` with measured plan, matched size, and quality evidence.
+for both `agent-coding` and `general` with measured plan, matched size, and quality evidence; use
+`--evaluation-profile` when the evaluation workload differs from the plan's optimization profile.
 Adding `--require-mtp-acceleration` selects the acceleration tier and independently requires all
 three MTP gates; the prompt guardrail cannot be hidden inside a token-weighted average. The
 historical `qwen36-mtp-v2` M0–M8 release audit remains an acceleration-bearing track and is not
