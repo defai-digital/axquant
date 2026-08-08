@@ -431,21 +431,20 @@ def inspect_model(
                     # ``.scales``/``.biases`` affine sidecar naming. HyperConnection
                     # / HyperHead learnable ``*.scale`` vectors are real params
                     # (mlx_lm deepseek_v4 sanitize maps hc_*_scale → *.scale).
-                    is_hc_learnable_scale = name.endswith(
-                        (".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale")
-                    ) or name in {
-                        "hc_head_scale",
-                        "model.hc_head.scale",
-                    } or name.endswith(
-                        (".hc_attn_scale", ".hc_ffn_scale")
+                    is_hc_learnable_scale = (
+                        name.endswith((".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale"))
+                        or name
+                        in {
+                            "hc_head_scale",
+                            "model.hc_head.scale",
+                        }
+                        or name.endswith((".hc_attn_scale", ".hc_ffn_scale"))
                     )
                     quantization_metadata = (
                         name.endswith((".scales", ".biases"))
                         or (name.endswith(".scale") and not is_hc_learnable_scale)
                     ) or (
-                        quantized_source
-                        and name.endswith(".bias")
-                        and dtype not in _FLOAT_DTYPES
+                        quantized_source and name.endswith(".bias") and dtype not in _FLOAT_DTYPES
                     )
                     current_bits, current_group_size, current_method = _quantization_details(
                         name,

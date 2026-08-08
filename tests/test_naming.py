@@ -48,12 +48,10 @@ def test_low_bit_product_classes_for_deepseek_fleet() -> None:
     assert target_class_for_bpw(2.0) == "2bit"
     assert target_class_for_bpw(3.0) == "3bit"
     assert (
-        model_name("DeepSeek-V4-Flash", target_class="2bit")
-        == "AX-DeepSeek-V4-Flash-MLX-AXQ-2bit"
+        model_name("DeepSeek-V4-Flash", target_class="2bit") == "AX-DeepSeek-V4-Flash-MLX-AXQ-2bit"
     )
     assert (
-        model_name("DeepSeek-V4-Flash", target_class="3bit")
-        == "AX-DeepSeek-V4-Flash-MLX-AXQ-3bit"
+        model_name("DeepSeek-V4-Flash", target_class="3bit") == "AX-DeepSeek-V4-Flash-MLX-AXQ-3bit"
     )
 
 
@@ -71,4 +69,3 @@ def test_development_card_name_regex_accepts_low_bit_classes() -> None:
         match = _AXQ_NAME.fullmatch(name)
         assert match is not None
         assert match.group("product_class") == product_class
-

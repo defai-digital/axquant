@@ -604,7 +604,11 @@ In particular, a `6bit`-named mixed plan may retain `4bit` as its base precision
 floors can also raise a `4bit`-named pack close to (or above) a `6bit` budget on small or heavily
 protected models. When that collapse happens, AutomatosX does **not** publish a separate
 misleading `4bit` sibling for that base.
-{"For this base, see [Why there is no AXQ-4bit pack](#why-there-is-no-axq-4bit-pack)." if no_4bit_reason is not None else ""}
+{
+        "For this base, see [Why there is no AXQ-4bit pack](#why-there-is-no-axq-4bit-pack)."
+        if no_4bit_reason is not None
+        else ""
+    }
 
 | Sibling | Intended trade-off |
 | --- | --- |

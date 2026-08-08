@@ -852,9 +852,7 @@ def _is_converted_quant_sidecar_name(tensor_path: str) -> bool:
         ".ffn.gate.e_score_correction_bias"
     ):
         return False
-    if tensor_path.endswith(".bias"):
-        return True
-    return False
+    return tensor_path.endswith(".bias")
 
 
 def _validated_plan_source_tensors(
@@ -871,9 +869,7 @@ def _validated_plan_source_tensors(
         # when produced with --allow-quantized re-pack inventory.
         allow_quantized=True,
     )
-    metadata_names = {
-        tensor.name for tensor in inventory.tensors if tensor.quantization_metadata
-    }
+    metadata_names = {tensor.name for tensor in inventory.tensors if tensor.quantization_metadata}
     # Scale/bias sidecars of mixed-precision exports are plan bookkeeping only;
     # convert coverage compares logical weight tensors.
     expected = {
@@ -994,9 +990,7 @@ def _fused_expected_groups(expected: Mapping[str, Any]) -> dict[str, tuple[str, 
             unique = sorted(multiplicity)
             counts = set(multiplicity.values())
             if not (
-                unique == list(range(len(unique)))
-                and len(counts) == 1
-                and next(iter(counts)) > 1
+                unique == list(range(len(unique))) and len(counts) == 1 and next(iter(counts)) > 1
             ):
                 raise ArtifactError(
                     f"converted expert fusion {output_target} does not have contiguous "
@@ -1198,8 +1192,7 @@ def _verify_converted_weights(
     expected_tensors = {
         allocation.tensor: allocation
         for allocation in plan.assignments
-        if allocation.parameters > 0
-        and not _is_converted_quant_sidecar_name(allocation.tensor)
+        if allocation.parameters > 0 and not _is_converted_quant_sidecar_name(allocation.tensor)
     }
     output_tensors = {
         tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata

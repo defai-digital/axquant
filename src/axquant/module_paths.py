@@ -233,9 +233,7 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         for param in ("fn", "base", "scale")
     )
     # deepseek_v4.sanitize renames MoE router bias for e_score correction.
-    gate_bias_maps = (
-        (".ffn.gate.bias", ".ffn.gate.e_score_correction_bias"),
-    )
+    gate_bias_maps = ((".ffn.gate.bias", ".ffn.gate.e_score_correction_bias"),)
     changed = True
     while changed:
         changed = False

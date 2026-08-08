@@ -90,7 +90,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     assert set(readme_repositories) - set(completion_repositories) == multimodal_additions
     assert floor_collapsed_4bit.isdisjoint(set(readme_repositories))
     assert floor_collapsed_6bit < set(readme_repositories)
-    assert "no distinct AXQ-4bit pack" in readme_catalog.lower() or "no 4bit sibling" in readme_catalog
+    catalog_lower = readme_catalog.lower()
+    assert "no distinct AXQ-4bit pack" in catalog_lower or "no 4bit sibling" in readme_catalog
     assert "legacy-pre-v2" in readme_catalog
     assert "tagged `v2`" in readme_catalog
     assert not re.search(r"https://huggingface\.co/AutomatosX/[^)\s]+-v2(?:-MTP)?", readme_catalog)
