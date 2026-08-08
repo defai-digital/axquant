@@ -654,7 +654,6 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
-| `plan-replay` | Replay a checksum-bound measured allocation only when every current sensitivity candidate and metric matches exactly | Implemented; complete-model validation remains mandatory |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
 | `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
