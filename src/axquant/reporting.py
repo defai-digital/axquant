@@ -952,7 +952,11 @@ def prepare_publication(
     readme = directory / "README.md"
     if readme.exists() and not (directory / "UPSTREAM_README.md").exists():
         shutil.copy2(readme, directory / "UPSTREAM_README.md")
-    mtp_status = "included and validated" if manifest.mtp_present else "not included"
+    mtp_status = (
+        "sidecar included; acceleration certification is separate"
+        if manifest.mtp_present
+        else "not included"
+    )
     write_text(
         readme,
         f"""---
@@ -986,9 +990,10 @@ and retains a standard MLX weight layout for MLX-LM compatibility.
 | MTP | {mtp_status} |
 | Validation | PASS |
 
-AX Engine is the authority for MTP acceleration and runtime-specific performance claims. MLX-LM
-compatibility covers standard backbone inference; MTP support is runtime-dependent and AXQuant
-metadata may be ignored.
+AXQuant validates the checkpoint's size, quality, conversion, and standard-runtime compatibility.
+AX Engine is separately responsible for MTP acceleration claims: a present MTP sidecar does **not**
+by itself certify speedup or speculative-decode exactness. MLX-LM compatibility covers standard
+backbone inference; MTP support is runtime-dependent and AXQuant metadata may be ignored.
 
 See `model-manifest.json`, `axquant_runtime.json`, `axquant_manifest.json`,
 `axquant_conversion_manifest.json`, `quantization_plan.json`, `release_validation_index.json`,

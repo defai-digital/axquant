@@ -677,6 +677,17 @@ def _build_parser() -> argparse.ArgumentParser:
     scoreboard_parser.add_argument("--max-size-ratio", type=float, default=1.10)
     scoreboard_parser.add_argument("--minimum-mtp-retention", type=float, default=0.95)
     scoreboard_parser.add_argument("--minimum-mtp-speedup", type=float, default=1.20)
+    scoreboard_parser.add_argument(
+        "--minimum-mtp-prompt-speedup",
+        type=float,
+        default=1.10,
+        help="Second-tier prompt-median guardrail (default: 1.10x)",
+    )
+    scoreboard_parser.add_argument(
+        "--require-mtp-acceleration",
+        action="store_true",
+        help="Require second-tier MTP exactness and speed gates in addition to checkpoint gates",
+    )
     scoreboard_parser.add_argument("--require-complete", action="store_true")
     scoreboard_parser.add_argument("--output", default="scoreboard.json")
     scoreboard_parser.add_argument("--markdown-output", default="scoreboard.md")

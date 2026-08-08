@@ -266,7 +266,10 @@ MTP_DIAGNOSTIC_PROFILES: dict[str, dict[str, str]] = {
 }
 
 # The complete Qwen 3.6 exact-MTP measurement contract used by the formal M5
-# suite. The exact flag alone is NOT the contract on AX Engine 6.12.x: without
+# suite. The certification-candidate flag exposes the route only to this
+# explicit harness; AX Engine's normal Qwen linear-attention policy remains
+# canonical direct decode until the complete second-tier contract passes. The
+# exact flag alone is NOT the contract on AX Engine 6.12.x: without
 # the invariant-projection/row-exact/split-FFN companions the verifier falls
 # off the validated graph and every cycle pays a many-fold rollback and
 # verify-eval penalty. Linear-attention recurrent state always uses singleton
@@ -274,6 +277,7 @@ MTP_DIAGNOSTIC_PROFILES: dict[str, dict[str, str]] = {
 # diverged from greedy direct decode in formal testing.
 QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
     "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
     "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "1",

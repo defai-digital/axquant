@@ -816,6 +816,8 @@ def _run(args: argparse.Namespace) -> int:
             max_size_ratio_to_uniform4=args.max_size_ratio,
             minimum_mtp_acceptance_retention=args.minimum_mtp_retention,
             minimum_mtp_speedup=args.minimum_mtp_speedup,
+            minimum_mtp_prompt_median_speedup=args.minimum_mtp_prompt_speedup,
+            require_mtp_acceleration=args.require_mtp_acceleration,
         )
         write_data(args.output, scoreboard_report)
         write_text(args.markdown_output, scoreboard_markdown(scoreboard_report))

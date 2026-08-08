@@ -979,6 +979,7 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS",
         "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL",
         "AX_MLX_QWEN_LINEAR_MTP_EXACT",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE",
         "AX_MLX_MTP_ASYNC_DRAFT",
         "AX_MLX_MTP_LINEAR_EXACT_REPLAY",
         "AX_MLX_MTP_BYPASS_MIN_SAMPLES",
@@ -2043,6 +2044,7 @@ class ScoreboardMetricRow(StrictModel):
 
 class ScoreboardReport(StrictModel):
     schema_version: Literal["axquant.scoreboard.v1"] = "axquant.scoreboard.v1"
+    certification_tier: Literal["checkpoint", "mtp-acceleration"] = "checkpoint"
     title: str
     profile: ProfileName
     source_model: ModelIdentity

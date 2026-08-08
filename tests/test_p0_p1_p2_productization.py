@@ -162,7 +162,7 @@ def test_scoreboard_lists_missing_and_engine_mtp(qwen36_model_dir: Path, tmp_pat
     board = build_scoreboard(plan=plan_path)
     assert board.overall_status == "incomplete"
     assert "size_ratio_vs_uniform4" in board.missing_mandatory
-    assert "mtp_speedup" in board.missing_mandatory
+    assert "mtp_speedup" not in board.missing_mandatory
     mtp_row = next(row for row in board.rows if row.metric_id == "mtp_speedup")
     assert mtp_row.owner == "ax-engine"
     markdown = scoreboard_markdown(board)

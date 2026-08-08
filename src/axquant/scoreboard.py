@@ -1,8 +1,8 @@
 """Certification scoreboard artifact (P0).
 
-Compacts plan size, quality retention, and MTP gates into one auditable page.
-Missing mandatory rows are listed with reasons (never silently dropped).
-MTP speed ownership is recorded as AX Engine when the planner/artifact side is closed.
+Compacts plan size, quality retention, and optional second-tier MTP gates into one auditable page.
+Missing mandatory rows are listed with reasons (never silently dropped). Checkpoint certification
+is the first tier; MTP acceleration is mandatory only when explicitly requested as a second tier.
 """
 
 from __future__ import annotations
@@ -89,6 +89,8 @@ def build_scoreboard(
     max_size_ratio_to_uniform4: float = 1.10,
     minimum_mtp_acceptance_retention: float = 0.95,
     minimum_mtp_speedup: float = 1.20,
+    minimum_mtp_prompt_median_speedup: float = 1.10,
+    require_mtp_acceleration: bool = False,
 ) -> ScoreboardReport:
     """Build a scoreboard from a plan plus optional evidence artifacts."""
     plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
@@ -103,6 +105,10 @@ def build_scoreboard(
         at_most_one=True,
     )
     _positive_finite(minimum_mtp_speedup, "minimum MTP speedup")
+    _positive_finite(
+        minimum_mtp_prompt_median_speedup,
+        "minimum MTP prompt-median speedup",
+    )
     rows: list[ScoreboardMetricRow] = []
     size_reference_kind = "uniform-6bit" if plan_model.target_class == "6bit" else "uniform-4bit"
     size_reference_label = "uniform-6" if size_reference_kind == "uniform-6bit" else "uniform-4"
@@ -358,8 +364,9 @@ def build_scoreboard(
                 or mtp.token_weighted_decode_speedup is None
             ):
                 raise ArtifactError("release-ready MTP A/B evidence is missing weighted throughput")
-        # MtpAbComparison records greedy exactness; acceptance retention is not a
-        # separate field — exactness is the quality-side MTP gate in this toolkit.
+        # Keep exactness and both speed gates orthogonal in the scoreboard. The
+        # producer's release_ready bit proves the evidence is fully bound, but
+        # its configured thresholds may be weaker than the public policy here.
         exactness_status = (
             "fail" if not mtp.exactness_pass else "pass" if mtp.release_ready else "unavailable"
         )
@@ -382,10 +389,16 @@ def build_scoreboard(
                 ],
             )
         )
-        if mtp.speedup is not None:
+
+        weighted_speedup = (
+            mtp.token_weighted_decode_speedup
+            if mtp.token_weighted_decode_speedup is not None
+            else measured_weighted_speedup
+        )
+        if weighted_speedup is not None:
             status = (
                 "fail"
-                if float(mtp.speedup) < minimum_mtp_speedup
+                if float(weighted_speedup) < minimum_mtp_speedup
                 else "pass"
                 if mtp.release_ready
                 else "unavailable"
@@ -393,9 +406,9 @@ def build_scoreboard(
             rows.append(
                 _row(
                     "mtp_speedup",
-                    "MTP speedup",
+                    "MTP token-weighted decode speedup",
                     status=status,
-                    value=round(float(mtp.speedup), 6),
+                    value=round(float(weighted_speedup), 6),
                     threshold=minimum_mtp_speedup,
                     unit="ratio",
                     owner="ax-engine",
@@ -406,10 +419,8 @@ def build_scoreboard(
                         "Planner/artifact side is independent of decode pipeline speed.",
                         f"Residual gap vs {minimum_mtp_speedup:.2f}x is AX Engine ownership "
                         "(async draft / overlap).",
-                        f"speedup_metric={mtp.speedup_metric}",
-                        f"prompt_median_speedup={prompt_speedup}",
-                        f"prompt_median_floor={mtp.minimum_prompt_median_speedup}",
-                        f"speedup_pass={mtp.speedup_pass}",
+                        "policy_metric=token-weighted-decode-tps",
+                        f"evidence_selected_metric={mtp.speedup_metric}",
                     ],
                 )
             )
@@ -417,13 +428,55 @@ def build_scoreboard(
             rows.append(
                 _row(
                     "mtp_speedup",
-                    "MTP speedup",
+                    "MTP token-weighted decode speedup",
                     status="unavailable",
                     threshold=minimum_mtp_speedup,
                     unit="ratio",
                     owner="ax-engine",
-                    reason="MTP A/B present but speedup not recorded",
+                    reason="MTP A/B present but token-weighted decode speedup is not recorded",
                     notes=["Speed gate owner: AX Engine runtime, not the quant planner."],
+                )
+            )
+
+        if prompt_speedup is not None:
+            prompt_status = (
+                "fail"
+                if float(prompt_speedup) < minimum_mtp_prompt_median_speedup
+                else "pass"
+                if mtp.release_ready
+                else "unavailable"
+            )
+            rows.append(
+                _row(
+                    "mtp_prompt_median_speedup",
+                    "MTP prompt-median speedup",
+                    status=prompt_status,
+                    value=round(float(prompt_speedup), 6),
+                    threshold=minimum_mtp_prompt_median_speedup,
+                    unit="ratio",
+                    owner="ax-engine",
+                    reason=(
+                        "MTP A/B evidence is not release-ready"
+                        if prompt_status == "unavailable"
+                        else None
+                    ),
+                    notes=[
+                        "This guardrail protects typical-prompt latency from a "
+                        "weighted-average win.",
+                        f"evidence_prompt_floor={mtp.minimum_prompt_median_speedup}",
+                    ],
+                )
+            )
+        else:
+            rows.append(
+                _row(
+                    "mtp_prompt_median_speedup",
+                    "MTP prompt-median speedup",
+                    status="unavailable",
+                    threshold=minimum_mtp_prompt_median_speedup,
+                    unit="ratio",
+                    owner="ax-engine",
+                    reason="MTP A/B present but prompt-median speedup is not recorded",
                 )
             )
     else:
@@ -448,6 +501,17 @@ def build_scoreboard(
                 notes=[
                     "Speed residual is engine pipelining work, not bit allocation.",
                 ],
+            )
+        )
+        rows.append(
+            _row(
+                "mtp_prompt_median_speedup",
+                "MTP prompt-median speedup",
+                status="unavailable",
+                threshold=minimum_mtp_prompt_median_speedup,
+                unit="ratio",
+                owner="ax-engine",
+                reason="provide --mtp-ab (engine-owned prompt guardrail)",
             )
         )
 
@@ -507,13 +571,21 @@ def build_scoreboard(
         "effective_bpw",
         size_metric_id,
         "quality_retention",
-        "mtp_exactness",
-        "mtp_speedup",
     ]
+    if require_mtp_acceleration:
+        mandatory.extend(["mtp_exactness", "mtp_speedup", "mtp_prompt_median_speedup"])
     missing = [
         row.metric_id for row in rows if row.metric_id in mandatory and row.status == "unavailable"
     ]
-    fails = [row.metric_id for row in rows if row.status == "fail"]
+    fails = [
+        row.metric_id
+        for row in rows
+        if row.status == "fail"
+        and (
+            require_mtp_acceleration
+            or row.metric_id not in {"mtp_exactness", "mtp_speedup", "mtp_prompt_median_speedup"}
+        )
+    ]
     if fails:
         overall = "fail"
     elif missing:
@@ -527,12 +599,19 @@ def build_scoreboard(
             "Plan evidence is architecture_prior; scoreboard cannot support release claims."
         )
     if any(row.owner == "ax-engine" and row.status in {"fail", "unavailable"} for row in rows):
-        warnings.append(
-            "MTP speed gate is owned by AX Engine; freeze planner/recipe while the runtime "
-            "closes residual speedup."
-        )
+        if require_mtp_acceleration:
+            warnings.append(
+                "Second-tier MTP acceleration is incomplete or failing; AX Engine owns the "
+                "remaining exactness and speed work."
+            )
+        else:
+            warnings.append(
+                "MTP acceleration is not part of this first-tier checkpoint verdict; sidecar "
+                "presence does not certify speculative-decode speed or exactness."
+            )
 
     return ScoreboardReport(
+        certification_tier=("mtp-acceleration" if require_mtp_acceleration else "checkpoint"),
         title=title or f"AXQuant scoreboard ({active_profile.value})",
         profile=active_profile,
         source_model=plan_model.source_model,
@@ -553,6 +632,7 @@ def scoreboard_markdown(report: ScoreboardReport) -> str:
         f"- Model: `{report.source_model.model_id}`",
         f"- Revision: `{report.source_model.revision or 'unpinned'}`",
         f"- Profile: `{report.profile.value}`",
+        f"- Certification tier: `{report.certification_tier}`",
         f"- Plan digest: `{report.plan_sha256}`",
         f"- Evidence: `{report.evidence_kind.value}`",
         f"- **Overall:** `{report.overall_status}`",

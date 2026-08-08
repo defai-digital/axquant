@@ -9,6 +9,31 @@ Qwen/Qwen3.6-27B@6a9e13bd6fc8f0983b9b99948120bc37f49c13e9
 It does not certify existing development packs automatically and does not change any M0–M8
 quality, size, MTP, protection-floor, or fallback threshold.
 
+## Two-tier claim policy
+
+AXQuant checkpoint certification is the first tier: it proves the bound artifact's size,
+quality, conversion integrity, and standard-runtime compatibility. An MTP sidecar may be part of
+that artifact, but its presence is not a performance claim.
+
+AX Engine MTP acceleration is a separate second tier. It may be claimed only when the same
+candidate has M5-bound evidence for greedy-stream exactness (100%), token-weighted decode speedup
+(at least 1.20x), and prompt-median speedup (at least 1.10x). A failing or unavailable MTP gate
+does not rewrite first-tier checkpoint evidence; it prevents an acceleration claim and an
+`-MTP` certified-performance label.
+
+Operationally, `axquant scoreboard --require-complete` is the checkpoint-tier scorecard. Run it
+for both `agent-coding` and `general` with measured plan, matched size, and quality evidence.
+Adding `--require-mtp-acceleration` selects the acceleration tier and independently requires all
+three MTP gates; the prompt guardrail cannot be hidden inside a token-weighted average. The
+historical `qwen36-mtp-v2` M0–M8 release audit remains an acceleration-bearing track and is not
+weakened or relabelled as checkpoint-only evidence.
+
+The formal MTP harness sets
+`AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1`. AX Engine also requires the loaded checkpoint
+to satisfy its exact-arithmetic capability gate and emits explicit candidate telemetry. Without
+that opt-in, Qwen linear-attention MTP remains on canonical direct decode; this switch is test
+plumbing, not a public certification override.
+
 ## Trust model
 
 - `CheckpointKey` identifies source config, tokenizer, Safetensors index, and checkpoint members

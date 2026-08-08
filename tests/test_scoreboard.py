@@ -108,7 +108,8 @@ def _quality_report(tmp_path: Path, *, retention: float) -> Path:
 
 def _mtp_ab(tmp_path: Path, *, exactness_pass: bool, speedup: float | None) -> Path:
     path = tmp_path / "mtp-ab.json"
-    speedup_pass = speedup is not None and speedup >= 1.20
+    prompt_guardrail_pass = speedup is not None and speedup >= 1.10
+    speedup_pass = speedup is not None and speedup >= 1.20 and prompt_guardrail_pass
     write_data(
         path,
         MtpAbComparison(
@@ -126,7 +127,13 @@ def _mtp_ab(tmp_path: Path, *, exactness_pass: bool, speedup: float | None) -> P
             measured_trial_count=10,
             direct_tokens_per_second_p50=100.0,
             mtp_tokens_per_second_p50=(100.0 * speedup if speedup is not None else None),
+            direct_token_weighted_decode_tps=100.0,
+            mtp_token_weighted_decode_tps=(100.0 * speedup if speedup is not None else None),
+            prompt_median_speedup=speedup,
+            token_weighted_decode_speedup=speedup,
+            speedup_metric="token-weighted-decode-tps",
             speedup=speedup,
+            prompt_median_speedup_pass=prompt_guardrail_pass,
             speedup_pass=speedup_pass,
             release_ready=exactness_pass and speedup_pass,
             ax_engine_version="6.12.1",
@@ -301,15 +308,46 @@ def test_token_weighted_mtp_speedup_keeps_prompt_guardrail_visible(tmp_path: Pat
     )
 
     row = next(item for item in report.rows if item.metric_id == "mtp_speedup")
+    prompt_row = next(item for item in report.rows if item.metric_id == "mtp_prompt_median_speedup")
     assert row.status == "pass"
-    assert "speedup_metric=token-weighted-decode-tps" in row.notes
-    assert "prompt_median_speedup=1.1" in row.notes
+    assert "policy_metric=token-weighted-decode-tps" in row.notes
+    assert prompt_row.status == "pass"
+    assert prompt_row.value == 1.1
+
+
+def test_second_tier_enforces_prompt_guardrail_independently(tmp_path: Path) -> None:
+    mtp_path = _weighted_mtp_ab(tmp_path)
+    mtp = load_model(mtp_path, MtpAbComparison)
+    mtp = MtpAbComparison.model_validate(
+        {
+            **mtp.model_dump(),
+            "mtp_tokens_per_second_p50": 109.0,
+            "prompt_median_speedup": 1.09,
+            "prompt_median_speedup_pass": False,
+            "speedup_pass": False,
+            "release_ready": False,
+        }
+    )
+    write_data(mtp_path, mtp)
+
+    report = build_scoreboard(
+        plan=_plan(),
+        mtp_ab=mtp_path,
+        require_mtp_acceleration=True,
+    )
+
+    weighted = next(item for item in report.rows if item.metric_id == "mtp_speedup")
+    prompt = next(item for item in report.rows if item.metric_id == "mtp_prompt_median_speedup")
+    assert weighted.value == 1.25
+    assert prompt.status == "fail"
+    assert report.overall_status == "fail"
 
 
 def test_mtp_exactness_divergence_fails_regardless_of_speedup(tmp_path: Path) -> None:
     report = build_scoreboard(
         plan=_plan(),
         mtp_ab=_mtp_ab(tmp_path, exactness_pass=False, speedup=1.50),
+        require_mtp_acceleration=True,
     )
 
     exactness_row = next(r for r in report.rows if r.metric_id == "mtp_exactness")
@@ -323,8 +361,18 @@ def test_missing_mandatory_evidence_is_incomplete_not_silently_passing(tmp_path:
     assert report.overall_status == "incomplete"
     assert "size_ratio_vs_uniform4" in report.missing_mandatory
     assert "quality_retention" in report.missing_mandatory
+    assert "mtp_exactness" not in report.missing_mandatory
+    assert "mtp_speedup" not in report.missing_mandatory
+    assert report.certification_tier == "checkpoint"
+
+
+def test_second_tier_requires_mtp_evidence_explicitly(tmp_path: Path) -> None:
+    report = build_scoreboard(plan=_plan(), require_mtp_acceleration=True)
+
+    assert report.certification_tier == "mtp-acceleration"
     assert "mtp_exactness" in report.missing_mandatory
     assert "mtp_speedup" in report.missing_mandatory
+    assert "mtp_prompt_median_speedup" in report.missing_mandatory
 
 
 def test_any_failing_gate_outranks_incomplete_in_overall_status(tmp_path: Path) -> None:
@@ -333,9 +381,27 @@ def test_any_failing_gate_outranks_incomplete_in_overall_status(tmp_path: Path) 
     report = build_scoreboard(
         plan=_plan(),
         mtp_ab=_mtp_ab(tmp_path, exactness_pass=False, speedup=None),
+        require_mtp_acceleration=True,
     )
 
     assert report.overall_status == "fail"
+
+
+def test_failing_optional_mtp_does_not_fail_checkpoint_tier(tmp_path: Path) -> None:
+    mtp_path = _mtp_ab(tmp_path, exactness_pass=False, speedup=1.50)
+    mtp = load_model(mtp_path, MtpAbComparison)
+    mtp.model = ModelIdentity(model_id="org/model", revision="abc")
+    write_data(mtp_path, mtp)
+    report = build_scoreboard(
+        plan=_plan(),
+        candidate_size=_size_evidence(tmp_path, "candidate", weight_bytes=1000),
+        size_reference=_size_evidence(tmp_path, "reference", weight_bytes=1000),
+        quality_comparison=_quality_report(tmp_path, retention=0.99),
+        mtp_ab=mtp_path,
+    )
+
+    assert report.overall_status == "pass"
+    assert next(row for row in report.rows if row.metric_id == "mtp_exactness").status == "fail"
 
 
 def test_scoreboard_rejects_unbound_passing_mtp_evidence(tmp_path: Path) -> None:
@@ -358,6 +424,10 @@ def test_scoreboard_rejects_unbound_passing_mtp_evidence(tmp_path: Path) -> None
     )
     assert next(row for row in report.rows if row.metric_id == "mtp_speedup").status == (
         "unavailable"
+    )
+    assert (
+        next(row for row in report.rows if row.metric_id == "mtp_prompt_median_speedup").status
+        == "unavailable"
     )
 
 
