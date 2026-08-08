@@ -51,16 +51,15 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: "dist/*"
-      - name: Extract curated release notes from CHANGELOG.md
+      - name: Extract curated release notes from docs/releases
         run: >-
-          python -c 'import os, pathlib, re; version =
+          python -c 'import os, pathlib; version =
           os.environ["RELEASE_TAG"].removeprefix("v");
-          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8");
-          m = re.search(rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)",
-          text, re.S | re.M);
-          assert m and m.group(1).strip(),
-          f"CHANGELOG.md has no notes section for {version}";
-          pathlib.Path("release-notes.md").write_text(m.group(1).strip() + "\n",
+          path = pathlib.Path("docs/releases") / f"{version}.md";
+          assert path.is_file(), f"missing curated release notes: {path}";
+          text = path.read_text(encoding="utf-8").strip();
+          assert text, f"curated release notes are empty: {path}";
+          pathlib.Path("release-notes.md").write_text(text + "\n",
           encoding="utf-8")'
       - name: Upload artifacts to the GitHub Release
         run: |

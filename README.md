@@ -198,8 +198,9 @@ command does not by itself certify an output.
   host-scoped tables that plug directly into `plan --latency-table`.
 
 See the [v1.5.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.5.1)
-and [CHANGELOG.md](CHANGELOG.md) for the complete change list and download verification
-instructions.
+for the complete change list and download verification instructions. Past tags keep their
+notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
+tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 
 ### Support snapshot
 
@@ -649,6 +650,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
+| `plan-replay` | Replay a checksum-bound measured allocation only when every current sensitivity candidate and metric matches exactly | Implemented; complete-model validation remains mandatory |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
 | `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
@@ -1112,7 +1114,8 @@ and required promotion evidence are clear.
 | [Migration v1.1](docs/migration-v1.1.md) / [v1.2](docs/migration-v1.2.md) | Upgraders from earlier toolkit releases |
 | [CI root causes and prevention](docs/ci-root-causes.md) | Contributors — Ubuntu non-MLX vs macOS MLX, PyPI gate |
 | [Roadmap](docs/roadmap/README.md) | Contributors — open workstreams and ADRs |
-| [CHANGELOG](CHANGELOG.md) | Everyone — release notes |
+| [Release notes convention](docs/releases/README.md) | Maintainers — curated GitHub Release body per version |
+| [GitHub Releases](https://github.com/defai-digital/axquant/releases) | Everyone — published version history |
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Legal — research and dependency attribution |
 
 Product requirements, the architecture decision register, technical specifications, and the

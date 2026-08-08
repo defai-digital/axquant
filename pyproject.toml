@@ -57,7 +57,7 @@ Homepage = "https://pypi.org/project/axquant/"
 Documentation = "https://github.com/defai-digital/axquant#readme"
 Repository = "https://github.com/defai-digital/axquant"
 Issues = "https://github.com/defai-digital/axquant/issues"
-Changelog = "https://github.com/defai-digital/axquant/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/defai-digital/axquant/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/axquant"]

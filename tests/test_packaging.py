@@ -50,20 +50,15 @@ def test_v1_toolkit_status_is_honest_about_host_certification() -> None:
         assert "Development Status :: 3 - Alpha" in classifiers
 
 
-def test_changelog_has_current_version_section() -> None:
-    """The release workflow extracts curated notes from CHANGELOG.md and fails closed.
+def test_release_notes_exist_for_current_version() -> None:
+    """The release workflow loads docs/releases/<version>.md and fails closed if empty.
 
-    Mirror its extraction here so a missing or empty section breaks CI before a tag
-    is pushed, not during the release.
+    Mirror that check here so a missing notes file breaks CI before a tag is pushed.
     """
-    import re
-
     with (_ROOT / "pyproject.toml").open("rb") as handle:
         version = tomllib.load(handle)["project"]["version"]
-    changelog = (_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-
-    match = re.search(
-        rf"^## \[{re.escape(version)}\][^\n]*\n(.*?)(?=^## \[|\Z)", changelog, re.S | re.M
+    notes_path = _ROOT / "docs" / "releases" / f"{version}.md"
+    assert notes_path.is_file(), f"missing curated release notes: {notes_path.relative_to(_ROOT)}"
+    assert notes_path.read_text(encoding="utf-8").strip(), (
+        f"curated release notes are empty: {notes_path.relative_to(_ROOT)}"
     )
-    assert match is not None, f"CHANGELOG.md has no section for {version}"
-    assert match.group(1).strip(), f"CHANGELOG.md section for {version} is empty"
