@@ -532,9 +532,7 @@ def _inputs(
     )
     reference = ModelIdentity(model_id="fixture/uniform6", revision=_BASELINE_REVISION)
     validation_target_class = "6bit" if plan.target_class == "6bit" else "4bit"
-    size_reference_kind = (
-        "uniform-6bit" if validation_target_class == "6bit" else "uniform-4bit"
-    )
+    size_reference_kind = "uniform-6bit" if validation_target_class == "6bit" else "uniform-4bit"
     validation_entries: list[ReleaseValidationEntry] = []
     for profile, dataset in (
         (ProfileName.AGENT_CODING, "b" * 64),
