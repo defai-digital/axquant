@@ -1,0 +1,63 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-08T21:20:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP",
+    "hub_commit": "a549387d5b812c6f6cbdb0ebde37adb3b3f4a2bc",
+    "product_class": "4bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.6-35B-A3B",
+    "source_revision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+    "candidate_manifest_sha256": "d172e6c1dd88e24e1f451735606ffb3d9426b30c2e179bfd8eae771ba7141155"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "target_bpw": 5.14,
+    "effective_bpw": 5.139999977009232
+  },
+  "size": {
+    "candidate_weight_bytes": 23099321635,
+    "candidate_measured_bpw": 5.14006131487291,
+    "reference_kind": "uniform-4bit",
+    "reference_model_id": "mlx-community/Qwen3.6-35B-A3B-4bit",
+    "reference_revision": "38740b847e4cb78f352aba30aa41c76e08e6eb46",
+    "reference_weight_bytes": 20402204271,
+    "size_ratio_vs_uniform4": 1.1321973512359016,
+    "max_size_ratio_applied": 1.15
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8881578947368421,
+      "reference_score": 0.8881578947368421,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9826187119223178,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9844152219984007,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform4": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "exactness achievable after MoE MTP load fix; speedup gates fail on formal decode-heavy suites"
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "ax_engine": "6.14.0",
+    "python": "3.13.14"
+  }
+}

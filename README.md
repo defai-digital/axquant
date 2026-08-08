@@ -21,10 +21,12 @@ multi-token-prediction (MTP) weights.
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
-The Qwen 3.6 27B AXQ 6-bit v3 checkpoint is
+Qwen 3.6 dense 27B packs (AXQ 6-bit v3 and AXQ 4-bit / 5.6 BPW) are
 [Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md) and
-[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified; other catalog
-entries remain development artifacts unless their own exact revision has a certificate.
+[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified on
+`df-macbookpro-m5`; 35B-A3B MoE packs have [Tier 1 only](docs/certifications/README.md).
+Other catalog entries remain development artifacts unless their own exact revision has a
+certificate.
 
 ## Contents
 
@@ -392,10 +394,10 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 Tier 1 + scoped Tier 2 MTP certified** ([Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq6-tier2.md)); default route still direct fallback |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq4-tier1.md)); MTP speed not certified |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq6-tier1.md)); MTP speed not certified |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
 | [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | 4.890033 | secondary; vision sidecar preserved |
 | [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | 6.000088 | secondary; vision sidecar preserved |

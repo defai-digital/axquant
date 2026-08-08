@@ -1,0 +1,62 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-08T21:25:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP",
+    "hub_commit": "7b9ff47abfb8be01e636f516edb0226aa25ea1cc",
+    "product_class": "6bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.6-35B-A3B",
+    "source_revision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+    "candidate_manifest_sha256": "1279fac7d32a267bfd8b106488ed0af5c5ecedf5f1fae23a9be5b408d3ac2035"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "effective_bpw": 5.999999959946398
+  },
+  "size": {
+    "candidate_weight_bytes": 26964142055,
+    "candidate_measured_bpw": 6.000061199011191,
+    "reference_kind": "uniform-6bit",
+    "reference_model_id": "ax-local/mlx-community/Qwen3.6-35B-A3B-6bit-MTP",
+    "reference_weight_bytes": 29061803049,
+    "size_ratio_vs_uniform6": 0.9278206864707185,
+    "max_size_ratio_applied": 1.1
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8881578947368421,
+      "reference_score": 0.8881578947368421,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0038155756658476,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9998020259352493,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform6": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "MoE MTP loadable after experts.gate_up_proj fix; formal speedup gates not met"
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "ax_engine": "6.14.0",
+    "python": "3.13.14"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-08T21:16:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+    "hub_commit": "f44a9eeebec0c488d0f42201c8763db770a1c0a8",
+    "product_class": "5p6bpw",
+    "marketing_name": "4bit-AXQ",
+    "source_model_id": "Qwen/Qwen3.6-27B",
+    "source_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+    "candidate_manifest_sha256": "fa58908d73a8f7046d9f8d86cff278326fc97632e71f0d6675cbc3e8b13439b7"
+  },
+  "plan": {
+    "plan_sha256": "c4532c4084d20508cc730a386f03a18802efa1542d747be7092fa70182d6a857",
+    "evidence_kind": "architecture_prior",
+    "profile": "general",
+    "target_class": "5p6bpw",
+    "target_bpw": 5.58,
+    "effective_bpw": 5.579999028841856
+  },
+  "size": {
+    "candidate_weight_bytes": 19377822978,
+    "candidate_measured_bpw": 5.580079760185251,
+    "reference_kind": "uniform-4bit",
+    "reference_model_id": "mlx-community/Qwen3.6-27B-4bit",
+    "reference_revision": "c000ac2c2057d94be3fa931000c31723aac53282",
+    "reference_weight_bytes": 16054541599,
+    "size_ratio_vs_uniform4": 1.2069994561044957,
+    "max_size_ratio_applied": 1.25,
+    "size_gate_note": "5p6bpw class uses 1.25 budget vs pure-4bit 1.10"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8881578947368421,
+      "reference_score": 0.8947368421052632,
+      "retention": 0.9926470588235294,
+      "perplexity_ratio": 0.9919793394833009,
+      "candidate_errors": 0,
+      "reference_errors": 0,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9874083521047526,
+      "candidate_errors": 0,
+      "reference_errors": 0,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform4": 1.25
+  },
+  "evidence_hashes": {
+    "agent_coding_quality_comparison_sha256": "5d8454669d92c9fa80496c8a7fdd5908b6188be74333b0735cf9184b5d79f0d0",
+    "general_quality_comparison_sha256": "c5910f05a2186866637d62300279ea4e1e80ee63bc9fec08ed2261cbdfb07032",
+    "candidate_size_sha256": "594cdb88c1ff27b72cd6cfc67992c20346a4ee69dc13541c6aeaf456d748b010",
+    "reference_size_sha256": "89fd4363e08674c88929bb4681c276f790ccb922a3cf4b72057ad486920ed9db",
+    "runtime_ax_engine_sha256": "496bbb0daa652442fda79f0d67e79d77e80ee9de230f63b70b0999a516951178",
+    "scoreboard_agent_coding_sha256": "918970b36261366a44b73e39ceeac246c4c1bc35b2bb729ca9fd5f653db712b1"
+  },
+  "mtp_acceleration": {
+    "status": "certified-see-tier2-record",
+    "tier2_certificate": "qwen36-27b-axq4-tier2.json"
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "ax_engine": "6.14.0",
+    "mlx": "0.32.0",
+    "python": "3.13.14"
+  },
+  "notes": [
+    "Plan evidence is architecture_prior; formal scoreboard release-claim eligibility remains limited.",
+    "Size budget is class-specific (5p6bpw max_size_ratio 1.25), not pure-4bit 1.10."
+  ]
+}

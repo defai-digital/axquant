@@ -1,0 +1,58 @@
+{
+  "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+  "status": "certified",
+  "certification_tier": "mtp-acceleration",
+  "certified_at": "2026-08-08T21:16:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "candidate_manifest_sha256": "fa58908d73a8f7046d9f8d86cff278326fc97632e71f0d6675cbc3e8b13439b7",
+    "hub_commit": "f44a9eeebec0c488d0f42201c8763db770a1c0a8",
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+    "product_class": "5p6bpw",
+    "marketing_name": "4bit-AXQ",
+    "source_model_id": "Qwen/Qwen3.6-27B",
+    "source_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9"
+  },
+  "thresholds": {
+    "exactness_required": 1.0,
+    "token_weighted_decode_speedup_min": 1.2,
+    "prompt_median_speedup_min": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "certified",
+    "scope": "decode-heavy-authorizing-profiles",
+    "product_default_route": "direct-fallback",
+    "formal_route": "qwen36-exact-profile-certification-candidate",
+    "ax_engine_version": "6.14.0",
+    "engine_binary_sha256": "02c2f0b378499408918f87b476bc0e9aa922c8a6db6a64fc7d1cb106cbac2989",
+    "profiles": {
+      "agent-coding": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.3013097358398305,
+        "prompt_median_speedup": 1.104171535459375,
+        "release_ready": true,
+        "dataset_sha256": "440eea149a2fe5306a7068684a662b9957fe2fa90f8ce5a1914187ea9b3c7adc",
+        "comparison_sha256": "93262f4c6c45e3e469af39a2bef8066522f48571f0b2ada74261bfc3dec535fc"
+      },
+      "general-long": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.2226779932864424,
+        "prompt_median_speedup": 1.2485000277025682,
+        "release_ready": true,
+        "dataset_sha256": "c43e076e3f78a9e2fa69047d7e8eb2527988ce214a427e04a95a999f93dd8f07",
+        "comparison_sha256": "3601628edd0dfda45ef4d88ea90ade3bc7a75f8d3e01201d068f74d29acfb52d"
+      }
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "ax_engine": "6.14.0",
+    "mlx": "0.32.0",
+    "python": "3.13.14"
+  },
+  "related_certificates": {
+    "checkpoint_tier1": "qwen36-27b-axq4-tier1.json"
+  }
+}

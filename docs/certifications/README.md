@@ -7,12 +7,19 @@ revisions, or unscoped runtime claims.
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
 | --- | --- | --- | --- |
 | [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified (scoped)](qwen36-27b-axq6-tier2.md) |
+| [Qwen 3.6 27B AXQ 4-bit (5.6 BPW)](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified (scoped)](qwen36-27b-axq4-tier2.md) |
+| [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | Not certified (exactness-only; speed gates fail) |
+| [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | Not certified (speed gates fail) |
 
 Machine-readable companions:
 
-- [Tier 1 JSON](qwen36-27b-axq6-tier1.json)
-- [Tier 2 JSON](qwen36-27b-axq6-tier2.json)
-- [Tier 2 evidence package](evidence/qwen36-27b-axq6-tier2/)
+- [27B 6-bit Tier 1 JSON](qwen36-27b-axq6-tier1.json)
+- [27B 6-bit Tier 2 JSON](qwen36-27b-axq6-tier2.json)
+- [27B 6-bit Tier 2 evidence package](evidence/qwen36-27b-axq6-tier2/)
+- [27B 4-bit Tier 1 JSON](qwen36-27b-axq4-tier1.json)
+- [27B 4-bit Tier 2 JSON](qwen36-27b-axq4-tier2.json)
+- [35B 4-bit Tier 1 JSON](qwen36-35b-axq4-tier1.json)
+- [35B 6-bit Tier 1 JSON](qwen36-35b-axq6-tier1.json)
 
 See [flagship certification](../flagship-certification.md) for the two-tier policy and claim
 boundaries (default route vs formal acceleration route; decode-heavy vs short-answer).

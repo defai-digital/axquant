@@ -17,18 +17,27 @@ The exact Qwen 3.6 27B AXQ 6-bit **artifact edition v3** passed checkpoint Tier 
 - [Checkpoint Tier 1](certifications/qwen36-27b-axq6-tier1.md)
 - [MTP acceleration Tier 2](certifications/qwen36-27b-axq6-tier2.md)
 
+Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint Tier 1**
+(and scoped Tier 2 where noted):
+
+| Pack | Tier 1 | Tier 2 |
+| --- | --- | --- |
+| 27B AXQ 6-bit v3 | [Yes](certifications/qwen36-27b-axq6-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq6-tier2.md) |
+| 27B AXQ 4-bit (5.6 BPW) | [Yes](certifications/qwen36-27b-axq4-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq4-tier2.md) |
+| 35B-A3B AXQ 4-bit | [Yes](certifications/qwen36-35b-axq4-tier1.md) | No (speed gates fail) |
+| 35B-A3B AXQ 6-bit | [Yes](certifications/qwen36-35b-axq6-tier1.md) | No (speed gates fail) |
+
 | Claim | Status |
 | --- | --- |
-| Checkpoint size, matched-reference quality, conversion integrity | Certified |
+| Checkpoint size, matched-reference quality, conversion integrity | Certified (per pack record) |
 | Safe/stable default AX Engine text route | Certified; product default remains direct fallback |
-| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** on `df-macbookpro-m5` / AX Engine 6.14.0 |
+| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** for dense 27B packs on `df-macbookpro-m5` / AX Engine 6.14.0; **not** certified for 35B MoE packs |
 | Short-answer / universal prompt acceleration | Not certified |
 | Vision-language quality | Not certified |
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
-This is an exact-revision certificate, not an architecture-wide promotion. The v3 Hub tag and
-listed LFS hashes identify the certified weight set; the prior v2 development artifact and every
-sibling remain outside the certificate.
+These are exact-revision certificates, not architecture-wide promotions. Each pack’s Hub commit
+and listed digests identify the certified weight set.
 
 ## Two-tier claim policy
 
