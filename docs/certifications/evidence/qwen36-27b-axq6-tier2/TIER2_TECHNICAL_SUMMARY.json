@@ -1,0 +1,87 @@
+{
+  "schema_version": "ax-engine.qwen36-linear-mtp-tier2-evidence.v1",
+  "created_at": "2026-08-08T20:40:19.142639+00:00",
+  "host_id": "df-macbookpro-m5",
+  "candidate_manifest_sha256": "88269a83d0fd7bf70381745e1163f2b919e09798bcc92e352757d0f00e112c43",
+  "hub_commit": "cdd13bf81cf21818a01cf59a31fc116ef84326bc",
+  "hub_repo_id": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+  "hub_tag": "v3",
+  "engine_binary": "/Users/akiralam/ci/ax-engine/6.14.0/bin/ax-engine-bench",
+  "engine_binary_sha256": "02c2f0b378499408918f87b476bc0e9aa922c8a6db6a64fc7d1cb106cbac2989",
+  "ax_engine_version": "6.14.0",
+  "axquant_version": "1.6.1",
+  "gates": {
+    "weighted_min": 1.2,
+    "prompt_median_min": 1.1,
+    "exactness": 1.0
+  },
+  "profiles": {
+    "agent-coding": {
+      "exactness_pass": true,
+      "divergent_trial_count": 0,
+      "token_weighted_decode_speedup": 1.257580281632574,
+      "prompt_median_speedup": 1.111899465983032,
+      "speedup_pass": true,
+      "prompt_median_speedup_pass": true,
+      "release_ready": true,
+      "ax_engine_version": "6.14.0",
+      "dataset_sha256": "440eea149a2fe5306a7068684a662b9957fe2fa90f8ce5a1914187ea9b3c7adc",
+      "comparison_path": "/Volumes/Ext4T/axquant-certification/qwen36-27b-axq6-v1/evidence/tier2-mtp-20260808/agent-coding-ab-v3/mtp_ab_comparison.json",
+      "comparison_sha256": "1c773b4808d8e86db80467233920fca4277739f43a84ecec1ee52c2a774cc945",
+      "runtime_env": {
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+        "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",
+        "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT": "1",
+        "AX_MLX_SPECULATIVE_SPLIT_FFN": "1"
+      }
+    },
+    "general-long": {
+      "exactness_pass": true,
+      "divergent_trial_count": 0,
+      "token_weighted_decode_speedup": 1.2329802636071554,
+      "prompt_median_speedup": 1.2499502492546333,
+      "speedup_pass": true,
+      "prompt_median_speedup_pass": true,
+      "release_ready": true,
+      "ax_engine_version": "6.14.0",
+      "dataset_sha256": "c43e076e3f78a9e2fa69047d7e8eb2527988ce214a427e04a95a999f93dd8f07",
+      "comparison_path": "/Volumes/Ext4T/axquant-certification/qwen36-27b-axq6-v1/evidence/tier2-mtp-20260808/general-long-ab-v3/mtp_ab_comparison.json",
+      "comparison_sha256": "25f7290e864a7cfc46d1dd739e414fa381b6f80928d814739cc3ed8f4072b5e5",
+      "runtime_env": {
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+        "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",
+        "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT": "1",
+        "AX_MLX_SPECULATIVE_SPLIT_FFN": "1"
+      }
+    }
+  },
+  "technical_tier2_pass": true,
+  "release_ready_both_profiles": true,
+  "claim_scope": {
+    "authorizing_workloads": [
+      "agent-coding",
+      "long-form-general"
+    ],
+    "product_default_mtp": "off-direct-fallback",
+    "formal_route": "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1 with qwen36 exact profile",
+    "excluded": [
+      "short-answer-chat",
+      "vision",
+      "sibling-revisions"
+    ]
+  }
+}

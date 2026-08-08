@@ -34,8 +34,10 @@
   "mtp_acceleration": {
     "exactness_required": 1.0,
     "prompt_median_speedup_required": 1.1,
-    "status": "not-certified",
-    "token_weighted_decode_speedup_required": 1.2
+    "status": "certified-see-tier2-record",
+    "token_weighted_decode_speedup_required": 1.2,
+    "tier2_certificate": "qwen36-27b-axq6-tier2.json",
+    "scope": "decode-heavy-authorizing-profiles; product default remains direct-fallback"
   },
   "plan": {
     "assignment_sha256": "986c3d8c479d5b6f3d042b299ac83345bdbf9a982b3d8f474b3230b7dc3bf179",

@@ -88,18 +88,17 @@ Here, “stable” means the bound standard text path passed conversion, model l
 the fail-closed default-route gate on the certification machine. It is not a promise that every
 application, context length, or third-party runtime is defect-free.
 
-## Tier 2 remains open
+## Tier 2 status
 
-The included MTP and vision sidecars are protected checkpoint components, not performance or
-multimodal claims. MTP acceleration may be certified only after the same candidate passes all of:
+Checkpoint Tier 1 does **not** by itself certify MTP acceleration. For this exact v3 artifact,
+the separate MTP acceleration certificate is now published:
 
-- token-weighted decode speedup ≥ `1.20x`;
-- prompt-median speedup ≥ `1.10x`; and
-- greedy output equality = `100%`.
+- [Tier 2 MTP acceleration certification](qwen36-27b-axq6-tier2.md)
+- [Machine-readable Tier 2 record](qwen36-27b-axq6-tier2.json)
 
-The historical MTP run did not satisfy exactness, so this model must be described as **Tier 1
-checkpoint certified; Tier 2 MTP acceleration not certified**. AX Engine therefore keeps the
-candidate MTP route opt-in and uses direct fallback by default.
+Tier 2 is **scoped**: decode-heavy authorizing profiles on `df-macbookpro-m5` under the formal
+Qwen linear MTP exact contract. The product **default** route remains direct fallback (safe Tier 1
+default); short-answer chat is not an authorizing acceleration claim.
 
 ## Reproducibility and integrity
 

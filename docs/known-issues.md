@@ -102,7 +102,9 @@ between published versions.
 ## Validated scope
 
 - **Large-model certification is exact-revision scoped.** Qwen 3.6 27B AXQ 6-bit artifact
-  edition v3 passed checkpoint Tier 1 on `df-macbookpro-m5`; see the
-  [certificate](certifications/qwen36-27b-axq6-tier1.md). This does not validate another model,
-  sibling, revision, vision path, or MTP acceleration. Other 27B-class claims still require their
-  own real-hardware evidence chain.
+  edition v3 has checkpoint Tier 1 and scoped MTP acceleration Tier 2 on `df-macbookpro-m5`
+  ([Tier 1](certifications/qwen36-27b-axq6-tier1.md),
+  [Tier 2](certifications/qwen36-27b-axq6-tier2.md)). This does not validate another model,
+  sibling, revision, vision path, or short-answer universal speedup. Product default remains MTP
+  direct fallback; the formal acceleration route is opt-in. Other 27B-class claims still require
+  their own real-hardware evidence chain.

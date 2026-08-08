@@ -12,15 +12,19 @@ quality, size, MTP, protection-floor, or fallback threshold.
 ## Current certification status
 
 The exact Qwen 3.6 27B AXQ 6-bit **artifact edition v3** passed checkpoint Tier 1 on
-2026-08-08. The public record is
-[Qwen 3.6 27B AXQ 6-bit — checkpoint Tier 1 certification](certifications/qwen36-27b-axq6-tier1.md).
+2026-08-08 and MTP acceleration Tier 2 (scoped) on 2026-08-08. Public records:
+
+- [Checkpoint Tier 1](certifications/qwen36-27b-axq6-tier1.md)
+- [MTP acceleration Tier 2](certifications/qwen36-27b-axq6-tier2.md)
 
 | Claim | Status |
 | --- | --- |
 | Checkpoint size, matched-reference quality, conversion integrity | Certified |
-| Safe/stable default AX Engine text route | Certified; Qwen linear MTP uses direct fallback |
-| MTP speculative-decode speedup and exactness | **Not certified** |
+| Safe/stable default AX Engine text route | Certified; product default remains direct fallback |
+| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** on `df-macbookpro-m5` / AX Engine 6.14.0 |
+| Short-answer / universal prompt acceleration | Not certified |
 | Vision-language quality | Not certified |
+| Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 This is an exact-revision certificate, not an architecture-wide promotion. The v3 Hub tag and
 listed LFS hashes identify the certified weight set; the prior v2 development artifact and every
@@ -43,9 +47,10 @@ for both `agent-coding` and `general` with measured plan, matched size, and qual
 `--evaluation-profile` when the evaluation workload differs from the plan's optimization profile.
 Adding `--require-mtp-acceleration` selects the acceleration tier and independently requires all
 three MTP gates; the prompt guardrail cannot be hidden inside a token-weighted average. The
-historical `qwen36-mtp-v2` M0–M8 release audit remains an acceleration-bearing track and is not
-weakened or relabelled as checkpoint-only evidence. Its prior failed exactness result remains
-archived and blocks Tier 2; it does not revoke the independently scoped Tier 1 certificate.
+historical `qwen36-mtp-v2` M0–M8 release audit remains an acceleration-bearing track for full
+flagship publication. Prior failed exactness runs remain archived development evidence; they do
+not revoke Tier 1 and are superseded for this v3 artifact by the Tier 2 certificate once metric
+gates and release-ready A/B bindings pass on `df-macbookpro-m5`.
 
 The formal MTP harness sets
 `AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1`. AX Engine also requires the loaded checkpoint

@@ -83,10 +83,16 @@ def _ax_engine_version(executable: str) -> str | None:
             timeout=30,
         )
         report = json.loads(completed.stdout) if completed.returncode == 0 else {}
-        install = report.get("install", {}) if isinstance(report, dict) else {}
-        version = install.get("version") if isinstance(install, dict) else None
-        if version is not None:
-            return str(version)
+        if isinstance(report, dict):
+            install = report.get("install", {})
+            if isinstance(install, dict):
+                version = install.get("version")
+                if version is not None and str(version).strip():
+                    return str(version).strip()
+            # Some wrappers put the package version at the top level.
+            top_level = report.get("version")
+            if top_level is not None and str(top_level).strip():
+                return str(top_level).strip()
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
         pass
     return standalone_executable_version(executable)
@@ -280,7 +286,12 @@ QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
     "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
-    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "1",
+    # "0" allows the exact-profile lazy checkpoint path (required for ≥1.20×).
+    # Nonzero is a kill switch that forces slow singleton recompute every step.
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    # Formal A/B forces MTP for the full generation budget; product default 16
+    # would skip draft near end-of-sequence and understate cert speedup.
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
     "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
     "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
     "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",

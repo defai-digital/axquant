@@ -22,8 +22,9 @@ multi-token-prediction (MTP) weights.
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
 The Qwen 3.6 27B AXQ 6-bit v3 checkpoint is
-[Tier 1 certified](docs/certifications/qwen36-27b-axq6-tier1.md); other catalog entries remain
-development artifacts unless their own exact revision has a certificate.
+[Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md) and
+[scoped Tier 2 MTP](docs/certifications/qwen36-27b-axq6-tier2.md) certified; other catalog
+entries remain development artifacts unless their own exact revision has a certificate.
 
 ## Contents
 
@@ -115,10 +116,10 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
   Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
   see the tier matrix under [Current status](#current-status).
-- **Where it stands:** Qwen 3.6 27B AXQ 6-bit v3 is checkpoint Tier 1 certified for size,
-  matched-reference quality, conversion integrity, and the safe default text-runtime route.
-  MTP acceleration Tier 2 remains uncertified, and every other public pack remains development
-  evidence. [Current status](#current-status) states the exact scope.
+- **Where it stands:** Qwen 3.6 27B AXQ 6-bit v3 is checkpoint Tier 1 and **scoped** MTP
+  acceleration Tier 2 certified (decode-heavy authorizing profiles on `df-macbookpro-m5`;
+  product default still direct fallback). Every other public pack remains development evidence
+  unless its own certificate exists. [Current status](#current-status) states the exact scope.
 
 ## Quickstart
 
@@ -280,7 +281,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 
 | Scope | Use today | Public certification status |
 | --- | --- | --- |
-| Qwen 3.6 language paths | `convertible`; primary certification track | Exact 27B AXQ 6-bit v3 revision is checkpoint Tier 1 certified; other revisions remain development evidence |
+| Qwen 3.6 language paths | `convertible`; primary certification track | Exact 27B AXQ 6-bit v3 is Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | Development evidence only |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
@@ -301,15 +302,21 @@ verify a downloaded dist with `gh attestation verify <file> --repo defai-digital
 `shasum -a 256 -c SHA256SUMS.txt`.
 
 AXQuant separates checkpoint and acceleration claims. The exact Qwen 3.6 27B AXQ 6-bit v3
-revision has passed the public checkpoint Tier 1 policy: measured plan and size evidence, matched
-general and agent-coding quality, zero-fallback conversion, and the safe default runtime route.
-Its [certificate](docs/certifications/qwen36-27b-axq6-tier1.md) pins every threshold and hash.
+revision has passed:
 
-The historical `qwen36-mtp-v2` M0–M8 track remains the higher acceleration-bearing tier. MTP
-speed and exactness did **not** pass, so no MTP acceleration claim is made and AX Engine keeps
-Qwen linear MTP on direct fallback by default. Other Qwen 3.6 packs and revisions remain
-development artifacts until separately certified; a certificate never promotes a family by
-association.
+- **Tier 1 (checkpoint):** measured plan and size, matched general/agent-coding quality,
+  zero-fallback conversion, and the safe default runtime route
+  ([certificate](docs/certifications/qwen36-27b-axq6-tier1.md)).
+- **Tier 2 (MTP acceleration, scoped):** greedy exactness plus ≥1.20× token-weighted and ≥1.10×
+  prompt-median decode speedup on authorizing decode-heavy profiles on `df-macbookpro-m5` with
+  AX Engine 6.14.0 under the formal exact MTP contract
+  ([certificate](docs/certifications/qwen36-27b-axq6-tier2.md)).
+
+Product **default** remains Qwen linear MTP **direct fallback** (safe Tier 1 default). The
+certified acceleration route is the formal opt-in exact / certification-candidate contract—not a
+promise that every short-answer prompt is faster. Full M0–M8 flagship publication remains a
+separate campaign track. Other Qwen 3.6 packs and revisions remain development artifacts until
+separately certified; a certificate never promotes a family by association.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
@@ -386,7 +393,7 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | primary dense; MTP + vision sidecars |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 checkpoint Tier 1 certified** ([evidence](docs/certifications/qwen36-27b-axq6-tier1.md)); MTP acceleration not certified |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 Tier 1 + scoped Tier 2 MTP certified** ([Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq6-tier2.md)); default route still direct fallback |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | primary MoE; MTP + vision sidecars |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | primary MoE; MTP + vision sidecars |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
@@ -504,10 +511,9 @@ Implemented now:
 
 Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
 
-- **Qwen 3.6 MTP acceleration certification is not closed.** The 27B AXQ 6-bit v3 checkpoint has
-  passed Tier 1, but the additive `qwen36-mtp-v2` track still requires greedy exactness and both
-  speed thresholds on `df-macbookpro-m5`. Its historical failure remains evidence; sidecar
-  presence is not an acceleration claim;
+- **Qwen 3.6 full M0–M8 flagship publication campaign** is a separate process from the closed
+  Tier 1/Tier 2 metric certificates for the 27B AXQ 6-bit v3 artifact; product default MTP remains
+  fail-closed / direct fallback until an explicit runtime promotion;
 - interaction-optimization evidence: the toolkit path exists
   (`refine-select --interaction`, holdout-safe by construction), but no bound candidate has yet
   been optimized against real measured development-role evaluations;
