@@ -29,8 +29,8 @@ Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
 | --- | --- | --- |
 | Qwen 3.6 27B AXQ 6-bit v3 | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified (scoped)](docs/certifications/qwen36-35b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified (scoped)](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
+| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
 | Gemma 4 12B AXQ 4-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | Not certified — [formal pilot: exactness fail](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 6-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | Not certified — [formal pilot: exactness fail](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | Not certified — [formal pilot: exactness fail](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
