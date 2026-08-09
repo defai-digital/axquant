@@ -5,8 +5,8 @@
   "certified_at": "2026-08-08T23:30:46.614188+00:00",
   "host_id": "df-macbookpro-m5",
   "artifact": {
-    "hub_repo_id": "AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit",
-    "hub_commit": "539f7fbd303621007d307be6139f325cbc12f7ee",
+    "hub_repo_id": "AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP",
+    "hub_commit": "4a62bf66aa74f2063bbbf3ad0ff2cbdc72dc5bcb",
     "product_class": "6bit",
     "source_model_id": "google/gemma-4-26B-A4B-it",
     "source_revision": null,

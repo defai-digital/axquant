@@ -72,10 +72,10 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     # Post-v2 fleet growth: Gemma-4 26B-A4B / 31B Tier 1 packs published after the
     # historical completed-migration table (which still covers the original 12b pair).
     gemma_tier1_additions = {
-        "AX-gemma-4-26b-a4b-MLX-AXQ-4bit",
-        "AX-gemma-4-26b-a4b-MLX-AXQ-6bit",
-        "AX-gemma-4-31b-MLX-AXQ-4bit",
-        "AX-gemma-4-31b-MLX-AXQ-6bit",
+        "AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP",
+        "AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP",
+        "AX-gemma-4-31b-MLX-AXQ-4bit-MTP",
+        "AX-gemma-4-31b-MLX-AXQ-6bit-MTP",
     }
     post_migration_additions = multimodal_additions | gemma_tier1_additions
     # Protection floors collapsed these AXQ-4bit siblings onto their 6bit packs; the

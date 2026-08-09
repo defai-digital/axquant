@@ -104,8 +104,8 @@ between published versions.
 - **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
   27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
   ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 only. Gemma-4 AXQ packs
-  (`AX-gemma-4-{12b,26b-a4b,31b}-MLX-AXQ-{4,6}bit`) are **live on Hugging Face with fused
-  assistant-MTP** (republished 2026-08-09) but are **pending full Tier 1 + Tier 2
+  (`AX-gemma-4-{12b,26b-a4b,31b}-MLX-AXQ-{4,6}bit-MTP`, Qwen-style `-MTP` suffix) are **live
+  on Hugging Face with fused assistant-MTP** but are **pending full Tier 1 + Tier 2
   recertification** against that fused revision; older gemma4 cert notes are historical only.
   Formal MTP for Qwen MoE can load after engine `experts.gate_up_proj` support, but 35B speedup
   gates (≥1.20× / ≥1.10×) are not met. Product default remains MTP direct fallback; the formal

@@ -412,12 +412,12 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq4-tier1.md)); MTP speed not certified |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq6-tier1.md)); MTP speed not certified |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | ~4.89 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.89 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |
@@ -780,6 +780,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |
 | `benchmark` | Collect AX Engine runtime evidence | Implemented |
 | `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
+| `compose-gemma4-assistant-mtp` | Compose a Tier 2 candidate: byte-identical AXQ Gemma target + `assistant/` drafter + `ax_gemma4_assistant_mtp.json` (does not mutate the Tier 1 pack) | Implemented; product Hub packs ship fused under `…-MLX-AXQ-*-MTP` |
 | `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
 | `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
 | `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |

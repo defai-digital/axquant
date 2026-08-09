@@ -238,5 +238,5 @@ traceability; those three 4bit rows are **no longer public Hub models**.
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | `8c37715c7b5f5ebca00eda6f73be47116a3e4ebc` | `469c7898e707c0e04241270bee8914323ce78270` | 5.844833 |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | `3b496c6b1de84c700cbd2571a5a41671a8bb076c` | `b87858dbcf129c1991234683076ecf687833c6e1` | 4.878782 |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | `d339afd98930abe4c1731f0b65336f6af78acccc` | `de13b9b581a9d5ca273a752ca44169611d9bd442` | 5.759473 |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | `585587770cb4a2fc541e4570afe009d9674e6755` | `5192374d4daa6dc45d783353ccff4a64d41e293f` | 4.890033 |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | `71d438a4016762ea9c40aaf097a420fa413bfef0` | `0003ab1be26ae5a51a824ed511847c3d540c9005` | 6.000088 |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | `585587770cb4a2fc541e4570afe009d9674e6755` | `5192374d4daa6dc45d783353ccff4a64d41e293f` | 4.890033 |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | `71d438a4016762ea9c40aaf097a420fa413bfef0` | `0003ab1be26ae5a51a824ed511847c3d540c9005` | 6.000088 |

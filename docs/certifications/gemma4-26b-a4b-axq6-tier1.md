@@ -2,7 +2,7 @@
 
 **Verdict:** certified on 2026-08-08 for **AXQ target** size/quality on `df-macbookpro-m5`.
 
-Hub (live, **with assistant-MTP**): [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) commit `a6e8a86de79b58c37fd3f13943c70b98f22c153c` (republished 2026-08-09).
+Hub (live, **with assistant-MTP**): [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) commit `4a62bf66aa74f2063bbbf3ad0ff2cbdc72dc5bcb` (renamed to Qwen-style -MTP 2026-08-09).
 
 | Property | Value |
 | --- | --- |
