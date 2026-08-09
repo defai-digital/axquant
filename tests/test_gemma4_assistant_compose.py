@@ -46,9 +46,7 @@ def _write_minimal_assistant(root: Path) -> None:
 
 def test_known_pair_validation() -> None:
     validate_known_gemma4_assistant_pair("gemma-4-26b-a4b-it", "gemma-4-26b-a4b-it-assistant")
-    validate_known_gemma4_assistant_pair(
-        "google/gemma-4-31b-it", "google/gemma-4-31b-it-assistant"
-    )
+    validate_known_gemma4_assistant_pair("google/gemma-4-31b-it", "google/gemma-4-31b-it-assistant")
     with pytest.raises(ArtifactError, match="known Gemma4"):
         validate_known_gemma4_assistant_pair("gemma-4-unknown-it", "gemma-4-unknown-it-assistant")
     with pytest.raises(ArtifactError, match="must be"):
@@ -87,9 +85,9 @@ def test_compose_preserves_base_digests(tmp_path: Path) -> None:
     assert (output / "assistant" / "model.safetensors").is_file()
     assert file_sha256(output / "model.safetensors") == base_digest
     assert result.base_weight_digests["model.safetensors"] == base_digest
-    assert (output / "assistant" / "tokenizer.json").read_text(
-        encoding="utf-8"
-    ) == (output / "tokenizer.json").read_text(encoding="utf-8")
+    assert (output / "assistant" / "tokenizer.json").read_text(encoding="utf-8") == (
+        output / "tokenizer.json"
+    ).read_text(encoding="utf-8")
 
     contract = json.loads((output / ASSISTANT_CONTRACT_NAME).read_text(encoding="utf-8"))
     assert contract["schema_version"] == "ax.gemma4_assistant_mtp.v1"
@@ -130,9 +128,7 @@ def test_compose_rejects_wrong_assistant_model_type(tmp_path: Path) -> None:
     output = tmp_path / "composite"
     _write_minimal_target(target)
     assistant.mkdir()
-    (assistant / "config.json").write_text(
-        json.dumps({"model_type": "gemma4"}), encoding="utf-8"
-    )
+    (assistant / "config.json").write_text(json.dumps({"model_type": "gemma4"}), encoding="utf-8")
     (assistant / "model.safetensors").write_bytes(b"x")
     with pytest.raises(ArtifactError, match="gemma4_assistant"):
         compose_gemma4_assistant_mtp(
