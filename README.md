@@ -31,9 +31,12 @@ Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | Not certified — [one named engine gate](docs/certifications/qwen36-35b-axq4-tier1.md#tier-2-status) |
 | Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | Not certified — [one named engine gate](docs/certifications/qwen36-35b-axq6-tier1.md#tier-2-status) |
-| Gemma 4 12B AXQ 4-bit / 6-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
-| Gemma 4 26B-A4B AXQ 4-bit / 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
-| Gemma 4 31B AXQ 4-bit / 6-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 12B AXQ 4-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 12B AXQ 6-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
 
 The sparse-expert (35B-A3B) Tier 2 gap is understood: it is fixed per-step host
 cost — the speculative verify graph is built serially with the GPU idle, which is

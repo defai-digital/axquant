@@ -44,9 +44,12 @@ Qwen-style `…-MLX-AXQ-*-MTP` names. Checkpoint Tier 1 on `df-macbookpro-m5` (2
 
 | Pack | Tier 1 | Tier 2 |
 | --- | --- | --- |
-| 12B AXQ 4-bit / 6-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq4-tier1.md) / [Certified](certifications/gemma4-12b-axq6-tier1.md) | Not claimed |
-| 26B-A4B AXQ 4-bit / 6-bit | [Certified](certifications/gemma4-26b-a4b-axq4-tier1.md) / [Certified](certifications/gemma4-26b-a4b-axq6-tier1.md) | Not claimed |
-| 31B AXQ 4-bit / 6-bit | [Certified](certifications/gemma4-31b-axq4-tier1.md) / [Certified](certifications/gemma4-31b-axq6-tier1.md) | Not claimed |
+| 12B AXQ 4-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq4-tier1.md) | Not claimed |
+| 12B AXQ 6-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq6-tier1.md) | Not claimed |
+| 26B-A4B AXQ 4-bit | [Certified](certifications/gemma4-26b-a4b-axq4-tier1.md) | Not claimed |
+| 26B-A4B AXQ 6-bit | [Certified](certifications/gemma4-26b-a4b-axq6-tier1.md) | Not claimed |
+| 31B AXQ 4-bit | [Certified](certifications/gemma4-31b-axq4-tier1.md) | Not claimed |
+| 31B AXQ 6-bit | [Certified](certifications/gemma4-31b-axq6-tier1.md) | Not claimed |
 
 Tier 1 binds the **fused Hub head**: target weight digests match the quality-bound canonical
 pack; assistant assets are attached without mutating target weights. The 12B packs were rebuilt
