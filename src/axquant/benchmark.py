@@ -299,6 +299,18 @@ QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_SPECULATIVE_SPLIT_FFN": "1",
 }
 
+# Formal Gemma 4 assistant-MTP measurement contract (ST2 / AXQ-040).
+# Forces the assistant route for the full generation budget under greedy A/B;
+# draft depth defaults to engine depth-2 via AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH
+# unless the harness draft_depth / AX_MLX_MTP_MAX_DEPTH overrides.
+GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
+    "AX_MLX_GEMMA4_ASSISTANT_MTP": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH": "2",
+}
+
 
 def _runtime_environment(config: BenchmarkConfig) -> list[str]:
     """Build the ordered env assignments passed to AX Engine via /usr/bin/env.

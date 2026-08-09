@@ -1093,8 +1093,70 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Apply the complete Qwen 3.6 exact-MTP measurement contract "
         "(the formal-suite env set); explicit --runtime-env values win",
     )
+    benchmark_ab_parser.add_argument(
+        "--gemma4-assistant-exact-profile",
+        action="store_true",
+        help="Apply the formal Gemma 4 assistant-MTP measurement contract "
+        "(greedy A/B env set for composite AXQ+assistant packs); "
+        "explicit --runtime-env values win; mutually exclusive with "
+        "--qwen36-exact-profile",
+    )
     benchmark_ab_parser.add_argument("--output-dir", default="benchmark-ab")
     benchmark_ab_parser.add_argument("--quality-evaluation")
+
+    compose_gemma_parser = subparsers.add_parser(
+        "compose-gemma4-assistant-mtp",
+        help=(
+            "Compose a Tier 2 candidate composite pack: byte-identical AXQ Gemma "
+            "target + assistant/ drafter + ax_gemma4_assistant_mtp.json + "
+            "composition provenance (does not mutate the Tier 1 target pack)"
+        ),
+    )
+    compose_gemma_parser.add_argument(
+        "--target",
+        required=True,
+        help="Path to Tier 1 AXQ Gemma target pack directory",
+    )
+    compose_gemma_parser.add_argument(
+        "--assistant",
+        required=True,
+        help="Path to gemma4_assistant drafter directory (or pack root containing weights)",
+    )
+    compose_gemma_parser.add_argument(
+        "--output",
+        required=True,
+        help="Empty or new output directory for the composite pack",
+    )
+    compose_gemma_parser.add_argument(
+        "--target-model-id",
+        required=True,
+        help="Engine pair target leaf or Hub id (e.g. gemma-4-26b-a4b-it)",
+    )
+    compose_gemma_parser.add_argument(
+        "--assistant-model-id",
+        required=True,
+        help="Engine pair assistant leaf or Hub id (e.g. gemma-4-26b-a4b-it-assistant)",
+    )
+    compose_gemma_parser.add_argument("--base-pack-id", help="Hub id of the Tier 1 AXQ pack")
+    compose_gemma_parser.add_argument(
+        "--base-tier1-certificate",
+        help="Relative docs/certifications path for the base Tier 1 cert",
+    )
+    compose_gemma_parser.add_argument(
+        "--assistant-source-id",
+        help="Hub id or label for the assistant source",
+    )
+    compose_gemma_parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=1,
+        help="Contract max_depth field (runtime depth may still be raised by env; default 1)",
+    )
+    compose_gemma_parser.add_argument(
+        "--copy",
+        action="store_true",
+        help="Force full file copies instead of hardlinks when possible",
+    )
 
     mtp_diagnose_parser = subparsers.add_parser(
         "mtp-diagnose",

@@ -1641,10 +1641,19 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         runtime_env = parse_runtime_env_items(args.runtime_env)
+        if args.qwen36_exact_profile and args.gemma4_assistant_exact_profile:
+            raise SystemExit(
+                "benchmark-ab: --qwen36-exact-profile and "
+                "--gemma4-assistant-exact-profile are mutually exclusive"
+            )
         if args.qwen36_exact_profile:
             from axquant.benchmark import QWEN36_EXACT_MTP_PROFILE_ENV
 
             runtime_env = {**QWEN36_EXACT_MTP_PROFILE_ENV, **runtime_env}
+        if args.gemma4_assistant_exact_profile:
+            from axquant.benchmark import GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV
+
+            runtime_env = {**GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV, **runtime_env}
         config_direct = BenchmarkConfig(
             model=model_identity,
             mtp_enabled=False,
@@ -2404,6 +2413,43 @@ def _run(args: argparse.Namespace) -> int:
             output=str(args.output),
             model_card=str(args.model_card),
             repository=public_claim.public_repository,
+        )
+        return 0
+
+    if args.command == "compose-gemma4-assistant-mtp":
+        from axquant import __version__ as axquant_version
+        from axquant.gemma4_assistant_compose import (
+            Gemma4AssistantComposeRequest,
+            compose_gemma4_assistant_mtp,
+        )
+
+        # If --assistant points at a pack root with assistant/, use the nested path.
+        assistant_path = Path(args.assistant).expanduser().resolve()
+        nested = assistant_path / "assistant"
+        if nested.is_dir() and (nested / "config.json").is_file():
+            assistant_path = nested
+
+        result = compose_gemma4_assistant_mtp(
+            Gemma4AssistantComposeRequest(
+                target_dir=Path(args.target),
+                assistant_dir=assistant_path,
+                output_dir=Path(args.output),
+                target_model_id=args.target_model_id,
+                assistant_model_id=args.assistant_model_id,
+                base_pack_id=args.base_pack_id,
+                base_tier1_certificate=args.base_tier1_certificate,
+                assistant_source_id=args.assistant_source_id,
+                max_depth=args.max_depth,
+                prefer_hardlink=not args.copy,
+                axquant_version=axquant_version,
+            )
+        )
+        log.info(
+            "gemma4_assistant_composite_composed",
+            output=str(result.output_dir),
+            contract_sha256=result.contract_sha256,
+            base_files=len(result.base_weight_digests),
+            assistant_files=len(result.assistant_weight_digests),
         )
         return 0
 
