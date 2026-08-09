@@ -1,28 +1,28 @@
 # Gemma 4 26B-A4B AXQ 4-bit — checkpoint Tier 1 certification
 
-**Verdict:** certified on 2026-08-08.
+**Verdict:** certified on 2026-08-08 for **AXQ target** size/quality on `df-macbookpro-m5`.
 
-Hub: **unpublished** (repository removed from Hugging Face on 2026-08-09). Prior id retained for evidence binding only; do not treat as a live catalog package.
-Historical Hub id: `AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit`.
-Historical commit (pre-removal): `7a5198b1ae1903187b15bfb5f079d352a139ccc3`.
+Hub (live, **with assistant-MTP**): [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) commit `8bae3264854b2ec0e1db46fdef7fc9c1dadfdd3d` (republished 2026-08-09).
 
 | Property | Value |
 | --- | --- |
 | Source | `google/gemma-4-26B-A4B-it` |
 | Product class | `4bit` |
 | Host | `df-macbookpro-m5` |
-| Measured BPW | `4.900118671944353` |
+| Measured BPW (target) | `4.900118671944353` |
 | Size ratio vs uniform | `1.0126613143612873` (max `1.15`; pass=True) |
 | Quality agent retention | `1.0078740157480315` |
 | Quality general retention | `1.0` |
+| Quality-bound target revision (pre-MTP fuse) | `7a5198b1ae1903187b15bfb5f079d352a139ccc3` |
 
 ## Scope
 
-- Checkpoint size/quality vs matched mlx-community uniform reference.
-- MLX-LM runtime check.
+- Checkpoint size/quality vs matched mlx-community uniform reference (**AXQ target** weights).
+- MLX-LM runtime check on the quality-bound target revision above.
 - Vision/multimodal quality **not** claimed.
-- MTP acceleration Tier 2 **not** claimed.
-- Public Hub package **removed** (2026-08-09); certificate is historical M5 evidence only.
-  assistant fuse was **reverted** on the Hub; history remains in git commits.
+- Hub pack **includes** Gemma **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json` +
+  composition provenance). Target digests match the quality-bound revision; assistant is attached
+  for product completeness.
+- MTP acceleration Tier 2 **not** claimed (present ≠ ≥1.20× / ≥1.10× certified speed).
 
 Machine-readable: [gemma4-26b-a4b-axq4-tier1.json](gemma4-26b-a4b-axq4-tier1.json).

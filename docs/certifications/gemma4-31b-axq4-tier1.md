@@ -1,28 +1,28 @@
 # Gemma 4 31B AXQ 4-bit — checkpoint Tier 1 certification
 
-**Verdict:** certified on 2026-08-08.
+**Verdict:** certified on 2026-08-08 for **AXQ target** size/quality on `df-macbookpro-m5`.
 
-Hub: **unpublished** (repository removed from Hugging Face on 2026-08-09). Prior id retained for evidence binding only; do not treat as a live catalog package.
-Historical Hub id: `AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit`.
-Historical commit (pre-removal): `5d8d37b8e7105eab1ac843945454a6bdbd986e35`.
+Hub (live, **with assistant-MTP**): [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) commit `97e4a6c29840572be980767bda4114cc7aef3c13` (republished 2026-08-09).
 
 | Property | Value |
 | --- | --- |
 | Source | `google/gemma-4-31B-it` |
 | Product class | `4bit` |
 | Host | `df-macbookpro-m5` |
-| Measured BPW | `4.899922859286156` |
+| Measured BPW (target) | `4.899922859286156` |
 | Size ratio vs uniform | `1.0403241383095085` (max `1.15`; pass=True) |
 | Quality agent retention | `0.9923664122137404` |
 | Quality general retention | `1.0` |
+| Quality-bound target revision (pre-MTP fuse) | `5d8d37b8e7105eab1ac843945454a6bdbd986e35` |
 
 ## Scope
 
-- Checkpoint size/quality vs matched mlx-community uniform reference.
-- MLX-LM runtime check.
+- Checkpoint size/quality vs matched mlx-community uniform reference (**AXQ target** weights).
+- MLX-LM runtime check on the quality-bound target revision above.
 - Vision/multimodal quality **not** claimed.
-- MTP acceleration Tier 2 **not** claimed.
-- Public Hub package **removed** (2026-08-09); certificate is historical M5 evidence only.
-  assistant fuse was **reverted** on the Hub; history remains in git commits.
+- Hub pack **includes** Gemma **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json` +
+  composition provenance). Target digests match the quality-bound revision; assistant is attached
+  for product completeness.
+- MTP acceleration Tier 2 **not** claimed (present ≠ ≥1.20× / ≥1.10× certified speed).
 
 Machine-readable: [gemma4-31b-axq4-tier1.json](gemma4-31b-axq4-tier1.json).

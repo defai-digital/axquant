@@ -37,18 +37,21 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 
-### Gemma-4 AXQ siblings (checkpoint Tier 1 — historical)
+### Gemma-4 AXQ siblings (checkpoint Tier 1)
 
-M5 size/quality evidence remains on file (MTP Tier 2 not claimed). **Public Hugging Face
-packages for the six Gemma AXQ repos were removed on 2026-08-09** (including 12B 4/6-bit and
-26B/31B 4/6-bit). Certificates below are historical evidence only, not live catalog links:
+Certified on `df-macbookpro-m5` (size + quality vs matched uniform). Hub packs were **republished
+2026-08-09** with fused **assistant-MTP** (Tier 2 speed still not claimed):
 
-| Pack | Tier 1 evidence |
-| --- | --- |
-| 26B-A4B AXQ 4-bit | [Historical](certifications/gemma4-26b-a4b-axq4-tier1.md) — Hub removed |
-| 26B-A4B AXQ 6-bit | [Historical](certifications/gemma4-26b-a4b-axq6-tier1.md) — Hub removed |
-| 31B AXQ 4-bit | [Historical](certifications/gemma4-31b-axq4-tier1.md) — Hub removed |
-| 31B AXQ 6-bit | [Historical](certifications/gemma4-31b-axq6-tier1.md) — Hub removed |
+| Pack | Tier 1 | Hub |
+| --- | --- | --- |
+| 26B-A4B AXQ 4-bit | [Yes](certifications/gemma4-26b-a4b-axq4-tier1.md) | [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) |
+| 26B-A4B AXQ 6-bit | [Yes](certifications/gemma4-26b-a4b-axq6-tier1.md) | [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) |
+| 31B AXQ 4-bit | [Yes](certifications/gemma4-31b-axq4-tier1.md) | [`AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) |
+| 31B AXQ 6-bit | [Yes](certifications/gemma4-31b-axq6-tier1.md) | [`AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit) |
+
+12B AXQ 4/6-bit are also live on Hub with assistant-MTP (secondary catalog; no separate Tier 1
+flagship certificate). Exact-revision certificates bind the AXQ **target** quality set; Hub head
+adds assistant sidecar for product completeness.
 
 ## Two-tier claim policy
 
