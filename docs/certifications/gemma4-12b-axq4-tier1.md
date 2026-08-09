@@ -54,6 +54,26 @@ Seed `20260728`, max gen 64, host `df-macbookpro-m5`.
 
 ## Tier 2 status
 
-**Not certified.** Assistant-MTP present only.
+**Not certified** on the released engine.
+
+Formal pilot A/B on `df-macbookpro-m5` with AX Engine `6.14.0`,
+`--gemma4-assistant-exact-profile`, and the complete Gemma exact confidence
+gates (`AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE=0.0001`,
+`AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE=0.0001`) shows:
+
+| Config | Exactness | Weighted speedup | Prompt-median | `release_ready` |
+| --- | --- | ---: | ---: | --- |
+| depth 2, conf 0.0001 | **Fail** | ~1.38× (clears ≥1.20) | ~1.13× (clears ≥1.10) | false |
+| depth 1, conf 0.0001 | **Fail** | ~1.32× | ~1.11× | false |
+| depth 2, prod 0.85/0.999 | **Fail** | ~1.24× | ~1.07× | false |
+
+When MTP is active and accepts draft tokens, **greedy outputs diverge** from the
+direct arm. Exactness is fail-closed: speed alone cannot authorize Tier 2.
+Earlier incomplete-env smokes also failed (MTP often inactive / slower).
+
+Assistant-MTP remains in the pack for product completeness; product default
+stays direct fallback until a released engine path holds exactness and both
+speed gates on formal authorizing profiles.
+
 
 Machine-readable: [gemma4-12b-axq4-tier1.json](gemma4-12b-axq4-tier1.json).

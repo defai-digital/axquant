@@ -51,7 +51,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "assistant-MTP fused for product completeness; formal Tier 2 speed gates not claimed"
+    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24\u20131.38\u00d7) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
   },
   "toolchain": {
     "axquant": "1.6.1+local-prep-fix",
