@@ -1641,15 +1641,27 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         runtime_env = parse_runtime_env_items(args.runtime_env)
-        if args.qwen36_exact_profile and args.gemma4_assistant_exact_profile:
+        selected_profiles = [
+            name
+            for name, chosen in (
+                ("--qwen36-exact-profile", args.qwen36_exact_profile),
+                ("--qwen36-moe-exact-profile", args.qwen36_moe_exact_profile),
+                ("--gemma4-assistant-exact-profile", args.gemma4_assistant_exact_profile),
+            )
+            if chosen
+        ]
+        if len(selected_profiles) > 1:
             raise SystemExit(
-                "benchmark-ab: --qwen36-exact-profile and "
-                "--gemma4-assistant-exact-profile are mutually exclusive"
+                f"benchmark-ab: {' and '.join(selected_profiles)} are mutually exclusive"
             )
         if args.qwen36_exact_profile:
             from axquant.benchmark import QWEN36_EXACT_MTP_PROFILE_ENV
 
             runtime_env = {**QWEN36_EXACT_MTP_PROFILE_ENV, **runtime_env}
+        if args.qwen36_moe_exact_profile:
+            from axquant.benchmark import QWEN36_MOE_EXACT_MTP_PROFILE_ENV
+
+            runtime_env = {**QWEN36_MOE_EXACT_MTP_PROFILE_ENV, **runtime_env}
         if args.gemma4_assistant_exact_profile:
             from axquant.benchmark import GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV
 

@@ -274,13 +274,18 @@ MTP_DIAGNOSTIC_PROFILES: dict[str, dict[str, str]] = {
 # The complete Qwen 3.6 exact-MTP measurement contract used by the formal M5
 # suite. The certification-candidate flag exposes the route only to this
 # explicit harness; AX Engine's normal Qwen linear-attention policy remains
-# canonical direct decode until the complete second-tier contract passes. The
-# exact flag alone is NOT the contract on AX Engine 6.12.x: without
-# the invariant-projection/row-exact/split-FFN companions the verifier falls
-# off the validated graph and every cycle pays a many-fold rollback and
-# verify-eval penalty. Scoped Tier 2 certs use the exact-profile lazy
-# checkpoint path (LINEAR_EXACT_REPLAY=0); nonzero REPLAY is a kill switch
-# that forces slow singleton recompute every step and understates speedup.
+# canonical direct decode until the complete second-tier contract passes.
+# Scoped Tier 2 certs use the exact-profile lazy checkpoint path
+# (LINEAR_EXACT_REPLAY=0); nonzero REPLAY is a kill switch that forces slow
+# singleton recompute every step and understates speedup.
+#
+# The three AX_MLX_SPECULATIVE_* entries are inert on AX Engine 6.14.0 — the
+# engine reads none of them (verified against the 6.14.0 tree, and no commit
+# in its history ever defined them). They are retained here only so a replay
+# of the published dense 27B Tier 2 certificates reproduces their recorded
+# runtime_env byte for byte. Do not read them as tuning axes, and do not
+# carry them into new profiles: the earlier claim that the verifier falls off
+# its validated graph without them is not supported by the engine source.
 QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
     "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
@@ -299,6 +304,42 @@ QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_SPECULATIVE_SPLIT_FFN": "1",
 }
 
+# Formal Qwen 3.6 exact-MTP contract for the **sparse-expert** siblings
+# (35B-A3B and any later n-A3B pack). Same exactness contract as the dense
+# profile, with two deliberate differences (AXQ-041):
+#
+#   * the three inert AX_MLX_SPECULATIVE_* entries are dropped — see the note
+#     on the dense profile;
+#   * AX_MLX_MTP_ASYNC_DRAFT is on.
+#
+# The async draft is exactness-preserving by construction: the identical lazy
+# draft graph is evaluated and only the synchronisation point moves, so the
+# verify graph builds while the draft head's GPU forward is still running
+# instead of behind a host token extraction. It qualifies exactly in this
+# regime (exact profile, linear attention, greedy, non-optimistic).
+#
+# It matters far more on a sparse model than on a dense one. A MoE decode step
+# reads only its routed experts, so the step is short and the *fixed* per-step
+# costs dominate: on 35B-A3B AXQ 4-bit the synchronous draft was 2.7 ms of a
+# 17.4 ms MTP step (measured 2026-08-09, `df-macbookpro-m5`, AX Engine
+# 6.14.0-moe-mtp, agent-coding, depth 1). Deferring it moved token-weighted
+# decode speedup from 0.936x to 1.101x with greedy exactness intact across 408
+# speculative steps. The dense 27B siblings certified without it and keep the
+# profile above unchanged.
+QWEN36_MOE_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
+    "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    # Retained from the dense profile: the Qwen MTP head's own MLP is dense,
+    # so this flag still reaches the draft head on a MoE target model.
+    "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+    "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+}
+
 # Formal Gemma 4 assistant-MTP measurement contract (ST2 / AXQ-040).
 # Forces the assistant route for the full generation budget under greedy A/B;
 # draft depth defaults to engine depth-2 via AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH
@@ -309,6 +350,10 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
     "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
     "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH": "2",
+    # Gemma-specific gates (default 0.85 / 0.999 suppress drafts under greedy).
+    # Formal A/B measures the attach+draft path; set 0 to disable confidence truncation.
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE": "0",
 }
 
 

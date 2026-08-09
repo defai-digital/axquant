@@ -61,6 +61,8 @@ def test_compose_preserves_base_digests(tmp_path: Path) -> None:
     output = tmp_path / "composite"
     _write_minimal_target(target)
     _write_minimal_assistant(assistant)
+    # Divergent assistant tokenizer must be overwritten by target sync.
+    (assistant / "tokenizer.json").write_text('{"version":"assistant-only"}', encoding="utf-8")
     base_digest = file_sha256(target / "model.safetensors")
 
     result = compose_gemma4_assistant_mtp(
@@ -85,6 +87,9 @@ def test_compose_preserves_base_digests(tmp_path: Path) -> None:
     assert (output / "assistant" / "model.safetensors").is_file()
     assert file_sha256(output / "model.safetensors") == base_digest
     assert result.base_weight_digests["model.safetensors"] == base_digest
+    assert (output / "assistant" / "tokenizer.json").read_text(
+        encoding="utf-8"
+    ) == (output / "tokenizer.json").read_text(encoding="utf-8")
 
     contract = json.loads((output / ASSISTANT_CONTRACT_NAME).read_text(encoding="utf-8"))
     assert contract["schema_version"] == "ax.gemma4_assistant_mtp.v1"

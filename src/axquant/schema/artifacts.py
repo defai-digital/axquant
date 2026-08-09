@@ -990,13 +990,38 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS",
         "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT",
         "AX_MLX_SPECULATIVE_SPLIT_FFN",
+        # MoE-class MTP controls (AXQ-041). A sparse-expert verify step is
+        # dominated by fixed per-step cost, not by weight bandwidth, so the
+        # axes that decide a MoE Tier 2 outcome are different from the dense
+        # ones above and were previously unreachable from a benchmark config.
+        # `MLX_MAX_*_PER_BUFFER` are MLX's own Metal command-buffer caps:
+        # `gather_qmm` charges the full expert stack against them, which
+        # forces a per-layer command-buffer split and turns the engine's
+        # `async_eval` submit into a barrier. AX Engine auto-raises them for
+        # eligible families and always yields to a caller-set value, so the
+        # harness needs them to measure an excluded family such as `qwen3_5`.
+        "MLX_MAX_MB_PER_BUFFER",
+        "MLX_MAX_OPS_PER_BUFFER",
+        "AX_MLX_AUTO_BUFFER_CAPS",
+        # Draft-only lm_head requantization. Exactness-neutral by
+        # construction: verification re-runs the target lm_head, so these
+        # move acceptance rate and draft cost, never the emitted tokens.
+        # Material on MoE, where a 248k-entry lm_head is a large share of the
+        # per-step active bytes rather than the ~5% it is on a dense sibling.
+        "AX_MLX_MTP_DRAFT_LM_HEAD_BITS",
+        "AX_MLX_MTP_DRAFT_LM_HEAD_GROUP_SIZE",
+        "AX_MLX_MTP_USE_RUNTIME_DRAFT_LM_HEAD",
+        "AX_MLX_MOE_LAYER_COMPILE",
         # Gemma 4 assistant-MTP formal / diagnostic controls (ST2)
         "AX_MLX_GEMMA4_ASSISTANT_MTP",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_REQUIRE_EXACT_PAIR",
+        "AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE",
+        "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE",
         "AX_MLX_GEMMA4_ASSISTANT_COMPILE",
         "AX_MLX_GEMMA4_ASSISTANT_LAZY_MULTI_DEPTH",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_COALESCED_VERIFY",
+        "AX_MLX_GEMMA4_ASSISTANT_MTP_DEBUG",
     }
 )
 

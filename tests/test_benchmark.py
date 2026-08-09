@@ -1223,3 +1223,62 @@ def test_qwen36_exact_profile_env_is_complete_and_allowlisted(
     # Explicit user overrides must win over the profile defaults.
     merged = {**QWEN36_EXACT_MTP_PROFILE_ENV, **{"AX_MLX_MTP_BYPASS_MIN_SAMPLES": "8"}}
     assert merged["AX_MLX_MTP_BYPASS_MIN_SAMPLES"] == "8"
+
+
+def test_qwen36_moe_exact_profile_env_is_complete_and_allowlisted(
+    base_config: BenchmarkConfig,
+) -> None:
+    """The sparse-expert profile keeps the exactness contract, not the inert flags.
+
+    A MoE decode step reads only its routed experts, so fixed per-step cost
+    dominates and the async draft is what decides the Tier 2 outcome
+    (AXQ-041). The three AX_MLX_SPECULATIVE_* entries are inert on AX Engine
+    6.14.0 and must not be carried into a new profile.
+    """
+    from axquant.benchmark import (
+        QWEN36_EXACT_MTP_PROFILE_ENV,
+        QWEN36_MOE_EXACT_MTP_PROFILE_ENV,
+    )
+
+    config = base_config.model_copy(update={"runtime_env": dict(QWEN36_MOE_EXACT_MTP_PROFILE_ENV)})
+    assert config.runtime_env == dict(sorted(QWEN36_MOE_EXACT_MTP_PROFILE_ENV.items()))
+    assert QWEN36_MOE_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_ASYNC_DRAFT"] == "1"
+    for member in (
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS",
+    ):
+        assert QWEN36_MOE_EXACT_MTP_PROFILE_ENV[member] == QWEN36_EXACT_MTP_PROFILE_ENV[member]
+    for inert in (
+        "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS",
+        "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT",
+        "AX_MLX_SPECULATIVE_SPLIT_FFN",
+    ):
+        assert inert not in QWEN36_MOE_EXACT_MTP_PROFILE_ENV
+    # The dense contract is a published-certificate replay input: adding the
+    # async draft to the sparse profile must not disturb it.
+    assert "AX_MLX_MTP_ASYNC_DRAFT" not in QWEN36_EXACT_MTP_PROFILE_ENV
+
+
+def test_moe_tuning_axes_are_allowlisted_for_benchmark_configs(
+    base_config: BenchmarkConfig,
+) -> None:
+    """A MoE Tier 2 investigation must be able to set the axes that decide it.
+
+    `MLX_MAX_*_PER_BUFFER` gate whether AX Engine's `async_eval` submit stays
+    a submit or degenerates into a barrier on a `gather_qmm` graph, and the
+    draft-only lm_head controls are exactness-neutral acceptance/cost knobs.
+    All were previously rejected by the runtime_env allowlist.
+    """
+    axes = {
+        "MLX_MAX_MB_PER_BUFFER": "1024",
+        "MLX_MAX_OPS_PER_BUFFER": "1000",
+        "AX_MLX_AUTO_BUFFER_CAPS": "0",
+        "AX_MLX_MTP_DRAFT_LM_HEAD_BITS": "3",
+        "AX_MLX_MTP_DRAFT_LM_HEAD_GROUP_SIZE": "64",
+        "AX_MLX_MTP_USE_RUNTIME_DRAFT_LM_HEAD": "1",
+        "AX_MLX_MOE_LAYER_COMPILE": "1",
+    }
+    config = base_config.model_copy(update={"runtime_env": dict(axes)})
+    assert config.runtime_env == dict(sorted(axes.items()))

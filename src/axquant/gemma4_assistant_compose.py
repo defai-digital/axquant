@@ -146,6 +146,26 @@ def _copy_target_tree(target_dir: Path, output_dir: Path, *, prefer_hardlink: bo
         _link_or_copy(path, output_dir / rel, prefer_hardlink=prefer_hardlink)
 
 
+def _sync_target_tokenizers_into_assistant(output_dir: Path) -> None:
+    """Copy target tokenizer files into assistant/ for engine attach checks.
+
+    AX Engine fails Gemma assistant-MTP attach with TokenizerMismatch when
+    target and assistant tokenizer.json / tokenizer_config.json differ.
+    """
+    assistant = output_dir / "assistant"
+    if not assistant.is_dir():
+        raise ArtifactError(f"assistant directory missing after compose: {assistant}")
+    for name in ("tokenizer.json", "tokenizer_config.json"):
+        src = output_dir / name
+        if not src.is_file():
+            continue
+        dst = assistant / name
+        # Always materialize a real file (not a hardlink to a foreign assistant).
+        if dst.exists() or dst.is_symlink():
+            dst.unlink()
+        shutil.copy2(src, dst)
+
+
 def _copy_assistant_tree(
     assistant_dir: Path, output_assistant: Path, *, prefer_hardlink: bool
 ) -> None:
@@ -218,6 +238,10 @@ def compose_gemma4_assistant_mtp(request: Gemma4AssistantComposeRequest) -> Gemm
         output_dir / "assistant",
         prefer_hardlink=request.prefer_hardlink,
     )
+    # AX Engine requires byte-identical tokenizer files between target and
+    # assistant (TokenizerMismatch otherwise). Prefer the AXQ target tokenizers
+    # so Tier 1 target identity is preserved while MTP attach can succeed.
+    _sync_target_tokenizers_into_assistant(output_dir)
 
     # Verify base digests in the composite match the source target.
     composed_base = {

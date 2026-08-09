@@ -1094,6 +1094,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "(the formal-suite env set); explicit --runtime-env values win",
     )
     benchmark_ab_parser.add_argument(
+        "--qwen36-moe-exact-profile",
+        action="store_true",
+        help="Apply the Qwen 3.6 sparse-expert (n-A3B) exact-MTP measurement "
+        "contract: the same exactness contract as --qwen36-exact-profile "
+        "without its inert AX_MLX_SPECULATIVE_* entries and with the "
+        "exactness-preserving async draft on; explicit --runtime-env values "
+        "win; mutually exclusive with the other profile flags",
+    )
+    benchmark_ab_parser.add_argument(
         "--gemma4-assistant-exact-profile",
         action="store_true",
         help="Apply the formal Gemma 4 assistant-MTP measurement contract "
