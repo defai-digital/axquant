@@ -555,9 +555,7 @@ def test_gemma4_packed_experts_alias_switch_glu_runtime_modules() -> None:
     # Qwen mlp.experts packing must still resolve to switch_mlp, not switch_glu.
     qwen = packed_expert_runtime_modules("model.language_model.layers.0.mlp.experts.gate_up_proj")
     assert qwen[0].endswith("switch_mlp.gate_proj")
-    groups = mlx_tensor_binding_groups(
-        "model.language_model.layers.0.experts.gate_up_proj.weight"
-    )
+    groups = mlx_tensor_binding_groups("model.language_model.layers.0.experts.gate_up_proj.weight")
     flat = {a for g in groups for a in g}
     assert "model.language_model.layers.0.experts.switch_glu.gate_proj.weight" in flat
     assert "language_model.model.layers.0.experts.switch_glu.up_proj.weight" in flat
