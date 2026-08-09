@@ -1,0 +1,36 @@
+{
+  "engine": {
+    "version": "6.14.1",
+    "source_commit_base": "f49c6e6546fff21dd354c55d0c1597650ad2c81f",
+    "local_followups": "hidden-only-mid-submit,terminal-logits-async_eval,pipeline-hint-in-verify",
+    "binary_path": "/Users/akiralam/ci/ax-engine/6.14.1-moe-mtp-verify-submit/bin/ax-engine-bench",
+    "binary_sha256": "854647ab53b2e3e3f0336b24aa1f3fda5492282d03388f647901ded980580cd1",
+    "host": "df-macbookpro-m5",
+    "built_at": "2026-08-09T05:56:40Z",
+    "feature": "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS+AX_MLX_PIPELINE_GRANULARITY"
+  },
+  "profiles": {
+    "agent-coding": {
+      "exactness_pass": true,
+      "divergent_trial_count": 0,
+      "token_weighted_decode_speedup": 1.3162116199131049,
+      "prompt_median_speedup": 1.1002912283443316,
+      "release_ready": true,
+      "dataset_sha256": "440eea149a2fe5306a7068684a662b9957fe2fa90f8ce5a1914187ea9b3c7adc",
+      "comparison_sha256": "9348b0422989f90acd5136f788ff86018ee5647b464af11ec7566a7b02f17c7a",
+      "measured_trial_count": 5
+    },
+    "general-long": {
+      "exactness_pass": true,
+      "divergent_trial_count": 0,
+      "token_weighted_decode_speedup": 1.2771651740115069,
+      "prompt_median_speedup": 1.304731718751077,
+      "release_ready": true,
+      "dataset_sha256": "c43e076e3f78a9e2fa69047d7e8eb2527988ce214a427e04a95a999f93dd8f07",
+      "comparison_sha256": "30ab3853cd0efa44624c068a1732e633018ba715bd989151ba1f653967f4c99c",
+      "measured_trial_count": 5
+    }
+  },
+  "host_id": "df-macbookpro-m5",
+  "formal_route": "qwen36-moe-exact-profile"
+}

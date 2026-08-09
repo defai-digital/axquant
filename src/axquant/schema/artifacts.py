@@ -1017,6 +1017,9 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         # of running to completion in front of a blocking eval. Only useful
         # together with the buffer caps above.
         "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS",
+        # Layer-boundary residual async_eval hints (`off` / `layer` / `block:N`).
+        # Exactness-preserving host/GPU overlap on multi-layer forwards.
+        "AX_MLX_PIPELINE_GRANULARITY",
         # Gemma 4 assistant-MTP formal / diagnostic controls (ST2)
         "AX_MLX_GEMMA4_ASSISTANT_MTP",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH",

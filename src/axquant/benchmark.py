@@ -306,17 +306,26 @@ QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
 
 # Formal Qwen 3.6 exact-MTP contract for the **sparse-expert** siblings
 # (35B-A3B and any later n-A3B pack). Same exactness contract as the dense
-# profile, with two deliberate differences (AXQ-041):
+# profile, with three deliberate differences (AXQ-041):
 #
 #   * the three inert AX_MLX_SPECULATIVE_* entries are dropped — see the note
 #     on the dense profile;
-#   * AX_MLX_MTP_ASYNC_DRAFT is on.
+#   * AX_MLX_MTP_ASYNC_DRAFT is on;
+#   * AX_MLX_MTP_VERIFY_SUBMIT_LAYERS=8 enables chunked mid-verify
+#     `async_eval` (AX Engine ≥6.14.1) so host graph build overlaps GPU
+#     execution on multi-token verify steps.
 #
 # The async draft is exactness-preserving by construction: the identical lazy
 # draft graph is evaluated and only the synchronisation point moves, so the
 # verify graph builds while the draft head's GPU forward is still running
 # instead of behind a host token extraction. It qualifies exactly in this
 # regime (exact profile, linear attention, greedy, non-optimistic).
+#
+# Chunked verify submit is likewise exactness-preserving: mid-loop submits
+# schedule an already-built residual graph and change no operand, shape, or
+# reduction order. Interval 8 is the measured sweet spot on 35B-A3B AXQ
+# (`df-macbookpro-m5`). Requires an engine build that implements
+# `AX_MLX_MTP_VERIFY_SUBMIT_LAYERS` (released as 6.14.1+).
 #
 # It matters far more on a sparse model than on a dense one. A MoE decode step
 # reads only its routed experts, so the step is short and the *fixed* per-step
@@ -338,6 +347,12 @@ QWEN36_MOE_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
     "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
     "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    # Chunked multi-token verify submit (engine ≥6.14.1). Default off in the
+    # engine; formal MoE Tier 2 measurement requires interval 8.
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    # Layer-boundary residual async_eval on multi-token verify (and direct)
+    # for additional host/GPU overlap on short MoE steps. Exactness-preserving.
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
 }
 
 # Formal Gemma 4 assistant-MTP measurement contract (ST2 / AXQ-040).

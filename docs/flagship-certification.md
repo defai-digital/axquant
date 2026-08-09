@@ -24,14 +24,14 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | --- | --- | --- |
 | 27B AXQ 6-bit v3 | [Yes](certifications/qwen36-27b-axq6-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq6-tier2.md) |
 | 27B AXQ 4-bit (5.6 BPW) | [Yes](certifications/qwen36-27b-axq4-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq4-tier2.md) |
-| 35B-A3B AXQ 4-bit | [Yes](certifications/qwen36-35b-axq4-tier1.md) | No ([named engine gate](certifications/qwen36-35b-axq4-tier1.md#tier-2-status)) |
-| 35B-A3B AXQ 6-bit | [Yes](certifications/qwen36-35b-axq6-tier1.md) | No ([named engine gate](certifications/qwen36-35b-axq6-tier1.md#tier-2-status)) |
+| 35B-A3B AXQ 4-bit | [Yes](certifications/qwen36-35b-axq4-tier1.md) | [Scoped yes](certifications/qwen36-35b-axq4-tier2.md) |
+| 35B-A3B AXQ 6-bit | [Yes](certifications/qwen36-35b-axq6-tier1.md) | [Scoped yes](certifications/qwen36-35b-axq6-tier2.md) |
 
 | Claim | Status |
 | --- | --- |
 | Checkpoint size, matched-reference quality, conversion integrity | Certified (per pack record) |
 | Safe/stable default AX Engine text route | Certified; product default remains direct fallback |
-| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** for dense 27B packs on `df-macbookpro-m5` / AX Engine 6.14.0; **not** certified for 35B MoE packs, whose remaining gate is a named engine change measured only pre-release |
+| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** for dense 27B packs on `df-macbookpro-m5` / AX Engine 6.14.0 and for MoE 35B-A3B packs on the same host / AX Engine 6.14.1 (MoE exact profile) |
 | Short-answer / universal prompt acceleration | Not certified |
 | Vision-language quality | Not certified |
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |

@@ -1243,6 +1243,8 @@ def test_qwen36_moe_exact_profile_env_is_complete_and_allowlisted(
     config = base_config.model_copy(update={"runtime_env": dict(QWEN36_MOE_EXACT_MTP_PROFILE_ENV)})
     assert config.runtime_env == dict(sorted(QWEN36_MOE_EXACT_MTP_PROFILE_ENV.items()))
     assert QWEN36_MOE_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_ASYNC_DRAFT"] == "1"
+    assert QWEN36_MOE_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_VERIFY_SUBMIT_LAYERS"] == "8"
+    assert QWEN36_MOE_EXACT_MTP_PROFILE_ENV["AX_MLX_PIPELINE_GRANULARITY"] == "layer"
     for member in (
         "AX_MLX_QWEN_LINEAR_MTP_EXACT",
         "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE",
@@ -1257,8 +1259,9 @@ def test_qwen36_moe_exact_profile_env_is_complete_and_allowlisted(
     ):
         assert inert not in QWEN36_MOE_EXACT_MTP_PROFILE_ENV
     # The dense contract is a published-certificate replay input: adding the
-    # async draft to the sparse profile must not disturb it.
+    # async draft / verify-submit axes to the sparse profile must not disturb it.
     assert "AX_MLX_MTP_ASYNC_DRAFT" not in QWEN36_EXACT_MTP_PROFILE_ENV
+    assert "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS" not in QWEN36_EXACT_MTP_PROFILE_ENV
 
 
 def test_moe_tuning_axes_are_allowlisted_for_benchmark_configs(

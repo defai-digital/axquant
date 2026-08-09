@@ -51,8 +51,11 @@
     "max_size_ratio_vs_uniform6": 1.1
   },
   "mtp_acceleration": {
-    "status": "not-certified",
-    "reason": "speedup gates fail on the released engine; blocker identified as fixed per-step host cost (serial verify graph build, ~40% of a MoE decode step), not sparse-expert weight bandwidth. Pre-release measurement with ax-engine#77 clears both gates on both authorizing profiles; awaiting a released certification-grade engine build"
+    "status": "certified-scoped",
+    "tier2_certificate": "qwen36-35b-axq6-tier2.json",
+    "scope": "decode-heavy-authorizing-profiles",
+    "ax_engine_version": "6.14.1",
+    "engine_binary_sha256": "854647ab53b2e3e3f0336b24aa1f3fda5492282d03388f647901ded980580cd1"
   },
   "toolchain": {
     "axquant": "1.6.1",

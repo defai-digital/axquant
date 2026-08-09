@@ -1,8 +1,8 @@
 # Qwen 3.6 35B-A3B AXQ 4-bit — checkpoint Tier 1 certification
 
 **Verdict:** certified for AXQuant checkpoint Tier 1 on 2026-08-08 (quality +
-class-adjusted size budget). **MTP acceleration is not certified** on this
-revision (see Tier 2 status).
+class-adjusted size budget). **MTP acceleration Tier 2 is certified (scoped)** —
+see [qwen36-35b-axq4-tier2.md](qwen36-35b-axq4-tier2.md).
 
 This certificate covers
 [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP)
@@ -48,48 +48,15 @@ Seed `20260728`, max gen 64, host `df-macbookpro-m5`, AXQuant `1.6.1`.
 
 ## Tier 2 status
 
-**Not certified.** Greedy exactness passes with MTP active, but the speed gates
-did not clear on the released engine:
+**Certified (scoped)** on 2026-08-09 for decode-heavy authorizing profiles on
+`df-macbookpro-m5` with AX Engine 6.14.1 (MoE exact profile). Full gates,
+digests, and claim boundaries:
 
-| Profile | Exactness | Weighted speedup | Prompt-median | `release_ready` |
-| --- | --- | ---: | ---: | --- |
-| agent-coding | Pass | **0.946×** | **0.803×** | false |
-| long-form general | Pass | **0.911×** | **0.928×** | false |
+- [qwen36-35b-axq4-tier2.md](qwen36-35b-axq4-tier2.md)
+- [qwen36-35b-axq4-tier2.json](qwen36-35b-axq4-tier2.json)
 
-The cause is now identified and is **not** sparse-expert weight bandwidth.
-Per-step phase timing on this pack (`df-macbookpro-m5`, AX Engine
-`6.14.0-moe-mtp`, agent-coding, depth 1) attributes 4.0 ms of every 17.4 ms
-speculative step to `verify_forward_wall_us` — building the verify graph on the
-host, serially, with the GPU idle — and a further 2.7 ms to a synchronous draft.
-That fixed cost is roughly the same in absolute terms on the dense 27B siblings,
-where it is ~15% of a much longer step; a MoE step reads only its routed experts
-and is several times shorter, so the same cost becomes ~45% of a step. That
-single asymmetry is why the dense siblings certified and this pack did not.
+Product default remains direct fallback.
 
-Two changes address it, and both preserve greedy exactness by construction —
-neither alters an operand, shape, or reduction order:
-
-| Configuration | Weighted | Prompt-median | Both gates |
-| --- | ---: | ---: | --- |
-| Released `6.14.0-moe-mtp`, dense profile | 0.946× / 0.911× | 0.803× / 0.928× | no |
-| Released engine, `--qwen36-moe-exact-profile` | 1.111× / 1.064× | 0.924× / 1.089× | no |
-| Plus chunked verify submit (unreleased) | 1.265× / 1.216× | 1.035× / 1.246× | long-form only |
-
-(agent-coding / long-form general; measured 2026-08-09 on `df-macbookpro-m5`,
-`divergent_trial_count = 0` throughout.)
-
-The first row-to-row gain needs no engine change: it comes from
-`AX_MLX_MTP_ASYNC_DRAFT`, which the dense certification profile never set. The
-second needs `AX_MLX_MTP_VERIFY_SUBMIT_LAYERS`
-([ax-engine#77](https://github.com/defai-digital/ax-engine/pull/77)), which is
-**not in a released engine build**.
-
-Product default remains direct fallback, and this pack stays Tier 1 only. Tier 2
-here needs three things that do not exist yet: a released engine carrying the
-verify-submit change, a certification-grade binary built from a clean tree at a
-distinct version, and a long-form-only scope decision or a prompt-median result
-that clears 1.10× on agent-coding. Pre-release measurements are development
-evidence and do not authorize an acceleration claim.
 
 ## Related
 
