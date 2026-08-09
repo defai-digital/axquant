@@ -37,19 +37,18 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 
-### Gemma-4 AXQ siblings (checkpoint Tier 1)
+### Gemma-4 AXQ siblings (checkpoint Tier 1 — historical)
 
-Certified on `df-macbookpro-m5` (size + quality vs matched uniform; MTP Tier 2 not claimed):
+M5 size/quality evidence remains on file (MTP Tier 2 not claimed). **Public Hugging Face
+packages for the six Gemma AXQ repos were removed on 2026-08-09** (including 12B 4/6-bit and
+26B/31B 4/6-bit). Certificates below are historical evidence only, not live catalog links:
 
-| Pack | Tier 1 |
+| Pack | Tier 1 evidence |
 | --- | --- |
-| 26B-A4B AXQ 4-bit | [Yes](certifications/gemma4-26b-a4b-axq4-tier1.md) |
-| 26B-A4B AXQ 6-bit | [Yes](certifications/gemma4-26b-a4b-axq6-tier1.md) |
-| 31B AXQ 4-bit | [Yes](certifications/gemma4-31b-axq4-tier1.md) |
-| 31B AXQ 6-bit | [Yes](certifications/gemma4-31b-axq6-tier1.md) |
-
-These are exact-revision certificates, not architecture-wide promotions. Each pack’s Hub commit
-and listed digests identify the certified weight set.
+| 26B-A4B AXQ 4-bit | [Historical](certifications/gemma4-26b-a4b-axq4-tier1.md) — Hub removed |
+| 26B-A4B AXQ 6-bit | [Historical](certifications/gemma4-26b-a4b-axq6-tier1.md) — Hub removed |
+| 31B AXQ 4-bit | [Historical](certifications/gemma4-31b-axq4-tier1.md) — Hub removed |
+| 31B AXQ 6-bit | [Historical](certifications/gemma4-31b-axq6-tier1.md) — Hub removed |
 
 ## Two-tier claim policy
 

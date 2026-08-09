@@ -2,7 +2,9 @@
 
 **Verdict:** certified on 2026-08-08.
 
-Hub: [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) commit `7a5198b1ae1903187b15bfb5f079d352a139ccc3`.
+Hub: **unpublished** (repository removed from Hugging Face on 2026-08-09). Prior id retained for evidence binding only; do not treat as a live catalog package.
+Historical Hub id: `AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit`.
+Historical commit (pre-removal): `7a5198b1ae1903187b15bfb5f079d352a139ccc3`.
 
 | Property | Value |
 | --- | --- |
@@ -20,7 +22,7 @@ Hub: [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/Autom
 - MLX-LM runtime check.
 - Vision/multimodal quality **not** claimed.
 - MTP acceleration Tier 2 **not** claimed.
-- Hub pack is **quality-only AXQ** (no fused `assistant/` MTP). A 2026-08-09 experimental
+- Public Hub package **removed** (2026-08-09); certificate is historical M5 evidence only.
   assistant fuse was **reverted** on the Hub; history remains in git commits.
 
 Machine-readable: [gemma4-26b-a4b-axq4-tier1.json](gemma4-26b-a4b-axq4-tier1.json).
