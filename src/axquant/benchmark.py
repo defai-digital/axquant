@@ -350,10 +350,14 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
     "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
     "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH": "2",
-    # Gemma-specific gates (default 0.85 / 0.999 suppress drafts under greedy).
-    # Formal A/B measures the attach+draft path; set 0 to disable confidence truncation.
-    "AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE": "0",
-    "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE": "0",
+    # Gemma gates: must be a *tiny positive* value, not 0.
+    # first_gate<=0 selects the sampled draft path (non-empty distributions), which
+    # makes mtp_request_route treat the step as non-exact and DirectFallback —
+    # so drafts never verify (ax_mtp_decode_steps=0). A small positive gate keeps
+    # the greedy gated path (empty distributions → StrictMtp) while still drafting
+    # nearly all positions. Production defaults (0.85/0.999) remain for product.
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE": "0.0001",
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE": "0.0001",
 }
 
 
