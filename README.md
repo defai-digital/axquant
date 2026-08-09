@@ -21,7 +21,8 @@ multi-token-prediction (MTP) weights.
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
-Certification host: `df-macbookpro-m5`. Full index and Hub commits:
+Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
+`df-macbookpro-m5`). Full index and Hub commits:
 [docs/certifications/](docs/certifications/README.md).
 
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
@@ -129,9 +130,10 @@ Packages tab; that UI is for npm/containers, not pip).
   Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
   see the tier matrix under [Current status](#current-status).
 - **Where it stands:** Qwen 3.6 27B AXQ 6-bit v3 is checkpoint Tier 1 and **scoped** MTP
-  acceleration Tier 2 certified (decode-heavy authorizing profiles on `df-macbookpro-m5`;
-  product default still direct fallback). Every other public pack remains development evidence
-  unless its own certificate exists. [Current status](#current-status) states the exact scope.
+  acceleration Tier 2 certified (decode-heavy authorizing profiles on MacBook Pro M5,
+  128 GB, 18-core; product default still direct fallback). Every other public pack remains
+  development evidence unless its own certificate exists. [Current status](#current-status)
+  states the exact scope.
 
 ## Quickstart
 
@@ -263,10 +265,10 @@ command does not by itself certify an output.
 - Coding-suite and general-holdout overlap share `campaign-overlap`'s CJK-aware
   `axquant-token-5gram-v2` tokenizer; regenerate coding-suite manifests built under v1.
   GPTQ column codes use the joint `round(w/s + z)` form shared with AWQ (v1.5.1).
-- The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`), matching the
-  certification machine's canonical DNS identity; the id is a schema literal on the host
-  contract, preflight, and certified-claim hardware scope. No campaign or claim ever bound
-  the old id (v1.5.0).
+- The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`): the machine is a
+  **MacBook Pro M5 with 128 GB unified memory and an 18-core CPU**. The id is the machine's
+  canonical DNS name and a schema literal on the host contract, preflight, and certified-claim
+  hardware scope. No campaign or claim ever bound the old id (v1.5.0).
 
 ### v1.4.x at a glance
 
@@ -320,8 +322,8 @@ revision has passed:
   zero-fallback conversion, and the safe default runtime route
   ([certificate](docs/certifications/qwen36-27b-axq6-tier1.md)).
 - **Tier 2 (MTP acceleration, scoped):** greedy exactness plus ≥1.20× token-weighted and ≥1.10×
-  prompt-median decode speedup on authorizing decode-heavy profiles on `df-macbookpro-m5` with
-  AX Engine 6.14.0 under the formal exact MTP contract
+  prompt-median decode speedup on authorizing decode-heavy profiles on **MacBook Pro M5
+  (128 GB, 18-core)** with AX Engine 6.14.0 under the formal exact MTP contract
   ([certificate](docs/certifications/qwen36-27b-axq6-tier2.md)).
 
 Product **default** remains Qwen linear MTP **direct fallback** (safe Tier 1 default). The
@@ -794,7 +796,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence (`axquant-token-5gram-v2`; repeatable `--id-field`, default `id` then `task_id`) | Implemented |
 | `campaign-frontier` | Verify every cheapest-failure-first candidate gate and derive the eligible frontier | Implemented |
 | `campaign-freeze` | Freeze one exact `qwen36-mtp-v2` source/candidate/evidence graph | Implemented |
-| `campaign-preflight` | Verify frozen bindings, durable storage, and exact `df-macbookpro-m5` host identity | Implemented |
+| `campaign-preflight` | Verify frozen bindings, durable storage, and exact formal host identity (`df-macbookpro-m5` = MacBook Pro M5, 128 GB, 18-core) | Implemented |
 | `campaign-start-formal` | Start one budgeted formal cycle only after matching preflight | Implemented |
 | `campaign-complete-formal` | Derive pass/fail from the bound completion and consume both formal holdouts | Implemented |
 | `campaign-close-no-go` | Close a pre-formal campaign without consuming its blind holdout | Implemented |
@@ -1020,7 +1022,8 @@ axquant campaign-freeze \
   --request flagship-campaign-request.json \
   --output flagship-campaign.json
 
-# This authorizing preflight must run on the exact host id df-macbookpro-m5.
+# Authorizing preflight must run on the formal host:
+# MacBook Pro M5, 128 GB, 18-core (host id df-macbookpro-m5).
 axquant campaign-preflight \
   --campaign flagship-campaign.json \
   --output flagship-campaign-preflight.json
@@ -1035,7 +1038,7 @@ deliberately not publication-ready until the independent lifecycle and claim clo
 The campaign request and every transition, raw-evidence, review, no-go, and publication record
 must remain inside the declared non-symlinked durable root. Formal preflight also requires fresh
 doctor, Metal, zero-fallback, storage, power, and thermal results bound to the exact frozen
-`df-macbookpro-m5` contract.
+host contract (MacBook Pro M5, 128 GB, 18-core; host id `df-macbookpro-m5`).
 After the legal `frozen → certified` event, `claim-render` creates `public-claim.json` and the
 measured-BPW `README.md`. An independent final publication review binds those exact files and the
 authorization audit under the durable campaign root; the final flagship request must pass M0–M8
