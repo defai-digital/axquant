@@ -13,10 +13,11 @@ from __future__ import annotations
 import json
 import os
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from axquant.errors import ArtifactError
 from axquant.serde import file_sha256
@@ -180,9 +181,7 @@ def _copy_assistant_tree(
         raise ArtifactError(f"assistant config.json is unreadable: {exc}") from exc
     model_type = str(config.get("model_type", "")).strip().lower()
     if model_type != "gemma4_assistant":
-        raise ArtifactError(
-            f"assistant model_type must be 'gemma4_assistant', got {model_type!r}"
-        )
+        raise ArtifactError(f"assistant model_type must be 'gemma4_assistant', got {model_type!r}")
     for path in _iter_files(assistant_dir):
         rel = path.relative_to(assistant_dir)
         _link_or_copy(path, output_assistant / rel, prefer_hardlink=prefer_hardlink)
@@ -210,7 +209,9 @@ def _write_contract(
     return file_sha256(path)
 
 
-def compose_gemma4_assistant_mtp(request: Gemma4AssistantComposeRequest) -> Gemma4AssistantComposeResult:
+def compose_gemma4_assistant_mtp(
+    request: Gemma4AssistantComposeRequest,
+) -> Gemma4AssistantComposeResult:
     """Build a composite AXQ+assistant pack under ``request.output_dir``."""
     target_dir = request.target_dir.expanduser().resolve()
     assistant_dir = request.assistant_dir.expanduser().resolve()
@@ -227,8 +228,7 @@ def compose_gemma4_assistant_mtp(request: Gemma4AssistantComposeRequest) -> Gemm
     base_weight_digests = {
         key: digest
         for key, digest in _digest_tree(target_dir).items()
-        if not key.startswith("assistant/")
-        and Path(key).name not in _SKIP_TARGET_NAMES
+        if not key.startswith("assistant/") and Path(key).name not in _SKIP_TARGET_NAMES
     }
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -258,8 +258,7 @@ def compose_gemma4_assistant_mtp(request: Gemma4AssistantComposeRequest) -> Gemm
             raise ArtifactError(f"composed pack is missing base file {key!r}")
         if composed != digest:
             raise ArtifactError(
-                f"composed base file {key!r} digest mismatch "
-                f"(target={digest} composite={composed})"
+                f"composed base file {key!r} digest mismatch (target={digest} composite={composed})"
             )
 
     contract_path = output_dir / ASSISTANT_CONTRACT_NAME
@@ -283,7 +282,7 @@ def compose_gemma4_assistant_mtp(request: Gemma4AssistantComposeRequest) -> Gemm
         "contract_sha256": contract_sha256,
         "target_model_id": _model_id_leaf(request.target_model_id),
         "assistant_model_id": _model_id_leaf(request.assistant_model_id),
-        "composed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "composed_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "tool_versions": {
             "axquant": request.axquant_version,
         },

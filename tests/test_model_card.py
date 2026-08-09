@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
@@ -16,6 +17,7 @@ from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
+    CheckpointCertificationClaim,
     PlanRequest,
     ProfileName,
     ProtectedTensorSidecarManifest,
@@ -184,6 +186,125 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
         "axquant_vision_sidecar_manifest.json",
     ):
         assert original_local_path not in json.dumps(read_data(directory / name))
+
+
+def _claim(directory: Path, **overrides: object) -> CheckpointCertificationClaim:
+    fields: dict[str, object] = {
+        "hub_repo_id": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        "hub_commit": "cdd13bf81cf21818a01cf59a31fc116ef84326bc",
+        "candidate_manifest_sha256": file_sha256(directory / "axquant_manifest.json"),
+        "host_id": "df-macbookpro-m5",
+        "certified_at": "2026-08-08T21:20:00+00:00",
+        "mtp_acceleration_status": "not-certified",
+    }
+    fields.update(overrides)
+    return CheckpointCertificationClaim(**fields)  # type: ignore[arg-type]
+
+
+def _certified_card(directory: Path, claim: CheckpointCertificationClaim) -> str:
+    return render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        product_class="6bit",
+        manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
+        plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
+        execution=load_model(
+            directory / "axquant_quantizer_execution.json",
+            QuantizerExecutionManifest,
+        ),
+        mtp_sidecar=None,
+        vision_sidecar=None,
+        certification=claim,
+    )
+
+
+def test_model_card_states_tier_1_without_implying_an_acceleration_claim(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """A Tier 1 certificate replaces the development banner and nothing more.
+
+    Tier 1 binds size, quality, and conversion integrity. The card must say so
+    and must keep saying MTP acceleration is uncertified, because that is what
+    the certificate itself records for this pack.
+    """
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+    )
+
+    card = _certified_card(directory, _claim(directory))
+
+    assert "Checkpoint Tier 1 certified" in card
+    assert "df-macbookpro-m5" in card
+    assert "2026-08-08" in card
+    assert "cdd13bf81cf2" in card
+    assert "Development evidence — not a certified AXQuant release" not in card
+    # Tier 1 must never read as a speed claim.
+    assert "not certified**; no MTP speedup claim" in card
+    assert "M0-M8 release" in card
+
+
+def test_model_card_renders_a_scoped_acceleration_status_from_the_certificate(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+    )
+
+    card = _certified_card(
+        directory,
+        _claim(
+            directory,
+            mtp_acceleration_status="certified-scoped",
+            mtp_acceleration_note="decode-heavy authorizing profiles only",
+        ),
+    )
+
+    assert "authorizing profiles only" in card
+    assert "decode-heavy authorizing profiles only" in card
+    assert "no speedup claim" in card
+
+
+def test_model_card_refuses_a_certificate_that_does_not_bind_the_artifact(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """An unbound certificate is an error, never a silent development card.
+
+    Re-deriving the manifest digest from disk is what makes the rendered Tier 1
+    statement evidence instead of a caller assertion, so both a foreign
+    repository and a stale digest must fail closed.
+    """
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+    )
+
+    with pytest.raises(ArtifactError, match="different repository"):
+        _certified_card(
+            directory,
+            _claim(directory, hub_repo_id="AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP"),
+        )
+
+    with pytest.raises(ArtifactError, match="does not bind this artifact"):
+        _certified_card(directory, _claim(directory, candidate_manifest_sha256="0" * 64))
+
+
+def test_checkpoint_certification_claim_requires_an_immutable_commit() -> None:
+    with pytest.raises(ValidationError):
+        CheckpointCertificationClaim(
+            hub_repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+            hub_commit="main",
+            candidate_manifest_sha256="0" * 64,
+            host_id="df-macbookpro-m5",
+            certified_at="2026-08-08T21:20:00+00:00",  # type: ignore[arg-type]
+        )
 
 
 def test_development_model_card_rejects_product_class_mismatch(

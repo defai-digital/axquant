@@ -24,28 +24,37 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | --- | --- | --- |
 | 27B AXQ 6-bit v3 | [Yes](certifications/qwen36-27b-axq6-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq6-tier2.md) |
 | 27B AXQ 4-bit (5.6 BPW) | [Yes](certifications/qwen36-27b-axq4-tier1.md) | [Scoped yes](certifications/qwen36-27b-axq4-tier2.md) |
-| 35B-A3B AXQ 4-bit | [Yes](certifications/qwen36-35b-axq4-tier1.md) | No (speed gates fail) |
-| 35B-A3B AXQ 6-bit | [Yes](certifications/qwen36-35b-axq6-tier1.md) | No (speed gates fail) |
+| 35B-A3B AXQ 4-bit | [Yes](certifications/qwen36-35b-axq4-tier1.md) | No ([named engine gate](certifications/qwen36-35b-axq4-tier1.md#tier-2-status)) |
+| 35B-A3B AXQ 6-bit | [Yes](certifications/qwen36-35b-axq6-tier1.md) | No ([named engine gate](certifications/qwen36-35b-axq6-tier1.md#tier-2-status)) |
 
 | Claim | Status |
 | --- | --- |
 | Checkpoint size, matched-reference quality, conversion integrity | Certified (per pack record) |
 | Safe/stable default AX Engine text route | Certified; product default remains direct fallback |
-| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** for dense 27B packs on `df-macbookpro-m5` / AX Engine 6.14.0; **not** certified for 35B MoE packs |
+| MTP speculative-decode speedup and exactness (decode-heavy authorizing profiles) | **Certified (scoped)** for dense 27B packs on `df-macbookpro-m5` / AX Engine 6.14.0; **not** certified for 35B MoE packs, whose remaining gate is a named engine change measured only pre-release |
 | Short-answer / universal prompt acceleration | Not certified |
 | Vision-language quality | Not certified |
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 
-### Gemma-4 AXQ siblings — pending recertification
+### Gemma-4 AXQ siblings
 
-Hub packs for Gemma 4 12B/26B/31B AXQ 4/6-bit were **republished 2026-08-09** with fused
-**assistant-MTP** (`assistant/` + contract). They are **not** currently treated as closed Tier 1
-or Tier 2 certificates for the fused Hub revision: a full **recertification campaign** (size,
-quality, and optional MTP Tier 2) is planned later.
+Hub packs ship fused **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json`) under the
+Qwen-style `…-MLX-AXQ-*-MTP` names. Checkpoint Tier 1 on `df-macbookpro-m5` (2026-08-09):
 
-Older notes under `certifications/gemma4-*-tier1.*` are **historical** target-only M5 evidence and
-must not be read as live claims for the current Hub head.
+| Pack | Tier 1 | Tier 2 |
+| --- | --- | --- |
+| 12B AXQ 4-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq4-tier1.md) | Not claimed |
+| 12B AXQ 6-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq6-tier1.md) | Not claimed |
+| 26B-A4B AXQ 4-bit | [Certified](certifications/gemma4-26b-a4b-axq4-tier1.md) | Not claimed |
+| 26B-A4B AXQ 6-bit | [Certified](certifications/gemma4-26b-a4b-axq6-tier1.md) | Not claimed |
+| 31B AXQ 4-bit | [Certified](certifications/gemma4-31b-axq4-tier1.md) | Not claimed |
+| 31B AXQ 6-bit | [Certified](certifications/gemma4-31b-axq6-tier1.md) | Not claimed |
+
+Tier 1 binds the **fused Hub head**: target weight digests match the quality-bound canonical
+pack; assistant assets are attached without mutating target weights. The 12B packs were rebuilt
+from `google/gemma-4-12b-it` after non-IT sources failed quality. Assistant-MTP presence is
+**not** a Tier 2 speed claim.
 
 ## Two-tier claim policy
 

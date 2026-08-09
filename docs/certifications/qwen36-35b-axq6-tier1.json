@@ -52,7 +52,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "MoE MTP loadable after experts.gate_up_proj fix; formal speedup gates not met"
+    "reason": "speedup gates fail on the released engine; blocker identified as fixed per-step host cost (serial verify graph build, ~40% of a MoE decode step), not sparse-expert weight bandwidth. Pre-release measurement with ax-engine#77 clears both gates on both authorizing profiles; awaiting a released certification-grade engine build"
   },
   "toolchain": {
     "axquant": "1.6.1",

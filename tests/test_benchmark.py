@@ -1279,6 +1279,7 @@ def test_moe_tuning_axes_are_allowlisted_for_benchmark_configs(
         "AX_MLX_MTP_DRAFT_LM_HEAD_GROUP_SIZE": "64",
         "AX_MLX_MTP_USE_RUNTIME_DRAFT_LM_HEAD": "1",
         "AX_MLX_MOE_LAYER_COMPILE": "1",
+        "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
     }
     config = base_config.model_copy(update={"runtime_env": dict(axes)})
     assert config.runtime_env == dict(sorted(axes.items()))

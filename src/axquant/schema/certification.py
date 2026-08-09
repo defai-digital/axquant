@@ -161,6 +161,35 @@ class ExactCertificationScope(StrictModel):
         return self
 
 
+class CheckpointCertificationClaim(StrictModel):
+    """The claim-bearing subset of a published checkpoint Tier 1 certificate.
+
+    Public certificates under `docs/certifications/` also carry evidence hashes,
+    dataset digests, and threshold records whose shape differs per campaign.
+    None of that reaches a model card, so this binds only what a card may
+    state, and the renderer re-derives `candidate_manifest_sha256` from the
+    artifact rather than trusting the field. A caller cannot promote an
+    uncertified pack by asserting one of these.
+    """
+
+    hub_repo_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+    hub_commit: str
+    candidate_manifest_sha256: str = Field(pattern=_SHA256)
+    host_id: str = Field(min_length=1)
+    certified_at: datetime
+    certificate_url: str | None = Field(default=None, min_length=1)
+    mtp_acceleration_status: Literal["certified", "certified-scoped", "not-certified"] = (
+        "not-certified"
+    )
+    mtp_acceleration_note: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def commit_is_immutable(self) -> CheckpointCertificationClaim:
+        if not is_immutable_revision(self.hub_commit):
+            raise ValueError("certified Hub commit must be a full immutable commit SHA")
+        return self
+
+
 class Qwen3NextReleaseAuditRequest(StrictModel):
     schema_version: Literal["axquant.qwen3-next-release-audit-request.v1"] = (
         "axquant.qwen3-next-release-audit-request.v1"

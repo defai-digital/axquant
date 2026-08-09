@@ -1,0 +1,66 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-09T03:17:16+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP",
+    "hub_commit": "6d124af8f40f79d3e45ddfbdb50d721e63ab5dc2",
+    "product_class": "4bit",
+    "source_model_id": "google/gemma-4-12b-it",
+    "source_revision": null,
+    "candidate_manifest_sha256": "bc3fde05ba2af82c303b3ef13f1082586fb15e0735bccb050e9768c9d19dcc75"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "measured_total_bpw": 4.900060746386949,
+    "measured_main_bpw": 4.900060746386949,
+    "effective_bpw": 4.89994579529907
+  },
+  "size": {
+    "candidate_bytes": 7325425576,
+    "reference_bytes": 10987772576,
+    "ratio": 0.6666888603064586,
+    "max_size_ratio": 1.15,
+    "pass": true,
+    "candidate_bpw": 4.900060746386949,
+    "reference_bpw": 7.349846439813808,
+    "reference_model_id": "mlx-community/gemma-4-12B-it-4bit"
+  },
+  "quality": {
+    "agent-coding": {
+      "retention": 1.032520325203252,
+      "candidate": 0.8355263157894737,
+      "reference": 0.8092105263157895,
+      "perplexity_ratio": 1.0795925211984303,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19"
+    },
+    "general": {
+      "retention": 1.0,
+      "candidate": 1.0,
+      "reference": 1.0,
+      "perplexity_ratio": 0.9941814499470263,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "assistant-MTP fused for product completeness; formal Tier 2 speed gates not claimed"
+  },
+  "toolchain": {
+    "axquant": "1.6.1+local-prep-fix",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Rebuilt from google/gemma-4-12b-it after google/gemma-4-12b packs failed quality (multimodal placeholder loops).",
+    "gemma4_unified prep now strips vision_config/audio_config so MLX text convert does not emit empty vision_embedder biases.",
+    "Checkpoint Tier 1 on fused assistant-MTP Hub revision; target digests match quality-bound IT convert.",
+    "Vision/multimodal quality not claimed. Tier 2 not claimed."
+  ]
+}

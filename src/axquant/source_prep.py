@@ -32,6 +32,15 @@ _GEMMA4_MULTIMODAL_DROP = (
     "embed_vision",
 )
 
+# Config fields that cause MLX-LM's gemma4 loader to construct multimodal
+# submodules (and emit empty bias/weight sidecars) during text convert. The
+# converter restores vision_config from the original source after convert when
+# protected multimodal tensors are reattached.
+_GEMMA4_MULTIMODAL_CONFIG_DROP = (
+    "vision_config",
+    "audio_config",
+)
+
 
 def _json_object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
@@ -190,6 +199,8 @@ def prepare_gemma4_unified_source(
 
     prepared_config = dict(config)
     prepared_config["model_type"] = "gemma4"
+    for field in _GEMMA4_MULTIMODAL_CONFIG_DROP:
+        prepared_config.pop(field, None)
     (prepared / "config.json").write_text(
         json.dumps(prepared_config, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",

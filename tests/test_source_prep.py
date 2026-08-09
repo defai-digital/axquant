@@ -90,6 +90,8 @@ def test_prepare_gemma4_unified_filters_multimodal(
     prepared = prepare_gemma4_unified_source(source, work_dir=tmp_path / "work")
     cfg = json.loads((prepared / "config.json").read_text(encoding="utf-8"))
     assert cfg["model_type"] == "gemma4"
+    assert "vision_config" not in cfg
+    assert "audio_config" not in cfg
     loaded = mlx.load(str(prepared / "model.safetensors"))
     assert "model.language_model.layers.0.mlp.down_proj.weight" in loaded
     assert "model.vision_embedder.patch_dense.weight" not in loaded
@@ -97,6 +99,8 @@ def test_prepare_gemma4_unified_filters_multimodal(
     # Original source still has multimodal tensors for sidecar extraction.
     original = mlx.load(str(source / "model.safetensors"))
     assert "model.vision_embedder.patch_dense.weight" in original
+    source_cfg = json.loads((source / "config.json").read_text(encoding="utf-8"))
+    assert "vision_config" in source_cfg
 
 
 def test_filter_sharded_rejects_path_traversal_in_weight_map(
