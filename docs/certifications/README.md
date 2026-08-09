@@ -10,10 +10,10 @@ revisions, or unscoped runtime claims.
 | [Qwen 3.6 27B AXQ 4-bit (5.6 BPW)](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified (scoped)](qwen36-27b-axq4-tier2.md) |
 | [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | Not certified (exactness-only; speed gates fail) |
 | [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | Not certified (speed gates fail) |
-| [Gemma 4 26B-A4B AXQ 4-bit](gemma4-26b-a4b-axq4-tier1.md) | M5 convert | Certified; Hub live with assistant-MTP (speed not T2) | Not claimed |
-| [Gemma 4 26B-A4B AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | M5 convert | Certified; Hub live with assistant-MTP (speed not T2) | Not claimed |
-| [Gemma 4 31B AXQ 4-bit](gemma4-31b-axq4-tier1.md) | M5 convert | Certified; Hub live with assistant-MTP (speed not T2) | Not claimed |
-| [Gemma 4 31B AXQ 6-bit](gemma4-31b-axq6-tier1.md) | M5 convert | Certified; Hub live with assistant-MTP (speed not T2) | Not claimed |
+| [Gemma 4 26B-A4B AXQ 4-bit](gemma4-26b-a4b-axq4-tier1.md) | M5 convert | Historical only — **full recert pending** (Hub has assistant-MTP) | Not claimed |
+| [Gemma 4 26B-A4B AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | M5 convert | Historical only — **full recert pending** (Hub has assistant-MTP) | Not claimed |
+| [Gemma 4 31B AXQ 4-bit](gemma4-31b-axq4-tier1.md) | M5 convert | Historical only — **full recert pending** (Hub has assistant-MTP) | Not claimed |
+| [Gemma 4 31B AXQ 6-bit](gemma4-31b-axq6-tier1.md) | M5 convert | Historical only — **full recert pending** (Hub has assistant-MTP) | Not claimed |
 
 Machine-readable companions:
 

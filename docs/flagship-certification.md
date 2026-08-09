@@ -37,21 +37,15 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 
-### Gemma-4 AXQ siblings (checkpoint Tier 1)
+### Gemma-4 AXQ siblings — pending recertification
 
-Certified on `df-macbookpro-m5` (size + quality vs matched uniform). Hub packs were **republished
-2026-08-09** with fused **assistant-MTP** (Tier 2 speed still not claimed):
+Hub packs for Gemma 4 12B/26B/31B AXQ 4/6-bit were **republished 2026-08-09** with fused
+**assistant-MTP** (`assistant/` + contract). They are **not** currently treated as closed Tier 1
+or Tier 2 certificates for the fused Hub revision: a full **recertification campaign** (size,
+quality, and optional MTP Tier 2) is planned later.
 
-| Pack | Tier 1 | Hub |
-| --- | --- | --- |
-| 26B-A4B AXQ 4-bit | [Yes](certifications/gemma4-26b-a4b-axq4-tier1.md) | [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) |
-| 26B-A4B AXQ 6-bit | [Yes](certifications/gemma4-26b-a4b-axq6-tier1.md) | [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) |
-| 31B AXQ 4-bit | [Yes](certifications/gemma4-31b-axq4-tier1.md) | [`AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) |
-| 31B AXQ 6-bit | [Yes](certifications/gemma4-31b-axq6-tier1.md) | [`AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit) |
-
-12B AXQ 4/6-bit are also live on Hub with assistant-MTP (secondary catalog; no separate Tier 1
-flagship certificate). Exact-revision certificates bind the AXQ **target** quality set; Hub head
-adds assistant sidecar for product completeness.
+Older notes under `certifications/gemma4-*-tier1.*` are **historical** target-only M5 evidence and
+must not be read as live claims for the current Hub head.
 
 ## Two-tier claim policy
 
