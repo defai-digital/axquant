@@ -31,10 +31,10 @@ Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | Not certified |
 | Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | Not certified |
-| Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) (`v1` weights) | Hub **`v2`** adds assistant-MTP (same repo name); speed not certified |
-| Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) (`v1` weights) | Hub **`v2`** adds assistant-MTP (same repo name); speed not certified |
-| Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) (`v1` weights) | Hub **`v2`** adds assistant-MTP (same repo name); speed not certified |
-| Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) (`v1` weights) | Hub **`v2`** adds assistant-MTP (same repo name); speed not certified |
+| Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | Not claimed (quality-only AXQ pack) |
+| Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | Not claimed (quality-only AXQ pack) |
+| Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | Not claimed (quality-only AXQ pack) |
+| Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | Not claimed (quality-only AXQ pack) |
 
 Other catalog entries remain development artifacts unless their own exact revision has a
 certificate.
@@ -411,12 +411,12 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq4-tier1.md)); MTP speed not certified |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq6-tier1.md)); MTP speed not certified |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | 4.890033 | stable Hub id; tag **`v1`** target-only, **`v2`** + assistant-MTP (history preserved) |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | 6.000088 | stable Hub id; tag **`v1`** target-only, **`v2`** + assistant-MTP (history preserved) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) | ~4.90 | **Tier 1** on **`v1`** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); **`v2`** = same target + assistant-MTP (speed not Tier 2) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) | ~6.00 | **Tier 1** on **`v1`** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); **`v2`** = same target + assistant-MTP (speed not Tier 2) |
-| [`AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) | ~4.90 | **Tier 1** on **`v1`** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); **`v2`** = same target + assistant-MTP (speed not Tier 2) |
-| [`AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit) | ~6.00 | **Tier 1** on **`v1`** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); **`v2`** = same target + assistant-MTP (speed not Tier 2) |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit) | 4.890033 | secondary; vision sidecar preserved; quality-only AXQ (no fused assistant-MTP) |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit) | 6.000088 | secondary; vision sidecar preserved; quality-only AXQ (no fused assistant-MTP) |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit) | ~4.90 | **Tier 1** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); MoE A4B; quality-only AXQ |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit) | ~6.00 | **Tier 1** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); MoE A4B; quality-only AXQ |
+| [`AX-gemma-4-31b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit) | ~4.90 | **Tier 1** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); quality-only AXQ |
+| [`AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit) | ~6.00 | **Tier 1** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); quality-only AXQ |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |
