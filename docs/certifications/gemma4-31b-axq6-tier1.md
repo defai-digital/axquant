@@ -13,16 +13,19 @@ Hub: [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit`](https://huggingface.co/Automatos
 | Size ratio vs uniform | `0.8990842384855067` (max `1.1`; pass=True) |
 | Quality agent retention | `0.9922480620155038` |
 | Quality general retention | `1.0` |
-| Tier 1 weight commit (size/quality bound) | `a0a0fe3ad14f366646df00251c22377326d7512f` |
-| Hub head with assistant-MTP (2026-08-09) | `5545db2e0bf4ba38d21c5e3bf85554570aa7cc00` |
+| Tier 1 weight commit / Hub tag **`v1`** | `a0a0fe3ad14f366646df00251c22377326d7512f` (target-only; no assistant MTP) |
+| Hub tag **`v2`** (same repo name + assistant-MTP) | pin `v2` on Hub; target digests unchanged from `v1` |
+
+**Stable Hub id:** the repository name is **not** renamed so users can track history. `v1` lacked
+MTP because the early publish pipeline did not fuse the Gemma assistant drafter into this package;
+`v2` adds `assistant/` + contract under the same id.
 
 ## Scope
 
-- Checkpoint size/quality vs matched mlx-community uniform reference (AXQ **target** weights).
+- Checkpoint size/quality vs matched mlx-community uniform reference (AXQ **target** weights on **`v1`**).
 - MLX-LM runtime check.
 - Vision/multimodal quality **not** claimed.
-- Hub pack now includes Gemma **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json`);
-  target weight digests are unchanged from the Tier 1 bind above.
+- Hub **`v2`** includes Gemma **assistant-MTP**; target weight digests match the Tier 1 bind above.
 - MTP acceleration Tier 2 **not** claimed (present ≠ certified speed).
 
 Machine-readable: [gemma4-31b-axq6-tier1.json](gemma4-31b-axq6-tier1.json).
