@@ -31,6 +31,9 @@ Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | Not certified — [one named engine gate](docs/certifications/qwen36-35b-axq4-tier1.md#tier-2-status) |
 | Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | Not certified — [one named engine gate](docs/certifications/qwen36-35b-axq6-tier1.md#tier-2-status) |
+| Gemma 4 12B AXQ 4-bit / 6-bit (IT rebuild) | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 26B-A4B AXQ 4-bit / 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
+| Gemma 4 31B AXQ 4-bit / 6-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) / [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | Not certified (assistant-MTP present only) |
 
 The sparse-expert (35B-A3B) Tier 2 gap is understood: it is fixed per-step host
 cost — the speculative verify graph is built serially with the GPU idle, which is
@@ -42,10 +45,11 @@ exactness intact. Those runs used a **pre-release** engine
 development evidence: Tier 2 stays unclaimed until a released,
 certification-grade engine build reproduces them.
 
-Gemma 4 AXQ (12B/26B/31B, 4/6-bit) Hub packs are **published with assistant-MTP** (see [Ready-made
-packs](#ready-made-packs) below) but are **not listed as certified** here: full **Tier 1 + Tier 2
-recertification is planned later** against the current fused Hub revision. Older M5 quality notes
-under `docs/certifications/gemma4-*` are historical only until that campaign closes.
+Gemma 4 **12B / 26B-A4B / 31B** AXQ packs are **checkpoint Tier 1 certified** on
+`df-macbookpro-m5` for the fused assistant-MTP Hub heads (size + quality + load).
+The 12B packs were rebuilt from `google/gemma-4-12b-it` after the earlier non-IT
+base failed quality. Assistant-MTP on any Gemma pack is **not** a Tier 2 speed
+claim.
 
 Other catalog entries remain development artifacts unless their own exact revision has a
 certificate.
@@ -140,11 +144,10 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
   Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
   see the tier matrix under [Current status](#current-status).
-- **Where it stands:** Qwen 3.6 27B AXQ 6-bit v3 is checkpoint Tier 1 and **scoped** MTP
-  acceleration Tier 2 certified (decode-heavy authorizing profiles on MacBook Pro M5,
-  128 GB, 18-core; product default still direct fallback). Every other public pack remains
-  development evidence unless its own certificate exists. [Current status](#current-status)
-  states the exact scope.
+- **Where it stands:** Qwen 3.6 27B packs are checkpoint Tier 1 and **scoped** MTP Tier 2
+  certified; 35B MoE and Gemma 4 12B/26B/31B are Tier 1 only (on MacBook Pro M5, 128 GB,
+  18-core). Product default remains direct fallback where MTP is uncertified.
+  [Current status](#current-status) states the exact scope.
 
 ## Quickstart
 
@@ -307,7 +310,8 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Scope | Use today | Public certification status |
 | --- | --- | --- |
 | Qwen 3.6 language paths | `convertible`; primary certification track | Exact 27B AXQ 6-bit v3 is Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
-| Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
+| Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
+| Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified** (Tier 2 not claimed); 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | Development evidence only |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
@@ -422,12 +426,12 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq4-tier1.md)); MTP speed not certified — blocker named, [pre-release evidence](docs/certifications/qwen36-35b-axq4-tier1.md#tier-2-status) clears the weighted gate |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 only** ([cert](docs/certifications/qwen36-35b-axq6-tier1.md)); MTP speed not certified — [pre-release evidence](docs/certifications/qwen36-35b-axq6-tier1.md#tier-2-status) clears both gates on both profiles |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.89 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
-| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | published; **assistant-MTP fused**; **pending full recert** (Tier 1+2 later) |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq4-tier1.md)); IT rebuild; assistant-MTP fused; Tier 2 not claimed |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq6-tier1.md)); IT rebuild; assistant-MTP fused; Tier 2 not claimed |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); assistant-MTP fused; Tier 2 not claimed |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); assistant-MTP fused; Tier 2 not claimed |
+| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); assistant-MTP fused; Tier 2 not claimed |
+| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); assistant-MTP fused; Tier 2 not claimed |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |

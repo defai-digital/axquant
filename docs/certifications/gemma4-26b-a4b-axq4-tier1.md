@@ -1,28 +1,58 @@
 # Gemma 4 26B-A4B AXQ 4-bit — checkpoint Tier 1 certification
 
-**Verdict:** certified on 2026-08-08 for **AXQ target** size/quality on `df-macbookpro-m5`.
+**Verdict:** certified for AXQuant checkpoint Tier 1 on 2026-08-09 for the
+**fused assistant-MTP Hub revision** on `df-macbookpro-m5`. **MTP acceleration
+Tier 2 is not certified** (present ≠ certified speed).
 
-Hub (live, **with assistant-MTP**): [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) commit `85b0a78a14843a818d403f9a2525efa2f081c2a4` (renamed to Qwen-style -MTP 2026-08-09).
+This certificate covers
+[`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP)
+commit
+[`85b0a78a14843a818d403f9a2525efa2f081c2a4`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP/tree/85b0a78a14843a818d403f9a2525efa2f081c2a4).
+
+## Bound artifact
 
 | Property | Value |
 | --- | --- |
-| Source | `google/gemma-4-26B-A4B-it` |
 | Product class | `4bit` |
-| Host | `df-macbookpro-m5` |
-| Measured BPW (target) | `4.900118671944353` |
-| Size ratio vs uniform | `1.0126613143612873` (max `1.15`; pass=True) |
-| Quality agent retention | `1.0078740157480315` |
-| Quality general retention | `1.0` |
-| Quality-bound target revision (pre-MTP fuse) | `7a5198b1ae1903187b15bfb5f079d352a139ccc3` |
+| Source | `google/gemma-4-26B-A4B-it` |
+| Candidate manifest SHA-256 | `2bc1a334bf43f7509eea171a36bcbebe5457ac48211657f585b138e306f7b231` |
+| Measured total BPW | `4.900118671944353` |
+| Certification host | `df-macbookpro-m5` |
+| Assistant-MTP | fused (`assistant/` + `ax_gemma4_assistant_mtp.json`); target digests match quality-bound pack |
+
+## Certification results
+
+| Gate | Requirement | Result | Verdict |
+| --- | ---: | ---: | --- |
+| Weight-size ratio vs uniform | ≤ `1.15` | `1.012661` | Pass |
+| General quality retention | ≥ `0.98` | `1.000000` | Pass |
+| Agent-coding quality retention | ≥ `0.98` | `1.007874` | Pass |
+| MLX-LM / AX Engine runtime | load + smoke | Pass | Pass |
+
+Candidate weight bytes `15,806,466,986` vs uniform reference
+`15,608,838,574` → **1.0127×**
+(`mlx-community/gemma-4-26b-a4b-it-4bit`).
+
+### Quality suites
+
+| Profile | Reference | Candidate | Retention | Perplexity ratio |
+| --- | ---: | ---: | ---: | ---: |
+| General | `1.000000` | `1.000000` | `1.000000` | `1.310694` |
+| Agent-coding | `0.835526` | `0.842105` | `1.007874` | `1.330682` |
+
+Seed `20260728`, max gen 64, host `df-macbookpro-m5`, AXQuant `1.6.1`.
+
+## Tier 2 status
+
+**Not certified.** The Hub pack ships Gemma **assistant-MTP** for product
+completeness. Formal decode-heavy A/B gates (exactness 100%, weighted speedup
+≥1.20×, prompt-median ≥1.10×) are **not** claimed for this revision. Default
+product route remains standard direct decode.
 
 ## Scope
 
 - Checkpoint size/quality vs matched mlx-community uniform reference (**AXQ target** weights).
-- MLX-LM runtime check on the quality-bound target revision above.
 - Vision/multimodal quality **not** claimed.
-- Hub pack **includes** Gemma **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json` +
-  composition provenance). Target digests match the quality-bound revision; assistant is attached
-  for product completeness.
-- MTP acceleration Tier 2 **not** claimed (present ≠ ≥1.20× / ≥1.10× certified speed).
+- Short-answer / universal prompt acceleration **not** claimed.
 
 Machine-readable: [gemma4-26b-a4b-axq4-tier1.json](gemma4-26b-a4b-axq4-tier1.json).

@@ -2,7 +2,7 @@
   "schema_version": "axquant.public-checkpoint-certification.v1",
   "status": "certified",
   "certification_tier": "checkpoint",
-  "certified_at": "2026-08-08T23:30:46.613016+00:00",
+  "certified_at": "2026-08-09T03:00:00+00:00",
   "host_id": "df-macbookpro-m5",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP",
@@ -15,7 +15,6 @@
   "plan": {
     "evidence_kind": "architecture_prior",
     "target_class": "4bit",
-    "effective_bpw": 4.899996212277702,
     "measured_total_bpw": 4.900118671944353,
     "measured_main_bpw": 4.900118671944353
   },
@@ -26,20 +25,23 @@
     "max_size_ratio": 1.15,
     "pass": true,
     "candidate_bpw": 4.900118671944353,
-    "reference_bpw": 4.8388524400529604
+    "reference_bpw": 4.8388524400529604,
+    "reference_model_id": "mlx-community/gemma-4-26b-a4b-it-4bit"
   },
   "quality": {
     "agent-coding": {
       "retention": 1.0078740157480315,
       "candidate": 0.8421052631578947,
       "reference": 0.8355263157894737,
-      "perplexity_ratio": 1.3306822416322255
+      "perplexity_ratio": 1.3306822416322255,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19"
     },
     "general": {
       "retention": 1.0,
       "candidate": 1.0,
       "reference": 1.0,
-      "perplexity_ratio": 1.3106943424206912
+      "perplexity_ratio": 1.3106943424206912,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f"
     }
   },
   "thresholds": {
@@ -47,22 +49,25 @@
     "max_size_ratio": 1.15
   },
   "mtp_acceleration": {
-    "status": "not-claimed",
-    "reason": "Gemma-4 AXQ checkpoint Tier 1 only; no formal MTP acceleration certificate"
+    "status": "not-certified",
+    "reason": "assistant-MTP is fused for product completeness; formal Tier 2 speed gates (\u22651.20\u00d7 weighted / \u22651.10\u00d7 prompt-median) are not claimed for this revision"
   },
   "toolchain": {
     "axquant": "1.6.1",
     "host": "df-macbookpro-m5"
   },
   "notes": [
-    "Checkpoint Tier 1 on Apple M5 Max (df-macbookpro-m5).",
-    "Vision/multimodal quality not claimed.",
+    "Checkpoint Tier 1 closed for the fused assistant-MTP Hub revision on Apple M5 Max (df-macbookpro-m5).",
+    "Target AXQ weight digests match the quality-bound canonical pack; assistant/ is attached without mutating target weights.",
+    "Vision/multimodal quality is not claimed.",
     "Chat-template digests may differ from the mlx-community uniform reference; suite protocol matched."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "7c09744e7480dd1d043b64cf96d2a77d5fd209d83efba8839aa30e76b8050c9e",
     "quality-comparison-general_sha256": "573edaa9b33c3cc631f83cab0cf48baf2c7413ea42825e5ec81cabeea48e3514",
     "candidate-size_sha256": "97e0b4f436f383d6beabb59b02b7ad2f1db6d6c1b94b1bfc85bfe8914e6f5ab9",
-    "runtime-mlx-lm_sha256": "28e4a559a0b9e007e7578b99c272e626393094f5fdbcb125200a6af482b5fa7d"
-  }
+    "runtime-mlx-lm_sha256": "28e4a559a0b9e007e7578b99c272e626393094f5fdbcb125200a6af482b5fa7d",
+    "runtime-ax-engine_sha256": "ed1eaea88f9dcb4c737f17e9a6b5effaeddee6b8b7e50a65e88112a7532f241d"
+  },
+  "quality_bound_pre_fuse_revision": "7a5198b1ae1903187b15bfb5f079d352a139ccc3"
 }
