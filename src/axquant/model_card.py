@@ -9,6 +9,7 @@ from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
+    CheckpointCertificationClaim,
     ModelIdentity,
     ProtectedTensorSidecarManifest,
     QuantizationPlan,
@@ -222,6 +223,89 @@ def _evidence_summary(
     return conversion, calibration, mtp
 
 
+_DEVELOPMENT_BANNER = (
+    "> **Development evidence — not a certified AXQuant release.** This package has conversion "
+    "and\n"
+    "> artifact-integrity records, but it does not publish measured quality, long-context, "
+    "kernel-speed,\n"
+    "> or MTP-speed evidence. Do not interpret the AXQ product label as a benchmark claim."
+)
+_DEVELOPMENT_RELEASE_ROW = (
+    "| Release certification | **Not certified**; formal AXQuant M0-M8 gates are not closed |"
+)
+
+_MTP_ACCELERATION_STATUS_TEXT = {
+    "certified": "certified on the certification host; see the certificate for its exact scope",
+    "certified-scoped": (
+        "certified for the certificate's authorizing profiles only; outside that scope there is "
+        "no speedup claim"
+    ),
+    "not-certified": "**not certified**; no MTP speedup claim for this checkpoint",
+}
+
+
+def _certification_blocks(
+    certified: CheckpointCertificationClaim | None,
+) -> tuple[str, str, str | None]:
+    """Banner, release-certification row, and MTP row override for a card."""
+
+    if certified is None:
+        return _DEVELOPMENT_BANNER, _DEVELOPMENT_RELEASE_ROW, None
+
+    day = certified.certified_at.date().isoformat()
+    link = (
+        f"[checkpoint Tier 1 certificate]({certified.certificate_url})"
+        if certified.certificate_url
+        else "checkpoint Tier 1 certificate"
+    )
+    banner = (
+        f"> **Checkpoint Tier 1 certified** on `{certified.host_id}` ({day}) for this exact\n"
+        f"> revision — measured size against a matched uniform baseline, quality retention, and\n"
+        "> conversion integrity. Tier 1 is a checkpoint claim, **not** a speed claim: MTP\n"
+        f"> acceleration is {_MTP_ACCELERATION_STATUS_TEXT[certified.mtp_acceleration_status]}.\n"
+        f"> See the {link} for the bound evidence and thresholds."
+    )
+    release_row = (
+        f"| Release certification | **Checkpoint Tier 1 certified** on `{certified.host_id}` "
+        f"({day}), Hub commit `{certified.hub_commit[:12]}`; the formal AXQuant M0-M8 release "
+        "campaign is a separate process and is not implied |"
+    )
+    mtp_row = _MTP_ACCELERATION_STATUS_TEXT[certified.mtp_acceleration_status]
+    if certified.mtp_acceleration_note:
+        mtp_row = f"{mtp_row} ({certified.mtp_acceleration_note})"
+    return banner, release_row, mtp_row
+
+
+def _verified_certification(
+    *,
+    directory: Path,
+    repo_id: str,
+    certification: CheckpointCertificationClaim | None,
+) -> CheckpointCertificationClaim | None:
+    """Return the claim only when it provably binds to the artifact being rendered.
+
+    The certificate names one exact artifact. Re-deriving the manifest digest
+    from disk is what makes the rendered Tier 1 statement evidence rather than
+    an assertion the caller supplied, so a claim that does not bind is an error
+    and never a silent downgrade to the development banner.
+    """
+
+    if certification is None:
+        return None
+    if certification.hub_repo_id != repo_id:
+        raise ArtifactError(
+            "checkpoint certification names a different repository "
+            f"(certificate={certification.hub_repo_id!r}, card={repo_id!r})"
+        )
+    measured = file_sha256(directory / "axquant_manifest.json")
+    if measured != certification.candidate_manifest_sha256:
+        raise ArtifactError(
+            "checkpoint certification does not bind this artifact: manifest SHA-256 "
+            f"{measured} does not match certified {certification.candidate_manifest_sha256}"
+        )
+    return certification
+
+
 def render_development_model_card(
     *,
     directory: Path,
@@ -233,8 +317,16 @@ def render_development_model_card(
     mtp_sidecar: ProtectedTensorSidecarManifest | None,
     vision_sidecar: ProtectedTensorSidecarManifest | None,
     artifact_edition: int | None = None,
+    certification: CheckpointCertificationClaim | None = None,
 ) -> str:
-    """Render an evidence-safe Hub card for a development AXQ checkpoint."""
+    """Render an evidence-safe Hub card for an AXQ checkpoint.
+
+    Without ``certification`` the card carries the development-evidence banner.
+    With one that binds to this exact artifact it states checkpoint Tier 1 and
+    the certificate's own MTP acceleration status — which is normally still
+    "not certified", and is rendered as such. Tier 1 is a size, quality, and
+    conversion-integrity claim; it is never an acceleration claim.
+    """
 
     name = repo_id.rsplit("/", 1)[-1]
     match = _AXQ_NAME.fullmatch(name)
@@ -297,6 +389,16 @@ def render_development_model_card(
     )
     methods = sorted({assignment.method.value for assignment in plan.assignments})
     conversion, calibration, mtp_evidence = _evidence_summary(manifest, plan, execution)
+    certified = _verified_certification(
+        directory=directory,
+        repo_id=repo_id,
+        certification=certification,
+    )
+    evidence_banner, release_certification_row, certified_mtp_evidence = _certification_blocks(
+        certified
+    )
+    if certified_mtp_evidence is not None:
+        mtp_evidence = certified_mtp_evidence
     mlx_lm_version = manifest.software_versions.mlx_lm or "unrecorded"
     mlx_version = manifest.software_versions.mlx or "unrecorded"
     ax_engine_version = manifest.software_versions.ax_engine or "not recorded"
@@ -574,9 +676,7 @@ tags:
 An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted directly from
 the BF16 source model. {sidecar_blurb}
 
-> **Development evidence — not a certified AXQuant release.** This package has conversion and
-> artifact-integrity records, but it does not publish measured quality, long-context, kernel-speed,
-> or MTP-speed evidence. Do not interpret the AXQ product label as a benchmark claim.
+{evidence_banner}
 {stable_name_notice}
 
 ## Model details
@@ -669,7 +769,7 @@ establish MTP acceleration or vision-language quality.
 | Vision-language quality | {vision_quality} |
 | Speech-recognition quality | {speech_quality} |
 | Long-context quality | {long_context_status} |
-| Release certification | **Not certified**; formal AXQuant M0-M8 gates are not closed |
+{release_certification_row}
 
 ## Intended use and limitations
 

@@ -44,16 +44,36 @@ Seed `20260728`, max gen 64, host `df-macbookpro-m5`, AXQuant `1.6.1`.
 
 ## Tier 2 status
 
-**Not certified.** MoE MTP sidecar packing is loadable after the AX Engine
-`experts.gate_up_proj` fix, and greedy exactness passes, but formal decode-heavy
-A/B speedups do not clear ≥1.20× / ≥1.10× gates:
+**Not certified.** Greedy exactness passes, but formal decode-heavy A/B speedups
+did not clear ≥1.20× / ≥1.10× on the released engine:
 
 | Profile | Exactness | Weighted speedup | Prompt-median | `release_ready` |
 | --- | --- | ---: | ---: | --- |
 | agent-coding | Pass | **1.091×** | **0.882×** | false |
 | long-form general | Pass | **1.007×** | **1.010×** | false |
 
-Default product route remains direct fallback.
+The cause is fixed per-step host cost, not sparse-expert weight bandwidth — the
+[4-bit sibling certificate](qwen36-35b-axq4-tier1.md) records the per-step phase
+attribution. Two exactness-preserving changes address it:
+
+| Configuration | Weighted | Prompt-median | Both gates |
+| --- | ---: | ---: | --- |
+| Released `6.14.0-moe-mtp`, dense profile | 1.091× / 1.007× | 0.882× / 1.010× | no |
+| Released engine, `--qwen36-moe-exact-profile` | 1.219× / 1.067× | 1.011× / 1.173× | no |
+| Plus chunked verify submit (unreleased) | 1.392× / 1.333× | 1.157× / 1.333× | **both profiles** |
+
+(agent-coding / long-form general; measured 2026-08-09 on `df-macbookpro-m5`,
+`divergent_trial_count = 0` throughout.)
+
+This pack clears both Tier 2 gates on both authorizing profiles once
+`AX_MLX_MTP_VERIFY_SUBMIT_LAYERS`
+([ax-engine#77](https://github.com/defai-digital/ax-engine/pull/77)) is active —
+the strongest sparse-expert result measured so far, and better than either dense
+27B sibling's certified figures. It is still **not certified**: that measurement
+used a pre-release binary built from a working tree carrying unrelated
+in-progress changes, self-reporting `6.14.0` while differing from the certified
+binary. Authorizing Tier 2 evidence requires a released engine and a
+certification-grade build. Default product route remains direct fallback.
 
 ## Related
 

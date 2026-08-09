@@ -108,6 +108,12 @@ between published versions.
   on Hugging Face with fused assistant-MTP** but are **pending full Tier 1 + Tier 2
   recertification** against that fused revision; older gemma4 cert notes are historical only.
   Formal MTP for Qwen MoE can load after engine `experts.gate_up_proj` support, but 35B speedup
-  gates (≥1.20× / ≥1.10×) are not met. Product default remains MTP direct fallback; the formal
-  acceleration route is opt-in. Vision paths and short-answer universal speedup remain
+  gates (≥1.20× / ≥1.10×) are not met on any released engine. The blocker is fixed per-step host
+  cost — the speculative verify graph is built serially with the GPU idle, ~40-45% of a MoE decode
+  step against ~15% of a dense one — not sparse-expert weight bandwidth. Two exactness-preserving
+  changes clear it in pre-release measurement (`--qwen36-moe-exact-profile`, plus
+  [ax-engine#77](https://github.com/defai-digital/ax-engine/pull/77)); see the
+  [4-bit](certifications/qwen36-35b-axq4-tier1.md#tier-2-status) and
+  [6-bit](certifications/qwen36-35b-axq6-tier1.md#tier-2-status) Tier 2 status sections. Product
+  default remains MTP direct fallback; the formal acceleration route is opt-in. Vision paths and short-answer universal speedup remain
   uncertified.

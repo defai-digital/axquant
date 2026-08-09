@@ -1012,6 +1012,11 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         "AX_MLX_MTP_DRAFT_LM_HEAD_GROUP_SIZE",
         "AX_MLX_MTP_USE_RUNTIME_DRAFT_LM_HEAD",
         "AX_MLX_MOE_LAYER_COMPILE",
+        # Layer interval at which the speculative verify build is handed to
+        # the GPU, so host graph construction overlaps GPU execution instead
+        # of running to completion in front of a blocking eval. Only useful
+        # together with the buffer caps above.
+        "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS",
         # Gemma 4 assistant-MTP formal / diagnostic controls (ST2)
         "AX_MLX_GEMMA4_ASSISTANT_MTP",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH",
