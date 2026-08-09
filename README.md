@@ -24,7 +24,7 @@ multi-token-prediction (MTP) weights.
 Certification host: `df-macbookpro-m5`. Full index and Hub commits:
 [docs/certifications/](docs/certifications/README.md).
 
-| Pack family | Checkpoint Tier 1 | MTP Tier 2 (scoped) |
+| Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
 | Qwen 3.6 27B AXQ 6-bit v3 | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
