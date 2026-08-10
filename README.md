@@ -37,8 +37,10 @@ Full index and Hub commits: [docs/certifications/](docs/certifications/README.md
 | Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
 | Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
-| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | Not certified |
-| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | Not certified |
+| GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
+| GPT-OSS 20B AXQ 4-bit | [Not Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
+| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on
@@ -52,10 +54,11 @@ while greedy exactness fails when drafts are accepted. The 12B packs were rebuil
 direct fallback until Tier 2 gates pass on a released engine.
 
 **Qwen3-Coder-Next** AXQ 4/6-bit packs are **checkpoint Tier 1 certified** on `df-macbookpro-m5`
-(non-MTP direct-decode; Tier 2 N/A). **DeepSeek V4 Flash** AXQ **2/3-bit experimental** packs
-are **checkpoint Tier 1 certified** on `df-macstudio-m2` (generation viability; MTP Tier 2 not
-claimed). Other catalog entries remain development artifacts unless their own exact revision has
-a certificate.
+(non-MTP direct-decode; Tier 2 N/A). **GPT-OSS 20B** AXQ **6-bit** is checkpoint Tier 1 certified
+on the same host (non-MTP); the 4-bit pack is published but **not certified** (general quality).
+**DeepSeek V4 Flash** AXQ **2/3-bit experimental** packs are **checkpoint Tier 1 certified** on
+`df-macstudio-m2` (generation viability; MTP Tier 2 not claimed). Other catalog entries remain
+development artifacts unless their own exact revision has a certificate.
 
 ## Contents
 
@@ -145,13 +148,14 @@ Packages tab; that UI is for npm/containers, not pip).
   BPW; acceleration-bearing flagship claims use the measured-BPW form
   `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`. Manifests remain authoritative.
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
-  Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, and Nemotron 3 Nano —
-  see the tier matrix under [Current status](#current-status).
+  Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, Nemotron 3 Nano,
+  DeepSeek V4, and GPT-OSS — see the tier matrix under [Current status](#current-status).
 - **Where it stands:** Qwen 3.6 27B dense and 35B-A3B MoE packs are checkpoint Tier 1 and
   **scoped** MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4 12B/26B/31B AXQ 4-bit
   and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified). Qwen3-Coder-Next AXQ
-  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). Product default remains
-  direct fallback. [Current status](#current-status) states the exact scope.
+  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). GPT-OSS 20B AXQ 6-bit is
+  checkpoint Tier 1 certified (4-bit not certified). Product default remains direct fallback.
+  [Current status](#current-status) states the exact scope.
 
 ## Quickstart
 
@@ -320,6 +324,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
+| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit Tier 1** on `df-macbookpro-m5`; 20B 4-bit not certified; 120B when cert closes |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
@@ -372,6 +377,7 @@ release audit. The current tier matrix:
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
+| **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 6-bit Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP |
 
 New families start at `inspect-only` until promotion evidence exists. Run
 `axquant support-matrix` and `axquant support-policy` for the registry-derived source of truth.
@@ -380,7 +386,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells (development evidence) |
+| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -454,6 +460,9 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq4-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
+| [`AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | 6.000037 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP; MXFP4 re-pack |
+| [`AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | 4.940037 | development (not certified — general quality); [record](docs/certifications/gpt-oss-20b-axq4-tier1.md) |
+| [`AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | 4.800010 | development (cert pending / in progress on `df-macbookpro-m5`) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |

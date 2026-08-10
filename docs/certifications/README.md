@@ -18,8 +18,10 @@ revisions, or unscoped runtime claims.
 | [Gemma 4 31B AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
 | [Qwen3-Coder-Next AXQ 4-bit](qwen3-coder-next-axq4-tier1.md) | main@`53dce509` | [Certified](qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-Coder-Next AXQ 6-bit](qwen3-coder-next-axq6-tier1.md) | main@`c6f3ae55` | [Certified](qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
-| [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md) |
-| [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md) |
+| [GPT-OSS 20B AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
+| [GPT-OSS 20B AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`8123294f` | [Not Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
+| [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP
 Hub packs (12B / 26B-A4B / 31B). **Tier 2 (MTP acceleration) is not certified** on any Gemma pack
@@ -27,6 +29,11 @@ while formal assistant-MTP exactness remains open on a released engine.
 
 **Qwen3-Coder-Next:** hybrid MoE coding checkpoint with **no declared MTP**. Public certificates
 are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality, MLX-LM load).
+
+**GPT-OSS:** OpenAI MoE (`GptOssForCausalLM`) with **no declared MTP**. Converted from
+`mlx-community` MXFP4-Q4 via `--allow-quantized` re-pack on `df-macbookpro-m5`. Public 20B
+**6-bit** is checkpoint Tier 1 certified; **4-bit** fails general quality retention (development
+Hub pack only).
 
 **DeepSeek V4 Flash:** experimental **2/3-bit** AXQ packs are checkpoint Tier 1 on
 `df-macstudio-m2` (generation viability on development suites). Product classes remain
@@ -51,6 +58,8 @@ Machine-readable companions:
 - [31B 6-bit Tier 1 JSON](gemma4-31b-axq6-tier1.json)
 - [Coder-Next 4-bit Tier 1 JSON](qwen3-coder-next-axq4-tier1.json)
 - [Coder-Next 6-bit Tier 1 JSON](qwen3-coder-next-axq6-tier1.json)
+- [GPT-OSS 20B 6-bit Tier 1 JSON](gpt-oss-20b-axq6-tier1.json)
+- [GPT-OSS 20B 4-bit Tier 1 JSON](gpt-oss-20b-axq4-tier1.json)
 - [DeepSeek V4 Flash 2-bit Tier 1 JSON](deepseek-v4-flash-axq2-tier1.json)
 - [DeepSeek V4 Flash 3-bit Tier 1 JSON](deepseek-v4-flash-axq3-tier1.json)
 

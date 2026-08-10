@@ -39,12 +39,19 @@ Seed `20260728`, max gen 64, host `df-macstudio-m2`, AXQuant `1.6.1`.
 - Measured BPW exceeds the nominal class because of protected tensors and MTP.
 - Quality scores measure **generation viability** on the development suites (non-empty /
   expected-overlap scorer), not BF16 retention or formal coding-suite unit tests.
-- **MTP Tier 2 / speculative speedup is not certified.**
 - AX Engine admission for 2/3-bit remains behind experimental env gates.
+
+## Tier 2 status
+
+**Not certified.** MTP weights are present in the pack, but this certificate does **not**
+authorize speculative-decode speedup or greedy exactness. No formal MTP A/B scoreboard on
+`df-macstudio-m2` (or any host) has closed the acceleration gates for this revision.
+
+Product default remains direct decode until a revision-bound Tier 2 certificate exists.
 
 ## Related
 
-- Sibling pack under this directory
+- Sibling 2-bit: [deepseek-v4-flash-axq2-tier1.md](deepseek-v4-flash-axq2-tier1.md)
 - Certification index: [README.md](README.md)
 
 Machine-readable: [deepseek-v4-flash-axq3-tier1.json](deepseek-v4-flash-axq3-tier1.json).
