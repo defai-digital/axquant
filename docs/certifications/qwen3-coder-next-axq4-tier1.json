@@ -1,0 +1,79 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-10T22:34:15.391871+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit",
+    "hub_commit": "53dce509aa115e7fae583516b494a5dafebf31a9",
+    "product_class": "4bit",
+    "architecture": "Qwen3NextForCausalLM",
+    "source_model_id": "Qwen/Qwen3-Coder-Next",
+    "source_revision": "a7fbcb5c0e12d62a448eaa0e260346bf5dcc0feb",
+    "candidate_manifest_sha256": "0cabf5e744e2bd1a24c5a525dd4b71bb7193a26883c182c102b2852962e944b5"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "target_bpw": 4.8,
+    "effective_bpw": 4.797729765337924,
+    "measured_total_bpw": 4.7977524983638125,
+    "measured_main_bpw": 4.7977524983638125
+  },
+  "size": {
+    "candidate_weight_bytes": 47782251237,
+    "candidate_measured_bpw": 4.7977524983638125,
+    "reference_kind": "uniform-4bit",
+    "reference_model_id": "mlx-community/Qwen3-Coder-Next-4bit",
+    "reference_revision": "7b9321eabb85ce79625cac3f61ea691e4ea984b5",
+    "reference_weight_bytes": 44844286500,
+    "size_ratio_vs_uniform": 1.065514806150389,
+    "max_size_ratio_applied": 1.15,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8881578947368421,
+      "reference_score": 0.868421052631579,
+      "retention": 1.0227272727272727,
+      "perplexity_ratio": 0.9785429590836129,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 1.016375955354486,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Qwen3-Coder-Next source declares no MTP; certification is non-MTP direct-decode checkpoint Tier 1 only (qwen3-next-direct track)."
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5",
+    "python": "3.14.6"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
+    "Quality retention vs matched uniform quantized reference (not BF16).",
+    "No MTP acceleration claim; source has mtp_present=false.",
+    "Corrected indexed-expert packing on Hub AXQ packs."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "1909ed8fe878899a5ef2027148e6c51f6b00e1ff5c9eec26ed961cae7d88fa82",
+    "quality-comparison-general_sha256": "f248d4bcc513c7351fe2417ca1d366fc09ad5d240b66e16865f55f45f1b45007",
+    "candidate-size_sha256": "66f2f600d59bf1f0329fc0528bf72d00c46d73841df80e78189f005bf2a31654",
+    "reference-size_sha256": "189346ffa5c450354b9d1273ec4caf48e34880f4739de46c739bd8b6eb3587af",
+    "runtime-mlx-lm_sha256": "c9dcbc81a1e03fd6e27bdd979c436d33b38bf66d7136f6e4a5c06fa089f98e4b"
+  }
+}
