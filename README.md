@@ -145,7 +145,8 @@ Packages tab; that UI is for npm/containers, not pip).
   see the tier matrix under [Current status](#current-status).
 - **Where it stands:** Qwen 3.6 27B dense and 35B-A3B MoE packs are checkpoint Tier 1 and
   **scoped** MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4 12B/26B/31B AXQ 4-bit
-  and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified). Product default remains
+  and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified). Qwen3-Coder-Next AXQ
+  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). Product default remains
   direct fallback. [Current status](#current-status) states the exact scope.
 
 ## Quickstart
@@ -355,7 +356,7 @@ release audit. The current tier matrix:
 | --- | --- | --- |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; primary certification track |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
-| **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; development claims only; fused experts |
+| **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ 4/6-bit checkpoint Tier 1 certified** ([4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
 | **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |

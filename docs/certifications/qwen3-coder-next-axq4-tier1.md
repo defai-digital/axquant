@@ -37,10 +37,11 @@ Candidate weight bytes `47,782,251,237` vs uniform reference
 
 | Profile | Reference | Candidate | Retention | Perplexity ratio |
 | --- | ---: | ---: | ---: | ---: |
-| General | `1.0` | `1.0` | `1.0` | `1.016375955354486` |
-| Agent-coding | `0.868421052631579` | `0.8881578947368421` | `1.0227272727272727` | `0.9785429590836129` |
+| Agent-coding (76) | `0.868421` | `0.888158` | `1.022727` | `0.978543` |
+| General (44) | `1.000000` | `1.000000` | `1.000000` | `1.016376` |
 
 Seed `20260728`, max gen 64, host `df-macbookpro-m5`, AXQuant `1.6.1`.
+Quality is measured against the matched uniform quantized reference (not BF16).
 
 ## Tier 2 status
 

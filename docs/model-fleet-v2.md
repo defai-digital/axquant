@@ -22,8 +22,19 @@ On 2026-08-08, `AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP` was replaced on `main` by a mat
 measured **artifact edition v3** after passing
 [checkpoint Tier 1 certification](certifications/qwen36-27b-axq6-tier1.md). Its old v2 artifact
 remains available at the immutable `v2` tag; certified v3 is Hub commit
-`cdd13bf81cf21818a01cf59a31fc116ef84326bc`. This one supersession does not change the
-historical v2 audit below and does not promote any other fleet entry.
+`cdd13bf81cf21818a01cf59a31fc116ef84326bc`.
+
+On 2026-08-10, the corrected Qwen3-Coder-Next Hub heads closed **checkpoint Tier 1** (non-MTP
+direct-decode) on `df-macbookpro-m5`:
+
+| Pack | Hub commit | BPW | Certificate |
+| --- | --- | ---: | --- |
+| `AX-Qwen3-Coder-Next-MLX-AXQ-4bit` | `53dce509aa115e7fae583516b494a5dafebf31a9` | 4.797752 | [Tier 1](certifications/qwen3-coder-next-axq4-tier1.md) |
+| `AX-Qwen3-Coder-Next-MLX-AXQ-6bit` | `c6f3ae556f95ce13b7d319486ad2d4d753726216` | 5.998996 | [Tier 1](certifications/qwen3-coder-next-axq6-tier1.md) |
+
+Those commits supersede the pre-fix expert-BF16 payloads (~15.7 BPW) retained under
+`legacy-pre-v2`. MTP Tier 2 is not applicable (source declares no MTP). Sibling supersessions
+do not promote other fleet entries by association.
 
 ## Why a rebuild is required
 
@@ -224,8 +235,8 @@ traceability; those three 4bit rows are **no longer public Hub models**.
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | `f00654783b3e3b2a020a712161eb1ac7861da348` | `0ae103ab4a5163b3bf0e615e29d9476763a42970` | 5.999949 |
 | [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | `cb2db117e80571afa466644e91ec39bd528ccf7f` | `a2bf4b597b7535fad8d64cdb6ad04a4bf291659c` | 4.799310 |
 | [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | `a4dcc84b9b7318cc206f2b17dbc1555883cf67fd` | `84be62ed37b67dcd93fa4649886de28ad2ef2a4d` | 5.990219 |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | `53dce509aa115e7fae583516b494a5dafebf31a9` | `edb845770821f874f343c61985af150f5587ba22` | 4.797752 |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | `c6f3ae556f95ce13b7d319486ad2d4d753726216` | `9509c38ec927d6b1606bca21569b3af432840986` | 5.998996 |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | `53dce509aa115e7fae583516b494a5dafebf31a9` (**Tier 1 certified**) | `edb845770821f874f343c61985af150f5587ba22` | 4.797752 |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | `c6f3ae556f95ce13b7d319486ad2d4d753726216` (**Tier 1 certified**) | `9509c38ec927d6b1606bca21569b3af432840986` | 5.998996 |
 | [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit) | `af35a52e317dd12b6b70d847f8c170e823bee28d` | `1d020493ec6d5aa0ead13045ab187dd4cf27bef1` | 5.550330 |
 | [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit) | `2e6255546e5f45b7eca5debda547f15b84a30836` | `c807a6091e7c49948a9cdeba7e64372f653df4e7` | 8.000275 |
 | [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit) | `05d1060acb93135650d08e65eb701653a1d9fa00` | `db0f064604567342c502837e3b66f2bfb4f133ee` | 4.890183 |

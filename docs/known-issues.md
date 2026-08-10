@@ -70,10 +70,13 @@ between published versions.
   verifies tag/package version equality, creates the GitHub Release when needed, uploads the wheel,
   sdist, and checksums, and emits keyless GitHub build provenance. Verify with
   `gh attestation verify` and `shasum -c SHA256SUMS.txt`.
-- **Pre-fix Qwen3-Coder-Next artifacts must be regenerated.** The family adapter previously let
+- **Pre-fix Qwen3-Coder-Next artifacts must not be used.** The family adapter previously let
   `switch_mlp` fall through to the ordinary MLP role, so packed 3-D experts were preserved at
-  BF16. Their low-bit repository names are not proof of low effective BPW; regenerate and rerun
-  measured size/quality gates with the post-v1.1.1 fix before republishing.
+  BF16 (~15.7 BPW under 4bit/6bit Hub names). The corrected Hub heads on `main`
+  (`53dce509…` / `c6f3ae55…`, measured ~4.80 / ~6.00 BPW) are **checkpoint Tier 1 certified**
+  ([4bit](certifications/qwen3-coder-next-axq4-tier1.md),
+  [6bit](certifications/qwen3-coder-next-axq6-tier1.md)). Prefer those commits; ignore
+  `legacy-pre-v2` / pre-fix expert-BF16 revisions.
 
 ## Overlap and multilingual text
 
