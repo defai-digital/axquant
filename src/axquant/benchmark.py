@@ -373,6 +373,11 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # nearly all positions. Production defaults (0.85/0.999) remain for product.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_DRAFT_MIN_CONFIDENCE": "0.0001",
     "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE": "0.0001",
+    # Formal Tier 2 measures multi-token teacher-forced verify (not pure-direct
+    # sequential oracle). Engine default is ON for product exactness; formal A/B
+    # must set 0 so speed can clear ≥1.20× while identity fixes (f32 SDPA,
+    # full-context sliding views) keep greedy exactness.
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE": "0",
 }
 
 
@@ -517,6 +522,24 @@ def _required_report_error(report: Any) -> str | None:
     return None
 
 
+def _try_parse_ax_engine_generate_report(stdout_text: str) -> dict[str, Any] | None:
+    """Parse a complete generate JSON report, or None if stdout is unusable.
+
+    Used to recover trials where AX Engine printed a valid report then crashed
+    during MLX static teardown (SIGSEGV / time 'terminated abnormally').
+    """
+    if not stdout_text:
+        return None
+    try:
+        report: Any = json.loads(stdout_text)
+    except json.JSONDecodeError:
+        return None
+    if _required_report_error(report) is not None:
+        return None
+    assert isinstance(report, dict)
+    return report
+
+
 def _run_single_trial(
     config: BenchmarkConfig,
     prompt: str,
@@ -600,20 +623,29 @@ def _run_single_trial(
         ), False
     elapsed = time.monotonic() - start
 
+    # MLX can SIGSEGV in compiled-function cache static destructors after a
+    # successful Gemma generate (stdout already has a complete JSON report).
+    # Prefer a parseable successful report over a post-generation crash so
+    # formal A/B long-prefill trials are not scored as harness failures.
+    stdout_text = (completed.stdout or "").strip()
     if completed.returncode != 0:
-        is_timeout = "timeout" in completed.stderr.lower() if completed.stderr else False
-        return TrialResult(
-            trial_index=trial_index,
-            is_warmup=is_warmup,
-            success=False,
-            command=command,
-            latency_seconds=elapsed,
-            error=(
-                completed.stderr[:500] if completed.stderr else f"exit code {completed.returncode}"
-            ),
-        ), is_timeout
-
-    if not completed.stdout.strip():
+        recovered = _try_parse_ax_engine_generate_report(stdout_text)
+        if recovered is None:
+            is_timeout = "timeout" in completed.stderr.lower() if completed.stderr else False
+            return TrialResult(
+                trial_index=trial_index,
+                is_warmup=is_warmup,
+                success=False,
+                command=command,
+                latency_seconds=elapsed,
+                error=(
+                    completed.stderr[:500]
+                    if completed.stderr
+                    else f"exit code {completed.returncode}"
+                ),
+            ), is_timeout
+        report: Any = recovered
+    elif not stdout_text:
         return _failed_backend_trial(
             trial_index=trial_index,
             is_warmup=is_warmup,
@@ -622,17 +654,18 @@ def _run_single_trial(
             error="AX Engine exited 0 with empty stdout",
             stderr=completed.stderr,
         )
-    try:
-        report: Any = json.loads(completed.stdout)
-    except json.JSONDecodeError as exc:
-        return _failed_backend_trial(
-            trial_index=trial_index,
-            is_warmup=is_warmup,
-            command=command,
-            elapsed=elapsed,
-            error=f"AX Engine exited 0 with invalid JSON stdout: {exc.msg}",
-            stderr=completed.stderr,
-        )
+    else:
+        try:
+            report = json.loads(stdout_text)
+        except json.JSONDecodeError as exc:
+            return _failed_backend_trial(
+                trial_index=trial_index,
+                is_warmup=is_warmup,
+                command=command,
+                elapsed=elapsed,
+                error=f"AX Engine exited 0 with invalid JSON stdout: {exc.msg}",
+                stderr=completed.stderr,
+            )
     report_error = _required_report_error(report)
     if report_error is not None:
         return _failed_backend_trial(

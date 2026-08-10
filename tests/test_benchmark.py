@@ -471,6 +471,36 @@ class TestRunBenchmark:
         assert result.trials[0].success is False
         assert result.trials[0].error
 
+    def test_nonzero_exit_with_complete_generate_report_is_recovered(
+        self,
+        base_config: BenchmarkConfig,
+        prompt_dataset: Path,
+    ) -> None:
+        """MLX teardown SIGSEGV after a complete generate JSON must not fail the trial."""
+
+        def crash_after_report(command: list[str]) -> subprocess.CompletedProcess[str]:
+            body = _fake_runner(command).stdout
+            return subprocess.CompletedProcess(
+                command,
+                returncode=-11,
+                stdout=body,
+                stderr="time: command terminated abnormally\n",
+            )
+
+        config = base_config.model_copy(
+            update={"prompt_count": 1, "warmup_trials": 0, "measured_trials": 1}
+        )
+        result = run_benchmark(
+            config,
+            dataset_path=prompt_dataset,
+            executable=_TEST_EXECUTABLE,
+            runner=crash_after_report,
+        )
+        assert result.failed_count == 0
+        assert result.measured_count == 1
+        assert result.trials[0].success is True
+        assert result.trials[0].tokens_generated == 100
+
     def test_warmup_exclusion(self, base_config: BenchmarkConfig, prompt_dataset: Path) -> None:
         result = run_benchmark(
             base_config,
