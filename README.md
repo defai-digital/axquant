@@ -27,7 +27,7 @@ Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id
 
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen 3.6 27B AXQ 6-bit v3 | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
+| Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit (5.6 BPW) | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
@@ -324,7 +324,7 @@ Release artifacts are built and signed (keyless Sigstore attestation) by the rel
 verify a downloaded dist with `gh attestation verify <file> --repo defai-digital/axquant` and
 `shasum -a 256 -c SHA256SUMS.txt`.
 
-AXQuant separates checkpoint and acceleration claims. The exact Qwen 3.6 27B AXQ 6-bit v3
+AXQuant separates checkpoint and acceleration claims. The exact Qwen 3.6 27B AXQ 6-bit
 revision has passed:
 
 - **Tier 1 (checkpoint):** measured plan and size, matched general/agent-coding quality,
@@ -391,7 +391,7 @@ or above the floor when the budget must be fixed.
 ### AutomatosX Hub catalog (AXQ)
 
 Public packs on [AutomatosX](https://huggingface.co/AutomatosX) are development evidence unless an
-exact immutable revision is linked to a certificate. The Qwen 3.6 27B AXQ 6-bit v3 entry is the
+exact immutable revision is linked to a certificate. The Qwen 3.6 27B AXQ 6-bit entry is the
 first checkpoint Tier 1 certified exception.
 The stable repository names remain the canonical model identifiers. The certified Qwen 3.6 27B
 AXQ 6-bit repository now serves v3 on `main`; its preceding audited artifact remains pinned at
