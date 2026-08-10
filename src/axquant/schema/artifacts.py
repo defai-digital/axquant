@@ -1034,6 +1034,9 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         # in AX Engine 6.14.2+). Set 0 to restore multi-token teacher-forced
         # verify for speed experiments; formal Tier 2 must re-check exactness.
         "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE",
+        # MoE long multi-token (dual-edge + qmv-256 identity). Engine product
+        # default is fail-closed; formal Gemma assistant-exact profile opts in.
+        "AX_MLX_GEMMA4_MOE_LONG_MT",
         # Opt-in per-position dense FFN on short multi-token verify (4-bit
         # identity experiments). Default OFF in engine.
         "AX_MLX_GEMMA_MT_PERPOS_FFN",

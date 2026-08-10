@@ -378,6 +378,10 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # must set 0 so speed can clear ≥1.20× while identity fixes (f32 SDPA,
     # full-context sliding views) keep greedy exactness.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE": "0",
+    # MoE long multi-token identity (dual-edge + qmv-256) is required for agent
+    # long trials to clear weighted ≥1.20×. Engine product default remains
+    # fail-closed unless this formal profile opts in.
+    "AX_MLX_GEMMA4_MOE_LONG_MT": "1",
 }
 
 
