@@ -1037,6 +1037,9 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         # MoE long multi-token (dual-edge + qmv-256 identity). Engine product
         # default is fail-closed; formal Gemma assistant-exact profile opts in.
         "AX_MLX_GEMMA4_MOE_LONG_MT",
+        # Dense long multi-token bf16 singleton fold (key_len>=512). Engine
+        # default ON; formal profile pins it for 12B/31B agent long speed.
+        "AX_MLX_DENSE_LONG_MT_BF16_FOLD",
         # Opt-in per-position dense FFN on short multi-token verify (4-bit
         # identity experiments). Default OFF in engine.
         "AX_MLX_GEMMA_MT_PERPOS_FFN",

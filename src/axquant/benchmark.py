@@ -382,6 +382,9 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # long trials to clear weighted ≥1.20×. Engine product default remains
     # fail-closed unless this formal profile opts in.
     "AX_MLX_GEMMA4_MOE_LONG_MT": "1",
+    # Dense long multi-token: bf16 singleton-query fold (not full-history f32
+    # K/V upcast). Required for 12B/31B agent weighted ≥1.20×; engine default ON.
+    "AX_MLX_DENSE_LONG_MT_BF16_FOLD": "1",
 }
 
 
