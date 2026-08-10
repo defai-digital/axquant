@@ -101,6 +101,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
         "mistral3-dense-v1",
         "nemotron3-v1",
         "deepseek-v4-v1",
+        "gpt-oss-v1",
     }
     assert convertible == expected
 

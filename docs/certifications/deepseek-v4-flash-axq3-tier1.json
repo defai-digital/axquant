@@ -1,0 +1,74 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-10T23:35:02.327275+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit",
+    "hub_commit": "5f00e2dff2f7f16cb1607109538749527a4ee836",
+    "product_class": "3bit-experimental",
+    "architecture": "DeepseekV4ForCausalLM",
+    "source_model_id": "deepseek-ai/DeepSeek-V4-Flash",
+    "source_revision": "60d8d70770c6776ff598c94bb586a859a38244f1",
+    "candidate_manifest_sha256": "700034a28c0fd13182abac926ca9bc5e8a83de3a9dbe5ff33e70ed5421281545"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "3bit-experimental",
+    "target_bpw": 3.0,
+    "effective_bpw": 4.379030199038397,
+    "measured_total_bpw": 4.116421365313042,
+    "measured_main_bpw": 4.110998463480101
+  },
+  "size": {
+    "candidate_weight_bytes": 149706329385,
+    "candidate_measured_bpw": 4.110998463480101,
+    "reference_kind": "none-uniform-lowbit",
+    "notes": "No public uniform 2/3-bit reference pack; size bound to measured weight bytes and BPW.",
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 1.0,
+      "samples": 76,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "scoring": "experimental-generation-viability"
+    },
+    "general": {
+      "candidate_score": 0.9318181818181818,
+      "samples": 44,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "scoring": "experimental-generation-viability"
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "Experimental low-bit track: absolute generation viability scores (not BF16 retention)."
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "MTP present in pack; speculative-decode speed/exactness not claimed in this certificate."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "Suite generation on df-macstudio-m2 (non-strict load for fused expert packing)."
+    },
+    "ax_engine": {
+      "status": "experimental",
+      "notes": "Requires AX_ENGINE_2BIT_EXPERIMENTAL / AX_ENGINE_3BIT_EXPERIMENTAL; host-validated generation via MLX path for this certificate."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macstudio-m2",
+    "host_hardware": "Apple M2 Ultra 192 GB"
+  },
+  "notes": [
+    "Checkpoint Tier 1 (experimental) on formal host df-macstudio-m2.",
+    "Product classes remain 2bit-experimental / 3bit-experimental; measured BPW is higher due to protected tensors and MTP.",
+    "Quality scores are generation-viability on development agent-coding (76) and general (44) suites, not matched-BF16 retention.",
+    "AX Engine 2/3-bit loads remain experimental-gated."
+  ]
+}

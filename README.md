@@ -37,6 +37,8 @@ Full index and Hub commits: [docs/certifications/](docs/certifications/README.md
 | Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
 | Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
+| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | Not certified |
+| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | Not certified |
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on
@@ -50,8 +52,10 @@ while greedy exactness fails when drafts are accepted. The 12B packs were rebuil
 direct fallback until Tier 2 gates pass on a released engine.
 
 **Qwen3-Coder-Next** AXQ 4/6-bit packs are **checkpoint Tier 1 certified** on `df-macbookpro-m5`
-(non-MTP direct-decode; Tier 2 N/A). Other catalog entries remain development artifacts unless
-their own exact revision has a certificate.
+(non-MTP direct-decode; Tier 2 N/A). **DeepSeek V4 Flash** AXQ **2/3-bit experimental** packs
+are **checkpoint Tier 1 certified** on `df-macstudio-m2` (generation viability; MTP Tier 2 not
+claimed). Other catalog entries remain development artifacts unless their own exact revision has
+a certificate.
 
 ## Contents
 
@@ -266,9 +270,12 @@ command does not by itself certify an output.
 
 ### v1.6.x at a glance
 
-- DeepSeek V4 Flash is **development-convertible** (mixed FP4+FP8 source → dequant/affine
-  re-pack) with experimental 2/3-bit recipes and development cards for 2/3/4/6-bit product
-  classes. Requires an `mlx-lm` build that includes `deepseek_v4` (v1.6.0).
+- DeepSeek V4 Flash is **convertible** (mixed FP4+FP8 source → dequant/affine re-pack) with
+  experimental 2/3-bit recipes. AXQ **2/3-bit experimental** packs are checkpoint Tier 1
+  certified on `df-macstudio-m2`
+  ([2bit](docs/certifications/deepseek-v4-flash-axq2-tier1.md),
+  [3bit](docs/certifications/deepseek-v4-flash-axq3-tier1.md)). Requires an `mlx-lm` build that
+  includes `deepseek_v4` (v1.6.0+).
 - Convert/inventory hardening for DeepSeek sanitizer renames, FP4 expert logical params,
   MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
 - Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
@@ -312,7 +319,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Qwen 3.6 language paths | `convertible`; primary certification track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
-| DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | Development evidence only |
+| DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
@@ -447,6 +454,8 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq4-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
+| [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
+| [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |

@@ -193,20 +193,46 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         investment_posture=InvestmentPosture.THIN,
         priority=45,
         declared_tier=SupportTier.CONVERTIBLE,
-        cert_track=False,
+        cert_track=True,
         summary=(
-            "Thin support: DeepSeek V4 Flash MoE development convert via MLX-LM "
-            "deepseek_v4. Large total-param packs; development evidence only."
+            "Thin support: DeepSeek V4 Flash MoE convert via MLX-LM deepseek_v4. "
+            "Flash AXQ 2/3-bit experimental packs have checkpoint Tier 1 generation "
+            "viability certificates on df-macstudio-m2; other DeepSeek packs remain "
+            "development evidence."
         ),
         do=(
             "Allow architecture-prior / experimental low-bit convert for Flash.",
-            "Label all DeepSeek V4 outputs as development evidence until certified.",
+            "Cite only exact Hub revisions with public certificates for claims.",
             "Require an mlx-lm build that implements model_type=deepseek_v4.",
+            "Keep experimental labels on 2/3-bit product classes.",
         ),
         do_not=(
-            "Do not claim certified quality, speed, or long-context scores from priors.",
+            "Do not claim BF16 retention or MTP Tier 2 speedup without matching evidence.",
             "Do not treat V4-Pro (1.6T) as a default factory target on laptop hosts.",
-            "Do not bypass experimental labels for 2/3-bit packs.",
+            "Do not drop experimental labels for 2/3-bit packs.",
+            "Do not promote sibling DeepSeek revisions by association.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="gpt-oss",
+        adapter_id="gpt-oss-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=46,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin support: OpenAI GPT-OSS 20B/120B MoE development convert via "
+            "MLX-LM gpt_oss (SwitchGLU experts, optional native MXFP4)."
+        ),
+        do=(
+            "Allow architecture-prior convert for 20B and 120B with --allow-quantized "
+            "when the source ships MXFP4 experts.",
+            "Label all GPT-OSS outputs as development evidence until certified.",
+            "Require an mlx-lm build that implements model_type=gpt_oss.",
+        ),
+        do_not=(
+            "Do not claim certified quality or MTP acceleration without a revision-bound certificate.",
+            "Do not treat MXFP4 residency as an AXQ bit-width product claim.",
         ),
     ),
 )
