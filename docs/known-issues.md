@@ -103,15 +103,15 @@ between published versions.
 
 - **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
   27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
-  ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 only. Gemma-4 **12B / 26B-A4B
-  / 31B** AXQ 4/6-bit fused `-MTP` Hub heads are **checkpoint Tier 1 certified**. Formal
-  assistant-MTP A/B pilots on the released engine (AX Engine 6.14.0, complete exact-profile
-  confidence gates) show speed can clear ≥1.20× / ≥1.10× while **greedy exactness fails** when
-  drafts are accepted — Tier 2 stays unclaimed (see any
-  [Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status)). The 12B packs
-  were **rebuilt from `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b`
-  converts failed quality with multimodal placeholder loops; text-path prep now also strips
-  `vision_config` / `audio_config` so MLX convert does not emit empty `vision_embedder` biases.
+  ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 + scoped Tier 2 on the
+  published records. Gemma-4 public certification is **AXQ 6-bit only** (12B / 26B-A4B / 31B
+  fused `-MTP` Hub heads): checkpoint **Tier 1 certified**; Tier 2 unclaimed while work
+  continues on 6-bit only (see
+  [Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status)). Gemma AXQ 4-bit
+  is **not** on the public certification index. The 12B 6-bit pack was **rebuilt from
+  `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b` converts failed quality
+  with multimodal placeholder loops; text-path prep now also strips `vision_config` /
+  `audio_config` so MLX convert does not emit empty `vision_embedder` biases.
   Formal MTP for Qwen MoE can load after engine
   `experts.gate_up_proj` support, but 35B speedup gates (≥1.20× / ≥1.10×) are not met on any
   released engine. The blocker is fixed per-step host cost — the speculative verify graph is built

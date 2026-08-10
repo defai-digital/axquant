@@ -37,26 +37,26 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 | Full M0–M8 flagship publication campaign | Separate process; not implied by Tier 2 metric closure |
 
 
-### Gemma-4 AXQ siblings
+### Gemma-4 AXQ siblings (6-bit certification track only)
 
 Hub packs ship fused **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json`) under the
-Qwen-style `…-MLX-AXQ-*-MTP` names. Checkpoint Tier 1 on `df-macbookpro-m5` (2026-08-09):
+Qwen-style `…-MLX-AXQ-*-MTP` names. **Public Gemma 4 certification is AXQ 6-bit only** —
+further Tier 1 / Tier 2 work targets 6-bit packs exclusively. Gemma AXQ 4-bit is not listed as
+an active certificate (historical 4-bit records may remain on disk for audit trail only).
+
+Checkpoint Tier 1 on `df-macbookpro-m5` (2026-08-09), active index:
 
 | Pack | Tier 1 | Tier 2 |
 | --- | --- | --- |
-| 12B AXQ 4-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
 | 12B AXQ 6-bit (IT rebuild) | [Certified](certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
-| 26B-A4B AXQ 4-bit | [Certified](certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
 | 26B-A4B AXQ 6-bit | [Certified](certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
-| 31B AXQ 4-bit | [Certified](certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | 31B AXQ 6-bit | [Certified](certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
 
 Tier 1 binds the **fused Hub head**: target weight digests match the quality-bound canonical
-pack; assistant assets are attached without mutating target weights. The 12B packs were rebuilt
-from `google/gemma-4-12b-it` after non-IT sources failed quality. Formal assistant-MTP A/B pilots
-on `df-macbookpro-m5` / AX Engine 6.14.0 (complete exact-profile confidence gates) show weighted
-and prompt-median speed can clear while **greedy outputs diverge** when drafts are accepted —
-exactness is fail-closed, so Tier 2 stays unclaimed.
+pack; assistant assets are attached without mutating target weights. The 12B 6-bit pack was
+rebuilt from `google/gemma-4-12b-it` after non-IT sources failed quality. Formal assistant-MTP
+A/B work continues on the **6-bit** track only; Tier 2 stays unclaimed until greedy exactness
+and both speed gates pass on a released engine under the formal profile.
 
 ## Two-tier claim policy
 

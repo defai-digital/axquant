@@ -4,6 +4,9 @@
 **fused assistant-MTP Hub revision** on `df-macbookpro-m5`. **MTP acceleration
 Tier 2 is not certified** (present ≠ certified speed).
 
+**Certification track:** Gemma 4 public certification is **AXQ 6-bit only**. Further
+Tier 2 work for this family targets this pack class, not 4-bit.
+
 This certificate covers
 [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP)
 commit

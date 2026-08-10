@@ -1,6 +1,6 @@
 {
   "schema_version": "axquant.public-checkpoint-certification.v1",
-  "status": "certified",
+  "status": "withdrawn",
   "certification_tier": "checkpoint",
   "certified_at": "2026-08-09T03:00:00+00:00",
   "host_id": "df-macbookpro-m5",
@@ -50,13 +50,14 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24\u20131.38\u00d7) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
+    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24–1.38×) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
   },
   "toolchain": {
     "axquant": "1.6.1",
     "host": "df-macbookpro-m5"
   },
   "notes": [
+    "Withdrawn from public certification index 2026-08-10: Gemma 4 cert track is 6-bit only. Historical measurement retained for audit trail.",
     "Checkpoint Tier 1 closed for the fused assistant-MTP Hub revision on Apple M5 Max (df-macbookpro-m5).",
     "Target AXQ weight digests match the quality-bound canonical pack; assistant/ is attached without mutating target weights.",
     "Vision/multimodal quality is not claimed.",

@@ -1,8 +1,13 @@
-# Gemma 4 12B AXQ 4-bit — checkpoint Tier 1 certification
+# Gemma 4 12B AXQ 4-bit — historical checkpoint record (not active)
 
-**Verdict:** certified for AXQuant checkpoint Tier 1 on 2026-08-09 for the
-**fused assistant-MTP Hub revision** on `df-macbookpro-m5`. **MTP acceleration
-Tier 2 is not certified**.
+> **Withdrawn from the public certification index (2026-08-10).**
+> Gemma 4 public certification is **AXQ 6-bit only**. Do not cite this file as an active
+> certificate. Use [gemma4-12b-axq6-tier1.md](gemma4-12b-axq6-tier1.md). This record is
+> retained only as an audit trail of a prior 2026-08-09 measurement.
+
+**Historical verdict (2026-08-09):** met checkpoint Tier 1 gates for the fused
+assistant-MTP Hub revision on `df-macbookpro-m5`. **Not an active certificate.**
+**MTP acceleration Tier 2 was never certified** for this pack.
 
 This certificate covers
 [`AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP)
