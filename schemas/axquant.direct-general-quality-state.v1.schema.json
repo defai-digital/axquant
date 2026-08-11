@@ -1,0 +1,204 @@
+{
+  "$defs": {
+    "DirectGeneralQualityModelOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "check_scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "generated_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "model_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output": {
+          "type": "string"
+        },
+        "perplexity_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "perplexity_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "output",
+        "score",
+        "check_scores",
+        "generated_tokens",
+        "perplexity_loss",
+        "perplexity_tokens"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "QualityGenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "chat_template_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_generation_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt_format": {
+          "enum": [
+            "raw",
+            "chat-template"
+          ],
+          "type": "string"
+        },
+        "thinking_enabled": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "prompt_format",
+        "max_sequence_length",
+        "max_generation_tokens"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "completed": {
+      "default": false,
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "generation": {
+      "$ref": "#/$defs/QualityGenerationConfig"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "model_artifact_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/DirectGeneralQualityModelOutput"
+      },
+      "type": "array"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.direct-general-quality-state.v1",
+      "default": "axquant.direct-general-quality-state.v1",
+      "type": "string"
+    },
+    "tokenizer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_sha256",
+    "model",
+    "model_artifact_sha256",
+    "tokenizer_sha256",
+    "generation",
+    "random_seed"
+  ],
+  "type": "object"
+}

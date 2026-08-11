@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "CodingScorer": {
+      "enum": [
+        "unit-test",
+        "compile",
+        "ast",
+        "json-schema",
+        "tool-exact",
+        "text-exact"
+      ],
+      "type": "string"
+    },
+    "CodingTaskManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "cpu_time_seconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "file_size_limit_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "language": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "license_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "long_context": {
+          "type": "boolean"
+        },
+        "memory_limit_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "open_file_limit": {
+          "minimum": 16,
+          "type": "integer"
+        },
+        "output_limit_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "process_limit": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "provenance": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reference_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "scorer": {
+          "$ref": "#/$defs/CodingScorer"
+        },
+        "target_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "task_id",
+        "category",
+        "language",
+        "prompt_sha256",
+        "payload_sha256",
+        "scorer",
+        "license_id",
+        "provenance",
+        "target_tokens",
+        "timeout_seconds",
+        "cpu_time_seconds",
+        "memory_limit_bytes",
+        "process_limit",
+        "output_limit_bytes",
+        "file_size_limit_bytes",
+        "open_file_limit",
+        "long_context"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "calibration_overlap_attested": {
+      "type": "boolean"
+    },
+    "calibration_overlap_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "calibration_overlap_report_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "near_duplicate_threshold": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 1.0,
+      "type": "number"
+    },
+    "normalization_algorithm": {
+      "const": "axquant-token-5gram-v2",
+      "default": "axquant-token-5gram-v2",
+      "type": "string"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sandbox_profile_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.coding-suite-manifest.v2",
+      "default": "axquant.coding-suite-manifest.v2",
+      "type": "string"
+    },
+    "suite_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "task_shards": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 1,
+      "type": "object"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/CodingTaskManifest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "toolchains": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 1,
+      "type": "object"
+    },
+    "version": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "suite_id",
+    "version",
+    "dataset_sha256",
+    "tasks",
+    "task_shards",
+    "calibration_overlap_attested",
+    "calibration_overlap_report",
+    "calibration_overlap_report_sha256",
+    "toolchains",
+    "sandbox_profile_sha256",
+    "near_duplicate_threshold",
+    "random_seed"
+  ],
+  "type": "object"
+}

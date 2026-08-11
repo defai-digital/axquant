@@ -1,0 +1,94 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "affected_candidate_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "change_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "change_kind": {
+      "enum": [
+        "adapter-classification",
+        "packing-semantics",
+        "source-tokenizer",
+        "runtime-contract",
+        "provenance",
+        "security-license"
+      ],
+      "type": "string"
+    },
+    "current_semantics_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "evidence": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "outcome": {
+      "enum": [
+        "unaffected",
+        "supersede",
+        "revoke"
+      ],
+      "type": "string"
+    },
+    "previous_semantics_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "reviewed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "reviewed_by": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.semantic-impact-scan.v1",
+      "default": "axquant.semantic-impact-scan.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "change_id",
+    "change_kind",
+    "previous_semantics_sha256",
+    "current_semantics_sha256",
+    "affected_candidate_sha256",
+    "outcome",
+    "evidence",
+    "reviewed_by"
+  ],
+  "type": "object"
+}

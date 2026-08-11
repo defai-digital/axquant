@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "baseline_kind": {
+      "enum": [
+        "bf16",
+        "uniform-4bit",
+        "uniform-6bit",
+        "mixed-precision",
+        "awq",
+        "dwq",
+        "gptq",
+        "axquant-mtp-off",
+        "axquant-mtp-on",
+        "candidate"
+      ],
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "string"
+    },
+    "draft_depth": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "max_tokens": {
+      "default": 512,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "measured_trials": {
+      "default": 5,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "mtp_enabled": {
+      "default": false,
+      "type": "boolean"
+    },
+    "power_mode": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "prompt_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "quantizer": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "quantizer_version": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeName",
+      "default": "ax-engine"
+    },
+    "runtime_env": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.benchmark-config.v1",
+      "default": "axquant.benchmark-config.v1",
+      "type": "string"
+    },
+    "temperature": {
+      "default": 0.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "timeout_seconds": {
+      "default": 300.0,
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "top_k": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "top_p": {
+      "default": 1.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "warmup_trials": {
+      "default": 2,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "workload": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "baseline_kind",
+    "workload",
+    "dataset_sha256",
+    "prompt_count"
+  ],
+  "type": "object"
+}

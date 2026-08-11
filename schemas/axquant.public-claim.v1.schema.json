@@ -1,0 +1,335 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "BoundMetricClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "comparison": {
+          "enum": [
+            "absolute",
+            "higher-is-better",
+            "lower-is-better",
+            "ratio"
+          ],
+          "type": "string"
+        },
+        "denominator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "metric_key": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "numerator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "profile": {
+          "enum": [
+            "agent-coding",
+            "general",
+            "hardware"
+          ],
+          "type": "string"
+        },
+        "unit": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "evidence",
+        "profile",
+        "metric_key",
+        "unit",
+        "value",
+        "comparison"
+      ],
+      "type": "object"
+    },
+    "CandidateKey": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "calibration_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "certification_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.candidate-key.v1",
+          "default": "axquant.candidate-key.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "source",
+        "certification_policy_sha256",
+        "calibration_sha256",
+        "activation_capture_sha256",
+        "sensitivity_sha256",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "CheckpointKey": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "schema_version": {
+          "const": "axquant.checkpoint-key.v1",
+          "default": "axquant.checkpoint-key.v1",
+          "type": "string"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "weight_index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "config_sha256",
+        "tokenizer_sha256",
+        "weight_index_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "audit_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate": {
+      "$ref": "#/$defs/CandidateKey"
+    },
+    "display_name": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "evidence_index": {
+      "items": {
+        "$ref": "#/$defs/BoundFile"
+      },
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "hardware_scope_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "lifecycle_event_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "measured_main_bpw": {
+      "exclusiveMinimum": 0,
+      "maximum": 16,
+      "type": "number"
+    },
+    "measured_total_bpw": {
+      "exclusiveMinimum": 0,
+      "maximum": 16,
+      "type": "number"
+    },
+    "performance_claims": {
+      "items": {
+        "$ref": "#/$defs/BoundMetricClaim"
+      },
+      "type": "array"
+    },
+    "public_repository": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "quality_claims": {
+      "items": {
+        "$ref": "#/$defs/BoundMetricClaim"
+      },
+      "type": "array"
+    },
+    "runtime_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.public-claim.v1",
+      "default": "axquant.public-claim.v1",
+      "type": "string"
+    },
+    "target_class": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "weight_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidate",
+    "lifecycle_event_sha256",
+    "audit_sha256",
+    "public_repository",
+    "display_name",
+    "target_class",
+    "measured_main_bpw",
+    "measured_total_bpw",
+    "weight_bytes",
+    "hardware_scope_ids",
+    "runtime_versions",
+    "quality_claims",
+    "performance_claims",
+    "limitations",
+    "evidence_index"
+  ],
+  "type": "object"
+}

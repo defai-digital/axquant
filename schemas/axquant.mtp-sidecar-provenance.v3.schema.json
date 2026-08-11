@@ -1,0 +1,268 @@
+{
+  "$defs": {
+    "MtpSidecarFileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "MtpSidecarSource": {
+      "additionalProperties": false,
+      "properties": {
+        "index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/MtpSidecarSourceModel"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "shards": {
+          "items": {
+            "$ref": "#/$defs/MtpSidecarSourceShard"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "model",
+        "path",
+        "index_sha256",
+        "shards"
+      ],
+      "type": "object"
+    },
+    "MtpSidecarSourceModel": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "MtpSidecarSourceShard": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "PreparedMtpInputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "manifest": {
+          "$ref": "#/$defs/MtpSidecarFileBinding"
+        },
+        "mtp": {
+          "$ref": "#/$defs/MtpSidecarFileBinding"
+        }
+      },
+      "required": [
+        "manifest",
+        "mtp"
+      ],
+      "type": "object"
+    },
+    "PreparedMtpOutputBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "mtp": {
+          "$ref": "#/$defs/MtpSidecarFileBinding"
+        },
+        "runtime": {
+          "$ref": "#/$defs/MtpSidecarFileBinding"
+        }
+      },
+      "required": [
+        "mtp",
+        "runtime"
+      ],
+      "type": "object"
+    },
+    "PreparedMtpTensorPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "dtype": {
+          "const": "BF16",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "operation": {
+          "enum": [
+            "add_one_bf16",
+            "byte_preserved"
+          ],
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "dtype",
+        "shape",
+        "byte_count",
+        "sha256",
+        "source_sha256",
+        "operation"
+      ],
+      "type": "object"
+    },
+    "PreparedMtpTransform": {
+      "additionalProperties": false,
+      "properties": {
+        "implementation": {
+          "const": "axquant",
+          "type": "string"
+        },
+        "mode": {
+          "const": "ax-engine-qwen36-v1",
+          "type": "string"
+        },
+        "operation": {
+          "const": "add_one_to_qwen36_mtp_norms_bf16",
+          "type": "string"
+        },
+        "transformed_tensors": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "unchanged_tensors": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "implementation",
+        "operation",
+        "transformed_tensors",
+        "unchanged_tensors"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "generated_by": {
+      "const": "axquant",
+      "default": "axquant",
+      "type": "string"
+    },
+    "input": {
+      "$ref": "#/$defs/PreparedMtpInputBinding"
+    },
+    "output": {
+      "$ref": "#/$defs/PreparedMtpOutputBinding"
+    },
+    "schema_version": {
+      "const": "axquant.mtp-sidecar-provenance.v3",
+      "default": "axquant.mtp-sidecar-provenance.v3",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/MtpSidecarSource"
+    },
+    "tensor_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "tensor_payloads": {
+      "items": {
+        "$ref": "#/$defs/PreparedMtpTensorPayload"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "total_payload_bytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "transform": {
+      "$ref": "#/$defs/PreparedMtpTransform"
+    }
+  },
+  "required": [
+    "source",
+    "input",
+    "output",
+    "transform",
+    "tensor_count",
+    "tensor_payloads",
+    "total_payload_bytes"
+  ],
+  "type": "object"
+}

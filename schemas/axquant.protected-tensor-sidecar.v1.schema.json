@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "ArtifactFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dtypes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "output": {
+      "$ref": "#/$defs/ArtifactFile"
+    },
+    "parameters": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "role": {
+      "enum": [
+        "vision",
+        "mtp"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.protected-tensor-sidecar.v1",
+      "default": "axquant.protected-tensor-sidecar.v1",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/ArtifactFile"
+      },
+      "type": "array"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "tensor_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "tensor_names_sha256": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_model",
+    "role",
+    "tensor_count",
+    "parameters",
+    "dtypes",
+    "tensor_names_sha256",
+    "source_files",
+    "output"
+  ],
+  "type": "object"
+}

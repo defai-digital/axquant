@@ -19,6 +19,7 @@ from axquant.public_cert_index import (
     render_readme_matrix,
     render_release_matrix,
 )
+from axquant.schema_contracts import check_schema_contracts, render_schema_catalog
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PUBLIC_DOCS = ("README.md", "CONTRIBUTING.md", "THIRD_PARTY_NOTICES.md")
@@ -268,6 +269,13 @@ def test_model_card_certification_section_matches_public_records() -> None:
     failed_section = render_model_card_certification_section(failed)
     assert "Not certified" in failed_section
     assert claim_from_public_row(failed) is None
+
+
+def test_schema_catalog_matches_registry_generator() -> None:
+    """Human schema catalog must stay byte-identical to the freeze generator."""
+
+    assert not check_schema_contracts(root=_ROOT)
+    assert _read("docs/schema-catalog.md") == render_schema_catalog()
 
 
 def test_every_listed_certificate_has_public_index_metadata() -> None:

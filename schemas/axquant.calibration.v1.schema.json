@@ -1,0 +1,138 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "calibration_evaluation_separation_attested": {
+      "default": false,
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_id": {
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "string"
+    },
+    "domains": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "samples": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.calibration.v1",
+      "default": "axquant.calibration.v1",
+      "type": "string"
+    },
+    "sequence_length": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "tokenizer_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "model",
+    "profile",
+    "dataset_id",
+    "dataset_sha256",
+    "samples",
+    "domains",
+    "sequence_length",
+    "random_seed"
+  ],
+  "type": "object"
+}

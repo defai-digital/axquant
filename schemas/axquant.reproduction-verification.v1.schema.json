@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actual_logical_parameters": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "actual_weight_file_size_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "artifact_path": {
+      "type": "string"
+    },
+    "expected_logical_parameters": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "expected_weight_file_size_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "recipe_sha256": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.reproduction-verification.v1",
+      "default": "axquant.reproduction-verification.v1",
+      "type": "string"
+    },
+    "verified_weight_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "recipe_sha256",
+    "artifact_path",
+    "passed",
+    "issues",
+    "verified_weight_files",
+    "expected_logical_parameters",
+    "actual_logical_parameters",
+    "expected_weight_file_size_bytes",
+    "actual_weight_file_size_bytes"
+  ],
+  "type": "object"
+}

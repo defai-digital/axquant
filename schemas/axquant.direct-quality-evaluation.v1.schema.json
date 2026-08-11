@@ -1,0 +1,492 @@
+{
+  "$defs": {
+    "CodingScorer": {
+      "enum": [
+        "unit-test",
+        "compile",
+        "ast",
+        "json-schema",
+        "tool-exact",
+        "text-exact"
+      ],
+      "type": "string"
+    },
+    "DirectQualityTaskOutcome": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "infrastructure_error": {
+          "default": false,
+          "type": "boolean"
+        },
+        "model_error": {
+          "default": false,
+          "type": "boolean"
+        },
+        "network_disabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "sandbox_profile_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sandboxed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "scored_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "scorer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CodingScorer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stderr_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stderr_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stderr_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stdout_excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stdout_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stdout_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "syntax_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "task_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "timed_out": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tool_valid": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "toolchain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit_tests_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "task_id",
+        "score",
+        "scored_tokens",
+        "output_sha256"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QualityGenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "chat_template_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_generation_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt_format": {
+          "enum": [
+            "raw",
+            "chat-template"
+          ],
+          "type": "string"
+        },
+        "thinking_enabled": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "prompt_format",
+        "max_sequence_length",
+        "max_generation_tokens"
+      ],
+      "type": "object"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "evaluated_tokens": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "evaluation_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "generation": {
+      "$ref": "#/$defs/QualityGenerationConfig"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "model_artifact_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "outcomes": {
+      "items": {
+        "$ref": "#/$defs/DirectQualityTaskOutcome"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "perplexity": {
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.direct-quality-evaluation.v1",
+      "default": "axquant.direct-quality-evaluation.v1",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "tokenizer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile",
+    "model",
+    "model_artifact_sha256",
+    "evaluation_manifest_sha256",
+    "dataset_sha256",
+    "tokenizer_sha256",
+    "generation",
+    "random_seed",
+    "evaluated_tokens",
+    "software_versions",
+    "perplexity",
+    "outcomes"
+  ],
+  "type": "object"
+}

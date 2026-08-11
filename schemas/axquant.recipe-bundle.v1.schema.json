@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "axquant_version": {
+      "type": "string"
+    },
+    "bundle_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "lineage": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "payload_file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "payload_kind": {
+      "enum": [
+        "plan",
+        "manual-recipe"
+      ],
+      "type": "string"
+    },
+    "payload_sha256": {
+      "maxLength": 64,
+      "minLength": 64,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.recipe-bundle.v1",
+      "default": "axquant.recipe-bundle.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    }
+  },
+  "required": [
+    "bundle_id",
+    "source_model",
+    "evidence_kind",
+    "payload_kind",
+    "payload_file",
+    "payload_sha256",
+    "axquant_version"
+  ],
+  "type": "object"
+}

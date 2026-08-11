@@ -1,0 +1,117 @@
+{
+  "$defs": {
+    "CodingScorer": {
+      "enum": [
+        "unit-test",
+        "compile",
+        "ast",
+        "json-schema",
+        "tool-exact",
+        "text-exact"
+      ],
+      "type": "string"
+    },
+    "JsonValue": {}
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_path": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "category": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "expected_json": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JsonValue"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "expected_text": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "fixture_files": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "json_required_keys": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "language": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "prompt": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.coding-task-payload.v1",
+      "default": "axquant.coding-task-payload.v1",
+      "type": "string"
+    },
+    "scorer": {
+      "$ref": "#/$defs/CodingScorer"
+    },
+    "target_tokens": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "task_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "test_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "task_id",
+    "category",
+    "language",
+    "scorer",
+    "prompt",
+    "candidate_path",
+    "target_tokens"
+  ],
+  "type": "object"
+}

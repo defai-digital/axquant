@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "calibration_cache": {
+      "type": "string"
+    },
+    "candidate_bits": {
+      "default": [
+        4,
+        6,
+        8,
+        16
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "candidate_group_sizes": {
+      "default": [],
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "candidate_methods": {
+      "default": [
+        "affine"
+      ],
+      "items": {
+        "$ref": "#/$defs/QuantMethod"
+      },
+      "type": "array"
+    },
+    "capture_points": {
+      "default": [
+        "output",
+        "hidden"
+      ],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "early_termination_factor": {
+      "default": 3.0,
+      "exclusiveMinimum": 1.0,
+      "type": "number"
+    },
+    "group_size": {
+      "default": 64,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "long_context_min_tokens": {
+      "default": 1024,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "metric_positions_per_sample": {
+      "default": 32,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "module_group_probing": {
+      "default": false,
+      "type": "boolean"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName",
+      "default": "agent-coding"
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "replay_batch_size": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.probe-config.v1",
+      "default": "axquant.probe-config.v1",
+      "type": "string"
+    },
+    "target_tensors": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "token_budget_per_candidate": {
+      "default": 2048,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "warmup_replays": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "model",
+    "calibration_cache"
+  ],
+  "type": "object"
+}

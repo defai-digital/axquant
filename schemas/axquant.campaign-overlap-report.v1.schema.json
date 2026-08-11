@@ -1,0 +1,108 @@
+{
+  "$defs": {
+    "CampaignOverlapMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "compared_dataset_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "compared_record_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "dataset_record_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "exact": {
+          "type": "boolean"
+        },
+        "similarity": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "dataset_record_sha256",
+        "compared_dataset_sha256",
+        "compared_record_sha256",
+        "similarity",
+        "exact"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "compared_dataset_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "compared_record_count_by_sha256": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "comparison_pair_count": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "dataset_record_count": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "exact_match_count": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "matches": {
+      "items": {
+        "$ref": "#/$defs/CampaignOverlapMatch"
+      },
+      "type": "array"
+    },
+    "near_duplicate_count": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "near_duplicate_threshold": {
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "type": "number"
+    },
+    "normalization_algorithm": {
+      "const": "axquant-token-5gram-v2",
+      "default": "axquant-token-5gram-v2",
+      "type": "string"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.campaign-overlap-report.v1",
+      "default": "axquant.campaign-overlap-report.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_sha256",
+    "compared_dataset_sha256",
+    "dataset_record_count",
+    "compared_record_count_by_sha256",
+    "comparison_pair_count",
+    "exact_match_count",
+    "near_duplicate_count",
+    "near_duplicate_threshold",
+    "passed"
+  ],
+  "type": "object"
+}

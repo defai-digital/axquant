@@ -1,0 +1,782 @@
+{
+  "$defs": {
+    "ArtifactFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "AxEngineOptimizationMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "decode_kernel": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "fused_mtp": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kernel_evidence": {
+          "default": "unmeasured",
+          "enum": [
+            "unmeasured",
+            "measured"
+          ],
+          "type": "string"
+        },
+        "model_manifest": {
+          "default": "model-manifest.json",
+          "type": "string"
+        },
+        "preferred_group_size": {
+          "default": 64,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "CalibrationEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "samples": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_sha256",
+        "samples",
+        "domains",
+        "sequence_length",
+        "backend",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "KvCacheRuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "advisory": {
+          "const": true,
+          "default": true,
+          "type": "boolean"
+        },
+        "advisory_mlx_lm_kv_bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "advisory_mlx_lm_kv_group_size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "allocation_basis": {
+          "enum": [
+            "architecture-prior",
+            "measured"
+          ],
+          "type": "string"
+        },
+        "layer_bits": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "layer_group_sizes": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allocation_basis",
+        "layer_bits",
+        "layer_group_sizes",
+        "advisory_mlx_lm_kv_bits",
+        "advisory_mlx_lm_kv_group_size"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "MtpPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_bits": {
+          "default": [
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "min_bits": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 8,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "protected",
+          "enum": [
+            "protected",
+            "adaptive",
+            "disabled"
+          ],
+          "type": "string"
+        },
+        "optimize_for_acceptance": {
+          "default": true,
+          "type": "boolean"
+        },
+        "preserve_external_sidecar": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_norms": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_output_head": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "MtpRuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_retention": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detected": {
+          "type": "boolean"
+        },
+        "draft_tokens": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "enabled_by_default": {
+          "default": false,
+          "type": "boolean"
+        },
+        "head_precision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measured_speedup": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "optimized": {
+          "default": false,
+          "type": "boolean"
+        },
+        "recommended_temperature_max": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sidecar_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verification_mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "detected"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "text-path",
+        "full-model",
+        "inventory-only"
+      ],
+      "type": "string"
+    },
+    "PrecisionShare": {
+      "additionalProperties": false,
+      "properties": {
+        "fraction": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "parameters": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "parameters",
+        "fraction"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "RuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "$ref": "#/$defs/AxEngineOptimizationMetadata"
+        },
+        "compatible_runtimes": {
+          "items": {
+            "$ref": "#/$defs/RuntimeProfile"
+          },
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "kv_cache": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/KvCacheRuntimeMetadata"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "memory_policy": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "mtp": {
+          "$ref": "#/$defs/MtpRuntimeMetadata"
+        },
+        "optimization_scope": {
+          "$ref": "#/$defs/OptimizationScope"
+        },
+        "primary_runtime": {
+          "$ref": "#/$defs/RuntimeProfile"
+        },
+        "schema_version": {
+          "const": "axquant.runtime.v1",
+          "default": "axquant.runtime.v1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary_runtime",
+        "compatible_runtimes",
+        "optimization_scope",
+        "mtp",
+        "ax_engine"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "RuntimeProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "compatibility_level": {
+          "enum": [
+            "A",
+            "B"
+          ],
+          "type": "string"
+        },
+        "manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_support": {
+          "enum": [
+            "native",
+            "runtime-dependent",
+            "none"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/RuntimeName"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "standard_inference": {
+          "type": "boolean"
+        },
+        "standard_mlx_weights": {
+          "default": true,
+          "type": "boolean"
+        },
+        "support_level": {
+          "$ref": "#/$defs/RuntimeSupportLevel"
+        }
+      },
+      "required": [
+        "name",
+        "compatibility_level",
+        "support_level",
+        "standard_inference",
+        "mtp_support"
+      ],
+      "type": "object"
+    },
+    "RuntimeSupportLevel": {
+      "enum": [
+        "optimized",
+        "standard-inference"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "axquant_version": {
+      "type": "string"
+    },
+    "calibration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalibrationEvidence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "effective_bpw": {
+      "type": "number"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/ArtifactFile"
+      },
+      "type": "array"
+    },
+    "format": {
+      "const": "mlx",
+      "default": "mlx",
+      "type": "string"
+    },
+    "logical_parameters": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "main_logical_parameters": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "main_weight_file_size_bytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "measured_main_bpw": {
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "measured_total_bpw": {
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "mtp_acceptance_retention": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mtp_distribution": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PrecisionShare"
+      },
+      "type": "object"
+    },
+    "mtp_measured_speedup": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mtp_policy": {
+      "$ref": "#/$defs/MtpPolicy"
+    },
+    "mtp_present": {
+      "type": "boolean"
+    },
+    "mtp_weight_file_size_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "protected_weight_file_size_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "quantizer": {
+      "const": "axquant",
+      "default": "axquant",
+      "type": "string"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeMetadata"
+    },
+    "schema_version": {
+      "const": "axquant.artifact.v2",
+      "default": "axquant.artifact.v2",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "target_class": {
+      "type": "string"
+    },
+    "weight_distribution": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PrecisionShare"
+      },
+      "type": "object"
+    },
+    "weight_file_size_bytes": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "axquant_version",
+    "source_model",
+    "plan_sha256",
+    "profile",
+    "target_class",
+    "effective_bpw",
+    "logical_parameters",
+    "main_logical_parameters",
+    "weight_file_size_bytes",
+    "main_weight_file_size_bytes",
+    "mtp_weight_file_size_bytes",
+    "protected_weight_file_size_bytes",
+    "measured_total_bpw",
+    "measured_main_bpw",
+    "weight_distribution",
+    "mtp_distribution",
+    "mtp_present",
+    "mtp_policy",
+    "runtime",
+    "software_versions",
+    "files"
+  ],
+  "type": "object"
+}

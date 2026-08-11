@@ -1,0 +1,170 @@
+{
+  "$defs": {
+    "MtpSidecarLayout": {
+      "enum": [
+        "byte-preserved",
+        "ax-engine-qwen36-v1"
+      ],
+      "type": "string"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ax_engine_executable": {
+      "default": "ax-engine-bench",
+      "minLength": 1,
+      "type": "string"
+    },
+    "axquant_executable": {
+      "default": "axquant",
+      "minLength": 1,
+      "type": "string"
+    },
+    "benchmark_draft_depth": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "benchmark_max_tokens": {
+      "default": 512,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "benchmark_power_mode": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "benchmark_prompts": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "benchmark_timeout_seconds": {
+      "default": 300.0,
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "benchmark_trials": {
+      "default": 5,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "benchmark_warmup": {
+      "default": 2,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "calibration_manifest": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "candidate_repository_prefix": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "mtp_layout": {
+      "$ref": "#/$defs/MtpSidecarLayout",
+      "default": "byte-preserved"
+    },
+    "mtp_sidecar": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName",
+      "default": "agent-coding"
+    },
+    "quality_dataset": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "quality_max_samples": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "quality_max_sequence_length": {
+      "default": 2048,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "quality_max_tokens": {
+      "default": 256,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "reference_evaluation": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reference_quality": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "refinement_file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.refinement-execution-request.v2",
+      "default": "axquant.refinement-execution-request.v2",
+      "type": "string"
+    },
+    "size_reference": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_model": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "refinement_file",
+    "source_model",
+    "mtp_sidecar",
+    "calibration_manifest",
+    "quality_dataset",
+    "reference_quality",
+    "reference_evaluation",
+    "benchmark_prompts",
+    "size_reference",
+    "candidate_repository_prefix",
+    "benchmark_power_mode"
+  ],
+  "type": "object"
+}

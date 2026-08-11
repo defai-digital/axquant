@@ -50,6 +50,10 @@ echo "==> ruff format --check"
 "$BIN/ruff" format --check .
 echo "==> mypy src"
 "$BIN/mypy" src
+echo "==> schema contract freeze"
+"$PY" scripts/render_schema_contracts.py --check
+echo "==> certification matrix SSOT"
+"$PY" scripts/render_certification_docs.py --check
 
 if [[ "$LINT_ONLY" -eq 1 ]]; then
   echo "OK (lint-only)"

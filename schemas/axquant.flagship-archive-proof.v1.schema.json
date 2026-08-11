@@ -1,0 +1,70 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "archive_index": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "backup_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "durable_evidence_root": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "restore_readback_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-archive-proof.v1",
+      "default": "axquant.flagship-archive-proof.v1",
+      "type": "string"
+    },
+    "verified_at": {
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_sha256",
+    "candidate_sha256",
+    "durable_evidence_root",
+    "archive_index"
+  ],
+  "type": "object"
+}

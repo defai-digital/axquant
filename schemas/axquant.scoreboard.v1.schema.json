@@ -1,0 +1,248 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "ScoreboardMetricRow": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "metric_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "owner": {
+          "default": "axquant",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "available",
+            "pass",
+            "fail",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "threshold": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "metric_id",
+        "label",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "certification_tier": {
+      "default": "checkpoint",
+      "enum": [
+        "checkpoint",
+        "mtp-acceleration"
+      ],
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "missing_mandatory": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "overall_status": {
+      "enum": [
+        "pass",
+        "fail",
+        "incomplete"
+      ],
+      "type": "string"
+    },
+    "plan_profile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProfileName"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "plan_sha256": {
+      "maxLength": 64,
+      "minLength": 64,
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "rows": {
+      "items": {
+        "$ref": "#/$defs/ScoreboardMetricRow"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.scoreboard.v1",
+      "default": "axquant.scoreboard.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "title",
+    "profile",
+    "source_model",
+    "plan_sha256",
+    "evidence_kind",
+    "overall_status",
+    "rows"
+  ],
+  "type": "object"
+}

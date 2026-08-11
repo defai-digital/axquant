@@ -1,0 +1,366 @@
+{
+  "$defs": {
+    "ArtifactLifecycleState": {
+      "enum": [
+        "development",
+        "candidate",
+        "frozen",
+        "certified",
+        "superseded",
+        "revoked"
+      ],
+      "type": "string"
+    },
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CandidateKey": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "calibration_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "certification_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.candidate-key.v1",
+          "default": "axquant.candidate-key.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "source",
+        "certification_policy_sha256",
+        "calibration_sha256",
+        "activation_capture_sha256",
+        "sensitivity_sha256",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "CheckpointKey": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "schema_version": {
+          "const": "axquant.checkpoint-key.v1",
+          "default": "axquant.checkpoint-key.v1",
+          "type": "string"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "weight_index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "config_sha256",
+        "tokenizer_sha256",
+        "weight_index_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "LifecycleReason": {
+      "enum": [
+        "certification_passed",
+        "formal_cycle_failed",
+        "new_certified_successor",
+        "adapter_classification_changed",
+        "packing_semantics_changed",
+        "source_or_tokenizer_changed",
+        "runtime_contract_invalidated",
+        "provenance_error",
+        "security_or_license_issue"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "SemanticImpactScan": {
+      "additionalProperties": false,
+      "properties": {
+        "affected_candidate_sha256": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "change_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "change_kind": {
+          "enum": [
+            "adapter-classification",
+            "packing-semantics",
+            "source-tokenizer",
+            "runtime-contract",
+            "provenance",
+            "security-license"
+          ],
+          "type": "string"
+        },
+        "current_semantics_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "outcome": {
+          "enum": [
+            "unaffected",
+            "supersede",
+            "revoke"
+          ],
+          "type": "string"
+        },
+        "previous_semantics_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "reviewed_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "reviewed_by": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.semantic-impact-scan.v1",
+          "default": "axquant.semantic-impact-scan.v1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "change_id",
+        "change_kind",
+        "previous_semantics_sha256",
+        "current_semantics_sha256",
+        "affected_candidate_sha256",
+        "outcome",
+        "evidence",
+        "reviewed_by"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "authorizing_evidence": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "candidate": {
+      "$ref": "#/$defs/CandidateKey"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "impact_scan": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SemanticImpactScan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "narrative": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "new_state": {
+      "$ref": "#/$defs/ArtifactLifecycleState"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "previous_state": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ArtifactLifecycleState"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "public_repository": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "public_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reason": {
+      "$ref": "#/$defs/LifecycleReason"
+    },
+    "replacement_candidate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CandidateKey"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reviewer": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.artifact-lifecycle-event.v1",
+      "default": "axquant.artifact-lifecycle-event.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate",
+    "candidate_sha256",
+    "previous_state",
+    "new_state",
+    "actor",
+    "reviewer",
+    "reason",
+    "narrative",
+    "authorizing_evidence"
+  ],
+  "type": "object"
+}

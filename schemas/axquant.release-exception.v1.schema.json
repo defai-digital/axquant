@@ -1,0 +1,178 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ReleaseExceptionTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "enum": [
+            "artifact.weight_size_ratio",
+            "artifact.candidate_measured_bpw"
+          ],
+          "type": "string"
+        },
+        "observed_value": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "required_maximum": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required_minimum": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requirement": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "observed_value",
+        "requirement"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval_reference": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "approved_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "approved_by": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "candidate_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "evidence_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 4,
+      "type": "object"
+    },
+    "exception_id": {
+      "maxLength": 128,
+      "minLength": 3,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$",
+      "type": "string"
+    },
+    "expires_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "measured_tradeoff": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "owner": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.release-exception.v1",
+      "default": "axquant.release-exception.v1",
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/ReleaseExceptionTarget"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    }
+  },
+  "required": [
+    "exception_id",
+    "candidate_model",
+    "plan_sha256",
+    "targets",
+    "measured_tradeoff",
+    "owner",
+    "approved_by",
+    "approval_reference",
+    "approved_at",
+    "expires_at",
+    "evidence_sha256"
+  ],
+  "type": "object"
+}

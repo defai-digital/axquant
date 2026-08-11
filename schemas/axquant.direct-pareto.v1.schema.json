@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "DirectParetoPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "decode_tokens_per_second": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "dominated_by": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "frontier": {
+          "type": "boolean"
+        },
+        "measured_bpw": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "measurement_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "peak_memory_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "quality_retention": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "target_class": {
+          "$ref": "#/$defs/Qwen3NextTargetClass"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "measurement_id",
+        "target_class",
+        "measured_bpw",
+        "quality_retention",
+        "decode_tokens_per_second",
+        "peak_memory_bytes",
+        "validation_passed",
+        "frontier"
+      ],
+      "type": "object"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "frontier_candidate_ids": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "measurement_set_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "points": {
+      "items": {
+        "$ref": "#/$defs/DirectParetoPoint"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.direct-pareto.v1",
+      "default": "axquant.direct-pareto.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "measurement_set_sha256",
+    "points",
+    "frontier_candidate_ids"
+  ],
+  "type": "object"
+}

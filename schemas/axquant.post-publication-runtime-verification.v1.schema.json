@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "ax_engine_passed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "downloaded_checksums_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "mlx_lm_passed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "public_repository": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "public_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "runtime_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.post-publication-runtime-verification.v1",
+      "default": "axquant.post-publication-runtime-verification.v1",
+      "type": "string"
+    },
+    "verified_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "verifier": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "zero_fallback_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "candidate_sha256",
+    "public_repository",
+    "public_revision",
+    "runtime_versions",
+    "verifier"
+  ],
+  "type": "object"
+}

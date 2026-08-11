@@ -1,0 +1,175 @@
+{
+  "$defs": {
+    "CandidateMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "evidence_scope": {
+          "default": "tensor",
+          "enum": [
+            "tensor",
+            "module-group",
+            "preserved"
+          ],
+          "type": "string"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measured_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricVector"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "supported": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "bits",
+        "method",
+        "metrics"
+      ],
+      "type": "object"
+    },
+    "MetricVector": {
+      "additionalProperties": false,
+      "properties": {
+        "cosine_distance": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "decode_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "hidden_state_error": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "long_context_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_acceptance_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "output_kl": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "prefill_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_loss_delta": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "token_disagreement": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "complete": {
+      "default": false,
+      "type": "boolean"
+    },
+    "completed_tensors": {
+      "additionalProperties": {
+        "items": {
+          "$ref": "#/$defs/CandidateMeasurement"
+        },
+        "type": "array"
+      },
+      "type": "object"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "inventory_sha256": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.probe-progress.v1",
+      "default": "axquant.probe-progress.v1",
+      "type": "string"
+    },
+    "total_tensors": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "inventory_sha256",
+    "config_sha256"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,894 @@
+{
+  "count": 111,
+  "entries": [
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.activation-capture-sentinel.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship.ActivationCaptureSentinel",
+      "schema_version": "axquant.activation-capture-sentinel.v1",
+      "sha256": "83bb7775dd52eb301f79792958176535393054d4ce8e02bcc46d12d3a912b67d"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.activation-capture.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.ActivationCaptureManifest",
+      "schema_version": "axquant.activation-capture.v1",
+      "sha256": "8edbe145a9ce2b976e82e9d13915c9862f816dc47215efcef9b66c29e440c829"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.artifact-lifecycle-event.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.lifecycle.ArtifactLifecycleEvent",
+      "schema_version": "axquant.artifact-lifecycle-event.v1",
+      "sha256": "d8012b1a1bef3503911b2ae93fe767f51167d656bcea54f6ce6f65fe95e1ff29"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.artifact-lifecycle-registry.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.lifecycle.ArtifactLifecycleRegistry",
+      "schema_version": "axquant.artifact-lifecycle-registry.v1",
+      "sha256": "a3a7ff0b2883e22c73937158080078c6d321535767d6a9d98463d6587e9b7661"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.artifact-size-evidence.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ArtifactSizeEvidence",
+      "schema_version": "axquant.artifact-size-evidence.v1",
+      "sha256": "12d739e15ad57d72d71d0c02dbfcb57eabb6e8d78d312d19c442f3012473907e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.artifact.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ArtifactManifest",
+      "schema_version": "axquant.artifact.v2",
+      "sha256": "028b62b8d3f45245b5e0243fa4d4027a6fee34479d91234660a2ed9f37d0097e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-config.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkConfig",
+      "schema_version": "axquant.benchmark-config.v1",
+      "sha256": "93232ad43763f3b6649b210913e8e39b907f3e70d0ced87510f8d934fc950a15"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-evidence-index.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkEvidenceIndex",
+      "schema_version": "axquant.benchmark-evidence-index.v1",
+      "sha256": "0ff92eb996a9c8013830295342b6ccacfc0c10d0d13d1b1986712f9cd6c1dcc3"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-evidence-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkEvidenceRequest",
+      "schema_version": "axquant.benchmark-evidence-request.v1",
+      "sha256": "3f1a19648be639295eedc9a56ed34c4eeee54ef4ab55872c30f04a6b29616639"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-result.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkResult",
+      "schema_version": "axquant.benchmark-result.v1",
+      "sha256": "e9f6e7861935bef586339d8a9cc68af81b6e2f1ce07e069ddc5dc227f70ac116"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-suite.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkSuiteManifest",
+      "schema_version": "axquant.benchmark-suite.v1",
+      "sha256": "4dd4e11e1a1d48296158b9c63bab9ca7c12c26fdb98e1ea85a0ba0c62ed94c0e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.calibration.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.CalibrationManifest",
+      "schema_version": "axquant.calibration.v1",
+      "sha256": "e5f5f4b47c9452fc8dce4db46f012eadb9c313b2dad701683c127c363c8d0a0e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.campaign-dataset-manifest.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.CampaignDatasetManifest",
+      "schema_version": "axquant.campaign-dataset-manifest.v1",
+      "sha256": "ff2797ff6c0639d96d329707f1029b0b927343f79cc39263fadd9ae82ecb5672"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.campaign-overlap-report.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.CampaignOverlapReport",
+      "schema_version": "axquant.campaign-overlap-report.v1",
+      "sha256": "db20b4e5cb10a81de6e89e0bf4e84c81e3425441c22c48110400a0f6fe826514"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.candidate-key.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship.CandidateKey",
+      "schema_version": "axquant.candidate-key.v1",
+      "sha256": "a322343d227183bb780f3e0317a18af7dc678475fc01fd7e7a2eb65d29a60245"
+    },
+    {
+      "compatibility_class": "operational",
+      "filename": "axquant.capture-progress.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.CaptureProgress",
+      "schema_version": "axquant.capture-progress.v1",
+      "sha256": "0cf0146d7d2fdb0a568dc62e3ad90e037a72113c5b1436a0c6955d5c0407a62e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.certified-checkpoint-registry.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.CertifiedCheckpointRegistry",
+      "schema_version": "axquant.certified-checkpoint-registry.v1",
+      "sha256": "8b065dc9f111d1d3b81cc89ad573c2a7deb42bfb6ca9980c26b301fff5745bd7"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.checkpoint-key.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship.CheckpointKey",
+      "schema_version": "axquant.checkpoint-key.v1",
+      "sha256": "824302f357fa8514d823fa0910a3617bfa6476ce24e99064a19a9733cca22b61"
+    },
+    {
+      "compatibility_class": "operational",
+      "filename": "axquant.coding-evaluation-state.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.coding_suite.CodingEvaluationState",
+      "schema_version": "axquant.coding-evaluation-state.v1",
+      "sha256": "7fa033644d6698ce6be8c56181e74a2a7cf8c0fcea9a28c9937d466fde7374c4"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.coding-overlap-report.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.coding_suite.CodingOverlapReport",
+      "schema_version": "axquant.coding-overlap-report.v1",
+      "sha256": "abf7d8a484b3201cac66e1e2151c0c783a76be4ed4b664644138892c3e7aa67e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.coding-suite-manifest.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.coding_suite.CodingSuiteManifest",
+      "schema_version": "axquant.coding-suite-manifest.v2",
+      "sha256": "36344db4da5f433496b1b62ff82b3f1933f2f505d158cd8be5fbb8c0dcac75aa"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.coding-suite-self-test.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.CodingSuiteSelfTestReport",
+      "schema_version": "axquant.coding-suite-self-test.v1",
+      "sha256": "577382cb2808278c3aabad33af3ea09900624ad19798f16a5ae2b23987670c87"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.coding-task-payload.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.coding_suite.CodingTaskPayload",
+      "schema_version": "axquant.coding-task-payload.v1",
+      "sha256": "20f56eb09923aef3a395b3583a0922c0e368d283679cbf7d43bc48aa75c1e816"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.compatibility-matrix.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.CompatibilityMatrix",
+      "schema_version": "axquant.compatibility-matrix.v2",
+      "sha256": "525cd51c8f381290f46df3bbdf231f85ade3fa61570494c6e184f1ef7d87758b"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.compatibility-request.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.CompatibilityMatrixRequest",
+      "schema_version": "axquant.compatibility-request.v2",
+      "sha256": "bb7964c29192ae0ba5e6ace973b5506dbee627455850a4cfca408f87b8218a18"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-benchmark-evidence.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectBenchmarkEvidenceIndex",
+      "schema_version": "axquant.direct-benchmark-evidence.v1",
+      "sha256": "117e678df43233e20b9d5e6dadb7fc2ee33a903500265ee9f98e1cd378fd96e8"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-general-quality-state.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectGeneralQualityState",
+      "schema_version": "axquant.direct-general-quality-state.v1",
+      "sha256": "955ebbe1545adf816db7252955420d7f4f104160886f3271685b7c066261efcf"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-hardware-registry.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectHardwareProfileRegistry",
+      "schema_version": "axquant.direct-hardware-registry.v1",
+      "sha256": "e124e6065ae1ca8e64461a21d5ea108b7aaa3b2109cabbbba292b9568bdcb654"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-pareto.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectParetoReport",
+      "schema_version": "axquant.direct-pareto.v1",
+      "sha256": "71fab1c3fc27cd9974331f3bf38db6a90f3ace12fb15bbf0268ee20ef65f744c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-quality-evaluation.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectQualityEvaluation",
+      "schema_version": "axquant.direct-quality-evaluation.v1",
+      "sha256": "76d2261c431d12ab5d5df600e94a62444dbd07cd994d78a3659c84d888434bd2"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.direct-refinement-measurements.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectRefinementMeasurementSet",
+      "schema_version": "axquant.direct-refinement-measurements.v1",
+      "sha256": "d75d03f794dd0b34fb9acaae6dd92bae3a801838b1dfae89623d691828847c1a"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.direct-release-validation-index.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectReleaseValidationIndex",
+      "schema_version": "axquant.direct-release-validation-index.v1",
+      "sha256": "9838eeb5dc44b1b38e7067fce1eef21f1c372241ddec6569f6c420bf9686f289"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.direct-release-validation-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.DirectReleaseValidationRequest",
+      "schema_version": "axquant.direct-release-validation-request.v1",
+      "sha256": "4419b7e91b2e188b6dbd10ebe71464bebd1de8b466bbc8922c4a295bcfe315c3"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.evaluation.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.EvaluationBundle",
+      "schema_version": "axquant.evaluation.v1",
+      "sha256": "1e0589c3efc38c883ffee47e9e056048573cc5c66bcf931a5b907843d535a068"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.evidence-archive-index.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.EvidenceArchiveIndex",
+      "schema_version": "axquant.evidence-archive-index.v1",
+      "sha256": "2155e623137ee403c464711f8623505781d1f955c00475b544e27d4a71df7d5a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.feasibility.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.FeasibilityReport",
+      "schema_version": "axquant.feasibility.v1",
+      "sha256": "380dd2e98826352c4d3f11b6cc30df27a32b611435ab5920ea87ffbf451c3b4f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-archive-proof.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.FlagshipArchiveProof",
+      "schema_version": "axquant.flagship-archive-proof.v1",
+      "sha256": "336ef948b6f596c97e4ccbe77d9265cd817bc2199cbdb55929719193c4edf247"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-campaign-preflight.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.CampaignPreflight",
+      "schema_version": "axquant.flagship-campaign-preflight.v1",
+      "sha256": "1d8d951b9f5bbd3d2929299bd7ffcdb3bceac1d0b0f8c2aed001377c250b48bb"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-campaign.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FlagshipCampaign",
+      "schema_version": "axquant.flagship-campaign.v1",
+      "sha256": "3f50958573d2e1de6cff9617f6e2aeaecf369a90d6b44a746770b2b91b07b4e8"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-frontier-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FlagshipFrontierRequest",
+      "schema_version": "axquant.flagship-frontier-request.v1",
+      "sha256": "bf386a4bca47141296e2b74dc1fcc16cbb2571dbafc339dd31420cf85100f7d3"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-frontier.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FlagshipFrontierIndex",
+      "schema_version": "axquant.flagship-frontier.v1",
+      "sha256": "94ad9d585ae7b5953cc64c338df9a88c168a0ffdf139760b22fe229449864475"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-hardware-authorization.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.HardwareAuthorizationRecord",
+      "schema_version": "axquant.flagship-hardware-authorization.v1",
+      "sha256": "43ce05060c499a17b61af9ea916a61ce7553daba9f452ef9d529286599a7dc88"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-no-go.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FlagshipNoGoRecord",
+      "schema_version": "axquant.flagship-no-go.v1",
+      "sha256": "e857808515a55adc7647e93824ca90b5c46ee814e2a28cb1ea0edf285abcb5cb"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-publication-review.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.FinalPublicationReviewRecord",
+      "schema_version": "axquant.flagship-publication-review.v1",
+      "sha256": "44a30c8186700f8fd0c3b2f9c55f9f282133bca8068f175f513b835f3c7218f0"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-publication-verification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FlagshipPublicationVerification",
+      "schema_version": "axquant.flagship-publication-verification.v1",
+      "sha256": "63dd23442aa3dc4c5febb1fb4c311ad5015eddb25673e035f5f21752607dc3c5"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.flagship-release-audit-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.FlagshipReleaseAuditRequest",
+      "schema_version": "axquant.flagship-release-audit-request.v1",
+      "sha256": "b2a5ab4218fe40048307aa126c165f88e59c512860a8ea9204532b14cbb25e56"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.flagship-release-audit.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.FlagshipReleaseAudit",
+      "schema_version": "axquant.flagship-release-audit.v1",
+      "sha256": "f878cee671d323356372027f3cb9f039155fe3573966f9fa1dcdb9a6f3f19833"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-reproduction-review.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.ReproductionReviewRecord",
+      "schema_version": "axquant.flagship-reproduction-review.v1",
+      "sha256": "82bcdc6f40e95bf10fe4723a36bdf7c7cece8882a91c271b958cf4c3966f3e5f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.flagship-review.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.IndependentReviewRecord",
+      "schema_version": "axquant.flagship-review.v1",
+      "sha256": "b40bef00b21338273e28c37476e1d8d4f9f147946fff68888cbad996e2b45914"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.formal-holdout-completion.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.flagship_audit.FormalHoldoutCompletion",
+      "schema_version": "axquant.formal-holdout-completion.v1",
+      "sha256": "04b373c1cdac7e562446a05c4233f608e5b6c7b118da32eaf43822959f2f81ec"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.formal-host-evidence.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FormalHostEvidenceResult",
+      "schema_version": "axquant.formal-host-evidence.v1",
+      "sha256": "39fd5e5bd6f8faae3e341b8dcc4bcc998193d9e53e93b77e720c51defbaf140d"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.formal-host-scope.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.FormalHostScopeEvidence",
+      "schema_version": "axquant.formal-host-scope.v1",
+      "sha256": "8272337cdd6ea9fefcb37370b2d0dd76b91b5367a15fffa4540467fc8299f9be"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.hardware-registry-request.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.HardwareRegistryRequest",
+      "schema_version": "axquant.hardware-registry-request.v3",
+      "sha256": "85e100f964a1365a174511c3b76d6e8f01bdbe5f13324e3785c4cd26369e79c8"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.hardware-registry.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.HardwareProfileRegistry",
+      "schema_version": "axquant.hardware-registry.v3",
+      "sha256": "1af4f492bdf5cb274022d30e30899c4b211d2c84b19ab88bccd690ee003a39e5"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.inventory.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.inventory.Inventory",
+      "schema_version": "axquant.inventory.v1",
+      "sha256": "a6ec0b3de6828fb7350ff742cb117e5a9700e8a98264e85eb246803a648017f1"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.kernel-latency.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.kernel_latency.KernelLatencyTable",
+      "schema_version": "axquant.kernel-latency.v1",
+      "sha256": "ac0412991aa4c0d95f197cbc695014e6e154cbd3af3731dbfbed6664547d9122"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.kv-plan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.KvCachePlan",
+      "schema_version": "axquant.kv-plan.v1",
+      "sha256": "df092f49ca1a1373ca19f84966169ff54534c7cfa099783bfbb06c7eb14a6de3"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.kv-sensitivity.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.KvSensitivityReport",
+      "schema_version": "axquant.kv-sensitivity.v1",
+      "sha256": "c0c551ed660fc39b2434baa1718c77528b8c55f93c5bc36773e6bcfda763ac8c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.kv-serving-quality.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.KvServingQualityReport",
+      "schema_version": "axquant.kv-serving-quality.v1",
+      "sha256": "89060daa648eaab45a7449208ccd22c86a046d9a55395120beeb440a96eea95a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.manual-recipe.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.ManualPlanRecipe",
+      "schema_version": "axquant.manual-recipe.v1",
+      "sha256": "8bb3d8e4c258f11244f959fad0531ab52e799267ffaa782f7791827f8bd6880a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.mtp-ab-comparison.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.MtpAbComparison",
+      "schema_version": "axquant.mtp-ab-comparison.v1",
+      "sha256": "872ddd70364cba02d03e49cafd00474eee58962ce7345c0993779176cc5155c9"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.mtp-diagnostic.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.MtpDiagnosticReport",
+      "schema_version": "axquant.mtp-diagnostic.v1",
+      "sha256": "8a5746d1e776a5b1e0f0a075f8b8238c2533df8435fd0c3af96cea9085a5ba38"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.mtp-sidecar-provenance.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.PreparedMtpSidecarManifest",
+      "schema_version": "axquant.mtp-sidecar-provenance.v3",
+      "sha256": "0aee2fb61c8fa923b75ca5182c0b313f0127d323f681402e89ae35139bf8345c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.mtp-sidecar-quantized.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.QuantizedMtpSidecarManifest",
+      "schema_version": "axquant.mtp-sidecar-quantized.v1",
+      "sha256": "991bb791d5c8ec4b7b681c3df831572cdb024e85eafea57f06a9876819068973"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.mtp_sidecar_provenance.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BytePreservedMtpSidecarManifest",
+      "schema_version": "axquant.mtp_sidecar_provenance.v2",
+      "sha256": "2ca0702a5690b665d1322224f17367a88b621871208522ab172f7690888cbcf5"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.pareto.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ParetoReport",
+      "schema_version": "axquant.pareto.v3",
+      "sha256": "df111f60387d3224411bfce1f0d0ce9734bbae04b1754274b6a08f5d0cf714e8"
+    },
+    {
+      "compatibility_class": "operational",
+      "filename": "axquant.plan-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.PlanRequest",
+      "schema_version": "axquant.plan-request.v1",
+      "sha256": "7bc53862270ee90a617545d8b105913042f9f63674dfbf99f6b175faf1d1a5ad"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.plan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.planning.QuantizationPlan",
+      "schema_version": "axquant.plan.v1",
+      "sha256": "a9c55f7d5f07a7d44fdb2af7744cd91d1c834da590080c9a10c9b7e324de7100"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.post-publication-runtime-verification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.campaign.PostPublicationRuntimeVerification",
+      "schema_version": "axquant.post-publication-runtime-verification.v1",
+      "sha256": "8a1593ac93acd933dc9e7b4e90b785114383c64cb357a3550e2de322a89c3024"
+    },
+    {
+      "compatibility_class": "operational",
+      "filename": "axquant.probe-capacity.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ProbeCapacityReport",
+      "schema_version": "axquant.probe-capacity.v1",
+      "sha256": "8f854a3140d3ab25c4b281cfb4962a28144910b50697782eb7b1b19bc5d766c0"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.probe-config.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.ProbeConfig",
+      "schema_version": "axquant.probe-config.v1",
+      "sha256": "e1f4f57941d3619842a9b6eafa7efe7257725ad2ecc875abb22cabee14542e2f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.probe-progress.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.ProbeProgress",
+      "schema_version": "axquant.probe-progress.v1",
+      "sha256": "539c44597d81d28057a9a7d47ff6eb4c7e8393b05b76658e031200872a90929c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.protected-tensor-sidecar.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ProtectedTensorSidecarManifest",
+      "schema_version": "axquant.protected-tensor-sidecar.v1",
+      "sha256": "40b2271709d20708ada500359f3e2b5ba1590b81f543afd8ccda4a42f177a8f3"
+    },
+    {
+      "compatibility_class": "public-certification",
+      "filename": "axquant.public-checkpoint-certification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.public_certification.PublicCheckpointCertification",
+      "schema_version": "axquant.public-checkpoint-certification.v1",
+      "sha256": "f6b0b098f781149a261b6b0d388ac8dd2ff16b3723abd98844c1cfb957b1446c"
+    },
+    {
+      "compatibility_class": "public-certification",
+      "filename": "axquant.public-claim-render-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.claims.PublicClaimRenderRequest",
+      "schema_version": "axquant.public-claim-render-request.v1",
+      "sha256": "5cdb734384c94f1789d83442cd4166799d1a470b564e4934efbb102e6d692a7e"
+    },
+    {
+      "compatibility_class": "public-certification",
+      "filename": "axquant.public-claim.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.claims.PublicClaimManifest",
+      "schema_version": "axquant.public-claim.v1",
+      "sha256": "f00351efb5e41b92e50ea18cf3bd13be09564ff5028da08f92fff6c01d948fc3"
+    },
+    {
+      "compatibility_class": "public-certification",
+      "filename": "axquant.public-mtp-acceleration-certification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.public_certification.PublicMtpAccelerationCertification",
+      "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+      "sha256": "ea395a06744d7f4bf621f134418ee545de5e1c62bd0866a58bb9581d8184a2a2"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.quality-comparison.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.QualityComparisonReport",
+      "schema_version": "axquant.quality-comparison.v1",
+      "sha256": "628b541606b98f1181191c1e9cfda7e73cfe0833a5fc8314842694ded63aa134"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.quality-evaluation.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.QualityEvaluationResult",
+      "schema_version": "axquant.quality-evaluation.v2",
+      "sha256": "3c6429e107856a45625a902b9735d6ec0a65a0b1feaad7501a7736fbbc55d30a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.quantize-summary.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.QuickConversionSummary",
+      "schema_version": "axquant.quantize-summary.v1",
+      "sha256": "ce08e8a01566909c23e42a316e9a2120ebd4377468d151df6c34852df16ee1cf"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.quantizer-execution.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.QuantizerExecutionManifest",
+      "schema_version": "axquant.quantizer-execution.v1",
+      "sha256": "ac4120f402092f70753869954c28cccc350bc6af0afdae0c3d77febf7f8eefe4"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.qwen3-next-compatibility-matrix.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.Qwen3NextCompatibilityMatrix",
+      "schema_version": "axquant.qwen3-next-compatibility-matrix.v1",
+      "sha256": "5b6b1f41afcece280ab7e340460689c7fa1b437cc7024d20abbac0a8a5afd16b"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.qwen3-next-compatibility-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.Qwen3NextCompatibilityRequest",
+      "schema_version": "axquant.qwen3-next-compatibility-request.v1",
+      "sha256": "5e2ec7bffab3b2e21fa4fe7d4e817dd3ecf8882e4f43cfad089ea24c655fd788"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.qwen3-next-direct-policy.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.Qwen3NextDirectPolicy",
+      "schema_version": "axquant.qwen3-next-direct-policy.v1",
+      "sha256": "de23bf01e6cba155b5e9ff3c7de9f71d1304baa397acfdc8845e9aa6f31101da"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.qwen3-next-release-audit-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.Qwen3NextReleaseAuditRequest",
+      "schema_version": "axquant.qwen3-next-release-audit-request.v1",
+      "sha256": "074b627d39febe1e68cbc9eaaa659bbfb59456c3e0be3e4da86f2a9f6eb66d37"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.qwen3-next-release-audit.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.Qwen3NextReleaseAudit",
+      "schema_version": "axquant.qwen3-next-release-audit.v1",
+      "sha256": "4147039d7c040c9ef517d9181ab632bc8ed5a10e122ad10ffd5d88db5cbb5887"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.recipe-bundle.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RecipeBundle",
+      "schema_version": "axquant.recipe-bundle.v1",
+      "sha256": "744fb1e5c8c872313997d0406b4b8480232be2d4d0ce32592c3508c87af1b15a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.recovery-ranking.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RecoveryTargetRanking",
+      "schema_version": "axquant.recovery-ranking.v1",
+      "sha256": "77d67fb80dcbc8af754e5e912f2046099f93c66f4d6987066574eecbb97841bd"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.refinement-config.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RefinementConfig",
+      "schema_version": "axquant.refinement-config.v1",
+      "sha256": "15a6d823d77fcf55c0d356d5a337d545f5c1c571205c46015ee8de7e60523eec"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.refinement-execution-request.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RefinementExecutionRequest",
+      "schema_version": "axquant.refinement-execution-request.v2",
+      "sha256": "6669ab267abfe7b2d990d68231e3f36e538d570c2561ff3514571699ad87dbb7"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.refinement-execution.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RefinementExecutionManifest",
+      "schema_version": "axquant.refinement-execution.v1",
+      "sha256": "ce558579895c7d8369df528e3d0c55ecfa56db1891596b7ab6b1ca152dcddfe0"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.refinement-measurements.v5.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RefinementMeasurementSet",
+      "schema_version": "axquant.refinement-measurements.v5",
+      "sha256": "dd869380f6e71d456557ed5140dc51b0693355fa98dfc962110da066d784afa9"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.refinement.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RefinementResult",
+      "schema_version": "axquant.refinement.v2",
+      "sha256": "d666fec22a761567194d659d9471aa95252222a519be4a3c3b639c6e63fbc795"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.release-audit-request.v4.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReleaseAuditRequest",
+      "schema_version": "axquant.release-audit-request.v4",
+      "sha256": "8169dc0d28eb1b9f072d490caaf12a95c2a21b35dfc6d6b337075aefeaa9108b"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.release-audit.v4.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReleaseAudit",
+      "schema_version": "axquant.release-audit.v4",
+      "sha256": "4dd648e6681d979ff0e897a386d1b481e06f3cd3733b67c10d05177f1fcb215f"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.release-exception.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReleaseException",
+      "schema_version": "axquant.release-exception.v1",
+      "sha256": "b162250b7787bcff2093c86e864ab595d2885eaa26228e0b1454c1b49ea2278d"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.release-validation-index.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReleaseValidationIndex",
+      "schema_version": "axquant.release-validation-index.v1",
+      "sha256": "c48e29a0dd185c2e8068fb9d74e7efba891d1a2848d6c252d3cf1ddc9d40dc88"
+    },
+    {
+      "compatibility_class": "release",
+      "filename": "axquant.release-validation-request.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReleaseValidationRequest",
+      "schema_version": "axquant.release-validation-request.v1",
+      "sha256": "38ead425cad7f4fa034b23ea552440984b822b95c85894666adf46af800a866f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.reproduction-verification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReproductionVerification",
+      "schema_version": "axquant.reproduction-verification.v1",
+      "sha256": "e4d474ef078b07b0f046eca3f3049b222fd871f886253d435590ba641ddda098"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.reproduction.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReproductionRecipe",
+      "schema_version": "axquant.reproduction.v3",
+      "sha256": "591386a4228e08a32a40ab6bf657fba819f3cf72d8fea21f006355eae056ae9e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.runtime-check.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RuntimeCheck",
+      "schema_version": "axquant.runtime-check.v2",
+      "sha256": "5ab2241bfe213bd34953de57236cfd61e1cf7ee2ca65e4c7dcc478cd667c16ce"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.runtime.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RuntimeMetadata",
+      "schema_version": "axquant.runtime.v1",
+      "sha256": "20df29caa503dd18fe4dc704fdbe4753ecac2633493ba990872b23fd0790aee5"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.scoreboard.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ScoreboardReport",
+      "schema_version": "axquant.scoreboard.v1",
+      "sha256": "b45c7a80374cdf3141fa7fba455124f71b69e2b65366078a69db51bd67dfe88f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.semantic-impact-scan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.lifecycle.SemanticImpactScan",
+      "schema_version": "axquant.semantic-impact-scan.v1",
+      "sha256": "fa566cd617d1e4d71b5d122200612daed26c3f9311c75b836ae5c62fb8fc3464"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.sensitivity.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.SensitivityReport",
+      "schema_version": "axquant.sensitivity.v1",
+      "sha256": "7d8c8f68b0b4216614fce4650ff77753ab3911836c86081217c1588e5c7faaea"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.source-checkpoint-manifest.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification.SourceCheckpointManifest",
+      "schema_version": "axquant.source-checkpoint-manifest.v1",
+      "sha256": "0df7787387e7b9c1dd22472706e02676bc7dc23d591b3a802e88c322d11298a8"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.source-conversion.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.inventory.SourceConversionProvenance",
+      "schema_version": "axquant.source-conversion.v1",
+      "sha256": "0464403743e58d72bf4b2680c1b0b87306d5336f1149924daa3d6b7b3763515c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.support-matrix.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.SupportMatrix",
+      "schema_version": "axquant.support-matrix.v1",
+      "sha256": "256a4edb4b7c9577f82877c4401e316a665b510916c4f1730e71017d57919a45"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.tokenized-cache.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.sensitivity.TokenizedCacheManifest",
+      "schema_version": "axquant.tokenized-cache.v1",
+      "sha256": "a3e808431af440fa2dc963b13ba5919ac2bb0908c8d4446b55af6b914f63ea0a"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.unified-sensitivity.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.UnifiedSensitivityBinding",
+      "schema_version": "axquant.unified-sensitivity.v1",
+      "sha256": "c5ba9060a8352bd33d5003e1106b9d85afd4418ecb7a89e0265ed2a721fc4dbd"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.validation.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ValidationReport",
+      "schema_version": "axquant.validation.v1",
+      "sha256": "578749ec49814cad6a7dc2501310eaf3dd7ad82e58e67321e62edfa84297b6c6"
+    }
+  ],
+  "schema_version": "axquant.schema-contract-manifest.v1"
+}

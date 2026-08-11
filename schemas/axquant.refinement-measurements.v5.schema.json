@@ -1,0 +1,251 @@
+{
+  "$defs": {
+    "CompleteCandidateHardware": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "chip": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "device_name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kernel_fallbacks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mlx_lm_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mlx_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unified_memory_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "device_name",
+        "chip",
+        "unified_memory_bytes",
+        "os_version",
+        "ax_engine_version",
+        "mlx_version",
+        "mlx_lm_version",
+        "power_mode",
+        "kernel_fallbacks"
+      ],
+      "type": "object"
+    },
+    "CompleteCandidateMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_sha256": {
+          "type": "string"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "dataset_role": {
+          "default": "",
+          "pattern": "^$|^[a-z][a-z0-9-]*$",
+          "type": "string"
+        },
+        "hardware": {
+          "$ref": "#/$defs/CompleteCandidateHardware"
+        },
+        "measured_bpw": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "measurement_id": {
+          "default": "",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "mtp_acceptance_retention": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_speedup": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "objective_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_ratio": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "perplexity_ratio": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "plan_sha256": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "quality_comparison_sha256": {
+          "type": "string"
+        },
+        "quality_retention": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "validation_sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_id",
+        "candidate_model",
+        "profile",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "quality_comparison_sha256",
+        "validation_sha256",
+        "measured_bpw",
+        "objective_loss",
+        "quality_retention",
+        "mtp_acceptance_retention",
+        "mtp_speedup",
+        "peak_memory_ratio",
+        "hardware",
+        "validation_passed"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evaluator_version": {
+      "type": "string"
+    },
+    "measurements": {
+      "items": {
+        "$ref": "#/$defs/CompleteCandidateMeasurement"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "refinement_sha256": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.refinement-measurements.v5",
+      "default": "axquant.refinement-measurements.v5",
+      "type": "string"
+    }
+  },
+  "required": [
+    "refinement_sha256",
+    "evaluator_version",
+    "measurements"
+  ],
+  "type": "object"
+}

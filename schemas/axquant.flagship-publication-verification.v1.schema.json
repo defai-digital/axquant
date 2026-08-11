@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "download_inventory": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "hub_url": {
+      "pattern": "^https://huggingface\\.co/[A-Za-z0-9._/-]+$",
+      "type": "string"
+    },
+    "lifecycle_registry": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "public_claim": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "public_repository": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "public_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "release_audit": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "runtime_verification": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-publication-verification.v1",
+      "default": "axquant.flagship-publication-verification.v1",
+      "type": "string"
+    },
+    "verified_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "verifier": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_sha256",
+    "candidate_sha256",
+    "public_repository",
+    "public_revision",
+    "hub_url",
+    "release_audit",
+    "public_claim",
+    "lifecycle_registry",
+    "download_inventory",
+    "runtime_verification",
+    "verifier",
+    "attestation"
+  ],
+  "type": "object"
+}

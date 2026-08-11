@@ -1,0 +1,118 @@
+{
+  "$defs": {
+    "HardwareRegistryCandidateInput": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "direct_benchmark_result_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "direct_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "entry_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "measurement_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_benchmark_result_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mtp_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "plan_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "quality_comparison_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "quantizer_execution_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sensitivity_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "validation_file": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry_id",
+        "candidate_id",
+        "plan_file",
+        "artifact_manifest_file",
+        "sensitivity_file",
+        "quality_comparison_file",
+        "validation_file",
+        "direct_evaluation_file",
+        "mtp_evaluation_file",
+        "direct_benchmark_result_file",
+        "mtp_benchmark_result_file",
+        "quantizer_execution_file"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/HardwareRegistryCandidateInput"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "deterministic_tolerance": {
+      "default": 0.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "measurement_set_file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "registry_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.hardware-registry-request.v3",
+      "default": "axquant.hardware-registry-request.v3",
+      "type": "string"
+    }
+  },
+  "required": [
+    "registry_id",
+    "measurement_set_file",
+    "candidates"
+  ],
+  "type": "object"
+}

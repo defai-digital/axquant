@@ -1,0 +1,105 @@
+{
+  "$defs": {
+    "CaptureProgressModule": {
+      "additionalProperties": false,
+      "properties": {
+        "kept": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seen": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seen",
+        "kept"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cache_key_sha256": {
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "max_rows": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "model": {
+      "type": "string"
+    },
+    "model_fingerprint_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "modules": {
+      "additionalProperties": {
+        "$ref": "#/$defs/CaptureProgressModule"
+      },
+      "type": "object"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.capture-progress.v1",
+      "default": "axquant.capture-progress.v1",
+      "type": "string"
+    },
+    "segment_batches": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "segments_completed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stride": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "target_modules": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "token_budget": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "model",
+    "cache_key_sha256",
+    "max_rows",
+    "stride",
+    "token_budget",
+    "segment_batches",
+    "target_modules",
+    "segments_completed"
+  ],
+  "type": "object"
+}

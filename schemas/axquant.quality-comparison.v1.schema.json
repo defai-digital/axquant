@@ -1,0 +1,224 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "QualityScoreComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "reference": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "retention": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "reference",
+        "candidate",
+        "delta"
+      ],
+      "type": "object"
+    },
+    "QualityTaskComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "category": {
+          "type": "string"
+        },
+        "delta": {
+          "type": "number"
+        },
+        "reference": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "retention": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "task_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reference",
+        "candidate",
+        "delta",
+        "task_id",
+        "category"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "aggregate": {
+      "$ref": "#/$defs/QualityScoreComparison"
+    },
+    "candidate_errors": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "candidate_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "categories": {
+      "additionalProperties": {
+        "$ref": "#/$defs/QualityScoreComparison"
+      },
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "string"
+    },
+    "json_validity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityScoreComparison"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "perplexity_ratio": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "reference_errors": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "reference_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "schema_version": {
+      "const": "axquant.quality-comparison.v1",
+      "default": "axquant.quality-comparison.v1",
+      "type": "string"
+    },
+    "syntax_validity": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QualityScoreComparison"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/QualityTaskComparison"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "reference_model",
+    "candidate_model",
+    "dataset_sha256",
+    "random_seed",
+    "aggregate",
+    "categories",
+    "tasks",
+    "reference_errors",
+    "candidate_errors"
+  ],
+  "type": "object"
+}

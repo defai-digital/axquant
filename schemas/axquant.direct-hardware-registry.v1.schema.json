@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "DirectHardwareRegistryEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "ax_engine_executable_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "ax_engine_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "benchmark_evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "chip": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "device_name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "doctor_passed": {
+          "type": "boolean"
+        },
+        "entry_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "hardware_scope_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kernel_fallbacks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "metal_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "metallib_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "release_ready": {
+          "type": "boolean"
+        },
+        "unified_memory_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "entry_id",
+        "hardware_scope_id",
+        "candidate_id",
+        "artifact_manifest_sha256",
+        "benchmark_evidence_sha256",
+        "device_name",
+        "chip",
+        "unified_memory_bytes",
+        "os_version",
+        "ax_engine_version",
+        "ax_engine_executable_sha256",
+        "metal_version",
+        "metallib_version",
+        "power_mode",
+        "doctor_passed",
+        "kernel_fallbacks",
+        "release_ready"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/DirectHardwareRegistryEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "registry_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.direct-hardware-registry.v1",
+      "default": "axquant.direct-hardware-registry.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "registry_id",
+    "entries",
+    "release_ready"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,74 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "hardware_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "hardware_registry": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "host_id": {
+      "const": "df-macbookpro-m5",
+      "default": "df-macbookpro-m5",
+      "type": "string"
+    },
+    "measured_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "operator": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-hardware-authorization.v1",
+      "default": "axquant.flagship-hardware-authorization.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_sha256",
+    "candidate_sha256",
+    "hardware_id",
+    "hardware_registry",
+    "operator",
+    "attestation"
+  ],
+  "type": "object"
+}

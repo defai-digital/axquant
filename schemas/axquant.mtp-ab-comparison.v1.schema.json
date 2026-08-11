@@ -1,0 +1,672 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "MtpPhaseTimingSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "accept_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "accepted_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "active_step_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cache_clone_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "correctness_mode_conflicts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "direct_fallback_steps": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "direct_generation_us_per_output_token": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "direct_generation_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "direct_output_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "draft_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_decode_steps": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_emitted_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_generation_us_per_output_token": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_generation_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_output_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "phase_accounted_us_per_output_token": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "proposed_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "required_savings_us_per_output_token": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "rollback_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tail_sample_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target_mtp_us_per_output_token": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "verify_eval_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "verify_forward_wall_us": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "direct_output_tokens",
+        "mtp_output_tokens",
+        "direct_generation_wall_us",
+        "mtp_generation_wall_us",
+        "direct_generation_us_per_output_token",
+        "mtp_generation_us_per_output_token",
+        "target_mtp_us_per_output_token",
+        "required_savings_us_per_output_token",
+        "draft_wall_us",
+        "verify_forward_wall_us",
+        "verify_eval_wall_us",
+        "rollback_wall_us",
+        "cache_clone_wall_us",
+        "accept_wall_us",
+        "tail_sample_wall_us",
+        "phase_accounted_us_per_output_token",
+        "mtp_decode_steps",
+        "direct_fallback_steps",
+        "mtp_emitted_tokens",
+        "proposed_tokens",
+        "accepted_tokens",
+        "correctness_mode_conflicts"
+      ],
+      "type": "object"
+    },
+    "MtpTrialComparison": {
+      "additionalProperties": false,
+      "properties": {
+        "direct_output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "direct_token_count": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "direct_tokens_per_second": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "first_diff_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_accepted_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_active": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_output_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_proposed_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_rejected_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_token_count": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_tokens_per_second": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "outputs_equal": {
+          "type": "boolean"
+        },
+        "trial_index": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "trial_index",
+        "outputs_equal"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ax_engine_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "direct_token_weighted_decode_tps": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "direct_tokens_per_second_p50": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "divergent_trial_count": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "draft_depth": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "exactness_pass": {
+      "type": "boolean"
+    },
+    "failed_trial_count": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "generation_controls": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "measured_trial_count": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "minimum_prompt_median_speedup": {
+      "default": 1.1,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_speedup": {
+      "default": 1.2,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mtp_token_weighted_decode_tps": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mtp_tokens_per_second_p50": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "phase_timing": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MtpPhaseTimingSummary"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "profile_name": {
+      "type": "string"
+    },
+    "prompt_median_speedup": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "prompt_median_speedup_pass": {
+      "default": false,
+      "type": "boolean"
+    },
+    "random_seed": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "release_ready": {
+      "default": false,
+      "type": "boolean"
+    },
+    "runtime": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RuntimeName"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runtime_chip": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runtime_env": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.mtp-ab-comparison.v1",
+      "default": "axquant.mtp-ab-comparison.v1",
+      "type": "string"
+    },
+    "software_versions": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SoftwareVersions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "speedup": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "speedup_metric": {
+      "default": "prompt-median-tps",
+      "enum": [
+        "prompt-median-tps",
+        "token-weighted-decode-tps"
+      ],
+      "type": "string"
+    },
+    "speedup_pass": {
+      "default": false,
+      "type": "boolean"
+    },
+    "token_weighted_decode_speedup": {
+      "anyOf": [
+        {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "trial_comparisons": {
+      "items": {
+        "$ref": "#/$defs/MtpTrialComparison"
+      },
+      "type": "array"
+    },
+    "workload": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "profile_name",
+    "exactness_pass"
+  ],
+  "type": "object"
+}

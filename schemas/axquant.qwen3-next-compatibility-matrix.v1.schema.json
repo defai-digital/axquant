@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "profiles_passed": {
+      "items": {
+        "$ref": "#/$defs/ProfileName"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "runtimes_passed": {
+      "items": {
+        "$ref": "#/$defs/RuntimeName"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.qwen3-next-compatibility-matrix.v1",
+      "default": "axquant.qwen3-next-compatibility-matrix.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "target_class": {
+      "$ref": "#/$defs/Qwen3NextTargetClass"
+    }
+  },
+  "required": [
+    "source_model",
+    "target_class",
+    "artifact_manifest_sha256",
+    "profiles_passed",
+    "runtimes_passed",
+    "release_ready"
+  ],
+  "type": "object"
+}

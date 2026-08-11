@@ -1,0 +1,641 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CampaignBaseline": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "checkpoint_files": {
+          "items": {
+            "$ref": "#/$defs/BoundFile"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "bf16",
+            "uniform-4bit",
+            "uniform-6bit"
+          ],
+          "type": "string"
+        },
+        "runtime_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "kind",
+        "source",
+        "artifact_manifest",
+        "checkpoint_files",
+        "checkpoint_members_sha256",
+        "runtime_versions",
+        "available"
+      ],
+      "type": "object"
+    },
+    "CampaignDataset": {
+      "additionalProperties": false,
+      "properties": {
+        "consumed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "content_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "dataset_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "manifest_attestation": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "overlap_passed": {
+          "type": "boolean"
+        },
+        "overlap_report": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "role": {
+          "$ref": "#/$defs/CampaignDatasetRole"
+        },
+        "sealed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "role",
+        "content_sha256",
+        "manifest",
+        "manifest_attestation",
+        "overlap_report",
+        "overlap_passed",
+        "sealed"
+      ],
+      "type": "object"
+    },
+    "CampaignDatasetRole": {
+      "enum": [
+        "calibration",
+        "development-agent-coding",
+        "development-general",
+        "formal-agent-coding",
+        "formal-general",
+        "reproduction-parity"
+      ],
+      "type": "string"
+    },
+    "CampaignRoles": {
+      "additionalProperties": false,
+      "properties": {
+        "certification_owner": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evaluation_custodian": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "independent_reviewer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_engineer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "product_owner": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "release_manager": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "runtime_owner": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "product_owner",
+        "certification_owner",
+        "model_engineer",
+        "runtime_owner",
+        "evaluation_custodian",
+        "independent_reviewer",
+        "release_manager"
+      ],
+      "type": "object"
+    },
+    "CampaignState": {
+      "enum": [
+        "draft",
+        "frozen",
+        "formal_running",
+        "formal_failed",
+        "release_ready",
+        "published",
+        "closed_no_go"
+      ],
+      "type": "string"
+    },
+    "CandidateInputBindings": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_or_sentinel": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "artifact_manifest": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "calibration_manifest": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "candidate_frontier": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "frontier_evidence": {
+          "items": {
+            "$ref": "#/$defs/BoundFile"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "plan": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "sensitivity_report": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "source_checkpoint_manifest": {
+          "$ref": "#/$defs/BoundFile"
+        }
+      },
+      "required": [
+        "source_checkpoint_manifest",
+        "calibration_manifest",
+        "activation_capture_or_sentinel",
+        "sensitivity_report",
+        "plan",
+        "artifact_manifest",
+        "candidate_frontier",
+        "frontier_evidence"
+      ],
+      "type": "object"
+    },
+    "CandidateKey": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "calibration_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "certification_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.candidate-key.v1",
+          "default": "axquant.candidate-key.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "source",
+        "certification_policy_sha256",
+        "calibration_sha256",
+        "activation_capture_sha256",
+        "sensitivity_sha256",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "CheckpointKey": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "schema_version": {
+          "const": "axquant.checkpoint-key.v1",
+          "default": "axquant.checkpoint-key.v1",
+          "type": "string"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "weight_index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "config_sha256",
+        "tokenizer_sha256",
+        "weight_index_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "FormalHostContract": {
+      "additionalProperties": false,
+      "properties": {
+        "hardware_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "host_id": {
+          "const": "df-macbookpro-m5",
+          "default": "df-macbookpro-m5",
+          "type": "string"
+        },
+        "operator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "storage_contract": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "thermal_protocol": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hardware_id",
+        "os_version",
+        "power_mode",
+        "storage_contract",
+        "thermal_protocol",
+        "operator"
+      ],
+      "type": "object"
+    },
+    "FormalHostEvidenceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "kind": {
+          "$ref": "#/$defs/FormalHostEvidenceKind"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "file"
+      ],
+      "type": "object"
+    },
+    "FormalHostEvidenceKind": {
+      "enum": [
+        "ax-engine-doctor",
+        "metal",
+        "zero-fallback",
+        "storage",
+        "power",
+        "thermal"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "backup_verification": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "baselines": {
+      "items": {
+        "$ref": "#/$defs/CampaignBaseline"
+      },
+      "type": "array"
+    },
+    "campaign_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "candidate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CandidateKey"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_inputs": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CandidateInputBindings"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "certification_track": {
+      "const": "qwen36-mtp-v2",
+      "default": "qwen36-mtp-v2",
+      "type": "string"
+    },
+    "created_by": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "datasets": {
+      "items": {
+        "$ref": "#/$defs/CampaignDataset"
+      },
+      "type": "array"
+    },
+    "durable_evidence_root": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "expected_stage_outputs": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "formal_cycle_limit": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "formal_cycles_consumed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "formal_holdout_consumed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "formal_host": {
+      "$ref": "#/$defs/FormalHostContract"
+    },
+    "frozen_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "hardware_scope": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "hardware_scope_evidence": {
+      "items": {
+        "$ref": "#/$defs/FormalHostEvidenceBinding"
+      },
+      "type": "array"
+    },
+    "lifecycle_registry": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "no_go_record": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BoundFile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "policy_file": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "publication_verification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BoundFile"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "required_free_disk_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "roles": {
+      "$ref": "#/$defs/CampaignRoles"
+    },
+    "runtime_builds": {
+      "additionalProperties": {
+        "$ref": "#/$defs/BoundFile"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-campaign.v1",
+      "default": "axquant.flagship-campaign.v1",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/CheckpointKey"
+    },
+    "state": {
+      "$ref": "#/$defs/CampaignState",
+      "default": "draft"
+    },
+    "target_class": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "toolkit_wheel": {
+      "$ref": "#/$defs/BoundFile"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "source",
+    "target_class",
+    "policy_file",
+    "toolkit_wheel",
+    "runtime_builds",
+    "formal_host",
+    "hardware_scope",
+    "hardware_scope_evidence",
+    "datasets",
+    "baselines",
+    "lifecycle_registry",
+    "durable_evidence_root",
+    "backup_verification",
+    "required_free_disk_bytes",
+    "expected_stage_outputs",
+    "roles",
+    "created_by"
+  ],
+  "type": "object"
+}

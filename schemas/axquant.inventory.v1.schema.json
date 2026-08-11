@@ -1,0 +1,398 @@
+{
+  "$defs": {
+    "ArchitectureProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "default": "generic",
+          "type": "string"
+        },
+        "audio_present": {
+          "default": false,
+          "type": "boolean"
+        },
+        "config_model_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dense": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_declared": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "optimization_scope": {
+          "$ref": "#/$defs/OptimizationScope",
+          "default": "inventory-only"
+        },
+        "product_family": {
+          "default": "unknown",
+          "type": "string"
+        },
+        "support_level": {
+          "$ref": "#/$defs/ArchitectureSupportLevel",
+          "default": "inventory-only"
+        },
+        "support_tier": {
+          "$ref": "#/$defs/SupportTier",
+          "default": "inspect-only"
+        },
+        "text_layer_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vision_present": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ArchitectureSupportLevel": {
+      "enum": [
+        "supported",
+        "inventory-only",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "text-path",
+        "full-model",
+        "inventory-only"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "SupportTier": {
+      "enum": [
+        "certified",
+        "convertible",
+        "inspect-only"
+      ],
+      "type": "string"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    },
+    "TensorSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "current_bits": {
+          "anyOf": [
+            {
+              "maximum": 16,
+              "minimum": 2,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_method": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuantMethod"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_precision": {
+          "type": "string"
+        },
+        "dtype": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "module_path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parameters": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "physical_elements": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "protected_recommendation": {
+          "default": false,
+          "type": "boolean"
+        },
+        "protection_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quantizable": {
+          "type": "boolean"
+        },
+        "quantization_metadata": {
+          "default": false,
+          "type": "boolean"
+        },
+        "role": {
+          "$ref": "#/$defs/TensorRole"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "storage_bytes": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tied_to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "module_path",
+        "shape",
+        "dtype",
+        "parameters",
+        "role",
+        "quantizable",
+        "file",
+        "current_precision"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "architecture_profile": {
+      "$ref": "#/$defs/ArchitectureProfile"
+    },
+    "config_sha256": {
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "mtp_present": {
+      "type": "boolean"
+    },
+    "mtp_weight_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "precision_parameters": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "quantizable_parameters": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "quantized_source": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.inventory.v1",
+      "default": "axquant.inventory.v1",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tensors": {
+      "items": {
+        "$ref": "#/$defs/TensorSpec"
+      },
+      "type": "array"
+    },
+    "tied_weight_groups": {
+      "items": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "total_parameters": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "weight_bytes": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "model",
+    "tensors",
+    "total_parameters",
+    "quantizable_parameters",
+    "mtp_present",
+    "quantized_source",
+    "source_files",
+    "config_sha256"
+  ],
+  "type": "object"
+}

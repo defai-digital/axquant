@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "available": {
+      "type": "boolean"
+    },
+    "check_kind": {
+      "enum": [
+        "manifest",
+        "doctor",
+        "static-compatibility",
+        "generation-smoke",
+        "transcription-smoke",
+        "vision-generation-smoke",
+        "kv-layered-generation-smoke"
+      ],
+      "type": "string"
+    },
+    "command": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "report": {
+      "additionalProperties": {
+        "$ref": "#/$defs/JsonValue"
+      },
+      "type": "object"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeName"
+    },
+    "schema_version": {
+      "const": "axquant.runtime-check.v2",
+      "default": "axquant.runtime-check.v2",
+      "type": "string"
+    },
+    "stderr": {
+      "default": "",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "runtime",
+    "check_kind",
+    "available",
+    "passed"
+  ],
+  "type": "object"
+}

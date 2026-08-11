@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "campaign_id": {
+      "type": "string"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "checked_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "host_id": {
+      "const": "df-macbookpro-m5",
+      "default": "df-macbookpro-m5",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-campaign-preflight.v1",
+      "default": "axquant.flagship-campaign-preflight.v1",
+      "type": "string"
+    },
+    "verified_files": {
+      "items": {
+        "$ref": "#/$defs/BoundFile"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "campaign_id",
+    "campaign_sha256",
+    "passed",
+    "issues",
+    "verified_files"
+  ],
+  "type": "object"
+}

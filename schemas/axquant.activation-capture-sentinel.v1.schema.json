@@ -1,0 +1,28 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "const": "not-required",
+      "default": "not-required",
+      "type": "string"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "policy_reason": {
+      "const": "plan-uses-no-awq-or-gptq",
+      "default": "plan-uses-no-awq-or-gptq",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.activation-capture-sentinel.v1",
+      "default": "axquant.activation-capture-sentinel.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_sha256"
+  ],
+  "type": "object"
+}

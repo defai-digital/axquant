@@ -1,0 +1,1095 @@
+{
+  "$defs": {
+    "Allocation": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricVector"
+        },
+        "module_path": {
+          "type": "string"
+        },
+        "outlier_strategy": {
+          "$ref": "#/$defs/OutlierStrategy",
+          "default": "none"
+        },
+        "parameters": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "predicted_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/TensorRole"
+        },
+        "scale_strategy": {
+          "$ref": "#/$defs/ScaleStrategy",
+          "default": "group-affine"
+        },
+        "strategy_metadata": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "tensor": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor",
+        "module_path",
+        "role",
+        "parameters",
+        "bits",
+        "method",
+        "predicted_loss",
+        "metrics",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ArchitectureProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "default": "generic",
+          "type": "string"
+        },
+        "audio_present": {
+          "default": false,
+          "type": "boolean"
+        },
+        "config_model_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dense": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_declared": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "optimization_scope": {
+          "$ref": "#/$defs/OptimizationScope",
+          "default": "inventory-only"
+        },
+        "product_family": {
+          "default": "unknown",
+          "type": "string"
+        },
+        "support_level": {
+          "$ref": "#/$defs/ArchitectureSupportLevel",
+          "default": "inventory-only"
+        },
+        "support_tier": {
+          "$ref": "#/$defs/SupportTier",
+          "default": "inspect-only"
+        },
+        "text_layer_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vision_present": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ArchitectureSupportLevel": {
+      "enum": [
+        "supported",
+        "inventory-only",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "CalibrationEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "samples": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_sha256",
+        "samples",
+        "domains",
+        "sequence_length",
+        "backend",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "HardwareProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "ax-engine-apple-silicon-affine-dwq-v3",
+          "type": "string"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeName",
+          "default": "ax-engine"
+        },
+        "supported_bits": {
+          "default": [
+            2,
+            3,
+            4,
+            6,
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_group_sizes": {
+          "default": [
+            32,
+            64,
+            128
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_methods": {
+          "default": [
+            "affine",
+            "awq",
+            "dwq",
+            "gptq",
+            "gptq-act",
+            "bf16"
+          ],
+          "items": {
+            "$ref": "#/$defs/QuantMethod"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "KvCachePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "allocation_basis": {
+          "enum": [
+            "architecture-prior",
+            "measured"
+          ],
+          "type": "string"
+        },
+        "default_bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "default_group_size": {
+          "default": 64,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/KvLayerAllocation"
+          },
+          "type": "array"
+        },
+        "max_output_kl": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "min_bits": {
+          "default": 4,
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": "axquant.kv-plan.v1",
+          "default": "axquant.kv-plan.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "allocation_basis",
+        "default_bits",
+        "layers"
+      ],
+      "type": "object"
+    },
+    "KvLayerAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "layer_index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer_index",
+        "bits",
+        "group_size",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "MethodNearTie": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "relative_margin": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "runner_up_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "runner_up_method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "selected_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "selected_method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "tensor": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor",
+        "bits",
+        "selected_method",
+        "selected_loss",
+        "runner_up_method",
+        "runner_up_loss",
+        "relative_margin"
+      ],
+      "type": "object"
+    },
+    "MetricVector": {
+      "additionalProperties": false,
+      "properties": {
+        "cosine_distance": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "decode_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "hidden_state_error": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "long_context_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_acceptance_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "output_kl": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "prefill_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_loss_delta": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "token_disagreement": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "MtpPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_bits": {
+          "default": [
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "min_bits": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 8,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "protected",
+          "enum": [
+            "protected",
+            "adaptive",
+            "disabled"
+          ],
+          "type": "string"
+        },
+        "optimize_for_acceptance": {
+          "default": true,
+          "type": "boolean"
+        },
+        "preserve_external_sidecar": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_norms": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_output_head": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ObjectiveWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "cosine_distance": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "decode_latency_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "hidden_state_error": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "long_context_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_acceptance_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "output_kl": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "prefill_latency_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_loss_delta": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "token_disagreement": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "output_kl",
+        "hidden_state_error",
+        "cosine_distance",
+        "token_disagreement",
+        "task_loss_delta",
+        "mtp_acceptance_loss",
+        "long_context_loss",
+        "peak_memory_cost",
+        "prefill_latency_cost",
+        "decode_latency_cost"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "text-path",
+        "full-model",
+        "inventory-only"
+      ],
+      "type": "string"
+    },
+    "OutlierStrategy": {
+      "enum": [
+        "none",
+        "percentile-clip-dwq"
+      ],
+      "type": "string"
+    },
+    "PlanningConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "effective_bpw_limit": {
+          "default": 4.8,
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        },
+        "lm_head_min_bits": {
+          "default": 16,
+          "enum": [
+            8,
+            16
+          ],
+          "type": "integer"
+        },
+        "max_model_size_ratio_to_uniform4": {
+          "default": 1.1,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "minimum_mtp_acceptance_retention": {
+          "default": 0.95,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "minimum_mtp_speedup": {
+          "default": 1.2,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "minimum_quality_retention": {
+          "default": 0.98,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "PrecisionShare": {
+      "additionalProperties": false,
+      "properties": {
+        "fraction": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "parameters": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "parameters",
+        "fraction"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "ScaleStrategy": {
+      "enum": [
+        "none",
+        "group-affine",
+        "channel-awq",
+        "gptq-hessian"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    },
+    "SupportTier": {
+      "enum": [
+        "certified",
+        "convertible",
+        "inspect-only"
+      ],
+      "type": "string"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "analysis_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "architecture_profile": {
+      "$ref": "#/$defs/ArchitectureProfile"
+    },
+    "assignments": {
+      "items": {
+        "$ref": "#/$defs/Allocation"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "calibration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalibrationEvidence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_bits": {
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "candidate_group_sizes": {
+      "default": [],
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "constraints": {
+      "$ref": "#/$defs/PlanningConstraints"
+    },
+    "cost_model": {
+      "default": "abstract-bpw",
+      "enum": [
+        "abstract-bpw",
+        "kernel-latency"
+      ],
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "effective_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "global_validation_required": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "group_size": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "hardware": {
+      "$ref": "#/$defs/HardwareProfile"
+    },
+    "kernel_latency_host_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "kernel_latency_sha256": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "kv_cache": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/KvCachePlan"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "method_near_ties": {
+      "items": {
+        "$ref": "#/$defs/MethodNearTie"
+      },
+      "type": "array"
+    },
+    "method_near_ties_omitted": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mtp": {
+      "$ref": "#/$defs/MtpPolicy"
+    },
+    "mtp_distribution": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PrecisionShare"
+      },
+      "type": "object"
+    },
+    "nominal_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "objective": {
+      "$ref": "#/$defs/ObjectiveWeights"
+    },
+    "primary_runtime": {
+      "$ref": "#/$defs/RuntimeName",
+      "default": "ax-engine"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "quantizer": {
+      "const": "axquant",
+      "default": "axquant",
+      "type": "string"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.plan.v1",
+      "default": "axquant.plan.v1",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "status": {
+      "const": "planned",
+      "default": "planned",
+      "type": "string"
+    },
+    "target_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "target_class": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "target_mode": {
+      "enum": [
+        "balanced",
+        "quality",
+        "low-memory",
+        "speed"
+      ],
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "weight_distribution": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PrecisionShare"
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "source_model",
+    "profile",
+    "target_class",
+    "target_bpw",
+    "nominal_bpw",
+    "effective_bpw",
+    "candidate_bits",
+    "group_size",
+    "objective",
+    "hardware",
+    "mtp",
+    "constraints",
+    "target_mode",
+    "random_seed",
+    "software_versions",
+    "analysis_sha256",
+    "evidence_kind",
+    "assignments",
+    "weight_distribution",
+    "mtp_distribution"
+  ],
+  "type": "object"
+}

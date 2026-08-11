@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "BoundMetricClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "comparison": {
+          "enum": [
+            "absolute",
+            "higher-is-better",
+            "lower-is-better",
+            "ratio"
+          ],
+          "type": "string"
+        },
+        "denominator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "metric_key": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "numerator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "profile": {
+          "enum": [
+            "agent-coding",
+            "general",
+            "hardware"
+          ],
+          "type": "string"
+        },
+        "unit": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "evidence",
+        "profile",
+        "metric_key",
+        "unit",
+        "value",
+        "comparison"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_manifest": {
+      "type": "string"
+    },
+    "authorization_audit": {
+      "type": "string"
+    },
+    "lifecycle_registry": {
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "performance_claims": {
+      "items": {
+        "$ref": "#/$defs/BoundMetricClaim"
+      },
+      "type": "array"
+    },
+    "public_owner": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "quality_claims": {
+      "items": {
+        "$ref": "#/$defs/BoundMetricClaim"
+      },
+      "type": "array"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.public-claim-render-request.v1",
+      "default": "axquant.public-claim-render-request.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "authorization_audit",
+    "lifecycle_registry",
+    "artifact_manifest",
+    "public_owner",
+    "quality_claims",
+    "performance_claims",
+    "limitations",
+    "reviewer"
+  ],
+  "type": "object"
+}

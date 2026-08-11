@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "HardwareProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "ax-engine-apple-silicon-affine-dwq-v3",
+          "type": "string"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeName",
+          "default": "ax-engine"
+        },
+        "supported_bits": {
+          "default": [
+            2,
+            3,
+            4,
+            6,
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_group_sizes": {
+          "default": [
+            32,
+            64,
+            128
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_methods": {
+          "default": [
+            "affine",
+            "awq",
+            "dwq",
+            "gptq",
+            "gptq-act",
+            "bf16"
+          ],
+          "items": {
+            "$ref": "#/$defs/QuantMethod"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "ManualPrecisionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "module_glob": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/TensorRole"
+          },
+          "type": "array"
+        },
+        "rule_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "tensor_glob": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "rule_id",
+        "bits",
+        "method",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "MtpPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_bits": {
+          "default": [
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "min_bits": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 8,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "protected",
+          "enum": [
+            "protected",
+            "adaptive",
+            "disabled"
+          ],
+          "type": "string"
+        },
+        "optimize_for_acceptance": {
+          "default": true,
+          "type": "boolean"
+        },
+        "preserve_external_sidecar": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_norms": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_output_head": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allow_unmatched_rules": {
+      "default": false,
+      "type": "boolean"
+    },
+    "default_bits": {
+      "default": 4,
+      "maximum": 16,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "default_method": {
+      "$ref": "#/$defs/QuantMethod",
+      "default": "affine"
+    },
+    "group_size": {
+      "default": 64,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "hardware": {
+      "$ref": "#/$defs/HardwareProfile"
+    },
+    "lm_head_min_bits": {
+      "default": 16,
+      "enum": [
+        8,
+        16
+      ],
+      "type": "integer"
+    },
+    "max_model_size_ratio_to_uniform4": {
+      "default": 1.1,
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "minimum_mtp_acceptance_retention": {
+      "default": 0.95,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_mtp_speedup": {
+      "default": 1.2,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_quality_retention": {
+      "default": 0.98,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "mtp": {
+      "$ref": "#/$defs/MtpPolicy"
+    },
+    "primary_runtime": {
+      "$ref": "#/$defs/RuntimeName",
+      "default": "ax-engine"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName",
+      "default": "agent-coding"
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/ManualPrecisionRule"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.manual-recipe.v1",
+      "default": "axquant.manual-recipe.v1",
+      "type": "string"
+    },
+    "target_bpw": {
+      "default": 6.0,
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "target_mode": {
+      "default": "balanced",
+      "enum": [
+        "balanced",
+        "quality",
+        "low-memory",
+        "speed"
+      ],
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

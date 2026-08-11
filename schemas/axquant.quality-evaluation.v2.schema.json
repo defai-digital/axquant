@@ -1,0 +1,303 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "QualityGenerationConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "chat_template_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_generation_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "prompt_format": {
+          "enum": [
+            "raw",
+            "chat-template"
+          ],
+          "type": "string"
+        },
+        "thinking_enabled": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "prompt_format",
+        "max_sequence_length",
+        "max_generation_tokens"
+      ],
+      "type": "object"
+    },
+    "QualityMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "json_valid_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "perplexity": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "syntax_valid_rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "task_scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "QualityTaskResult": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "type": "string"
+        },
+        "check_scores": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output": {
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "category",
+        "output",
+        "score",
+        "check_scores"
+      ],
+      "type": "object"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "string"
+    },
+    "evaluated_tokens": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "generation": {
+      "$ref": "#/$defs/QualityGenerationConfig"
+    },
+    "metrics": {
+      "$ref": "#/$defs/QualityMetrics"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "samples": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.quality-evaluation.v2",
+      "default": "axquant.quality-evaluation.v2",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "task_results": {
+      "items": {
+        "$ref": "#/$defs/QualityTaskResult"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "model",
+    "dataset_sha256",
+    "generation",
+    "metrics",
+    "task_results",
+    "samples",
+    "evaluated_tokens",
+    "random_seed",
+    "software_versions"
+  ],
+  "type": "object"
+}

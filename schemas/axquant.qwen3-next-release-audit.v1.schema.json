@@ -1,0 +1,286 @@
+{
+  "$defs": {
+    "ArchitectureFingerprint": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "const": "Qwen3NextForCausalLM",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "expert_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "expert_intermediate_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "experts_per_token": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "full_attention_interval": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "hidden_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "model_type": {
+          "const": "qwen3_next",
+          "type": "string"
+        },
+        "mtp_declared": {
+          "const": false,
+          "type": "boolean"
+        },
+        "text_layer_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "vision_present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_type",
+        "architecture",
+        "text_layer_count",
+        "hidden_size",
+        "full_attention_interval",
+        "expert_count",
+        "experts_per_token",
+        "expert_intermediate_size",
+        "mtp_declared",
+        "vision_present",
+        "config_sha256",
+        "tokenizer_sha256"
+      ],
+      "type": "object"
+    },
+    "ExactCertificationScope": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "$ref": "#/$defs/ArchitectureFingerprint"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "hardware_scope_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "policy_id": {
+          "const": "axquant.qwen3-next-direct-policy.v1",
+          "default": "axquant.qwen3-next-direct-policy.v1",
+          "type": "string"
+        },
+        "source_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "target_class": {
+          "$ref": "#/$defs/Qwen3NextTargetClass"
+        },
+        "track": {
+          "const": "qwen3-next-direct-v1",
+          "default": "qwen3-next-direct-v1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_model",
+        "architecture",
+        "target_class",
+        "artifact_manifest_sha256",
+        "hardware_scope_ids"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "NonMtpGateId": {
+      "enum": [
+        "N0",
+        "N1",
+        "N2",
+        "N3",
+        "N4",
+        "N5",
+        "N6",
+        "N7",
+        "N8"
+      ],
+      "type": "string"
+    },
+    "Qwen3NextReleaseAuditCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "gate_id": {
+          "$ref": "#/$defs/NonMtpGateId"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gate_id",
+        "name",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "blockers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "candidate_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "certification_scope": {
+      "$ref": "#/$defs/ExactCertificationScope"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/Qwen3NextReleaseAuditCheck"
+      },
+      "maxItems": 9,
+      "minItems": 9,
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.qwen3-next-release-audit.v1",
+      "default": "axquant.qwen3-next-release-audit.v1",
+      "type": "string"
+    },
+    "toolkit_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "wheel_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "certification_scope",
+    "candidate_model",
+    "request_sha256",
+    "policy_sha256",
+    "wheel_sha256",
+    "checks",
+    "release_ready"
+  ],
+  "type": "object"
+}

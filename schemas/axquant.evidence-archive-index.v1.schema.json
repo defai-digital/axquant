@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "EvidenceArchiveRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "durable_uri": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "logical_name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "logical_name",
+        "path",
+        "sha256",
+        "size_bytes",
+        "durable_uri"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "complete": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/EvidenceArchiveRecord"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.evidence-archive-index.v1",
+      "default": "axquant.evidence-archive-index.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "records",
+    "complete"
+  ],
+  "type": "object"
+}

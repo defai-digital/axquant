@@ -1,0 +1,60 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "convergence_threshold": {
+      "default": 0.001,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "evaluation_budget": {
+      "default": 50,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "holdout_measurement_set_sha256": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 64,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "max_iterations": {
+      "default": 10,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.refinement-config.v1",
+      "default": "axquant.refinement-config.v1",
+      "type": "string"
+    },
+    "swap_radius": {
+      "default": 5,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "top_n": {
+      "default": 3,
+      "maximum": 20,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "wall_clock_seconds": {
+      "default": 86400.0,
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    }
+  },
+  "type": "object"
+}

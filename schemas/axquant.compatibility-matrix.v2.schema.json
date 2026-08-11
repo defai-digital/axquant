@@ -1,0 +1,271 @@
+{
+  "$defs": {
+    "CheckpointCompatibility": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "type": "string"
+        },
+        "artifact_path": {
+          "type": "string"
+        },
+        "ax_engine_check_sha256": {
+          "type": "string"
+        },
+        "ax_engine_passed": {
+          "type": "boolean"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "compatible": {
+          "type": "boolean"
+        },
+        "dense": {
+          "type": "boolean"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "measured_total_bpw": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "mlx_lm_check_sha256": {
+          "type": "string"
+        },
+        "mlx_lm_passed": {
+          "type": "boolean"
+        },
+        "mtp_present": {
+          "type": "boolean"
+        },
+        "plan_sha256": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "source_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "supported_bits": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "text_layer_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "validation_sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_model",
+        "source_model",
+        "profile",
+        "artifact_path",
+        "artifact_manifest_sha256",
+        "plan_sha256",
+        "adapter_id",
+        "dense",
+        "measured_total_bpw",
+        "mtp_present",
+        "supported_bits",
+        "ax_engine_check_sha256",
+        "ax_engine_passed",
+        "mlx_lm_check_sha256",
+        "mlx_lm_passed",
+        "validation_sha256",
+        "validation_passed",
+        "compatible"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "OfficialDenseCheckpointRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "model_id": {
+          "pattern": "^Qwen/Qwen3\\.6-[A-Za-z0-9._-]+$",
+          "type": "string"
+        },
+        "parameter_size": {
+          "pattern": "^[1-9][0-9]*(?:\\.[0-9]+)?[BMT]$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model_id",
+        "parameter_size"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "catalog_verified_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "distinct_dense_source_checkpoints": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/CheckpointCompatibility"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "family": {
+      "const": "Qwen 3.6",
+      "default": "Qwen 3.6",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "official_catalog_url": {
+      "const": "https://huggingface.co/collections/Qwen/qwen36",
+      "default": "https://huggingface.co/collections/Qwen/qwen36",
+      "type": "string"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "required_dense_checkpoints": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "required_dense_models": {
+      "items": {
+        "$ref": "#/$defs/OfficialDenseCheckpointRequirement"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "required_profiles": {
+      "items": {
+        "$ref": "#/$defs/ProfileName"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.compatibility-matrix.v2",
+      "default": "axquant.compatibility-matrix.v2",
+      "type": "string"
+    },
+    "scope_policy": {
+      "const": "all-official-dense-sizes-at-release",
+      "default": "all-official-dense-sizes-at-release",
+      "type": "string"
+    }
+  },
+  "required": [
+    "catalog_verified_at",
+    "required_dense_models",
+    "required_profiles",
+    "required_dense_checkpoints",
+    "entries",
+    "distinct_dense_source_checkpoints",
+    "release_ready"
+  ],
+  "type": "object"
+}

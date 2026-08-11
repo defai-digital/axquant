@@ -1,0 +1,31 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "dtype": {
+      "const": "bfloat16",
+      "default": "bfloat16",
+      "type": "string"
+    },
+    "key_remap_applied": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.source-conversion.v1",
+      "default": "axquant.source-conversion.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "type": "string"
+    },
+    "source_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_model",
+    "source_revision",
+    "key_remap_applied"
+  ],
+  "type": "object"
+}

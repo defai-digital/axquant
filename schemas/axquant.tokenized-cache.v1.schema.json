@@ -1,0 +1,258 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "backend_version": {
+      "default": "axquant-tokenizer-v1",
+      "type": "string"
+    },
+    "cache_key_sha256": {
+      "type": "string"
+    },
+    "calibration_evaluation_separation_attested": {
+      "default": false,
+      "type": "boolean"
+    },
+    "calibration_manifest_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "complete": {
+      "default": false,
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "dataset_sha256": {
+      "type": "string"
+    },
+    "domain_provenance": {
+      "default": "declared",
+      "enum": [
+        "sample-records",
+        "declared"
+      ],
+      "type": "string"
+    },
+    "domains": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "sample_order_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "samples": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.tokenized-cache.v1",
+      "default": "axquant.tokenized-cache.v1",
+      "type": "string"
+    },
+    "sequence_length": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "shard_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "shard_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "tokenizer_revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "tokenizer_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "total_tokens": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "cache_key_sha256",
+    "model",
+    "dataset_sha256",
+    "profile",
+    "sequence_length",
+    "samples",
+    "shard_count",
+    "total_tokens",
+    "software_versions"
+  ],
+  "type": "object"
+}

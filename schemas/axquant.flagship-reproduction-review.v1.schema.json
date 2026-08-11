@@ -1,0 +1,80 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "immutable_artifact_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "path_neutral_identity_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "producing_host_id": {
+      "const": "df-macbookpro-m5",
+      "default": "df-macbookpro-m5",
+      "type": "string"
+    },
+    "reproduction_host_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reproduction_verification": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "reviewed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "runtime_compatibility_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-reproduction-review.v1",
+      "default": "axquant.flagship-reproduction-review.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_sha256",
+    "reproduction_host_id",
+    "reproduction_verification",
+    "reviewer"
+  ],
+  "type": "object"
+}

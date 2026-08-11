@@ -1,0 +1,172 @@
+{
+  "$defs": {
+    "KvServingQualityProfileResult": {
+      "additionalProperties": false,
+      "properties": {
+        "bf16_kv_score": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "context_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "evaluation_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "quantized_kv_score": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "retention": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "profile",
+        "context_tokens",
+        "bf16_kv_score",
+        "quantized_kv_score",
+        "retention",
+        "evaluation_sha256"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "kv_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "kv_sensitivity_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "per_layer_execution_verified": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "report_only": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/KvServingQualityProfileResult"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "runtime": {
+      "const": "mlx-lm-kv",
+      "default": "mlx-lm-kv",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.kv-serving-quality.v1",
+      "default": "axquant.kv-serving-quality.v1",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "model",
+    "kv_plan_sha256",
+    "results"
+  ],
+  "type": "object"
+}

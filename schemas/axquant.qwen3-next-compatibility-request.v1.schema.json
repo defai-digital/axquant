@@ -1,0 +1,139 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "required_profiles": {
+      "default": [
+        "agent-coding",
+        "general"
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/ProfileName"
+        },
+        {
+          "$ref": "#/$defs/ProfileName"
+        }
+      ],
+      "type": "array"
+    },
+    "required_runtimes": {
+      "default": [
+        "ax-engine",
+        "mlx-lm"
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/RuntimeName"
+        },
+        {
+          "$ref": "#/$defs/RuntimeName"
+        }
+      ],
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.qwen3-next-compatibility-request.v1",
+      "default": "axquant.qwen3-next-compatibility-request.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "target_class": {
+      "$ref": "#/$defs/Qwen3NextTargetClass"
+    }
+  },
+  "required": [
+    "source_model",
+    "target_class"
+  ],
+  "type": "object"
+}

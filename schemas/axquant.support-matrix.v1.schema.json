@@ -1,0 +1,183 @@
+{
+  "$defs": {
+    "CertifiedCheckpointSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "certification_track": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "hardware_scope_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "release_audit_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "target_class": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_model",
+        "candidate_model",
+        "target_class",
+        "certification_track",
+        "artifact_manifest_sha256",
+        "release_audit_sha256",
+        "hardware_scope_ids"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "SupportMatrixEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "type": "string"
+        },
+        "cert_track": {
+          "default": false,
+          "type": "boolean"
+        },
+        "investment_posture": {
+          "default": "secondary",
+          "type": "string"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "priority": {
+          "default": 50,
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "product_family": {
+          "type": "string"
+        },
+        "support_tier": {
+          "$ref": "#/$defs/SupportTier"
+        }
+      },
+      "required": [
+        "adapter_id",
+        "product_family",
+        "support_tier"
+      ],
+      "type": "object"
+    },
+    "SupportTier": {
+      "enum": [
+        "certified",
+        "convertible",
+        "inspect-only"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "axquant_version": {
+      "type": "string"
+    },
+    "certified_checkpoints": {
+      "items": {
+        "$ref": "#/$defs/CertifiedCheckpointSummary"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/SupportMatrixEntry"
+      },
+      "type": "array"
+    },
+    "policy_version": {
+      "const": "axquant.support-policy.v1",
+      "default": "axquant.support-policy.v1",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.support-matrix.v1",
+      "default": "axquant.support-matrix.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "axquant_version",
+    "entries"
+  ],
+  "type": "object"
+}

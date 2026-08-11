@@ -1,0 +1,388 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "ReleaseException": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_reference": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "approved_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "approved_by": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "evidence_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "minProperties": 4,
+          "type": "object"
+        },
+        "exception_id": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]+$",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "measured_tradeoff": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "owner": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.release-exception.v1",
+          "default": "axquant.release-exception.v1",
+          "type": "string"
+        },
+        "targets": {
+          "items": {
+            "$ref": "#/$defs/ReleaseExceptionTarget"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "exception_id",
+        "candidate_model",
+        "plan_sha256",
+        "targets",
+        "measured_tradeoff",
+        "owner",
+        "approved_by",
+        "approval_reference",
+        "approved_at",
+        "expires_at",
+        "evidence_sha256"
+      ],
+      "type": "object"
+    },
+    "ReleaseExceptionTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "enum": [
+            "artifact.weight_size_ratio",
+            "artifact.candidate_measured_bpw"
+          ],
+          "type": "string"
+        },
+        "observed_value": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "required_maximum": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "required_minimum": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requirement": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "observed_value",
+        "requirement"
+      ],
+      "type": "object"
+    },
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "metric": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "metric",
+        "message"
+      ],
+      "type": "object"
+    },
+    "ValidationThresholds": {
+      "additionalProperties": false,
+      "properties": {
+        "max_divergence_increase": {
+          "default": 0.01,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_mtp_acceptance_drop": {
+          "default": 0.03,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_mtp_token_accuracy_drop": {
+          "default": 0.04,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_peak_memory_ratio": {
+          "default": 1.0,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "max_perplexity_relative_increase": {
+          "default": 0.03,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_repetition_increase": {
+          "default": 0.01,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_structured_output_drop": {
+          "default": 0.01,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_task_score_drop": {
+          "default": 0.02,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "max_weight_size_ratio": {
+          "default": 1.1,
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "min_effective_speedup": {
+          "default": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "min_prompt_median_speedup": {
+          "default": 1.1,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "minimum_aggregate_quality_retention": {
+          "default": 0.98,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "minimum_mtp_acceptance_retention": {
+          "default": 0.95,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "require_artifact_size": {
+          "default": true,
+          "type": "boolean"
+        },
+        "require_complete_metrics": {
+          "default": true,
+          "type": "boolean"
+        },
+        "required_task_scores": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "comparisons": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/ValidationIssue"
+      },
+      "type": "array"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "reference_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "release_exceptions": {
+      "items": {
+        "$ref": "#/$defs/ReleaseException"
+      },
+      "maxItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.validation.v1",
+      "default": "axquant.validation.v1",
+      "type": "string"
+    },
+    "target_class": {
+      "default": "4bit",
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    },
+    "thresholds": {
+      "$ref": "#/$defs/ValidationThresholds"
+    }
+  },
+  "required": [
+    "reference_model",
+    "candidate_model",
+    "profile",
+    "passed",
+    "thresholds",
+    "issues",
+    "comparisons"
+  ],
+  "type": "object"
+}

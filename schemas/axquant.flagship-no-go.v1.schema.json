@@ -1,0 +1,77 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "binding_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "closed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "formal_holdout_unconsumed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "frontier": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "reviewer": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-no-go.v1",
+      "default": "axquant.flagship-no-go.v1",
+      "type": "string"
+    },
+    "search_budget_exhausted": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "campaign_sha256",
+    "frontier",
+    "binding_constraints",
+    "reviewer",
+    "attestation"
+  ],
+  "type": "object"
+}

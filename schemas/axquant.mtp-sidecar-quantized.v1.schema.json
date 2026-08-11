@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "AxEngineMtpCapabilityCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "layout": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mtp_enabled": {
+          "type": "boolean"
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "packing": {
+          "default": "",
+          "type": "string"
+        },
+        "supported_bits": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "ok",
+        "mtp_enabled",
+        "layout",
+        "ax_engine_version"
+      ],
+      "type": "object"
+    },
+    "MtpSidecarFileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "QuantizedMtpTensorRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "quantized": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "quantized",
+        "bits",
+        "payload_sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "byte_preserved_default_retained": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "capability": {
+      "$ref": "#/$defs/AxEngineMtpCapabilityCheck"
+    },
+    "default_bits": {
+      "maximum": 16,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "generated_by": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "group_size": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "output": {
+      "$ref": "#/$defs/MtpSidecarFileBinding"
+    },
+    "packing": {
+      "const": "mlx-affine-packed-u32",
+      "default": "mlx-affine-packed-u32",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.mtp-sidecar-quantized.v1",
+      "default": "axquant.mtp-sidecar-quantized.v1",
+      "type": "string"
+    },
+    "source_sidecar": {
+      "$ref": "#/$defs/MtpSidecarFileBinding"
+    },
+    "tensors": {
+      "items": {
+        "$ref": "#/$defs/QuantizedMtpTensorRecord"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "generated_by",
+    "source_sidecar",
+    "output",
+    "default_bits",
+    "group_size",
+    "tensors",
+    "capability"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,378 @@
+{
+  "$defs": {
+    "ArtifactFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "CalibrationEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "samples": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_sha256",
+        "samples",
+        "domains",
+        "sequence_length",
+        "backend",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "ReproductionCommand": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "environment": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "expected_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "step_id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "step_id",
+        "description",
+        "argv"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "axquant_version": {
+      "type": "string"
+    },
+    "calibration": {
+      "$ref": "#/$defs/CalibrationEvidence"
+    },
+    "calibration_file": {
+      "default": "calibration_manifest.json",
+      "type": "string"
+    },
+    "calibration_file_sha256": {
+      "type": "string"
+    },
+    "commands": {
+      "items": {
+        "$ref": "#/$defs/ReproductionCommand"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "conversion_manifest_file": {
+      "default": "axquant_conversion_manifest.json",
+      "type": "string"
+    },
+    "conversion_manifest_sha256": {
+      "type": "string"
+    },
+    "expected_logical_parameters": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "expected_weight_file_size_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "expected_weight_files": {
+      "items": {
+        "$ref": "#/$defs/ArtifactFile"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "mtp_companion_files": {
+      "items": {
+        "$ref": "#/$defs/ArtifactFile"
+      },
+      "maxItems": 2,
+      "type": "array"
+    },
+    "mtp_sidecar_file": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mtp_sidecar_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "output_repository": {
+      "type": "string"
+    },
+    "plan_file": {
+      "default": "quantization_plan.json",
+      "type": "string"
+    },
+    "plan_file_sha256": {
+      "type": "string"
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "primary_runtime": {
+      "$ref": "#/$defs/RuntimeName"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.reproduction.v3",
+      "default": "axquant.reproduction.v3",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    }
+  },
+  "required": [
+    "source_model",
+    "calibration",
+    "axquant_version",
+    "software_versions",
+    "random_seed",
+    "profile",
+    "primary_runtime",
+    "plan_sha256",
+    "output_repository",
+    "plan_file_sha256",
+    "calibration_file_sha256",
+    "conversion_manifest_sha256",
+    "expected_logical_parameters",
+    "expected_weight_file_size_bytes",
+    "expected_weight_files",
+    "commands"
+  ],
+  "type": "object"
+}

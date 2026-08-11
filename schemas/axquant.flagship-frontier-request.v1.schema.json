@@ -1,0 +1,315 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CandidateKey": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "calibration_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "certification_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.candidate-key.v1",
+          "default": "axquant.candidate-key.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "source",
+        "certification_policy_sha256",
+        "calibration_sha256",
+        "activation_capture_sha256",
+        "sensitivity_sha256",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "CheckpointKey": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "schema_version": {
+          "const": "axquant.checkpoint-key.v1",
+          "default": "axquant.checkpoint-key.v1",
+          "type": "string"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "weight_index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "config_sha256",
+        "tokenizer_sha256",
+        "weight_index_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "FlagshipFrontierEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate": {
+          "$ref": "#/$defs/CandidateKey"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "eligible_for_formal": {
+          "type": "boolean"
+        },
+        "gates": {
+          "items": {
+            "$ref": "#/$defs/FrontierGateResult"
+          },
+          "type": "array"
+        },
+        "measured_main_bpw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 16,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measured_total_bpw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 16,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "candidate_id",
+        "candidate",
+        "gates",
+        "eligible_for_formal"
+      ],
+      "type": "object"
+    },
+    "FrontierGate": {
+      "enum": [
+        "integrity",
+        "size",
+        "runtime",
+        "development-agent-coding",
+        "development-general",
+        "development-mtp",
+        "complete-measurement"
+      ],
+      "type": "string"
+    },
+    "FrontierGateResult": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BoundFile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "gate": {
+          "$ref": "#/$defs/FrontierGate"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/FrontierGateStatus"
+        }
+      },
+      "required": [
+        "gate",
+        "status"
+      ],
+      "type": "object"
+    },
+    "FrontierGateStatus": {
+      "enum": [
+        "passed",
+        "failed",
+        "not-run"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/FlagshipFrontierEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "formal_holdout_accessed": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-frontier-request.v1",
+      "default": "axquant.flagship-frontier-request.v1",
+      "type": "string"
+    },
+    "search_budget": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "search_used": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "source": {
+      "$ref": "#/$defs/CheckpointKey"
+    }
+  },
+  "required": [
+    "source",
+    "policy_sha256",
+    "search_budget",
+    "search_used",
+    "entries"
+  ],
+  "type": "object"
+}

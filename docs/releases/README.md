@@ -20,7 +20,12 @@ operator can act on (regenerate artifacts, host id renames, install path).
 1. Bump `project.version` and `axquant.__version__`.
 2. Add `docs/releases/<new-version>.md` with the curated notes (same commit as
    the version bump).
-3. Tag `v<new-version>` and push; CI extracts that file into the Release.
+3. Confirm schema contracts are frozen:
+   `python scripts/render_schema_contracts.py --check` (and
+   `python scripts/render_certification_docs.py --check` if certificates changed).
+   Any **new** artifact `schema_version` needs a migration note; do **not** mutate
+   digests under an existing version in `schemas/manifest.json`.
+4. Tag `v<new-version>` and push; CI extracts that file into the Release.
 
 Older versions stay on GitHub Releases only. You may delete or omit older
 `docs/releases/*.md` files after a tag is published; the packaging test only

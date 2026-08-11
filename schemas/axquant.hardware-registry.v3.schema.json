@@ -1,0 +1,538 @@
+{
+  "$defs": {
+    "CompleteCandidateHardware": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "chip": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "device_name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kernel_fallbacks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mlx_lm_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mlx_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unified_memory_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "device_name",
+        "chip",
+        "unified_memory_bytes",
+        "os_version",
+        "ax_engine_version",
+        "mlx_version",
+        "mlx_lm_version",
+        "power_mode",
+        "kernel_fallbacks"
+      ],
+      "type": "object"
+    },
+    "HardwareKernelCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kernel_evidence": {
+          "enum": [
+            "measured",
+            "unmeasured"
+          ],
+          "type": "string"
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "module_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "parameter_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "quantizer_execution_records": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "roles": {
+          "items": {
+            "$ref": "#/$defs/TensorRole"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "shapes": {
+          "items": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "bits",
+        "method",
+        "roles",
+        "shapes",
+        "module_count",
+        "parameter_count",
+        "quantizer_execution_records",
+        "kernel_evidence"
+      ],
+      "type": "object"
+    },
+    "HardwareMeasurementProtocol": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "const": "ax-engine-bench",
+          "default": "ax-engine-bench",
+          "type": "string"
+        },
+        "backend_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "deterministic_tolerance": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "direct_commands": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "measured_trials": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mtp_commands": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "protocol_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "random_seed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runtime": {
+          "const": "ax-engine",
+          "default": "ax-engine",
+          "type": "string"
+        },
+        "warmup_trials": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol_id",
+        "backend_version",
+        "dataset_sha256",
+        "random_seed",
+        "prompt_count",
+        "warmup_trials",
+        "measured_trials",
+        "power_mode",
+        "deterministic_tolerance",
+        "direct_commands",
+        "mtp_commands"
+      ],
+      "type": "object"
+    },
+    "HardwareRegistryEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "type": "string"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "coverage": {
+          "items": {
+            "$ref": "#/$defs/HardwareKernelCoverage"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "direct_benchmark_result_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "direct_benchmark_result_sha256": {
+          "type": "string"
+        },
+        "direct_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "direct_evaluation_sha256": {
+          "type": "string"
+        },
+        "entry_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "hardware": {
+          "$ref": "#/$defs/CompleteCandidateHardware"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kernel_evidence": {
+          "enum": [
+            "measured",
+            "unmeasured"
+          ],
+          "type": "string"
+        },
+        "measurement_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "mtp_benchmark_result_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mtp_benchmark_result_sha256": {
+          "type": "string"
+        },
+        "mtp_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "mtp_evaluation_sha256": {
+          "type": "string"
+        },
+        "plan_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "plan_file_sha256": {
+          "type": "string"
+        },
+        "plan_sha256": {
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "protocol": {
+          "$ref": "#/$defs/HardwareMeasurementProtocol"
+        },
+        "quality_comparison_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "quality_comparison_sha256": {
+          "type": "string"
+        },
+        "quantizer_execution_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "quantizer_execution_sha256": {
+          "type": "string"
+        },
+        "release_ready": {
+          "type": "boolean"
+        },
+        "sensitivity_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "type": "string"
+        },
+        "total_modules": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "unique_shapes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "validation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        },
+        "validation_sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "entry_id",
+        "candidate_id",
+        "measurement_id",
+        "candidate_model",
+        "profile",
+        "plan_file",
+        "plan_file_sha256",
+        "plan_sha256",
+        "artifact_manifest_file",
+        "artifact_manifest_sha256",
+        "sensitivity_file",
+        "sensitivity_sha256",
+        "quality_comparison_file",
+        "quality_comparison_sha256",
+        "validation_file",
+        "validation_sha256",
+        "direct_evaluation_file",
+        "direct_evaluation_sha256",
+        "mtp_evaluation_file",
+        "mtp_evaluation_sha256",
+        "direct_benchmark_result_file",
+        "direct_benchmark_result_sha256",
+        "mtp_benchmark_result_file",
+        "mtp_benchmark_result_sha256",
+        "quantizer_execution_file",
+        "quantizer_execution_sha256",
+        "hardware",
+        "protocol",
+        "coverage",
+        "total_modules",
+        "unique_shapes",
+        "kernel_evidence",
+        "validation_passed",
+        "release_ready"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "distinct_named_hosts": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/HardwareRegistryEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "measurement_set_file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "measurement_set_file_sha256": {
+      "type": "string"
+    },
+    "measurement_set_sha256": {
+      "type": "string"
+    },
+    "registry_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.hardware-registry.v3",
+      "default": "axquant.hardware-registry.v3",
+      "type": "string"
+    }
+  },
+  "required": [
+    "registry_id",
+    "measurement_set_sha256",
+    "measurement_set_file",
+    "measurement_set_file_sha256",
+    "entries",
+    "distinct_named_hosts",
+    "release_ready"
+  ],
+  "type": "object"
+}

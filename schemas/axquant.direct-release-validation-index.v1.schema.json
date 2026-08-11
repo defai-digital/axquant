@@ -1,0 +1,116 @@
+{
+  "$defs": {
+    "DirectValidationEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "candidate_evaluation_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "evaluation_manifest_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evaluation_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "reference_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reference_evaluation_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "evaluation_manifest_file",
+        "evaluation_manifest_sha256",
+        "reference_evaluation_file",
+        "reference_evaluation_sha256",
+        "candidate_evaluation_file",
+        "candidate_evaluation_sha256",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/DirectValidationEntry"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "general_calibration_overlap_report_file": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "general_calibration_overlap_report_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.direct-release-validation-index.v1",
+      "default": "axquant.direct-release-validation-index.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "entries",
+    "general_calibration_overlap_report_file",
+    "general_calibration_overlap_report_sha256",
+    "release_ready"
+  ],
+  "type": "object"
+}

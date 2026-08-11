@@ -1,0 +1,112 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifact_directory": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ax_engine_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "compatibility_matrix": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "compatibility_request": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "feasibility_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "hardware_registry": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "mlx_lm_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "pareto_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "refinement_result": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "release_exception_evidence": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "release_exceptions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 1,
+      "type": "array"
+    },
+    "release_validation_index": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reproduction_recipe": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reproduction_verification": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "required_dense_checkpoints": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "required_toolkit_version": {
+      "default": "1.0.0",
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.release-audit-request.v4",
+      "default": "axquant.release-audit-request.v4",
+      "type": "string"
+    },
+    "sensitivity_lineage": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "sensitivity_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "toolkit_wheel": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifact_directory",
+    "feasibility_report",
+    "sensitivity_report",
+    "refinement_result",
+    "release_validation_index",
+    "hardware_registry",
+    "pareto_report",
+    "compatibility_matrix",
+    "compatibility_request",
+    "reproduction_recipe",
+    "reproduction_verification",
+    "ax_engine_check",
+    "mlx_lm_check",
+    "toolkit_wheel"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,151 @@
+{
+  "$defs": {
+    "CodingModelOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "generated_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "model_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output": {
+          "type": "string"
+        },
+        "perplexity_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "perplexity_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "output",
+        "generated_tokens",
+        "perplexity_loss",
+        "perplexity_tokens"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "completed": {
+      "default": false,
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "max_sequence_length": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "model_artifact_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/CodingModelOutput"
+      },
+      "type": "array"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.coding-evaluation-state.v1",
+      "default": "axquant.coding-evaluation-state.v1",
+      "type": "string"
+    },
+    "suite_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "tokenizer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "suite_manifest_sha256",
+    "model",
+    "model_artifact_sha256",
+    "tokenizer_sha256",
+    "random_seed",
+    "max_sequence_length"
+  ],
+  "type": "object"
+}

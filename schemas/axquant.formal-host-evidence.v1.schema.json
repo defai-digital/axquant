@@ -1,0 +1,95 @@
+{
+  "$defs": {
+    "FormalHostEvidenceKind": {
+      "enum": [
+        "ax-engine-doctor",
+        "metal",
+        "zero-fallback",
+        "storage",
+        "power",
+        "thermal"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "command": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evidence_name": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "host_id": {
+      "const": "df-macbookpro-m5",
+      "default": "df-macbookpro-m5",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/FormalHostEvidenceKind"
+    },
+    "observations": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "type": "object"
+    },
+    "passed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.formal-host-evidence.v1",
+      "default": "axquant.formal-host-evidence.v1",
+      "type": "string"
+    },
+    "software_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "started_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "subject_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "evidence_name",
+    "kind",
+    "subject_sha256",
+    "command",
+    "observations",
+    "software_versions",
+    "started_at",
+    "completed_at"
+  ],
+  "type": "object"
+}

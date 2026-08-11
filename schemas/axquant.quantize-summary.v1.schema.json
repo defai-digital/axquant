@@ -1,0 +1,199 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "SupportTier": {
+      "enum": [
+        "certified",
+        "convertible",
+        "inspect-only"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "convert_ladder": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "development_evidence": {
+      "type": "boolean"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "measured_total_bpw": {
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "output_path": {
+      "type": "string"
+    },
+    "plan_source": {
+      "default": "architecture-prior",
+      "enum": [
+        "architecture-prior",
+        "recipe-bundle"
+      ],
+      "type": "string"
+    },
+    "product_family": {
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "recipe_bundle_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runtime_smoke": {
+      "default": "none",
+      "enum": [
+        "none",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm",
+        "ax-engine"
+      ],
+      "type": "string"
+    },
+    "runtime_smoke_passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.quantize-summary.v1",
+      "default": "axquant.quantize-summary.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "support_tier": {
+      "$ref": "#/$defs/SupportTier"
+    },
+    "target_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "source_model",
+    "product_family",
+    "support_tier",
+    "evidence_kind",
+    "profile",
+    "target_bpw",
+    "measured_total_bpw",
+    "output_path",
+    "development_evidence"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,339 @@
+{
+  "$defs": {
+    "DirectBaselineKind": {
+      "enum": [
+        "bf16",
+        "uniform-4bit",
+        "uniform-6bit",
+        "candidate"
+      ],
+      "type": "string"
+    },
+    "DirectBenchmarkArm": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "background_policy": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "hardware_scope_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/DirectBaselineKind"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mlx_lm_matching_tokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mlx_lm_parity_tokens": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "ordered_prompt_ids_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "random_seed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runtime": {
+          "const": "ax-engine",
+          "default": "ax-engine",
+          "type": "string"
+        },
+        "runtime_environment": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "runtime_executable_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "runtime_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "temperature": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "top_k": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "top_p": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 1.0,
+          "type": "number"
+        },
+        "trials": {
+          "items": {
+            "$ref": "#/$defs/DirectBenchmarkTrial"
+          },
+          "minItems": 7,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "model",
+        "artifact_manifest_sha256",
+        "plan_sha256",
+        "tokenizer_sha256",
+        "prompt_sha256",
+        "ordered_prompt_ids_sha256",
+        "random_seed",
+        "temperature",
+        "top_p",
+        "top_k",
+        "max_tokens",
+        "runtime_version",
+        "runtime_executable_sha256",
+        "hardware_scope_id",
+        "os_version",
+        "power_mode",
+        "background_policy",
+        "trials",
+        "mlx_lm_parity_tokens",
+        "mlx_lm_matching_tokens"
+      ],
+      "type": "object"
+    },
+    "DirectBenchmarkProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "arms": {
+          "items": {
+            "$ref": "#/$defs/DirectBenchmarkArm"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        }
+      },
+      "required": [
+        "profile",
+        "arms"
+      ],
+      "type": "object"
+    },
+    "DirectBenchmarkTrial": {
+      "additionalProperties": false,
+      "properties": {
+        "decode_tokens_per_second": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kernel_fallbacks": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "output_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "peak_memory_bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "timed_out": {
+          "default": false,
+          "type": "boolean"
+        },
+        "trial_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "ttft_seconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "warmup": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "trial_id",
+        "warmup",
+        "success"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "profiles": {
+      "items": {
+        "$ref": "#/$defs/DirectBenchmarkProfile"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.direct-benchmark-evidence.v1",
+      "default": "axquant.direct-benchmark-evidence.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profiles"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "KernelLatencyEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "decode_median_us": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "dispersion": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hidden_size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "iterations": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "prefill_median_us": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeName"
+        }
+      },
+      "required": [
+        "runtime",
+        "bits",
+        "method",
+        "hidden_size",
+        "decode_median_us",
+        "prefill_median_us",
+        "dispersion",
+        "iterations"
+      ],
+      "type": "object"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    },
+    "SoftwareVersions": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "axquant": {
+          "type": "string"
+        },
+        "mlx": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mlx_lm": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pydantic": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "safetensors": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "axquant",
+        "python",
+        "safetensors",
+        "pydantic"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "chip": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/KernelLatencyEntry"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "host_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "os_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.kernel-latency.v1",
+      "default": "axquant.kernel-latency.v1",
+      "type": "string"
+    },
+    "software_versions": {
+      "$ref": "#/$defs/SoftwareVersions"
+    },
+    "warmup_iterations": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "host_id",
+    "chip",
+    "os_version",
+    "software_versions",
+    "warmup_iterations",
+    "entries"
+  ],
+  "type": "object"
+}

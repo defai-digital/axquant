@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "consumed_at_completion": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "custodian_attestation": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "dataset_sha256_by_profile": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "evaluation_custodian": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "gate_issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "raw_evidence_index": {
+      "$ref": "#/$defs/BoundFile"
+    },
+    "raw_outputs_archived": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "result_file_by_profile": {
+      "additionalProperties": {
+        "$ref": "#/$defs/BoundFile"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.formal-holdout-completion.v1",
+      "default": "axquant.formal-holdout-completion.v1",
+      "type": "string"
+    },
+    "started_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "unconsumed_at_start": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "campaign_sha256",
+    "candidate_sha256",
+    "started_at",
+    "completed_at",
+    "dataset_sha256_by_profile",
+    "result_file_by_profile",
+    "raw_evidence_index",
+    "evaluation_custodian",
+    "custodian_attestation",
+    "verdict",
+    "gate_issues"
+  ],
+  "type": "object"
+}

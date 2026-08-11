@@ -1,0 +1,394 @@
+{
+  "$defs": {
+    "ArtifactIntegrity": {
+      "additionalProperties": false,
+      "properties": {
+        "config_valid": {
+          "type": "boolean"
+        },
+        "index_complete": {
+          "type": "boolean"
+        },
+        "index_present": {
+          "type": "boolean"
+        },
+        "mtp_provenance_present": {
+          "type": "boolean"
+        },
+        "mtp_provenance_valid": {
+          "type": "boolean"
+        },
+        "mtp_runtime_present": {
+          "type": "boolean"
+        },
+        "mtp_runtime_valid": {
+          "type": "boolean"
+        },
+        "mtp_sidecar_present": {
+          "type": "boolean"
+        },
+        "native_manifest_present": {
+          "type": "boolean"
+        },
+        "native_manifest_valid": {
+          "type": "boolean"
+        },
+        "safetensors_present": {
+          "type": "boolean"
+        },
+        "tokenizer_present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "config_valid",
+        "safetensors_present",
+        "index_present",
+        "index_complete",
+        "native_manifest_present",
+        "native_manifest_valid",
+        "tokenizer_present",
+        "mtp_sidecar_present",
+        "mtp_runtime_present",
+        "mtp_runtime_valid",
+        "mtp_provenance_present",
+        "mtp_provenance_valid"
+      ],
+      "type": "object"
+    },
+    "BaselineAudit": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "default": "unknown",
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "effective_bpw": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "inspected": {
+          "type": "boolean"
+        },
+        "integrity": {
+          "$ref": "#/$defs/ArtifactIntegrity"
+        },
+        "inventory_sha256": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "kind": {
+          "$ref": "#/$defs/BaselineKind"
+        },
+        "logical_parameters": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "main_effective_bpw": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "main_weight_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "mtp_logical_parameters": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "mtp_weight_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "optimization_scope": {
+          "$ref": "#/$defs/OptimizationScope",
+          "default": "inventory-only"
+        },
+        "precision_fractions": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "type": "object"
+        },
+        "precision_parameters": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "quantized": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "runtime_checks": {
+          "items": {
+            "$ref": "#/$defs/RuntimeCheck"
+          },
+          "type": "array"
+        },
+        "weight_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "model",
+        "inspected",
+        "logical_parameters",
+        "mtp_logical_parameters",
+        "weight_bytes",
+        "main_weight_bytes",
+        "mtp_weight_bytes",
+        "effective_bpw",
+        "main_effective_bpw",
+        "precision_parameters",
+        "precision_fractions",
+        "integrity",
+        "complete"
+      ],
+      "type": "object"
+    },
+    "BaselineKind": {
+      "enum": [
+        "bf16-source",
+        "uniform-4bit",
+        "uniform-6bit",
+        "mixed-precision"
+      ],
+      "type": "string"
+    },
+    "JsonValue": {},
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "text-path",
+        "full-model",
+        "inventory-only"
+      ],
+      "type": "string"
+    },
+    "RuntimeCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "check_kind": {
+          "enum": [
+            "manifest",
+            "doctor",
+            "static-compatibility",
+            "generation-smoke",
+            "transcription-smoke",
+            "vision-generation-smoke",
+            "kv-layered-generation-smoke"
+          ],
+          "type": "string"
+        },
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "report": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeName"
+        },
+        "schema_version": {
+          "const": "axquant.runtime-check.v2",
+          "default": "axquant.runtime-check.v2",
+          "type": "string"
+        },
+        "stderr": {
+          "default": "",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "runtime",
+        "check_kind",
+        "available",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "baselines": {
+      "items": {
+        "$ref": "#/$defs/BaselineAudit"
+      },
+      "type": "array"
+    },
+    "blockers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "checks": {
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "type": "object"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "runtime_checks_requested": {
+      "default": false,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.feasibility.v1",
+      "default": "axquant.feasibility.v1",
+      "type": "string"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BaselineAudit"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "enum": [
+        "ready-for-conversion",
+        "baseline-ready",
+        "blocked"
+      ],
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "status",
+    "baselines",
+    "checks"
+  ],
+  "type": "object"
+}

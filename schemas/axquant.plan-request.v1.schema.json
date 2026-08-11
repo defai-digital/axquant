@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "HardwareProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "default": "ax-engine-apple-silicon-affine-dwq-v3",
+          "type": "string"
+        },
+        "runtime": {
+          "$ref": "#/$defs/RuntimeName",
+          "default": "ax-engine"
+        },
+        "supported_bits": {
+          "default": [
+            2,
+            3,
+            4,
+            6,
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_group_sizes": {
+          "default": [
+            32,
+            64,
+            128
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "supported_methods": {
+          "default": [
+            "affine",
+            "awq",
+            "dwq",
+            "gptq",
+            "gptq-act",
+            "bf16"
+          ],
+          "items": {
+            "$ref": "#/$defs/QuantMethod"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "MtpPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_bits": {
+          "default": [
+            8,
+            16
+          ],
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "min_bits": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 8,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "protected",
+          "enum": [
+            "protected",
+            "adaptive",
+            "disabled"
+          ],
+          "type": "string"
+        },
+        "optimize_for_acceptance": {
+          "default": true,
+          "type": "boolean"
+        },
+        "preserve_external_sidecar": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_norms": {
+          "default": true,
+          "type": "boolean"
+        },
+        "protect_output_head": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allow_unmeasured": {
+      "default": false,
+      "type": "boolean"
+    },
+    "candidate_bits": {
+      "default": [
+        4,
+        6,
+        8,
+        16
+      ],
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "candidate_count": {
+      "default": 1,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "candidate_group_sizes": {
+      "default": [],
+      "items": {
+        "type": "integer"
+      },
+      "type": "array"
+    },
+    "candidate_methods": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/QuantMethod"
+      },
+      "type": "array"
+    },
+    "group_size": {
+      "default": 64,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "hardware": {
+      "$ref": "#/$defs/HardwareProfile"
+    },
+    "lm_head_min_bits": {
+      "default": 16,
+      "enum": [
+        8,
+        16
+      ],
+      "type": "integer"
+    },
+    "max_model_size_ratio_to_uniform4": {
+      "default": 1.1,
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "method_near_tie_epsilon": {
+      "default": 0.02,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_mtp_acceptance_retention": {
+      "default": 0.95,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_mtp_speedup": {
+      "default": 1.2,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "minimum_quality_retention": {
+      "default": 0.98,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "mtp": {
+      "$ref": "#/$defs/MtpPolicy"
+    },
+    "primary_runtime": {
+      "$ref": "#/$defs/RuntimeName",
+      "default": "ax-engine"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "random_seed": {
+      "default": 0,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.plan-request.v1",
+      "default": "axquant.plan-request.v1",
+      "type": "string"
+    },
+    "target_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "target_mode": {
+      "default": "balanced",
+      "enum": [
+        "balanced",
+        "quality",
+        "low-memory",
+        "speed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile",
+    "target_bpw"
+  ],
+  "type": "object"
+}

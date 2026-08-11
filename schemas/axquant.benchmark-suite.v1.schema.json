@@ -1,0 +1,61 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "calibration_disjoint_by_construction": {
+      "default": true,
+      "type": "boolean"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "files": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "random_seed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "samples": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "axquant.benchmark-suite.v1",
+      "default": "axquant.benchmark-suite.v1",
+      "type": "string"
+    },
+    "sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "suite_id": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "suite_id",
+    "version",
+    "random_seed",
+    "files",
+    "sha256",
+    "samples"
+  ],
+  "type": "object"
+}

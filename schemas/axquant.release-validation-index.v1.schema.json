@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "ReleaseValidationEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "benchmark_index_file": {
+          "type": "string"
+        },
+        "benchmark_index_sha256": {
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "dataset_sha256": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "reference_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "validation_file": {
+          "type": "string"
+        },
+        "validation_sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "validation_file",
+        "validation_sha256",
+        "benchmark_index_file",
+        "benchmark_index_sha256",
+        "reference_model",
+        "candidate_model",
+        "dataset_sha256",
+        "passed"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/ReleaseValidationEntry"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.release-validation-index.v1",
+      "default": "axquant.release-validation-index.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "entries",
+    "release_ready"
+  ],
+  "type": "object"
+}

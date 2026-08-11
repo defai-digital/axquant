@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "JsonValue": {},
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "QuantizerExecutionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "fallback": {
+          "default": false,
+          "type": "boolean"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "metadata": {
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          },
+          "type": "object"
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "module_path": {
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "success": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "method",
+        "module_path",
+        "bits",
+        "success"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "plan_sha256": {
+      "type": "string"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/QuantizerExecutionRecord"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.quantizer-execution.v1",
+      "default": "axquant.quantizer-execution.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_sha256",
+    "records"
+  ],
+  "type": "object"
+}

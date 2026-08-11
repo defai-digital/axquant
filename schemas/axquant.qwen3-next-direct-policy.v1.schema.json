@@ -1,0 +1,148 @@
+{
+  "$defs": {
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "agent_coding_perplexity_ratio_max": {
+      "default": 1.02,
+      "type": "number"
+    },
+    "aggregate_retention_min": {
+      "default": 0.99,
+      "type": "number"
+    },
+    "benchmark_successful_trials_min": {
+      "default": 5,
+      "type": "integer"
+    },
+    "benchmark_warmups_min": {
+      "default": 2,
+      "type": "integer"
+    },
+    "calibration_samples_min": {
+      "default": 128,
+      "type": "integer"
+    },
+    "coding_scored_tokens_min": {
+      "default": 25000,
+      "type": "integer"
+    },
+    "coding_tasks_min": {
+      "default": 128,
+      "type": "integer"
+    },
+    "decode_speedup_vs_bf16_min": {
+      "default": 1.2,
+      "type": "number"
+    },
+    "formal_hardware_chip": {
+      "const": "Apple M2 Ultra",
+      "default": "Apple M2 Ultra",
+      "type": "string"
+    },
+    "formal_hardware_memory_bytes": {
+      "default": 206158430208,
+      "type": "integer"
+    },
+    "four_bit_artifact_weight_ratio_max": {
+      "default": 0.35,
+      "type": "number"
+    },
+    "general_perplexity_ratio_max": {
+      "default": 1.03,
+      "type": "number"
+    },
+    "kernel_fallbacks_max": {
+      "default": 0,
+      "type": "integer"
+    },
+    "measured_plan_bpw_delta_max": {
+      "default": 0.01,
+      "type": "number"
+    },
+    "model_runtime_errors_max": {
+      "default": 0,
+      "type": "integer"
+    },
+    "policy_id": {
+      "const": "axquant.qwen3-next-direct-policy.v1",
+      "default": "axquant.qwen3-next-direct-policy.v1",
+      "type": "string"
+    },
+    "required_profiles": {
+      "default": [
+        "agent-coding",
+        "general"
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/ProfileName"
+        },
+        {
+          "$ref": "#/$defs/ProfileName"
+        }
+      ],
+      "type": "array"
+    },
+    "runtime_token_agreement_min": {
+      "default": 1.0,
+      "type": "number"
+    },
+    "schema_version": {
+      "const": "axquant.qwen3-next-direct-policy.v1",
+      "default": "axquant.qwen3-next-direct-policy.v1",
+      "type": "string"
+    },
+    "sensitivity_tokens_min": {
+      "default": 8192,
+      "type": "integer"
+    },
+    "six_bit_artifact_weight_ratio_max": {
+      "default": 0.45,
+      "type": "number"
+    },
+    "syntax_validity_delta_min": {
+      "default": -0.01,
+      "type": "number"
+    },
+    "syntax_validity_min": {
+      "default": 0.95,
+      "type": "number"
+    },
+    "throughput_retention_vs_uniform_min": {
+      "default": 0.95,
+      "type": "number"
+    },
+    "tool_validity_delta_min": {
+      "default": -0.01,
+      "type": "number"
+    },
+    "tool_validity_min": {
+      "default": 0.98,
+      "type": "number"
+    },
+    "ttft_ratio_vs_uniform_max": {
+      "default": 1.1,
+      "type": "number"
+    }
+  },
+  "type": "object"
+}

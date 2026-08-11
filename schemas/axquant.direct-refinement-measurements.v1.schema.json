@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "DirectRefinementMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "benchmark_evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "candidate_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "candidate_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "decode_tokens_per_second": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "measured_bpw": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "measurement_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "objective_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "parent_candidate_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "peak_memory_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "quality_evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "quality_retention": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "target_class": {
+          "$ref": "#/$defs/Qwen3NextTargetClass"
+        },
+        "validation_passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "measurement_id",
+        "candidate_id",
+        "target_class",
+        "candidate_model",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "quality_evidence_sha256",
+        "benchmark_evidence_sha256",
+        "measured_bpw",
+        "objective_loss",
+        "quality_retention",
+        "decode_tokens_per_second",
+        "peak_memory_bytes",
+        "validation_passed"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "evaluator_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "measurements": {
+      "items": {
+        "$ref": "#/$defs/DirectRefinementMeasurement"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "refinement_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.direct-refinement-measurements.v1",
+      "default": "axquant.direct-refinement-measurements.v1",
+      "type": "string"
+    },
+    "selected_candidate_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "refinement_sha256",
+    "evaluator_version",
+    "selected_candidate_id",
+    "measurements"
+  ],
+  "type": "object"
+}

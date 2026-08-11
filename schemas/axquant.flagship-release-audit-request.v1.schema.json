@@ -1,0 +1,120 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "activation_capture_or_sentinel": {
+      "type": "string"
+    },
+    "archive_proof": {
+      "type": "string"
+    },
+    "authorization_audit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "calibration_manifest": {
+      "type": "string"
+    },
+    "campaign": {
+      "type": "string"
+    },
+    "campaign_preflight": {
+      "type": "string"
+    },
+    "candidate_key": {
+      "type": "string"
+    },
+    "certification_policy": {
+      "type": "string"
+    },
+    "final_publication_review": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "formal_holdout_completion": {
+      "type": "string"
+    },
+    "hardware_authorization": {
+      "type": "string"
+    },
+    "independent_review": {
+      "type": "string"
+    },
+    "legacy_release_audit_request": {
+      "type": "string"
+    },
+    "lifecycle_registry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "model_card": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "public_claim": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reproduction_review": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-release-audit-request.v1",
+      "default": "axquant.flagship-release-audit-request.v1",
+      "type": "string"
+    },
+    "source_checkpoint_manifest": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "legacy_release_audit_request",
+    "campaign",
+    "campaign_preflight",
+    "candidate_key",
+    "source_checkpoint_manifest",
+    "certification_policy",
+    "calibration_manifest",
+    "activation_capture_or_sentinel",
+    "formal_holdout_completion",
+    "archive_proof",
+    "independent_review",
+    "reproduction_review",
+    "hardware_authorization"
+  ],
+  "type": "object"
+}

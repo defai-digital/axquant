@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProbeCapacityModeAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "estimated_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "evidence_kind": {
+          "$ref": "#/$defs/EvidenceKind"
+        },
+        "feasible": {
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/ProbeMode"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "release_quality_eligible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode",
+        "feasible",
+        "estimated_bytes",
+        "evidence_kind",
+        "release_quality_eligible",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "ProbeMode": {
+      "enum": [
+        "bf16-full",
+        "measured-lite",
+        "streaming-partial",
+        "prior-only"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "available_memory_bytes": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "headroom_fraction": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 1.0,
+      "type": "number"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "modes": {
+      "items": {
+        "$ref": "#/$defs/ProbeCapacityModeAssessment"
+      },
+      "type": "array"
+    },
+    "parameter_count": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "recommended_mode": {
+      "$ref": "#/$defs/ProbeMode"
+    },
+    "schema_version": {
+      "const": "axquant.probe-capacity.v1",
+      "default": "axquant.probe-capacity.v1",
+      "type": "string"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "parameter_count",
+    "headroom_fraction",
+    "recommended_mode",
+    "modes"
+  ],
+  "type": "object"
+}

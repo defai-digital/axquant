@@ -1,0 +1,324 @@
+{
+  "$defs": {
+    "ArchitectureFingerprint": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "const": "Qwen3NextForCausalLM",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "expert_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "expert_intermediate_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "experts_per_token": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "full_attention_interval": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "hidden_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "model_type": {
+          "const": "qwen3_next",
+          "type": "string"
+        },
+        "mtp_declared": {
+          "const": false,
+          "type": "boolean"
+        },
+        "text_layer_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "vision_present": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "model_type",
+        "architecture",
+        "text_layer_count",
+        "hidden_size",
+        "full_attention_interval",
+        "expert_count",
+        "experts_per_token",
+        "expert_intermediate_size",
+        "mtp_declared",
+        "vision_present",
+        "config_sha256",
+        "tokenizer_sha256"
+      ],
+      "type": "object"
+    },
+    "ExactCertificationScope": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "$ref": "#/$defs/ArchitectureFingerprint"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "hardware_scope_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "policy_id": {
+          "const": "axquant.qwen3-next-direct-policy.v1",
+          "default": "axquant.qwen3-next-direct-policy.v1",
+          "type": "string"
+        },
+        "source_model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "target_class": {
+          "$ref": "#/$defs/Qwen3NextTargetClass"
+        },
+        "track": {
+          "const": "qwen3-next-direct-v1",
+          "default": "qwen3-next-direct-v1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_model",
+        "architecture",
+        "target_class",
+        "artifact_manifest_sha256",
+        "hardware_scope_ids"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "Qwen3NextTargetClass": {
+      "enum": [
+        "4bit",
+        "6bit"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_directory": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ax_engine_doctor_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ax_engine_manifest_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "ax_engine_runtime_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "benchmark_evidence_index": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "certification_scope": {
+      "$ref": "#/$defs/ExactCertificationScope"
+    },
+    "coding_suite_manifest": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "coding_suite_self_test": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "compatibility_matrix": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "compatibility_request": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "evidence_archive_index": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "feasibility_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "hardware_registry": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "mlx_lm_runtime_check": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "pareto_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "refinement_measurements": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "refinement_result": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "release_exceptions": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "type": "array"
+    },
+    "release_validation_index": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reproduction_recipe": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "reproduction_verification": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "required_toolkit_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.qwen3-next-release-audit-request.v1",
+      "default": "axquant.qwen3-next-release-audit-request.v1",
+      "type": "string"
+    },
+    "sensitivity_lineage": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "sensitivity_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_checkpoint_manifest": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "source_inventory": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "toolkit_wheel": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "certification_scope",
+    "artifact_directory",
+    "source_inventory",
+    "source_checkpoint_manifest",
+    "feasibility_report",
+    "sensitivity_report",
+    "refinement_result",
+    "refinement_measurements",
+    "release_validation_index",
+    "benchmark_evidence_index",
+    "coding_suite_manifest",
+    "coding_suite_self_test",
+    "hardware_registry",
+    "pareto_report",
+    "compatibility_matrix",
+    "compatibility_request",
+    "reproduction_recipe",
+    "reproduction_verification",
+    "ax_engine_manifest_check",
+    "ax_engine_doctor_check",
+    "ax_engine_runtime_check",
+    "mlx_lm_runtime_check",
+    "evidence_archive_index",
+    "toolkit_wheel",
+    "required_toolkit_version",
+    "policy_sha256"
+  ],
+  "type": "object"
+}

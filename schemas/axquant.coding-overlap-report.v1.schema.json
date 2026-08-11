@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "CodingOverlapMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "calibration_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "exact": {
+          "type": "boolean"
+        },
+        "similarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "calibration_id",
+        "similarity",
+        "exact"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "calibration_dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "matches": {
+      "items": {
+        "$ref": "#/$defs/CodingOverlapMatch"
+      },
+      "type": "array"
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.coding-overlap-report.v1",
+      "default": "axquant.coding-overlap-report.v1",
+      "type": "string"
+    },
+    "similarity_threshold": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 1.0,
+      "type": "number"
+    },
+    "suite_dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "suite_dataset_sha256",
+    "calibration_dataset_sha256",
+    "similarity_threshold",
+    "passed"
+  ],
+  "type": "object"
+}

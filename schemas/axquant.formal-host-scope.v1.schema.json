@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "BoundFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "FormalHostContract": {
+      "additionalProperties": false,
+      "properties": {
+        "hardware_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "host_id": {
+          "const": "df-macbookpro-m5",
+          "default": "df-macbookpro-m5",
+          "type": "string"
+        },
+        "operator": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "os_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "power_mode": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "storage_contract": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "thermal_protocol": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hardware_id",
+        "os_version",
+        "power_mode",
+        "storage_contract",
+        "thermal_protocol",
+        "operator"
+      ],
+      "type": "object"
+    },
+    "FormalHostEvidenceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/BoundFile"
+        },
+        "kind": {
+          "$ref": "#/$defs/FormalHostEvidenceKind"
+        },
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "file"
+      ],
+      "type": "object"
+    },
+    "FormalHostEvidenceKind": {
+      "enum": [
+        "ax-engine-doctor",
+        "metal",
+        "zero-fallback",
+        "storage",
+        "power",
+        "thermal"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contract": {
+      "$ref": "#/$defs/FormalHostContract"
+    },
+    "doctor_passed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/FormalHostEvidenceBinding"
+      },
+      "type": "array"
+    },
+    "free_disk_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "metal_available": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.formal-host-scope.v1",
+      "default": "axquant.formal-host-scope.v1",
+      "type": "string"
+    },
+    "zero_fallback_controls_passed": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "contract",
+    "free_disk_bytes",
+    "evidence"
+  ],
+  "type": "object"
+}

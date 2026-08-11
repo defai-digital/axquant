@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "DirectValidationRequestEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "evaluation_manifest_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "reference_evaluation_file": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "evaluation_manifest_file",
+        "reference_evaluation_file",
+        "candidate_evaluation_file"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "calibration_dataset_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate_artifact_manifest": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "coding_suite_manifest": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/DirectValidationRequestEntry"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "general_calibration_overlap_report": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "required_toolkit_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.direct-release-validation-request.v1",
+      "default": "axquant.direct-release-validation-request.v1",
+      "type": "string"
+    },
+    "source_checkpoint_manifest": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_checkpoint_manifest",
+    "candidate_artifact_manifest",
+    "calibration_dataset_sha256",
+    "coding_suite_manifest",
+    "general_calibration_overlap_report",
+    "required_toolkit_version",
+    "policy_sha256",
+    "entries"
+  ],
+  "type": "object"
+}

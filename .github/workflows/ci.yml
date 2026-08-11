@@ -58,6 +58,10 @@ jobs:
         run: ruff format --check .
       - name: mypy
         run: mypy src
+      - name: Schema contract freeze
+        run: python scripts/render_schema_contracts.py --check
+      - name: Certification matrix SSOT
+        run: python scripts/render_certification_docs.py --check
 
   # Job id kept as python-compatibility for historical run history / deep links.
   python-compatibility:

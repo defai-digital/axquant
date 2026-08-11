@@ -1,0 +1,281 @@
+{
+  "$defs": {
+    "CandidateKey": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_capture_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "calibration_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "certification_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.candidate-key.v1",
+          "default": "axquant.candidate-key.v1",
+          "type": "string"
+        },
+        "sensitivity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/CheckpointKey"
+        }
+      },
+      "required": [
+        "source",
+        "certification_policy_sha256",
+        "calibration_sha256",
+        "activation_capture_sha256",
+        "sensitivity_sha256",
+        "plan_sha256",
+        "artifact_manifest_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "CheckpointKey": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_members_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "model": {
+          "$ref": "#/$defs/ModelIdentity"
+        },
+        "schema_version": {
+          "const": "axquant.checkpoint-key.v1",
+          "default": "axquant.checkpoint-key.v1",
+          "type": "string"
+        },
+        "tokenizer_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "weight_index_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "model",
+        "config_sha256",
+        "tokenizer_sha256",
+        "weight_index_sha256",
+        "checkpoint_members_sha256"
+      ],
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ReleaseAuditCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_sha256": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "gate_id": {
+          "enum": [
+            "M0",
+            "M1",
+            "M2",
+            "M3",
+            "M4",
+            "M5",
+            "M6",
+            "M7",
+            "M8"
+          ],
+          "type": "string"
+        },
+        "issues": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "gate_id",
+        "name",
+        "passed"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authorization_issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "authorization_ready": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "campaign_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidate": {
+      "$ref": "#/$defs/CandidateKey"
+    },
+    "candidate_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "certification_track": {
+      "const": "qwen36-mtp-v2",
+      "default": "qwen36-mtp-v2",
+      "type": "string"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/ReleaseAuditCheck"
+      },
+      "maxItems": 9,
+      "minItems": 9,
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "legacy_audit_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "release_ready": {
+      "type": "boolean"
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.flagship-release-audit.v1",
+      "default": "axquant.flagship-release-audit.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "toolkit_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "wheel_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_sha256",
+    "legacy_audit_sha256",
+    "campaign_sha256",
+    "candidate",
+    "candidate_model",
+    "source_model",
+    "wheel_sha256",
+    "checks",
+    "authorization_ready",
+    "authorization_issues",
+    "release_ready",
+    "blockers"
+  ],
+  "type": "object"
+}

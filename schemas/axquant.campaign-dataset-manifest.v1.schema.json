@@ -1,0 +1,81 @@
+{
+  "$defs": {
+    "CampaignDatasetRole": {
+      "enum": [
+        "calibration",
+        "development-agent-coding",
+        "development-general",
+        "formal-agent-coding",
+        "formal-general",
+        "reproduction-parity"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "composition": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "content_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "dataset_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "type": "string"
+    },
+    "provenance": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "raw_output_retention_policy": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "record_count": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "role": {
+      "$ref": "#/$defs/CampaignDatasetRole"
+    },
+    "schema_version": {
+      "const": "axquant.campaign-dataset-manifest.v1",
+      "default": "axquant.campaign-dataset-manifest.v1",
+      "type": "string"
+    },
+    "scorer_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "sealed_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "sealed_by": {
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "dataset_id",
+    "role",
+    "content_sha256",
+    "record_count",
+    "provenance",
+    "composition",
+    "scorer_versions",
+    "raw_output_retention_policy",
+    "sealed_by"
+  ],
+  "type": "object"
+}

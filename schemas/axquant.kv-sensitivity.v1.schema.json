@@ -1,0 +1,463 @@
+{
+  "$defs": {
+    "ArchitectureProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "default": "generic",
+          "type": "string"
+        },
+        "audio_present": {
+          "default": false,
+          "type": "boolean"
+        },
+        "config_model_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "dense": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mtp_declared": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "optimization_scope": {
+          "$ref": "#/$defs/OptimizationScope",
+          "default": "inventory-only"
+        },
+        "product_family": {
+          "default": "unknown",
+          "type": "string"
+        },
+        "support_level": {
+          "$ref": "#/$defs/ArchitectureSupportLevel",
+          "default": "inventory-only"
+        },
+        "support_tier": {
+          "$ref": "#/$defs/SupportTier",
+          "default": "inspect-only"
+        },
+        "text_layer_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vision_present": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "ArchitectureSupportLevel": {
+      "enum": [
+        "supported",
+        "inventory-only",
+        "unsupported"
+      ],
+      "type": "string"
+    },
+    "CalibrationEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "reference": {
+          "type": "string"
+        },
+        "samples": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sequence_length": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "dataset_id",
+        "dataset_sha256",
+        "samples",
+        "domains",
+        "sequence_length",
+        "backend",
+        "reference"
+      ],
+      "type": "object"
+    },
+    "CandidateMeasurement": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "evidence_scope": {
+          "default": "tensor",
+          "enum": [
+            "tensor",
+            "module-group",
+            "preserved"
+          ],
+          "type": "string"
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "measured_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "method": {
+          "$ref": "#/$defs/QuantMethod"
+        },
+        "metrics": {
+          "$ref": "#/$defs/MetricVector"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "supported": {
+          "default": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "bits",
+        "method",
+        "metrics"
+      ],
+      "type": "object"
+    },
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "KvLayerSensitivity": {
+      "additionalProperties": false,
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/CandidateMeasurement"
+          },
+          "type": "array"
+        },
+        "layer_index": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "layer_index",
+        "candidates"
+      ],
+      "type": "object"
+    },
+    "MetricVector": {
+      "additionalProperties": false,
+      "properties": {
+        "cosine_distance": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "decode_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "hidden_state_error": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "long_context_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_acceptance_loss": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "output_kl": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "prefill_latency_cost": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_loss_delta": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "token_disagreement": {
+          "default": 0.0,
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "OptimizationScope": {
+      "enum": [
+        "text-path",
+        "full-model",
+        "inventory-only"
+      ],
+      "type": "string"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "QuantMethod": {
+      "enum": [
+        "affine",
+        "awq",
+        "dwq",
+        "gptq",
+        "gptq-act",
+        "bf16"
+      ],
+      "type": "string"
+    },
+    "SupportTier": {
+      "enum": [
+        "certified",
+        "convertible",
+        "inspect-only"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "architecture_profile": {
+      "$ref": "#/$defs/ArchitectureProfile"
+    },
+    "calibration": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CalibrationEvidence"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/KvLayerSensitivity"
+      },
+      "type": "array"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "group_size": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "inventory_sha256": {
+      "type": "string"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "probe_backend": {
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "schema_version": {
+      "const": "axquant.kv-sensitivity.v1",
+      "default": "axquant.kv-sensitivity.v1",
+      "type": "string"
+    },
+    "text_layer_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "model",
+    "profile",
+    "evidence_kind",
+    "inventory_sha256",
+    "probe_backend",
+    "group_size",
+    "text_layer_count",
+    "entries"
+  ],
+  "type": "object"
+}

@@ -1,0 +1,97 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "uniform-4bit",
+        "uniform-6bit",
+        "candidate"
+      ],
+      "type": "string"
+    },
+    "logical_parameters": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "measured_bpw": {
+      "exclusiveMinimum": 0.0,
+      "type": "number"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "schema_version": {
+      "const": "axquant.artifact-size-evidence.v1",
+      "default": "axquant.artifact-size-evidence.v1",
+      "type": "string"
+    },
+    "source_sha256": {
+      "type": "string"
+    },
+    "weight_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "kind",
+    "model",
+    "logical_parameters",
+    "weight_bytes",
+    "measured_bpw",
+    "source_sha256"
+  ],
+  "type": "object"
+}

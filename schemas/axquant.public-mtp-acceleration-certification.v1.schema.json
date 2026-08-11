@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "PublicCertArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "artifact_edition": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "candidate_manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hub_commit": {
+          "minLength": 8,
+          "type": "string"
+        },
+        "hub_repo_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "hub_tag": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "marketing_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "product_class": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_model_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "upstream_model_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "hub_repo_id",
+        "hub_commit",
+        "product_class"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact": {
+      "$ref": "#/$defs/PublicCertArtifact"
+    },
+    "certification_tier": {
+      "const": "mtp-acceleration",
+      "default": "mtp-acceleration",
+      "type": "string"
+    },
+    "certified_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_package": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "host_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "mtp_acceleration": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "related_certificates": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.public-mtp-acceleration-certification.v1",
+      "default": "axquant.public-mtp-acceleration-certification.v1",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "certified",
+        "not_certified"
+      ],
+      "type": "string"
+    },
+    "thresholds": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "toolchain": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "required": [
+    "status",
+    "host_id",
+    "artifact",
+    "thresholds",
+    "mtp_acceleration",
+    "toolchain"
+  ],
+  "type": "object"
+}

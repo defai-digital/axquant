@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "ActivationCaptureEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "array_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "file": {
+          "type": "string"
+        },
+        "in_features": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "module_path": {
+          "type": "string"
+        },
+        "rows": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "module_path",
+        "rows",
+        "in_features",
+        "file",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cache_key_sha256": {
+      "type": "string"
+    },
+    "calibration_dataset_id": {
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "entries": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ActivationCaptureEntry"
+      },
+      "type": "array"
+    },
+    "max_rows": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "model": {
+      "type": "string"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.activation-capture.v1",
+      "default": "axquant.activation-capture.v1",
+      "type": "string"
+    },
+    "tokenized_cache_manifest_sha256": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "model",
+    "tokenized_cache_manifest_sha256",
+    "cache_key_sha256",
+    "calibration_dataset_id",
+    "max_rows"
+  ],
+  "type": "object"
+}

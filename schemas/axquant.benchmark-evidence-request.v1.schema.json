@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "BenchmarkEvidenceInput": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kind": {
+          "$ref": "#/$defs/BenchmarkEvidenceKind"
+        },
+        "status": {
+          "enum": [
+            "available",
+            "unavailable"
+          ],
+          "type": "string"
+        },
+        "unavailable_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "status"
+      ],
+      "type": "object"
+    },
+    "BenchmarkEvidenceKind": {
+      "enum": [
+        "bf16",
+        "uniform-4bit",
+        "uniform-6bit",
+        "mixed-precision",
+        "awq",
+        "dwq",
+        "gptq",
+        "axquant-mtp-off",
+        "axquant-mtp-on"
+      ],
+      "type": "string"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/BenchmarkEvidenceInput"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "schema_version": {
+      "const": "axquant.benchmark-evidence-request.v1",
+      "default": "axquant.benchmark-evidence-request.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "profile",
+    "entries"
+  ],
+  "type": "object"
+}

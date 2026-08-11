@@ -1,0 +1,61 @@
+{
+  "$defs": {
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "ReleaseValidationInput": {
+      "additionalProperties": false,
+      "properties": {
+        "benchmark_index_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "profile": {
+          "$ref": "#/$defs/ProfileName"
+        },
+        "validation_file": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "validation_file",
+        "benchmark_index_file"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/ReleaseValidationInput"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.release-validation-request.v1",
+      "default": "axquant.release-validation-request.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "entries"
+  ],
+  "type": "object"
+}

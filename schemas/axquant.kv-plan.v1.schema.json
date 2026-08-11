@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "KvLayerAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "group_size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "layer_index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "layer_index",
+        "bits",
+        "group_size",
+        "reason"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allocation_basis": {
+      "enum": [
+        "architecture-prior",
+        "measured"
+      ],
+      "type": "string"
+    },
+    "default_bits": {
+      "maximum": 16,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "default_group_size": {
+      "default": 64,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/KvLayerAllocation"
+      },
+      "type": "array"
+    },
+    "max_output_kl": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "min_bits": {
+      "default": 4,
+      "maximum": 16,
+      "minimum": 2,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.kv-plan.v1",
+      "default": "axquant.kv-plan.v1",
+      "type": "string"
+    },
+    "sensitivity_sha256": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "allocation_basis",
+    "default_bits",
+    "layers"
+  ],
+  "type": "object"
+}
