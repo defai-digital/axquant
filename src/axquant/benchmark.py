@@ -378,6 +378,10 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # must set 0 so speed can clear >=1.20x while identity fixes (f32 SDPA,
     # full-context sliding views) keep greedy exactness.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE": "0",
+    # Fail closed to sequential oracle when draft continues an established
+    # repetition cycle (dominant formal divergence mode under multi-token adopt).
+    # Engine default ON; listed here so formal provenance records the contract.
+    "AX_MLX_GEMMA4_ASSISTANT_MTP_CYCLE_GUARD": "1",
     # MoE long multi-token identity (dual-edge + qmv-256) is required for agent
     # long trials to clear weighted >=1.20x. Engine product default remains
     # fail-closed unless this formal profile opts in.
