@@ -902,6 +902,37 @@ def test_restore_protected_vision_config_rejects_conflicting_contract(
         converter._restore_protected_vision_config(qwen36_model_dir, output)
 
 
+def test_restore_protected_vision_config_mirrors_tie_word_embeddings_into_text_config(
+    tmp_path: Path,
+) -> None:
+    """mlx-lm qwen3_vl_moe requires text_config.tie_word_embeddings."""
+    source = tmp_path / "source"
+    output = tmp_path / "converted"
+    source.mkdir()
+    output.mkdir()
+    source_config = {
+        "model_type": "qwen3_vl_moe",
+        "tie_word_embeddings": False,
+        "vision_config": {"hidden_size": 1152},
+        "text_config": {"hidden_size": 2048, "vocab_size": 100},
+        "image_token_id": 1,
+    }
+    converted_config = {
+        "model_type": "qwen3_vl_moe",
+        "tie_word_embeddings": False,
+        "text_config": {"hidden_size": 2048, "vocab_size": 100},
+        # vision_config omitted by convert — restored from source
+    }
+    (source / "config.json").write_text(json.dumps(source_config), encoding="utf-8")
+    (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
+
+    converter._restore_protected_vision_config(source, output)
+
+    restored = json.loads((output / "config.json").read_text(encoding="utf-8"))
+    assert restored["vision_config"] == source_config["vision_config"]
+    assert restored["text_config"]["tie_word_embeddings"] is False
+
+
 def test_mtp_sidecar_provenance_rejects_transformed_bundle(tmp_path: Path) -> None:
     sidecar = tmp_path / "sidecar"
     sidecar.mkdir()

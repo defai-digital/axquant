@@ -27,6 +27,8 @@ via `tests/test_documentation.py`.
 | [GPT-OSS 20B AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
 | [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+| [Qwen3-VL 30B-A3B Instruct AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
+| [Qwen3-VL 30B-A3B Instruct AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | [GPT-OSS 120B AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
@@ -50,6 +52,10 @@ with `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`. Product clas
 remain `*-experimental`; measured BPW exceeds the nominal class; MTP acceleration is
 not certified.
 
+**Qwen3-VL 30B-A3B Instruct:** vision MoE Instruct with **no declared MTP**. Public
+**4-bit** and **6-bit** packs are checkpoint Tier 1 on `df-macbookpro-m5` with AX Engine
+**6.15.0** primary (generate-manifest + doctor) and MLX-VLM vision smoke.
+
 Machine-readable companions:
 
 - [27B 6-bit Tier 1 JSON](qwen36-27b-axq6-tier1.json)
@@ -69,6 +75,8 @@ Machine-readable companions:
 - [31B 6-bit Tier 1 JSON](gemma4-31b-axq6-tier1.json)
 - [Coder-Next 4-bit Tier 1 JSON](qwen3-coder-next-axq4-tier1.json)
 - [Coder-Next 6-bit Tier 1 JSON](qwen3-coder-next-axq6-tier1.json)
+- [Qwen3-VL 30B 4-bit Tier 1 JSON](qwen3-vl-30b-axq4-tier1.json)
+- [Qwen3-VL 30B 6-bit Tier 1 JSON](qwen3-vl-30b-axq6-tier1.json)
 - [GPT-OSS 20B 6-bit Tier 1 JSON](gpt-oss-20b-axq6-tier1.json)
 - [GPT-OSS 20B 4-bit Tier 1 JSON](gpt-oss-20b-axq4-tier1.json)
 - [GPT-OSS 120B 4-bit Tier 1 JSON](gpt-oss-120b-axq4-tier1.json)

@@ -43,6 +43,8 @@ do not edit the table cells by hand.
 | GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+| Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
@@ -337,7 +339,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
 | GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; 4-bit packs unlisted (quality) |
-| Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | Development evidence only |
+| Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | **30B Instruct 4/6-bit Tier 1** on `df-macbookpro-m5` / AX Engine 6.15.0; 8B / ASR still development |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
 
@@ -384,7 +386,7 @@ release audit. The current tier matrix:
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
 | **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
-| **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; 4/6-bit AXQ packs |
+| **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
@@ -482,8 +484,8 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit) | 7.999975 | MLX-VLM; protected BF16 vision tower |
-| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | 4.860055 | MoE VL thin; AX Engine primary + MLX-VLM; BF16 vision; no MTP; development |
-| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | 6.000054 | MoE VL thin; AX Engine primary + MLX-VLM; BF16 vision; no MTP; development |
+| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | 4.860055 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
+| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | 6.000054 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path; only published budget (near floor-collapse; no 4bit sibling) |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | 5.999912 | Mistral3 language path |

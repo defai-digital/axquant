@@ -640,8 +640,41 @@ def _restore_protected_vision_config(model_dir: Path, output_dir: Path) -> None:
                 raise ArtifactError(
                     f"converted config conflicts with protected source field {field_name}"
                 )
+    # mlx-lm's qwen3_vl_moe ModelArgs requires text_config.tie_word_embeddings.
+    # MLX-VLM convert often leaves it only on the top-level config; mirror it
+    # into text_config so both mlx-lm quality eval and mlx-vlm load paths work.
+    if _ensure_text_config_tie_word_embeddings(source, converted):
+        changed = True
     if changed:
         write_data(output_path, converted)
+
+
+def _ensure_text_config_tie_word_embeddings(
+    source: dict[str, Any], converted: dict[str, Any]
+) -> bool:
+    """Ensure ``text_config.tie_word_embeddings`` is present for mlx-lm load.
+
+    Returns True when ``converted`` was mutated.
+    """
+
+    text_config = converted.get("text_config")
+    if not isinstance(text_config, dict):
+        return False
+    if "tie_word_embeddings" in text_config:
+        return False
+    source_text = source.get("text_config")
+    if isinstance(source_text, dict) and "tie_word_embeddings" in source_text:
+        text_config["tie_word_embeddings"] = bool(source_text["tie_word_embeddings"])
+        return True
+    if "tie_word_embeddings" in converted:
+        text_config["tie_word_embeddings"] = bool(converted["tie_word_embeddings"])
+        return True
+    if isinstance(source_text, dict) is False and "tie_word_embeddings" in source:
+        text_config["tie_word_embeddings"] = bool(source["tie_word_embeddings"])
+        return True
+    # Fail-open default matching HF Qwen3-VL MoE Instruct (untied).
+    text_config["tie_word_embeddings"] = False
+    return True
 
 
 def _extract_protected_vision(

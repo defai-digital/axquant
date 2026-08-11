@@ -1,0 +1,103 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-11T21:12:45.000000+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit",
+    "hub_commit": "71f90ad5aa72911c4829944e8e26b8a296af3996",
+    "product_class": "6bit",
+    "architecture": "Qwen3VLMoeForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+    "source_revision": "9c4b90e1e4ba969fd3b5378b57d966d725f1b86c",
+    "candidate_manifest_sha256": "7f24438444b0c2dcc07310f7946bdcece00d2f1286e6ca5e4cd9ea0643d612fa"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "effective_bpw": 5.999997506594146,
+    "measured_total_bpw": 6.0000538003036,
+    "measured_main_bpw": 6.0000538003036
+  },
+  "size": {
+    "candidate_weight_bytes": 23303274476,
+    "candidate_measured_bpw": 6.0000538003036,
+    "reference_kind": "uniform-6bit",
+    "reference_model_id": "mlx-community/Qwen3-VL-30B-A3B-Instruct-6bit",
+    "reference_revision": "f31102655767c89366f63d3eab2a5e2a8fd6d293",
+    "reference_weight_bytes": 25885081647,
+    "size_ratio_vs_uniform": 0.9002588747368613,
+    "max_size_ratio_applied": 1.15,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8947368421052632,
+      "reference_score": 0.8947368421052632,
+      "retention": 1.0,
+      "perplexity_ratio": 1.1635031448730262,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 0.9431818181818182,
+      "reference_score": 0.9431818181818182,
+      "retention": 1.0,
+      "perplexity_ratio": 1.1207940789574817,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Qwen3-VL-30B-A3B-Instruct MoE source declares no MTP; certification is non-MTP checkpoint Tier 1 (AX Engine primary + MLX-VLM vision-compatible)."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.15.0",
+      "notes": "generate-manifest --validate + doctor on df-macbookpro-m5; requires AX Engine build with qwen3_vl_moe MoE config enabled."
+    },
+    "mlx_vlm": {
+      "status": "pass",
+      "notes": "vision-generation-smoke with sample image on formal host."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.15.0",
+    "ax_engine_binary_sha256": "1ce7cf5f0ea9192dfc306c14bca21eb5477aee438c9c03ff04ed54e68bd02ae3",
+    "ax_engine_bench_binary_sha256": "9711246635ffe18ecbddaec4e01ebffdea0c6bb59946954f6aad32c76a7547ba",
+    "host": "df-macbookpro-m5",
+    "python": "3.13"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
+    "Primary runtime AX Engine 6.15.0; MLX-VLM compatible for vision smoke.",
+    "Quality retention vs matched mlx-community uniform quantized reference (not BF16).",
+    "No MTP acceleration claim; source has mtp_present=false / mtp_declared=false.",
+    "Vision tower remains BF16-protected; text MoE experts quantized to product class.",
+    "Hub config includes text_config.tie_word_embeddings for mlx-lm load compatibility.",
+    "Hub ships model-manifest.json from AX Engine generate-manifest (qwen3_vl_moe MoE enabled)."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "38f4018a659123b3d08905c7f42f00679fc5355b2475f132852261242f5a33f6",
+    "quality-comparison-general_sha256": "a1e9314cbdaef4c14e190c39e0c0694b977fbf643fe49303b6f220f05f15f1a0",
+    "candidate-size_sha256": "acf235fb2b7cce62a5d29fe11af9e679ea1ae27288fc8eb82a7e7c24b66f3efc",
+    "reference-size_sha256": "9abbd3211d97d80fb7097b79c14a4fcd28fc0a7e7814471c7d30beda3a70cc3a",
+    "runtime-ax-engine-doctor_sha256": "646fb884cbf147b3015bfb2affefe654dd554d3a441c9ec4b403fa57936753eb",
+    "runtime-mlx-vlm_sha256": "9730323ea1ffd771b5c99c4b8d936905ec6d1869c744770cac199e91ab913cfe"
+  },
+  "public_index": {
+    "display_name": "Qwen3-VL 30B-A3B Instruct AXQ 6-bit",
+    "sort_order": 161,
+    "edition_label": "main@`71f90ad5`",
+    "listed": true
+  }
+}

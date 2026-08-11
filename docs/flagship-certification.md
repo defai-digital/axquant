@@ -71,6 +71,18 @@ uniform, quality retention on agent-coding + general, MLX-LM load. **Tier 2 is n
 | Coder-Next AXQ 4-bit | [Certified](certifications/qwen3-coder-next-axq4-tier1.md) | N/A |
 | Coder-Next AXQ 6-bit | [Certified](certifications/qwen3-coder-next-axq6-tier1.md) | N/A |
 
+### Qwen3-VL 30B-A3B Instruct (non-MTP VL MoE)
+
+Vision MoE Instruct checkpoint (`Qwen3VLMoeForConditionalGeneration`) with **no declared MTP**.
+Public certificates are checkpoint **Tier 1 only** on `df-macbookpro-m5` (2026-08-11) with
+**AX Engine 6.15.0** primary runtime and MLX-VLM vision smoke: size vs matched mlx-community
+uniform, quality retention on agent-coding + general. **Tier 2 is not applicable.**
+
+| Pack | Tier 1 | Tier 2 |
+| --- | --- | --- |
+| 30B-A3B Instruct AXQ 4-bit | [Certified](certifications/qwen3-vl-30b-axq4-tier1.md) | N/A |
+| 30B-A3B Instruct AXQ 6-bit | [Certified](certifications/qwen3-vl-30b-axq6-tier1.md) | N/A |
+
 ## Two-tier claim policy
 
 AXQuant checkpoint certification is the first tier: it proves the bound artifact's size,
