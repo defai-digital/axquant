@@ -1,0 +1,63 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-11T00:20:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit",
+    "hub_commit": "6b2b4c1be8b00db91000565024bacf861d09546c",
+    "product_class": "6bit",
+    "architecture": "GptOssForCausalLM",
+    "source_model_id": "mlx-community/gpt-oss-120b-MXFP4-Q4",
+    "source_revision": "bce781bef0f2fc85ed4e575af74054f5aad73ddd",
+    "upstream_model_id": "openai/gpt-oss-120b"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "measured_total_bpw": 6.000009063970246
+  },
+  "size": {
+    "size_ratio_vs_uniform": 1.4057744090142397,
+    "max_size_ratio_applied": 1.55,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "retention": 0.9560000000000002,
+      "pass": false
+    },
+    "general": {
+      "retention": 1.002437923250564,
+      "pass": true
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.55
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "GPT-OSS source declares no MTP."
+  },
+  "runtime": {
+    "mlx_lm": true
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Not certified: agent-coding quality retention 0.956 < 0.98.",
+    "Size, general quality, and MLX-LM load pass; Hub pack is development evidence only.",
+    "Converted with AXQUANT_FORCE_CPU=1 after Metal GPU timeouts on large re-pack."
+  ],
+  "public_index": {
+    "display_name": "GPT-OSS 120B AXQ 6-bit",
+    "sort_order": 180,
+    "edition_label": "main@`6b2b4c1b`",
+    "listed": true
+  }
+}

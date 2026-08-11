@@ -474,4 +474,22 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             "Development convert only; requires mlx-lm with deepseek_v4 support.",
         ),
     ),
+    DenseFamilySpec(
+        adapter_id="gpt-oss-v1",
+        product_family="gpt-oss",
+        model_types=("gpt_oss",),
+        # OpenAI gpt-oss-20b / gpt-oss-120b and mlx-community gpt-oss packs.
+        reference_pattern=r"gpt[._-]?oss",
+        support_tier=SupportTier.CONVERTIBLE,
+        allow_moe=True,
+        extra_role_patterns=(
+            # Per-head attention sinks are part of the attention path (not norms).
+            ("sinks", TensorRole.ATTENTION),
+        ),
+        notes=(
+            "OpenAI GPT-OSS MoE (model_type=gpt_oss): fused experts via MLX-LM SwitchGLU.",
+            "Native MXFP4 expert packs convert with --allow-quantized (dequant → affine).",
+            "No declared MTP; development evidence until a revision is certified.",
+        ),
+    ),
 )

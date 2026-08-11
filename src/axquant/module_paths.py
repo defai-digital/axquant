@@ -24,7 +24,7 @@ _DEEPSEEK_PROJ_TO_SWITCH = {
     "w2": "down_proj",
     "w3": "up_proj",
 }
-_PACKED_TENSOR_SUFFIXES = (".weight", ".scales", ".biases")
+_PACKED_TENSOR_SUFFIXES = (".weight", ".scales", ".biases", "_blocks", "_scales")
 
 
 def _is_hc_learnable_scale_path(path: str) -> bool:
@@ -130,8 +130,20 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
         prefix = module_path.removesuffix(".experts.gate_up_proj")
         return (f"{prefix}.switch_mlp.gate_proj", f"{prefix}.switch_mlp.up_proj")
     if module_path.endswith(".mlp.experts.down_proj"):
+        # Qwen MoE: sanitize → switch_mlp.down_proj. GPT-OSS: identity under
+        # experts.down_proj. Both names are lookup aliases; multi-visit packing
+        # is not required for a single down projection (see runtime_modules).
         prefix = module_path.removesuffix(".experts.down_proj")
-        return (f"{prefix}.switch_mlp.down_proj",)
+        return (f"{prefix}.switch_mlp.down_proj", f"{prefix}.experts.down_proj")
+    # OpenAI GPT-OSS native MXFP4 export (public mlx_lm.models.gpt_oss.sanitize):
+    # fused gate_up / down live as *_blocks (+ *_scales) and split into
+    # SwitchGLU modules under mlp.experts.{gate,up,down}_proj (not switch_mlp).
+    if module_path.endswith(".mlp.experts.gate_up_proj_blocks"):
+        prefix = module_path.removesuffix(".experts.gate_up_proj_blocks")
+        return (f"{prefix}.experts.gate_proj", f"{prefix}.experts.up_proj")
+    if module_path.endswith(".mlp.experts.down_proj_blocks"):
+        prefix = module_path.removesuffix(".experts.down_proj_blocks")
+        return (f"{prefix}.experts.down_proj",)
     # Nemotron-H packed forms (if a future export packs experts the same way).
     if module_path.endswith(".mixer.experts.up_proj"):
         prefix = module_path.removesuffix(".experts.up_proj")
@@ -152,14 +164,29 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
 
 
 def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
-    """Return every MLX runtime module represented by one packed expert tensor.
+    """Return every MLX runtime module that must be visited for one packed tensor.
 
     Some source checkpoints store gate/up projections in one tensor while
     MLX-LM exposes two independently visited ``SwitchLinear`` modules.  A
     conversion is only complete after every returned module was visited by
     the quantization predicate.
+
+    Single-output renames (Qwen ``experts.down_proj`` → ``switch_mlp.down_proj``,
+    GPT-OSS identity under ``experts.down_proj``, Nemotron mixer packs) are
+    lookup aliases via ``mlx_module_aliases`` and return an empty tuple here so
+    one matching visit marks the plan module complete.
     """
-    return _packed_expert_aliases(module_path)
+    if module_path.endswith(".mlp.experts.gate_up_proj"):
+        prefix = module_path.removesuffix(".experts.gate_up_proj")
+        return (f"{prefix}.switch_mlp.gate_proj", f"{prefix}.switch_mlp.up_proj")
+    if module_path.endswith(".mlp.experts.gate_up_proj_blocks"):
+        prefix = module_path.removesuffix(".experts.gate_up_proj_blocks")
+        return (f"{prefix}.experts.gate_proj", f"{prefix}.experts.up_proj")
+    # Gemma-4 A4B (and similar) packs experts under layer.experts without mlp.
+    if module_path.endswith(".experts.gate_up_proj") and ".mlp.experts." not in module_path:
+        base = module_path.removesuffix(".gate_up_proj")
+        return (f"{base}.switch_glu.gate_proj", f"{base}.switch_glu.up_proj")
+    return ()
 
 
 def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
@@ -338,10 +365,32 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
             packed_suffix = storage_suffix
             packed_module = tensor_path.removesuffix(storage_suffix)
             break
+    # GPT-OSS MXFP4 bodies keep the ``_blocks`` token in the module path so
+    # alias rules can distinguish them from Qwen ``gate_up_proj`` packs. Converted
+    # outputs always use ``.weight`` (post-sanitize).
+    if tensor_path.endswith("_blocks"):
+        packed_module = tensor_path
+        packed_suffix = ".weight"
+    elif tensor_path.endswith("_scales"):
+        packed_module = tensor_path[: -len("_scales")] + "_blocks"
+        packed_suffix = ".scales"
+    # Multi-module packs (gate_up → gate + up) require every component.
+    # Single-output renames expose alternative names as one alias set (OR).
+    runtime_modules = packed_expert_runtime_modules(packed_module)
+    if runtime_modules:
+        return tuple(
+            _mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}") for alias in runtime_modules
+        )
     packed_aliases = _packed_expert_aliases(packed_module)
-    if not packed_aliases:
-        return (_mlx_wrapper_tensor_aliases(tensor_path),)
-    return tuple(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}") for alias in packed_aliases)
+    if packed_aliases:
+        # One required output, many accepted names (Qwen switch_mlp vs GPT-OSS experts).
+        aliases: set[str] = set()
+        for alias in packed_aliases:
+            aliases.update(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}"))
+        # Include the original tensor path aliases as well.
+        aliases.update(_mlx_wrapper_tensor_aliases(tensor_path))
+        return (tuple(sorted(aliases)),)
+    return (_mlx_wrapper_tensor_aliases(tensor_path),)
 
 
 def mlx_tensor_aliases(tensor_path: str) -> tuple[str, ...]:

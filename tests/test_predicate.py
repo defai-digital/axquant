@@ -529,9 +529,10 @@ def test_unwrapped_and_nemotron_packed_expert_tensors_bind_their_switch_modules(
     flattened = {alias for group in groups for alias in group}
     assert "model.layers.0.mlp.switch_mlp.gate_proj.weight" in flattened
     assert "model.layers.0.mlp.switch_mlp.up_proj.weight" in flattened
-    assert mlx_tensor_binding_groups("backbone.layers.3.mixer.experts.up_proj.weight") == (
-        ("backbone.layers.3.mixer.switch_mlp.fc1.weight",),
-    )
+    # Single-output renames expose accepted names as one OR alias set.
+    nemo_groups = mlx_tensor_binding_groups("backbone.layers.3.mixer.experts.up_proj.weight")
+    assert len(nemo_groups) == 1
+    assert "backbone.layers.3.mixer.switch_mlp.fc1.weight" in nemo_groups[0]
     scales_aliases = mlx_tensor_aliases("model.layers.0.mlp.experts.down_proj.scales")
     assert "model.layers.0.mlp.switch_mlp.down_proj.scales" in scales_aliases
 
@@ -546,9 +547,10 @@ def test_gemma4_packed_experts_alias_switch_glu_runtime_modules() -> None:
         "model.language_model.layers.0.experts.switch_glu.gate_proj",
         "model.language_model.layers.0.experts.switch_glu.up_proj",
     )
-    assert packed_expert_runtime_modules(down) == (
-        "model.language_model.layers.0.experts.switch_glu.down_proj",
-    )
+    # down_proj is a single-output rename: lookup aliases only (no multi-visit).
+    assert packed_expert_runtime_modules(down) == ()
+    down_aliases = set(mlx_module_aliases(down))
+    assert "model.language_model.layers.0.experts.switch_glu.down_proj" in down_aliases
     aliases = set(mlx_module_aliases(gate_up))
     assert "language_model.model.layers.0.experts.switch_glu.gate_proj" in aliases
     assert "language_model.model.layers.0.experts.switch_glu.up_proj" in aliases
@@ -559,3 +561,26 @@ def test_gemma4_packed_experts_alias_switch_glu_runtime_modules() -> None:
     flat = {a for g in groups for a in g}
     assert "model.language_model.layers.0.experts.switch_glu.gate_proj.weight" in flat
     assert "language_model.model.layers.0.experts.switch_glu.up_proj.weight" in flat
+
+
+def test_gpt_oss_mxfp4_blocks_bind_experts_switch_glu_modules() -> None:
+    """Native openai/gpt-oss MXFP4 *_blocks sanitize into mlp.experts.{gate,up,down}_proj."""
+    from axquant.module_paths import packed_expert_runtime_modules
+
+    blocks = "model.layers.0.mlp.experts.gate_up_proj_blocks"
+    assert packed_expert_runtime_modules(blocks) == (
+        "model.layers.0.mlp.experts.gate_proj",
+        "model.layers.0.mlp.experts.up_proj",
+    )
+    # Already-sanitized mlx-community packs keep experts.down_proj as identity;
+    # multi-visit packing is not required (aliases cover Qwen switch_mlp rename).
+    assert packed_expert_runtime_modules("model.layers.0.mlp.experts.down_proj") == ()
+    groups = mlx_tensor_binding_groups("model.layers.0.mlp.experts.gate_up_proj_blocks")
+    flat = {a for g in groups for a in g}
+    assert "model.layers.0.mlp.experts.gate_proj.weight" in flat
+    assert "model.layers.0.mlp.experts.up_proj.weight" in flat
+    down_groups = mlx_tensor_binding_groups("model.layers.0.mlp.experts.down_proj.weight")
+    assert len(down_groups) == 1
+    down_flat = set(down_groups[0])
+    assert "model.layers.0.mlp.switch_mlp.down_proj.weight" in down_flat
+    assert "model.layers.0.mlp.experts.down_proj.weight" in down_flat

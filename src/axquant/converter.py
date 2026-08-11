@@ -59,6 +59,20 @@ _ACTIVATION_REFINEMENT_METHODS = frozenset(
 _CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 
 
+def _maybe_force_mlx_cpu() -> None:
+    """Honor ``AXQUANT_FORCE_CPU=1`` for large re-packs when Metal times out."""
+
+    flag = os.environ.get("AXQUANT_FORCE_CPU", "").strip().lower()
+    if flag not in {"1", "true", "yes", "on"}:
+        return
+    try:
+        mx = importlib.import_module("mlx.core")
+        mx.set_default_device(mx.cpu)
+        _LOG.info("mlx_force_cpu", device=str(mx.default_device()))
+    except Exception as exc:  # pragma: no cover - optional backend path
+        _LOG.warning("mlx_force_cpu_failed", error=str(exc))
+
+
 def _mlx_api() -> tuple[Any, Any]:
     try:
         mlx_lm = importlib.import_module("mlx_lm")
@@ -66,6 +80,7 @@ def _mlx_api() -> tuple[Any, Any]:
         raise BackendUnavailableError(
             "the MLX backend is not installed; install axquant[mlx]"
         ) from exc
+    _maybe_force_mlx_cpu()
     return mlx_lm.convert, mlx_lm.load
 
 
@@ -1000,6 +1015,35 @@ def _fused_expected_groups(expected: Mapping[str, Any]) -> dict[str, tuple[str, 
     return groups
 
 
+def _logical_source_shape(source_tensor: Any) -> tuple[int, ...]:
+    """Return the logical weight shape for re-pack shape checks.
+
+    Mixed-precision exports store U32 packed columns. Parameter counts already
+    use the logical width; convert expected shapes must as well, or re-packing
+    from MXFP4/affine sources under-predicts the output pack width (GPT-OSS).
+    """
+
+    shape = tuple(int(dim) for dim in source_tensor.shape)
+    if not shape:
+        return shape
+    current_bits = getattr(source_tensor, "current_bits", None)
+    dtype = str(getattr(source_tensor, "dtype", "") or "")
+    name = str(getattr(source_tensor, "name", "") or "")
+    if (
+        dtype == "U32"
+        and isinstance(current_bits, int)
+        and not isinstance(current_bits, bool)
+        and current_bits > 0
+        and current_bits < 16
+        and name.endswith((".weight", "_blocks"))
+    ):
+        packed_last = shape[-1]
+        logical_last = packed_last * 32 // current_bits
+        if logical_last > 0 and packed_last * 32 == logical_last * current_bits:
+            return (*shape[:-1], logical_last)
+    return shape
+
+
 def _expected_converted_shapes(
     tensor_name: str,
     source_shape: tuple[int, ...],
@@ -1223,8 +1267,13 @@ def _verify_converted_weights(
         for allocation in plan.assignments
         if allocation.parameters > 0 and not _is_converted_quant_sidecar_name(allocation.tensor)
     }
+    # Exclude the same quant-sidecar name classes from the converted side that
+    # were dropped from expected_tensors (``.bias`` Linear biases stay float
+    # under nn.quantize; GPT-OSS expert bias is 2-D BF16 and is not plan-bound).
     output_tensors = {
-        tensor.name: tensor for tensor in inventory.tensors if not tensor.quantization_metadata
+        tensor.name: tensor
+        for tensor in inventory.tensors
+        if not tensor.quantization_metadata and not _is_converted_quant_sidecar_name(tensor.name)
     }
     actual_tensors = _bind_converted_tensors(expected_tensors, output_tensors)
     fused_groups = _fused_expected_groups(expected_tensors)
@@ -1276,7 +1325,9 @@ def _verify_converted_weights(
                 f"converted tensor {verification_name} parameter count does not match the plan: "
                 f"{actual_parameters} != {expected_group_parameters}"
             )
-        source_shapes = tuple(source_tensors[member].shape for member in members)
+        source_shapes = tuple(
+            _logical_source_shape(source_tensors[member]) for member in members
+        )
         source_shape = source_shapes[0]
         if fused is not None:
             expected_shapes = _expected_fused_converted_shapes(

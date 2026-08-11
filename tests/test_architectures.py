@@ -348,6 +348,49 @@ def test_deepseek_v4_flash_is_convertible_moe() -> None:
     )
 
 
+def test_gpt_oss_is_convertible_moe() -> None:
+    config = {
+        "model_type": "gpt_oss",
+        "architectures": ["GptOssForCausalLM"],
+        "num_hidden_layers": 24,
+        "num_local_experts": 32,
+        "num_experts_per_tok": 4,
+        "hidden_size": 2880,
+        "intermediate_size": 2880,
+        "quantization_config": {"quant_method": "mxfp4"},
+    }
+    adapter = adapter_for("openai/gpt-oss-20b", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "gpt-oss-v1"
+    profile = adapter.profile("openai/gpt-oss-20b", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.product_family == "gpt-oss"
+    assert profile.text_layer_count == 24
+    assert profile.mtp_declared is False
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.mlp.experts.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.mlp.router.weight",
+            "model.safetensors",
+        )
+        is TensorRole.ROUTER
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.self_attn.sinks",
+            "model.safetensors",
+        )
+        is TensorRole.ATTENTION
+    )
+
+
 def test_qwen3_next_coder_is_convertible_moe() -> None:
     config = {
         "model_type": "qwen3_next",
@@ -520,6 +563,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "mistral-devstral-dense-v1": SupportTier.CONVERTIBLE,
         "mistral3-dense-v1": SupportTier.CONVERTIBLE,
         "deepseek-v4-v1": SupportTier.CONVERTIBLE,
+        "gpt-oss-v1": SupportTier.CONVERTIBLE,
     }
     families = [entry.product_family for entry in matrix.entries]
     assert families[0] == "qwen3.6"

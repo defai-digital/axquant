@@ -108,10 +108,11 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-gpt-oss-20b-MLX-AXQ-4bit",
         "AX-gpt-oss-20b-MLX-AXQ-6bit",
         "AX-gpt-oss-120b-MLX-AXQ-4bit",
+        "AX-gpt-oss-120b-MLX-AXQ-6bit",
     }
     post_migration_additions = post_migration_additions | gpt_oss_additions
-    assert len(readme_repositories) == 36
-    assert len(set(readme_repositories)) == 36
+    assert len(readme_repositories) == 37
+    assert len(set(readme_repositories)) == 37
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25

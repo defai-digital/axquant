@@ -44,6 +44,7 @@ do not edit the table cells by hand.
 | GPT-OSS 20B AXQ 4-bit | [Not Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+| GPT-OSS 120B AXQ 6-bit | [Not Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
@@ -328,7 +329,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
-| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit Tier 1** on `df-macbookpro-m5`; 20B 4-bit not certified; 120B when cert closes |
+| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit Tier 1** on `df-macbookpro-m5`; 20B 4-bit + both 120B packs not certified (quality gates) |
 | Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
@@ -466,7 +467,8 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | 6.000037 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP; MXFP4 re-pack |
 | [`AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | 4.940037 | development (not certified — general quality); [record](docs/certifications/gpt-oss-20b-axq4-tier1.md) |
-| [`AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | 4.800010 | development (cert pending / in progress on `df-macbookpro-m5`) |
+| [`AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | 4.800010 | development (not certified — agent-coding quality); [record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
+| [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | 6.000009 | development (not certified — agent-coding quality); [record](docs/certifications/gpt-oss-120b-axq6-tier1.md) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |

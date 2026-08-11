@@ -152,6 +152,12 @@ def module_path_for(tensor_name: str) -> str:
     for suffix in (".weight", ".kernel"):
         if tensor_name.endswith(suffix):
             return tensor_name[: -len(suffix)]
+    # OpenAI GPT-OSS MXFP4 expert bodies use *_blocks / *_scales storage names.
+    # Map scales onto the blocks module path so inventory pairs them; keep the
+    # `_blocks` token so packed-expert alias rules can distinguish the native
+    # export from already-sanitized mlx-community packs.
+    if tensor_name.endswith("_scales"):
+        return tensor_name[: -len("_scales")] + "_blocks"
     return tensor_name
 
 
@@ -293,6 +299,46 @@ def _deepseek_fp4_expert_weight(name: str, dtype: str, config: dict[str, Any]) -
     return expert_dtype == "" and str(config.get("model_type", "")).startswith("deepseek")
 
 
+def _gpt_oss_mxfp4_expert_weight(name: str, dtype: str, config: dict[str, Any]) -> bool:
+    """True when a tensor is a *native* OpenAI GPT-OSS MXFP4 expert body.
+
+    Official ``openai/gpt-oss-*`` exports store fused expert projections as
+    ``gate_up_proj_blocks`` / ``down_proj_blocks`` (plus ``*_scales``). MLX-LM
+    ``gpt_oss.sanitize`` reinterprets blocks as uint32 weights and splits
+    gate/up. Inventory marks them quantizable under ``--allow-quantized`` so
+    convert can dequant → affine re-pack.
+
+    After affine re-pack the same paths are ordinary U32 affine weights with a
+    recorded ``group_size``; do **not** treat those as MXFP4 (group_size None)
+    or converted packing verification fails on group-size mismatch.
+    """
+
+    if str(config.get("model_type", "")).lower() != "gpt_oss":
+        return False
+    if ".mlp.experts." not in name:
+        return False
+    if name.endswith(("_scales", ".scales", ".biases", ".bias")):
+        return False
+    # Native fused export before sanitize.
+    if name.endswith(("_blocks",)):
+        return True
+    configured = config.get("quantization_config") or config.get("quantization")
+    if not isinstance(configured, dict):
+        return False
+    method = str(configured.get("quant_method") or configured.get("mode") or "").lower()
+    if "mxfp4" in method or method == "mxfp4":
+        # Only when the *module* still declares mxfp4 (or inherits global mxfp4
+        # without an affine override). Affine re-packs set mode=affine.
+        module = module_path_for(name)
+        override = configured.get(module)
+        if isinstance(override, dict):
+            ov_mode = str(override.get("mode") or override.get("quant_method") or "").lower()
+            return "mxfp4" in ov_mode
+        return method != "affine" and "affine" not in method
+    fmt = str(configured.get("fmt", "")).lower()
+    return "mxfp4" in fmt or fmt in {"fp4", "e2m1"}
+
+
 def _quantization_details(
     name: str,
     dtype: str,
@@ -303,7 +349,9 @@ def _quantization_details(
 ) -> tuple[int | None, int | None, QuantMethod | None]:
     if _deepseek_fp4_expert_weight(name, dtype, config):
         return 4, None, QuantMethod.AFFINE
-    if dtype != "U32" or name.endswith((".scales", ".biases")):
+    if _gpt_oss_mxfp4_expert_weight(name, dtype, config):
+        return 4, None, QuantMethod.AFFINE
+    if dtype != "U32" or name.endswith((".scales", ".biases", "_scales")):
         if dtype == "BF16":
             return 16, None, QuantMethod.BF16
         return None, None, None
@@ -441,7 +489,7 @@ def inspect_model(
                         or name.endswith((".hc_attn_scale", ".hc_ffn_scale"))
                     )
                     quantization_metadata = (
-                        name.endswith((".scales", ".biases"))
+                        name.endswith((".scales", ".biases", "_scales"))
                         or (name.endswith(".scale") and not is_hc_learnable_scale)
                     ) or (
                         quantized_source and name.endswith(".bias") and dtype not in _FLOAT_DTYPES
@@ -457,8 +505,12 @@ def inspect_model(
                     # FP4 expert bodies pack two 4-bit values per I8/U8 element; MLX
                     # dequant doubles the trailing dim (deepseek_v4 sanitize/load).
                     fp4_expert = _deepseek_fp4_expert_weight(name, dtype, config)
+                    gpt_oss_mxfp4 = _gpt_oss_mxfp4_expert_weight(name, dtype, config)
                     if fp4_expert and shape:
                         shape = (*shape[:-1], int(shape[-1]) * 2)
+                    # Keep U32 packed shapes physical: convert verification compares
+                    # packed output shapes. Logical width is recovered via
+                    # parameter counts (and by converter when re-packing).
                     parameters = (
                         0
                         if quantization_metadata
@@ -481,14 +533,19 @@ def inspect_model(
                     # same per-group affine layout as 2-D linears, so they are
                     # quantizable. Every other non-2-D tensor stays preserved.
                     module_path = module_path_for(name)
-                    # Re-quant of mixed FP4/FP8 sources (DeepSeek V4 Flash): after
-                    # MLX sanitize/dequant, these become ordinary Linear modules.
-                    # Inventory must still mark them quantizable so architecture-
-                    # prior plans can assign 2/3/4/6-bit budgets.
+                    # Re-quant of mixed FP4/FP8/MXFP4 sources (DeepSeek V4 Flash,
+                    # GPT-OSS): after MLX sanitize/dequant these become ordinary
+                    # Linear / SwitchLinear modules. Inventory must still mark
+                    # them quantizable so architecture-prior plans can assign
+                    # 2/3/4/6-bit budgets.
                     requant_weight = (
                         allow_quantized
                         and quantized_source
-                        and name.endswith(".weight")
+                        and (
+                            name.endswith(".weight")
+                            or gpt_oss_mxfp4
+                            or name.endswith(("_blocks",))
+                        )
                         and role
                         in {
                             TensorRole.EXPERT,
@@ -500,11 +557,21 @@ def inspect_model(
                         }
                     )
                     quantizable = (
-                        (len(shape) == 2 or (len(shape) == 3 and role == TensorRole.EXPERT))
+                        (
+                            len(shape) == 2
+                            or (len(shape) == 3 and role == TensorRole.EXPERT)
+                            # GPT-OSS MXFP4 blocks are often 4-D pack layouts
+                            # ([experts, out, groups, pack]); treat as expert.
+                            or (gpt_oss_mxfp4 and role == TensorRole.EXPERT and len(shape) >= 2)
+                        )
                         and (dtype in _FLOAT_DTYPES or requant_weight)
                         and role != TensorRole.NORM
                         and not quantization_metadata
                         and not unclassified_by_adapter
+                        # Linear / SwitchLinear bias stays float under nn.quantize;
+                        # never allocate a separate plan module for *.bias tensors
+                        # (GPT-OSS expert bias is 2-D [experts, out] BF16).
+                        and not name.endswith(".bias")
                         # Nemotron-H MoEGate is a custom Module with a raw weight
                         # matrix and no to_quantized(); MLX-LM never visits it.
                         # Mark non-quantizable so plans stay BF16 (fail-closed
