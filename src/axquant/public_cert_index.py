@@ -158,6 +158,28 @@ def load_public_cert_rows(
                     f"{tier2_path.name}: expected schema {MTP_SCHEMA_VERSION!r}, "
                     f"got {tier2.schema_version!r}"
                 )
+            identity_fields = (
+                "hub_repo_id",
+                "hub_commit",
+                "product_class",
+                "candidate_manifest_sha256",
+                "source_model_id",
+                "source_revision",
+            )
+            mismatched = [
+                field
+                for field in identity_fields
+                if getattr(tier2.artifact, field) != getattr(cert.artifact, field)
+            ]
+            if mismatched:
+                raise ValueError(
+                    f"{tier2_path.name}: Tier 2 artifact does not match Tier 1 "
+                    f"{path.name} on fields {mismatched}"
+                )
+            if tier2.status == "certified" and cert.status != "certified":
+                raise ValueError(
+                    f"{tier2_path.name}: certified Tier 2 requires a certified Tier 1 record"
+                )
             md_path = directory / f"{record_id}-tier2.md"
             if not md_path.is_file():
                 raise ValueError(f"{tier2_path.name}: missing companion markdown {md_path.name}")

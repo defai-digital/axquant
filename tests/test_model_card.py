@@ -623,20 +623,61 @@ def test_prepare_binds_public_certificate_when_manifest_matches(
     # Refresh public file digests the way prepare does before cert bind.
     repo_id = "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP"
     hub_commit = "cdd13bf81cf21818a01cf59a31fc116ef84326bc"
-    # Prepare once without public certs to materialize sanitized manifests, then
-    # register a certificate against the resulting digest and re-prepare.
+    # Prepare once without public certs to materialize sanitized manifests.
     _prepare_card(artifact_dir=directory, repo_id=repo_id)
-    digest = file_sha256(directory / "axquant_manifest.json")
+    development_digest = file_sha256(directory / "axquant_manifest.json")
     cert_dir = tmp_path / "certs"
-    _write_public_cert(
+    cert_path = _write_public_cert(
         cert_dir,
         repo_id=repo_id,
         hub_commit=hub_commit,
-        manifest_sha256=digest,
+        manifest_sha256=development_digest,
     )
     claim = resolve_public_certification_claim(repo_id, certifications_dir=cert_dir)
     assert claim is not None
-    assert claim.candidate_manifest_sha256 == digest
+    # The claim digest is not rendered into the card, so materialize the exact
+    # certified-card state once to derive the final candidate-manifest digest.
+    # Public preparation must be able to transition from the development card
+    # to this already-certified final state without checking the stale pre-card
+    # manifest first.
+    prospective_card = render_development_model_card(
+        directory=directory,
+        repo_id=repo_id,
+        product_class="6bit",
+        manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
+        plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
+        execution=load_model(
+            directory / "axquant_quantizer_execution.json",
+            QuantizerExecutionManifest,
+        ),
+        mtp_sidecar=load_model(
+            directory / "axquant_mtp_sidecar_manifest.json",
+            ProtectedTensorSidecarManifest,
+        ),
+        vision_sidecar=load_model(
+            directory / "axquant_vision_sidecar_manifest.json",
+            ProtectedTensorSidecarManifest,
+        ),
+        certification=claim,
+    )
+    (directory / "README.md").write_text(prospective_card, encoding="utf-8")
+    manifest_path = directory / "axquant_manifest.json"
+    manifest = load_model(manifest_path, ArtifactManifest)
+    records = {record.path: record for record in manifest.files}
+    records["README.md"] = _file(directory / "README.md", relative_to=directory)
+    manifest.files = [records[path] for path in sorted(records)]
+    write_data(manifest_path, manifest)
+    certified_digest = file_sha256(manifest_path)
+
+    # Restore the development-card input state, then point the public
+    # certificate at the certified-card manifest we just derived.
+    _prepare_card(artifact_dir=directory, repo_id=repo_id)
+    cert_payload = read_data(cert_path)
+    cert_payload["artifact"]["candidate_manifest_sha256"] = certified_digest
+    write_data(cert_path, cert_payload)
+    claim = resolve_public_certification_claim(repo_id, certifications_dir=cert_dir)
+    assert claim is not None
+    assert claim.candidate_manifest_sha256 == certified_digest
 
     prepare_development_model_card(
         artifact_dir=directory,
@@ -648,6 +689,16 @@ def test_prepare_binds_public_certificate_when_manifest_matches(
     assert "Checkpoint Tier 1 certified" in readme
     assert "df-macbookpro-m5" in readme
     assert "Development evidence — not a certified AXQuant release" not in readme
+    assert file_sha256(manifest_path) == certified_digest
+
+    # The exact same public preparation must be idempotent.
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id=repo_id,
+        use_public_certification=True,
+        certifications_dir=cert_dir,
+    )
+    assert file_sha256(manifest_path) == certified_digest
 
 
 def test_prepare_fails_closed_when_public_certificate_does_not_bind(

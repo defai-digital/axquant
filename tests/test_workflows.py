@@ -7,6 +7,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 _RELEASE = _ROOT / ".github" / "workflows" / "release.yml"
 _CI = _ROOT / ".github" / "workflows" / "ci.yml"
+_LOCAL_CI = _ROOT / "scripts" / "ci-local.sh"
 
 
 def test_release_workflow_gates_pypi_on_enable_variable() -> None:
@@ -83,6 +84,12 @@ def test_ci_workflow_asserts_install_surfaces() -> None:
     for package in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
         assert f'"{package}"' in text or f"'{package}'" in text
     assert "import mlx.core" in text
+
+
+def test_local_ci_asserts_the_same_non_mlx_package_surface() -> None:
+    text = _LOCAL_CI.read_text(encoding="utf-8")
+    for package in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
+        assert f'"{package}"' in text or f"'{package}'" in text
 
 
 def test_ci_workflow_is_retriggerable_and_cancels_superseded_runs() -> None:

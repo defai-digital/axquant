@@ -500,6 +500,65 @@ def test_deepseek_fp4_expert_weights_expand_logical_parameters(tmp_path: Path) -
     assert list(w2.shape) == [4096, 2048]
 
 
+def test_gpt_oss_native_mxfp4_inventory_reconstructs_sanitized_expert_shapes(
+    tmp_path: Path,
+) -> None:
+    """Native byte-packed blocks must describe the matrices MLX-LM sanitizes."""
+
+    model_dir = tmp_path / "gpt-oss-native-mxfp4"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["GptOssForCausalLM"],
+                "model_type": "gpt_oss",
+                "num_hidden_layers": 1,
+                "num_experts_per_tok": 1,
+                "quantization_config": {"quant_method": "mxfp4"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            # MLX-LM views each group of 16 U8 block bytes as four U32 values,
+            # then each 4-bit U32 pack represents eight logical input columns.
+            "model.layers.0.mlp.experts.gate_up_proj_blocks": np.zeros(
+                (2, 8, 2, 16), dtype=np.uint8
+            ),
+            "model.layers.0.mlp.experts.gate_up_proj_scales": np.zeros((2, 8, 2), dtype=np.uint8),
+            "model.layers.0.mlp.experts.gate_up_proj_bias": np.zeros((2, 8), dtype=np.float32),
+            "model.layers.0.mlp.experts.down_proj_blocks": np.zeros((2, 4, 2, 16), dtype=np.uint8),
+            "model.layers.0.mlp.experts.down_proj_scales": np.zeros((2, 4, 2), dtype=np.uint8),
+            "model.layers.0.mlp.experts.down_proj_bias": np.zeros((2, 4), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+
+    inventory = inspect_model(
+        model_dir,
+        model_id="openai/gpt-oss-fixture",
+        revision="source-revision",
+        allow_quantized=True,
+    )
+    by_name = {tensor.name: tensor for tensor in inventory.tensors}
+    gate_up = by_name["model.layers.0.mlp.experts.gate_up_proj_blocks"]
+    down = by_name["model.layers.0.mlp.experts.down_proj_blocks"]
+    gate_up_bias = by_name["model.layers.0.mlp.experts.gate_up_proj_bias"]
+    down_bias = by_name["model.layers.0.mlp.experts.down_proj_bias"]
+
+    assert gate_up.shape == (2, 8, 64)
+    assert gate_up.physical_elements == 2 * 8 * 2 * 16
+    assert gate_up.parameters == 2 * 8 * 64
+    assert gate_up.current_bits == 4
+    assert gate_up.quantizable is True
+    assert down.shape == (2, 4, 64)
+    assert down.parameters == 2 * 4 * 64
+    assert gate_up_bias.quantizable is False
+    assert down_bias.quantizable is False
+    assert inventory.total_parameters == (2 * 8 * 64) + (2 * 4 * 64) + (2 * 8) + (2 * 4)
+
+
 def test_deepseek_hc_learnable_scale_is_not_quant_metadata(tmp_path: Path) -> None:
     """HyperConnection/HyperHead ``*.scale`` vectors are real params, not sidecars."""
 

@@ -91,3 +91,21 @@ def test_index_loader_uses_schema_and_docs_stay_aligned() -> None:
     assert listed
     # Schema-validated load must still drive documentation SSOT.
     assert not check_documents(root=_ROOT)
+
+
+def test_index_rejects_tier2_certificate_for_a_different_artifact(tmp_path: Path) -> None:
+    stem = "qwen36-27b-axq6"
+    tier1_source = _CERT_DIR / f"{stem}-tier1.json"
+    tier2_source = _CERT_DIR / f"{stem}-tier2.json"
+    (tmp_path / f"{stem}-tier1.json").write_bytes(tier1_source.read_bytes())
+    tier2 = json.loads(tier2_source.read_text(encoding="utf-8"))
+    tier2["artifact"]["hub_repo_id"] = "AutomatosX/different-checkpoint"
+    (tmp_path / f"{stem}-tier2.json").write_text(
+        json.dumps(tier2, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / f"{stem}-tier1.md").write_text("# tier 1\n", encoding="utf-8")
+    (tmp_path / f"{stem}-tier2.md").write_text("# tier 2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Tier 2 artifact does not match Tier 1"):
+        load_public_cert_rows(tmp_path, listed_only=False)

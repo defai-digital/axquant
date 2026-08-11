@@ -1195,6 +1195,24 @@ def test_expected_converted_shapes_conserve_qwen_packed_gate_up_parameters() -> 
     assert converter._expected_converted_shapes(down, (256, 2048, 512), 6) == ((256, 2048, 96),)
 
 
+def test_native_gpt_oss_expert_biases_are_not_bound_as_quantized_weights() -> None:
+    assert converter._is_converted_quant_sidecar_name(
+        "model.layers.0.mlp.experts.gate_up_proj_bias"
+    )
+    assert converter._is_converted_quant_sidecar_name("model.layers.0.mlp.experts.down_proj_bias")
+    # Router correction bias is a real protected parameter and must retain its
+    # stricter one-to-one converted coverage.
+    assert not converter._is_converted_quant_sidecar_name(
+        "model.layers.0.ffn.gate.e_score_correction_bias"
+    )
+
+    blocks = "model.layers.0.mlp.experts.gate_up_proj_blocks"
+    assert converter._expected_converted_shapes(blocks, (2, 8, 64), 6) == (
+        (2, 4, 12),
+        (2, 4, 12),
+    )
+
+
 def test_expected_fused_shapes_conserve_nemotron_expert_parameters() -> None:
     up = "backbone.layers.1.mixer.experts.0.up_proj.weight"
     down = "backbone.layers.1.mixer.experts.0.down_proj.weight"

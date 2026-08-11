@@ -78,7 +78,7 @@ import os
 import sys
 
 venv = os.environ["AXQUANT_CI_NONMLX_VENV"]
-for name in ("mlx", "mlx_lm"):
+for name in ("mlx", "mlx_lm", "mlx_audio", "mlx_vlm"):
     if importlib.util.find_spec(name) is not None:
         sys.exit(f"non-MLX venv unexpectedly has {name}; remove {venv} and rerun")
 print("non-MLX venv clean")

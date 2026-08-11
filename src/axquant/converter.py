@@ -857,6 +857,14 @@ def _is_converted_quant_sidecar_name(tensor_path: str) -> bool:
 
     if tensor_path.endswith((".scales", ".biases")):
         return True
+    # Native OpenAI GPT-OSS fuses expert biases under underscore storage names;
+    # sanitize splits them into ordinary gate/up/down ``*.bias`` tensors. Biases
+    # stay floating-point and are covered by the whole-inventory parameter check,
+    # not the quantized logical-weight binding below.
+    if ".mlp.experts." in tensor_path and tensor_path.endswith(
+        ("gate_up_proj_bias", "down_proj_bias")
+    ):
+        return True
     if tensor_path.endswith(
         (".attn_hc.scale", ".ffn_hc.scale", ".hc_head.scale", ".hc_attn_scale", ".hc_ffn_scale")
     ) or tensor_path in {"hc_head_scale", "model.hc_head.scale"}:

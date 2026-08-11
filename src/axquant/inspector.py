@@ -317,7 +317,7 @@ def _gpt_oss_mxfp4_expert_weight(name: str, dtype: str, config: dict[str, Any]) 
         return False
     if ".mlp.experts." not in name:
         return False
-    if name.endswith(("_scales", ".scales", ".biases", ".bias")):
+    if not name.endswith((".weight", "_blocks")):
         return False
     # Native fused export before sanitize.
     if name.endswith(("_blocks",)):
@@ -508,14 +508,26 @@ def inspect_model(
                     gpt_oss_mxfp4 = _gpt_oss_mxfp4_expert_weight(name, dtype, config)
                     if fp4_expert and shape:
                         shape = (*shape[:-1], int(shape[-1]) * 2)
-                    # Keep U32 packed shapes physical: convert verification compares
-                    # packed output shapes. Logical width is recovered via
-                    # parameter counts (and by converter when re-packing).
+                    gpt_oss_native_blocks = gpt_oss_mxfp4 and name.endswith("_blocks")
+                    if gpt_oss_native_blocks:
+                        # Native OpenAI MXFP4 bodies are [..., groups, pack_bytes].
+                        # MLX-LM views every four bytes as U32, flattens the final
+                        # two axes, and interprets each U32 as eight 4-bit values.
+                        # Record the resulting logical matrix so planning and
+                        # converted-shape verification use the sanitized dimensions.
+                        if len(shape) < 2 or _DTYPE_BYTES.get(dtype) != 1 or shape[-1] % 4 != 0:
+                            raise ArtifactError(
+                                f"unsupported GPT-OSS MXFP4 block layout for {name}: "
+                                f"dtype={dtype}, shape={shape}"
+                            )
+                        shape = (*shape[:-2], shape[-2] * shape[-1] * 2)
+                    # Keep ordinary U32 affine/MXFP4 shapes physical: converter
+                    # verification recovers their logical trailing width when re-packing.
                     parameters = (
                         0
                         if quantization_metadata
                         else physical_elements * 2
-                        if fp4_expert
+                        if fp4_expert or gpt_oss_native_blocks
                         else physical_elements * 32 // current_bits
                         if dtype == "U32" and current_bits is not None
                         else physical_elements
@@ -567,9 +579,15 @@ def inspect_model(
                         and not quantization_metadata
                         and not unclassified_by_adapter
                         # Linear / SwitchLinear bias stays float under nn.quantize;
-                        # never allocate a separate plan module for *.bias tensors
-                        # (GPT-OSS expert bias is 2-D [experts, out] BF16).
+                        # never allocate a separate quantized plan module for biases.
+                        # Native GPT-OSS spells its fused biases with an underscore;
+                        # sanitize later splits gate_up_proj_bias into two *.bias tensors.
                         and not name.endswith(".bias")
+                        and not (
+                            str(config.get("model_type", "")).lower() == "gpt_oss"
+                            and ".mlp.experts." in name
+                            and name.endswith(("gate_up_proj_bias", "down_proj_bias"))
+                        )
                         # Nemotron-H MoEGate is a custom Module with a raw weight
                         # matrix and no to_quantized(); MLX-LM never visits it.
                         # Mark non-quantizable so plans stay BF16 (fail-closed

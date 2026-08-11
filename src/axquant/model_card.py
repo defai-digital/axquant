@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -277,20 +279,11 @@ def _certification_blocks(
     return banner, release_row, mtp_row
 
 
-def _verified_certification(
+def _certification_for_repo(
     *,
-    directory: Path,
     repo_id: str,
     certification: CheckpointCertificationClaim | None,
 ) -> CheckpointCertificationClaim | None:
-    """Return the claim only when it provably binds to the artifact being rendered.
-
-    The certificate names one exact artifact. Re-deriving the manifest digest
-    from disk is what makes the rendered Tier 1 statement evidence rather than
-    an assertion the caller supplied, so a claim that does not bind is an error
-    and never a silent downgrade to the development banner.
-    """
-
     if certification is None:
         return None
     if certification.hub_repo_id != repo_id:
@@ -298,7 +291,22 @@ def _verified_certification(
             "checkpoint certification names a different repository "
             f"(certificate={certification.hub_repo_id!r}, card={repo_id!r})"
         )
-    measured = file_sha256(directory / "axquant_manifest.json")
+    return certification
+
+
+def _verified_certification(
+    *,
+    directory: Path,
+    repo_id: str,
+    certification: CheckpointCertificationClaim | None,
+    manifest_sha256: str | None = None,
+) -> CheckpointCertificationClaim | None:
+    """Return the claim only when it provably binds to the rendered artifact."""
+
+    certification = _certification_for_repo(repo_id=repo_id, certification=certification)
+    if certification is None:
+        return None
+    measured = manifest_sha256 or file_sha256(directory / "axquant_manifest.json")
     if measured != certification.candidate_manifest_sha256:
         raise ArtifactError(
             "checkpoint certification does not bind this artifact: manifest SHA-256 "
@@ -307,7 +315,7 @@ def _verified_certification(
     return certification
 
 
-def render_development_model_card(
+def _render_development_model_card(
     *,
     directory: Path,
     repo_id: str,
@@ -320,7 +328,7 @@ def render_development_model_card(
     artifact_edition: int | None = None,
     certification: CheckpointCertificationClaim | None = None,
 ) -> str:
-    """Render an evidence-safe Hub card for an AXQ checkpoint.
+    """Render a Hub card after the caller has established claim provenance.
 
     Without ``certification`` the card carries the development-evidence banner.
     With one that binds to this exact artifact it states checkpoint Tier 1 and
@@ -390,8 +398,7 @@ def render_development_model_card(
     )
     methods = sorted({assignment.method.value for assignment in plan.assignments})
     conversion, calibration, mtp_evidence = _evidence_summary(manifest, plan, execution)
-    certified = _verified_certification(
-        directory=directory,
+    certified = _certification_for_repo(
         repo_id=repo_id,
         certification=certification,
     )
@@ -805,6 +812,45 @@ limitations, and responsible-use guidance.
 """
 
 
+def render_development_model_card(
+    *,
+    directory: Path,
+    repo_id: str,
+    product_class: str,
+    manifest: ArtifactManifest,
+    plan: QuantizationPlan,
+    execution: QuantizerExecutionManifest,
+    mtp_sidecar: ProtectedTensorSidecarManifest | None,
+    vision_sidecar: ProtectedTensorSidecarManifest | None,
+    artifact_edition: int | None = None,
+    certification: CheckpointCertificationClaim | None = None,
+) -> str:
+    """Render an evidence-safe Hub card for an existing AXQ checkpoint.
+
+    Direct rendering verifies a supplied certification against the manifest
+    currently on disk. Preparation uses the private renderer to calculate the
+    final README-bound manifest first, then verifies that prospective digest.
+    """
+
+    certified = _verified_certification(
+        directory=directory,
+        repo_id=repo_id,
+        certification=certification,
+    )
+    return _render_development_model_card(
+        directory=directory,
+        repo_id=repo_id,
+        product_class=product_class,
+        manifest=manifest,
+        plan=plan,
+        execution=execution,
+        mtp_sidecar=mtp_sidecar,
+        vision_sidecar=vision_sidecar,
+        artifact_edition=artifact_edition,
+        certification=certified,
+    )
+
+
 def _refresh_manifest_records(directory: Path, manifest: ArtifactManifest) -> None:
     records = {record.path: record for record in manifest.files}
     for relative in sorted(_REFRESHABLE_FILES):
@@ -817,6 +863,38 @@ def _refresh_manifest_records(directory: Path, manifest: ArtifactManifest) -> No
             sha256=file_sha256(path),
         )
     manifest.files = [records[path] for path in sorted(records)]
+
+
+def _set_rendered_text_record(
+    manifest: ArtifactManifest,
+    *,
+    relative: str,
+    rendered: str,
+) -> None:
+    payload = rendered.encode("utf-8")
+    records = {record.path: record for record in manifest.files}
+    records[relative] = ArtifactFile(
+        path=relative,
+        size_bytes=len(payload),
+        sha256=hashlib.sha256(payload).hexdigest(),
+    )
+    manifest.files = [records[path] for path in sorted(records)]
+
+
+def _serialized_manifest_sha256(manifest: ArtifactManifest) -> str:
+    """Hash the exact JSON bytes ``write_data`` will persist for a manifest."""
+
+    rendered = (
+        json.dumps(
+            manifest.model_dump(mode="json"),
+            allow_nan=False,
+            indent=2,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return hashlib.sha256(rendered.encode("utf-8")).hexdigest()
 
 
 def _assert_public_consistency(directory: Path) -> None:
@@ -974,9 +1052,8 @@ def prepare_development_model_card(
     manifest.calibration = (
         plan.calibration.model_copy(deep=True) if plan.calibration is not None else None
     )
-    # Persist the refreshed manifest before certification bind/render. Verification
-    # re-hashes axquant_manifest.json on disk; a stale on-disk copy would accept or
-    # reject the public certificate against the wrong digest.
+    # Persist sanitized metadata before rendering so every prospective file record
+    # below is based on the exact public inputs that will remain on disk.
     _refresh_manifest_records(directory, manifest)
     write_data(manifest_path, manifest)
     resolved_certification = certification
@@ -985,24 +1062,40 @@ def prepare_development_model_card(
             repo_id,
             certifications_dir=certifications_dir,
         )
-    readme = directory / "README.md"
-    write_text(
-        readme,
-        render_development_model_card(
-            directory=directory,
-            repo_id=repo_id,
-            product_class=resolved_class,
-            manifest=manifest,
-            plan=plan,
-            execution=execution,
-            mtp_sidecar=mtp_sidecar,
-            vision_sidecar=vision_sidecar,
-            artifact_edition=resolved_edition,
-            certification=resolved_certification,
-        ),
+    rendered_readme = _render_development_model_card(
+        directory=directory,
+        repo_id=repo_id,
+        product_class=resolved_class,
+        manifest=manifest,
+        plan=plan,
+        execution=execution,
+        mtp_sidecar=mtp_sidecar,
+        vision_sidecar=vision_sidecar,
+        artifact_edition=resolved_edition,
+        certification=resolved_certification,
     )
-    _refresh_manifest_records(directory, manifest)
-    write_data(manifest_path, manifest)
+    prospective_manifest = manifest.model_copy(deep=True)
+    _refresh_manifest_records(directory, prospective_manifest)
+    _set_rendered_text_record(
+        prospective_manifest,
+        relative="README.md",
+        rendered=rendered_readme,
+    )
+    prospective_sha256 = _serialized_manifest_sha256(prospective_manifest)
+    # A certification must bind the final README-aware manifest, not the stale
+    # development-card manifest that happens to be on disk before this write.
+    _verified_certification(
+        directory=directory,
+        repo_id=repo_id,
+        certification=resolved_certification,
+        manifest_sha256=prospective_sha256,
+    )
+
+    readme = directory / "README.md"
+    write_text(readme, rendered_readme)
+    write_data(manifest_path, prospective_manifest)
+    if file_sha256(manifest_path) != prospective_sha256:
+        raise ArtifactError("serialized public artifact manifest digest changed during write")
     _assert_public_consistency(directory)
     return [
         path
