@@ -542,9 +542,7 @@ def inspect_model(
                         allow_quantized
                         and quantized_source
                         and (
-                            name.endswith(".weight")
-                            or gpt_oss_mxfp4
-                            or name.endswith(("_blocks",))
+                            name.endswith(".weight") or gpt_oss_mxfp4 or name.endswith(("_blocks",))
                         )
                         and role
                         in {

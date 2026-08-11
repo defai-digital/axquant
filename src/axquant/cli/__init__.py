@@ -2441,7 +2441,7 @@ def _run(args: argparse.Namespace) -> int:
         if nested.is_dir() and (nested / "config.json").is_file():
             assistant_path = nested
 
-        result = compose_gemma4_assistant_mtp(
+        compose_result = compose_gemma4_assistant_mtp(
             Gemma4AssistantComposeRequest(
                 target_dir=Path(args.target),
                 assistant_dir=assistant_path,
@@ -2458,10 +2458,10 @@ def _run(args: argparse.Namespace) -> int:
         )
         log.info(
             "gemma4_assistant_composite_composed",
-            output=str(result.output_dir),
-            contract_sha256=result.contract_sha256,
-            base_files=len(result.base_weight_digests),
-            assistant_files=len(result.assistant_weight_digests),
+            output=str(compose_result.output_dir),
+            contract_sha256=compose_result.contract_sha256,
+            base_files=len(compose_result.base_weight_digests),
+            assistant_files=len(compose_result.assistant_weight_digests),
         )
         return 0
 

@@ -1325,9 +1325,7 @@ def _verify_converted_weights(
                 f"converted tensor {verification_name} parameter count does not match the plan: "
                 f"{actual_parameters} != {expected_group_parameters}"
             )
-        source_shapes = tuple(
-            _logical_source_shape(source_tensors[member]) for member in members
-        )
+        source_shapes = tuple(_logical_source_shape(source_tensors[member]) for member in members)
         source_shape = source_shapes[0]
         if fused is not None:
             expected_shapes = _expected_fused_converted_shapes(
