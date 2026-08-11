@@ -47,8 +47,8 @@ On `df-macstudio-m2` with **ax-engine 6.15.0**
 | Completions stream | SSE chunks + `[DONE]` |
 | Context retrieval (~1.3k tokens) | Exact `PURPLE-ELEPHANT-42` |
 
-Evidence:
-`/Volumes/Ext4T/axquant-certification/deepseek-v4-flash-axq-axengine-v6150/3bit`.
+Evidence package: durable host certification archive
+`deepseek-v4-flash-axq-axengine-v6150/3bit` (operator Ext4T tree; not in-repo).
 
 ### Scope and limits
 
