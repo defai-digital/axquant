@@ -108,10 +108,13 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     }
 
     gpt_oss_additions = {
-        # 20B 4-bit is deliberately unlisted (failed general quality Tier 1).
+        "AX-gpt-oss-20b-MLX-AXQ-4bit",
         "AX-gpt-oss-20b-MLX-AXQ-6bit",
-        "AX-gpt-oss-120b-MLX-AXQ-4bit",
         "AX-gpt-oss-120b-MLX-AXQ-6bit",
+    }
+    # 120B 4-bit failed agent-coding Tier 1; Hub pack deleted (evaluation record only).
+    gpt_oss_removed_uncertified = {
+        "AX-gpt-oss-120b-MLX-AXQ-4bit",
     }
     post_migration_additions = post_migration_additions | gpt_oss_additions
     assert len(readme_repositories) == 38
@@ -122,6 +125,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     assert set(completion_repositories) < set(readme_repositories)
     assert set(readme_repositories) - set(completion_repositories) == post_migration_additions
     assert floor_collapsed_4bit.isdisjoint(set(readme_repositories))
+    assert gpt_oss_removed_uncertified.isdisjoint(set(readme_repositories))
     assert floor_collapsed_6bit < set(readme_repositories)
     catalog_lower = readme_catalog.lower()
     assert "no distinct AXQ-4bit pack" in catalog_lower or "no 4bit sibling" in readme_catalog
@@ -207,7 +211,7 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     unlisted = [row for row in rows if not row.listed]
     unlisted_ids = {row.record_id for row in unlisted}
     assert "gpt-oss-120b-axq4" in unlisted_ids
-    assert "gpt-oss-20b-axq4" in unlisted_ids
+    assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
 
 
 def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:
@@ -295,10 +299,11 @@ def test_model_card_certification_section_matches_public_records() -> None:
     assert claim.mtp_acceleration_status == "not-certified"
 
     failed = public_row_for_repo(
-        "AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit",
+        "AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit",
         listed_only=False,
     )
     assert failed is not None
+    assert failed.listed is False
     failed_section = render_model_card_certification_section(failed)
     assert "Not certified" in failed_section
     assert claim_from_public_row(failed) is None

@@ -56,14 +56,17 @@
     "host": "df-macbookpro-m5"
   },
   "notes": [
-    "Not certified: agent-coding quality retention 0.952 < 0.98.",
-    "Size, general quality, and MLX-LM load pass; Hub pack is development evidence only.",
-    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack (CPU path used after Metal timeouts)."
+    "Not certified: agent-coding quality retention remains below 0.98 on df-macbookpro-m5.",
+    "Best architecture_prior 4.8 BPW pack: agent-coding retention ~0.952; general passed.",
+    "2026-08-11 recovery recipes (attention-8 / expert-4) did not clear the agent-coding gate; 5-bit is unsupported on the hardware profile.",
+    "Operator decision: skip further 120B 4-bit certification attempts.",
+    "Size and MLX-LM load pass; Hub pack remains development evidence only.",
+    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack."
   ],
   "public_index": {
     "display_name": "GPT-OSS 120B AXQ 4-bit",
     "sort_order": 200,
-    "edition_label": "main@`7e0f77ed`",
+    "edition_label": "evaluation@`7e0f77ed`",
     "listed": false
   }
 }

@@ -54,6 +54,12 @@ between published versions.
   `AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit`. See
   [model-fleet-v2.md](model-fleet-v2.md#floor-collapsed-4bit-retirement) and the Hub catalog
   section in the main README.
+- **GPT-OSS 120B AXQ 4-bit is not certified.** Agent-coding retention was **0.952** (&lt; 0.98
+  gate) while general quality and size passed under an `architecture_prior` MXFP4 re-pack.
+  Further recovery recipes on `df-macbookpro-m5` did not clear the gate; certification is
+  skipped. Prefer certified
+  [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit)
+  or read [gpt-oss-120b-axq4-tier1.md](certifications/gpt-oss-120b-axq4-tier1.md).
 
 ## Evidence and state
 

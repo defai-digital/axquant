@@ -65,7 +65,7 @@ claim is authorized. AX Engine work is not in scope for this certificate.
 
 ## Related
 
-- Sibling 4-bit: [gpt-oss-120b-axq4-tier1.md](gpt-oss-120b-axq4-tier1.md) (not certified — agent-coding quality)
+- Sibling 4-bit: [gpt-oss-120b-axq4-tier1.md](gpt-oss-120b-axq4-tier1.md) (**not certified** — agent-coding quality; not listed)
 - Sibling 20B 6-bit: [gpt-oss-20b-axq6-tier1.md](gpt-oss-20b-axq6-tier1.md)
 - Certification index: [README.md](README.md)
 

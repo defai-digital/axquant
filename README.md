@@ -44,6 +44,7 @@ do not edit the table cells by hand.
 | Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
+| GPT-OSS 20B AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
 | GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
@@ -60,8 +61,11 @@ while greedy exactness fails when drafts are accepted. The 12B packs were rebuil
 direct fallback until Tier 2 gates pass on a released engine.
 
 **Qwen3-Coder-Next** AXQ 4/6-bit packs are **checkpoint Tier 1 certified** on `df-macbookpro-m5`
-(non-MTP direct-decode; Tier 2 N/A). **GPT-OSS 20B and 120B** AXQ **6-bit** are checkpoint Tier 1
-certified on the same host (non-MTP; 120B via manual no-4-bit recipe). **DeepSeek V4 Flash** AXQ
+(non-MTP direct-decode; Tier 2 N/A). **GPT-OSS 20B** AXQ **4-bit and 6-bit**, and **GPT-OSS 120B**
+AXQ **6-bit**, are checkpoint Tier 1 certified on the same host (non-MTP; 120B via manual no-4-bit
+agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding retention 0.952
+&lt; 0.98) — see
+[evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md). **DeepSeek V4 Flash** AXQ
 **2/3-bit experimental** packs are **checkpoint Tier 1 certified** on `df-macstudio-m2`
 (generation viability; MTP Tier 2 not claimed). Other catalog entries remain development
 artifacts unless their own exact revision has a certificate.
@@ -159,8 +163,8 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Where it stands:** Qwen 3.6 27B dense and 35B-A3B MoE packs are checkpoint Tier 1 and
   **scoped** MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4 12B/26B/31B AXQ 4-bit
   and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified). Qwen3-Coder-Next AXQ
-  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). GPT-OSS 20B/120B AXQ 6-bit
-  are checkpoint Tier 1 certified. Product default remains direct fallback.
+  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). GPT-OSS 20B AXQ 4/6-bit and 120B AXQ 6-bit
+  are checkpoint Tier 1 certified (120B 4-bit not certified). Product default remains direct fallback.
   [Current status](#current-status) states the exact scope.
 
 ## Quickstart
@@ -291,7 +295,8 @@ command does not by itself certify an output.
 - Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
   HC learnable scale aliases no longer invent `.scales` (v1.6.1).
 - GPT-OSS 20B/120B MXFP4 sources are convertible through a fail-closed affine re-pack path;
-  the 20B and 120B AXQ 6-bit packs are checkpoint Tier 1 certified (v1.6.2).
+  the 20B 4/6-bit and 120B 6-bit packs are checkpoint Tier 1 certified (v1.6.2). GPT-OSS 120B
+  4-bit failed agent-coding quality and is not published (Hub pack removed).
 - Public certificate JSON is now validated through strict schemas and drives generated
   certification matrices; every versioned artifact schema is frozen behind canonical snapshots
   and a digest manifest (v1.6.2).
@@ -338,7 +343,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
-| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; 4-bit packs unlisted (quality) |
+| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 4/6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; **120B 4-bit not certified** (agent-coding) and Hub pack removed |
 | Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | **30B Instruct 4/6-bit Tier 1** on `df-macbookpro-m5` / AX Engine 6.15.0; 8B / ASR still development |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
@@ -392,7 +397,7 @@ release audit. The current tier matrix:
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
-| **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 6-bit Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP |
+| **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 4/6-bit + 120B 6-bit Tier 1** ([20B-4](docs/certifications/gpt-oss-20b-axq4-tier1.md), [20B-6](docs/certifications/gpt-oss-20b-axq6-tier1.md), [120B-6](docs/certifications/gpt-oss-120b-axq6-tier1.md)); **120B 4-bit not certified** ([record](docs/certifications/gpt-oss-120b-axq4-tier1.md)); no MTP |
 
 New families start at `inspect-only` until promotion evidence exists. Run
 `axquant support-matrix` and `axquant support-policy` for the registry-derived source of truth.
@@ -475,9 +480,10 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq4-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
+| [`AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | 5.055321 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq4-tier1.md)); no MTP; manual attention-8 / expert-4 recipe |
 | [`AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | 6.000037 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP; MXFP4 re-pack |
-| [`AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | 4.800010 | development (not certified — agent-coding quality); [record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
 | [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | 6.576880 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-120b-axq6-tier1.md)); no MTP; manual no-4-bit agent-coding recipe |
+| *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |

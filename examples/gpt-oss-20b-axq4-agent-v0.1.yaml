@@ -1,0 +1,57 @@
+# GPT-OSS 20B AXQ 4-bit — agent/general recovery recipe (v0.1).
+# Prior architecture_prior 4-bit failed general retention (0.893 < 0.98).
+# Raise attention to 8-bit; keep experts/MLP at 4-bit for size.
+schema_version: axquant.manual-recipe.v1
+profile: agent-coding
+target_bpw: 5.2
+default_bits: 4
+default_method: affine
+group_size: 64
+allow_unmatched_rules: false
+lm_head_min_bits: 16
+target_mode: balanced
+primary_runtime: ax-engine
+random_seed: 20260728
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Protection floor — norms stay BF16
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: Protection floor — LM head stays BF16
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Embedding floor 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Router floor 8-bit for routing stability
+  - rule_id: attention-8bit
+    roles: [attention]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Raise attention for general + coding fidelity
+  - rule_id: experts-4bit
+    roles: [expert, mlp]
+    bits: 4
+    method: affine
+    group_size: 64
+    reason: MoE experts/MLP at 4-bit product trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

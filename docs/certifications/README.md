@@ -28,6 +28,7 @@ via `tests/test_documentation.py`.
 | [Gemma 4 26B-A4B AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | [Gemma 4 31B AXQ 4-bit](gemma4-31b-axq4-tier1.md) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 31B AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
+| [GPT-OSS 20B AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | [GPT-OSS 20B AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
 | [GPT-OSS 120B AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
@@ -40,10 +41,11 @@ while formal assistant-MTP exactness remains open on a released engine.
 are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality, MLX-LM load).
 
 **GPT-OSS:** OpenAI MoE (`GptOssForCausalLM`) with **no declared MTP**. Converted from
-`mlx-community` MXFP4-Q4 via `--allow-quantized` re-pack on `df-macbookpro-m5`. Public **20B
-6-bit** and **120B 6-bit** are checkpoint Tier 1 certified (120B via manual no-4-bit /
-attention-8 recipe). The 20B 4-bit and 120B 4-bit evaluation records are unlisted (failed
-quality gates); they remain development evidence only.
+`mlx-community` MXFP4-Q4 via `--allow-quantized` re-pack on `df-macbookpro-m5`. Public
+**20B 4-bit** (manual attention-8 / expert-4 recovery), **20B 6-bit**, and **120B 6-bit**
+(manual no-4-bit / attention-8 recipe) are checkpoint Tier 1 certified. **120B 4-bit is not
+certified** (agent-coding retention best ~0.952 &lt; 0.98; further recert skipped).
+See the unlisted [evaluation record](gpt-oss-120b-axq4-tier1.md).
 
 **DeepSeek V4 Flash:** experimental **2/3-bit** AXQ packs are checkpoint Tier 1 on
 `df-macstudio-m2` (generation viability on development suites). AX Engine **6.15.0**

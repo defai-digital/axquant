@@ -1,50 +1,54 @@
 {
   "schema_version": "axquant.public-checkpoint-certification.v1",
-  "status": "not_certified",
+  "status": "certified",
   "certification_tier": "checkpoint",
-  "evaluated_at": "2026-08-10T23:35:00+00:00",
+  "certified_at": "2026-08-11T21:34:00+00:00",
   "host_id": "df-macbookpro-m5",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit",
-    "hub_commit": "8123294fe643f8213bebbcbfe27376c5c1dd4ad0",
+    "hub_commit": "0c1806bf56eeb2fb8a55ea3d47fcae63705b9828",
     "product_class": "4bit",
     "architecture": "GptOssForCausalLM",
     "source_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
     "source_revision": "f356f2747216d7e98fee755df25987459fc19089",
     "upstream_model_id": "openai/gpt-oss-20b",
-    "candidate_manifest_sha256": "b752ae93facfe4abe4c9590f0537729128b485dcf0a9c965a004a6dd7fc4a40f"
+    "candidate_manifest_sha256": "17cbf5252799486af3b64061018df212633a29a1804019ebe837c11d9e6548d0"
   },
   "plan": {
     "evidence_kind": "architecture_prior",
     "target_class": "4bit",
-    "target_bpw": 4.8,
-    "measured_total_bpw": 4.940036776666028
+    "target_bpw": 5.2,
+    "effective_bpw": 5.055283578663038,
+    "measured_total_bpw": 5.055320757387761,
+    "recipe": "examples/gpt-oss-20b-axq4-agent-v0.1.yaml"
   },
   "size": {
-    "candidate_weight_bytes": 12914958708,
-    "candidate_measured_bpw": 4.940036776666028,
+    "candidate_weight_bytes": 13216350766,
+    "candidate_measured_bpw": 5.055320757387761,
     "reference_kind": "uniform-4bit-mxfp4",
     "reference_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
     "reference_revision": "f356f2747216d7e98fee755df25987459fc19089",
     "reference_weight_bytes": 11178569159,
-    "size_ratio_vs_uniform": 1.155332003971368,
+    "size_ratio_vs_uniform": 1.1822935992983823,
     "max_size_ratio_applied": 1.2,
     "pass": true
   },
   "quality": {
     "agent-coding": {
-      "candidate_score": 0.4517543859649123,
-      "reference_score": 0.3530701754385965,
-      "retention": 1.2795031055900623,
-      "samples": 76,
-      "pass": true
+      "candidate_score": 0.37938596491228066,
+      "reference_score": 0.34868421052631576,
+      "retention": 1.0880503144654088,
+      "perplexity_ratio": 0.9789721744189829,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
     },
     "general": {
-      "candidate_score": 0.57,
-      "reference_score": 0.6381818181818182,
-      "retention": 0.8931623931623931,
-      "samples": 44,
-      "pass": false
+      "candidate_score": 0.660873440285205,
+      "reference_score": 0.6154545454545454,
+      "retention": 1.0737973180409537,
+      "perplexity_ratio": 0.9473737231289152,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
     }
   },
   "thresholds": {
@@ -53,24 +57,35 @@
   },
   "mtp_acceleration": {
     "status": "not-applicable",
-    "reason": "GPT-OSS source declares no MTP."
+    "reason": "GPT-OSS source declares no MTP; certification is non-MTP direct-decode checkpoint Tier 1 only."
   },
   "runtime": {
-    "mlx_lm": true
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "load + smoke on df-macbookpro-m5"
+    }
   },
   "toolchain": {
-    "axquant": "1.6.1",
+    "axquant": "1.6.2",
     "host": "df-macbookpro-m5"
   },
   "notes": [
-    "Not certified: general quality retention 0.893 < 0.98.",
-    "Size, agent-coding, and MLX-LM load pass; Hub pack is development evidence only.",
-    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack."
+    "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
+    "Prior architecture_prior 4-bit pack failed general retention (0.893); recert pack uses manual recipe examples/gpt-oss-20b-axq4-agent-v0.1.yaml (attention 8-bit, experts/MLP 4-bit, target BPW 5.2, measured ~5.055).",
+    "Quality retention vs matched MXFP4-Q4 reference (not BF16).",
+    "No MTP acceleration claim."
   ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "c762918f3b2f8f9b09322228932129da53316c2224a24671578149fffd1f17bf",
+    "quality-comparison-general_sha256": "06953b174217379da1ec076bf0762ea7c5435b91762b87fb1f14538a51b7b53d",
+    "candidate-size_sha256": "eef9cbfccc125a7b9b2c5c4f468fbe0752d7941b2a33abd0154ef7d44d241547",
+    "reference-size_sha256": "c56f02ced353b38b8e1e6a53afc2809753a80d5ba463478b564e4dfed74792fc",
+    "runtime-mlx-lm_sha256": "7c1944f6fe00a43cbccc8e25003a0de410d18ae6c36b79a1f2eef0fc4f2d255e"
+  },
   "public_index": {
     "display_name": "GPT-OSS 20B AXQ 4-bit",
     "sort_order": 180,
-    "edition_label": "main@`8123294f`",
-    "listed": false
+    "edition_label": "main@`0c1806bf`",
+    "listed": true
   }
 }

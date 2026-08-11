@@ -52,7 +52,7 @@ claim is authorized.
 
 ## Related
 
-- Sibling 4-bit: [gpt-oss-20b-axq4-tier1.md](gpt-oss-20b-axq4-tier1.md) (not certified — general quality)
+- Sibling 4-bit (certified recovery recipe): [gpt-oss-20b-axq4-tier1.md](gpt-oss-20b-axq4-tier1.md)
 - Certification index: [README.md](README.md)
 
 Machine-readable: [gpt-oss-20b-axq6-tier1.json](gpt-oss-20b-axq6-tier1.json).

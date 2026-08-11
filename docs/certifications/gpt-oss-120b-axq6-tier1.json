@@ -33,15 +33,19 @@
   },
   "quality": {
     "agent-coding": {
-      "candidate_score": 0.5504385964912281,
-      "reference_score": 0.5482456140350876,
-      "retention": 1.004,
+      "candidate_score": 0.537280701754386,
+      "reference_score": 0.537280701754386,
+      "retention": 1.0,
+      "perplexity_ratio": 1.083670836986846,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
       "samples": 76
     },
     "general": {
-      "candidate_score": 0.774582560296846,
-      "reference_score": 0.7744755244755246,
-      "retention": 1.0001382042659048,
+      "candidate_score": 0.7764378478664192,
+      "reference_score": 0.7762923351158645,
+      "retention": 1.0001874458164437,
+      "perplexity_ratio": 1.10796057814804,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
       "samples": 44
     }
   },
@@ -57,7 +61,7 @@
     "mlx_lm": true
   },
   "toolchain": {
-    "axquant": "1.6.1",
+    "axquant": "1.6.2",
     "host": "df-macbookpro-m5"
   },
   "notes": [
@@ -67,12 +71,20 @@
     "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack with AXQUANT_FORCE_CPU=1.",
     "Quality retention vs matched MXFP4-Q4 reference (not BF16).",
     "Measured storage-adjusted BPW ~6.58 (product name remains AXQ-6bit; higher-fidelity layout vs uniform 6.0).",
-    "No MTP acceleration claim."
+    "No MTP acceleration claim.",
+    "Re-validated on df-macbookpro-m5 2026-08-11 (agent-coding retention 1.0, general 1.0002)."
   ],
   "public_index": {
     "display_name": "GPT-OSS 120B AXQ 6-bit",
     "sort_order": 210,
     "edition_label": "main@`50537a80`",
     "listed": true
+  },
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "09adca1ad0d0ea2ba2f6a5286e184b96634180b363f1023203367790fb8132ec",
+    "quality-comparison-general_sha256": "c9ba0aaf82caf9a3eed41327e705af2261e70b02183dd4ad65e9136edaa8bce2",
+    "candidate-size_sha256": "83dfe3636e8efa0f3dd8a52750a6efb4f531dd4699d4814d40793f57d1040e82",
+    "reference-size_sha256": "f6b67bd6bc6bdc45cdcb336d3ccf05c20424dfdfe73118a70992e20b0dab2581",
+    "runtime-mlx-lm_sha256": "8d7e0ee436ecc2a1dfb9961b88707b8a0e389e3131ea1e20b5ab447e78876f64"
   }
 }
