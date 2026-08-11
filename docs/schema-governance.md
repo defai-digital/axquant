@@ -10,7 +10,7 @@ version.
 
 | Axis | Example | Meaning |
 | --- | --- | --- |
-| **Toolkit release** | `1.6.1`, tag `v1.6.1` | Pip package / GitHub Release |
+| **Toolkit release** | `1.6.2`, tag `v1.6.2` | Pip package / GitHub Release |
 | **Checkpoint edition** | Hub tag `v3`, product class `6bit` | Published model pack identity |
 | **Artifact schema** | `axquant.plan.v1` | JSON shape of a plan/manifest/certificate |
 

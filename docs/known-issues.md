@@ -1,6 +1,6 @@
 # Known issues
 
-As of AXQuant **v1.6.1**. Items here are documented limitations, not silent failures — each
+As of AXQuant **v1.6.2**. Items here are documented limitations, not silent failures — each
 fails closed or is gated behind an explicit flag. See
 [GitHub Releases](https://github.com/defai-digital/axquant/releases) for what changed
 between published versions.

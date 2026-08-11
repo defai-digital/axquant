@@ -271,7 +271,7 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.6.1` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.6.2` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
@@ -288,6 +288,14 @@ command does not by itself certify an output.
   MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
 - Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
   HC learnable scale aliases no longer invent `.scales` (v1.6.1).
+- GPT-OSS 20B/120B MXFP4 sources are convertible through a fail-closed affine re-pack path;
+  the 20B and 120B AXQ 6-bit packs are checkpoint Tier 1 certified (v1.6.2).
+- Public certificate JSON is now validated through strict schemas and drives generated
+  certification matrices; every versioned artifact schema is frozen behind canonical snapshots
+  and a digest manifest (v1.6.2).
+- Checkpoint Tier 1 and scoped MTP Tier 2 are separate claims. Exact Qwen 3.6 27B/35B-A3B
+  revisions have scoped certificates, while Gemma-4, Qwen3-Coder-Next, and experimental
+  DeepSeek V4 Flash packs publish their narrower checkpoint verdicts (v1.6.2).
 
 ### v1.5.x at a glance
 
@@ -315,7 +323,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.6.1 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.1)
+See the [v1.6.2 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.2)
 for the complete change list and download verification instructions. Past tags keep their
 notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
 tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
