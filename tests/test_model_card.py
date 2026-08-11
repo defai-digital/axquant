@@ -11,8 +11,13 @@ from safetensors.numpy import save_file
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
 from axquant.inspector import inspect_model
-from axquant.model_card import prepare_development_model_card, render_development_model_card
+from axquant.model_card import (
+    prepare_development_model_card,
+    render_development_model_card,
+    resolve_public_certification_claim,
+)
 from axquant.planner import plan_quantization
+from axquant.public_cert_index import public_row_for_repo
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
     ArtifactFile,
@@ -26,6 +31,13 @@ from axquant.schema import (
     QuantizerExecutionRecord,
 )
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
+
+
+def _prepare_card(**kwargs: object) -> list[Path]:
+    """Fixture helper: skip the live public cert index unless a test opts in."""
+
+    kwargs.setdefault("use_public_certification", False)
+    return prepare_development_model_card(**kwargs)  # type: ignore[arg-type]
 
 
 def _file(path: Path, *, relative_to: Path) -> ArtifactFile:
@@ -150,7 +162,7 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
     original_local_path = str(qwen36_model_dir.resolve())
 
-    changed = prepare_development_model_card(
+    changed = _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
     )
@@ -229,7 +241,7 @@ def test_model_card_states_tier_1_without_implying_an_acceleration_claim(
     the certificate itself records for this pack.
     """
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
     )
@@ -251,7 +263,7 @@ def test_model_card_renders_a_scoped_acceleration_status_from_the_certificate(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
     )
@@ -281,7 +293,7 @@ def test_model_card_refuses_a_certificate_that_does_not_bind_the_artifact(
     repository and a stale digest must fail closed.
     """
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
     )
@@ -314,7 +326,7 @@ def test_development_model_card_rejects_product_class_mismatch(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
 
     with pytest.raises(ArtifactError, match="product class"):
-        prepare_development_model_card(
+        _prepare_card(
             artifact_dir=directory,
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
             product_class="4bit",
@@ -326,7 +338,7 @@ def test_development_model_card_supports_versioned_fleet_names(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
         product_class="6bit",
@@ -343,7 +355,7 @@ def test_development_model_card_marks_v2_at_stable_repository_name(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
         product_class="6bit",
@@ -366,7 +378,7 @@ def test_development_model_card_rejects_conflicting_artifact_edition(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
 
     with pytest.raises(ArtifactError, match="edition does not match"):
-        prepare_development_model_card(
+        _prepare_card(
             artifact_dir=directory,
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
             artifact_edition=3,
@@ -378,7 +390,7 @@ def test_embedding_model_card_links_4bit_and_8bit_v2_siblings(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2",
         product_class="4bit",
@@ -395,7 +407,7 @@ def test_embedding_model_card_links_stable_4bit_and_8bit_siblings(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit",
         product_class="4bit",
@@ -414,7 +426,7 @@ def test_floor_collapsed_model_card_omits_4bit_sibling_link(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP",
         product_class="6bit",
@@ -439,7 +451,7 @@ def test_development_model_card_does_not_claim_ax_engine_without_native_manifest
         tmp_path,
         include_native_manifest=False,
     )
-    prepare_development_model_card(
+    _prepare_card(
         artifact_dir=directory,
         repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP",
         product_class="6bit",
@@ -537,7 +549,7 @@ def test_development_model_card_rejects_stale_execution_before_mutating(
     write_data(execution_path, execution)
 
     with pytest.raises(ArtifactError, match="execution does not bind"):
-        prepare_development_model_card(
+        _prepare_card(
             artifact_dir=directory,
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
         )
@@ -554,7 +566,132 @@ def test_development_model_card_rejects_symlinked_artifact_root(
     linked.symlink_to(directory, target_is_directory=True)
 
     with pytest.raises(ArtifactError, match="must not be a symlink"):
-        prepare_development_model_card(
+        _prepare_card(
             artifact_dir=linked,
             repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
         )
+
+
+def _write_public_cert(
+    cert_dir: Path,
+    *,
+    repo_id: str,
+    hub_commit: str,
+    manifest_sha256: str,
+    status: str = "certified",
+) -> Path:
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    stem = "fixture-axq6-tier1"
+    path = cert_dir / f"{stem}.json"
+    payload = {
+        "schema_version": "axquant.public-checkpoint-certification.v1",
+        "status": status,
+        "certification_tier": "checkpoint",
+        "certified_at": "2026-08-08T21:20:00+00:00",
+        "host_id": "df-macbookpro-m5",
+        "artifact": {
+            "hub_repo_id": repo_id,
+            "hub_commit": hub_commit,
+            "product_class": "6bit",
+            "candidate_manifest_sha256": manifest_sha256,
+            "source_model_id": "Qwen/Qwen3.6-27B",
+            "source_revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        },
+        "plan": {"evidence_kind": "architecture_prior"},
+        "size": {"pass": True},
+        "quality": {"general": {"retention": 1.0}},
+        "thresholds": {"minimum_quality_retention": 0.98},
+        "mtp_acceleration": {"status": "not-certified", "reason": "fixture"},
+        "toolchain": {"axquant": "1.6.1"},
+        "public_index": {
+            "display_name": "Fixture AXQ 6-bit",
+            "sort_order": 1,
+            "edition_label": "main@`cdd13bf8`",
+            "listed": True,
+        },
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (cert_dir / f"{stem}.md").write_text("# fixture cert\n", encoding="utf-8")
+    return path
+
+
+def test_prepare_binds_public_certificate_when_manifest_matches(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    # Refresh public file digests the way prepare does before cert bind.
+    repo_id = "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP"
+    hub_commit = "cdd13bf81cf21818a01cf59a31fc116ef84326bc"
+    # Prepare once without public certs to materialize sanitized manifests, then
+    # register a certificate against the resulting digest and re-prepare.
+    _prepare_card(artifact_dir=directory, repo_id=repo_id)
+    digest = file_sha256(directory / "axquant_manifest.json")
+    cert_dir = tmp_path / "certs"
+    _write_public_cert(
+        cert_dir,
+        repo_id=repo_id,
+        hub_commit=hub_commit,
+        manifest_sha256=digest,
+    )
+    claim = resolve_public_certification_claim(repo_id, certifications_dir=cert_dir)
+    assert claim is not None
+    assert claim.candidate_manifest_sha256 == digest
+
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id=repo_id,
+        use_public_certification=True,
+        certifications_dir=cert_dir,
+    )
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "Checkpoint Tier 1 certified" in readme
+    assert "df-macbookpro-m5" in readme
+    assert "Development evidence — not a certified AXQuant release" not in readme
+
+
+def test_prepare_fails_closed_when_public_certificate_does_not_bind(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    repo_id = "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP"
+    cert_dir = tmp_path / "certs"
+    _write_public_cert(
+        cert_dir,
+        repo_id=repo_id,
+        hub_commit="cdd13bf81cf21818a01cf59a31fc116ef84326bc",
+        manifest_sha256="0" * 64,
+    )
+    with pytest.raises(ArtifactError, match="does not bind this artifact"):
+        prepare_development_model_card(
+            artifact_dir=directory,
+            repo_id=repo_id,
+            use_public_certification=True,
+            certifications_dir=cert_dir,
+        )
+
+
+def test_prepare_stays_development_without_public_certificate(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    cert_dir = tmp_path / "empty-certs"
+    cert_dir.mkdir()
+    prepare_development_model_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        use_public_certification=True,
+        certifications_dir=cert_dir,
+    )
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "Development evidence — not a certified AXQuant release" in readme
+    assert (
+        public_row_for_repo(
+            "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+            cert_dir=cert_dir,
+            listed_only=False,
+        )
+        is None
+    )

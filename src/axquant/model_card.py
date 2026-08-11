@@ -6,6 +6,7 @@ from pathlib import Path
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
 from axquant.identity import same_model_identity
+from axquant.public_cert_index import claim_from_public_row, public_row_for_repo
 from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
@@ -864,18 +865,45 @@ def _assert_public_consistency(directory: Path) -> None:
             raise ArtifactError(f"public artifact manifest contains a stale record for {relative}")
 
 
+def resolve_public_certification_claim(
+    repo_id: str,
+    *,
+    certifications_dir: str | Path | None = None,
+) -> CheckpointCertificationClaim | None:
+    """Load a Hub claim from the public certificate SSOT, if one exists.
+
+    Returns ``None`` when there is no public record for ``repo_id``, or when the
+    record is not checkpoint Tier 1 certified. Callers that bind the claim to an
+    on-disk artifact must still verify the candidate manifest digest.
+    """
+
+    cert_dir = Path(certifications_dir).expanduser() if certifications_dir is not None else None
+    row = public_row_for_repo(repo_id, cert_dir=cert_dir, listed_only=False)
+    if row is None:
+        return None
+    return claim_from_public_row(row)
+
+
 def prepare_development_model_card(
     *,
     artifact_dir: str | Path,
     repo_id: str,
     product_class: str | None = None,
     artifact_edition: int | None = None,
+    certification: CheckpointCertificationClaim | None = None,
+    use_public_certification: bool = True,
+    certifications_dir: str | Path | None = None,
 ) -> list[Path]:
     """Sanitize public provenance and materialize a detailed development model card.
 
     The operation is suitable for a complete artifact directory or a metadata-only staging
     directory. Existing weight-file records are preserved without rehashing multi-gigabyte shards;
     every metadata file changed here is re-bound in ``axquant_manifest.json``.
+
+    When ``use_public_certification`` is true (default) and ``certification`` is omitted, the
+    public certificate index is consulted for ``repo_id``. A Tier 1 certified record that binds
+    this artifact's ``axquant_manifest.json`` digest upgrades the card; a certified record that
+    does not bind fails closed. Uncertified or missing records keep the development banner.
     """
 
     directory_input = Path(artifact_dir).expanduser()
@@ -947,6 +975,12 @@ def prepare_development_model_card(
         plan.calibration.model_copy(deep=True) if plan.calibration is not None else None
     )
     _refresh_manifest_records(directory, manifest)
+    resolved_certification = certification
+    if resolved_certification is None and use_public_certification:
+        resolved_certification = resolve_public_certification_claim(
+            repo_id,
+            certifications_dir=certifications_dir,
+        )
     readme = directory / "README.md"
     write_text(
         readme,
@@ -960,6 +994,7 @@ def prepare_development_model_card(
             mtp_sidecar=mtp_sidecar,
             vision_sidecar=vision_sidecar,
             artifact_edition=resolved_edition,
+            certification=resolved_certification,
         ),
     )
     _refresh_manifest_records(directory, manifest)
