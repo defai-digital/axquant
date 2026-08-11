@@ -1,37 +1,48 @@
 {
   "schema_version": "axquant.public-checkpoint-certification.v1",
-  "status": "not_certified",
+  "status": "certified",
   "certification_tier": "checkpoint",
-  "evaluated_at": "2026-08-11T00:20:00+00:00",
+  "certified_at": "2026-08-11T03:05:00+00:00",
   "host_id": "df-macbookpro-m5",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit",
-    "hub_commit": "6b2b4c1be8b00db91000565024bacf861d09546c",
+    "hub_commit": "50537a80011ed2a2d51ffe43fe9b14b864d4d7c1",
     "product_class": "6bit",
     "architecture": "GptOssForCausalLM",
     "source_model_id": "mlx-community/gpt-oss-120b-MXFP4-Q4",
     "source_revision": "bce781bef0f2fc85ed4e575af74054f5aad73ddd",
-    "upstream_model_id": "openai/gpt-oss-120b"
+    "upstream_model_id": "openai/gpt-oss-120b",
+    "candidate_manifest_sha256": "0d821fa1ddc002bad95ea29bbd1c0f0209b69ee1503cffa8fd968bff0e2d1de4"
   },
   "plan": {
     "evidence_kind": "architecture_prior",
-    "target_class": "6bit",
-    "target_bpw": 6.0,
-    "measured_total_bpw": 6.000009063970246
+    "target_class": "6p6bpw",
+    "target_bpw": 6.6,
+    "measured_total_bpw": 6.576879801034742
   },
   "size": {
-    "size_ratio_vs_uniform": 1.4057744090142397,
+    "candidate_weight_bytes": 96046415086,
+    "candidate_measured_bpw": 6.576879801034742,
+    "reference_kind": "uniform-4bit-mxfp4",
+    "reference_model_id": "mlx-community/gpt-oss-120b-MXFP4-Q4",
+    "reference_revision": "bce781bef0f2fc85ed4e575af74054f5aad73ddd",
+    "reference_weight_bytes": 62330057589,
+    "size_ratio_vs_uniform": 1.540932558081741,
     "max_size_ratio_applied": 1.55,
     "pass": true
   },
   "quality": {
     "agent-coding": {
-      "retention": 0.9560000000000002,
-      "pass": false
+      "candidate_score": 0.5504385964912281,
+      "reference_score": 0.5482456140350876,
+      "retention": 1.004,
+      "samples": 76
     },
     "general": {
-      "retention": 1.002437923250564,
-      "pass": true
+      "candidate_score": 0.774582560296846,
+      "reference_score": 0.7744755244755246,
+      "retention": 1.0001382042659048,
+      "samples": 44
     }
   },
   "thresholds": {
@@ -40,7 +51,7 @@
   },
   "mtp_acceleration": {
     "status": "not-applicable",
-    "reason": "GPT-OSS source declares no MTP."
+    "reason": "GPT-OSS source declares no MTP; certification is non-MTP direct-decode checkpoint Tier 1 only."
   },
   "runtime": {
     "mlx_lm": true
@@ -50,14 +61,18 @@
     "host": "df-macbookpro-m5"
   },
   "notes": [
-    "Not certified: agent-coding quality retention 0.956 < 0.98.",
-    "Size, general quality, and MLX-LM load pass; Hub pack is development evidence only.",
-    "Converted with AXQUANT_FORCE_CPU=1 after Metal GPU timeouts on large re-pack."
+    "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
+    "plan-manual agent-coding recipe (examples/gpt-oss-120b-axq6-agent-v0.1.yaml): experts 6-bit, attention 8-bit, no 4-bit trunk; target_bpw 6.6.",
+    "architecture_prior prior failed agent-coding retention (0.956); manual no-4-bit layout clears the gate.",
+    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack with AXQUANT_FORCE_CPU=1.",
+    "Quality retention vs matched MXFP4-Q4 reference (not BF16).",
+    "Measured storage-adjusted BPW ~6.58 (product name remains AXQ-6bit; higher-fidelity layout vs uniform 6.0).",
+    "No MTP acceleration claim."
   ],
   "public_index": {
     "display_name": "GPT-OSS 120B AXQ 6-bit",
     "sort_order": 180,
-    "edition_label": "main@`6b2b4c1b`",
+    "edition_label": "main@`50537a80`",
     "listed": true
   }
 }

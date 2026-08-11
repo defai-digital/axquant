@@ -106,14 +106,14 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     }
 
     gpt_oss_additions = {
-        "AX-gpt-oss-20b-MLX-AXQ-4bit",
+        # 20B 4-bit is deliberately unlisted (failed general quality Tier 1).
         "AX-gpt-oss-20b-MLX-AXQ-6bit",
         "AX-gpt-oss-120b-MLX-AXQ-4bit",
         "AX-gpt-oss-120b-MLX-AXQ-6bit",
     }
     post_migration_additions = post_migration_additions | gpt_oss_additions
-    assert len(readme_repositories) == 37
-    assert len(set(readme_repositories)) == 37
+    assert len(readme_repositories) == 36
+    assert len(set(readme_repositories)) == 36
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -203,7 +203,9 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert all(row.tier2_status == "not_certified" for row in gemma)
     # Unlisted evaluation records remain loadable without entering the public matrix.
     unlisted = [row for row in rows if not row.listed]
-    assert any(row.record_id == "gpt-oss-120b-axq4" for row in unlisted)
+    unlisted_ids = {row.record_id for row in unlisted}
+    assert "gpt-oss-120b-axq4" in unlisted_ids
+    assert "gpt-oss-20b-axq4" in unlisted_ids
 
 
 def test_certification_docs_match_certificate_json_exactly() -> None:

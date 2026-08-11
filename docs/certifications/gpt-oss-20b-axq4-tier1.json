@@ -71,6 +71,6 @@
     "display_name": "GPT-OSS 20B AXQ 4-bit",
     "sort_order": 140,
     "edition_label": "main@`8123294f`",
-    "listed": true
+    "listed": false
   }
 }
