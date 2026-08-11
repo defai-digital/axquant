@@ -4,10 +4,16 @@ This directory records public, revision-bound AXQuant certificates. A checkpoint
 covers the exact artifact named by its record; it does not promote sibling models, other
 revisions, or unscoped runtime claims.
 
+The index table below is **generated** from the `*-tier1.json` / `*-tier2.json` records
+(`public_index` fields plus verdicts). Do not edit the table by hand — update the certificate
+JSON and run `python scripts/render_certification_docs.py --write`. CI enforces exact agreement
+via `tests/test_documentation.py`.
+
+<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
 | --- | --- | --- | --- |
 | [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
-| [Qwen 3.6 27B AXQ 4-bit (5.6 BPW)](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
+| [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
 | [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
 | [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
 | [Gemma 4 12B AXQ 4-bit](gemma4-12b-axq4-tier1.md) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) |
@@ -22,6 +28,7 @@ revisions, or unscoped runtime claims.
 | [GPT-OSS 20B AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`8123294f` | [Not Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+<!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP
 Hub packs (12B / 26B-A4B / 31B). **Tier 2 (MTP acceleration) is not certified** on any Gemma pack

@@ -114,5 +114,11 @@
     "model-00004-of-00004.safetensors": "96a459e4da05ba4943d6b7e9f67e860482b06d514cf46b6cda55c57193a22d80",
     "mtp.safetensors": "22c8d2b0b639a2615df0ce0e3b100fb529184b98098c46ed74402f01d9128d78",
     "vision.safetensors": "32396b51006e25e7aea94d287b5d81d4044fa910a40aa558db55a9f273895c00"
+  },
+  "public_index": {
+    "display_name": "Qwen 3.6 27B AXQ 6-bit",
+    "sort_order": 10,
+    "edition_label": "v3",
+    "listed": true
   }
 }

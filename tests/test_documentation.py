@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 from pathlib import Path
 
 from axquant.cli._parser import _build_parser
+from axquant.public_cert_index import (
+    BEGIN_MARKER,
+    END_MARKER,
+    check_documents,
+    claim_from_public_row,
+    load_public_cert_rows,
+    public_row_for_repo,
+    render_index_matrix,
+    render_model_card_certification_section,
+    render_readme_matrix,
+    render_release_matrix,
+)
 
 _ROOT = Path(__file__).resolve().parents[1]
 _PUBLIC_DOCS = ("README.md", "CONTRIBUTING.md", "THIRD_PARTY_NOTICES.md")
@@ -91,8 +104,14 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit",
     }
 
-    assert len(readme_repositories) == 33
-    assert len(set(readme_repositories)) == 33
+    gpt_oss_additions = {
+        "AX-gpt-oss-20b-MLX-AXQ-4bit",
+        "AX-gpt-oss-20b-MLX-AXQ-6bit",
+        "AX-gpt-oss-120b-MLX-AXQ-4bit",
+    }
+    post_migration_additions = post_migration_additions | gpt_oss_additions
+    assert len(readme_repositories) == 36
+    assert len(set(readme_repositories)) == 36
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -149,3 +168,115 @@ def test_public_markdown_local_links_resolve() -> None:
             if not (source.parent / target).is_file():
                 missing.append(f"{relative}: {target}")
     assert not missing
+
+
+def _extract_marked_matrix(text: str) -> str:
+    pattern = re.compile(
+        re.escape(BEGIN_MARKER) + r"\n(.*?)\n" + re.escape(END_MARKER),
+        flags=re.DOTALL,
+    )
+    match = pattern.search(text)
+    assert match is not None, "missing certification matrix markers"
+    return match.group(1).strip() + "\n"
+
+
+def test_public_certification_json_is_loadable_ssot() -> None:
+    """Every checkpoint Tier 1 JSON must load with a companion markdown file."""
+
+    rows = load_public_cert_rows(listed_only=False)
+    assert rows, "expected at least one public certification record"
+    listed = [row for row in rows if row.listed]
+    assert listed, "expected listed public certification rows"
+    # Gemma 4 4-bit and 6-bit packs are both Tier 1 certified (not 6-bit-only).
+    gemma = [row for row in listed if row.record_id.startswith("gemma4-")]
+    assert {row.record_id for row in gemma} == {
+        "gemma4-12b-axq4",
+        "gemma4-12b-axq6",
+        "gemma4-26b-a4b-axq4",
+        "gemma4-26b-a4b-axq6",
+        "gemma4-31b-axq4",
+        "gemma4-31b-axq6",
+    }
+    assert all(row.tier1_status == "certified" for row in gemma)
+    assert all(row.tier2_status == "not_certified" for row in gemma)
+    # Unlisted evaluation records remain loadable without entering the public matrix.
+    unlisted = [row for row in rows if not row.listed]
+    assert any(row.record_id == "gpt-oss-120b-axq4" for row in unlisted)
+
+
+def test_certification_docs_match_certificate_json_exactly() -> None:
+    """README, cert index, and release matrix must equal the generated SSOT output."""
+
+    messages = check_documents(root=_ROOT)
+    assert not messages, "\n".join(messages)
+
+    rows = load_public_cert_rows()
+    readme_body = _extract_marked_matrix(_read("README.md"))
+    index_body = _extract_marked_matrix(_read("docs/certifications/README.md"))
+    assert readme_body == render_readme_matrix(rows)
+    assert index_body == render_index_matrix(rows)
+    assert _read("docs/releases/certification-matrix.md") == render_release_matrix(rows)
+
+    # Display names and Tier 1 verdicts agree across every generated surface.
+    def _data_rows(matrix: str) -> list[str]:
+        names: list[str] = []
+        for line in matrix.splitlines():
+            if not line.startswith("| "):
+                continue
+            if (
+                line.startswith("| ---")
+                or line.startswith("| Pack")
+                or line.startswith("| Checkpoint")
+            ):
+                continue
+            cell = line.split("|", 2)[1].strip()
+            names.append(re.sub(r"^\[([^\]]+)\]\([^)]+\)$", r"\1", cell))
+        return names
+
+    assert _data_rows(readme_body) == [row.display_name for row in rows]
+    assert _data_rows(index_body) == [row.display_name for row in rows]
+    for row in rows:
+        assert f"| {row.display_name} |" in readme_body
+        assert f"[{row.tier1_label}](docs/certifications/{row.tier1_stem}.md)" in readme_body
+
+
+def test_model_card_certification_section_matches_public_records() -> None:
+    """Hub card certification prose is derived from the same certificate rows."""
+
+    certified = public_row_for_repo(
+        "AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP",
+        listed_only=False,
+    )
+    assert certified is not None
+    section = render_model_card_certification_section(certified)
+    assert "Checkpoint Tier 1 certified" in section
+    assert certified.host_id in section
+    assert "not certified" in section.lower()  # Tier 2 / MTP still open
+    claim = claim_from_public_row(certified)
+    assert claim is not None
+    assert claim.hub_repo_id == certified.hub_repo_id
+    assert claim.hub_commit == certified.hub_commit
+    assert claim.candidate_manifest_sha256 == certified.candidate_manifest_sha256
+    assert claim.mtp_acceleration_status == "not-certified"
+
+    failed = public_row_for_repo(
+        "AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit",
+        listed_only=False,
+    )
+    assert failed is not None
+    failed_section = render_model_card_certification_section(failed)
+    assert "Not certified" in failed_section
+    assert claim_from_public_row(failed) is None
+
+
+def test_every_listed_certificate_has_public_index_metadata() -> None:
+    cert_dir = _ROOT / "docs" / "certifications"
+    for path in sorted(cert_dir.glob("*-tier1.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        block = data.get("public_index")
+        assert isinstance(block, dict), f"{path.name}: missing public_index"
+        assert isinstance(block.get("display_name"), str) and block["display_name"].strip()
+        assert type(block.get("sort_order")) is int
+        assert type(block.get("listed")) is bool
+        if block["listed"]:
+            assert isinstance(block.get("edition_label"), str) and block["edition_label"].strip()

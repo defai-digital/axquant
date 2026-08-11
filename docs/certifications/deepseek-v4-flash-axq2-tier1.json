@@ -70,5 +70,11 @@
     "Product classes remain 2bit-experimental / 3bit-experimental; measured BPW is higher due to protected tensors and MTP.",
     "Quality scores are generation-viability on development agent-coding (76) and general (44) suites, not matched-BF16 retention.",
     "AX Engine 2/3-bit loads remain experimental-gated."
-  ]
+  ],
+  "public_index": {
+    "display_name": "DeepSeek V4 Flash AXQ 2-bit (exp.)",
+    "sort_order": 150,
+    "edition_label": "main@`e22b117a`",
+    "listed": true
+  }
 }

@@ -9,6 +9,7 @@ git tag as the GitHub Release body and **fails if it is missing or empty**.
 | Path | Role |
 | --- | --- |
 | `docs/releases/<X.Y.Z>.md` | Notes for tag `v<X.Y.Z>` (same version as `pyproject.toml`) |
+| [`docs/releases/certification-matrix.md`](certification-matrix.md) | Generated public certification matrix (from `docs/certifications/*.json`) |
 | [GitHub Releases](https://github.com/defai-digital/axquant/releases) | Public history for every published tag |
 
 Do **not** dump commit messages. Write short Fixed / Changed / Added bullets an

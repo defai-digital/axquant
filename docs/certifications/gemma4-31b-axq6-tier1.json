@@ -50,7 +50,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24\u20131.38\u00d7) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
+    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24–1.38×) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
   },
   "toolchain": {
     "axquant": "1.6.1",
@@ -69,5 +69,11 @@
     "runtime-mlx-lm_sha256": "0d04e428f341f936d88d71c67cf9fa5d41d9704acbd55982da74a3a891c407c0",
     "runtime-ax-engine_sha256": "a0cf2a9dfc8b85c96e1cf4a40fb1ff05236a846c5d826b6adb21499c289a679d"
   },
-  "quality_bound_pre_fuse_revision": "a0a0fe3ad14f366646df00251c22377326d7512f"
+  "quality_bound_pre_fuse_revision": "a0a0fe3ad14f366646df00251c22377326d7512f",
+  "public_index": {
+    "display_name": "Gemma 4 31B AXQ 6-bit",
+    "sort_order": 100,
+    "edition_label": "main@`f024707a`",
+    "listed": true
+  }
 }

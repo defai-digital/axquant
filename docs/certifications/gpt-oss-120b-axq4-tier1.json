@@ -1,0 +1,69 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-10T23:52:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit",
+    "hub_commit": "7e0f77ed63c0fb83d0fcc57d84b3018f269ec8f3",
+    "product_class": "4bit",
+    "architecture": "GptOssForCausalLM",
+    "source_model_id": "mlx-community/gpt-oss-120b-MXFP4-Q4",
+    "source_revision": "bce781bef0f2fc85ed4e575af74054f5aad73ddd",
+    "upstream_model_id": "openai/gpt-oss-120b"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "target_bpw": 4.8,
+    "measured_total_bpw": 4.800009864578611
+  },
+  "size": {
+    "candidate_weight_bytes": 70097638062,
+    "candidate_measured_bpw": 4.800009864578611,
+    "reference_kind": "uniform-4bit-mxfp4",
+    "reference_model_id": "mlx-community/gpt-oss-120b-MXFP4-Q4",
+    "reference_revision": "bce781bef0f2fc85ed4e575af74054f5aad73ddd",
+    "reference_weight_bytes": 62330057589,
+    "size_ratio_vs_uniform": 1.1246201395195057,
+    "max_size_ratio_applied": 1.2,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "retention": 0.9520000000000001,
+      "pass": false
+    },
+    "general": {
+      "retention": 1.002437923250564,
+      "pass": true
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.2
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "GPT-OSS source declares no MTP."
+  },
+  "runtime": {
+    "mlx_lm": true
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Not certified: agent-coding quality retention 0.952 < 0.98.",
+    "Size, general quality, and MLX-LM load pass; Hub pack is development evidence only.",
+    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack (CPU path used after Metal timeouts)."
+  ],
+  "public_index": {
+    "display_name": "GPT-OSS 120B AXQ 4-bit",
+    "sort_order": 170,
+    "edition_label": "main@`7e0f77ed`",
+    "listed": false
+  }
+}

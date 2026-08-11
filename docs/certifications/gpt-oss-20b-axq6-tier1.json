@@ -1,0 +1,72 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-10T23:35:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit",
+    "hub_commit": "a04eea371082f799f1c6aa76f6afceb615334627",
+    "product_class": "6bit",
+    "architecture": "GptOssForCausalLM",
+    "source_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
+    "source_revision": "f356f2747216d7e98fee755df25987459fc19089",
+    "upstream_model_id": "openai/gpt-oss-20b",
+    "candidate_manifest_sha256": "cc501a7b093f40acf67374db5e8f46a292c39f3e93cddf47c4ecde44c737189e"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "measured_total_bpw": 6.000036707478516
+  },
+  "size": {
+    "candidate_weight_bytes": 15686163854,
+    "candidate_measured_bpw": 6.000036707478516,
+    "reference_kind": "uniform-4bit-mxfp4",
+    "reference_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
+    "reference_revision": "f356f2747216d7e98fee755df25987459fc19089",
+    "reference_weight_bytes": 11178569159,
+    "size_ratio_vs_uniform": 1.4032353900472925,
+    "max_size_ratio_applied": 1.55,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.3618421052631579,
+      "reference_score": 0.3530701754385965,
+      "retention": 1.0248447204968945,
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 0.6381461675579323,
+      "reference_score": 0.6381818181818182,
+      "retention": 0.9999441371990392,
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.55
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "GPT-OSS source declares no MTP; certification is non-MTP direct-decode checkpoint Tier 1 only."
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
+    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack.",
+    "Quality retention vs matched MXFP4-Q4 reference (not BF16).",
+    "No MTP acceleration claim."
+  ],
+  "public_index": {
+    "display_name": "GPT-OSS 20B AXQ 6-bit",
+    "sort_order": 130,
+    "edition_label": "main@`a04eea37`",
+    "listed": true
+  }
+}

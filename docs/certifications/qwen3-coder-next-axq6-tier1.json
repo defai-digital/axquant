@@ -75,5 +75,11 @@
     "candidate-size_sha256": "0d556dad2052e8be80106671b9e6062a046eb44c0bea163bc04462aa772d91e9",
     "reference-size_sha256": "172826e3b0820d57a032c329ee5587b3d42ff522ee926ba49b8045b499338909",
     "runtime-mlx-lm_sha256": "2bc8ee952ba2e495ad581ba0c91ec29648854d4e378c8d961fd869d36906722b"
+  },
+  "public_index": {
+    "display_name": "Qwen3-Coder-Next AXQ 6-bit",
+    "sort_order": 120,
+    "edition_label": "main@`c6f3ae55`",
+    "listed": true
   }
 }

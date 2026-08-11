@@ -1,0 +1,76 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-10T23:35:00+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit",
+    "hub_commit": "8123294fe643f8213bebbcbfe27376c5c1dd4ad0",
+    "product_class": "4bit",
+    "architecture": "GptOssForCausalLM",
+    "source_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
+    "source_revision": "f356f2747216d7e98fee755df25987459fc19089",
+    "upstream_model_id": "openai/gpt-oss-20b",
+    "candidate_manifest_sha256": "b752ae93facfe4abe4c9590f0537729128b485dcf0a9c965a004a6dd7fc4a40f"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "target_bpw": 4.8,
+    "measured_total_bpw": 4.940036776666028
+  },
+  "size": {
+    "candidate_weight_bytes": 12914958708,
+    "candidate_measured_bpw": 4.940036776666028,
+    "reference_kind": "uniform-4bit-mxfp4",
+    "reference_model_id": "mlx-community/gpt-oss-20b-MXFP4-Q4",
+    "reference_revision": "f356f2747216d7e98fee755df25987459fc19089",
+    "reference_weight_bytes": 11178569159,
+    "size_ratio_vs_uniform": 1.155332003971368,
+    "max_size_ratio_applied": 1.2,
+    "pass": true
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.4517543859649123,
+      "reference_score": 0.3530701754385965,
+      "retention": 1.2795031055900623,
+      "samples": 76,
+      "pass": true
+    },
+    "general": {
+      "candidate_score": 0.57,
+      "reference_score": 0.6381818181818182,
+      "retention": 0.8931623931623931,
+      "samples": 44,
+      "pass": false
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.2
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "GPT-OSS source declares no MTP."
+  },
+  "runtime": {
+    "mlx_lm": true
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "host": "df-macbookpro-m5"
+  },
+  "notes": [
+    "Not certified: general quality retention 0.893 < 0.98.",
+    "Size, agent-coding, and MLX-LM load pass; Hub pack is development evidence only.",
+    "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack."
+  ],
+  "public_index": {
+    "display_name": "GPT-OSS 20B AXQ 4-bit",
+    "sort_order": 140,
+    "edition_label": "main@`8123294f`",
+    "listed": true
+  }
+}

@@ -22,7 +22,10 @@ tensors, and multi-token-prediction (MTP) weights.
 ([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
 Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id `df-macbookpro-m5`).
 Full index and Hub commits: [docs/certifications/](docs/certifications/README.md).
+The matrix is generated from certificate JSON (`python scripts/render_certification_docs.py --write`);
+do not edit the table cells by hand.
 
+<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
 | Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
@@ -41,6 +44,7 @@ Full index and Hub commits: [docs/certifications/](docs/certifications/README.md
 | GPT-OSS 20B AXQ 4-bit | [Not Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+<!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on
