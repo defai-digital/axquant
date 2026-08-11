@@ -8,16 +8,21 @@ cells that disagree with those records are a documentation bug.
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 from axquant.schema.certification import CheckpointCertificationClaim
-
-_CHECKPOINT_SCHEMA = "axquant.public-checkpoint-certification.v1"
-_MTP_SCHEMA = "axquant.public-mtp-acceleration-certification.v1"
+from axquant.schema.public_certification import (
+    CHECKPOINT_SCHEMA_VERSION,
+    MTP_SCHEMA_VERSION,
+    PublicCheckpointCertification,
+    PublicMtpAccelerationCertification,
+    load_public_checkpoint_certification,
+    load_public_mtp_acceleration_certification,
+)
 
 BEGIN_MARKER = "<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->"
 END_MARKER = "<!-- END:AXQUANT_CERTIFICATION_MATRIX -->"
@@ -83,104 +88,25 @@ def certifications_dir(root: Path | None = None) -> Path:
     return (root or _REPO_ROOT) / "docs" / "certifications"
 
 
-def _load_json(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError(f"{path}: certification record must be a JSON object")
-    return data
-
-
-def _require_str(data: dict[str, Any], key: str, *, context: str) -> str:
-    value = data.get(key)
-    if not isinstance(value, str) or not value:
-        raise ValueError(f"{context}: missing or empty string field {key!r}")
-    return value
-
-
-def _public_index_block(data: dict[str, Any], *, context: str) -> dict[str, Any]:
-    block = data.get("public_index")
-    if block is None:
-        return {}
-    if not isinstance(block, dict):
-        raise ValueError(f"{context}: public_index must be an object")
-    return block
-
-
-def _edition_label(
-    data: dict[str, Any],
-    artifact: dict[str, Any],
-    *,
-    context: str,
-) -> str:
-    block = _public_index_block(data, context=context)
-    explicit = block.get("edition_label")
-    if isinstance(explicit, str) and explicit.strip():
-        return explicit.strip()
-    edition = artifact.get("artifact_edition")
-    if isinstance(edition, str) and edition.strip():
-        return edition.strip()
-    commit = artifact.get("hub_commit")
-    if isinstance(commit, str) and len(commit) >= 8:
-        return f"main@`{commit[:8]}`"
-    raise ValueError(f"{context}: cannot derive edition_label without hub_commit")
-
-
-def _display_name(
-    data: dict[str, Any],
-    *,
-    context: str,
-    record_id: str,
-) -> str:
-    block = _public_index_block(data, context=context)
-    explicit = block.get("display_name")
-    if isinstance(explicit, str) and explicit.strip():
-        return explicit.strip()
-    raise ValueError(
-        f"{context}: public_index.display_name is required for listed certificate "
-        f"{record_id!r} (certification metadata is the public index SSOT)"
-    )
-
-
-def _sort_order(data: dict[str, Any], *, context: str, default: int) -> int:
-    block = _public_index_block(data, context=context)
-    value = block.get("sort_order", default)
-    if type(value) is not int:
-        raise ValueError(f"{context}: public_index.sort_order must be an int")
-    return value
-
-
-def _listed(data: dict[str, Any], *, context: str) -> bool:
-    block = _public_index_block(data, context=context)
-    value = block.get("listed", True)
-    if type(value) is not bool:
-        raise ValueError(f"{context}: public_index.listed must be a bool")
-    return value
-
-
 def _tier2_status(
     *,
-    tier1: dict[str, Any],
-    tier2: dict[str, Any] | None,
-    context: str,
+    tier1: PublicCheckpointCertification,
+    tier2: PublicMtpAccelerationCertification | None,
 ) -> Literal["certified", "not_certified", "not_applicable"]:
-    mtp = tier1.get("mtp_acceleration")
-    if not isinstance(mtp, dict):
-        raise ValueError(f"{context}: mtp_acceleration object is required")
-    status = mtp.get("status")
+    status = tier1.mtp_acceleration.status
     if status == "not-applicable":
         return "not_applicable"
     if tier2 is not None:
-        t2_status = tier2.get("status")
-        if t2_status == "certified":
+        if tier2.status == "certified":
             return "certified"
-        if t2_status == "not_certified":
+        if tier2.status == "not_certified":
             return "not_certified"
-    if status in {"not-certified", "not_certified"}:
+    if status == "not-certified":
         return "not_certified"
     if status in {"certified", "certified-scoped", "certified-see-tier2-record"}:
         # Claimed on the Tier 1 record but no certified Tier 2 file yet.
         return "not_certified"
-    raise ValueError(f"{context}: unrecognized mtp_acceleration.status {status!r}")
+    raise ValueError(f"unrecognized mtp_acceleration.status {status!r}")
 
 
 def _claim_mtp_status(
@@ -203,7 +129,11 @@ def load_public_cert_rows(
     *,
     listed_only: bool = True,
 ) -> list[PublicCertRow]:
-    """Load checkpoint Tier 1 certificates and resolve Tier 2 companions."""
+    """Load checkpoint Tier 1 certificates and resolve Tier 2 companions.
+
+    Records are validated through the frozen public certification models
+    (AXQ-042) before any documentation matrix is rendered.
+    """
 
     directory = cert_dir or _DEFAULT_CERT_DIR
     if not directory.is_dir():
@@ -211,52 +141,22 @@ def load_public_cert_rows(
 
     rows: list[PublicCertRow] = []
     for path in sorted(directory.glob("*-tier1.json")):
-        data = _load_json(path)
-        schema = data.get("schema_version")
-        if schema != _CHECKPOINT_SCHEMA:
-            raise ValueError(f"{path.name}: expected schema {_CHECKPOINT_SCHEMA!r}, got {schema!r}")
-        if data.get("certification_tier") != "checkpoint":
-            raise ValueError(f"{path.name}: certification_tier must be 'checkpoint'")
-
-        raw_status = data.get("status")
-        if raw_status == "certified":
-            status: Literal["certified", "not_certified"] = "certified"
-        elif raw_status == "not_certified":
-            status = "not_certified"
-        else:
-            raise ValueError(f"{path.name}: status must be certified or not_certified")
-
-        artifact = data.get("artifact")
-        if not isinstance(artifact, dict):
-            raise ValueError(f"{path.name}: artifact object is required")
-        hub_repo_id = _require_str(artifact, "hub_repo_id", context=path.name)
-        hub_commit = _require_str(artifact, "hub_commit", context=path.name)
-        product_class = _require_str(artifact, "product_class", context=path.name)
-        host_id = _require_str(data, "host_id", context=path.name)
-
-        manifest_sha = artifact.get("candidate_manifest_sha256")
-        if manifest_sha is not None and (
-            not isinstance(manifest_sha, str) or len(manifest_sha) != 64
-        ):
-            raise ValueError(f"{path.name}: candidate_manifest_sha256 must be 64 hex chars")
-
-        mtp = data.get("mtp_acceleration")
-        if not isinstance(mtp, dict):
-            raise ValueError(f"{path.name}: mtp_acceleration object is required")
-        mtp_status = _require_str(mtp, "status", context=path.name)
-        mtp_reason = mtp.get("reason")
-        if mtp_reason is not None and not isinstance(mtp_reason, str):
-            raise ValueError(f"{path.name}: mtp_acceleration.reason must be a string")
+        cert = load_public_checkpoint_certification(path)
+        if cert.schema_version != CHECKPOINT_SCHEMA_VERSION:
+            raise ValueError(
+                f"{path.name}: expected schema {CHECKPOINT_SCHEMA_VERSION!r}, "
+                f"got {cert.schema_version!r}"
+            )
 
         record_id = path.name.removesuffix("-tier1.json")
         tier2_path = directory / f"{record_id}-tier2.json"
-        tier2_data: dict[str, Any] | None = None
+        tier2: PublicMtpAccelerationCertification | None = None
         if tier2_path.is_file():
-            tier2_data = _load_json(tier2_path)
-            if tier2_data.get("schema_version") != _MTP_SCHEMA:
+            tier2 = load_public_mtp_acceleration_certification(tier2_path)
+            if tier2.schema_version != MTP_SCHEMA_VERSION:
                 raise ValueError(
-                    f"{tier2_path.name}: expected schema {_MTP_SCHEMA!r}, "
-                    f"got {tier2_data.get('schema_version')!r}"
+                    f"{tier2_path.name}: expected schema {MTP_SCHEMA_VERSION!r}, "
+                    f"got {tier2.schema_version!r}"
                 )
             md_path = directory / f"{record_id}-tier2.md"
             if not md_path.is_file():
@@ -266,36 +166,26 @@ def load_public_cert_rows(
         if not md_path.is_file():
             raise ValueError(f"{path.name}: missing companion markdown {md_path.name}")
 
-        listed = _listed(data, context=path.name)
-        # Unlisted records may omit display_name; listed ones must declare it.
-        if listed:
-            display_name = _display_name(data, context=path.name, record_id=record_id)
-        else:
-            block = _public_index_block(data, context=path.name)
-            raw = block.get("display_name")
-            display_name = raw.strip() if isinstance(raw, str) and raw.strip() else record_id
-
-        certified_at = data.get("certified_at") or data.get("evaluated_at")
-        if certified_at is not None and not isinstance(certified_at, str):
-            raise ValueError(f"{path.name}: certified_at/evaluated_at must be a string")
+        stamp = cert.event_timestamp
+        certified_at = stamp.isoformat()
 
         rows.append(
             PublicCertRow(
                 record_id=record_id,
-                display_name=display_name,
-                sort_order=_sort_order(data, context=path.name, default=10_000),
-                listed=listed,
-                edition_label=_edition_label(data, artifact, context=path.name),
-                tier1_status=status,
-                tier2_status=_tier2_status(tier1=data, tier2=tier2_data, context=path.name),
-                hub_repo_id=hub_repo_id,
-                hub_commit=hub_commit,
-                host_id=host_id,
-                product_class=product_class,
-                candidate_manifest_sha256=manifest_sha if isinstance(manifest_sha, str) else None,
-                certified_at=certified_at if isinstance(certified_at, str) else None,
-                mtp_acceleration_status=mtp_status,
-                mtp_acceleration_reason=mtp_reason if isinstance(mtp_reason, str) else None,
+                display_name=cert.public_index.display_name,
+                sort_order=cert.public_index.sort_order,
+                listed=cert.public_index.listed,
+                edition_label=cert.public_index.edition_label,
+                tier1_status=cert.status,
+                tier2_status=_tier2_status(tier1=cert, tier2=tier2),
+                hub_repo_id=cert.artifact.hub_repo_id,
+                hub_commit=cert.artifact.hub_commit,
+                host_id=cert.host_id,
+                product_class=cert.artifact.product_class,
+                candidate_manifest_sha256=cert.artifact.candidate_manifest_sha256,
+                certified_at=certified_at,
+                mtp_acceleration_status=cert.mtp_acceleration.status,
+                mtp_acceleration_reason=cert.mtp_acceleration.reason,
                 tier1_path=path,
                 tier2_path=tier2_path if tier2_path.is_file() else None,
             )
@@ -430,8 +320,6 @@ def claim_from_public_row(row: PublicCertRow) -> CheckpointCertificationClaim | 
         return None
     if not row.candidate_manifest_sha256 or not row.certified_at:
         return None
-    from datetime import datetime
-
     return CheckpointCertificationClaim(
         hub_repo_id=row.hub_repo_id,
         hub_commit=row.hub_commit,
