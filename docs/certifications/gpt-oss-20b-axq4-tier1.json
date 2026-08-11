@@ -69,7 +69,7 @@
   ],
   "public_index": {
     "display_name": "GPT-OSS 20B AXQ 4-bit",
-    "sort_order": 140,
+    "sort_order": 180,
     "edition_label": "main@`8123294f`",
     "listed": false
   }

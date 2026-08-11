@@ -97,7 +97,7 @@
   },
   "public_index": {
     "display_name": "Qwen3-VL 30B-A3B Instruct AXQ 4-bit",
-    "sort_order": 160,
+    "sort_order": 70,
     "edition_label": "main@`ffcad97e`",
     "listed": true
   }

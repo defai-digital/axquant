@@ -65,7 +65,7 @@
   ],
   "public_index": {
     "display_name": "Gemma 4 12B AXQ 4-bit",
-    "sort_order": 50,
+    "sort_order": 120,
     "edition_label": "main@`6d124af8` (IT rebuild)",
     "listed": true
   }

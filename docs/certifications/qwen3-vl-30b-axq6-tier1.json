@@ -96,7 +96,7 @@
   },
   "public_index": {
     "display_name": "Qwen3-VL 30B-A3B Instruct AXQ 6-bit",
-    "sort_order": 161,
+    "sort_order": 80,
     "edition_label": "main@`71f90ad5`",
     "listed": true
   }

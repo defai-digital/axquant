@@ -32,19 +32,19 @@ do not edit the table cells by hand.
 | Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
+| Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
+| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 6-bit | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
-| Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
-| Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
-| Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
-| Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 

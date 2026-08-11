@@ -85,7 +85,7 @@
   ],
   "public_index": {
     "display_name": "DeepSeek V4 Flash AXQ 2-bit (exp.)",
-    "sort_order": 150,
+    "sort_order": 100,
     "edition_label": "main@`e22b117a`",
     "listed": true
   }

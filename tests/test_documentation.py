@@ -210,6 +210,35 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "gpt-oss-20b-axq4" in unlisted_ids
 
 
+def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:
+    """Qwen leads the catalog; remaining families use stable natural grouping."""
+
+    rows = load_public_cert_rows(listed_only=False)
+    assert len({row.sort_order for row in rows}) == len(rows)
+    assert [row.record_id for row in rows] == [
+        "qwen36-27b-axq6",
+        "qwen36-27b-axq4",
+        "qwen36-35b-axq4",
+        "qwen36-35b-axq6",
+        "qwen3-coder-next-axq4",
+        "qwen3-coder-next-axq6",
+        "qwen3-vl-30b-axq4",
+        "qwen3-vl-30b-axq6",
+        "deepseek-v4-flash-axq2",
+        "deepseek-v4-flash-axq3",
+        "gemma4-12b-axq4",
+        "gemma4-12b-axq6",
+        "gemma4-26b-a4b-axq4",
+        "gemma4-26b-a4b-axq6",
+        "gemma4-31b-axq4",
+        "gemma4-31b-axq6",
+        "gpt-oss-20b-axq4",
+        "gpt-oss-20b-axq6",
+        "gpt-oss-120b-axq4",
+        "gpt-oss-120b-axq6",
+    ]
+
+
 def test_certification_docs_match_certificate_json_exactly() -> None:
     """README, cert index, and release matrix must equal the generated SSOT output."""
 

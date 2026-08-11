@@ -78,7 +78,7 @@
   },
   "public_index": {
     "display_name": "Qwen3-Coder-Next AXQ 6-bit",
-    "sort_order": 120,
+    "sort_order": 60,
     "edition_label": "main@`c6f3ae55`",
     "listed": true
   }

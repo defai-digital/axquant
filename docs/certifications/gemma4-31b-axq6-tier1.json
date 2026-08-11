@@ -72,7 +72,7 @@
   "quality_bound_pre_fuse_revision": "a0a0fe3ad14f366646df00251c22377326d7512f",
   "public_index": {
     "display_name": "Gemma 4 31B AXQ 6-bit",
-    "sort_order": 100,
+    "sort_order": 170,
     "edition_label": "main@`f024707a`",
     "listed": true
   }

@@ -71,7 +71,7 @@
   ],
   "public_index": {
     "display_name": "GPT-OSS 120B AXQ 6-bit",
-    "sort_order": 180,
+    "sort_order": 210,
     "edition_label": "main@`50537a80`",
     "listed": true
   }
