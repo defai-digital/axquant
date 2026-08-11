@@ -44,8 +44,11 @@ attention-8 recipe). The 20B 4-bit and 120B 4-bit evaluation records are unliste
 quality gates); they remain development evidence only.
 
 **DeepSeek V4 Flash:** experimental **2/3-bit** AXQ packs are checkpoint Tier 1 on
-`df-macstudio-m2` (generation viability on development suites). Product classes remain
-`*-experimental`; measured BPW exceeds the nominal class; MTP acceleration is not certified.
+`df-macstudio-m2` (generation viability on development suites). AX Engine **6.15.0**
+runtime smoke also passed on that host (chat exact-match + ~1.3k context retrieval)
+with `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`. Product classes
+remain `*-experimental`; measured BPW exceeds the nominal class; MTP acceleration is
+not certified.
 
 Machine-readable companions:
 

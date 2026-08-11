@@ -30,8 +30,25 @@ commit
 | Agent-coding generation viability | ≥ `0.90` | `0.9737` (76 tasks) | Pass |
 | General generation viability | ≥ `0.90` | `0.9545` (44 tasks) | Pass |
 | MLX generation | suite load + decode | Pass | Pass |
+| AX Engine 6.15.0 runtime | load + chat + stream + context | Pass | Pass |
 
 Seed `20260728`, max gen 64, host `df-macstudio-m2`, AXQuant `1.6.1`.
+
+### AX Engine 6.15.0 runtime (2026-08-11)
+
+On `df-macstudio-m2` with **ax-engine 6.15.0**
+(`28dbcd252331f8a0eca9829609f2975a1b4be6a8`), support tier `mlx_preview`, and
+`AX_ENGINE_2BIT_EXPERIMENTAL=1` / `AX_ENGINE_3BIT_EXPERIMENTAL=1`:
+
+| Probe | Result |
+| --- | --- |
+| Model load + `/v1/models` | Pass (`deepseek_v4`, buffers bound) |
+| Chat non-stream | Exact `AXQ2 OK` |
+| Chat stream | `STREAM OK` + `[DONE]` |
+| Context retrieval (~1.3k tokens) | Exact `PURPLE-ELEPHANT-42` |
+
+Evidence:
+`/Volumes/Ext4T/axquant-certification/deepseek-v4-flash-axq-axengine-v6150/2bit`.
 
 ### Scope and limits
 
@@ -39,7 +56,9 @@ Seed `20260728`, max gen 64, host `df-macstudio-m2`, AXQuant `1.6.1`.
 - Measured BPW exceeds the nominal class because of protected tensors and MTP.
 - Quality scores measure **generation viability** on the development suites (non-empty /
   expected-overlap scorer), not BF16 retention or formal coding-suite unit tests.
-- AX Engine admission for 2/3-bit remains behind experimental env gates.
+- AX Engine admission for 2/3-bit remains behind experimental env gates even after
+  the 6.15.0 runtime smoke pass.
+- Chat API is the authoritative instruct surface; bare `/v1/completions` is untemplated.
 
 ## Tier 2 status
 

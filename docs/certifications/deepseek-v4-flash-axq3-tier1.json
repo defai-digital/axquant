@@ -56,12 +56,23 @@
       "notes": "Suite generation on df-macstudio-m2 (non-strict load for fused expert packing)."
     },
     "ax_engine": {
-      "status": "experimental",
-      "notes": "Requires AX_ENGINE_2BIT_EXPERIMENTAL / AX_ENGINE_3BIT_EXPERIMENTAL; host-validated generation via MLX path for this certificate."
+      "status": "pass",
+      "version": "6.15.0",
+      "commit": "28dbcd252331f8a0eca9829609f2975a1b4be6a8",
+      "validated_at": "2026-08-11T21:03:45Z",
+      "support_tier": "mlx_preview",
+      "env_required": [
+        "AX_ENGINE_2BIT_EXPERIMENTAL=1",
+        "AX_ENGINE_3BIT_EXPERIMENTAL=1"
+      ],
+      "evidence_path": "/Volumes/Ext4T/axquant-certification/deepseek-v4-flash-axq-axengine-v6150/3bit",
+      "notes": "Host-validated on df-macstudio-m2 with ax-engine 6.15.0: load, /v1/chat/completions exact 'AXQ3 OK', completions SSE, ~1.3k-token context retrieval PURPLE-ELEPHANT-42. Experimental bit-width env gates remain required."
     }
   },
   "toolchain": {
     "axquant": "1.6.1",
+    "ax_engine": "6.15.0",
+    "ax_engine_commit": "28dbcd252331f8a0eca9829609f2975a1b4be6a8",
     "host": "df-macstudio-m2",
     "host_hardware": "Apple M2 Ultra 192 GB"
   },
@@ -69,7 +80,8 @@
     "Checkpoint Tier 1 (experimental) on formal host df-macstudio-m2.",
     "Product classes remain 2bit-experimental / 3bit-experimental; measured BPW is higher due to protected tensors and MTP.",
     "Quality scores are generation-viability on development agent-coding (76) and general (44) suites, not matched-BF16 retention.",
-    "AX Engine 2/3-bit loads remain experimental-gated."
+    "AX Engine 6.15.0 runtime smoke passed on 2026-08-11; 2/3-bit loads remain experimental-gated (AX_ENGINE_2BIT_EXPERIMENTAL / AX_ENGINE_3BIT_EXPERIMENTAL).",
+    "Chat API is the authoritative instruct surface for runtime smoke; bare /v1/completions is untemplated."
   ],
   "public_index": {
     "display_name": "DeepSeek V4 Flash AXQ 3-bit (exp.)",
