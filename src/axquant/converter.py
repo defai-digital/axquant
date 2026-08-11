@@ -1058,9 +1058,7 @@ def _pack_trailing_dim(shape: tuple[int, ...], bits: int) -> tuple[int, ...]:
     if bits >= 16:
         return shape
     if not shape or shape[-1] * bits % 32:
-        raise ArtifactError(
-            f"source shape {shape} cannot be packed exactly at {bits} bits"
-        )
+        raise ArtifactError(f"source shape {shape} cannot be packed exactly at {bits} bits")
     return (*shape[:-1], shape[-1] * bits // 32)
 
 
@@ -1079,9 +1077,7 @@ def _expected_qwen3_vl_moe_expert_shapes(
     lower = tensor_name.lower()
     if "experts.gate_up_proj" in lower and not lower.endswith("_blocks"):
         if len(source_shape) != 3 or source_shape[-1] % 2 != 0:
-            raise ArtifactError(
-                f"qwen3_vl_moe gate_up_proj expects (E, H, 2I); got {source_shape}"
-            )
+            raise ArtifactError(f"qwen3_vl_moe gate_up_proj expects (E, H, 2I); got {source_shape}")
         experts, hidden, fused_inter = source_shape
         intermediate = fused_inter // 2
         # After split + transpose(0,2,1): (E, I, H) for each of gate and up.
@@ -1089,9 +1085,7 @@ def _expected_qwen3_vl_moe_expert_shapes(
         return (component, component)
     if "experts.down_proj" in lower and not lower.endswith("_blocks"):
         if len(source_shape) != 3:
-            raise ArtifactError(
-                f"qwen3_vl_moe down_proj expects (E, I, H); got {source_shape}"
-            )
+            raise ArtifactError(f"qwen3_vl_moe down_proj expects (E, I, H); got {source_shape}")
         experts, intermediate, hidden = source_shape
         # After transpose(0,2,1): (E, H, I).
         return (_pack_trailing_dim((experts, hidden, intermediate), bits),)

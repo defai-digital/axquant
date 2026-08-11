@@ -68,8 +68,7 @@ def _validate_runtime_smoke(
         )
     if dual_vl_moe and smoke not in {"none", "mlx-vlm", "ax-engine"}:
         raise PlanningError(
-            "qwen3-vl-moe-v1 supports --runtime-smoke none|mlx-vlm|ax-engine "
-            f"(got {smoke})"
+            f"qwen3-vl-moe-v1 supports --runtime-smoke none|mlx-vlm|ax-engine (got {smoke})"
         )
     if exclusive is None and not dual_vl_moe and smoke in {"mlx-audio", "mlx-vlm"}:
         raise PlanningError(
