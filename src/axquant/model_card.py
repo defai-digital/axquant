@@ -974,7 +974,11 @@ def prepare_development_model_card(
     manifest.calibration = (
         plan.calibration.model_copy(deep=True) if plan.calibration is not None else None
     )
+    # Persist the refreshed manifest before certification bind/render. Verification
+    # re-hashes axquant_manifest.json on disk; a stale on-disk copy would accept or
+    # reject the public certificate against the wrong digest.
     _refresh_manifest_records(directory, manifest)
+    write_data(manifest_path, manifest)
     resolved_certification = certification
     if resolved_certification is None and use_public_certification:
         resolved_certification = resolve_public_certification_claim(

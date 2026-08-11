@@ -375,15 +375,15 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_GEMMA4_ASSISTANT_MTP_DEEP_DRAFT_MIN_CONFIDENCE": "0.0001",
     # Formal Tier 2 measures multi-token teacher-forced verify (not pure-direct
     # sequential oracle). Engine default is ON for product exactness; formal A/B
-    # must set 0 so speed can clear ≥1.20× while identity fixes (f32 SDPA,
+    # must set 0 so speed can clear >=1.20x while identity fixes (f32 SDPA,
     # full-context sliding views) keep greedy exactness.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE": "0",
     # MoE long multi-token identity (dual-edge + qmv-256) is required for agent
-    # long trials to clear weighted ≥1.20×. Engine product default remains
+    # long trials to clear weighted >=1.20x. Engine product default remains
     # fail-closed unless this formal profile opts in.
     "AX_MLX_GEMMA4_MOE_LONG_MT": "1",
     # Dense long multi-token: bf16 singleton-query fold (not full-history f32
-    # K/V upcast). Required for 12B/31B agent weighted ≥1.20×; engine default ON.
+    # K/V upcast). Required for 12B/31B agent weighted >=1.20x; engine default ON.
     "AX_MLX_DENSE_LONG_MT_BF16_FOLD": "1",
 }
 

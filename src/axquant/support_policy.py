@@ -231,7 +231,8 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Require an mlx-lm build that implements model_type=gpt_oss.",
         ),
         do_not=(
-            "Do not claim certified quality or MTP acceleration without a revision-bound certificate.",
+            "Do not claim certified quality or MTP acceleration without a "
+            "revision-bound certificate.",
             "Do not treat MXFP4 residency as an AXQ bit-width product claim.",
         ),
     ),
