@@ -337,7 +337,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
 | GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; 4-bit packs unlisted (quality) |
-| Qwen3-ASR 1.7B and Qwen3-VL 8B Instruct | `convertible` with protected modality towers and their MLX-Audio/MLX-VLM backends | Development evidence only |
+| Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | Development evidence only |
 | Nemotron 3 Nano | `convertible` thin path | Development evidence only |
 | Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
 
@@ -384,6 +384,7 @@ release audit. The current tier matrix:
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
 | **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
+| **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; 4/6-bit AXQ packs |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
@@ -398,13 +399,13 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
+| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
-| Primary runtime | AX Engine for text tracks; MLX-Audio for Qwen3-ASR; MLX-VLM for Qwen3-VL |
-| Compatibility runtime | Architecture-specific standard inference; generic text artifacts use MLX-LM |
+| Primary runtime | AX Engine for text tracks and **Qwen3-VL MoE (30B-A3B Instruct)**; MLX-Audio for Qwen3-ASR; MLX-VLM for dense Qwen3-VL 8B |
+| Compatibility runtime | Architecture-specific standard inference; generic text artifacts use MLX-LM; **VL MoE also supports MLX-VLM** (vision smoke / Hub consumers) |
 | Output integrity | Atomic conversion, exact parameter coverage, measured BPW, checksums, manifests, and runtime metadata |
 
 ### Development evidence
@@ -481,6 +482,8 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit) | 7.999975 | MLX-VLM; protected BF16 vision tower |
+| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | 4.860055 | MoE VL thin; AX Engine primary + MLX-VLM; BF16 vision; no MTP; development |
+| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | 6.000054 | MoE VL thin; AX Engine primary + MLX-VLM; BF16 vision; no MTP; development |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path; only published budget (near floor-collapse; no 4bit sibling) |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | 5.999912 | Mistral3 language path |
@@ -669,6 +672,31 @@ axquant quantize /models/Qwen3-VL-8B-Instruct \
   --target-bpw 6.36 \
   --runtime-smoke mlx-vlm \
   --image-input ./sample.png
+```
+
+**Qwen3-VL 30B-A3B Instruct (MoE)** — thin convert; product class **4bit and 6bit** packs;
+primary runtime AX Engine, vision smoke via MLX-VLM (no MTP):
+
+```bash
+# BF16 source only (not community 3bit / FP8)
+SRC=/models/Qwen3-VL-30B-A3B-Instruct
+REV=REVISION_SHA
+IMG=./sample.png
+
+axquant quantize "$SRC" \
+  --model-id Qwen/Qwen3-VL-30B-A3B-Instruct --revision "$REV" \
+  --target-bpw 4.8 \
+  --output ./AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit \
+  --runtime-smoke mlx-vlm --image-input "$IMG"
+
+axquant quantize "$SRC" \
+  --model-id Qwen/Qwen3-VL-30B-A3B-Instruct --revision "$REV" \
+  --target-bpw 6.0 \
+  --output ./AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit \
+  --runtime-smoke mlx-vlm --image-input "$IMG"
+
+# Optional AX Engine readiness smoke after convert:
+# axquant runtime-check --model ./AX-...-4bit --runtime ax-engine
 ```
 
 Defaults on the simple path:

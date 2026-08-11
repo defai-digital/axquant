@@ -82,6 +82,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit",
         "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit",
         "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
+        "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
+        "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit",
     }
     # Post-v2 fleet growth: Gemma-4 26B-A4B / 31B Tier 1 packs published after the
     # historical completed-migration table (which still covers the original 12b pair).
@@ -112,8 +114,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-gpt-oss-120b-MLX-AXQ-6bit",
     }
     post_migration_additions = post_migration_additions | gpt_oss_additions
-    assert len(readme_repositories) == 36
-    assert len(set(readme_repositories)) == 36
+    assert len(readme_repositories) == 38
+    assert len(set(readme_repositories)) == 38
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25

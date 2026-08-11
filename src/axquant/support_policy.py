@@ -166,6 +166,27 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not expand MiniCPM scope into unrelated Llama models.",),
     ),
     FamilySupportPolicy(
+        product_family="qwen3-vl",
+        adapter_id="qwen3-vl-moe-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=28,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin MoE VL: exact Qwen3-VL-30B-A3B-Instruct convert via MLX-VLM; "
+            "AX Engine primary runtime, MLX-VLM compatibility; no MTP product claim."
+        ),
+        do=(
+            "Convert from pinned BF16 Instruct only; protect vision at BF16.",
+            "Smoke with mlx-vlm (image) and optionally ax-engine doctor/load.",
+        ),
+        do_not=(
+            "Do not re-pack community 3bit/FP8 as AXQ.",
+            "Do not promote Thinking or other VL MoE sizes by association.",
+            "Do not claim MTP / Tier-2 acceleration for this VL path.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="nemotron3",
         adapter_id="nemotron3-v1",
         investment_posture=InvestmentPosture.THIN,

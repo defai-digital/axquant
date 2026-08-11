@@ -159,6 +159,26 @@ def test_quick_convert_runtime_smoke_requires_matching_multimodal_backend(
             audio_input=audio,
             image_input=None,
         )
+    # Dual-runtime MoE VL: mlx-vlm (image) or ax-engine primary smoke.
+    _validate_runtime_smoke(
+        "mlx-vlm",
+        adapter_id="qwen3-vl-moe-v1",
+        audio_input=None,
+        image_input=image,
+    )
+    _validate_runtime_smoke(
+        "ax-engine",
+        adapter_id="qwen3-vl-moe-v1",
+        audio_input=None,
+        image_input=None,
+    )
+    with pytest.raises(PlanningError, match="supports --runtime-smoke"):
+        _validate_runtime_smoke(
+            "mlx-lm",
+            adapter_id="qwen3-vl-moe-v1",
+            audio_input=None,
+            image_input=None,
+        )
 
 
 def test_quick_convert_raises_infeasible_target_bpw(

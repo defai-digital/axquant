@@ -179,6 +179,40 @@ def test_registry_resolves_qwen3_vl_and_protects_vision_tower() -> None:
     )
 
 
+def test_registry_resolves_qwen3_vl_moe_30b_instruct() -> None:
+    config = {
+        "model_type": "qwen3_vl_moe",
+        "text_config": {
+            "num_hidden_layers": 48,
+            "num_experts": 128,
+            "num_experts_per_tok": 8,
+            "moe_intermediate_size": 768,
+        },
+        "vision_config": {"depth": 27},
+    }
+    reference = "Qwen/Qwen3-VL-30B-A3B-Instruct"
+    adapter = adapter_for(reference, config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen3-vl-moe-v1"
+    profile = adapter.profile(reference, config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.text_layer_count == 48
+    assert profile.vision_present is True
+    assert profile.mtp_declared is False
+    assert (
+        adapter.classify_tensor("model.visual.blocks.0.attn.qkv.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.mlp.experts.gate_up_proj",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+
+
 @pytest.mark.parametrize(
     ("reference", "model_type"),
     [
@@ -187,6 +221,8 @@ def test_registry_resolves_qwen3_vl_and_protects_vision_tower() -> None:
         ("Qwen/Qwen3-VL-4B-Instruct", "qwen3_vl"),
         ("Qwen/Qwen3-VL-18B-Instruct", "qwen3_vl"),
         ("Qwen/Qwen3-VL-8B-Thinking", "qwen3_vl"),
+        ("Qwen/Qwen3-VL-30B-A3B-Thinking", "qwen3_vl_moe"),
+        ("Qwen/Qwen3-VL-235B-A22B-Instruct", "qwen3_vl_moe"),
     ],
 )
 def test_unpromoted_qwen3_multimodal_variants_remain_inventory_only(
@@ -196,7 +232,11 @@ def test_unpromoted_qwen3_multimodal_variants_remain_inventory_only(
     config = {
         "model_type": model_type,
         "num_hidden_layers": 28,
-        "text_config": {"num_hidden_layers": 28},
+        "text_config": {
+            "num_hidden_layers": 28,
+            "num_experts": 128,
+            "num_experts_per_tok": 8,
+        },
         "thinker_config": {
             "text_config": {"num_hidden_layers": 28},
             "audio_config": {"encoder_layers": 24},
@@ -557,6 +597,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen3-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-asr-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-v1": SupportTier.CONVERTIBLE,
+        "qwen3-vl-moe-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,

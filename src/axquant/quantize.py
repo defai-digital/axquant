@@ -55,15 +55,23 @@ def _validate_runtime_smoke(
     audio_input: str | Path | None,
     image_input: str | Path | None,
 ) -> None:
-    required = {
+    # Exclusive modality adapters: only their backend smoke is valid.
+    exclusive = {
         "qwen3-asr-v1": "mlx-audio",
         "qwen3-vl-v1": "mlx-vlm",
     }.get(adapter_id)
-    if required is not None and smoke not in {"none", required}:
+    # Dual-runtime MoE VL: AX Engine primary + MLX-VLM compatibility (convert is mlx-vlm).
+    dual_vl_moe = adapter_id == "qwen3-vl-moe-v1"
+    if exclusive is not None and smoke not in {"none", exclusive}:
         raise PlanningError(
-            f"{adapter_id} uses {required}; --runtime-smoke {smoke} would test the wrong runtime"
+            f"{adapter_id} uses {exclusive}; --runtime-smoke {smoke} would test the wrong runtime"
         )
-    if required is None and smoke in {"mlx-audio", "mlx-vlm"}:
+    if dual_vl_moe and smoke not in {"none", "mlx-vlm", "ax-engine"}:
+        raise PlanningError(
+            "qwen3-vl-moe-v1 supports --runtime-smoke none|mlx-vlm|ax-engine "
+            f"(got {smoke})"
+        )
+    if exclusive is None and not dual_vl_moe and smoke in {"mlx-audio", "mlx-vlm"}:
         raise PlanningError(
             f"--runtime-smoke {smoke} is only valid for its promoted multimodal adapter"
         )

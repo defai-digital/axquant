@@ -17,12 +17,15 @@ from axquant.schema import QuantizationPlan
 
 ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm"]
 
+# Dense 8B Instruct + thin 30B-A3B Instruct MoE both convert through MLX-VLM.
+_QWEN3_VL_ADAPTERS = frozenset({"qwen3-vl-v1", "qwen3-vl-moe-v1"})
+
 
 def conversion_backend(plan: QuantizationPlan) -> ConversionBackend:
     adapter_id = plan.architecture_profile.adapter_id
     if adapter_id == "qwen3-asr-v1":
         return "mlx-audio"
-    if adapter_id == "qwen3-vl-v1":
+    if adapter_id in _QWEN3_VL_ADAPTERS:
         return "mlx-vlm"
     return "mlx-lm"
 

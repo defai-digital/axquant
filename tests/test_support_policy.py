@@ -95,6 +95,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
         "qwen3-dense-v1",
         "qwen3-asr-v1",
         "qwen3-vl-v1",
+        "qwen3-vl-moe-v1",
         "minicpm5-dense-v1",
         "gemma4-dense-v1",
         "mistral-devstral-dense-v1",

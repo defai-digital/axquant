@@ -1052,12 +1052,65 @@ def _logical_source_shape(source_tensor: Any) -> tuple[int, ...]:
     return shape
 
 
+def _pack_trailing_dim(shape: tuple[int, ...], bits: int) -> tuple[int, ...]:
+    """Affine-pack the trailing dimension (``dim * bits // 32``) for ``bits < 16``."""
+
+    if bits >= 16:
+        return shape
+    if not shape or shape[-1] * bits % 32:
+        raise ArtifactError(
+            f"source shape {shape} cannot be packed exactly at {bits} bits"
+        )
+    return (*shape[:-1], shape[-1] * bits // 32)
+
+
+def _expected_qwen3_vl_moe_expert_shapes(
+    tensor_name: str,
+    source_shape: tuple[int, ...],
+    bits: int,
+) -> tuple[tuple[int, ...], ...] | None:
+    """Shapes after public mlx-vlm ``qwen3_vl_moe`` sanitize + affine pack.
+
+    HF packs experts as ``(E, H, 2I)`` for ``gate_up_proj`` and ``(E, I, H)`` for
+    ``down_proj``. Sanitize splits the last axis of gate/up and ``transpose(0, 2, 1)``
+    so SwitchGLU weights land as ``(E, out, in)`` before packing the trailing dim.
+    """
+
+    lower = tensor_name.lower()
+    if "experts.gate_up_proj" in lower and not lower.endswith("_blocks"):
+        if len(source_shape) != 3 or source_shape[-1] % 2 != 0:
+            raise ArtifactError(
+                f"qwen3_vl_moe gate_up_proj expects (E, H, 2I); got {source_shape}"
+            )
+        experts, hidden, fused_inter = source_shape
+        intermediate = fused_inter // 2
+        # After split + transpose(0,2,1): (E, I, H) for each of gate and up.
+        component = _pack_trailing_dim((experts, intermediate, hidden), bits)
+        return (component, component)
+    if "experts.down_proj" in lower and not lower.endswith("_blocks"):
+        if len(source_shape) != 3:
+            raise ArtifactError(
+                f"qwen3_vl_moe down_proj expects (E, I, H); got {source_shape}"
+            )
+        experts, intermediate, hidden = source_shape
+        # After transpose(0,2,1): (E, H, I).
+        return (_pack_trailing_dim((experts, hidden, intermediate), bits),)
+    return None
+
+
 def _expected_converted_shapes(
     tensor_name: str,
     source_shape: tuple[int, ...],
     bits: int,
+    *,
+    model_type: str | None = None,
 ) -> tuple[tuple[int, ...], ...]:
     """Derive exact output shapes, including MLX-LM's packed gate/up split."""
+
+    if model_type == "qwen3_vl_moe":
+        vl_moe = _expected_qwen3_vl_moe_expert_shapes(tensor_name, source_shape, bits)
+        if vl_moe is not None:
+            return vl_moe
 
     component_count = len(mlx_tensor_binding_groups(tensor_name))
     if bits < 16:
@@ -1198,7 +1251,7 @@ def _protected_shape_matches(
         )
         return True
     qwen3_vl_patch_embed = (
-        model_type == "qwen3_vl"
+        model_type in {"qwen3_vl", "qwen3_vl_moe"}
         and tensor_name.endswith(".visual.patch_embed.proj.weight")
         and len(source_shape) == 5
         and actual_shape
@@ -1335,6 +1388,7 @@ def _verify_converted_weights(
             )
         source_shapes = tuple(_logical_source_shape(source_tensors[member]) for member in members)
         source_shape = source_shapes[0]
+        model_type = plan.architecture_profile.config_model_type
         if fused is not None:
             expected_shapes = _expected_fused_converted_shapes(
                 tensor_name,
@@ -1347,6 +1401,7 @@ def _verify_converted_weights(
                 tensor_name,
                 source_shape,
                 allocation.bits,
+                model_type=model_type,
             )
         actual_shapes = tuple(component.shape for component in actual_components)
         if allocation.bits < 16:

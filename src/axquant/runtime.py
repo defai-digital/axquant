@@ -665,14 +665,60 @@ def build_runtime_metadata(
             advisory_mlx_lm_kv_group_size=advisory_pair[1],
         )
     adapter_id = plan.architecture_profile.adapter_id
-    modality_runtime = (
-        RuntimeName.MLX_AUDIO
-        if adapter_id == "qwen3-asr-v1"
-        else RuntimeName.MLX_VLM
-        if adapter_id == "qwen3-vl-v1"
-        else None
-    )
-    if modality_runtime is None:
+    # Dense 8B VL and ASR remain modality-primary (MLX-VLM / MLX-Audio).
+    # Thin MoE VL (30B-A3B Instruct) declares AX Engine as primary with MLX-VLM
+    # as the multimodal compatibility runtime — convert still uses mlx-vlm.
+    if adapter_id == "qwen3-vl-moe-v1":
+        primary_runtime = RuntimeProfile(
+            name=RuntimeName.AX_ENGINE,
+            compatibility_level="A",
+            support_level=RuntimeSupportLevel.OPTIMIZED,
+            standard_inference=True,
+            mtp_support="none",
+            manifest="model-manifest.json",
+            notes=[
+                "AX Engine is the primary product runtime for Qwen3-VL MoE packs.",
+                "MTP is not a product claim for this VL path; vision remains BF16-protected.",
+                "Runtime claims require a passing AX Engine doctor and benchmark report.",
+            ],
+        )
+        compatible_runtimes = [
+            RuntimeProfile(
+                name=RuntimeName.MLX_VLM,
+                compatibility_level="B",
+                support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+                standard_inference=True,
+                mtp_support="none",
+                manifest="config.json",
+                notes=[
+                    "MLX-VLM loads the protected vision tower and AXQ language decoder.",
+                    "Use for image-to-text smoke and Hub mlx-vlm consumers.",
+                ],
+            )
+        ]
+    elif adapter_id == "qwen3-asr-v1":
+        primary_runtime = RuntimeProfile(
+            name=RuntimeName.MLX_AUDIO,
+            compatibility_level="A",
+            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+            standard_inference=True,
+            mtp_support="none",
+            manifest="config.json",
+            notes=["MLX-Audio loads the protected modality tower and AXQ language decoder."],
+        )
+        compatible_runtimes = []
+    elif adapter_id == "qwen3-vl-v1":
+        primary_runtime = RuntimeProfile(
+            name=RuntimeName.MLX_VLM,
+            compatibility_level="A",
+            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+            standard_inference=True,
+            mtp_support="none",
+            manifest="config.json",
+            notes=["MLX-VLM loads the protected modality tower and AXQ language decoder."],
+        )
+        compatible_runtimes = []
+    else:
         primary_runtime = RuntimeProfile(
             name=RuntimeName.AX_ENGINE,
             compatibility_level="A",
@@ -696,18 +742,6 @@ def build_runtime_metadata(
                 ],
             )
         ]
-    else:
-        runtime_label = "MLX-Audio" if modality_runtime is RuntimeName.MLX_AUDIO else "MLX-VLM"
-        primary_runtime = RuntimeProfile(
-            name=modality_runtime,
-            compatibility_level="A",
-            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
-            standard_inference=True,
-            mtp_support="none",
-            manifest="config.json",
-            notes=[f"{runtime_label} loads the protected modality tower and AXQ language decoder."],
-        )
-        compatible_runtimes = []
     return RuntimeMetadata(
         primary_runtime=primary_runtime,
         compatible_runtimes=compatible_runtimes,

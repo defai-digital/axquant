@@ -1195,6 +1195,32 @@ def test_expected_converted_shapes_conserve_qwen_packed_gate_up_parameters() -> 
     assert converter._expected_converted_shapes(down, (256, 2048, 512), 6) == ((256, 2048, 96),)
 
 
+def test_expected_converted_shapes_qwen3_vl_moe_sanitize_layout() -> None:
+    """mlx-vlm splits gate_up on the last axis then transpose(0,2,1) before pack."""
+
+    gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    down = "model.language_model.layers.0.mlp.experts.down_proj"
+    # Real 30B-A3B shapes: gate_up (E,H,2I)=(128,2048,1536), down (E,I,H)=(128,768,2048).
+    assert converter._expected_converted_shapes(
+        gate_up, (128, 2048, 1536), 4, model_type="qwen3_vl_moe"
+    ) == (
+        (128, 768, 256),
+        (128, 768, 256),
+    )
+    assert converter._expected_converted_shapes(
+        down, (128, 768, 2048), 4, model_type="qwen3_vl_moe"
+    ) == ((128, 2048, 96),)
+    assert converter._expected_converted_shapes(
+        gate_up, (128, 2048, 1536), 6, model_type="qwen3_vl_moe"
+    ) == (
+        (128, 768, 384),
+        (128, 768, 384),
+    )
+    assert converter._expected_converted_shapes(
+        down, (128, 768, 2048), 16, model_type="qwen3_vl_moe"
+    ) == ((128, 2048, 768),)
+
+
 def test_native_gpt_oss_expert_biases_are_not_bound_as_quantized_weights() -> None:
     assert converter._is_converted_quant_sidecar_name(
         "model.layers.0.mlp.experts.gate_up_proj_bias"
@@ -1324,14 +1350,16 @@ def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transfo
     )
 
 
+@pytest.mark.parametrize("model_type", ["qwen3_vl", "qwen3_vl_moe"])
 def test_protected_shape_matching_allows_qwen3_vl_conv3d_sanitize_transform(
     qwen36_model_dir: Path,
+    model_type: str,
 ) -> None:
     plan = _plan(qwen36_model_dir)
     qwen3_vl_plan = plan.model_copy(
         update={
             "architecture_profile": plan.architecture_profile.model_copy(
-                update={"config_model_type": "qwen3_vl"}
+                update={"config_model_type": model_type}
             )
         }
     )

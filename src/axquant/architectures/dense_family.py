@@ -319,6 +319,23 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         ),
     ),
     DenseFamilySpec(
+        # Thin MoE VL catalog: exact 30B-A3B Instruct only (not Thinking / other sizes).
+        adapter_id="qwen3-vl-moe-v1",
+        product_family="qwen3-vl",
+        model_types=("qwen3_vl_moe",),
+        reference_pattern=(
+            r"(?:^|[/_.-])qwen[._-]?3[._-]vl[._-]30b[._-]a3b[._-]instruct(?:$|[/_.-])"
+        ),
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        allow_moe=True,
+        notes=(
+            "Thin convert: Qwen3-VL-30B-A3B-Instruct MoE via MLX-VLM convert path.",
+            "Primary product runtime is AX Engine; MLX-VLM is the vision-compatible runtime.",
+            "Vision tower remains protected at BF16; development evidence only; no MTP claim.",
+        ),
+    ),
+    DenseFamilySpec(
         adapter_id="qwen3-next-v1",
         product_family="qwen3-next",
         model_types=("qwen3_next",),

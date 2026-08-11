@@ -242,8 +242,29 @@ def test_runtime_metadata_declares_architecture_specific_multimodal_primary(
     assert metadata.primary_runtime.compatibility_level == "A"
     assert metadata.primary_runtime.standard_inference is True
     assert metadata.primary_runtime.mtp_support == "none"
-    assert metadata.primary_runtime.manifest == "config.json"
     assert metadata.compatible_runtimes == []
+
+
+def test_runtime_metadata_qwen3_vl_moe_primary_ax_engine_compatible_mlx_vlm(
+    qwen36_model_dir: Path,
+) -> None:
+    plan = _qwen_plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen3-vl-moe-v1"}
+    )
+
+    metadata = build_runtime_metadata(plan, qwen36_model_dir)
+
+    assert metadata.primary_runtime.name is RuntimeName.AX_ENGINE
+    assert metadata.primary_runtime.compatibility_level == "A"
+    assert metadata.primary_runtime.manifest == "model-manifest.json"
+    assert metadata.primary_runtime.mtp_support == "none"
+    assert len(metadata.compatible_runtimes) == 1
+    compat = metadata.compatible_runtimes[0]
+    assert compat.name is RuntimeName.MLX_VLM
+    assert compat.compatibility_level == "B"
+    assert compat.manifest == "config.json"
+    assert compat.mtp_support == "none"
 
 
 def test_ax_engine_doctor_contract_is_machine_readable(
