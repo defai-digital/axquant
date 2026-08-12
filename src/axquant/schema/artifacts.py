@@ -1035,6 +1035,7 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         # verify for speed experiments; formal Tier 2 must re-check exactness.
         "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_CYCLE_GUARD",
+        "AX_MLX_GEMMA4_ASSISTANT_MTP_EARLY_GEN_PURE_DIRECT",
         # MoE long multi-token (dual-edge + qmv-256 identity). Engine product
         # default is fail-closed; formal Gemma assistant-exact profile opts in.
         "AX_MLX_GEMMA4_MOE_LONG_MT",
