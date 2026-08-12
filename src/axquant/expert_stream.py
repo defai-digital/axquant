@@ -22,11 +22,14 @@ ExpertStreamSetting = Literal["off", "auto", "required"]
 
 EXPERT_STREAM_MANIFEST_NAME = "ax_expert_stream.json"
 AUTO_REQUIRED_BYTES = 256 * 1024**3
-STREAM_CAPABLE_ADAPTERS = frozenset({"qwen38-moe-v1"})
+STREAM_CAPABLE_ADAPTERS = frozenset({"qwen38-moe-v1", "deepseek-v4-v1"})
+# Packs whose full-resident size exceeds every shipping Mac (512 GB). Flash
+# 2/3-bit (~115 GB) can still resident-load on 192 GB hosts, so `off` stays legal.
+STREAM_OFF_FORBIDDEN_ADAPTERS = frozenset({"qwen38-moe-v1"})
 
 _LAYER = re.compile(r"(?:^|\.)layers\.(?P<layer>[0-9]+)(?:\.|$)")
 _INDEXED_EXPERT = re.compile(r"\.experts\.[0-9]+\.")
-_PACKED_EXPERT_TOKENS = ("switch_mlp", "switch_glu", ".experts.")
+_PACKED_EXPERT_TOKENS = ("switch_mlp", "switch_glu", ".experts.", "ffn.w1", "ffn.w2", "ffn.w3")
 _STORAGE_SUFFIXES = (".weight", ".scales", ".biases", ".bias", ".scale")
 _RESIDENT_ROLES = [
     "embedding",
@@ -42,10 +45,10 @@ _RESIDENT_ROLES = [
 def validate_expert_stream_request(adapter_id: str, setting: ExpertStreamSetting) -> None:
     if setting not in {"off", "auto", "required"}:
         raise PlanningError(f"unsupported expert stream setting: {setting}")
-    if adapter_id in STREAM_CAPABLE_ADAPTERS and setting == "off":
+    if adapter_id in STREAM_OFF_FORBIDDEN_ADAPTERS and setting == "off":
         raise PlanningError(
-            "--expert-stream off is unsafe for Qwen3.8-2.4T-A95B: a 512 GB Mac still "
-            "cannot run this Super-class pack fully resident; use auto or required"
+            "--expert-stream off is unsafe for this Super-class pack: a 512 GB Mac still "
+            "cannot run it fully resident; use auto or required"
         )
 
 
@@ -58,6 +61,20 @@ def _projection(name: str) -> ExpertStreamProjection | None:
     if "up_proj" in value:
         return "up"
     if "down_proj" in value or ".switch_mlp.fc2" in value:
+        return "down"
+    # DeepSeek V4 source / sanitize names: w1=gate, w3=up, w2=down; stacked
+    # ``ffn.experts.{gate,up,down}`` is the unfused packed-stack alias.
+    if ".w1." in value or value.endswith(".w1") or value.endswith(".w1.weight"):
+        return "gate"
+    if ".w3." in value or value.endswith(".w3") or value.endswith(".w3.weight"):
+        return "up"
+    if ".w2." in value or value.endswith(".w2") or value.endswith(".w2.weight"):
+        return "down"
+    if ".experts.gate." in value or value.endswith(".experts.gate.weight"):
+        return "gate"
+    if ".experts.up." in value or value.endswith(".experts.up.weight"):
+        return "up"
+    if ".experts.down." in value or value.endswith(".experts.down.weight"):
         return "down"
     return None
 

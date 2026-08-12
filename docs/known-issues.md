@@ -33,6 +33,11 @@ between published versions.
   a real native Qwen 3.8 pack and there is no certification track. Details:
   [expert-ssd-stream.md](expert-ssd-stream.md) and
   [qwen38-optiq-experimental.md](qwen38-optiq-experimental.md).
+- **DeepSeek V4 Flash AXQ 2/3-bit packs can be SSD-streamed by AX Engine.** New converts emit
+  `ax_expert_stream.json`. Published Flash packs without that file still stream when
+  `ax-engine serve --stream-experts` is set; the engine infers packed `ffn.switch_mlp` stacks.
+  Flash 2-bit (~115 GB) can still resident-load on 192 GB; streaming is optional unless convert
+  used `--expert-stream required`.
 
 ## Activation capture
 

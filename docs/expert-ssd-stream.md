@@ -2,7 +2,9 @@
 
 AXQuant can describe fused MoE expert stacks that AX Engine should page from SSD one layer at a
 time. The native path is intended for Super-class checkpoints whose quantized expert table is
-larger than the target Mac's unified memory. Qwen3.8-2.4T-A95B is the first thin-track adapter.
+larger than the target Mac's unified memory, and for large Flash MoE packs that still fit
+resident but leave little room for KV. Qwen3.8-2.4T-A95B and DeepSeek V4 Flash are the
+stream-capable adapters.
 
 This document expands the shared v1 contract. AXQuant emits the artifact metadata; successful
 loading of a real Qwen 3.8 pack remains gated on the corresponding AX Engine implementation and
@@ -21,9 +23,10 @@ The default is `auto`.
 - `auto` emits `ax_expert_stream.json` when conversion produces packed expert stacks. It marks
   the manifest `required=true` when estimated full residency exceeds 256 GiB.
 - `required` requires a packed expert inventory, emits the manifest, and always marks it required.
-- `off` suppresses the manifest for ordinary packs. It is rejected for
-  Qwen3.8-2.4T-A95B because that Super-class pack cannot be run safely as a resident load, even on
-  a 512 GB Mac.
+- `off` suppresses the manifest for ordinary packs, including DeepSeek V4 Flash
+  (the published 2-bit pack is ~115 GB and can still resident-load on 192 GB). It is
+  rejected for Qwen3.8-2.4T-A95B because that Super-class pack cannot be run safely
+  as a resident load, even on a 512 GB Mac.
 
 Examples:
 
@@ -92,11 +95,20 @@ into the same layer-stack path on smaller packed MoE artifacts.
 - The implementation is independent; no external streaming implementation is imported, vendored,
   translated, or copied.
 
-## Current Qwen 3.8 status
+## Current family status
 
 The adapter `qwen38-moe-v1` recognizes only the Qwen3.8-2.4T-A95B text MoE identity under
 `model_type=qwen3_5_moe_text` or `qwen3_5_moe`. It is a thin, development-only conversion track
-with no certification track. Qwen 3.6 35B-A3B remains owned by `qwen36-v1`.
+with no certification track. Qwen 3.6 35B-A3B remains owned by `qwen36-v1`. Streaming is
+required: `--expert-stream off` is rejected.
+
+`deepseek-v4-v1` emits the same `ax_expert_stream.json` contract for DeepSeek V4 Flash
+(`model_type=deepseek_v4`). Converted experts are `ffn.switch_mlp.gate_proj` (fused
+gate+up) and `ffn.switch_mlp.down_proj`. Flash 2/3-bit packs can still resident-load;
+pass `--expert-stream required` to force AX Engine to refuse a full resident load.
+Existing published Flash packs without a manifest can still be streamed by AX Engine
+with `--stream-experts` (the engine infers the layer-stack list from native expert
+roles).
 
 The currently published experimental Qwen 3.8 serving artifacts use a separate OptiQ path. They
 are not AXQ artifacts and must not be loaded by AX Engine. See

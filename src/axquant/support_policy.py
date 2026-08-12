@@ -6,9 +6,10 @@ Best practices (reviewed)
    matching OptiQ's full Mac catalog breadth.
 2. **Thin secondary families.** Ship inspect/convert for high-ROI dense paths
    (Mistral/Devstral, Gemma-4, MiniCPM5, Qwen 3.5) without overselling cert.
-3. **Super-class streaming is explicit and family-scoped.** Qwen 3.8 uses the
-   native AXQ + AX Engine layer-stack stream contract. Nemotron Super/Ultra stay
-   inspect-only until their families have a stream-capable convert path.
+3. **Super-class streaming is explicit and family-scoped.** Qwen 3.8 and
+   DeepSeek V4 Flash use the native AXQ + AX Engine layer-stack stream
+   contract. Nemotron Super/Ultra stay inspect-only until their families have
+   a stream-capable convert path.
 4. **Evidence never upgrades.** Architecture-prior / simple convert = development
    evidence. Certified claims need measured + release audit.
 5. **Fail closed on unscoped catalogs.** Non-catalog Nemotron refs and unscoped
@@ -240,11 +241,12 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         summary=(
             "Thin support: DeepSeek V4 Flash MoE convert via MLX-LM deepseek_v4. "
             "Flash AXQ 2/3-bit experimental packs have checkpoint Tier 1 generation "
-            "viability certificates on df-macstudio-m2; other DeepSeek packs remain "
-            "development evidence."
+            "viability certificates on df-macstudio-m2; convert emits the AX Engine "
+            "layer-stack expert stream contract so 2/3-bit packs can page experts."
         ),
         do=(
             "Allow architecture-prior / experimental low-bit convert for Flash.",
+            "Emit ax_expert_stream.json so AX Engine can page Flash expert stacks.",
             "Cite only exact Hub revisions with public certificates for claims.",
             "Require an mlx-lm build that implements model_type=deepseek_v4.",
             "Keep experimental labels on 2/3-bit product classes.",

@@ -489,6 +489,7 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         notes=(
             "DeepSeek V4 Flash/Pro MoE: fused experts via MLX-LM deepseek_v4.",
             "Development convert only; requires mlx-lm with deepseek_v4 support.",
+            "AX Engine can page Flash expert stacks via the layer-stack stream contract.",
         ),
     ),
     DenseFamilySpec(

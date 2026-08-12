@@ -36,6 +36,16 @@ def test_qwen38_is_thin_stream_track_without_association_claims() -> None:
     assert "Do not copy mlx-optiq" in text
 
 
+def test_deepseek_v4_policy_allows_flash_stream_convert() -> None:
+    policy = policy_for_adapter("deepseek-v4-v1")
+    assert policy is not None
+    assert policy.investment_posture is InvestmentPosture.THIN
+    assert any("ax_expert_stream.json" in item for item in policy.do)
+    text = support_policy_markdown()
+    assert "DeepSeek V4 Flash" in text
+    assert "expert stream contract" in text
+
+
 def test_nemotron_is_thin_and_nano_only_convertible() -> None:
     policy = policy_for_adapter("nemotron3-v1")
     assert policy is not None

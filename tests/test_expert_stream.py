@@ -240,3 +240,122 @@ def test_expert_stream_flags_default_auto_and_super_off_fails_closed() -> None:
 
     with pytest.raises(PlanningError, match="512 GB Mac"):
         validate_expert_stream_request("qwen38-moe-v1", "off")
+
+    validate_expert_stream_request("deepseek-v4-v1", "off")
+    validate_expert_stream_request("deepseek-v4-v1", "auto")
+    validate_expert_stream_request("deepseek-v4-v1", "required")
+
+
+def _deepseek_flash_inventory() -> Inventory:
+    tensors: list[TensorSpec] = []
+    for layer in range(2):
+        for projection in ("gate_proj", "down_proj"):
+            base = f"model.layers.{layer}.ffn.switch_mlp.{projection}"
+            tensors.extend(
+                [
+                    _tensor(f"{base}.weight", layer=layer),
+                    _tensor(f"{base}.scales", layer=layer, metadata=True),
+                    _tensor(f"{base}.biases", layer=layer, metadata=True),
+                ]
+            )
+        tensors.append(
+            TensorSpec(
+                name=f"model.layers.{layer}.ffn.shared_experts.w1.weight",
+                module_path=f"model.layers.{layer}.ffn.shared_experts.w1",
+                shape=(8, 8),
+                dtype="BF16",
+                parameters=64,
+                physical_elements=64,
+                storage_bytes=128,
+                role=TensorRole.MLP,
+                quantizable=True,
+                file=f"model-{layer + 1:05d}-of-00002.safetensors",
+                current_precision="bf16",
+                current_bits=16,
+                current_group_size=None,
+                quantization_metadata=False,
+                protected_recommendation=False,
+                protection_reason=None,
+            )
+        )
+    return Inventory(
+        model=ModelIdentity(model_id="deepseek-ai/DeepSeek-V4-Flash"),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors if tensor.quantizable),
+        weight_bytes=sum(tensor.storage_bytes for tensor in tensors),
+        mtp_weight_bytes=0,
+        precision_parameters={},
+        mtp_present=False,
+        quantized_source=True,
+        source_files=sorted({tensor.file for tensor in tensors}),
+        architecture_profile=ArchitectureProfile(adapter_id="deepseek-v4-v1"),
+        config_sha256="0" * 64,
+    )
+
+
+def test_deepseek_v4_flash_fused_switch_mlp_is_streamable() -> None:
+    manifest = build_expert_stream_manifest(
+        _deepseek_flash_inventory(),
+        experts_per_tok=2,
+        requirement="auto",
+        default_group_size=64,
+    )
+
+    assert manifest.required is False
+    assert manifest.mode == "layer-stack"
+    assert manifest.num_experts == 4
+    assert manifest.experts_per_tok == 2
+    assert {tensor.proj for tensor in manifest.tensors} == {"gate_up", "down"}
+    assert {tensor.layer for tensor in manifest.tensors} == {0, 1}
+    assert all("switch_mlp" in tensor.name for tensor in manifest.tensors)
+    assert all("shared_experts" not in tensor.name for tensor in manifest.tensors)
+
+
+def test_deepseek_v4_source_w1_w2_w3_stacks_map_to_projections() -> None:
+    inventory = _deepseek_flash_inventory()
+    inventory.tensors = [
+        _tensor("model.layers.0.ffn.experts.w1.weight", layer=0),
+        _tensor("model.layers.0.ffn.experts.w1.scales", layer=0, metadata=True),
+        _tensor("model.layers.0.ffn.experts.w3.weight", layer=0),
+        _tensor("model.layers.0.ffn.experts.w3.scales", layer=0, metadata=True),
+        _tensor("model.layers.0.ffn.experts.w2.weight", layer=0),
+        _tensor("model.layers.0.ffn.experts.w2.scales", layer=0, metadata=True),
+    ]
+    manifest = build_expert_stream_manifest(
+        inventory,
+        experts_per_tok=2,
+        requirement="required",
+        default_group_size=32,
+    )
+    assert {tensor.proj for tensor in manifest.tensors} == {"gate", "up", "down"}
+
+
+def test_emit_deepseek_flash_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "config.json").write_text(
+        '{"model_type":"deepseek_v4","n_routed_experts":4,"num_experts_per_tok":2}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        expert_stream, "inspect_model", lambda *args, **kwargs: _deepseek_flash_inventory()
+    )
+    plan = SimpleNamespace(
+        source_model=ModelIdentity(model_id="deepseek-ai/DeepSeek-V4-Flash"),
+        architecture_profile=SimpleNamespace(
+            adapter_id="deepseek-v4-v1",
+            optimization_scope=OptimizationScope.TEXT_PATH,
+        ),
+        group_size=64,
+        kv_cache=None,
+        assignments=[SimpleNamespace(role=TensorRole.EXPERT)],
+    )
+
+    emitted = expert_stream.emit_expert_stream_manifest(tmp_path, plan, setting="required")
+    assert emitted is not None
+    assert emitted.required is True
+    runtime = build_runtime_metadata(plan, tmp_path)
+    assert runtime.memory_policy["expert_stream"] == "required"
+    assert runtime.memory_policy["expert_stream_manifest"] == "ax_expert_stream.json"
