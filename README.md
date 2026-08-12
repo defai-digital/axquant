@@ -70,6 +70,30 @@ agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding 
 (generation viability; MTP Tier 2 not claimed). Other catalog entries remain development
 artifacts unless their own exact revision has a certificate.
 
+**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
+**OptiQ** 2-bit and 4-bit MLX repos live at
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
+and
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
+They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
+does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
+
+**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
+**OptiQ** 2-bit and 4-bit MLX repos live at
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
+and
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
+They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
+does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
+
+**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
+**OptiQ** 2-bit and 4-bit MLX repos live at
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
+and
+[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
+They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
+does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
+
 ## Contents
 
 **Start here**
