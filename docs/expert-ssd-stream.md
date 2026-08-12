@@ -81,9 +81,10 @@ quantization views. AX Engine pages that stack, executes its existing gathered M
 then evicts it according to the runtime cache budget. Embeddings, attention, routing state,
 shared experts, norms, output head, and MTP state remain resident.
 
-When `required=true`, AX Engine must reject a load unless expert streaming is explicitly enabled.
-It must never fall through to a full resident load. Optional manifests allow an operator to opt
-into the same layer-stack path on smaller packed MoE artifacts.
+AX Engine defaults to `--stream-experts auto`. Required packs stream without an extra flag.
+Optional packs (DeepSeek V4 Flash ~115 GB) stay resident when they fit in unified memory plus
+a 48 GiB headroom reserve. `--stream-experts` / `--stream-experts on` forces paging;
+`--stream-experts off` forces a resident load and still fails closed on required packs.
 
 ## Storage invariants
 
@@ -106,9 +107,9 @@ required: `--expert-stream off` is rejected.
 (`model_type=deepseek_v4`). Converted experts are `ffn.switch_mlp.gate_proj` (fused
 gate+up) and `ffn.switch_mlp.down_proj`. Flash 2/3-bit packs can still resident-load;
 pass `--expert-stream required` to force AX Engine to refuse a full resident load.
-Existing published Flash packs without a manifest can still be streamed by AX Engine
-with `--stream-experts` (the engine infers the layer-stack list from native expert
-roles).
+Existing published Flash packs without a manifest stay resident under Auto on a
+192/512 GB Mac. Force paging with `--stream-experts on` if you want the SSD path
+anyway (the engine infers the layer-stack list from native expert roles).
 
 The currently published experimental Qwen 3.8 serving artifacts use a separate OptiQ path. They
 are not AXQ artifacts and must not be loaded by AX Engine. See
