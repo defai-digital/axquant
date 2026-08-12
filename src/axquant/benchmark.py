@@ -382,9 +382,6 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # repetition cycle (dominant formal divergence mode under multi-token adopt).
     # Engine default ON; listed here so formal provenance records the contract.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_CYCLE_GUARD": "1",
-    # Early generated tokens: multi-token teacher-forced still disagrees with
-    # pure-direct on general-long (first_diff@13). Fail closed to sequential.
-    "AX_MLX_GEMMA4_ASSISTANT_MTP_EARLY_GEN_PURE_DIRECT": "1",
     # MoE long multi-token identity (dual-edge + qmv-256) is required for agent
     # long trials to clear weighted >=1.20x. Engine product default remains
     # fail-closed unless this formal profile opts in.
