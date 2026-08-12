@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 from axquant.schema._base import StrictModel
+from axquant.schema.expert_stream import ExpertStreamManifest
 from axquant.schema.public_certification import (
     CHECKPOINT_SCHEMA_VERSION,
     MTP_SCHEMA_VERSION,
@@ -53,15 +54,30 @@ _PUBLIC_CERT_ENTRIES: Final[tuple[SchemaRegistryEntry, ...]] = (
     ),
 )
 
+_OPERATIONAL_ENTRIES: Final[tuple[SchemaRegistryEntry, ...]] = (
+    SchemaRegistryEntry(
+        schema_version="axquant.expert-stream.v1",
+        model=ExpertStreamManifest,
+        compatibility_class="operational",
+        freeze_policy="additive-ok",
+        description="Layer-stack SSD expert streaming contract for AX Engine.",
+    ),
+)
+
+_REGISTERED_ENTRIES: Final[tuple[SchemaRegistryEntry, ...]] = (
+    *_PUBLIC_CERT_ENTRIES,
+    *_OPERATIONAL_ENTRIES,
+)
+
 
 def schema_registry() -> tuple[SchemaRegistryEntry, ...]:
-    """Return the frozen schema registry (public-certification entries first)."""
+    """Return explicit schema policies (public-certification entries first)."""
 
-    return _PUBLIC_CERT_ENTRIES
+    return _REGISTERED_ENTRIES
 
 
 def schema_entry(schema_version: str) -> SchemaRegistryEntry:
-    for entry in _PUBLIC_CERT_ENTRIES:
+    for entry in _REGISTERED_ENTRIES:
         if entry.schema_version == schema_version:
             return entry
     raise KeyError(f"unregistered schema_version: {schema_version!r}")

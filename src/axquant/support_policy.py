@@ -6,9 +6,9 @@ Best practices (reviewed)
    matching OptiQ's full Mac catalog breadth.
 2. **Thin secondary families.** Ship inspect/convert for high-ROI dense paths
    (Mistral/Devstral, Gemma-4, MiniCPM5, Qwen 3.5) without overselling cert.
-3. **Nemotron is thin, not OptiQ-parity.** Support catalog **Nano-30B-A3B** MoE
-   convert only. Super/Ultra (SSD stream / huge MoE product features) stay
-   inspect-only until AX Engine commits a hybrid product path.
+3. **Super-class streaming is explicit and family-scoped.** Qwen 3.8 uses the
+   native AXQ + AX Engine layer-stack stream contract. Nemotron Super/Ultra stay
+   inspect-only until their families have a stream-capable convert path.
 4. **Evidence never upgrades.** Architecture-prior / simple convert = development
    evidence. Certified claims need measured + release audit.
 5. **Fail closed on unscoped catalogs.** Non-catalog Nemotron refs and unscoped
@@ -65,6 +65,28 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Prefer measured ladders and dual-profile quality for public claims.",
         ),
         do_not=("Do not divert cert engineering to Super-class MoE stream features first.",),
+    ),
+    FamilySupportPolicy(
+        product_family="qwen3.8",
+        adapter_id="qwen38-moe-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=5,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin Super-class text MoE path: Qwen3.8-2.4T-A95B conversion emits the "
+            "native AX Engine layer-stack expert stream contract."
+        ),
+        do=(
+            "Treat SSD expert streaming as an explicit Super-class product path when a "
+            "pack's full-resident size exceeds target unified memory.",
+            "Keep outputs labeled development evidence until a real streamed pack loads in "
+            "AX Engine.",
+        ),
+        do_not=(
+            "Do not copy mlx-optiq or reuse its implementation.",
+            "Do not claim OptiQ quality or AX Engine certification by association.",
+        ),
     ),
     FamilySupportPolicy(
         product_family="qwen3.5",
@@ -204,7 +226,7 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         ),
         do_not=(
             "Do not market Super-120B / Ultra as AXQuant product targets.",
-            "Do not invent SSD expert streaming or multi-Mac cluster to match OptiQ.",
+            "Do not promote Super/Ultra until a Nemotron-specific stream convert exists.",
             "Do not promote non-catalog Nemotron refs to convertible.",
         ),
     ),
@@ -313,9 +335,11 @@ def support_policy_markdown() -> str:
             "",
             "1. Two doors: simple convert = development; release = measured + audit.",
             "2. Primary cert track is Qwen 3.6 + AX Engine.",
-            "3. Nemotron is thin (Nano only); Super/Ultra are not product convert targets.",
-            "4. Prefer Mistral/Devstral dense breadth over hybrid Super-class MoE work.",
-            "5. Never upgrade evidence_kind automatically.",
+            "3. SSD expert streaming is an explicit Super-class path for packs that exceed "
+            "target unified memory.",
+            "4. Keep Nemotron thin (Nano only); Super/Ultra need their own stream convert.",
+            "5. Never copy mlx-optiq or inherit quality/certification claims by association.",
+            "6. Never upgrade evidence_kind automatically.",
             "",
         ]
     )

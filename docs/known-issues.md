@@ -27,10 +27,12 @@ between published versions.
 - **2-bit and 3-bit remain experimental**, gated by AX Engine's documented switches; GPTQ at 2/3
   bits is allowed but quality at 2-bit scalar grids is limited by the packing format, not the
   optimizer.
-- **Qwen3.8-2.4T-A95B OptiQ 2/4-bit Hub packs are experimental and are not AX Engine
-  artifacts.** They are `mlx-optiq` static converts for SSD expert streaming. Do not load them
-  in `ax-engine`. AXQuant has no inspect/convert/cert track for `model_type=qwen3_5_moe_text`.
-  Details: [qwen38-optiq-experimental.md](qwen38-optiq-experimental.md).
+- **Qwen3.8-2.4T-A95B OptiQ 2/4-bit Hub packs remain experimental and are not AX Engine
+  artifacts.** Do not load those repositories in `ax-engine`. AXQuant now has a thin native
+  development adapter and emits the layer-stack stream contract, but AX Engine has not yet loaded
+  a real native Qwen 3.8 pack and there is no certification track. Details:
+  [expert-ssd-stream.md](expert-ssd-stream.md) and
+  [qwen38-optiq-experimental.md](qwen38-optiq-experimental.md).
 
 ## Activation capture
 

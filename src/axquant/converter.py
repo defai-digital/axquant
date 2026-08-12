@@ -21,6 +21,12 @@ from axquant.capture_binding import (
     activation_capture_evidence_issues,
 )
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
+from axquant.expert_stream import (
+    STREAM_CAPABLE_ADAPTERS,
+    ExpertStreamSetting,
+    emit_expert_stream_manifest,
+    validate_expert_stream_request,
+)
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
@@ -1556,7 +1562,9 @@ def convert_model(
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
     ax_engine_bench: str = "ax-engine-bench",
+    expert_stream: ExpertStreamSetting = "auto",
 ) -> ArtifactManifest:
+    validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
         raise PlanningError(
             "conversion requires measured evidence; pass --allow-unmeasured only for dry runs"
@@ -1565,6 +1573,11 @@ def convert_model(
     bound_capture = _validated_activation_capture(plan, calibration_activations)
     assert_conversion_scope(plan)
     kv_sensitivity_source = _validated_kv_sensitivity_source(plan, kv_sensitivity)
+    if (
+        expert_stream == "required"
+        or plan.architecture_profile.adapter_id in STREAM_CAPABLE_ADAPTERS
+    ) and not any(allocation.role is TensorRole.EXPERT for allocation in plan.assignments):
+        raise PlanningError("expert streaming requires packed expert allocations in the plan")
     quantized_allocations = [allocation for allocation in plan.assignments if allocation.bits < 16]
     if not quantized_allocations:
         raise PlanningError("conversion plan contains no quantized assignments")
@@ -1753,6 +1766,7 @@ def convert_model(
         if kv_sensitivity_source is not None:
             _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
+        emit_expert_stream_manifest(staging_dir, plan, setting=expert_stream)
         if ax_engine_manifest == "required":
             require_ax_engine_manifest(staging_dir, executable=ax_engine_bench)
         elif ax_engine_manifest == "if-available":

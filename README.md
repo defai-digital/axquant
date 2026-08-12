@@ -70,29 +70,14 @@ agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding 
 (generation viability; MTP Tier 2 not claimed). Other catalog entries remain development
 artifacts unless their own exact revision has a certificate.
 
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
+**Qwen3.8-2.4T-A95B** currently has experimental **OptiQ** 2-bit and 4-bit MLX repos at
 [`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
 and
 [`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
-
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
-and
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
-
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
-and
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
+Those published packs are not AXQ artifacts and **AX Engine does not support them**. A thin native
+AXQ + AX Engine layer-stack streaming path is in progress, with no real-pack runtime validation or
+certification track yet. See [the native stream contract](docs/expert-ssd-stream.md) and the
+[published OptiQ warning](docs/qwen38-optiq-experimental.md).
 
 ## Contents
 
@@ -410,6 +395,7 @@ release audit. The current tier matrix:
 | Family | Adapter | Tier |
 | --- | --- | --- |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; primary certification track |
+| **Qwen 3.8 2.4T-A95B text MoE** | `qwen38-moe-v1` | `convertible` thin development path; native layer-stack expert stream required; no cert track |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
 | **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ 4/6-bit checkpoint Tier 1 certified** ([4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
@@ -418,7 +404,7 @@ release audit. The current tier matrix:
 | **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
-| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
+| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** until a Nemotron-specific stream convert exists |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
 | **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 4/6-bit + 120B 6-bit Tier 1** ([20B-4](docs/certifications/gpt-oss-20b-axq4-tier1.md), [20B-6](docs/certifications/gpt-oss-20b-axq6-tier1.md), [120B-6](docs/certifications/gpt-oss-120b-axq6-tier1.md)); **120B 4-bit not certified** ([record](docs/certifications/gpt-oss-120b-axq4-tier1.md)); no MTP |

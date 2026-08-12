@@ -1,0 +1,144 @@
+{
+  "$defs": {
+    "ExpertStreamTensor": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "maximum": 16,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "expert_axis": {
+          "const": 0,
+          "default": 0,
+          "type": "integer"
+        },
+        "file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "group_size": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "layer": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "num_experts": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "proj": {
+          "enum": [
+            "gate_up",
+            "gate",
+            "up",
+            "down"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "file",
+        "layer",
+        "proj",
+        "num_experts",
+        "bits",
+        "group_size"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "estimated_full_resident_bytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "estimated_max_layer_expert_bytes": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "estimated_resident_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "experts_per_tok": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "generated_by": {
+      "const": "axquant",
+      "default": "axquant",
+      "type": "string"
+    },
+    "mode": {
+      "const": "layer-stack",
+      "default": "layer-stack",
+      "type": "string"
+    },
+    "num_experts": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "required": {
+      "type": "boolean"
+    },
+    "resident_roles": {
+      "items": {
+        "enum": [
+          "embedding",
+          "attention",
+          "router",
+          "shared_expert",
+          "mlp",
+          "norm",
+          "lm_head",
+          "mtp",
+          "vision",
+          "audio",
+          "other"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.expert-stream.v1",
+      "default": "axquant.expert-stream.v1",
+      "type": "string"
+    },
+    "streamed_roles": {
+      "items": {
+        "const": "expert",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "tensors": {
+      "items": {
+        "$ref": "#/$defs/ExpertStreamTensor"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "required",
+    "num_experts",
+    "experts_per_tok",
+    "estimated_resident_bytes",
+    "estimated_full_resident_bytes",
+    "estimated_max_layer_expert_bytes",
+    "resident_roles",
+    "tensors"
+  ],
+  "type": "object"
+}

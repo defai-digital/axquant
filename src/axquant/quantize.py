@@ -19,6 +19,7 @@ from typing import Literal
 from axquant.analyzer import architecture_prior_report
 from axquant.converter import convert_model
 from axquant.errors import PlanningError
+from axquant.expert_stream import ExpertStreamSetting
 from axquant.inspector import inspect_model
 from axquant.ladders import get_ladder, plan_request_for_ladder
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
@@ -141,6 +142,7 @@ def quick_convert(
     audio_input: str | Path | None = None,
     image_input: str | Path | None = None,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
+    expert_stream: ExpertStreamSetting = "auto",
     allow_download: bool = False,
     allow_quantized: bool = False,
 ) -> QuickConversionSummary:
@@ -256,6 +258,7 @@ def quick_convert(
         kv_sensitivity=kv_sensitivity,
         allow_unmeasured=True,
         ax_engine_manifest=ax_engine_manifest,
+        expert_stream=expert_stream,
     )
     output_dir = Path(output).expanduser().resolve()
     smoke_result = _runtime_smoke_check(

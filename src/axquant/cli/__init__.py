@@ -717,6 +717,7 @@ def _run(args: argparse.Namespace) -> int:
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,
+            expert_stream=args.expert_stream,
         )
         return 0
 
@@ -756,6 +757,7 @@ def _run(args: argparse.Namespace) -> int:
             audio_input=args.audio_input,
             image_input=args.image_input,
             ax_engine_manifest=args.ax_engine_manifest,
+            expert_stream=args.expert_stream,
         )
         if args.json_output:
             write_data(args.json_output, summary)
