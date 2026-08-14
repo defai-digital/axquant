@@ -241,6 +241,18 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
+    # No-MTP Qwen / Coder-Next siblings stay certified on disk but off the matrix.
+    for rid in (
+        "qwen38-27b-axq4",
+        "qwen38-27b-axq6",
+        "qwen36-27b-axq4-nomtp",
+        "qwen36-27b-axq6-nomtp",
+        "qwen36-35b-axq4-nomtp",
+        "qwen36-35b-axq6-nomtp",
+        "qwen3-coder-next-axq4",
+        "qwen3-coder-next-axq6",
+    ):
+        assert rid in unlisted_ids
 
 
 def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:

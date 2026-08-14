@@ -93,6 +93,6 @@
     "display_name": "Qwen3.8-27B AXQ 6-bit",
     "sort_order": 3,
     "edition_label": "main@`edfedb5c`",
-    "listed": true
+    "listed": false
   }
 }

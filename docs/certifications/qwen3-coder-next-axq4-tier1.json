@@ -80,6 +80,6 @@
     "display_name": "Qwen3-Coder-Next AXQ 4-bit",
     "sort_order": 50,
     "edition_label": "main@`53dce509`",
-    "listed": true
+    "listed": false
   }
 }

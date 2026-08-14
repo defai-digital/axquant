@@ -82,6 +82,6 @@
     "display_name": "Qwen 3.6 35B-A3B AXQ 4-bit",
     "sort_order": 20,
     "edition_label": "main@`2a5bc33c`",
-    "listed": true
+    "listed": false
   }
 }

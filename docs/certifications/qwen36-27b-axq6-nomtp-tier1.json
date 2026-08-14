@@ -95,6 +95,6 @@
     "display_name": "Qwen 3.6 27B AXQ 6-bit",
     "sort_order": 12,
     "edition_label": "main@`66a3ad41`",
-    "listed": true
+    "listed": false
   }
 }
