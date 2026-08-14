@@ -12,24 +12,27 @@ via `tests/test_documentation.py`.
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
 | --- | --- | --- | --- |
-| [Qwen3.8-27B AXQ 4-bit](qwen38-27b-axq4-tier1.md) | main@`a8c56f94` | [Certified](qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3.8-27B AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) |
-| [Qwen3.8-27B AXQ 6-bit](qwen38-27b-axq6-tier1.md) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
 | [Qwen3.8-27B AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) |
-| [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-nomtp-tier1.md) | main@`6598b5cd` | [Certified](qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen 3.6 27B AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
-| [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen 3.6 27B AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
-| [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-nomtp-tier1.md) | main@`2a5bc33c` | [Certified](qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen 3.6 35B-A3B AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
-| [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-nomtp-tier1.md) | main@`8519cd1d` | [Certified](qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen 3.6 35B-A3B AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
+| [Qwen3.8-27B AXQ 4-bit](qwen38-27b-axq4-tier1.md) | main@`a8c56f94` | [Certified](qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
+| [Qwen3.8-27B AXQ 6-bit](qwen38-27b-axq6-tier1.md) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-nomtp-tier1.md) | main@`6598b5cd` | [Certified](qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-nomtp-tier1.md) | main@`2a5bc33c` | [Certified](qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-nomtp-tier1.md) | main@`8519cd1d` | [Certified](qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen3-Coder-Next AXQ 4-bit](qwen3-coder-next-axq4-tier1.md) | main@`53dce509` | [Certified](qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-Coder-Next AXQ 6-bit](qwen3-coder-next-axq6-tier1.md) | main@`c6f3ae55` | [Certified](qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | [Holo3-35B-A3B AXQ 4-bit](holo3-35b-axq4-tier1.md) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) |
 | [Holo3-35B-A3B AXQ 6-bit](holo3-35b-axq6-tier1.md) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) |
+| [GPT-OSS 20B AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
+| [GPT-OSS 20B AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
+| [GPT-OSS 120B AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 | [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | [Gemma 4 12B AXQ 4-bit](gemma4-12b-axq4-tier1.md) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) |
@@ -38,9 +41,6 @@ via `tests/test_documentation.py`.
 | [Gemma 4 26B-A4B AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | [Gemma 4 31B AXQ 4-bit](gemma4-31b-axq4-tier1.md) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 31B AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
-| [GPT-OSS 20B AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
-| [GPT-OSS 20B AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| [GPT-OSS 120B AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP

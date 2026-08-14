@@ -29,24 +29,27 @@ do not edit the table cells by hand.
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen3.8-27B AXQ 4-bit | [Certified](docs/certifications/qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
-| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
-| Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen 3.6 27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
-| Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen 3.6 27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen 3.6 35B-A3B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen 3.6 35B-A3B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen3.8-27B AXQ 4-bit | [Certified](docs/certifications/qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
+| GPT-OSS 20B AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
+| GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
+| GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
@@ -55,9 +58,6 @@ do not edit the table cells by hand.
 | Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
-| GPT-OSS 20B AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
-| GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact

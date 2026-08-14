@@ -213,10 +213,31 @@ def load_public_cert_rows(
             )
         )
 
-    rows.sort(key=lambda row: (row.sort_order, row.record_id))
+    # Dual Tier 1+2 certified packs lead the public matrices. Tier-1-only
+    # (including no-MTP / T2 N/A) and T1-with-uncertified-MTP follow, still
+    # ordered by each record's public_index.sort_order within the group.
+    rows.sort(key=lambda row: (_matrix_completeness_rank(row), row.sort_order, row.record_id))
     if listed_only:
         return [row for row in rows if row.listed]
     return rows
+
+
+def _matrix_completeness_rank(row: PublicCertRow) -> int:
+    """Sort rank for public matrices (lower sorts first).
+
+    Only packs that pass **both** checkpoint Tier 1 and scoped MTP Tier 2 are
+    treated as the fully certified front of the catalog. Everything else keeps
+    a secondary rank so dual-certified flagship packs are not buried under
+    no-MTP siblings or T1-only rows.
+    """
+
+    if row.tier1_status == "certified" and row.tier2_status == "certified":
+        return 0
+    if row.tier1_status == "certified" and row.tier2_status == "not_applicable":
+        return 1
+    if row.tier1_status == "certified":
+        return 2  # Tier 1 certified; MTP present but Tier 2 not certified
+    return 3
 
 
 def _tier1_cell(row: PublicCertRow, *, link_prefix: str) -> str:

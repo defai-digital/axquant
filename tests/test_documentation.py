@@ -244,29 +244,36 @@ def test_public_certification_json_is_loadable_ssot() -> None:
 
 
 def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:
-    """Qwen leads the catalog; remaining families use stable natural grouping."""
+    """Dual Tier 1+2 certified packs lead; remaining groups keep sort_order."""
 
     rows = load_public_cert_rows(listed_only=False)
     assert len({row.sort_order for row in rows}) == len(rows)
+    # Completeness: both tiers certified → T1-only (T2 N/A) → T1 with T2 not certified.
     assert [row.record_id for row in rows] == [
-        "qwen38-27b-axq4",
+        # Dual certified (Tier 1 + scoped Tier 2)
         "qwen38-27b-axq4-mtp",
-        "qwen38-27b-axq6",
         "qwen38-27b-axq6-mtp",
-        "qwen36-27b-axq4-nomtp",
         "qwen36-27b-axq4",
-        "qwen36-27b-axq6-nomtp",
         "qwen36-27b-axq6",
-        "qwen36-35b-axq4-nomtp",
         "qwen36-35b-axq4",
-        "qwen36-35b-axq6-nomtp",
         "qwen36-35b-axq6",
+        # Tier 1 only, no MTP (T2 N/A)
+        "qwen38-27b-axq4",
+        "qwen38-27b-axq6",
+        "qwen36-27b-axq4-nomtp",
+        "qwen36-27b-axq6-nomtp",
+        "qwen36-35b-axq4-nomtp",
+        "qwen36-35b-axq6-nomtp",
         "qwen3-coder-next-axq4",
         "qwen3-coder-next-axq6",
         "qwen3-vl-30b-axq4",
         "qwen3-vl-30b-axq6",
         "holo3-35b-axq4",
         "holo3-35b-axq6",
+        "gpt-oss-20b-axq4",
+        "gpt-oss-20b-axq6",
+        "gpt-oss-120b-axq6",
+        # Tier 1 certified; MTP present but Tier 2 not certified
         "deepseek-v4-flash-axq2",
         "deepseek-v4-flash-axq3",
         "gemma4-12b-axq4",
@@ -275,11 +282,16 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gemma4-26b-a4b-axq6",
         "gemma4-31b-axq4",
         "gemma4-31b-axq6",
-        "gpt-oss-20b-axq4",
-        "gpt-oss-20b-axq6",
+        # Not checkpoint-certified (unlisted evaluation record)
         "gpt-oss-120b-axq4",
-        "gpt-oss-120b-axq6",
     ]
+    dual = [row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"]
+    assert dual
+    assert all(
+        rows.index(dual[0]) < rows.index(row)
+        for row in rows
+        if row.tier2_status != "certified"
+    )
     unlisted_ids = {row.record_id for row in rows if not row.listed}
     assert "holo3-35b-axq4" not in unlisted_ids
     assert "holo3-35b-axq6" not in unlisted_ids
