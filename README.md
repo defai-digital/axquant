@@ -22,6 +22,8 @@ tensors, and multi-token-prediction (MTP) weights.
 ([collections](https://huggingface.co/AutomatosX/collections),
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
 Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id `df-macbookpro-m5`).
+AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
+([report](docs/ax-engine-72h-endurance.md)).
 Headline matrix below lists **public catalog** packs only (dual Tier 1+2 first).
 **Full list of every AXQ certificate record** (including unlisted no-MTP siblings and
 evaluation archives): [docs/certifications/full-list.md](docs/certifications/full-list.md).
@@ -104,7 +106,7 @@ repos are not AX Engine artifacts
 
 **Product status and packs**
 
-- [Current status](#current-status) (tiers, Hub catalog, known gaps)
+- [Current status](#current-status) (tiers, Hub catalog, known gaps, [72 h endurance](docs/ax-engine-72h-endurance.md))
 
 **Operators**
 
@@ -326,6 +328,11 @@ command does not by itself certify an output.
 - Checkpoint Tier 1 and scoped MTP Tier 2 are separate claims. Exact Qwen 3.6 27B/35B-A3B
   revisions have scoped certificates, while Gemma-4, Qwen3-Coder-Next, and experimental
   DeepSeek V4 Flash packs publish their narrower checkpoint verdicts (v1.6.2).
+- AX Engine **6.15.0** passed a **72-hour** AXQ endurance soak on `df-macmini-03`
+  (Mac mini M4 Pro, 64 GB) serving Qwen 3.6 27B AXQ 6-bit: **3643 / 3643**
+  requests, zero errors, no RSS leak, no swap. This is a runtime soak, not a
+  new checkpoint certificate. Report:
+  [docs/ax-engine-72h-endurance.md](docs/ax-engine-72h-endurance.md).
 
 ### v1.5.x at a glance
 
@@ -1361,6 +1368,7 @@ and required promotion evidence are clear.
 
 | Doc | Audience |
 | --- | --- |
+| [AX Engine 72-hour endurance](docs/ax-engine-72h-endurance.md) | Users — AX Engine 6.15.0 passed a 72 h soak on Qwen 3.6 27B AXQ 6-bit |
 | [Qwen3.8 AXQ 2-bit report](docs/qwen38-axq-2bit.md) | Users — Super-class 2-bit convert evidence; this revision will not be certified (too slow) |
 | [Known issues](docs/known-issues.md) | Operators — documented limitations and fail-closed gates |
 | [Environment compatibility](docs/compatibility.md) | Operators — platforms, Python, MLX extras |
