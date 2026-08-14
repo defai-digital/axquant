@@ -33,10 +33,14 @@ do not edit the table cells by hand.
 | Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
-| Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
-| Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
+| Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
+| Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 35B-A3B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
+| Qwen 3.6 35B-A3B AXQ 6-bit | [Certified](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| Qwen 3.6 35B-A3B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
 | Qwen3-Coder-Next AXQ 4-bit | [Certified](docs/certifications/qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
@@ -480,9 +484,13 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
+| [`AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | 5.418315 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
+| [`AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | 5.805849 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md)); language path matches v3 MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 Tier 1 + scoped Tier 2 MTP certified** ([Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq6-tier2.md)); default route still direct fallback |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit) | 4.878782 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-35b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-35b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-35b-axq4-tier2.md)); product default still direct fallback |
+| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit) | 5.759473 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-35b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-35b-axq6-tier2.md)); product default still direct fallback |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
 | [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq4-tier1.md)); IT rebuild; assistant-MTP fused; Tier 2 not certified |

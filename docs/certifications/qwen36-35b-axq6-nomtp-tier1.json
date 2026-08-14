@@ -1,0 +1,87 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-14T18:51:44.927475+00:00",
+  "host_id": "df-macbookpro-m5",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit",
+    "hub_commit": "8519cd1d15277f20deb899d6ea588c2e91815234",
+    "product_class": "6bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.6-35B-A3B",
+    "source_revision": "995ad96eacd98c81ed38be0c5b274b04031597b0",
+    "candidate_manifest_sha256": "b36b977cef90c8b894a1327c3424c63bc7aa2d29f3e833b3e11321f837e2f582"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "no-mtp-sibling-of-certified-mtp",
+    "target_class": "6bit",
+    "measured_total_bpw": 5.62416175382127,
+    "measured_main_bpw": 5.759472993321032,
+    "related_mtp_certificate": "qwen36-35b-axq6-tier1.json"
+  },
+  "size": {
+    "candidate_weight_bytes": 25274858279,
+    "candidate_measured_bpw": 5.62416175382127,
+    "reference_kind": "uniform-6bit",
+    "reference_model_id": "ax-local/mlx-community/Qwen3.6-35B-A3B-6bit-MTP",
+    "reference_weight_bytes": 29061803049,
+    "size_ratio_vs_uniform": 0.869693399146124,
+    "pass": true,
+    "compare_mode": "total-no-mtp",
+    "notes": "Language+vision from certified MTP sibling; mtp.safetensors removed."
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8881578947368421,
+      "reference_score": 0.8881578947368421,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0038155756658476,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9998020259352493,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform6": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "No MTP weights; non-MTP direct-decode sibling of the certified MTP pack."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "Derived from certified MTP language path; mtp.safetensors omitted."
+    },
+    "ax_engine": {
+      "status": "pass",
+      "notes": "Same language weights as certified MTP sibling."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.1",
+    "ax_engine": "6.14.0",
+    "python": "3.13.14"
+  },
+  "notes": [
+    "No-MTP Hub sibling of certified `qwen36-35b-axq6-tier1` MTP pack.",
+    "Language and vision tensors match the MTP artifact; only mtp.safetensors / MTP sidecar metadata are removed.",
+    "Checkpoint quality inherits the MTP sibling language-path evidence; MTP acceleration is not applicable."
+  ],
+  "public_index": {
+    "display_name": "Qwen 3.6 35B-A3B AXQ 6-bit",
+    "sort_order": 22,
+    "edition_label": "main@`8519cd1d`",
+    "listed": true
+  }
+}

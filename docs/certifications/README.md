@@ -16,10 +16,14 @@ via `tests/test_documentation.py`.
 | [Qwen3.8-27B AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
 | [Qwen3.8-27B AXQ 6-bit](qwen38-27b-axq6-tier1.md) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
 | [Qwen3.8-27B AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
-| [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
-| [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
-| [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
-| [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
+| [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-nomtp-tier1.md) | main@`6598b5cd` | [Certified](qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 27B AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
+| [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 27B AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
+| [Qwen 3.6 35B-A3B AXQ 4-bit](qwen36-35b-axq4-nomtp-tier1.md) | main@`2a5bc33c` | [Certified](qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 35B-A3B AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
+| [Qwen 3.6 35B-A3B AXQ 6-bit](qwen36-35b-axq6-nomtp-tier1.md) | main@`8519cd1d` | [Certified](qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) |
+| [Qwen 3.6 35B-A3B AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
 | [Qwen3-Coder-Next AXQ 4-bit](qwen3-coder-next-axq4-tier1.md) | main@`53dce509` | [Certified](qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-Coder-Next AXQ 6-bit](qwen3-coder-next-axq6-tier1.md) | main@`c6f3ae55` | [Certified](qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |

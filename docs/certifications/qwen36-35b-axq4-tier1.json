@@ -64,8 +64,8 @@
     "python": "3.13.14"
   },
   "public_index": {
-    "display_name": "Qwen 3.6 35B-A3B AXQ 4-bit",
-    "sort_order": 30,
+    "display_name": "Qwen 3.6 35B-A3B AXQ 4-bit MTP",
+    "sort_order": 21,
     "edition_label": "main@`a549387d`",
     "listed": true
   }

@@ -1,4 +1,4 @@
-# Qwen 3.6 27B AXQ 6-bit — checkpoint Tier 1 certification
+# Qwen 3.6 27B AXQ 6-bit MTP — checkpoint Tier 1 certification
 
 **Verdict:** certified for AXQuant checkpoint Tier 1 on 2026-08-08.
 

@@ -81,8 +81,8 @@
     "Size budget is class-specific (5p6bpw max_size_ratio 1.25), not pure-4bit 1.10."
   ],
   "public_index": {
-    "display_name": "Qwen 3.6 27B AXQ 4-bit",
-    "sort_order": 20,
+    "display_name": "Qwen 3.6 27B AXQ 4-bit MTP",
+    "sort_order": 11,
     "edition_label": "main@`f44a9eee`",
     "listed": true
   }

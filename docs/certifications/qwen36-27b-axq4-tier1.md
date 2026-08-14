@@ -1,4 +1,4 @@
-# Qwen 3.6 27B AXQ 4-bit (5.6 BPW) — checkpoint Tier 1 certification
+# Qwen 3.6 27B AXQ 4-bit MTP (5.6 BPW) — checkpoint Tier 1 certification
 
 **Verdict:** certified for AXQuant checkpoint Tier 1 on 2026-08-08 (quality + size
 budget for product class `5p6bpw`; see size note).
