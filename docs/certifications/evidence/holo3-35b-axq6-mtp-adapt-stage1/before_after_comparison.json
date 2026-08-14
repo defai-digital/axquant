@@ -9,8 +9,8 @@
   "online_speedup_after": 0.5079854884574118,
   "tier2_status": "not_certified",
   "notes": [
-    "Stage-1 fc/norm adapt raised offline top-1 from 0.0 to 0.25.",
-    "Online accept_rate left zero but remains far below viable (~0.5) and speedup ~0.51x.",
-    "Main trunk digests unchanged on compose; graft_kind holo3-adapted-mtp-v1."
+    "Stage-1 fc/norm adapt raised offline top-1 from 0.0 to 0.25 (8/32).",
+    "Online accept_rate rose from 0.0 to ~0.023 but remains far below viable (~0.5); speedup ~0.51x.",
+    "Main trunk digests unchanged on compose; graft_kind holo3-adapted-mtp-v1; Tier 2 still not_certified."
   ]
 }
