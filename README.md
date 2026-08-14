@@ -30,6 +30,8 @@ do not edit the table cells by hand.
 | --- | --- | --- |
 | Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
+| Qwen3.8-27B AXQ 4-bit | [Certified](docs/certifications/qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
 | Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |

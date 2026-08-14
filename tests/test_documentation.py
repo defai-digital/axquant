@@ -237,6 +237,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
     assert [row.record_id for row in rows] == [
         "qwen38-27b-axq6",
         "qwen38-27b-axq6-mtp",
+        "qwen38-27b-axq4",
+        "qwen38-27b-axq4-mtp",
         "qwen36-27b-axq6",
         "qwen36-27b-axq4",
         "qwen36-35b-axq4",
