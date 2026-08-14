@@ -2,12 +2,12 @@
 
 **These are not AXQ packs and they are not supported by AX Engine.**
 
-Hub repos (weights land after the `df-macstudio-m2` convert/upload job finishes):
+Former Hub repos were removed (2026-08-13):
 
-| Pack | Hub | Recipe |
+| Pack | Former Hub | Recipe |
 | --- | --- | --- |
-| Experimental OptiQ 2-bit | [`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit) | `optiq convert --method static --candidate-bits 2,4 --target-bpw 2.5` |
-| Experimental OptiQ 4-bit | [`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit) | `optiq convert --method static --candidate-bits 4,8 --target-bpw 4.5` |
+| Experimental OptiQ 2-bit | `AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit` | `optiq convert --method static --candidate-bits 2,4 --target-bpw 2.5` |
+| Experimental OptiQ 4-bit | `AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit` | `optiq convert --method static --candidate-bits 4,8 --target-bpw 4.5` |
 
 ## Why OptiQ, not AXQuant
 
@@ -34,18 +34,22 @@ Serve only with `mlx-optiq` ≥ 0.4.19. Do not load these checkpoints in `ax-eng
 
 ## Operator job (macstudio)
 
+Hub pulls on this host use the project Xet arrangement (see `AGENTS.md`): cache on
+Ext4T, `HF_XET_HIGH_PERFORMANCE=1`, logged-in Hub token. Do not use
+`HF_HUB_ENABLE_HF_TRANSFER`.
+
 Orchestrator (already launched on `df-macstudio-m2`):
 
 ```text
-/Volumes/Ext4T/axquant/scripts/run_qwen38_optiq_experimental.sh
+/path/to/axquant-work/scripts/run_qwen38_optiq_experimental.sh
 ```
 
 Logs:
 
 ```text
-/Volumes/Ext4T/axquant/logs/qwen38-optiq-orchestrator.log
-/Volumes/Ext4T/axquant/logs/qwen38-optiq-2bit-convert.log
-/Volumes/Ext4T/axquant/logs/qwen38-optiq-4bit-convert.log
+/path/to/axquant-work/logs/qwen38-optiq-orchestrator.log
+/path/to/axquant-work/logs/qwen38-optiq-2bit-convert.log
+/path/to/axquant-work/logs/qwen38-optiq-4bit-convert.log
 ```
 
 The job converts 2-bit, uploads, deletes the local 2-bit tree, then converts and uploads 4-bit.
