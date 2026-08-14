@@ -1075,6 +1075,9 @@ class BenchmarkConfig(StrictModel):
     top_p: float = Field(default=1.0, ge=0.0, le=1.0)
     top_k: int = Field(default=0, ge=0)
     max_tokens: int = Field(default=512, ge=1)
+    # When true, pass --ignore-eos to ax-engine-bench so fixed-token decode
+    # budgets are measured even if the model would stop early (decode-heavy A/B).
+    ignore_eos: bool = False
     draft_depth: int | None = Field(default=None, ge=1)
     power_mode: str | None = Field(default=None, min_length=1)
     quantizer: str | None = Field(default=None, min_length=1)

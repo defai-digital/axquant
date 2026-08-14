@@ -1255,6 +1255,24 @@ def test_qwen36_exact_profile_env_is_complete_and_allowlisted(
     assert merged["AX_MLX_MTP_BYPASS_MIN_SAMPLES"] == "8"
 
 
+def test_qwen38_exact_profile_env_extends_dense_with_async_draft(
+    base_config: BenchmarkConfig,
+) -> None:
+    """Qwen3.8 dense hybrid Tier 2 uses dense exact + async draft (M3 Max)."""
+    from axquant.benchmark import (
+        QWEN36_EXACT_MTP_PROFILE_ENV,
+        QWEN38_EXACT_MTP_PROFILE_ENV,
+    )
+
+    config = base_config.model_copy(update={"runtime_env": dict(QWEN38_EXACT_MTP_PROFILE_ENV)})
+    assert config.runtime_env == dict(sorted(QWEN38_EXACT_MTP_PROFILE_ENV.items()))
+    for key, value in QWEN36_EXACT_MTP_PROFILE_ENV.items():
+        assert QWEN38_EXACT_MTP_PROFILE_ENV[key] == value
+    assert QWEN38_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_ASYNC_DRAFT"] == "1"
+    assert QWEN38_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_VERIFY_SUBMIT_LAYERS"] == "8"
+    assert QWEN38_EXACT_MTP_PROFILE_ENV["AX_MLX_PIPELINE_GRANULARITY"] == "layer"
+
+
 def test_qwen36_moe_exact_profile_env_is_complete_and_allowlisted(
     base_config: BenchmarkConfig,
 ) -> None:

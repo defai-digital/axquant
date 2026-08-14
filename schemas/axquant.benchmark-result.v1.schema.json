@@ -33,6 +33,10 @@
           ],
           "default": null
         },
+        "ignore_eos": {
+          "default": false,
+          "type": "boolean"
+        },
         "max_tokens": {
           "default": 512,
           "minimum": 1,

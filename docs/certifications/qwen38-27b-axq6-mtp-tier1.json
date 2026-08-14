@@ -58,8 +58,8 @@
     "max_size_ratio_vs_uniform": 1.15
   },
   "mtp_acceleration": {
-    "status": "not-certified",
-    "reason": "MTP weights present; speculative acceleration not certified (no Tier 2 A/B pass yet)."
+    "status": "certified-see-tier2-record",
+    "tier2_certificate": "qwen38-27b-axq6-mtp-tier2.json"
   },
   "runtime": {
     "ax_engine": {
@@ -82,7 +82,8 @@
     "Checkpoint Tier 1 on host id df-macbookpro-m3.",
     "Quality vs same-pin BF16; size vs local uniform-6 convert.",
     "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
-    "Vision BF16-protected; VLM quality not claimed."
+    "Vision BF16-protected; VLM quality not claimed.",
+    "MTP acceleration: see Tier 2 record qwen38-27b-axq6-mtp-tier2.json."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "95ca74e66bcf04ad1973296399b24222696b2542d9ef92615df688458a9f76a8",

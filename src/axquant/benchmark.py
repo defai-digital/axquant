@@ -304,6 +304,18 @@ QWEN36_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_SPECULATIVE_SPLIT_FFN": "1",
 }
 
+# Qwen3.8 dense hybrid (model_type=qwen3_5) uses the same exact linear-MTP
+# kernels as Qwen 3.6 27B dense, plus async draft / chunked verify submit
+# (measured on df-macbookpro-m3 2026-08-14: dense_exact alone ~1.20x, with
+# async draft ~1.27x token-weighted decode while keeping greedy exactness).
+QWEN38_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
+    **QWEN36_EXACT_MTP_PROFILE_ENV,
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
+}
+
+
 # Formal Qwen 3.6 exact-MTP contract for the **sparse-expert** siblings
 # (35B-A3B and any later n-A3B pack). Same exactness contract as the dense
 # profile, with three deliberate differences (AXQ-041):
@@ -588,6 +600,8 @@ def _run_single_trial(
         str(config.model.local_path or config.model.model_id),
         "--json",
     ]
+    if config.ignore_eos:
+        command.append("--ignore-eos")
     if using_real_runner:
         environment = _runtime_environment(config)
         command = ["/usr/bin/time", "-l", "/usr/bin/env", *environment, *command]
@@ -1266,6 +1280,7 @@ _AB_GENERATION_CONTROL_FIELDS = (
     "top_p",
     "top_k",
     "max_tokens",
+    "ignore_eos",
     "timeout_seconds",
     "draft_depth",
     "power_mode",

@@ -10,7 +10,7 @@
 | Size ratio vs uniform-6 | `0.956628` (≤ 1.15) |
 | Agent-coding retention vs BF16 | `0.992754` (≥ 0.98) |
 | General retention vs BF16 | `1.000000` |
-| MTP acceleration | `not-certified` |
+| MTP acceleration | [certified — see Tier 2](qwen38-27b-axq6-mtp-tier2.md) |
 
 ## Gates
 
@@ -27,6 +27,15 @@
 - Adapter `qwen38-dense-v1` (dense hybrid VLM `model_type=qwen3_5`); not Qwen 3.6 flagship track.
 - Quality measured against same-pin BF16; size against local `mlx_lm.convert` uniform-6 from the same BF16 pin.
 - Vision remains BF16-protected; no VLM quality claim.
-- MTP acceleration is **not** certified on this record.
+- MTP acceleration is certified under [qwen38-27b-axq6-mtp-tier2.md](qwen38-27b-axq6-mtp-tier2.md).
 
 Machine-readable: [qwen38-27b-axq6-mtp-tier1.json](qwen38-27b-axq6-mtp-tier1.json).
+
+## Tier 2 status
+
+**Certified** for scoped MTP acceleration — see [qwen38-27b-axq6-mtp-tier2.md](qwen38-27b-axq6-mtp-tier2.md).
+
+## Related certificates
+
+- [Tier 2 MTP acceleration](qwen38-27b-axq6-mtp-tier2.md)
+

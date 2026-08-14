@@ -27,8 +27,8 @@ the BF16 source model. The language path is quantized while the multi-token-pred
 > **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14) for this exact
 > revision — measured size against a matched uniform baseline, quality retention, and
 > conversion integrity. Tier 1 is a checkpoint claim, **not** a speed claim: MTP
-> acceleration is **not certified**; no MTP speedup claim for this checkpoint.
-> See the [checkpoint Tier 1 certificate](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-tier1.md) for the bound evidence and thresholds.
+> acceleration is certified for the certificate's authorizing profiles only; outside that scope there is no speedup claim.
+> See the [checkpoint Tier 1 certificate](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-tier1.md) and [Tier 2 MTP acceleration certificate](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-tier2.md) for the bound evidence and thresholds.
 
 
 ## Model details
@@ -74,7 +74,7 @@ misleading `4bit` sibling for that base.
 | [6bit sibling](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | Higher average precision near the 6-BPW budget |
 
 See the [AutomatosX collections](https://huggingface.co/AutomatosX/collections)
-for related MLX and OptiQ alternatives.
+for the family catalog, or the [complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog).
 
 ## Download
 
@@ -146,12 +146,12 @@ establish MTP acceleration or vision-language quality.
 | Quantizer execution | 497/497 recorded module conversions succeeded; 0 fallbacks |
 | AX Engine native manifest | included as `model-manifest.json` |
 | Quality versus BF16 or uniform baselines | Not published; no quality-retention claim |
-| MTP acceptance and speed | **not certified**; no MTP speedup claim for this checkpoint (MTP weights present; speculative acceleration not certified (no Tier 2 A/B pass yet).) |
+| MTP acceptance and speed | certified for the certificate's authorizing profiles only; outside that scope there is no speedup claim |
 | AX Engine kernel evidence | `unmeasured` |
 | Vision-language quality | Not evaluated or claimed; vision tensors are preserved at BF16 |
 | Speech-recognition quality | Not applicable |
 | Long-context quality | 262,144-token capacity is config metadata, not a validated claim |
-| Release certification | **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14), Hub commit `d55b0902b611`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
+| Release certification | **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14), Hub commit `a5a0b700ea7c`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
 
 ## Intended use and limitations
 

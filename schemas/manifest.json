@@ -55,7 +55,7 @@
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.artifacts.BenchmarkConfig",
       "schema_version": "axquant.benchmark-config.v1",
-      "sha256": "93232ad43763f3b6649b210913e8e39b907f3e70d0ced87510f8d934fc950a15"
+      "sha256": "916ecef24e03388acc841ee08941029e5a1af41b5d55c03be7f4d0edef173b00"
     },
     {
       "compatibility_class": "evidence",
@@ -79,7 +79,7 @@
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.artifacts.BenchmarkResult",
       "schema_version": "axquant.benchmark-result.v1",
-      "sha256": "e9f6e7861935bef586339d8a9cc68af81b6e2f1ce07e069ddc5dc227f70ac116"
+      "sha256": "3ed118d522435042ba4fc2be3c603fabebec0bf839be9c84328e06b400c764a8"
     },
     {
       "compatibility_class": "evidence",

@@ -30,9 +30,9 @@ do not edit the table cells by hand.
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
 | Qwen3.8-27B AXQ 4-bit | [Certified](docs/certifications/qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
+| Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
 | Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
+| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | Qwen 3.6 27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
@@ -63,6 +63,11 @@ do not edit the table cells by hand.
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on
 `df-macbookpro-m5`.
+
+**Qwen3.8-27B** AXQ **4-bit and 6-bit** MTP packs are **checkpoint Tier 1 + scoped Tier 2 MTP**
+certified on `df-macbookpro-m3` (AX Engine 6.16.1, `QWEN38_EXACT_MTP_PROFILE_ENV` / async draft).
+Non-MTP siblings remain Tier 1 only (Tier 2 N/A). Product default remains direct fallback;
+acceleration is opt-in under the formal exact profile.
 
 **Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** fused assistant-MTP Hub packs are
 **checkpoint Tier 1 certified** on `df-macbookpro-m5` (size, matched quality, load). **Tier 2
@@ -181,11 +186,13 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
   Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, Nemotron 3 Nano,
   DeepSeek V4, and GPT-OSS — see the tier matrix under [Current status](#current-status).
-- **Where it stands:** Qwen 3.6 27B dense and 35B-A3B MoE packs are checkpoint Tier 1 and
-  **scoped** MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4 12B/26B/31B AXQ 4-bit
-  and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified). Qwen3-Coder-Next AXQ
-  4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A). GPT-OSS 20B AXQ 4/6-bit and 120B AXQ 6-bit
-  are checkpoint Tier 1 certified (120B 4-bit not certified). Product default remains direct fallback.
+- **Where it stands:** Qwen3.8-27B AXQ 4/6-bit MTP packs are checkpoint Tier 1 and **scoped**
+  MTP Tier 2 certified on MacBook Pro M3 Max. Qwen 3.6 27B dense and 35B-A3B MoE packs are
+  checkpoint Tier 1 and scoped MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4
+  12B/26B/31B AXQ 4-bit and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified).
+  Qwen3-Coder-Next AXQ 4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A).
+  GPT-OSS 20B AXQ 4/6-bit and 120B AXQ 6-bit are checkpoint Tier 1 certified (120B 4-bit not
+  certified). Product default remains direct fallback.
   [Current status](#current-status) states the exact scope.
 
 ## Quickstart
@@ -484,6 +491,10 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
+| [`AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | 5.0667 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq4-tier1.md)); dense hybrid `qwen3_5` |
+| [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); recovery lm_head 8-bit |
+| [`AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | 5.8448 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq6-tier1.md)) |
+| [`AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | 5.8448 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq6-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq6-mtp-tier2.md)); product default still direct fallback |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | 5.418315 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | 5.805849 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md)); language path matches v3 MTP sibling without `mtp.safetensors` |
@@ -867,8 +878,8 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
 | `source-checkpoint-manifest` | Derive and bind the immutable source revision, tokenizer, architecture, and file digests for exact-checkpoint certification | Implemented |
 | `certification-policy` | Emit the frozen Qwen3-Next non-MTP certification policy and policy digest | Implemented |
-| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report (`axquant-token-5gram-v2`) | Implemented; formal use requires all pinned toolchains; regenerate manifests after v1.5.1 |
-| `evaluate-coding-suite` | Run resumable generation and network-disabled executable scoring for coding-suite v2 | Implemented; Apple Silicon/Seatbelt execution evidence required |
+| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report (`axquant-token-5gram-v2`) | Implemented; formal use requires all pinned toolchains; regenerate manifests for Seatbelt policy v3 |
+| `evaluate-coding-suite` | Run resumable generation and deny-default executable scoring for coding-suite v2 | Implemented; Apple Silicon/Seatbelt execution evidence required |
 | `verify-coding-suite` | Self-test every coding oracle and scorer by requiring the reference to pass and an empty mutant to fail | Implemented; run before suite freeze |
 | `evaluate-general-quality` | Evaluate the disjoint direct-track general holdout and archive every raw model output | Implemented; BF16 and candidate runs must use matched settings |
 | `direct-validation-index` | Recompute policy-bound BF16/candidate quality retention for both direct-track profiles | Implemented; emits a fail-closed index for N4 |
@@ -903,6 +914,13 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `benchmark` | Collect AX Engine runtime evidence | Implemented |
 | `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
 | `compose-gemma4-assistant-mtp` | Compose a Tier 2 candidate: byte-identical AXQ Gemma target + `assistant/` drafter + `ax_gemma4_assistant_mtp.json` (does not mutate the Tier 1 pack) | Implemented; product Hub packs ship fused under `…-MLX-AXQ-*-MTP` |
+| `prepare-grafted-mtp` | Extract and bind a Qwen3.5/3.6 MoE MTP donor head for a Holo3-class trunk | Implemented; graft provenance explicitly records that the donor was not co-trained |
+| `compose-grafted-mtp` | Attach a prepared grafted MTP sidecar without mutating the certified trunk tensors | Implemented |
+| `mtp-align-prepare-data` | Build trunk-greedy self-distillation labels and optional cached features for MTP adaptation | Implemented; development workflow |
+| `mtp-align-teacher-force` | Measure offline depth-1 MTP top-1 agreement against trunk-greedy labels | Implemented; development diagnostic |
+| `mtp-align-adapt-fc` | Adapt the grafted MTP FC and normalization tensors while freezing the transformer | Implemented; development workflow |
+| `mtp-align-adapt-full` | Continue adaptation with all packed MTP tensors unfrozen | Implemented; development workflow |
+| `mtp-align-evaluate` | Score MTP probe or engine A/B evidence against the alignment ladder | Implemented; decision support |
 | `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
 | `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
 | `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |

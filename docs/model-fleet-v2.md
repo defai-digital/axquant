@@ -194,7 +194,8 @@ established:
   4-bit and 6-bit payload sizes and measured main BPW below 8;
 - the fleet contains 394,448,965,023 weight bytes and 395,136,555,823 total repository bytes;
 - all 28 stable repositories are present in the
-  [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog);
+  [AutomatosX collections](https://huggingface.co/AutomatosX/collections)
+  ([complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog));
   and
 - all 28 temporary edition-suffixed repositories were removed from the catalog and deleted only
   after the canonical fleet audit passed; the post-deletion audit found none remaining.

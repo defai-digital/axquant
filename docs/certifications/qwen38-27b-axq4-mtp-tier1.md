@@ -12,7 +12,7 @@
 | Size ratio vs uniform-4 | `1.144908` (≤ 1.15) |
 | Agent-coding retention vs BF16 | `1.007246` (≥ 0.98) |
 | General retention vs BF16 | `1.000000` |
-| MTP acceleration | `not-certified` |
+| MTP acceleration | [certified — see Tier 2](qwen38-27b-axq4-mtp-tier2.md) |
 
 ## Gates
 
@@ -30,6 +30,15 @@
 - Recovery uses AXQ-026 **lm_head 8-bit** with measured dual-suite quality retention.
 - Adapter `qwen38-dense-v1`; not the Qwen 3.6 flagship track.
 - Vision remains BF16-protected; no VLM quality claim.
-- MTP acceleration is **not** certified on this record.
+- MTP acceleration is certified under [qwen38-27b-axq4-mtp-tier2.md](qwen38-27b-axq4-mtp-tier2.md).
 
 Machine-readable: [qwen38-27b-axq4-mtp-tier1.json](qwen38-27b-axq4-mtp-tier1.json).
+
+## Tier 2 status
+
+**Certified** for scoped MTP acceleration — see [qwen38-27b-axq4-mtp-tier2.md](qwen38-27b-axq4-mtp-tier2.md).
+
+## Related certificates
+
+- [Tier 2 MTP acceleration](qwen38-27b-axq4-mtp-tier2.md)
+

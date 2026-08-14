@@ -127,11 +127,25 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Holo3-35B-A3B-MLX-AXQ-4bit",
         "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
     }
+    # Qwen 3.6 no-MTP siblings + Qwen3.8-27B four-pack (Tier 1 / Tier 2 as certified).
+    qwen_family_additions = {
+        "AX-Qwen3.6-27B-MLX-AXQ-4bit",
+        "AX-Qwen3.6-27B-MLX-AXQ-6bit",
+        "AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit",
+        "AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit",
+        "AX-Qwen3.8-27B-MLX-AXQ-4bit",
+        "AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+        "AX-Qwen3.8-27B-MLX-AXQ-6bit",
+        "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
+    }
     post_migration_additions = (
-        post_migration_additions | gpt_oss_additions | secondary_family_additions
+        post_migration_additions
+        | gpt_oss_additions
+        | secondary_family_additions
+        | qwen_family_additions
     )
-    assert len(readme_repositories) == 46
-    assert len(set(readme_repositories)) == 46
+    assert len(readme_repositories) == 54
+    assert len(set(readme_repositories)) == 54
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25

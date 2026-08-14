@@ -1646,6 +1646,7 @@ def _run(args: argparse.Namespace) -> int:
             for name, chosen in (
                 ("--qwen36-exact-profile", args.qwen36_exact_profile),
                 ("--qwen36-moe-exact-profile", args.qwen36_moe_exact_profile),
+                ("--qwen38-exact-profile", args.qwen38_exact_profile),
                 ("--gemma4-assistant-exact-profile", args.gemma4_assistant_exact_profile),
             )
             if chosen
@@ -1662,6 +1663,10 @@ def _run(args: argparse.Namespace) -> int:
             from axquant.benchmark import QWEN36_MOE_EXACT_MTP_PROFILE_ENV
 
             runtime_env = {**QWEN36_MOE_EXACT_MTP_PROFILE_ENV, **runtime_env}
+        if args.qwen38_exact_profile:
+            from axquant.benchmark import QWEN38_EXACT_MTP_PROFILE_ENV
+
+            runtime_env = {**QWEN38_EXACT_MTP_PROFILE_ENV, **runtime_env}
         if args.gemma4_assistant_exact_profile:
             from axquant.benchmark import GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV
 

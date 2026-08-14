@@ -1,0 +1,87 @@
+{
+  "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+  "status": "certified",
+  "certification_tier": "mtp-acceleration",
+  "certified_at": "2026-08-14T20:52:46.366375+00:00",
+  "host_id": "df-macbookpro-m3",
+  "artifact": {
+    "candidate_manifest_sha256": "f92dda812fe79978a719f2f1fbb54502fdf4eb022c744731111389e4d17aa41d",
+    "hub_commit": "32f448461caf4aedcc3c16a77a63b6a94bf0667c",
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+    "product_class": "4bit",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "architecture": "Qwen3_5ForConditionalGeneration"
+  },
+  "thresholds": {
+    "exactness_required": 1.0,
+    "token_weighted_decode_speedup_min": 1.2,
+    "prompt_median_speedup_min": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "certified",
+    "scope": "decode-heavy-authorizing-profiles",
+    "product_default_route": "direct-fallback",
+    "formal_route": "qwen38-exact-async-profile",
+    "ax_engine_version": "6.16.1",
+    "engine_binary_sha256": "c39b69a18cb8cf41c020dd52c32c6011de52f841212a5237fef9ac1e9f78dec7",
+    "profiles": {
+      "agent-coding": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.3466870478010649,
+        "prompt_median_speedup": 1.3525774775375818,
+        "release_ready": true,
+        "dataset_sha256": "ebecd0157c601287ab64216998e212f1a0935c167e4e53ea1f4661f833edff60",
+        "comparison_sha256": "b1d2fa7459c344f907e6a5192691293e90d74d7b4c497d53c6ae8ea34ce34105"
+      },
+      "general-long": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.2942887596567612,
+        "prompt_median_speedup": 1.3011332267839326,
+        "release_ready": true,
+        "dataset_sha256": "55af1c786f4c994d1e65135954e6c2a5fadfded0d2446255fab780c0b87738b7",
+        "comparison_sha256": "cc4b5e5446339949e53e46c98c3c7890a0ef1dc60a13d89bf04d9bc6e563092b"
+      }
+    },
+    "runtime_env": {
+      "AX_MLX_MTP_ASYNC_DRAFT": "1",
+      "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+      "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+      "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+      "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+      "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+      "AX_MLX_PIPELINE_GRANULARITY": "layer",
+      "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+      "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+      "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+      "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+      "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",
+      "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT": "1",
+      "AX_MLX_SPECULATIVE_SPLIT_FFN": "1"
+    },
+    "harness": {
+      "temperature": 0.0,
+      "seed": 20260728,
+      "draft_depth": 1,
+      "warmup_trials": 1,
+      "measured_trials": 2,
+      "max_tokens": 64,
+      "ignore_eos": true,
+      "prompt_count_agent_coding": 24,
+      "prompt_count_general_long": 16,
+      "speedup_metric": "token-weighted-decode-tps"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.16.1",
+    "mlx": "0.32.0",
+    "python": "3.12.13"
+  },
+  "related_certificates": {
+    "checkpoint_tier1": "qwen38-27b-axq4-mtp-tier1.json"
+  },
+  "evidence_package": "evidence/qwen38-27b-axq4-mtp-tier2/"
+}

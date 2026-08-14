@@ -1,0 +1,58 @@
+{
+  "ax_engine_executable": "/opt/homebrew/bin/ax-engine-bench",
+  "created_at": "2026-08-14T20:46:46.260171+00:00",
+  "engine_binary_sha256": "c39b69a18cb8cf41c020dd52c32c6011de52f841212a5237fef9ac1e9f78dec7",
+  "formal_route": "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1 with qwen36 dense exact profile",
+  "full": true,
+  "host_id": "df-macbookpro-m3",
+  "hub_commit": "32f448461caf4aedcc3c16a77a63b6a94bf0667c",
+  "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+  "local_path": "/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+  "pack_key": "axq4",
+  "product_class": "4bit",
+  "profiles": {
+    "agent-coding": {
+      "comparison_sha256": "b1d2fa7459c344f907e6a5192691293e90d74d7b4c497d53c6ae8ea34ce34105",
+      "dataset_sha256": "ebecd0157c601287ab64216998e212f1a0935c167e4e53ea1f4661f833edff60",
+      "divergent_trial_count": 0,
+      "exactness_pass": true,
+      "gate_pass": true,
+      "prompt_median_speedup": 1.3525774775375818,
+      "release_ready": true,
+      "token_weighted_decode_speedup": 1.3466870478010649
+    },
+    "general-long": {
+      "comparison_sha256": "cc4b5e5446339949e53e46c98c3c7890a0ef1dc60a13d89bf04d9bc6e563092b",
+      "dataset_sha256": "55af1c786f4c994d1e65135954e6c2a5fadfded0d2446255fab780c0b87738b7",
+      "divergent_trial_count": 0,
+      "exactness_pass": true,
+      "gate_pass": true,
+      "prompt_median_speedup": 1.3011332267839326,
+      "release_ready": true,
+      "token_weighted_decode_speedup": 1.2942887596567612
+    }
+  },
+  "runtime_env": {
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
+    "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+    "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+    "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS": "all",
+    "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT": "1",
+    "AX_MLX_SPECULATIVE_SPLIT_FFN": "1"
+  },
+  "schema_version": "axquant.qwen38-dense-mtp-tier2-probe.v1",
+  "technical_tier2_pass": true,
+  "thresholds": {
+    "exactness_required": 1.0,
+    "prompt_median_speedup_min": 1.1,
+    "token_weighted_decode_speedup_min": 1.2
+  }
+}

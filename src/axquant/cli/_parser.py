@@ -1103,12 +1103,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "win; mutually exclusive with the other profile flags",
     )
     benchmark_ab_parser.add_argument(
+        "--qwen38-exact-profile",
+        action="store_true",
+        help="Apply the Qwen3.8 dense hybrid exact-MTP measurement contract "
+        "(Qwen 3.6 dense exact set plus async draft, verify-submit layers 8, "
+        "and layer pipeline granularity); explicit --runtime-env values win; "
+        "mutually exclusive with the other profile flags",
+    )
+    benchmark_ab_parser.add_argument(
         "--gemma4-assistant-exact-profile",
         action="store_true",
         help="Apply the formal Gemma 4 assistant-MTP measurement contract "
         "(greedy A/B env set for composite AXQ+assistant packs); "
         "explicit --runtime-env values win; mutually exclusive with "
-        "--qwen36-exact-profile",
+        "other exact-profile flags",
     )
     benchmark_ab_parser.add_argument("--output-dir", default="benchmark-ab")
     benchmark_ab_parser.add_argument("--quality-evaluation")

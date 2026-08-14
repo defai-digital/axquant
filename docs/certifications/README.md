@@ -13,9 +13,9 @@ via `tests/test_documentation.py`.
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
 | --- | --- | --- | --- |
 | [Qwen3.8-27B AXQ 4-bit](qwen38-27b-axq4-tier1.md) | main@`a8c56f94` | [Certified](qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
-| [Qwen3.8-27B AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
+| [Qwen3.8-27B AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) |
 | [Qwen3.8-27B AXQ 6-bit](qwen38-27b-axq6-tier1.md) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
-| [Qwen3.8-27B AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
+| [Qwen3.8-27B AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) |
 | [Qwen 3.6 27B AXQ 4-bit](qwen36-27b-axq4-nomtp-tier1.md) | main@`6598b5cd` | [Certified](qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) |
 | [Qwen 3.6 27B AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
 | [Qwen 3.6 27B AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) |
