@@ -9,6 +9,7 @@ from axquant.schema._base import utc_now
 from axquant.serde import file_sha256, write_data
 
 ADAPTED_GRAFT_KIND = "holo3-adapted-mtp-v1"
+ADAPTED_FULL_GRAFT_KIND = "holo3-adapted-mtp-full-v1"
 PARENT_GRAFT_KIND = "parent-qwen35-moe-mtp"
 
 
@@ -22,15 +23,17 @@ def write_adapted_graft_record(
     init_mtp_sha256: str,
     output_mtp_sha256: str,
     train_summary: dict[str, Any],
+    graft_kind: str | None = None,
 ) -> Path:
     destination = Path(output_dir).expanduser().resolve()
     destination.mkdir(parents=True, exist_ok=True)
     path = destination / "axquant_mtp_graft.json"
+    kind = graft_kind or ADAPTED_GRAFT_KIND
     write_data(
         path,
         {
             "schema_version": "axquant.mtp-graft.v1",
-            "graft_kind": ADAPTED_GRAFT_KIND,
+            "graft_kind": kind,
             "trunk_model": {"model_id": trunk_model_id, "revision": trunk_revision},
             "donor_model": {"model_id": donor_model_id, "revision": donor_revision},
             "init_mtp_sha256": init_mtp_sha256,

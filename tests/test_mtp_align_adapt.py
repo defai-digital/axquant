@@ -9,13 +9,19 @@ import pytest
 
 from axquant.grafted_mtp import compose_grafted_mtp_onto_pack
 from axquant.mtp_align.adapt_fc import (
+    FULL_LAYER_KEYS,
     TRAIN_KEYS,
     adapt_fc_norms_from_features,
+    adapt_head_from_features,
     compose_adapted_onto_pack,
     write_adapted_mtp_bundle,
 )
 from axquant.mtp_align.dataset import read_samples, write_samples
-from axquant.mtp_align.provenance import ADAPTED_GRAFT_KIND, write_adapted_graft_record
+from axquant.mtp_align.provenance import (
+    ADAPTED_FULL_GRAFT_KIND,
+    ADAPTED_GRAFT_KIND,
+    write_adapted_graft_record,
+)
 from axquant.mtp_align.qwen_mtp_head import QwenMtpHead, QwenMtpHeadConfig
 from axquant.serde import file_sha256
 
@@ -165,6 +171,43 @@ def test_compose_adapted_does_not_mutate_main_weights(tmp_path: Path) -> None:
     out2 = tmp_path / "composed2"
     compose_grafted_mtp_onto_pack(pack, mtp_dir, output_dir=out2)
     assert file_sha256(out2 / "model.safetensors") == before_sha
+
+
+def test_adapt_full_layer_from_features_moves_weights(tmp_path: Path) -> None:
+    head, cfg, mx = _tiny_head()
+    lm_head = mx.random.normal((cfg.vocab_size, cfg.hidden_size)) * 0.02
+    features = [
+        {
+            "hidden": mx.random.normal((cfg.hidden_size,)),
+            "prev_embed": mx.random.normal((cfg.hidden_size,)),
+            "label_token": 3,
+        }
+    ]
+    layer_key = "mtp.layers.0.self_attn.q_proj.weight"
+    before = mx.array(head.weights[layer_key])
+    trained, history = adapt_head_from_features(
+        head,
+        features,
+        lm_head,
+        train_keys=FULL_LAYER_KEYS,
+        steps=4,
+        learning_rate=1e-2,
+    )
+    assert len(history) == 4
+    assert float(mx.sum(mx.abs(trained.weights[layer_key] - before)).item()) > 0.0
+    result = write_adapted_mtp_bundle(
+        trained,
+        tmp_path / "full-bundle",
+        init_mtp_sha256="c" * 64,
+        train_summary={"stage": "full_layer", "steps": 4, "loss_history": history},
+        trunk_model_id="Hcompany/Holo3-35B-A3B",
+        trunk_revision="rev",
+        donor_model_id="Qwen/Qwen3.5-35B-A3B",
+        donor_revision="drev",
+        graft_kind=ADAPTED_FULL_GRAFT_KIND,
+    )
+    graft = json.loads(Path(result["graft_record"]).read_text(encoding="utf-8"))
+    assert graft["graft_kind"] == ADAPTED_FULL_GRAFT_KIND
 
 
 def test_dataset_write_read_roundtrip(tmp_path: Path) -> None:

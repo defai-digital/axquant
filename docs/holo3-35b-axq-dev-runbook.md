@@ -264,7 +264,11 @@ python scripts/run_holo3_mtp_adapt_campaign.py \
 
 If stage-1 does not raise offline top-1 after a non-trivial step budget, fail closed and escalate to stage-2 (full `mtp.layers.0`) or stop — do not claim acceleration.
 
-**Stage-1 factory result (2026-08-14, `df-macstudio-m2`):** 384 labels, 400 adapt steps, loss 14.5→3.14; offline top-1 **0.0→0.25**; online accept **0→~0.023**; speedup still ~0.51×. Compose preserved main digests. Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/`](certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/). Tier 2 remains **not certified**. Next: more data / stage-2 unfreeze before any acceleration claim.
+**Stage-1 factory result (2026-08-14, `df-macstudio-m2`):** 384 labels, 400 adapt steps, loss 14.5→3.14; offline top-1 **0.0→0.25**; online accept **0→~0.023**; speedup still ~0.51×. Compose preserved main digests. Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/`](certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/).
+
+**Stage-2 factory result (full-layer, 300 steps from stage-1 init):** offline top-1 **0.21875** (not better than stage-1); online accept still **~0.023**; speedup **~0.52×**. Provenance `holo3-adapted-mtp-full-v1`. Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-stage2/`](certifications/evidence/holo3-35b-axq6-mtp-adapt-stage2/). CLI: `axquant mtp-align-adapt-full`.
+
+**Tier 2 remains not certified.** On this label budget, stage-1 is the best offline checkpoint; stage-2 did not lift accept. Next levers: larger/domain-matched labels, longer optim, or product stop (keep non-MTP primary).
 
 ## Claim language
 

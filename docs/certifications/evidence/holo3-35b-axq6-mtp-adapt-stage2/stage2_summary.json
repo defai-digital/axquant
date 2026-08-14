@@ -1,0 +1,19 @@
+{
+  "adapt_steps": 300,
+  "baseline_top1": 0.0,
+  "init_mtp": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/mtp-adapted-fc/mtp.safetensors",
+  "main_digests_unchanged": true,
+  "online": {
+    "accept_rate": 0.023076923076923078,
+    "recommendation": "adapt_fc_norms",
+    "speedup": 0.5169056711816515
+  },
+  "schema_version": "axquant.mtp-adapt-stage2.v1",
+  "stage1_top1": 0.25,
+  "stage2_correct": 7,
+  "stage2_improved_vs_baseline": true,
+  "stage2_improved_vs_stage1": false,
+  "stage2_positions": 32,
+  "stage2_top1": 0.21875,
+  "tier2_status": "not_certified"
+}

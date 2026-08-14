@@ -1,0 +1,39 @@
+{
+  "graft_record": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/stage2/mtp-adapted-full/axquant_mtp_graft.json",
+  "mtp": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/stage2/mtp-adapted-full/mtp.safetensors",
+  "output_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/stage2/mtp-adapted-full",
+  "output_mtp_sha256": "e3d00a3ef0a161eb928ac6aeec07a573b3cd680d653492f892e9cd85d21f843b",
+  "train": {
+    "batch_size": 2,
+    "features_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/data.features.safetensors",
+    "learning_rate": 0.0001,
+    "loss_end": 3.864325523376465,
+    "loss_history_len": 300,
+    "loss_start": 0.9249954223632812,
+    "samples": 384,
+    "stage": "full_layer",
+    "steps": 300,
+    "trainable": [
+      "mtp.fc.weight",
+      "mtp.layers.0.input_layernorm.weight",
+      "mtp.layers.0.mlp.experts.down_proj",
+      "mtp.layers.0.mlp.experts.gate_up_proj",
+      "mtp.layers.0.mlp.gate.weight",
+      "mtp.layers.0.mlp.shared_expert.down_proj.weight",
+      "mtp.layers.0.mlp.shared_expert.gate_proj.weight",
+      "mtp.layers.0.mlp.shared_expert.up_proj.weight",
+      "mtp.layers.0.mlp.shared_expert_gate.weight",
+      "mtp.layers.0.post_attention_layernorm.weight",
+      "mtp.layers.0.self_attn.k_norm.weight",
+      "mtp.layers.0.self_attn.k_proj.weight",
+      "mtp.layers.0.self_attn.o_proj.weight",
+      "mtp.layers.0.self_attn.q_norm.weight",
+      "mtp.layers.0.self_attn.q_proj.weight",
+      "mtp.layers.0.self_attn.v_proj.weight",
+      "mtp.norm.weight",
+      "mtp.pre_fc_norm_embedding.weight",
+      "mtp.pre_fc_norm_hidden.weight"
+    ],
+    "trainable_count": 19
+  }
+}

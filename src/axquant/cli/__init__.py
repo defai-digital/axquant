@@ -2585,6 +2585,30 @@ def _run(args: argparse.Namespace) -> int:
         log.info("mtp_align_adapt_fc_done", **{k: summary[k] for k in summary if k != "train"})
         return 0
 
+    if args.command == "mtp-align-adapt-full":
+        from axquant.mtp_align.adapt_fc import adapt_full_layer
+
+        summary = adapt_full_layer(
+            args.model,
+            args.data,
+            args.init_mtp,
+            args.output,
+            steps=args.steps,
+            learning_rate=args.lr,
+            batch_size=args.batch_size,
+            max_samples=args.max_samples,
+            features_path=args.features,
+            trunk_model_id=args.trunk_model_id,
+            trunk_revision=args.trunk_revision,
+            donor_model_id=args.donor_model_id,
+            donor_revision=args.donor_revision,
+        )
+        log.info(
+            "mtp_align_adapt_full_done",
+            **{k: summary[k] for k in summary if k != "train"},
+        )
+        return 0
+
     if args.command == "prepare-suite":
         from axquant.suites import build_benchmark_suites
 

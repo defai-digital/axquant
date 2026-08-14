@@ -1310,6 +1310,36 @@ def _build_parser() -> argparse.ArgumentParser:
         default="59d61f3ce65a6d9863b86d2e96597125219dc754",
     )
 
+    mtp_align_full = subparsers.add_parser(
+        "mtp-align-adapt-full",
+        help=(
+            "Stage-2 adapt: unfreeze all packed MTP tensors; continue from "
+            "stage-1 (or graft) init; write adapted full-layer sidecar"
+        ),
+    )
+    mtp_align_full.add_argument("--model", required=True, help="Trunk MLX pack (lm_head if needed)")
+    mtp_align_full.add_argument("--data", required=True, help="JSONL from mtp-align-prepare-data")
+    mtp_align_full.add_argument("--init-mtp", required=True, help="Initial mtp.safetensors")
+    mtp_align_full.add_argument("--output", required=True, help="Empty output bundle directory")
+    mtp_align_full.add_argument("--steps", type=int, default=300)
+    mtp_align_full.add_argument("--lr", type=float, default=1e-4)
+    mtp_align_full.add_argument("--batch-size", type=int, default=2)
+    mtp_align_full.add_argument("--max-samples", type=int, default=512)
+    mtp_align_full.add_argument(
+        "--features",
+        help="Optional .features.safetensors from prepare-data",
+    )
+    mtp_align_full.add_argument("--trunk-model-id", default="Hcompany/Holo3-35B-A3B")
+    mtp_align_full.add_argument(
+        "--trunk-revision",
+        default="208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    )
+    mtp_align_full.add_argument("--donor-model-id", default="Qwen/Qwen3.5-35B-A3B")
+    mtp_align_full.add_argument(
+        "--donor-revision",
+        default="59d61f3ce65a6d9863b86d2e96597125219dc754",
+    )
+
     mtp_diagnose_parser = subparsers.add_parser(
         "mtp-diagnose",
         help="Run M2 kill-switch matrix (soft exactness) and write a diagnostic report",
