@@ -215,9 +215,7 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
     files = man.get("files")
     if isinstance(files, list):
         man["files"] = [
-            rec
-            for rec in files
-            if not _is_mtp_path(str(rec.get("path") or rec.get("name") or ""))
+            rec for rec in files if not _is_mtp_path(str(rec.get("path") or rec.get("name") or ""))
         ]
     man_path.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
 
@@ -264,6 +262,7 @@ def main() -> int:
 
     sys.path.insert(0, str(ROOT / "src"))
     from huggingface_hub import HfApi, snapshot_download
+
     from axquant.model_card import prepare_development_model_card
 
     work: Path = args.work.expanduser()
@@ -275,11 +274,7 @@ def main() -> int:
 
     packs = PACKS
     if args.only:
-        packs = [
-            p
-            for p in PACKS
-            if any(token in p["no_mtp_name"] for token in args.only)
-        ]
+        packs = [p for p in PACKS if any(token in p["no_mtp_name"] for token in args.only)]
         if not packs:
             raise SystemExit(f"no packs matched --only {args.only}")
 
@@ -327,7 +322,7 @@ def main() -> int:
             # Ensure repo exists
             try:
                 api.create_repo(no_repo, repo_type="model", exist_ok=True, private=False)
-            except Exception as exc:  # noqa: BLE001 — surface and continue upload attempt
+            except Exception as exc:
                 log(f"create_repo note: {exc}")
             info = api.upload_folder(
                 folder_path=str(dest),

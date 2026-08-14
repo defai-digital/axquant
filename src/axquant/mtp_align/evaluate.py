@@ -14,7 +14,9 @@ def load_report_metrics(path: str | Path) -> AlignMetrics:
     return extract_align_metrics(payload, source=str(path))
 
 
-def extract_align_metrics(payload: dict[str, Any] | list[Any], *, source: str | None = None) -> AlignMetrics:
+def extract_align_metrics(
+    payload: dict[str, Any] | list[Any], *, source: str | None = None
+) -> AlignMetrics:
     """Best-effort parse of probe_decision, profile_summary, or mtp_ab_comparison."""
     if isinstance(payload, list):
         # list of profile summaries
@@ -26,7 +28,9 @@ def extract_align_metrics(payload: dict[str, Any] | list[Any], *, source: str | 
     # probe_decision.json
     profiles = payload.get("profiles")
     if isinstance(profiles, list) and profiles:
-        return _from_profiles(profiles, source=source, exactness_hint=payload.get("all_exactness_pass"))
+        return _from_profiles(
+            profiles, source=source, exactness_hint=payload.get("all_exactness_pass")
+        )
 
     # single profile_summary / mtp_ab_comparison
     return _from_profile_dict(payload, source=source)

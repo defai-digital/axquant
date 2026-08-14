@@ -153,7 +153,7 @@ def needs_qwen_moe_unpacked_expert_prep(
     """
     if config is None:
         try:
-            config = _read_config(model_dir)
+            config = _read_config(Path(model_dir).expanduser().resolve())
         except ArtifactError:
             return False
     if str(config.get("model_type", "")) != "qwen3_5_moe":
@@ -696,15 +696,15 @@ def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
         raise ArtifactError("model.safetensors.index.json has no weight_map")
 
     mx = _mlx_core()
-    experts_by_prefix: dict[str, dict[str, dict[int, str]]] = defaultdict(
-        lambda: defaultdict(dict)
-    )
+    experts_by_prefix: dict[str, dict[str, dict[int, str]]] = defaultdict(lambda: defaultdict(dict))
     non_expert: dict[str, str] = {}
     for tensor_name, shard_name in weight_map.items():
         if not isinstance(tensor_name, str) or not tensor_name:
             raise ArtifactError("model.safetensors.index.json contains an empty tensor name")
         if not isinstance(shard_name, str) or not shard_name:
-            raise ArtifactError("model.safetensors.index.json contains a non-string shard reference")
+            raise ArtifactError(
+                "model.safetensors.index.json contains a non-string shard reference"
+            )
         relative = Path(shard_name)
         if relative.is_absolute() or ".." in relative.parts:
             raise ArtifactError(f"index contains an unsafe shard path: {shard_name}")
@@ -765,9 +765,7 @@ def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
             raise ArtifactError(f"expert indices for {prefix} are not contiguous from 0")
 
         # Load each contributing source shard once, then assemble stacks.
-        member_names = {
-            projs["gate_proj"][i]: ("gate_proj", i) for i in gate_idx
-        }
+        member_names = {projs["gate_proj"][i]: ("gate_proj", i) for i in gate_idx}
         member_names.update({projs["up_proj"][i]: ("up_proj", i) for i in gate_idx})
         member_names.update({projs["down_proj"][i]: ("down_proj", i) for i in gate_idx})
         shard_names = {weight_map[name] for name in member_names}
@@ -780,9 +778,7 @@ def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
             del weights
         missing_members = sorted(set(member_names) - set(loaded))
         if missing_members:
-            raise ArtifactError(
-                f"missing expert tensors for {prefix}: {missing_members[:10]}"
-            )
+            raise ArtifactError(f"missing expert tensors for {prefix}: {missing_members[:10]}")
         gate_stack = [loaded[projs["gate_proj"][i]] for i in gate_idx]
         up_stack = [loaded[projs["up_proj"][i]] for i in gate_idx]
         down_stack = [loaded[projs["down_proj"][i]] for i in gate_idx]
@@ -793,9 +789,7 @@ def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
         # Official pack: gate_up[..., :mid, :] = gate, gate_up[..., mid:, :] = up
         # with mid on axis -2 (intermediate).
         if gate.shape != up.shape:
-            raise ArtifactError(
-                f"gate/up shape mismatch for {prefix}: {gate.shape} vs {up.shape}"
-            )
+            raise ArtifactError(f"gate/up shape mismatch for {prefix}: {gate.shape} vs {up.shape}")
         gate_up = mx.concatenate([gate, up], axis=-2)
         packed = {
             f"{prefix}.experts.gate_up_proj": gate_up,
@@ -816,11 +810,7 @@ def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
         # Free large intermediates promptly.
         del gate_stack, up_stack, down_stack, gate, up, down, gate_up, packed
 
-    new_index = {
-        key: value
-        for key, value in index.items()
-        if key != "weight_map"
-    }
+    new_index = {key: value for key, value in index.items() if key != "weight_map"}
     new_index["weight_map"] = new_weight_map
     metadata = new_index.get("metadata")
     if isinstance(metadata, dict):

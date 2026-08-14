@@ -62,3 +62,15 @@ def test_release_notes_exist_for_current_version() -> None:
     assert notes_path.read_text(encoding="utf-8").strip(), (
         f"curated release notes are empty: {notes_path.relative_to(_ROOT)}"
     )
+
+
+def test_source_distribution_excludes_local_runtime_evidence() -> None:
+    """A common CLI output beside pyproject.toml must not be uploaded to PyPI."""
+    with (_ROOT / "pyproject.toml").open("rb") as handle:
+        project = tomllib.load(handle)
+    excluded = set(project["tool"]["hatch"]["build"]["targets"]["sdist"]["exclude"])
+
+    assert "/.internal" in excluded
+    assert "/credentials.json" in excluded
+    assert "/runtime_check.json" in excluded
+    assert "runtime_check.json" in (_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()

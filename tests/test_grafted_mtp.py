@@ -18,7 +18,9 @@ from axquant.grafted_mtp import (
 from axquant.schema import ModelIdentity
 
 
-def _tiny_shapes(*, experts: int = 2, hidden: int = 4, inter: int = 3) -> dict[str, tuple[int, ...]]:
+def _tiny_shapes(
+    *, experts: int = 2, hidden: int = 4, inter: int = 3
+) -> dict[str, tuple[int, ...]]:
     return {
         "mtp.fc.weight": (hidden, hidden * 2),
         "mtp.layers.0.input_layernorm.weight": (hidden,),
@@ -92,9 +94,7 @@ def _write_unpacked_donor(
         json.dumps(
             {
                 "metadata": {"total_size": 1},
-                "weight_map": {
-                    name: "model-00001-of-00001.safetensors" for name in weights
-                },
+                "weight_map": {name: "model-00001-of-00001.safetensors" for name in weights},
             },
             indent=2,
         ),
@@ -262,9 +262,7 @@ def test_compose_grafted_mtp_onto_pack_copies_sidecar_and_flags(
     assert runtime["mtp"]["optimized"] is False
 
 
-def test_compose_rejects_existing_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_compose_rejects_existing_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("mlx.core")
     import axquant.grafted_mtp as grafted_mtp
 

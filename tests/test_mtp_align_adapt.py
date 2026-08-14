@@ -130,7 +130,7 @@ def test_adapt_fc_from_features_writes_provenance_and_sidecar(tmp_path: Path) ->
 
 
 def test_compose_adapted_does_not_mutate_main_weights(tmp_path: Path) -> None:
-    head, _cfg, mx = _tiny_head()
+    head, _cfg, _mx = _tiny_head()
     mtp_dir = tmp_path / "mtp"
     mtp_dir.mkdir()
     head.save_safetensors(mtp_dir / "mtp.safetensors")

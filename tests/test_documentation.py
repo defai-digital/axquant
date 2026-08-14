@@ -298,12 +298,12 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         # Not checkpoint-certified (unlisted evaluation record)
         "gpt-oss-120b-axq4",
     ]
-    dual = [row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"]
+    dual = [
+        row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"
+    ]
     assert dual
     assert all(
-        rows.index(dual[0]) < rows.index(row)
-        for row in rows
-        if row.tier2_status != "certified"
+        rows.index(dual[0]) < rows.index(row) for row in rows if row.tier2_status != "certified"
     )
     unlisted_ids = {row.record_id for row in rows if not row.listed}
     assert "holo3-35b-axq4" not in unlisted_ids

@@ -33,12 +33,20 @@ jobs:
         with:
           python-version: "3.13"
       - name: Verify tag matches package version
-        run: >-
-          python -c 'import os, re, tomllib; version =
-          tomllib.load(open("pyproject.toml", "rb"))["project"]["version"];
-          tag = os.environ["RELEASE_TAG"];
-          assert re.fullmatch(r"v\d+\.\d+\.\d+(rc\d+)?", tag), f"tag {tag!r} is not a vX.Y.Z release tag";
-          assert tag == f"v{version}", f"tag {tag!r} does not match package v{version}"'
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+
+          with open("pyproject.toml", "rb") as source:
+              version = tomllib.load(source)["project"]["version"]
+          tag = os.environ["RELEASE_TAG"]
+          if re.fullmatch(r"v\d+\.\d+\.\d+(rc\d+)?", tag) is None:
+              raise SystemExit(f"tag {tag!r} is not a vX.Y.Z release tag")
+          if tag != f"v{version}":
+              raise SystemExit(f"tag {tag!r} does not match package v{version}")
+          PY
       - name: Build sdist and wheel
         run: |
           pip install build
@@ -52,15 +60,20 @@ jobs:
         with:
           subject-path: "dist/*"
       - name: Extract curated release notes from docs/releases
-        run: >-
-          python -c 'import os, pathlib; version =
-          os.environ["RELEASE_TAG"].removeprefix("v");
-          path = pathlib.Path("docs/releases") / f"{version}.md";
-          assert path.is_file(), f"missing curated release notes: {path}";
-          text = path.read_text(encoding="utf-8").strip();
-          assert text, f"curated release notes are empty: {path}";
-          pathlib.Path("release-notes.md").write_text(text + "\n",
-          encoding="utf-8")'
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          version = os.environ["RELEASE_TAG"].removeprefix("v")
+          path = Path("docs/releases") / f"{version}.md"
+          if not path.is_file():
+              raise SystemExit(f"missing curated release notes: {path}")
+          text = path.read_text(encoding="utf-8").strip()
+          if not text:
+              raise SystemExit(f"curated release notes are empty: {path}")
+          Path("release-notes.md").write_text(text + "\n", encoding="utf-8")
+          PY
       - name: Upload artifacts to the GitHub Release
         run: |
           gh release view "${RELEASE_TAG}" >/dev/null 2>&1 || \

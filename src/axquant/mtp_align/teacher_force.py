@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from axquant.errors import ArtifactError
 from axquant.mtp_align.qwen_mtp_head import QwenMtpHead
@@ -132,7 +133,9 @@ def run_teacher_force(
     if max_prompts is not None:
         prompts = prompts[:max_prompts]
 
-    model, tokenizer = load(str(model_dir))
+    loaded = load(str(model_dir))
+    model: Any = loaded[0]
+    tokenizer: Any = loaded[1]
     head = QwenMtpHead.from_safetensors(mtp_path)
     lm = getattr(model, "language_model", model)
     core = lm["model"] if hasattr(lm, "__getitem__") and "model" in lm else lm.model
@@ -142,7 +145,7 @@ def run_teacher_force(
     correct = 0
     total = 0
     notes: list[str] = []
-    for prefix, label in _iter_token_windows(
+    for prefix, _label in _iter_token_windows(
         tokenizer,
         prompts,
         max_positions=max_positions,

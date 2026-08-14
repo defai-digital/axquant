@@ -242,13 +242,15 @@ def _donor_weight_map(source: Path) -> dict[str, str]:
         from safetensors import safe_open
 
         with safe_open(str(single), framework="np") as handle:
-            return {name: single.name for name in handle.keys()}
+            tensor_names = handle.keys()
+            return {name: single.name for name in tensor_names}
     mtp_only = source / _MTP_SIDECAR
     if mtp_only.is_file():
         from safetensors import safe_open
 
         with safe_open(str(mtp_only), framework="np") as handle:
-            return {name: mtp_only.name for name in handle.keys()}
+            tensor_names = handle.keys()
+            return {name: mtp_only.name for name in tensor_names}
     raise ArtifactError(f"donor has no index or model/mtp safetensors: {source}")
 
 
@@ -281,11 +283,13 @@ def _load_named_tensors(
 def _to_packed_mtp_weights(mx: Any, loaded: dict[str, Any]) -> dict[str, Any]:
     # Already packed (Qwen3.6-style or extracted sidecar).
     if "mtp.layers.0.mlp.experts.gate_up_proj" in loaded:
-        packed = {name: loaded[name] for name in QWEN35_MOE_PACKED_MTP_SHAPES if name in loaded}
-        missing = sorted(set(QWEN35_MOE_PACKED_MTP_SHAPES) - set(packed))
+        already_packed = {
+            name: loaded[name] for name in QWEN35_MOE_PACKED_MTP_SHAPES if name in loaded
+        }
+        missing = sorted(set(QWEN35_MOE_PACKED_MTP_SHAPES) - set(already_packed))
         if missing:
             raise ArtifactError(f"packed donor MTP incomplete: missing {missing}")
-        return packed
+        return already_packed
 
     experts: dict[str, dict[int, Any]] = {
         "gate_proj": {},

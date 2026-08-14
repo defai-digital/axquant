@@ -2473,7 +2473,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "prepare-grafted-mtp":
         from axquant.grafted_mtp import prepare_grafted_qwen_moe_mtp
 
-        bundle = prepare_grafted_qwen_moe_mtp(
+        grafted_bundle = prepare_grafted_qwen_moe_mtp(
             args.donor,
             output_dir=args.output,
             trunk=ModelIdentity(
@@ -2487,12 +2487,12 @@ def _run(args: argparse.Namespace) -> int:
         )
         log.info(
             "grafted_mtp_prepared",
-            output=str(bundle.directory),
-            sidecar=str(bundle.sidecar),
-            tensor_count=bundle.manifest.tensor_count,
-            parameters=bundle.manifest.parameters,
-            donor=f"{bundle.donor.model_id}@{bundle.donor.revision}",
-            trunk=f"{bundle.trunk.model_id}@{bundle.trunk.revision}",
+            output=str(grafted_bundle.directory),
+            sidecar=str(grafted_bundle.sidecar),
+            tensor_count=grafted_bundle.manifest.tensor_count,
+            parameters=grafted_bundle.manifest.parameters,
+            donor=f"{grafted_bundle.donor.model_id}@{grafted_bundle.donor.revision}",
+            trunk=f"{grafted_bundle.trunk.model_id}@{grafted_bundle.trunk.revision}",
         )
         return 0
 
@@ -2534,7 +2534,7 @@ def _run(args: argparse.Namespace) -> int:
         from axquant.mtp_align.teacher_force import run_teacher_force
 
         mtp = args.mtp or str(Path(args.model).expanduser().resolve() / "mtp.safetensors")
-        report = run_teacher_force(
+        teacher_report = run_teacher_force(
             args.model,
             mtp,
             args.prompts,
@@ -2542,20 +2542,20 @@ def _run(args: argparse.Namespace) -> int:
             max_prompt_tokens=args.max_prompt_tokens,
             max_prompts=args.max_prompts,
         )
-        write_data(args.output, report.as_dict())
+        write_data(args.output, teacher_report.as_dict())
         log.info(
             "mtp_align_teacher_force",
             output=str(args.output),
-            top1=report.top1,
-            positions=report.positions,
-            correct=report.correct,
+            top1=teacher_report.top1,
+            positions=teacher_report.positions,
+            correct=teacher_report.correct,
         )
         return 0
 
     if args.command == "mtp-align-prepare-data":
         from axquant.mtp_align.dataset import prepare_self_distill_dataset
 
-        summary = prepare_self_distill_dataset(
+        dataset_summary = prepare_self_distill_dataset(
             args.model,
             args.prompts,
             args.output,
@@ -2566,13 +2566,13 @@ def _run(args: argparse.Namespace) -> int:
             seed=args.seed,
             write_features=not args.no_features,
         )
-        log.info("mtp_align_dataset_written", **summary)
+        log.info("mtp_align_dataset_written", **dataset_summary)
         return 0
 
     if args.command == "mtp-align-adapt-fc":
         from axquant.mtp_align.adapt_fc import adapt_fc_norms
 
-        summary = adapt_fc_norms(
+        adapt_summary = adapt_fc_norms(
             args.model,
             args.data,
             args.init_mtp,
@@ -2587,13 +2587,16 @@ def _run(args: argparse.Namespace) -> int:
             donor_model_id=args.donor_model_id,
             donor_revision=args.donor_revision,
         )
-        log.info("mtp_align_adapt_fc_done", **{k: summary[k] for k in summary if k != "train"})
+        log.info(
+            "mtp_align_adapt_fc_done",
+            **{k: adapt_summary[k] for k in adapt_summary if k != "train"},
+        )
         return 0
 
     if args.command == "mtp-align-adapt-full":
         from axquant.mtp_align.adapt_fc import adapt_full_layer
 
-        summary = adapt_full_layer(
+        full_adapt_summary = adapt_full_layer(
             args.model,
             args.data,
             args.init_mtp,
@@ -2610,7 +2613,7 @@ def _run(args: argparse.Namespace) -> int:
         )
         log.info(
             "mtp_align_adapt_full_done",
-            **{k: summary[k] for k in summary if k != "train"},
+            **{k: full_adapt_summary[k] for k in full_adapt_summary if k != "train"},
         )
         return 0
 

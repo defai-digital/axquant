@@ -27,7 +27,7 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
 
 CODING_SUITE_ID = "axquant-qwen3-next-coding-v2"
-CODING_SUITE_VERSION = "2026.08.14.1"
+CODING_SUITE_VERSION = "2026.08.14.2"
 SANDBOX_POLICY_CONTRACT = _SANDBOX_POLICY_CONTRACT
 SANDBOX_PROFILE_SHA256 = _SANDBOX_PROFILE_SHA256
 # Shared with campaign-overlap (axquant-token-5gram-v2): ASCII word runs stay
@@ -745,8 +745,8 @@ def probe_toolchains(
     executables: dict[str, str] | None = None,
 ) -> dict[str, str]:
     configured = {**_DEFAULT_TOOLCHAINS, **(executables or {})}
-    resolved_executables = {
-        name: str(Path(resolved).resolve())
+    located_executables = {
+        name: str(Path(resolved).absolute())
         for name, executable in configured.items()
         if (resolved := shutil.which(executable)) is not None
     }
@@ -754,18 +754,19 @@ def probe_toolchains(
         **os.environ,
         "PATH": os.pathsep.join(
             [
-                *(sorted({str(Path(path).parent) for path in resolved_executables.values()})),
+                *(sorted({str(Path(path).parent) for path in located_executables.values()})),
                 os.environ.get("PATH", ""),
             ]
         ),
     }
     identities: dict[str, str] = {}
     for name in configured:
-        resolved = resolved_executables.get(name)
-        if resolved is None:
+        invocation = located_executables.get(name)
+        if invocation is None:
             identities[name] = "unavailable"
             continue
-        version_args = [resolved, "version" if name == "go" else "--version"]
+        resolved = str(Path(invocation).resolve())
+        version_args = [invocation, "version" if name == "go" else "--version"]
         if name == "sandbox":
             trusted = Path(resolved).resolve() == TRUSTED_SANDBOX_EXECUTABLE
             identities[name] = (
@@ -787,8 +788,32 @@ def probe_toolchains(
             identities[name] = "unavailable"
             continue
         first_line = (result.stdout or result.stderr).strip().splitlines()
+        executable_identity = (
+            invocation if invocation == resolved else f"{invocation} -> {resolved}"
+        )
+        root_identity = ""
+        root_args = {
+            "rust": [invocation, "--print", "sysroot"],
+            "go": [invocation, "env", "GOROOT"],
+        }.get(name)
+        if root_args is not None and result.returncode == 0 and first_line:
+            try:
+                root_result = subprocess.run(
+                    root_args,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                    env=probe_environment,
+                )
+            except (OSError, subprocess.TimeoutExpired):
+                root_result = None
+            if root_result is not None and root_result.returncode == 0:
+                root = Path(root_result.stdout.strip()).expanduser().resolve()
+                if root.is_dir():
+                    root_identity = f" :: root={root}"
         identities[name] = (
-            f"{resolved} :: {first_line[0]}"
+            f"{executable_identity} :: {first_line[0]}{root_identity}"
             if result.returncode == 0 and first_line
             else "unavailable"
         )

@@ -22,7 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -291,7 +291,11 @@ def run_pack(
         elif hasattr(comparison, "dict"):
             cmp = comparison.dict()
         else:
-            cmp = comparison if isinstance(comparison, dict) else json.loads(json.dumps(comparison, default=str))
+            cmp = (
+                comparison
+                if isinstance(comparison, dict)
+                else json.loads(json.dumps(comparison, default=str))
+            )
 
         exact = bool(cmp.get("exactness_pass"))
         weighted = float(cmp.get("token_weighted_decode_speedup") or cmp.get("speedup") or 0.0)
@@ -321,7 +325,7 @@ def run_pack(
 
     summary = {
         "schema_version": "axquant.qwen38-dense-mtp-tier2-probe.v1",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "host_id": HOST_ID,
         "pack_key": pack_key,
         "hub_repo_id": hub_repo,
@@ -335,12 +339,16 @@ def run_pack(
             "prompt_median_speedup_min": PROMPT_MEDIAN_MIN,
         },
         "runtime_env": dict(QWEN38_EXACT_MTP_PROFILE_ENV),
-        "formal_route": "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1 with qwen36 dense exact profile",
+        "formal_route": (
+            "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE=1 with qwen36 dense exact profile"
+        ),
         "ax_engine_executable": str(executable),
         "engine_binary_sha256": engine_sha(executable),
         "profiles": profiles,
-        "technical_tier2_pass": all_pass and all(
-            bool(p.get("gate_pass")) for p in profiles.values()  # type: ignore[union-attr]
+        "technical_tier2_pass": all_pass
+        and all(
+            bool(p.get("gate_pass"))
+            for p in profiles.values()  # type: ignore[union-attr]
         ),
     }
     write_data(out / "TIER2_TECHNICAL_SUMMARY.json", summary)

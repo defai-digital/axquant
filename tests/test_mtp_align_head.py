@@ -64,9 +64,7 @@ def test_tiny_head_draft_logits_shape() -> None:
     hidden = mx.random.normal((2, cfg.hidden_size))
     embed = mx.random.normal((2, cfg.hidden_size))
     lm_head = mx.random.normal((cfg.vocab_size, cfg.hidden_size)) * 0.02
-    logits = head.draft_logits(
-        main_hidden=hidden, prev_token_embed=embed, lm_head_weight=lm_head
-    )
+    logits = head.draft_logits(main_hidden=hidden, prev_token_embed=embed, lm_head_weight=lm_head)
     assert tuple(logits.shape) == (2, cfg.vocab_size)
 
 

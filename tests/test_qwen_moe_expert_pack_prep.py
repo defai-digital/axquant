@@ -19,17 +19,19 @@ def _write_unpacked_moe(src: Path, *, experts: int = 2, hidden: int = 4, inter: 
     src.mkdir(parents=True, exist_ok=True)
     weights: dict[str, np.ndarray] = {
         "lm_head.weight": np.zeros((8, hidden), dtype=np.float32),
-        "model.language_model.layers.0.mlp.gate.weight": np.zeros((experts, hidden), dtype=np.float32),
+        "model.language_model.layers.0.mlp.gate.weight": np.zeros(
+            (experts, hidden), dtype=np.float32
+        ),
     }
     for expert in range(experts):
-        weights[f"model.language_model.layers.0.mlp.experts.{expert}.gate_proj.weight"] = (
-            np.full((inter, hidden), float(expert), dtype=np.float32)
+        weights[f"model.language_model.layers.0.mlp.experts.{expert}.gate_proj.weight"] = np.full(
+            (inter, hidden), float(expert), dtype=np.float32
         )
-        weights[f"model.language_model.layers.0.mlp.experts.{expert}.up_proj.weight"] = (
-            np.full((inter, hidden), float(expert + 10), dtype=np.float32)
+        weights[f"model.language_model.layers.0.mlp.experts.{expert}.up_proj.weight"] = np.full(
+            (inter, hidden), float(expert + 10), dtype=np.float32
         )
-        weights[f"model.language_model.layers.0.mlp.experts.{expert}.down_proj.weight"] = (
-            np.full((hidden, inter), float(expert + 20), dtype=np.float32)
+        weights[f"model.language_model.layers.0.mlp.experts.{expert}.down_proj.weight"] = np.full(
+            (hidden, inter), float(expert + 20), dtype=np.float32
         )
     save_file(weights, src / "model-00001-of-00001.safetensors")
     (src / "model.safetensors.index.json").write_text(

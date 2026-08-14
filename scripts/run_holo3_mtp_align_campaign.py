@@ -21,7 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.mtp_align.evaluate import load_report_metrics
@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
 
     summary = {
         "schema_version": "axquant.mtp-align-campaign.v1",
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
         "model_dir": str(args.model_dir),
         "probe_report": str(args.probe_report),
         "recommendation": decision.recommendation.value,

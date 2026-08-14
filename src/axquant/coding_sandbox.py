@@ -7,6 +7,7 @@ import os
 import re
 import resource
 import secrets
+import selectors
 import shutil
 import signal
 import subprocess
@@ -17,6 +18,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
+from typing import IO, Any
 
 import structlog
 
@@ -159,9 +161,9 @@ def _wait_with_limits(
     memory_limit_bytes: int,
     process_limit: int,
     output_limit_bytes: int,
-    stdout_path: Path,
-    stderr_path: Path,
-) -> tuple[int, bool, bool, bool, bool, str | None]:
+    stdout_pipe: IO[Any],
+    stderr_pipe: IO[Any],
+) -> tuple[int, bool, bool, bool, bool, str | None, bytes, bytes]:
     deadline = time.monotonic() + wall_seconds
     next_memory_sample = 0.0
     timed_out = False
@@ -169,16 +171,49 @@ def _wait_with_limits(
     process_limit_exceeded = False
     output_limit_exceeded = False
     monitor_error: str | None = None
+    stdout_buffer = bytearray()
+    stderr_buffer = bytearray()
+    total_output_bytes = 0
+    selector = selectors.DefaultSelector()
+    selector.register(stdout_pipe, selectors.EVENT_READ, stdout_buffer)
+    selector.register(stderr_pipe, selectors.EVENT_READ, stderr_buffer)
+
+    def read_ready_streams(timeout: float) -> None:
+        nonlocal monitor_error, output_limit_exceeded, total_output_bytes
+        try:
+            events = selector.select(timeout)
+        except OSError as exc:
+            monitor_error = f"cannot monitor scorer output: {exc}"
+            return
+        for key, _mask in events:
+            try:
+                chunk = os.read(key.fd, 64 * 1024)
+            except BlockingIOError:
+                continue
+            except OSError as exc:
+                monitor_error = f"cannot read scorer output: {exc}"
+                with suppress(Exception):
+                    selector.unregister(key.fileobj)
+                continue
+            if not chunk:
+                selector.unregister(key.fileobj)
+                continue
+            remaining = max(0, output_limit_bytes + 1 - total_output_bytes)
+            if remaining:
+                key.data.extend(chunk[:remaining])
+            total_output_bytes += len(chunk)
+            if total_output_bytes > output_limit_bytes:
+                output_limit_exceeded = True
+
+    for stream in (stdout_pipe, stderr_pipe):
+        os.set_blocking(stream.fileno(), False)
     while process.poll() is None:
         now = time.monotonic()
         if now >= deadline:
             timed_out = True
             break
-        output_bytes = sum(
-            path.stat().st_size for path in (stdout_path, stderr_path) if path.exists()
-        )
-        if output_bytes > output_limit_bytes:
-            output_limit_exceeded = True
+        read_ready_streams(min(0.02, max(0.0, deadline - now)))
+        if output_limit_exceeded or monitor_error is not None:
             break
         if sys.platform == "darwin" and now >= next_memory_sample:
             usage = _process_group_usage(process.pid)
@@ -195,7 +230,6 @@ def _wait_with_limits(
                 process_limit_exceeded = True
                 break
             next_memory_sample = now + 0.1
-        time.sleep(0.02)
     if (
         timed_out
         or memory_exceeded
@@ -206,11 +240,15 @@ def _wait_with_limits(
         with suppress(ProcessLookupError):
             os.killpg(process.pid, signal.SIGKILL)
     exit_code = process.wait()
-    final_output_bytes = sum(
-        path.stat().st_size for path in (stdout_path, stderr_path) if path.exists()
-    )
-    if final_output_bytes > output_limit_bytes:
-        output_limit_exceeded = True
+    # A compiler must not leave a background descendant holding either capture pipe open.
+    with suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGKILL)
+    drain_deadline = time.monotonic() + 1.0
+    while selector.get_map() and time.monotonic() < drain_deadline:
+        read_ready_streams(0.02)
+    if selector.get_map() and monitor_error is None:
+        monitor_error = "cannot finish reading scorer output"
+    selector.close()
     return (
         exit_code,
         timed_out,
@@ -218,6 +256,8 @@ def _wait_with_limits(
         process_limit_exceeded,
         output_limit_exceeded,
         monitor_error,
+        bytes(stdout_buffer),
+        bytes(stderr_buffer),
     )
 
 
@@ -229,40 +269,47 @@ def _run_command(
     environment: dict[str, str],
     profile: str,
     sandbox_executable: str,
+    output_limit_bytes: int,
 ) -> _CommandResult:
-    stdout_path = work_dir / "command.stdout"
-    stderr_path = work_dir / "command.stderr"
     started = time.monotonic()
+    process: subprocess.Popen[bytes] | None = None
     try:
-        with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
-            process = subprocess.Popen(
-                [sandbox_executable, "-p", profile, *command.argv],
-                cwd=work_dir,
-                env=environment,
-                stdin=subprocess.DEVNULL,
-                stdout=stdout,
-                stderr=stderr,
-                close_fds=True,
-                start_new_session=True,
-                preexec_fn=lambda: _limit_process(task),
-            )
-            (
-                exit_code,
-                timed_out,
-                memory_exceeded,
-                process_limit_exceeded,
-                output_limit_exceeded,
-                monitor_error,
-            ) = _wait_with_limits(
-                process,
-                wall_seconds=task.timeout_seconds,
-                memory_limit_bytes=task.memory_limit_bytes,
-                process_limit=task.process_limit,
-                output_limit_bytes=task.output_limit_bytes,
-                stdout_path=stdout_path,
-                stderr_path=stderr_path,
-            )
+        process = subprocess.Popen(
+            [sandbox_executable, "-p", profile, *command.argv],
+            cwd=work_dir,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+            start_new_session=True,
+            preexec_fn=lambda: _limit_process(task),
+        )
+        if process.stdout is None or process.stderr is None:
+            raise OSError("cannot create scorer output pipes")
+        (
+            exit_code,
+            timed_out,
+            memory_exceeded,
+            process_limit_exceeded,
+            output_limit_exceeded,
+            monitor_error,
+            stdout_bytes,
+            stderr_bytes,
+        ) = _wait_with_limits(
+            process,
+            wall_seconds=task.timeout_seconds,
+            memory_limit_bytes=task.memory_limit_bytes,
+            process_limit=task.process_limit,
+            output_limit_bytes=output_limit_bytes,
+            stdout_pipe=process.stdout,
+            stderr_pipe=process.stderr,
+        )
     except (OSError, subprocess.SubprocessError) as exc:
+        if process is not None and process.poll() is None:
+            with suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
         return _CommandResult(
             exit_code=None,
             timed_out=False,
@@ -271,8 +318,11 @@ def _run_command(
             stderr=str(exc).encode(),
             infrastructure_error=f"cannot launch sandboxed scorer: {exc}",
         )
-    stdout_bytes = stdout_path.read_bytes() if stdout_path.exists() else b""
-    stderr_bytes = stderr_path.read_bytes() if stderr_path.exists() else b""
+    finally:
+        if process is not None:
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    stream.close()
     infrastructure_error = monitor_error
     if exit_code in {64, 65, 69, 70, 71, 72, 78} and b"sandbox" in stderr_bytes.lower():
         infrastructure_error = "sandbox initialization failed"
@@ -299,10 +349,13 @@ def _resolved_executables(overrides: dict[str, str] | None) -> dict[str, str]:
     for name, executable in configured.items():
         path = shutil.which(executable)
         if path is not None:
-            runtime_path = Path(path).resolve()
+            invocation_path = Path(path).absolute()
+            runtime_path = invocation_path
             if name == "python" and sys.platform == "darwin":
+                resolved_path = invocation_path.resolve()
+                runtime_path = resolved_path
                 app_binary = (
-                    runtime_path.parent.parent
+                    resolved_path.parent.parent
                     / "Resources"
                     / "Python.app"
                     / "Contents"
@@ -323,6 +376,31 @@ def _required_toolchain(payload: CodingTaskPayload) -> str | None:
         "rust": "rust",
         "go": "go",
     }.get(payload.language)
+
+
+def _native_toolchain_executable(name: str, executable: str) -> str:
+    query = {
+        "rust": ("--print", "sysroot"),
+        "go": ("env", "GOROOT"),
+    }.get(name)
+    binary_name = {"rust": "rustc", "go": "go"}.get(name)
+    if query is None or binary_name is None:
+        return executable
+    try:
+        result = subprocess.run(
+            [executable, *query],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise BenchmarkError(f"cannot resolve the {name} toolchain root: {exc}") from exc
+    root = Path(result.stdout.strip()).expanduser().resolve()
+    runtime = root / "bin" / binary_name
+    if not root.is_dir() or not runtime.is_file():
+        raise BenchmarkError(f"{name} reported an invalid toolchain root: {root}")
+    return str(runtime)
 
 
 def _toolchain_read_root(executable: str) -> Path:
@@ -786,6 +864,9 @@ def score_coding_task(
             stderr_excerpt=message,
         )
 
+    if required in {"rust", "go"}:
+        executables[required] = _native_toolchain_executable(required, executables[required])
+
     if work_root.is_symlink():
         raise BenchmarkError("coding sandbox work root cannot be a symbolic link")
     work_root.mkdir(parents=True, exist_ok=True)
@@ -834,6 +915,7 @@ def score_coding_task(
         Path(environment["HOME"]).mkdir()
         Path(environment["TMPDIR"]).mkdir()
         results: list[_CommandResult] = []
+        remaining_output_bytes = task.output_limit_bytes
         _seal_input_tree(source_dir)
         try:
             for command in commands:
@@ -850,8 +932,13 @@ def score_coding_task(
                     environment=environment,
                     profile=profile,
                     sandbox_executable=str(TRUSTED_SANDBOX_EXECUTABLE),
+                    output_limit_bytes=remaining_output_bytes,
                 )
                 results.append(result)
+                remaining_output_bytes = max(
+                    0,
+                    remaining_output_bytes - len(result.stdout) - len(result.stderr),
+                )
                 if (
                     result.exit_code != 0
                     or result.timed_out
@@ -865,8 +952,8 @@ def score_coding_task(
         finally:
             _unseal_input_tree(source_dir)
 
-    stdout = b"\n".join(result.stdout for result in results)
-    stderr = b"\n".join(result.stderr for result in results)
+    stdout = b"".join(result.stdout for result in results)
+    stderr = b"".join(result.stderr for result in results)
     stdout_file, stderr_file, stdout_sha, stderr_sha = _write_raw_logs(
         raw_log_dir=raw_log_dir,
         task_id=task.task_id,

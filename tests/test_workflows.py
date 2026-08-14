@@ -54,6 +54,15 @@ def test_release_workflow_dispatch_binds_tag_input() -> None:
     assert "${GITHUB_REF_NAME}" not in text
 
 
+def test_release_workflow_invariants_survive_optimized_python() -> None:
+    text = _RELEASE.read_text(encoding="utf-8")
+    assert "raise SystemExit" in text
+    assert "assert re.fullmatch" not in text
+    assert "assert tag ==" not in text
+    assert "assert path.is_file" not in text
+    assert "assert text" not in text
+
+
 def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
     """Ubuntu owns the non-MLX contract; macOS owns MLX execution."""
     text = _CI.read_text(encoding="utf-8")

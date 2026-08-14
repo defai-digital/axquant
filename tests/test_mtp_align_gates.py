@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from axquant.mtp_align.evaluate import extract_align_metrics, load_report_metrics
-from axquant.mtp_align.gates import AlignRecommendation, AlignMetrics, evaluate_ladder
+from axquant.mtp_align.gates import AlignMetrics, AlignRecommendation, evaluate_ladder
 
 
 def test_zero_accept_recommends_adapt_fc() -> None:

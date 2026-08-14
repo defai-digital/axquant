@@ -840,7 +840,9 @@ def test_muse_glimmer_30b_is_convertible_via_mlx_vlm() -> None:
         is TensorRole.ATTENTION
     )
     assert (
-        adapter.classify_tensor("model.vision_tower.layers.0.attn.q_proj.weight", "model.safetensors")
+        adapter.classify_tensor(
+            "model.vision_tower.layers.0.attn.q_proj.weight", "model.safetensors"
+        )
         is TensorRole.VISION
     )
     assert (
@@ -894,8 +896,7 @@ def test_deepseek_ocr2_is_convertible_via_mlx_vlm() -> None:
         is TensorRole.VISION
     )
     assert (
-        adapter.classify_tensor("projector.layers.weight", "model.safetensors")
-        is TensorRole.VISION
+        adapter.classify_tensor("projector.layers.weight", "model.safetensors") is TensorRole.VISION
     )
     assert (
         adapter.classify_tensor(

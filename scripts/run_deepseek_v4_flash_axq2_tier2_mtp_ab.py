@@ -29,10 +29,8 @@ import hashlib
 import json
 import os
 import platform
-import shutil
-import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.benchmark import (
@@ -140,7 +138,7 @@ def run_profile(
         measured=measured,
     )
 
-    print(f"==== {name} MTP-off start {datetime.now(timezone.utc).isoformat()}", flush=True)
+    print(f"==== {name} MTP-off start {datetime.now(UTC).isoformat()}", flush=True)
     direct = run_benchmark(
         direct_cfg,
         dataset_path=dataset,
@@ -148,12 +146,11 @@ def run_profile(
         output_dir=output_dir / "mtp-off",
     )
     print(
-        f"==== {name} MTP-off done measured={direct.measured_count} "
-        f"failed={direct.failed_count}",
+        f"==== {name} MTP-off done measured={direct.measured_count} failed={direct.failed_count}",
         flush=True,
     )
 
-    print(f"==== {name} MTP-on start {datetime.now(timezone.utc).isoformat()}", flush=True)
+    print(f"==== {name} MTP-on start {datetime.now(UTC).isoformat()}", flush=True)
     mtp = run_benchmark(
         mtp_cfg,
         dataset_path=dataset,
@@ -177,9 +174,7 @@ def run_profile(
 
     issues = list(comparison.issues)
     if direct.failed_count or mtp.failed_count:
-        issues.append(
-            f"failed trials: direct={direct.failed_count} mtp={mtp.failed_count}"
-        )
+        issues.append(f"failed trials: direct={direct.failed_count} mtp={mtp.failed_count}")
     if enforce_exactness and not comparison.exactness_pass:
         issues.append("exactness gate failed")
     if enforce_speedup and not comparison.speedup_pass:
@@ -328,7 +323,7 @@ def main() -> int:
 
     tech = {
         "schema_version": "ax-engine.deepseek-v4-nextn-mtp-tier2-evidence.v1",
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "host_id": "df-macstudio-m2",
         "host_hardware": "Apple M2 Ultra 192 GB",
         "host_uname": platform.platform(),

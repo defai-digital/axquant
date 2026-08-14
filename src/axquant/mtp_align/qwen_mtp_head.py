@@ -102,7 +102,9 @@ class QwenMtpHead:
             rms_norm_eps=base.rms_norm_eps,
             vocab_size=base.vocab_size,
         )
-        return cls(weights={name: loaded[name] for name in QWEN35_MOE_PACKED_MTP_SHAPES}, config=cfg)
+        return cls(
+            weights={name: loaded[name] for name in QWEN35_MOE_PACKED_MTP_SHAPES}, config=cfg
+        )
 
     @classmethod
     def from_weight_dict(

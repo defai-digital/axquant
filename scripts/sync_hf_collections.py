@@ -44,7 +44,9 @@ KNOWN_SLUGS = {
 NOTE_T1 = "Checkpoint Tier 1 certified on MacBook Pro M5 (128 GB)."
 NOTE_T1_T2 = "Checkpoint Tier 1 and scoped MTP Tier 2 certified on MacBook Pro M5."
 NOTE_T1_NO_T2 = "Checkpoint Tier 1 certified. MTP Tier 2 is not certified."
-NOTE_T1_EXP = "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."
+NOTE_T1_EXP = (
+    "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."
+)
 NOTE_OPTIQ = "OptiQ mixed 4/8-bit."
 NOTE_UNIFORM = "Uniform MLX quantization."
 NOTE_QAT = "Official QAT 4-bit, converted to MLX."
@@ -138,7 +140,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Gemma 4",
-        description="Gemma 4 12B/26B/31B plus DiffusionGemma: uniform, QAT, OptiQ, and certified AXQ.",
+        description=(
+            "Gemma 4 12B/26B/31B plus DiffusionGemma: uniform, QAT, OptiQ, and certified AXQ."
+        ),
         items=(
             _ax("AX-gemma-4-31b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-gemma-4-31b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
@@ -161,7 +165,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3.5",
-        description="Qwen3.5 9B MTP: uniform, OptiQ, and AXQ. No distinct AXQ-4bit (floor-collapsed).",
+        description=(
+            "Qwen3.5 9B MTP: uniform, OptiQ, and AXQ. No distinct AXQ-4bit (floor-collapsed)."
+        ),
         items=(
             _ax("AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.5-9B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
@@ -238,7 +244,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Mistral",
-        description="Ministral 3 and Mistral Small: OptiQ and AXQ. No distinct Ministral-3-8B AXQ-4bit.",
+        description=(
+            "Ministral 3 and Mistral Small: OptiQ and AXQ. No distinct Ministral-3-8B AXQ-4bit."
+        ),
         items=(
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
@@ -251,7 +259,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Embeddings",
-        description="Qwen3-Embedding, EmbeddingGemma, and Nemotron-3-Embed (uniform, DWQ, and AXQ).",
+        description=(
+            "Qwen3-Embedding, EmbeddingGemma, and Nemotron-3-Embed (uniform, DWQ, and AXQ)."
+        ),
         items=(
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
@@ -412,9 +422,7 @@ COLLECTIONS: tuple[Spec, ...] = (
 def _validate() -> None:
     for spec in COLLECTIONS:
         if len(spec.description) > 150:
-            raise SystemExit(
-                f"description too long ({len(spec.description)}): {spec.title!r}"
-            )
+            raise SystemExit(f"description too long ({len(spec.description)}): {spec.title!r}")
         seen: set[str] = set()
         for item in spec.items:
             if item.repo in seen:
@@ -523,10 +531,7 @@ def _sync_items(api: HfApi, slug: str, spec: Spec) -> None:
 def sync(*, apply: bool) -> int:
     _validate()
     all_family_repos = {
-        item.repo
-        for spec in COLLECTIONS
-        if spec.existing_slug is None
-        for item in spec.items
+        item.repo for spec in COLLECTIONS if spec.existing_slug is None for item in spec.items
     }
     complete_repos = {item.repo for item in COLLECTIONS[-1].items}
     missing_from_complete = sorted(all_family_repos - complete_repos)

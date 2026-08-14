@@ -86,12 +86,14 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         cert_track=True,
         summary=(
             "Qwen3.8 dense VLM (27B hybrid GDN+attention, model_type=qwen3_5): checkpoint Tier 1 "
-            "on AXQ 4-bit (recovery lm_head-8) and 6-bit language-path packs; vision BF16-protected."
+            "on AXQ 4-bit (recovery lm_head-8) and 6-bit language-path packs; vision "
+            "BF16-protected."
         ),
         do=(
             "Ship and certify AXQ 4/6-bit language-path packs (vision BF16-protected).",
             "Use plan-manual recovery with lm_head 8-bit when architecture-prior 4-bit fails size.",
-            "Bind public Tier 1 certs only when size ≤1.15× uniform and dual-suite retention ≥0.98.",
+            "Bind public Tier 1 certs only when size <=1.15x uniform and dual-suite "
+            "retention >=0.98.",
         ),
         do_not=(
             "Do not route Super-class 2.4T MoE through this dense adapter.",
@@ -107,7 +109,8 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
         summary=(
-            "Qwen3.5-class 35B-A3B MoE and fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, Qwen3.5-35B-A3B): "
+            "Qwen3.5-class 35B-A3B MoE and fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, "
+            "Qwen3.5-35B-A3B): "
             "fused-expert development convert via the same MLX layout as Qwen 3.6 MoE."
         ),
         do=(

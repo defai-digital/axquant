@@ -11,7 +11,7 @@ import json
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.mtp_align.adapt_fc import adapt_fc_norms, compose_adapted_onto_pack
@@ -59,9 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--trunk",
         type=Path,
-        default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"
-        ),
+        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"),
     )
     p.add_argument(
         "--init-mtp",
@@ -113,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
 
     summary: dict = {
         "schema_version": "axquant.mtp-adapt-v3.v1",
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "pack": str(pack),
         "trunk": str(trunk),
         "init_mtp": str(init_mtp),
@@ -275,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(online, indent=2), flush=True)
     summary["online"] = online
     summary["tier2_status"] = "not_certified"
-    summary["finished_at"] = datetime.now(timezone.utc).isoformat()
+    summary["finished_at"] = datetime.now(UTC).isoformat()
     write_data(work / "campaign_summary.json", summary)
     print(json.dumps(summary, indent=2, default=str), flush=True)
     print("V3_DONE", flush=True)

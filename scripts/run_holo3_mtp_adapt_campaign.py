@@ -10,7 +10,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.grafted_mtp import compose_grafted_mtp_onto_pack
@@ -28,17 +28,13 @@ def main(argv: list[str] | None = None) -> int:
         "--pack",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/"
-            "AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     p.add_argument(
         "--trunk",
         type=Path,
-        default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/"
-            "AX-Holo3-35B-A3B-MLX-AXQ-6bit"
-        ),
+        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"),
         help="Certified non-MTP trunk for compose (main digests preserved)",
     )
     p.add_argument(
@@ -62,7 +58,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--online-probe-script",
         type=Path,
-        default=Path("/Users/devop/code/axquant-ornith-ship/scripts/run_holo3_35b_mtp_tier2_probe.py"),
+        default=Path(
+            "/Users/devop/code/axquant-ornith-ship/scripts/run_holo3_35b_mtp_tier2_probe.py"
+        ),
     )
     args = p.parse_args(argv)
 
@@ -76,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
 
     summary: dict = {
         "schema_version": "axquant.mtp-adapt-campaign.v1",
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "pack": str(pack),
         "trunk": str(trunk),
         "work": str(work),
@@ -242,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         summary["campaign_verdict"] = "stage1_fail_closed_no_top1_gain"
         summary["next"] = "escalate stage-2 full-layer unfreeze or stop"
-    summary["finished_at"] = datetime.now(timezone.utc).isoformat()
+    summary["finished_at"] = datetime.now(UTC).isoformat()
     write_data(work / "campaign_summary.json", summary)
     print(json.dumps(summary, indent=2, default=str), flush=True)
     return 0

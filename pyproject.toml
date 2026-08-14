@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axquant"
-version = "1.6.2"
-description = "CLI toolkit for converting supported MLX language and multimodal checkpoints"
+version = "1.7.0"
+description = "MLX-native mixed-precision PTQ for language and multimodal checkpoints on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -61,6 +61,11 @@ Changelog = "https://github.com/defai-digital/axquant/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/axquant"]
+
+[tool.hatch.build.targets.sdist]
+# Defense in depth beyond .gitignore: local runtime evidence must never enter a
+# PyPI source archive merely because it exists beside pyproject.toml.
+exclude = ["/.internal", "/credentials.json", "/runtime_check.json"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

@@ -8,8 +8,7 @@ from pathlib import Path
 from axquant.mtp_align.provenance import ADAPTED_GRAFT_KIND
 
 _EV = (
-    Path(__file__).resolve().parents[1]
-    / "docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-v3"
+    Path(__file__).resolve().parents[1] / "docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-v3"
 )
 _S1 = (
     Path(__file__).resolve().parents[1]

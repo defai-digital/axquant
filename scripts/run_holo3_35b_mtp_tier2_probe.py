@@ -27,7 +27,7 @@ import json
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from axquant.benchmark import (
@@ -47,12 +47,10 @@ WEIGHTED_MIN = 1.20
 PROMPT_MEDIAN_MIN = 1.10
 
 DEFAULT_FORMAL_AGENT = Path(
-    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/"
-    "formal-agent-coding/dataset.jsonl"
+    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-agent-coding/dataset.jsonl"
 )
 DEFAULT_FORMAL_GENERAL = Path(
-    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/"
-    "formal-general/dataset.jsonl"
+    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-general/dataset.jsonl"
 )
 
 
@@ -188,7 +186,7 @@ def run_profile(
         measured=measured,
     )
 
-    print(f"==== {name} MTP-off start {datetime.now(timezone.utc).isoformat()}", flush=True)
+    print(f"==== {name} MTP-off start {datetime.now(UTC).isoformat()}", flush=True)
     direct = run_benchmark(
         direct_cfg,
         dataset_path=dataset,
@@ -200,7 +198,7 @@ def run_profile(
         flush=True,
     )
 
-    print(f"==== {name} MTP-on start {datetime.now(timezone.utc).isoformat()}", flush=True)
+    print(f"==== {name} MTP-on start {datetime.now(UTC).isoformat()}", flush=True)
     mtp = run_benchmark(
         mtp_cfg,
         dataset_path=dataset,
@@ -242,9 +240,7 @@ def run_profile(
                 raw_accept = {
                     **totals,
                     "accept_rate": (
-                        totals["accepted"] / totals["proposed"]
-                        if totals["proposed"]
-                        else None
+                        totals["accepted"] / totals["proposed"] if totals["proposed"] else None
                     ),
                 }
         except (OSError, json.JSONDecodeError, TypeError, ValueError):
@@ -288,8 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         "--model-dir",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/"
-            "AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     parser.add_argument(
@@ -363,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
 
     host = subprocess.check_output(["hostname"], text=True).strip()
     meta = {
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "host": host,
         "model_dir": str(model_dir),
         "hub_repo": hub_repo,
@@ -419,7 +414,7 @@ def main(argv: list[str] | None = None) -> int:
     any_exact = any(bool(s.get("exactness_pass")) for s in summaries)
     all_exact = all(bool(s.get("exactness_pass")) for s in summaries) if summaries else False
     decision = {
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "finished_at": datetime.now(UTC).isoformat(),
         "any_release_ready": any_release,
         "all_exactness_pass": all_exact,
         "any_exactness_pass": any_exact,

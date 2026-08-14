@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from axquant.errors import ArtifactError
 from axquant.grafted_mtp import QWEN35_MOE_PACKED_MTP_SHAPES, compose_grafted_mtp_onto_pack
@@ -164,9 +165,7 @@ def write_adapted_mtp_bundle(
         else "adapt_fc_history.json"
     )
     if isinstance(history, list):
-        (output_dir / hist_name).write_text(
-            json.dumps(history, indent=2) + "\n", encoding="utf-8"
-        )
+        (output_dir / hist_name).write_text(json.dumps(history, indent=2) + "\n", encoding="utf-8")
     return {
         "output_dir": str(output_dir),
         "mtp": str(mtp_out),
@@ -201,8 +200,9 @@ def _load_features_and_lm_head(
         if max_samples is not None:
             features = features[:max_samples]
         if lm_head_weight is None:
-            model, _tokenizer = load(str(model_dir))
-            lm = getattr(model, "language_model", model)
+            loaded = load(str(model_dir))
+            feature_model: Any = loaded[0]
+            lm = getattr(feature_model, "language_model", feature_model)
             lm_head = (
                 lm["lm_head"] if hasattr(lm, "__getitem__") and "lm_head" in lm else lm.lm_head
             )
@@ -214,8 +214,9 @@ def _load_features_and_lm_head(
         samples = samples[:max_samples]
     if not samples:
         raise ArtifactError("no training samples")
-    model, _tokenizer = load(str(model_dir))
-    lm = getattr(model, "language_model", model)
+    loaded = load(str(model_dir))
+    trunk_model: Any = loaded[0]
+    lm = getattr(trunk_model, "language_model", trunk_model)
     core = lm["model"] if hasattr(lm, "__getitem__") and "model" in lm else lm.model
     lm_head = lm["lm_head"] if hasattr(lm, "__getitem__") and "lm_head" in lm else lm.lm_head
     embed = core.embed_tokens
@@ -258,9 +259,7 @@ def adapt_mtp_head(
     if stage not in {"fc_norms", "full_layer"}:
         raise ArtifactError(f"unknown adapt stage: {stage}")
     train_keys = FC_NORM_KEYS if stage == "fc_norms" else FULL_LAYER_KEYS
-    graft_kind = (
-        "holo3-adapted-mtp-v1" if stage == "fc_norms" else "holo3-adapted-mtp-full-v1"
-    )
+    graft_kind = "holo3-adapted-mtp-v1" if stage == "fc_norms" else "holo3-adapted-mtp-full-v1"
 
     model_dir = Path(model_dir).expanduser().resolve()
     init_mtp = Path(init_mtp).expanduser().resolve()

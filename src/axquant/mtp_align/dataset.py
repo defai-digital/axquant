@@ -90,7 +90,9 @@ def prepare_self_distill_dataset(
     model_dir = Path(model_dir).expanduser().resolve()
     output_path = Path(output_path).expanduser().resolve()
     prompts = load_prompt_strings(prompts_path)[:max_prompts]
-    model, tokenizer = load(str(model_dir))
+    loaded = load(str(model_dir))
+    model: Any = loaded[0]
+    tokenizer: Any = loaded[1]
     core, embed, lm_head = _trunk_modules(model)
 
     samples: list[dict[str, Any]] = []

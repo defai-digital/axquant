@@ -8,6 +8,7 @@ reference precision while :class:`PlanPredicate` controls the language decoder.
 from __future__ import annotations
 
 import importlib
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Literal
 
@@ -196,11 +197,9 @@ def _convert_deepseek_ocr2(
                     continue
                 shutil.copy(file, destination / name)
         if hasattr(processor, "save_pretrained"):
-            try:
+            with suppress(Exception):
                 processor.save_pretrained(destination)
-            except Exception:
-                # Processor files already copied from source above.
-                pass
+                # Processor files were already copied from source if this fails.
         vlm_utils.save_config(config, config_path=destination / "config.json")
     finally:
         del model
@@ -249,10 +248,8 @@ def _convert_muse_glimmer(
                     continue
                 shutil.copy(file, destination / name)
         if hasattr(processor, "save_pretrained"):
-            try:
+            with suppress(Exception):
                 processor.save_pretrained(destination)
-            except Exception:
-                pass
         vlm_utils.save_config(config, config_path=destination / "config.json")
     finally:
         del model

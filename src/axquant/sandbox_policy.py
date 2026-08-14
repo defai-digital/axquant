@@ -23,7 +23,7 @@ _COMPILE_PROCESS_RULES = (
 
 SANDBOX_POLICY_CONTRACT = {
     "id": "axquant-macos-seatbelt-v3",
-    "renderer": "render_sandbox_profile-v1",
+    "renderer": "render_sandbox_profile-v2",
     "base_rules": list(_BASE_RULES),
     "default": "deny",
     "system_runtime": 'import "system.sb"',
@@ -44,6 +44,8 @@ SANDBOX_PROFILE_SHA256 = stable_sha256(SANDBOX_POLICY_CONTRACT)
 
 
 def _seatbelt_string(value: str) -> str:
+    if any(ord(character) < 32 or ord(character) == 127 for character in value):
+        raise ValueError("sandbox paths cannot contain control characters")
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 

@@ -21,7 +21,7 @@ import json
 import os
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -159,7 +159,6 @@ def cmd_uniforms() -> None:
 
 
 def cmd_size() -> None:
-    inv = json.loads((WORK / "inventory" / "packs.json").read_text(encoding="utf-8"))
     # Candidate size-evidence via axquant
     for key, meta in PACKS.items():
         man = pack_dir(key) / "axquant_manifest.json"
@@ -223,10 +222,7 @@ def cmd_size() -> None:
         # Uniform total already includes vision if mlx_lm kept it; use total ref bytes.
         ref_bytes = int(uref["weight_bytes"])
         # Prefer total candidate (incl vision+mtp) only for no-MTP; MTP compares main+vision.
-        if meta["mtp"]:
-            cand_compare = cand_bytes + prot
-        else:
-            cand_compare = int(cand["weight_bytes"])
+        cand_compare = cand_bytes + prot if meta["mtp"] else int(cand["weight_bytes"])
         ratio = cand_compare / ref_bytes
         ratios[key] = {
             "size_ratio_vs_uniform": ratio,
@@ -357,7 +353,6 @@ def cmd_runtime(pack: str) -> None:
 def cmd_write_certs() -> None:
     """Emit cert JSON stubs only when size+quality gates already pass on disk."""
     ratios = json.loads((WORK / "size" / "ratios.json").read_text())
-    cert_dir = ROOT / "docs" / "certifications"
     for key, meta in PACKS.items():
         size = ratios[key]
         if not size["pass"]:
@@ -399,7 +394,10 @@ def cmd_write_certs() -> None:
         mtp_reason = (
             "No MTP weights; checkpoint Tier 1 is non-MTP direct-decode only."
             if not meta["mtp"]
-            else "MTP weights present; speculative acceleration not certified (no Tier 2 A/B pass yet)."
+            else (
+                "MTP weights present; speculative acceleration not certified "
+                "(no Tier 2 A/B pass yet)."
+            )
         )
         cert_id = {
             "axq4": "qwen38-27b-axq4-tier1",
@@ -411,7 +409,7 @@ def cmd_write_certs() -> None:
             "schema_version": "axquant.public-checkpoint-certification.v1",
             "status": "certified",
             "certification_tier": "checkpoint",
-            "certified_at": datetime.now(timezone.utc).isoformat(),
+            "certified_at": datetime.now(UTC).isoformat(),
             "host_id": HOST_ID,
             "artifact": {
                 "hub_repo_id": f"AutomatosX/{meta['name']}",

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class AlignRecommendation(str, Enum):
+class AlignRecommendation(StrEnum):
     """Next action after measuring MTP align metrics."""
 
     STOP_ENV_TUNING = "stop_env_tuning"
@@ -23,7 +23,7 @@ class AlignRecommendation(str, Enum):
     """Stage-1/2 insufficient — need more data or trunk-joint training."""
 
     ONLINE_SPEEDUP_SWEEP = "online_speedup_sweep"
-    """Accept viable; optimize for ≥1.20× under MoE exact profile."""
+    """Accept viable; optimize for >=1.20x under MoE exact profile."""
 
     READY_FOR_FORMAL_TIER2 = "ready_for_formal_tier2"
     """Medium probe looks strong enough for authorizing scoreboard."""
@@ -112,9 +112,7 @@ def evaluate_ladder(metrics: AlignMetrics) -> AlignDecision:
         return AlignDecision(
             recommendation=AlignRecommendation.CERTIFIED_PATH,
             stage_reached="L4",
-            reasons=(
-                "exactness pass and speedup gates meet formal Tier 2 thresholds",
-            ),
+            reasons=("exactness pass and speedup gates meet formal Tier 2 thresholds",),
             metrics=metrics,
             thresholds=thresholds,
         )
@@ -143,9 +141,7 @@ def evaluate_ladder(metrics: AlignMetrics) -> AlignDecision:
                 "but below formal gates — sweep MoE-exact profiles"
             )
         else:
-            reasons.append(
-                f"accept viable ({accept:.3f}) but speedup not yet above direct"
-            )
+            reasons.append(f"accept viable ({accept:.3f}) but speedup not yet above direct")
         return AlignDecision(
             recommendation=AlignRecommendation.ONLINE_SPEEDUP_SWEEP,
             stage_reached="L2",
@@ -156,9 +152,7 @@ def evaluate_ladder(metrics: AlignMetrics) -> AlignDecision:
 
     # Zero / near-zero online accept: stop env tuning; drive adaptation.
     if accept is not None and accept <= ONLINE_ACCEPT_SMOKE + 1e-12:
-        reasons.append(
-            f"online accept_rate={accept:.4f} — env/host tuning will not create accepts"
-        )
+        reasons.append(f"online accept_rate={accept:.4f} — env/host tuning will not create accepts")
         if offline is not None and offline < 0.10:
             reasons.append(
                 f"offline top-1={offline:.3f} confirms distributional mismatch "
@@ -186,8 +180,7 @@ def evaluate_ladder(metrics: AlignMetrics) -> AlignDecision:
         return AlignDecision(
             recommendation=AlignRecommendation.ADAPT_FC_NORMS,
             stage_reached="L0",
-            reasons=tuple(reasons)
-            + ("run offline teacher-force baseline then stage-1 fc/norm adapt",),
+            reasons=(*reasons, "run offline teacher-force baseline then stage-1 fc/norm adapt"),
             metrics=metrics,
             thresholds=thresholds,
         )
@@ -199,15 +192,14 @@ def evaluate_ladder(metrics: AlignMetrics) -> AlignDecision:
             return AlignDecision(
                 recommendation=AlignRecommendation.ADAPT_FULL_LAYER,
                 stage_reached="L1-partial",
-                reasons=tuple(reasons)
-                + ("offline strong enough — unfreeze mtp.layers.0",),
+                reasons=(*reasons, "offline strong enough — unfreeze mtp.layers.0"),
                 metrics=metrics,
                 thresholds=thresholds,
             )
         return AlignDecision(
             recommendation=AlignRecommendation.ADAPT_FC_NORMS,
             stage_reached="L1-partial",
-            reasons=tuple(reasons) + ("continue stage-1 adapt with more data",),
+            reasons=(*reasons, "continue stage-1 adapt with more data"),
             metrics=metrics,
             thresholds=thresholds,
         )

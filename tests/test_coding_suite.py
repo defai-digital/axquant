@@ -13,6 +13,8 @@ import pytest
 from axquant.coding_sandbox import (
     _CommandSpec,
     _compile_and_test_commands,
+    _native_toolchain_executable,
+    _resolved_executables,
     _sandbox_profile,
     _wait_with_limits,
     evaluate_coding_suite,
@@ -149,6 +151,73 @@ def test_sandbox_profile_is_deny_default_with_split_read_write_scopes(tmp_path: 
     assert f'(allow file-write* (subpath "{source_dir.resolve()}"))' not in profile
     assert "(allow process-fork)" not in profile
     assert '(allow process-exec (literal "/usr/bin/python3"))' in profile
+
+
+@pytest.mark.parametrize("control", ["\n", "\r", "\t", "\x7f"])
+def test_sandbox_profile_rejects_control_characters_in_paths(
+    tmp_path: Path,
+    control: str,
+) -> None:
+    command = _CommandSpec(argv=(f"/usr/bin/python{control}3", "-c", "pass"))
+
+    with pytest.raises(ValueError, match="control characters"):
+        _sandbox_profile(
+            input_dir=tmp_path / "input",
+            output_dir=tmp_path / "output",
+            toolchain_paths=[Path("/usr")],
+            command=command,
+        )
+
+
+def test_toolchain_symlink_invocation_is_preserved_and_identity_binds_target(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "rustup"
+    target.write_text(
+        '#!/bin/sh\ncase "$0" in\n  *rustc) echo "rustc 1.99.0" ;;\n  *) exit 9 ;;\nesac\n',
+        encoding="utf-8",
+    )
+    target.chmod(0o755)
+    rustc = tmp_path / "rustc"
+    rustc.symlink_to(target)
+
+    resolved = _resolved_executables({"rust": str(rustc)})
+    identities = probe_toolchains({"rust": str(rustc)})
+
+    assert resolved["rust"] == str(rustc)
+    assert identities["rust"] == f"{rustc} -> {target} :: rustc 1.99.0"
+
+
+@pytest.mark.parametrize(
+    ("name", "query", "binary_name"),
+    [("rust", "--print sysroot", "rustc"), ("go", "env GOROOT", "go")],
+)
+def test_native_toolchain_uses_reported_root_instead_of_credential_directory(
+    tmp_path: Path,
+    name: str,
+    query: str,
+    binary_name: str,
+) -> None:
+    credential_dir = tmp_path / ".cargo"
+    shim_dir = credential_dir / "bin"
+    shim_dir.mkdir(parents=True)
+    (credential_dir / "credentials.toml").write_text("secret", encoding="utf-8")
+    toolchain_root = tmp_path / "toolchain"
+    runtime = toolchain_root / "bin" / binary_name
+    runtime.parent.mkdir(parents=True)
+    runtime.write_text("runtime", encoding="utf-8")
+    runtime.chmod(0o755)
+    shim = shim_dir / binary_name
+    shim.write_text(
+        f'#!/bin/sh\n[ "$*" = "{query}" ] || exit 9\nprintf "%s\\n" "{toolchain_root}"\n',
+        encoding="utf-8",
+    )
+    shim.chmod(0o755)
+
+    resolved = _native_toolchain_executable(name, str(shim))
+
+    assert resolved == str(runtime)
+    assert credential_dir not in Path(resolved).parents
 
 
 def test_coding_suite_rejects_a_tampered_task_shard(tmp_path: Path) -> None:
@@ -499,9 +568,15 @@ def test_python_unit_test_cannot_replace_parent_logs_with_symlinks(tmp_path: Pat
     output = f"""import os
 import sys
 
-os.unlink("command.stdout")
+try:
+    os.unlink("command.stdout")
+except FileNotFoundError:
+    pass
 os.symlink(sys.argv[0], "command.stdout")
-os.unlink("command.stderr")
+try:
+    os.unlink("command.stderr")
+except FileNotFoundError:
+    pass
 os.symlink({str(external_secret)!r}, "command.stderr")
 os._exit(0)
 
@@ -549,10 +624,7 @@ def test_reference_executable_tasks_run_under_deny_default_policy(
 ) -> None:
     # Use the active interpreter for Python: Apple's /usr/bin/python3 is an
     # xcrun shim and fails under Seatbelt without a full Xcode install.
-    if language == "python":
-        resolved = sys.executable
-    else:
-        resolved = shutil.which(executable)
+    resolved = sys.executable if language == "python" else shutil.which(executable)
     if resolved is None:
         pytest.skip(f"{executable} is not installed")
     payload = next(item for item in reference_coding_payloads() if item.language == language)
@@ -667,26 +739,28 @@ def test_coding_raw_output_symlink_is_rejected_before_write(tmp_path: Path) -> N
     assert external.read_text(encoding="utf-8") == "preserve"
 
 
-def test_coding_output_limit_checks_final_process_bytes(tmp_path: Path) -> None:
-    stdout_path = tmp_path / "stdout"
-    stderr_path = tmp_path / "stderr"
-    with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
-        process = subprocess.Popen(
-            [sys.executable, "-c", "import sys; sys.stdout.write('x' * 4096)"],
-            stdout=stdout,
-            stderr=stderr,
-            start_new_session=True,
-        )
-        result = _wait_with_limits(
-            process,
-            wall_seconds=5,
-            memory_limit_bytes=1024**3,
-            process_limit=8,
-            output_limit_bytes=16,
-            stdout_path=stdout_path,
-            stderr_path=stderr_path,
-        )
+def test_coding_output_limit_checks_final_process_bytes() -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import sys; sys.stdout.write('x' * 4096)"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,
+    )
+    assert process.stdout is not None
+    assert process.stderr is not None
+    result = _wait_with_limits(
+        process,
+        wall_seconds=5,
+        memory_limit_bytes=1024**3,
+        process_limit=8,
+        output_limit_bytes=16,
+        stdout_pipe=process.stdout,
+        stderr_pipe=process.stderr,
+    )
+    process.stdout.close()
+    process.stderr.close()
     assert result[4] is True
+    assert len(result[6]) + len(result[7]) == 17
 
 
 class _FakeCodingBackend:

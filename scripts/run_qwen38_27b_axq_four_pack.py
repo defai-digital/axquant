@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Factory: Qwen3.8-27B AXQ 4/6-bit × {no-MTP, MTP} (four development packs).
+"""Factory: Qwen3.8-27B AXQ 4/6-bit x {no-MTP, MTP} (four development packs).
 
 Waits for a complete local BF16 snapshot, prepares a no-MTP source view (MTP
 tensors live only in the last shard for this SKU), then runs four
@@ -69,11 +69,15 @@ def source_complete(source: Path) -> tuple[bool, str]:
     for name in required:
         if not (source / name).is_file():
             return False, f"missing {name}"
-    missing = [shard_name(i) for i in range(1, SHARD_COUNT + 1) if not (source / shard_name(i)).is_file()]
+    missing = [
+        shard_name(i) for i in range(1, SHARD_COUNT + 1) if not (source / shard_name(i)).is_file()
+    ]
     if missing:
         return False, f"missing {len(missing)} shards (e.g. {missing[0]})"
     # Reject incomplete downloads still writing *.incomplete under local-dir cache.
-    incomplete = list((source / ".cache").rglob("*.incomplete")) if (source / ".cache").exists() else []
+    incomplete = (
+        list((source / ".cache").rglob("*.incomplete")) if (source / ".cache").exists() else []
+    )
     if incomplete:
         return False, f"{len(incomplete)} incomplete download parts remain"
     return True, "ok"
@@ -239,9 +243,7 @@ def run_cmd(cmd: list[str], log_path: Path) -> None:
         env = {
             **os.environ,
             "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext4T/huggingface"),
-            "HF_HUB_CACHE": os.environ.get(
-                "HF_HUB_CACHE", "/Volumes/Ext4T/huggingface/hub"
-            ),
+            "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext4T/huggingface/hub"),
             "AXQUANT_FORCE_CPU": os.environ.get("AXQUANT_FORCE_CPU", "1"),
         }
         proc = subprocess.run(

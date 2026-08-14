@@ -302,10 +302,28 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.6.2` (packaging classifier: **Beta**). Its inspection,
+The latest tagged toolkit version is `1.7.0` (packaging classifier: **Beta**). Its inspection,
 planning, conversion, runtime-check, validation, and publication-gating commands are implemented
 and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
 command does not by itself certify an output.
+
+### v1.7.x at a glance
+
+- Coding evaluation now uses a deny-default macOS Seatbelt policy with sealed inputs, explicit
+  runtime/toolchain read scopes, network denial, and parent-owned output pipes. The pipe boundary
+  closes a confused-deputy path where generated code could replace scorer log files with symbolic
+  links. See [SECURITY.md](SECURITY.md) for the threat model and operating guidance.
+- Qwen3.8-27B AXQ 4/6-bit language-path packs are checkpoint Tier 1 certified; the MTP variants
+  also have scoped Tier 2 certificates on AX Engine 6.16.1 under the exact Qwen3.8 profile.
+- Qwen3-VL 30B-A3B Instruct AXQ 4/6-bit and Holo3-35B-A3B AXQ 4/6-bit are checkpoint Tier 1
+  certified. Holo3 MTP alignment tooling now covers measure, decide, teacher-force, and staged
+  adaptation, but the public Holo3 products remain direct-decode because Tier 2 did not pass.
+- The generated [full certification list](docs/certifications/full-list.md) separates the public
+  catalog from unlisted evaluation records and keeps Tier 1 quality distinct from scoped Tier 2
+  acceleration.
+- AX Engine 6.15.0 completed a 72-hour Qwen 3.6 AXQ 6-bit endurance run with 3,643/3,643 successful
+  requests, zero errors, and no observed RSS leak or swap. This is runtime evidence, not a new
+  checkpoint certificate ([report](docs/ax-engine-72h-endurance.md)).
 
 ### v1.6.x at a glance
 
@@ -328,11 +346,6 @@ command does not by itself certify an output.
 - Checkpoint Tier 1 and scoped MTP Tier 2 are separate claims. Exact Qwen 3.6 27B/35B-A3B
   revisions have scoped certificates, while Gemma-4, Qwen3-Coder-Next, and experimental
   DeepSeek V4 Flash packs publish their narrower checkpoint verdicts (v1.6.2).
-- AX Engine **6.15.0** passed a **72-hour** AXQ endurance soak on `df-macmini-03`
-  (Mac mini M4 Pro, 64 GB) serving Qwen 3.6 27B AXQ 6-bit: **3643 / 3643**
-  requests, zero errors, no RSS leak, no swap. This is a runtime soak, not a
-  new checkpoint certificate. Report:
-  [docs/ax-engine-72h-endurance.md](docs/ax-engine-72h-endurance.md).
 
 ### v1.5.x at a glance
 
@@ -360,7 +373,7 @@ command does not by itself certify an output.
 - `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
   host-scoped tables that plug directly into `plan --latency-table`.
 
-See the [v1.6.2 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.6.2)
+See the [v1.7.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.7.0)
 for the complete change list and download verification instructions. Past tags keep their
 notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
 tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
