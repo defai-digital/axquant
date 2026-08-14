@@ -2465,6 +2465,48 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "prepare-grafted-mtp":
+        from axquant.grafted_mtp import prepare_grafted_qwen_moe_mtp
+
+        bundle = prepare_grafted_qwen_moe_mtp(
+            args.donor,
+            output_dir=args.output,
+            trunk=ModelIdentity(
+                model_id=args.trunk_model_id,
+                revision=args.trunk_revision,
+            ),
+            donor=ModelIdentity(
+                model_id=args.donor_model_id,
+                revision=args.donor_revision,
+            ),
+        )
+        log.info(
+            "grafted_mtp_prepared",
+            output=str(bundle.directory),
+            sidecar=str(bundle.sidecar),
+            tensor_count=bundle.manifest.tensor_count,
+            parameters=bundle.manifest.parameters,
+            donor=f"{bundle.donor.model_id}@{bundle.donor.revision}",
+            trunk=f"{bundle.trunk.model_id}@{bundle.trunk.revision}",
+        )
+        return 0
+
+    if args.command == "compose-grafted-mtp":
+        from axquant.grafted_mtp import compose_grafted_mtp_onto_pack
+
+        composed = compose_grafted_mtp_onto_pack(
+            args.model_dir,
+            args.mtp_dir,
+            output_dir=args.output,
+        )
+        log.info(
+            "grafted_mtp_composed",
+            output=str(composed),
+            mtp_sidecar=str(composed / "mtp.safetensors"),
+            graft_record=str(composed / "axquant_mtp_graft.json"),
+        )
+        return 0
+
     if args.command == "prepare-suite":
         from axquant.suites import build_benchmark_suites
 

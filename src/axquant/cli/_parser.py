@@ -1167,6 +1167,69 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Force full file copies instead of hardlinks when possible",
     )
 
+    prepare_grafted_mtp_parser = subparsers.add_parser(
+        "prepare-grafted-mtp",
+        help=(
+            "Extract and pack a Qwen3.5/3.6 MoE MTP head for grafting onto a "
+            "Holo3-class trunk (honest donor provenance; not co-trained)"
+        ),
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--donor",
+        required=True,
+        help="Local donor checkpoint directory (must contain mtp.* weights)",
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--donor-model-id",
+        required=True,
+        help="Hub id of the MTP donor (e.g. Qwen/Qwen3.5-35B-A3B)",
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--donor-revision",
+        required=True,
+        help="Immutable donor revision SHA",
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--trunk-model-id",
+        required=True,
+        help="Hub id of the trunk receiving the graft (e.g. Hcompany/Holo3-35B-A3B)",
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--trunk-revision",
+        required=True,
+        help="Immutable trunk source revision SHA",
+    )
+    prepare_grafted_mtp_parser.add_argument(
+        "--output",
+        required=True,
+        help="Empty output directory for mtp.safetensors + graft manifests",
+    )
+
+    compose_grafted_mtp_parser = subparsers.add_parser(
+        "compose-grafted-mtp",
+        help=(
+            "Attach a prepared grafted MTP sidecar onto an AXQ pack without "
+            "mutating main weight tensors (copies pack when --output is set)"
+        ),
+    )
+    compose_grafted_mtp_parser.add_argument(
+        "--model-dir",
+        required=True,
+        help="AXQ pack directory (trunk) to receive the MTP sidecar",
+    )
+    compose_grafted_mtp_parser.add_argument(
+        "--mtp-dir",
+        required=True,
+        help="Directory from prepare-grafted-mtp (mtp.safetensors + manifests)",
+    )
+    compose_grafted_mtp_parser.add_argument(
+        "--output",
+        help=(
+            "Optional new output directory; when set, the source pack is copied "
+            "first so certified trunk digests stay intact"
+        ),
+    )
+
     mtp_diagnose_parser = subparsers.add_parser(
         "mtp-diagnose",
         help="Run M2 kill-switch matrix (soft exactness) and write a diagnostic report",

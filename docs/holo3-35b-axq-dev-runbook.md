@@ -11,10 +11,16 @@
 | --- | --- | --- | --- | --- | --- |
 | 4-bit | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | `4bit` (attn-6 / expert-4) | 5.665439 | [`7b2256130cd55ea6b7489817a9a00c46e9874403`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit/tree/7b2256130cd55ea6b7489817a9a00c46e9874403) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq4-tier1.md)) |
 | 6-bit | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | `6bit` | 7.006493 | [`e6cc340b04bfcec57544e462ec756e48dd248cf9`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit/tree/e6cc340b04bfcec57544e462ec756e48dd248cf9) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq6-tier1.md)) |
+| 4-bit-MTP | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit-MTP) | `4bit` + grafted MTP | 5.665439 (main) | [`c048f577843225ac0545be5674b4d68b9a51dcf0`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit-MTP/tree/c048f577843225ac0545be5674b4d68b9a51dcf0) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq4-mtp-tier1.md)); Tier 2 **not certified** |
+| 6-bit-MTP | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP) | `6bit` + grafted MTP | 7.006493 (main) | [`f474549461817cafb73909847af43af2431d4a0d`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP/tree/f474549461817cafb73909847af43af2431d4a0d) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq6-mtp-tier1.md)); Tier 2 **not certified** |
 
 **Source pin:** `Hcompany/Holo3-35B-A3B` @
 [`208d5ae3a03f99d561f32ab5e606f73397a390ea`](https://huggingface.co/Hcompany/Holo3-35B-A3B/tree/208d5ae3a03f99d561f32ab5e606f73397a390ea)
 (Apache-2.0; fine-tune of `Qwen/Qwen3.5-35B-A3B`).
+
+**MTP donor pin (grafted packs only):** `Qwen/Qwen3.5-35B-A3B` @
+[`59d61f3ce65a6d9863b86d2e96597125219dc754`](https://huggingface.co/Qwen/Qwen3.5-35B-A3B/tree/59d61f3ce65a6d9863b86d2e96597125219dc754)
+— not co-trained on Holo3.
 
 ## Why this path works
 
@@ -142,19 +148,48 @@ ax-engine serve /path/to/AX-Holo3-35B-A3B-MLX-AXQ-4bit --mlx --port 31418
 ```
 
 **Verified on `df-macstudio-m2`:** load + vision sidecar + `/v1/chat/completions`
-and `/v1/completions` smoke for both 4-bit and 6-bit packs.
+and `/v1/completions` smoke for both 4-bit and 6-bit packs; MLX load smoke for
+both `-MTP` packs with `mtp.safetensors` present.
 
-Text-path only: GUI / vision quality is **not** claimed. No MTP weights → no
-Tier 2 acceleration claim.
+Text-path only: GUI / vision quality is **not** claimed.
+
+## Grafted MTP packs (`-MTP`)
+
+Holo3 BF16 declares `mtp_num_hidden_layers` but ships **no** `mtp.*` weights.
+`-MTP` SKUs attach a **grafted** BF16 head from the parent Qwen3.5 checkpoint:
+
+```bash
+export WORK_MTP=/path/to/axquant-work/holo3-35b-mtp-axq
+export DONOR_ID=Qwen/Qwen3.5-35B-A3B
+export DONOR_REV=59d61f3ce65a6d9863b86d2e96597125219dc754
+export HOLO_ID=Hcompany/Holo3-35B-A3B
+export HOLO_REV=208d5ae3a03f99d561f32ab5e606f73397a390ea
+
+# 1) Pack donor MTP (785 unpacked experts → 19 packed tensors)
+axquant prepare-grafted-mtp \
+  --donor "$DONOR_DIR" \
+  --donor-model-id "$DONOR_ID" --donor-revision "$DONOR_REV" \
+  --trunk-model-id "$HOLO_ID" --trunk-revision "$HOLO_REV" \
+  --output "$WORK_MTP/mtp-graft"
+
+# 2) Attach onto certified non-MTP trunk without mutating main digests
+axquant compose-grafted-mtp \
+  --model-dir "$WORK/AX-Holo3-35B-A3B-MLX-AXQ-6bit" \
+  --mtp-dir "$WORK_MTP/mtp-graft" \
+  --output "$WORK_MTP/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+```
+
+Pack includes `mtp.safetensors`, `axquant_mtp_sidecar_manifest.json`, and
+`axquant_mtp_graft.json` (honest donor/trunk provenance).
 
 ## Checkpoint Tier 1 (2026-08-14, `df-macstudio-m2`)
 
-| Gate | 4-bit (attn-6 / expert-4 recovery) | 6-bit |
-| --- | ---: | ---: |
-| Size ratio vs uniform | 1.1469 ≤ 1.15 **pass** | 1.0135 ≤ 1.15 **pass** |
-| General retention | 1.0488 **pass** | 1.000 **pass** |
-| Agent-coding retention | 1.0069 **pass** | 1.007 **pass** |
-| Verdict | **certified** | **certified** |
+| Gate | 4-bit (attn-6 / expert-4 recovery) | 6-bit | 4-bit-MTP | 6-bit-MTP |
+| --- | ---: | ---: | ---: | ---: |
+| Size ratio vs uniform | 1.1469 ≤ 1.15 **pass** | 1.0135 ≤ 1.15 **pass** | same trunk **pass** | same trunk **pass** |
+| General retention | 1.0488 **pass** | 1.000 **pass** | same trunk **pass** | same trunk **pass** |
+| Agent-coding retention | 1.0069 **pass** | 1.007 **pass** | same trunk **pass** | same trunk **pass** |
+| Verdict | **certified** | **certified** | **certified** | **certified** |
 
 Uniform references: `mlx_lm convert -q --q-bits {4,6} --q-group-size 64` from the same BF16 pin.
 Suites: development-agent-coding (76) + development-general (44), seed `20260728`, max gen 64.
@@ -163,13 +198,21 @@ First architecture_prior 4-bit pack failed agent-coding (0.9793; long_context 0.
 Certified 4-bit uses [`examples/holo3-35b-axq4-agent-v0.1.yaml`](../examples/holo3-35b-axq4-agent-v0.1.yaml)
 (attention 6-bit / experts 4-bit). Attention-8 cleared quality but size 1.162 &gt; 1.15.
 
+## Tier 2 MTP acceleration
+
+**Not certified** for either `-MTP` SKU. Soft `mtp-diagnose` on 6-bit-MTP
+(`df-macstudio-m2`, AX Engine 6.15.0) saw greedy exactness pass on short probes
+but decode speedup ≪ 1.0× (~0.43× token-weighted on the diagnostic matrix) —
+not release-ready. Product default remains **direct decode**.
+
 ## Claim language
 
-**Allowed:** checkpoint Tier 1 for both 4/6-bit; measured size/quality vs matched uniform; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin.  
-**Not allowed:** GUI/VLM quality claims; Tier 2 MTP; equating Holo3 to official Qwen 3.6 35B certificates.
+**Allowed:** checkpoint Tier 1 for 4/6-bit and 4/6-bit-MTP; measured size/quality vs matched uniform on the language trunk; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin; disclosure that MTP is grafted from parent Qwen3.5.  
+**Not allowed:** GUI/VLM quality claims; Tier 2 MTP acceleration/speedup; co-trained Holo3 MTP; equating Holo3 to official Qwen 3.6 35B certificates.
 
 ## Related
 
 - Adapter: `qwen35-moe-v1` in `src/axquant/architectures/qwen36.py`
+- Graft tooling: `src/axquant/grafted_mtp.py` (`prepare-grafted-mtp`, `compose-grafted-mtp`)
 - Same family path as Ornith: [docs/ornith-35b-axq-dev-runbook.md](ornith-35b-axq-dev-runbook.md)
 - AX Engine: preset `holo3-35b`, model-id inference, download aliases in `ax-engine`

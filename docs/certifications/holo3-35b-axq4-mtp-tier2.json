@@ -1,0 +1,50 @@
+{
+  "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "mtp-acceleration",
+  "certified_at": "2026-08-14T02:06:23+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit-MTP",
+    "hub_commit": "c048f577843225ac0545be5674b4d68b9a51dcf0",
+    "product_class": "4bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Hcompany/Holo3-35B-A3B",
+    "source_revision": "208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    "candidate_manifest_sha256": "1d0b7e7b29cea505e5cdd5a3a3769937231b247f47859c7ffb1d89c67fbfeb87"
+  },
+  "thresholds": {
+    "exactness_required": 1.0,
+    "token_weighted_decode_speedup_min": 1.2,
+    "prompt_median_speedup_min": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "not_certified",
+    "reason": "grafted-mtp-speedup-failed-sibling-probe",
+    "scope": "same grafted MTP sidecar as 6-bit-MTP; soft probe measured on 6-bit-MTP sibling",
+    "product_default_route": "direct-fallback",
+    "ax_engine_version": "6.15.0",
+    "mtp_graft": {
+      "donor_model_id": "Qwen/Qwen3.5-35B-A3B",
+      "donor_revision": "59d61f3ce65a6d9863b86d2e96597125219dc754",
+      "graft_kind": "parent-qwen35-moe-mtp",
+      "sidecar_sha256": "a4e12f8ea03b42a10359ff52ba7bf591cbfd8b98084886f63f8810ede62dee60"
+    },
+    "notes": [
+      "Identical grafted MTP sidecar as the 6-bit-MTP pack (byte-identical mtp.safetensors).",
+      "6-bit sibling soft mtp-diagnose: exactness pass, prompt-median speedup ~0.43× (fail).",
+      "No separate formal Tier 2 authorizing scoreboard for 4-bit-MTP; fail closed.",
+      "Do not claim MTP acceleration for this revision."
+    ]
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.15.0",
+    "host": "df-macstudio-m2"
+  },
+  "related_certificates": {
+    "checkpoint_tier1": "holo3-35b-axq4-mtp-tier1.json",
+    "sibling_soft_probe": "holo3-35b-axq6-mtp-tier2.json"
+  },
+  "evidence_package": "factory: /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/logs/mtp-diagnose-6bit.json"
+}
