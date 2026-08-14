@@ -1,0 +1,100 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-14T00:49:31+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit",
+    "hub_commit": "41c052c2906cee88ec2d282fbfe179272add3047",
+    "product_class": "4bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Hcompany/Holo3-35B-A3B",
+    "source_revision": "208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    "candidate_manifest_sha256": "bae5f5659ccfbb2e33f41c7ab2af24ecc3c521ff78892087696cd92efddc8981"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "4bit",
+    "target_bpw": 4.88,
+    "effective_bpw": 4.879999995223769,
+    "measured_total_bpw": 5.605047665481184,
+    "measured_main_bpw": 5.605047665481184
+  },
+  "size": {
+    "candidate_weight_bytes": 24597178519,
+    "candidate_measured_bpw": 5.605047665481184,
+    "reference_kind": "uniform-4bit",
+    "reference_model_id": "local/Holo3-35B-A3B-uniform-4bit",
+    "reference_revision": "208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    "reference_weight_bytes": 21677556069,
+    "size_ratio_vs_uniform": 1.1346841147916673,
+    "max_size_ratio_applied": 1.15,
+    "pass": true,
+    "reference_build": "mlx_lm convert -q --q-bits 4 --q-group-size 64 from Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea on df-macstudio-m2"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9342105263157895,
+      "reference_score": 0.9539473684210527,
+      "retention": 0.9793103448275862,
+      "perplexity_ratio": 0.9760037409062705,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76,
+      "pass": false
+    },
+    "general": {
+      "candidate_score": 0.9318181818181818,
+      "reference_score": 0.9318181818181818,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9714565542007908,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44,
+      "pass": true
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Holo3-35B-A3B has no MTP weights; Tier 2 is not applicable."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.15.0",
+      "notes": "generate-manifest --validate; load + chat/completions smoke on df-macstudio-m2."
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "load + short generate smoke."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.15.0",
+    "host": "df-macstudio-m2",
+    "python": "3.13"
+  },
+  "notes": [
+    "Not certified: agent-coding quality retention 0.9793 < 0.98 vs matched uniform-4 reference on df-macstudio-m2.",
+    "General quality retention 1.000 and size ratio 1.135 (\u22641.15) pass; MLX-LM and AX Engine load pass.",
+    "A recovery convert with --target-bpw 5.2 raised agent-coding retention to 0.9862 but collapsed measured total BPW to ~6.17 (not a valid 4bit product class); not published as the 4bit SKU.",
+    "Hub pack remains development evidence only for checkpoint quality claims.",
+    "Adapter qwen35-moe-v1 \u2014 not the official Qwen 3.6 certification track.",
+    "Vision BF16-protected; no MTP / no Tier 2 claim."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "8009d1c71b29d255b44bd536478293dd71b7979f3972977123288c5a28ffad0f",
+    "quality-comparison-general_sha256": "3cf2cefd500786c06f35ff13cd5b6641b708d259c6cf63fd3bf9e1da578ef106",
+    "size-evidence_sha256": "6f37090dfbe02265136c17eb423a41895ba357b5b422e832328f18868e51b2fa"
+  },
+  "public_index": {
+    "display_name": "Holo3-35B-A3B AXQ 4-bit",
+    "sort_order": 86,
+    "edition_label": "evaluation@`41c052c2`",
+    "listed": false
+  }
+}

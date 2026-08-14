@@ -78,6 +78,27 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not treat architecture-prior quants as certified releases.",),
     ),
     FamilySupportPolicy(
+        product_family="qwen3.5-moe",
+        adapter_id="qwen35-moe-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=10,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Qwen3.5-class 35B-A3B MoE and fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, Qwen3.5-35B-A3B): "
+            "fused-expert development convert via the same MLX layout as Qwen 3.6 MoE."
+        ),
+        do=(
+            "Allow architecture-prior AXQ 4/6-bit development packs for signature-matched "
+            "35B-A3B MoE fine-tunes.",
+            "Label Hub packs as development evidence; vision stays BF16-protected.",
+        ),
+        do_not=(
+            "Do not claim Qwen 3.6 Tier 1/Tier 2 certification for Ornith or other fine-tunes.",
+            "Do not convert non-35B-A3B qwen3_5_moe sizes by association.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="qwen3-next",
         adapter_id="qwen3-next-v1",
         investment_posture=InvestmentPosture.SECONDARY,
@@ -184,6 +205,47 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Do not re-pack community 3bit/FP8 as AXQ.",
             "Do not promote Thinking or other VL MoE sizes by association.",
             "Do not claim MTP / Tier-2 acceleration for this VL path.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="deepseek-ocr2",
+        adapter_id="deepseek-ocr2-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=29,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin convert: DeepSeek-OCR-2 document VL MoE via MLX-VLM deepseekocr_2; "
+            "language quantized, SAM/Qwen2 vision + projector BF16-protected."
+        ),
+        do=(
+            "Prefer MLX BF16 sources (model_type=deepseekocr_2) for convert.",
+            "Label packs development; protect vision towers at BF16.",
+        ),
+        do_not=(
+            "Do not claim OCR accuracy parity without measured document evals.",
+            "Do not re-pack community 4/6-bit as AXQ without a full convert.",
+            "Do not treat general DeepSeek-VL siblings as OCR-2 by association.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="muse-glimmer",
+        adapter_id="muse-glimmer-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=30,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin convert: Meta Muse-Glimmer-30B dense multimodal agent via MLX-VLM "
+            "muse_glimmer; language quantized, vision tower/adapter BF16-protected."
+        ),
+        do=(
+            "Convert from pinned BF16 Hub snapshot; require mlx-vlm with muse_glimmer.",
+            "Label packs development; protect vision at BF16.",
+        ),
+        do_not=(
+            "Do not claim agentic/coding-bench scores without measured evals.",
+            "Do not promote non-catalog Muse sizes by association.",
         ),
     ),
     FamilySupportPolicy(

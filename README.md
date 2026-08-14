@@ -36,6 +36,7 @@ do not edit the table cells by hand.
 | Qwen3-Coder-Next AXQ 6-bit | [Certified](docs/certifications/qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
+| Holo3-35B-A3B AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
@@ -70,29 +71,15 @@ agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding 
 (generation viability; MTP Tier 2 not claimed). Other catalog entries remain development
 artifacts unless their own exact revision has a certificate.
 
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
-and
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
-
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
-and
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
-
-**Qwen3.8-2.4T-A95B** is **not** an AXQuant / AX Engine product path. Experimental
-**OptiQ** 2-bit and 4-bit MLX repos live at
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit)
-and
-[`AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit).
-They are converted with `mlx-optiq` (`--method static`) for SSD expert streaming. **AX Engine
-does not support them.** See [docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md).
+**Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** is on the Hub at
+[`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit)
+(layer-stack expert stream, ~1.13 TiB, measured 4.074 BPW). **This revision
+will not be certified** — SSD paging is too slow for practical serving; it
+stays as a hobby / curiosity pack. **No AXQ 4-bit pack will be released**
+for this base. Technical report:
+[docs/qwen38-axq-2bit.md](docs/qwen38-axq-2bit.md). Separate OptiQ 2/4-bit
+repos are not AX Engine artifacts
+([docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md)).
 
 ## Contents
 
@@ -364,7 +351,9 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Scope | Use today | Public certification status |
 | --- | --- | --- |
 | Qwen 3.6 language paths | `convertible`; primary certification track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
-| Qwen 3.5, Qwen3 dense/Embedding/Next, MiniCPM5, Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Development evidence only |
+| Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE + fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Ornith development only ([runbook](docs/ornith-35b-axq-dev-runbook.md)); **Holo3 6-bit checkpoint Tier 1** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)); Holo3 4-bit not certified ([eval](docs/certifications/holo3-35b-axq4-tier1.md)) |
+| **DeepSeek-OCR-2** (`deepseek-ocr2-v1`, MLX-VLM) | `convertible` thin — language MoE quantized, vision BF16-protected | Development evidence only ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)) |
+| **Muse-Glimmer-30B** (`muse-glimmer-v1`, MLX-VLM) | `convertible` thin — dense language quantized, vision BF16-protected | Development evidence only ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)) |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2/3-bit experimental Tier 1** on `df-macstudio-m2`; other packs development evidence |
 | GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 4/6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; **120B 4-bit not certified** (agent-coding) and Hub pack removed |
@@ -411,6 +400,9 @@ release audit. The current tier matrix:
 | --- | --- | --- |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; primary certification track |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
+| **Qwen3.5-class 35B-A3B MoE + fine-tunes** (Ornith-1.0-35B, Holo3-35B-A3B) | `qwen35-moe-v1` | `convertible`; Ornith development only; **Holo3 6-bit Tier 1** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)), 4-bit not certified ([eval](docs/certifications/holo3-35b-axq4-tier1.md)); not Qwen 3.6 cert track |
+| **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)) |
+| **Muse-Glimmer-30B** | `muse-glimmer-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)) |
 | **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ 4/6-bit checkpoint Tier 1 certified** ([4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
 | **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
@@ -430,7 +422,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
+| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE / Ornith / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -510,6 +502,14 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
+| [`AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | 4.880062 | **Development only** ([runbook](docs/ornith-35b-axq-dev-runbook.md)); source `deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660`; adapter `qwen35-moe-v1`; no MTP / not Qwen 3.6 cert |
+| [`AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | 6.000062 | **Development only** ([runbook](docs/ornith-35b-axq-dev-runbook.md)); same source pin; vision BF16-preserved; no Tier 1/Tier 2 claim |
+| [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.605048 | **Not certified** — agent-coding retention 0.9793 &lt; 0.98 ([eval](docs/certifications/holo3-35b-axq4-tier1.md)); source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
+| [`AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | 7.006493 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
+| [`AX-DeepSeek-OCR-2-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-4bit) | ~6.80 total | **Development only** ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)); language trunk 4-bit, vision BF16; official `deepseek-ai/DeepSeek-OCR-2@aaa02f3811945a91062062994c5c4a3f4c0af2b0` |
+| [`AX-DeepSeek-OCR-2-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit) | ~8.40 total | **Development only** ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)); language trunk 6-bit (experts), attention 8-bit, vision BF16 |
+| [`AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | ~5.95 total | **Development only** ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)); language attention/MLP 4-bit, vision BF16; source `meta-models/Muse-Glimmer-30B@a4e59da52a7bc87ae7251dd5545c0dd437c44b68` |
+| [`AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | ~7.69 total | **Development only** ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)); language attention/MLP 6-bit, vision BF16 |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
@@ -1330,6 +1330,7 @@ and required promotion evidence are clear.
 
 | Doc | Audience |
 | --- | --- |
+| [Qwen3.8 AXQ 2-bit report](docs/qwen38-axq-2bit.md) | Users — Super-class 2-bit convert evidence; this revision will not be certified (too slow) |
 | [Known issues](docs/known-issues.md) | Operators — documented limitations and fail-closed gates |
 | [Environment compatibility](docs/compatibility.md) | Operators — platforms, Python, MLX extras |
 | [Flagship certification](docs/flagship-certification.md) | Certification operators — `qwen36-mtp-v2` sequence |

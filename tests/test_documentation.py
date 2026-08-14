@@ -116,9 +116,22 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     gpt_oss_removed_uncertified = {
         "AX-gpt-oss-120b-MLX-AXQ-4bit",
     }
-    post_migration_additions = post_migration_additions | gpt_oss_additions
-    assert len(readme_repositories) == 38
-    assert len(set(readme_repositories)) == 38
+    # Secondary development/cert packs published after the historical migration table.
+    secondary_family_additions = {
+        "AX-Ornith-1.0-35B-MLX-AXQ-4bit",
+        "AX-Ornith-1.0-35B-MLX-AXQ-6bit",
+        "AX-DeepSeek-OCR-2-MLX-AXQ-4bit",
+        "AX-DeepSeek-OCR-2-MLX-AXQ-6bit",
+        "AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
+        "AX-Muse-Glimmer-30B-MLX-AXQ-6bit",
+        "AX-Holo3-35B-A3B-MLX-AXQ-4bit",
+        "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
+    }
+    post_migration_additions = (
+        post_migration_additions | gpt_oss_additions | secondary_family_additions
+    )
+    assert len(readme_repositories) == 46
+    assert len(set(readme_repositories)) == 46
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -211,7 +224,9 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     unlisted = [row for row in rows if not row.listed]
     unlisted_ids = {row.record_id for row in unlisted}
     assert "gpt-oss-120b-axq4" in unlisted_ids
+    assert "holo3-35b-axq4" in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
+    assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
 
 
 def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:
@@ -228,6 +243,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen3-coder-next-axq6",
         "qwen3-vl-30b-axq4",
         "qwen3-vl-30b-axq6",
+        "holo3-35b-axq6",
+        "holo3-35b-axq4",
         "deepseek-v4-flash-axq2",
         "deepseek-v4-flash-axq3",
         "gemma4-12b-axq4",
@@ -241,6 +258,9 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gpt-oss-120b-axq4",
         "gpt-oss-120b-axq6",
     ]
+    unlisted_ids = {row.record_id for row in rows if not row.listed}
+    assert "holo3-35b-axq4" in unlisted_ids
+    assert "holo3-35b-axq6" not in unlisted_ids
 
 
 def test_certification_docs_match_certificate_json_exactly() -> None:

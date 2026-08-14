@@ -1,0 +1,98 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-14T00:49:31+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit",
+    "hub_commit": "e6cc340b04bfcec57544e462ec756e48dd248cf9",
+    "product_class": "6bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Hcompany/Holo3-35B-A3B",
+    "source_revision": "208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    "candidate_manifest_sha256": "85e8abdb85e3c292b415e26ecfc351fe91242ebece7db81ba0567b61766c908f"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "effective_bpw": 5.999999988150573,
+    "measured_total_bpw": 7.006492923995311,
+    "measured_main_bpw": 7.006492923995311
+  },
+  "size": {
+    "candidate_weight_bytes": 30747277727,
+    "candidate_measured_bpw": 7.006492923995311,
+    "reference_kind": "uniform-6bit",
+    "reference_model_id": "local/Holo3-35B-A3B-uniform-6bit",
+    "reference_revision": "208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    "reference_weight_bytes": 30337155264,
+    "size_ratio_vs_uniform": 1.0135188174181473,
+    "max_size_ratio_applied": 1.15,
+    "pass": true,
+    "reference_build": "mlx_lm convert -q --q-bits 6 --q-group-size 64 from Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea on df-macstudio-m2"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9407894736842105,
+      "reference_score": 0.9342105263157895,
+      "retention": 1.0070422535211268,
+      "perplexity_ratio": 1.0113418461189998,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76
+    },
+    "general": {
+      "candidate_score": 0.9772727272727273,
+      "reference_score": 0.9772727272727273,
+      "retention": 1.0,
+      "perplexity_ratio": 1.003763811103873,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Holo3-35B-A3B config may declare mtp_num_hidden_layers but no MTP weights are present; certification is non-MTP direct-decode checkpoint Tier 1 only."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.15.0",
+      "notes": "generate-manifest --validate; load + /v1/chat/completions + /v1/completions smoke on df-macstudio-m2 (model family qwen3_5 MoE text path; vision BF16 sidecar loaded)."
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "load + short generate smoke on factory host."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.15.0",
+    "host": "df-macstudio-m2",
+    "python": "3.13"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on factory host id df-macstudio-m2.",
+    "Quality retention vs matched uniform MLX 6-bit reference built from the same BF16 pin (not BF16).",
+    "Adapter qwen35-moe-v1 / product family qwen3.5-moe — not the official Qwen 3.6 certification track.",
+    "Vision tower remains BF16-protected (vision.safetensors); total BPW includes protected vision bytes.",
+    "No MTP acceleration claim; Hub name omits -MTP.",
+    "AX Engine product id resolves to holo3-35b from pack path (not qwen3.6)."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "1d55c02df60b94bdab96091439539d7f9d99a2c3b5ff8e9c23c3ab21cf585690",
+    "quality-comparison-general_sha256": "f2ce20adef046421fc1aa94d8fbf7fda819e171115381297a01c44da00b355ee",
+    "size-evidence_sha256": "9698ff93af3985581737633658862adcd434d3ed76840c2894d1ca641a5fa464"
+  },
+  "public_index": {
+    "display_name": "Holo3-35B-A3B AXQ 6-bit",
+    "sort_order": 85,
+    "edition_label": "main@`e6cc340b`",
+    "listed": true
+  }
+}
