@@ -22,6 +22,8 @@ via `tests/test_documentation.py`.
 | [Qwen3-VL 30B-A3B Instruct AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | [Holo3-35B-A3B AXQ 4-bit](holo3-35b-axq4-tier1.md) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) |
 | [Holo3-35B-A3B AXQ 6-bit](holo3-35b-axq6-tier1.md) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) |
+| [Qwen3.8-27B AXQ 6-bit](qwen38-27b-axq6-tier1.md) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
+| [Qwen3.8-27B AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | [Gemma 4 12B AXQ 4-bit](gemma4-12b-axq4-tier1.md) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) |

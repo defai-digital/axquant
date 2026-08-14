@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import re
+from typing import TypeVar
+
+_T = TypeVar("_T")
 
 _EXPERT_MEMBER = re.compile(
     r"^(?P<prefix>.*\.mlp)\.experts\.(?P<index>\d+)\.(?P<proj>gate_proj|up_proj|down_proj)$"
@@ -163,6 +166,35 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     return ()
 
 
+def unique_module_planning_tensors(tensors: list[_T]) -> list[_T]:
+    """Keep one planning tensor per ``module_path`` for PlanPredicate uniqueness.
+
+    OpenAI GPT-OSS native MXFP4 maps ``*_scales`` onto the ``*_blocks`` module path
+    so inventory pairs body+scale storage. Those scale sidecars are not
+    independently quantizable; emitting both as plan assignments collides in
+    PlanPredicate (``plan contains duplicate module paths``). Prefer the
+    quantizable body when present; otherwise keep non-quantizable tensors as-is
+    (norms, biases, etc.).
+    """
+    by_path: dict[str, list[_T]] = {}
+    order: list[str] = []
+    for tensor in tensors:
+        path = tensor.module_path  # type: ignore[attr-defined]
+        if path not in by_path:
+            order.append(path)
+            by_path[path] = []
+        by_path[path].append(tensor)
+    selected: list[_T] = []
+    for path in order:
+        group = by_path[path]
+        quantizable = [item for item in group if getattr(item, "quantizable", False)]
+        if quantizable:
+            selected.append(quantizable[0])
+        else:
+            selected.extend(group)
+    return selected
+
+
 def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
     """Return every MLX runtime module that must be visited for one packed tensor.
 
@@ -265,6 +297,19 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         aliases.add(f"vision_tower.{tensor_path.removeprefix('model.visual.')}")
     if tensor_path.startswith("vision_tower."):
         aliases.add(f"model.visual.{tensor_path.removeprefix('vision_tower.')}")
+    # Muse Glimmer: strip/add the HF ``model.`` prefix on vision modules.
+    for vision_prefix in (
+        "vision_tower.",
+        "vision_adapter.",
+        "vision_projection",
+        "perception_emb_norm",
+    ):
+        model_key = f"model.{vision_prefix}"
+        if tensor_path.startswith(model_key) or tensor_path == f"model.{vision_prefix.rstrip('.')}":
+            aliases.add(tensor_path.removeprefix("model."))
+        bare = vision_prefix.rstrip(".")
+        if tensor_path.startswith(vision_prefix) or tensor_path == bare:
+            aliases.add(f"model.{tensor_path}")
     checkpoint_head = "lm_head."
     mlx_head = "language_model.lm_head."
     if tensor_path.startswith(checkpoint_head):
@@ -292,6 +337,12 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
     )
     # deepseek_v4.sanitize renames MoE router bias for e_score correction.
     gate_bias_maps = ((".ffn.gate.bias", ".ffn.gate.e_score_correction_bias"),)
+    muse_vision_prefixes = (
+        "vision_tower.",
+        "vision_adapter.",
+        "vision_projection",
+        "perception_emb_norm",
+    )
     changed = True
     while changed:
         changed = False
@@ -305,6 +356,13 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
                 expanded.add(f"model.{candidate}")
             if candidate.startswith("model.mtp."):
                 expanded.add(candidate.removeprefix("model."))
+            for prefix in muse_vision_prefixes:
+                bare = prefix.rstrip(".")
+                model_prefix = f"model.{prefix}"
+                if candidate.startswith(model_prefix) or candidate == f"model.{bare}":
+                    expanded.add(candidate.removeprefix("model."))
+                if candidate.startswith(prefix) or candidate == bare:
+                    expanded.add(f"model.{candidate}")
             for param in ("base", "fn", "scale"):
                 if candidate == f"hc_head_{param}":
                     expanded.add(f"model.hc_head.{param}")

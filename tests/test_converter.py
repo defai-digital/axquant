@@ -1471,8 +1471,17 @@ def test_conversion_rejects_declared_mtp_without_plan_allocations(
     for name in ("config.json", "model.safetensors"):
         (source / name).write_bytes((qwen36_model_dir / name).read_bytes())
     plan = _plan(source)
-    assert plan.architecture_profile.mtp_declared
+    # Inspect clears config-only MTP when no MTP tensors exist. Force the
+    # fail-closed convert gate the way a hand-edited plan could still hit it.
+    assert plan.architecture_profile.mtp_declared is False
     assert not any(allocation.role.is_mtp for allocation in plan.assignments)
+    plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"mtp_declared": True}
+            )
+        }
+    )
 
     with pytest.raises(PlanningError, match="contains no MTP tensor allocations"):
         converter.convert_model(
@@ -1482,6 +1491,25 @@ def test_conversion_rejects_declared_mtp_without_plan_allocations(
             allow_unmeasured=True,
             ax_engine_manifest="skip",
         )
+
+
+def test_inspect_clears_config_only_mtp_without_tensors(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """Stale mtp_num_hidden_layers without weights (e.g. Ornith) is non-MTP."""
+    source = tmp_path / "ornith-like-no-mtp"
+    source.mkdir()
+    for name in ("config.json", "model.safetensors"):
+        (source / name).write_bytes((qwen36_model_dir / name).read_bytes())
+    inventory = inspect_model(
+        source,
+        model_id="Qwen/Qwen3.6-27B",
+        revision="source-revision",
+    )
+    assert inventory.mtp_present is False
+    assert inventory.architecture_profile.mtp_declared is False
+    assert any("treating the checkpoint as non-MTP" in warning for warning in inventory.warnings)
 
 
 def test_conversion_rejects_backend_that_does_not_pack_planned_weights(

@@ -245,6 +245,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen3-vl-30b-axq6",
         "holo3-35b-axq4",
         "holo3-35b-axq6",
+        "qwen38-27b-axq6",
+        "qwen38-27b-axq6-mtp",
         "deepseek-v4-flash-axq2",
         "deepseek-v4-flash-axq3",
         "gemma4-12b-axq4",

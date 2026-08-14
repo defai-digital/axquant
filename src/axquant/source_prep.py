@@ -10,7 +10,9 @@ staging root so system temp disks are not required for multi-GB models.
 from __future__ import annotations
 
 import json
+import re
 import shutil
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -133,6 +135,41 @@ def needs_ministral3_model_prefix_prep(model_dir: str | Path, config: dict[str, 
     return has_unprefixed and not has_prefixed
 
 
+_QWEN_UNPACKED_EXPERT = re.compile(
+    r"^(?P<prefix>.*\.mlp)\.experts\.(?P<index>\d+)\."
+    r"(?P<proj>gate_proj|up_proj|down_proj)\.weight$"
+)
+
+
+def needs_qwen_moe_unpacked_expert_prep(
+    model_dir: str | Path, config: dict[str, Any] | None = None
+) -> bool:
+    """True when qwen3_5_moe ships per-expert tensors instead of packed stacks.
+
+    Official Qwen 3.6 35B-A3B packs experts as ``mlp.experts.gate_up_proj`` /
+    ``mlp.experts.down_proj``. Some fine-tunes (e.g. Ornith-1.0-35B) expand to
+    ``mlp.experts.<i>.{gate,up,down}_proj.weight``. Public MLX-LM only
+    sanitizes the packed form; convert-time prep restacks per-expert weights.
+    """
+    if config is None:
+        try:
+            config = _read_config(model_dir)
+        except ArtifactError:
+            return False
+    if str(config.get("model_type", "")) != "qwen3_5_moe":
+        return False
+    directory = Path(model_dir).expanduser().resolve()
+    sample_keys = _sample_safetensor_keys(directory, limit=256)
+    if not sample_keys:
+        return False
+    has_unpacked = any(_QWEN_UNPACKED_EXPERT.match(key) for key in sample_keys)
+    has_packed = any(
+        key.endswith(".mlp.experts.gate_up_proj") or key.endswith(".mlp.experts.down_proj")
+        for key in sample_keys
+    )
+    return has_unpacked and not has_packed
+
+
 def needs_conversion_prep(model_dir: str | Path) -> bool:
     """True when the checkpoint requires a prepared MLX text-path view."""
     directory = Path(model_dir).expanduser().resolve()
@@ -142,8 +179,11 @@ def needs_conversion_prep(model_dir: str | Path) -> bool:
         config = _read_config(directory)
     except ArtifactError:
         return False
-    return needs_gemma4_unified_prep(config) or needs_ministral3_model_prefix_prep(
-        directory, config
+    return (
+        needs_gemma4_unified_prep(config)
+        or needs_ministral3_model_prefix_prep(directory, config)
+        or needs_qwen_moe_unpacked_expert_prep(directory, config)
+        or needs_deepseek_ocr2_prep(directory, config)
     )
 
 
@@ -499,6 +539,108 @@ def prepare_ministral3_model_prefix_source(
     return prepared
 
 
+def prepare_qwen_moe_packed_experts_source(
+    source_dir: str | Path,
+    *,
+    work_dir: str | Path,
+) -> Path:
+    """Restack per-expert Qwen MoE weights into MLX-LM packed expert tensors.
+
+    Writes a prepared snapshot next to ``work_dir`` with:
+    - ``{prefix}.experts.gate_up_proj`` = stack(concat(gate, up), experts)
+    - ``{prefix}.experts.down_proj`` = stack(down, experts)
+    matching the official Qwen 3.6 35B-A3B layout that ``qwen3_5_moe.sanitize``
+    consumes. Non-expert tensors are rewritten shard-by-shard; vision and
+    tokenizer files are preserved.
+    """
+    source = Path(source_dir).expanduser().resolve()
+    if not source.is_dir():
+        raise ArtifactError(f"source is not a directory: {source}")
+    config = _read_config(source)
+    if not needs_qwen_moe_unpacked_expert_prep(source, config):
+        raise ArtifactError(
+            "qwen MoE expert packing expected unpacked experts.N.* weights "
+            f"under model_type=qwen3_5_moe (got model_type={config.get('model_type')!r})"
+        )
+    prepared = _prepared_directory(source, work_dir, "qwen-moe-packed-experts")
+    _copy_non_weight_files(source, prepared)
+    _pack_qwen_moe_unpacked_experts(source, prepared)
+    # Keep a deterministic config copy (already via non-weight copy).
+    log.info(
+        "qwen_moe_unpacked_experts_prepared",
+        source=str(source),
+        prepared=str(prepared),
+    )
+    return prepared
+
+
+def needs_deepseek_ocr2_prep(model_dir: str | Path, config: dict[str, Any] | None = None) -> bool:
+    """True when DeepSeek-OCR-2 ships torch remote-code that blocks MLX-VLM convert."""
+    directory = Path(model_dir).expanduser().resolve()
+    if config is None:
+        try:
+            config = _read_config(directory)
+        except ArtifactError:
+            return False
+    model_type = str(config.get("model_type", "")).lower()
+    if model_type not in {"deepseekocr_2", "deepseek_vl_v2"}:
+        return False
+    # Only OCR-2 snapshots (not general deepseek_vl_v2 chat models).
+    architectures = config.get("architectures")
+    arch_ok = isinstance(architectures, list) and any(
+        "ocr2" in str(item).lower() or "ocr_2" in str(item).lower() for item in architectures
+    )
+    name_ok = any(
+        re.search(r"deepseek[._-]?ocr[._-]?2", str(item), re.IGNORECASE)
+        for item in (directory.name, config.get("_name_or_path", ""))
+    )
+    if not (arch_ok or name_ok):
+        return False
+    has_remote = (directory / "modeling_deepseekocr2.py").is_file() or bool(config.get("auto_map"))
+    return has_remote
+
+
+def prepare_deepseek_ocr2_source(
+    source_dir: str | Path,
+    *,
+    work_dir: str | Path,
+) -> Path:
+    """Strip torch remote-code so MLX-VLM processor/load can run without torch.
+
+    Keeps tokenizer / processor JSON + weights; drops ``modeling_*.py`` and
+    ``auto_map``; forces ``model_type=deepseekocr_2`` for the MLX-VLM module.
+    """
+    source = Path(source_dir).expanduser().resolve()
+    config = _read_config(source)
+    if not needs_deepseek_ocr2_prep(source, config):
+        raise ArtifactError("deepseek-ocr2 preparation expected OCR-2 remote-code snapshot")
+    prepared = _prepared_directory(source, work_dir, "deepseek-ocr2-mlx")
+    for path in sorted(source.iterdir()):
+        name = path.name
+        if name.startswith("."):
+            continue
+        if name.startswith("modeling_") or name in {
+            "deepencoderv2.py",
+            "configuration_deepseek_v2.py",
+            "conversation.py",
+        }:
+            continue
+        destination = prepared / name
+        if path.is_dir():
+            shutil.copytree(path, destination, dirs_exist_ok=True)
+        elif path.is_file():
+            shutil.copy2(path, destination)
+    prepared_config = _read_config(prepared)
+    prepared_config["model_type"] = "deepseekocr_2"
+    prepared_config.pop("auto_map", None)
+    (prepared / "config.json").write_text(
+        json.dumps(prepared_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    log.info("deepseek_ocr2_source_prepared", source=str(source), prepared=str(prepared))
+    return prepared
+
+
 def prepare_conversion_source(
     source_dir: str | Path,
     *,
@@ -514,9 +656,181 @@ def prepare_conversion_source(
         return prepare_gemma4_unified_source(source, work_dir=work_dir)
     if needs_ministral3_model_prefix_prep(source, config):
         return prepare_ministral3_model_prefix_source(source, work_dir=work_dir)
+    if needs_qwen_moe_unpacked_expert_prep(source, config):
+        return prepare_qwen_moe_packed_experts_source(source, work_dir=work_dir)
+    if needs_deepseek_ocr2_prep(source, config):
+        return prepare_deepseek_ocr2_source(source, work_dir=work_dir)
     if needs_tekken_tokenizer_prep(source):
         return prepare_tekken_tokenizer_source(source, work_dir=work_dir, model_id=model_id)
     return None
+
+
+def _copy_non_weight_files(source: Path, prepared: Path) -> None:
+    """Copy config/tokenizer sidecars; skip Safetensors weight payloads."""
+    for path in sorted(source.iterdir()):
+        name = path.name
+        if name.endswith(".safetensors") or name == "model.safetensors.index.json":
+            continue
+        if name.startswith("."):
+            continue
+        destination = prepared / name
+        if path.is_dir():
+            shutil.copytree(path, destination, dirs_exist_ok=True)
+        elif path.is_file():
+            shutil.copy2(path, destination)
+
+
+def _pack_qwen_moe_unpacked_experts(source: Path, prepared: Path) -> None:
+    index_path = source / "model.safetensors.index.json"
+    if not index_path.is_file():
+        raise ArtifactError("unpacked qwen MoE packing requires model.safetensors.index.json")
+    try:
+        index = json.loads(
+            index_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"invalid {index_path}: {exc}") from exc
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ArtifactError("model.safetensors.index.json has no weight_map")
+
+    mx = _mlx_core()
+    experts_by_prefix: dict[str, dict[str, dict[int, str]]] = defaultdict(
+        lambda: defaultdict(dict)
+    )
+    non_expert: dict[str, str] = {}
+    for tensor_name, shard_name in weight_map.items():
+        if not isinstance(tensor_name, str) or not tensor_name:
+            raise ArtifactError("model.safetensors.index.json contains an empty tensor name")
+        if not isinstance(shard_name, str) or not shard_name:
+            raise ArtifactError("model.safetensors.index.json contains a non-string shard reference")
+        relative = Path(shard_name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ArtifactError(f"index contains an unsafe shard path: {shard_name}")
+        match = _QWEN_UNPACKED_EXPERT.match(tensor_name)
+        if match is None:
+            non_expert[tensor_name] = shard_name
+            continue
+        prefix = match.group("prefix")
+        proj = match.group("proj")
+        expert_index = int(match.group("index"))
+        experts_by_prefix[prefix][proj][expert_index] = tensor_name
+
+    if not experts_by_prefix:
+        raise ArtifactError("no per-expert Qwen MoE tensors found to pack")
+
+    new_weight_map: dict[str, str] = {}
+    # Rewrite each original shard without per-expert tensors.
+    shards_to_keys: dict[str, list[str]] = defaultdict(list)
+    for tensor_name, shard_name in non_expert.items():
+        shards_to_keys[shard_name].append(tensor_name)
+    for shard_name, tensor_names in sorted(shards_to_keys.items()):
+        source_shard = source / shard_name
+        if not source_shard.is_file():
+            raise ArtifactError(f"missing shard referenced by index: {shard_name}")
+        weights = _load_mlx_weights(mx, source_shard)
+        expected = set(tensor_names)
+        # Source shard may still hold expert members that we drop here.
+        kept = {key: weights[key] for key in tensor_names if key in weights}
+        missing = sorted(expected - set(kept))
+        if missing:
+            raise ArtifactError(
+                f"{shard_name} missing non-expert tensors required by index: {missing[:10]}"
+            )
+        destination = prepared / Path(shard_name).name
+        if kept:
+            mx.save_safetensors(str(destination), kept)
+            _verify_saved_tensor_names(mx, destination, set(kept))
+            for key in kept:
+                new_weight_map[key] = destination.name
+        log.info(
+            "qwen_moe_non_expert_shard_rewritten",
+            shard=shard_name,
+            kept=len(kept),
+        )
+
+    # Pack experts layer-by-layer into dedicated shards.
+    for layer_index, prefix in enumerate(sorted(experts_by_prefix)):
+        projs = experts_by_prefix[prefix]
+        for required in ("gate_proj", "up_proj", "down_proj"):
+            if required not in projs:
+                raise ArtifactError(f"missing {required} experts for {prefix}")
+        gate_idx = sorted(projs["gate_proj"])
+        up_idx = sorted(projs["up_proj"])
+        down_idx = sorted(projs["down_proj"])
+        if gate_idx != up_idx or gate_idx != down_idx:
+            raise ArtifactError(f"incomplete expert index set for {prefix}")
+        if gate_idx != list(range(len(gate_idx))):
+            raise ArtifactError(f"expert indices for {prefix} are not contiguous from 0")
+
+        # Load each contributing source shard once, then assemble stacks.
+        member_names = {
+            projs["gate_proj"][i]: ("gate_proj", i) for i in gate_idx
+        }
+        member_names.update({projs["up_proj"][i]: ("up_proj", i) for i in gate_idx})
+        member_names.update({projs["down_proj"][i]: ("down_proj", i) for i in gate_idx})
+        shard_names = {weight_map[name] for name in member_names}
+        loaded: dict[str, Any] = {}
+        for shard_name in sorted(shard_names):
+            weights = _load_mlx_weights(mx, source / shard_name)
+            for tensor_name in member_names:
+                if tensor_name in weights:
+                    loaded[tensor_name] = weights[tensor_name]
+            del weights
+        missing_members = sorted(set(member_names) - set(loaded))
+        if missing_members:
+            raise ArtifactError(
+                f"missing expert tensors for {prefix}: {missing_members[:10]}"
+            )
+        gate_stack = [loaded[projs["gate_proj"][i]] for i in gate_idx]
+        up_stack = [loaded[projs["up_proj"][i]] for i in gate_idx]
+        down_stack = [loaded[projs["down_proj"][i]] for i in gate_idx]
+        gate = mx.stack(gate_stack, axis=0)
+        up = mx.stack(up_stack, axis=0)
+        down = mx.stack(down_stack, axis=0)
+        del loaded
+        # Official pack: gate_up[..., :mid, :] = gate, gate_up[..., mid:, :] = up
+        # with mid on axis -2 (intermediate).
+        if gate.shape != up.shape:
+            raise ArtifactError(
+                f"gate/up shape mismatch for {prefix}: {gate.shape} vs {up.shape}"
+            )
+        gate_up = mx.concatenate([gate, up], axis=-2)
+        packed = {
+            f"{prefix}.experts.gate_up_proj": gate_up,
+            f"{prefix}.experts.down_proj": down,
+        }
+        shard_name = f"model-experts-{layer_index:05d}-of-packed.safetensors"
+        destination = prepared / shard_name
+        mx.save_safetensors(str(destination), packed)
+        _verify_saved_tensor_names(mx, destination, set(packed))
+        for key in packed:
+            new_weight_map[key] = shard_name
+        log.info(
+            "qwen_moe_experts_packed",
+            prefix=prefix,
+            experts=len(gate_idx),
+            shard=shard_name,
+        )
+        # Free large intermediates promptly.
+        del gate_stack, up_stack, down_stack, gate, up, down, gate_up, packed
+
+    new_index = {
+        key: value
+        for key, value in index.items()
+        if key != "weight_map"
+    }
+    new_index["weight_map"] = new_weight_map
+    metadata = new_index.get("metadata")
+    if isinstance(metadata, dict):
+        metadata = dict(metadata)
+        metadata["axquant_prep"] = "qwen-moe-packed-experts-v1"
+        new_index["metadata"] = metadata
+    (prepared / "model.safetensors.index.json").write_text(
+        json.dumps(new_index, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _rewrite_ministral3_single_shard(source_file: Path, destination: Path) -> None:

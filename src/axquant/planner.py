@@ -12,7 +12,11 @@ from axquant.experimental_bits import (
     robust_trunk_role,
 )
 from axquant.kernel_latency import decode_latency_provider
-from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
+from axquant.module_paths import (
+    fused_expert_module,
+    packed_expert_runtime_modules,
+    unique_module_planning_tensors,
+)
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
 from axquant.profiles import objective_for
@@ -665,8 +669,15 @@ def plan_quantization(
     weights_model = objective_for(request.profile)
     weights = weights_model.normalized()
     latency_lookup = decode_latency_provider(kernel_latency) if kernel_latency is not None else None
+    # Collapse MXFP4 scale sidecars that share module_path with quantizable bodies
+    # (openai/gpt-oss native export) so PlanPredicate sees unique module paths.
+    planning_tensors = {
+        tensor.name for tensor in unique_module_planning_tensors([e.tensor for e in report.entries])
+    }
     choices: list[_Choice] = []
     for entry in report.entries:
+        if entry.tensor.name not in planning_tensors:
+            continue
         options, reason = _options_for(
             entry,
             request,

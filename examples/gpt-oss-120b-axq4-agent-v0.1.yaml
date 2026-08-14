@@ -1,10 +1,11 @@
-# GPT-OSS 20B AXQ 4-bit — agent/general recovery recipe (v0.1).
-# Prefer convert source openai/gpt-oss-20b (native MXFP4 experts + BF16 non-experts).
-# Prior architecture_prior 4-bit from community MXFP4-Q4 failed general retention (0.893).
-# Raise attention to 8-bit; keep experts/MLP at 4-bit for size.
+# GPT-OSS 120B AXQ 4-bit — agent-coding recovery recipe (v0.1).
+# Use with openai/gpt-oss-120b (native MXFP4 experts + BF16 non-experts).
+# Prefer this over re-packing mlx-community MXFP4-Q4 (avoids double-quant of attention).
+# Prior architecture_prior 4-bit from community Q4 failed agent-coding (0.952 < 0.98).
+# Strategy: experts 4-bit trunk; attention 8-bit; protect router/norm/lm_head.
 schema_version: axquant.manual-recipe.v1
 profile: agent-coding
-target_bpw: 5.2
+target_bpw: 5.1
 default_bits: 4
 default_method: affine
 group_size: 64
@@ -41,13 +42,13 @@ rules:
     bits: 8
     method: affine
     group_size: 64
-    reason: Raise attention for general + coding fidelity
+    reason: Raise attention for coding fidelity (native BF16 source, not double-quant)
   - rule_id: experts-4bit
     roles: [expert, mlp]
     bits: 4
     method: affine
     group_size: 64
-    reason: MoE experts/MLP at 4-bit product trunk
+    reason: MoE experts/MLP at 4-bit product trunk (MXFP4 dequant → affine)
 mtp:
   mode: protected
   candidate_bits: [8, 16]

@@ -5,9 +5,13 @@
 #
 #   /Volumes/Ext4T/
 #     huggingface/          # real HF cache (hub, xet, datasets, tokens)
-#     models/               # local LLM factory checkpoints
+#     models/               # local LLM factory checkpoints (hot)
+#     models-archive -> /Volumes/home/models   # DF-NAS01 archive (do not delete)
 #     axquant/              # publish / smokes / work / logs
 #     logs/
+#
+#   /Volumes/models-archive -> /Volumes/home/models   # preferred; needs sudo ln
+#   /Volumes/home            # SMB //devop@DF-NAS01/home
 #
 #   ~/.cache/huggingface  ->  /Volumes/Ext4T/huggingface
 #   ~/models              ->  ~/.cache/huggingface/hub   (optional convenience)
@@ -15,6 +19,9 @@
 #   # optional but recommended in ~/.zshrc:
 #   export HF_HOME=/Volumes/Ext4T/huggingface
 #   export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
+#   export HF_XET_HIGH_PERFORMANCE=1
+#   export HF_XET_CACHE=$HF_HOME/xet
+#   unset HF_HUB_ENABLE_HF_TRANSFER   # deprecated; use Xet HP instead
 #
 # Usage:
 #   bash scripts/setup-ext4t-hf.sh --layout          # create dirs only
@@ -144,6 +151,8 @@ Ext4T primary layout (shared standard: M3 / M5 / studio)
 Shell (optional):
   export HF_HOME=/Volumes/Ext4T/huggingface
   export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
+  export HF_XET_HIGH_PERFORMANCE=1
+  export HF_XET_CACHE=$HF_HOME/xet
 
 Each machine keeps its own local copy on its Ext4T volume.
 EOF
@@ -247,6 +256,9 @@ ${MARKER_BEGIN}
 export HF_HOME="${EXT_ROOT}/huggingface"
 export HUGGINGFACE_HUB_CACHE="\$HF_HOME/hub"
 export HF_HUB_CACHE="\$HF_HOME/hub"
+export HF_XET_HIGH_PERFORMANCE=1
+export HF_XET_CACHE="\$HF_HOME/xet"
+unset HF_HUB_ENABLE_HF_TRANSFER
 ${MARKER_END}
 EOF
 )

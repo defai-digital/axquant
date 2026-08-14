@@ -19,13 +19,15 @@ ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm"]
 
 # Dense 8B Instruct + thin 30B-A3B Instruct MoE both convert through MLX-VLM.
 _QWEN3_VL_ADAPTERS = frozenset({"qwen3-vl-v1", "qwen3-vl-moe-v1"})
+# OCR / document VL families that share the public MLX-VLM convert entrypoint.
+_MLX_VLM_ADAPTERS = _QWEN3_VL_ADAPTERS | frozenset({"deepseek-ocr2-v1", "muse-glimmer-v1"})
 
 
 def conversion_backend(plan: QuantizationPlan) -> ConversionBackend:
     adapter_id = plan.architecture_profile.adapter_id
     if adapter_id == "qwen3-asr-v1":
         return "mlx-audio"
-    if adapter_id in _QWEN3_VL_ADAPTERS:
+    if adapter_id in _MLX_VLM_ADAPTERS:
         return "mlx-vlm"
     return "mlx-lm"
 
@@ -143,6 +145,119 @@ def _convert_audio(
         del model
 
 
+def _convert_deepseek_ocr2(
+    source: Path,
+    destination: Path,
+    plan: QuantizationPlan,
+    predicate: PlanPredicate,
+    default_bits: int,
+) -> None:
+    """Convert DeepSeek-OCR-2 without Hugging Face AutoProcessor remote-code.
+
+    Official / mlx-community snapshots ship ``auto_map`` + ``modeling_*.py`` that
+    require torch. MLX-VLM provides ``DeepseekOCR2Processor``; use it directly
+    and quantize through the public ``quantize_model`` helper.
+    """
+    import glob
+    import shutil
+
+    vlm_utils = _import("mlx_vlm.utils", extra="mlx-vlm")
+    quant_utils = _import("mlx_vlm.quant_utils", extra="mlx-vlm")
+    processor_mod = _import(
+        "mlx_vlm.models.deepseekocr_2.processing_deepseekocr",
+        extra="mlx-vlm",
+    )
+    try:
+        model = vlm_utils.load_model(source, lazy=True)
+        config = vlm_utils.load_config(source)
+        processor = processor_mod.DeepseekOCR2Processor.from_pretrained(str(source))
+    except Exception as exc:
+        raise ArtifactError(f"cannot load DeepSeek-OCR-2 for MLX-VLM convert: {exc}") from exc
+    try:
+        config.setdefault("vision_config", {})
+        model, config = quant_utils.quantize_model(
+            model,
+            config,
+            plan.group_size,
+            default_bits,
+            mode="affine",
+            quant_predicate=predicate,
+        )
+        # MoEGate routers are not Linear modules; quantize_model skips them.
+        # Visit remaining plan modules so fail-closed coverage matches preflight
+        # (routers stay dense BF16 — still above the 8-bit floor).
+        _visit_modules(model, predicate, backend="MLX-VLM")
+        destination.mkdir(parents=True, exist_ok=False)
+        vlm_utils.save_weights(destination, model, donate_weights=True)
+        for pattern in ("*.py", "*.json", "*.jinja", "*.txt"):
+            for file in glob.glob(str(source / pattern)):
+                name = Path(file).name
+                if name == "model.safetensors.index.json":
+                    continue
+                shutil.copy(file, destination / name)
+        if hasattr(processor, "save_pretrained"):
+            try:
+                processor.save_pretrained(destination)
+            except Exception:
+                # Processor files already copied from source above.
+                pass
+        vlm_utils.save_config(config, config_path=destination / "config.json")
+    finally:
+        del model
+
+
+def _convert_muse_glimmer(
+    source: Path,
+    destination: Path,
+    plan: QuantizationPlan,
+    predicate: PlanPredicate,
+    default_bits: int,
+) -> None:
+    """Convert Muse-Glimmer via MLX-VLM using MuseGlimmerProcessor directly."""
+    import glob
+    import shutil
+
+    vlm_utils = _import("mlx_vlm.utils", extra="mlx-vlm")
+    quant_utils = _import("mlx_vlm.quant_utils", extra="mlx-vlm")
+    processor_mod = _import(
+        "mlx_vlm.models.muse_glimmer.processing_muse_glimmer",
+        extra="mlx-vlm",
+    )
+    try:
+        model = vlm_utils.load_model(source, lazy=True)
+        config = vlm_utils.load_config(source)
+        processor = processor_mod.MuseGlimmerProcessor.from_pretrained(str(source))
+    except Exception as exc:
+        raise ArtifactError(f"cannot load Muse-Glimmer for MLX-VLM convert: {exc}") from exc
+    try:
+        config.setdefault("vision_config", {})
+        model, config = quant_utils.quantize_model(
+            model,
+            config,
+            plan.group_size,
+            default_bits,
+            mode="affine",
+            quant_predicate=predicate,
+        )
+        _visit_modules(model, predicate, backend="MLX-VLM")
+        destination.mkdir(parents=True, exist_ok=False)
+        vlm_utils.save_weights(destination, model, donate_weights=True)
+        for pattern in ("*.py", "*.json", "*.jinja", "*.txt", "*.md"):
+            for file in glob.glob(str(source / pattern)):
+                name = Path(file).name
+                if name == "model.safetensors.index.json":
+                    continue
+                shutil.copy(file, destination / name)
+        if hasattr(processor, "save_pretrained"):
+            try:
+                processor.save_pretrained(destination)
+            except Exception:
+                pass
+        vlm_utils.save_config(config, config_path=destination / "config.json")
+    finally:
+        del model
+
+
 def _convert_vlm(
     source: Path,
     destination: Path,
@@ -150,6 +265,12 @@ def _convert_vlm(
     predicate: PlanPredicate,
     default_bits: int,
 ) -> None:
+    if plan.architecture_profile.adapter_id == "deepseek-ocr2-v1":
+        _convert_deepseek_ocr2(source, destination, plan, predicate, default_bits)
+        return
+    if plan.architecture_profile.adapter_id == "muse-glimmer-v1":
+        _convert_muse_glimmer(source, destination, plan, predicate, default_bits)
+        return
     vlm_convert = _import("mlx_vlm.convert", extra="mlx-vlm")
     vlm_convert.convert(
         str(source),

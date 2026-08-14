@@ -631,6 +631,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen35-moe-v1": SupportTier.CONVERTIBLE,
         "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
+        "qwen38-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-next-v1": SupportTier.CONVERTIBLE,
         "qwen3-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-asr-v1": SupportTier.CONVERTIBLE,

@@ -753,10 +753,16 @@ def inspect_model(
         )
     mtp_tensors_present = any(tensor.role.is_mtp for tensor in tensors)
     if architecture_profile.mtp_declared and not mtp_tensors_present:
+        # Config leftovers (e.g. Ornith-1.0-35B sets mtp_num_hidden_layers without
+        # shipping MTP weights) must not block text-path development convert.
+        # Plans inherit mtp_declared from the inventory profile; clear the flag
+        # when no MTP tensors exist so convert does not require empty allocations.
         warnings.append(
             "the model config declares MTP but no MTP tensors were found; "
-            "an external sidecar is required"
+            "treating the checkpoint as non-MTP for planning/conversion "
+            "(supply MTP weights or --mtp-sidecar if multi-token prediction is required)"
         )
+        architecture_profile = architecture_profile.model_copy(update={"mtp_declared": False})
     if adapter is None:
         warnings.append("No supported architecture adapter matched; this report is inventory-only.")
     warnings.extend(architecture_profile.notes)
@@ -808,7 +814,7 @@ def inspect_model(
         weight_bytes=weight_bytes,
         mtp_weight_bytes=mtp_weight_bytes,
         precision_parameters=precision_parameters,
-        mtp_present=mtp_tensors_present or architecture_profile.mtp_declared,
+        mtp_present=mtp_tensors_present,
         quantized_source=quantized_source,
         source_files=source_files,
         architecture_profile=architecture_profile,

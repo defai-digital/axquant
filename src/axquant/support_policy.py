@@ -83,18 +83,22 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         investment_posture=InvestmentPosture.SECONDARY,
         priority=10,
         declared_tier=SupportTier.CONVERTIBLE,
-        cert_track=False,
+        cert_track=True,
         summary=(
             "Qwen3.8 dense VLM (27B hybrid GDN+attention, model_type=qwen3_5): architecture-prior "
-            "AXQ convert; development evidence only."
+            "AXQ convert with checkpoint Tier 1 on AXQ 6-bit packs; 4-bit product class is "
+            "blocked by protection floors (~5.4 BPW, size > uniform-4)."
         ),
         do=(
-            "Ship AXQ 4/6-bit language-path packs with vision BF16-protected.",
-            "Label Hub packs as development evidence; no Tier 1/2 cert claims yet.",
+            "Ship and certify AXQ 6-bit language-path packs (vision BF16-protected).",
+            "Keep 4-bit Hub names as development evidence only until a size-passing plan exists.",
+            "Bind public Tier 1 certs only when size ≤1.15× uniform and dual-suite retention ≥0.98.",
         ),
         do_not=(
             "Do not route Super-class 2.4T MoE through this dense adapter.",
             "Do not claim Qwen 3.6 certification track for Qwen3.8 dense packs.",
+            "Do not claim checkpoint Tier 1 for AXQ-4bit packs that fail size vs uniform-4.",
+            "Do not claim MTP acceleration without a Tier 2 A/B record.",
         ),
     ),
     FamilySupportPolicy(

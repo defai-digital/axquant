@@ -34,9 +34,12 @@ from axquant.schema import (
     ConvertLadderName,
     ModelIdentity,
     ProfileName,
+    QuantMethod,
+    QuantizationPlan,
     QuickConversionSummary,
     RuntimeCheck,
     SupportTier,
+    TensorRole,
 )
 
 _POLICY_MIN_BPW = re.compile(
@@ -46,6 +49,40 @@ _POLICY_MIN_BPW = re.compile(
 DEVELOPMENT_NOTE = "This artifact is development evidence; it is not a certified AXQuant release."
 
 RuntimeSmoke = Literal["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"]
+
+# MLX-VLM DeepSeek-OCR-2 routers are MoEGate modules (not nn.Linear); the public
+# quantize_model path leaves them dense. Keep plan routers at BF16 so convert
+# verification does not expect packed 8-bit shapes that never materialize.
+_MOEGATE_ROUTER_BF16_ADAPTERS = frozenset({"deepseek-ocr2-v1"})
+
+
+def _keep_moegate_routers_bf16(plan: QuantizationPlan) -> QuantizationPlan:
+    if plan.architecture_profile.adapter_id not in _MOEGATE_ROUTER_BF16_ADAPTERS:
+        return plan
+    updated = []
+    changed = 0
+    for allocation in plan.assignments:
+        if allocation.role is TensorRole.ROUTER and allocation.bits < 16:
+            updated.append(
+                allocation.model_copy(
+                    update={
+                        "bits": 16,
+                        "method": QuantMethod.BF16,
+                        "group_size": None,
+                    }
+                )
+            )
+            changed += 1
+        else:
+            updated.append(allocation)
+    if changed == 0:
+        return plan
+    warnings = list(plan.warnings)
+    warnings.append(
+        f"kept {changed} MoEGate router modules at BF16 (not nn.Linear; MLX-VLM "
+        "quantize_model cannot pack them)"
+    )
+    return plan.model_copy(update={"assignments": updated, "warnings": warnings})
 
 
 def _validate_runtime_smoke(
@@ -222,6 +259,7 @@ def quick_convert(
         plan_source = "architecture-prior"
         effective_target = request.target_bpw
         plan.warnings.append(f"convert ladder: {ladder_name}")
+    plan = _keep_moegate_routers_bf16(plan)
     if kv_cache == "prior" and plan.kv_cache is None:
         layer_count = architecture.text_layer_count
         if layer_count is None:

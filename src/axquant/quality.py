@@ -59,6 +59,7 @@ class MlxQualityBackend:
         self._chat_template_sha256 = None
         try:
             import importlib
+            import os
 
             self._mx = importlib.import_module("mlx.core")
             self._mlx_lm = importlib.import_module("mlx_lm")
@@ -66,6 +67,15 @@ class MlxQualityBackend:
             raise BackendUnavailableError(
                 f"quality evaluation requires mlx and mlx-lm: {exc}"
             ) from exc
+        # Large hybrid BF16/AXQ evals can trip Metal command-buffer faults on
+        # some hosts; honor the same CPU force flag used by conversion.
+        force_cpu = os.environ.get("AXQUANT_FORCE_CPU", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        } or os.environ.get("MLX_FORCE_CPU", "").strip().lower() in {"1", "true", "yes"}
+        if force_cpu:
+            self._mx.set_default_device(self._mx.cpu)
         loaded = self._mlx_lm.load(model, revision=revision, lazy=False)
         self._model, self._tokenizer = loaded[:2]
         self._mx.eval(self._model.parameters())

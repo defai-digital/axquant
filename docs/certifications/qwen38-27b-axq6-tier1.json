@@ -1,0 +1,98 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-14T16:57:23.105213+00:00",
+  "host_id": "df-macbookpro-m3",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit",
+    "hub_commit": "edfedb5c1976ffd796ebcecdbff5d1aba3b50f5b",
+    "product_class": "6bit",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "a9cd792d38f8573250f6c39e7c5fdf70ab788ec22e1d0d78e5a790eb8145b17d"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "quantize-prior",
+    "target_class": "6bit",
+    "target_bpw": 6.0,
+    "measured_total_bpw": 6.000079885575324,
+    "measured_main_bpw": 6.000079885575324,
+    "adapter_id": "qwen38-dense-v1"
+  },
+  "size": {
+    "candidate_weight_bytes": 20517819596,
+    "candidate_measured_bpw": 6.000079885575324,
+    "reference_kind": "uniform-6bit",
+    "reference_model_id": "local/Qwen3.8-27B-uniform-6bit",
+    "reference_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "reference_weight_bytes": 21856381849,
+    "size_ratio_vs_uniform": 0.9387564573931872,
+    "max_size_ratio_applied": 1.15,
+    "pass": true,
+    "compare_mode": "total",
+    "reference_build": "mlx_lm.convert uniform-6 from same BF16 pin (size); quality vs BF16"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9013157894736842,
+      "reference_score": 0.9078947368421053,
+      "retention": 0.9927536231884058,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76,
+      "reference_kind": "bf16-same-pin"
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44,
+      "reference_kind": "bf16-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "No MTP weights; checkpoint Tier 1 is non-MTP direct-decode only."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor ready / mlx_runtime_ready true"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.16.1",
+    "host": "df-macbookpro-m3",
+    "python": "3.12"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macbookpro-m3.",
+    "Quality vs same-pin BF16; size vs local uniform-6 convert.",
+    "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
+    "Vision BF16-protected; VLM quality not claimed."
+  ],
+  "evidence_hashes": {
+    "quality-comparison-agent-coding_sha256": "5258491eee37c4823f63a8527b78f36de6b14ccdceca122d282311e01467b8c6",
+    "quality-comparison-general_sha256": "0c8e45cec08ce259774a79658321dc775c1b95d691815c21cdfb9ed2d05619df",
+    "size-evidence_sha256": "5f4df800e57bdaec2f13d3b6be4c9eb119347adab0ab8e58f4ead46ceaa72c04"
+  },
+  "public_index": {
+    "display_name": "Qwen3.8-27B AXQ 6-bit",
+    "sort_order": 91,
+    "edition_label": "main@`edfedb5c`",
+    "listed": true
+  }
+}

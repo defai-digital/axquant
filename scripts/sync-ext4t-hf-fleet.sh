@@ -361,6 +361,9 @@ cat >>"$tmp" <<'EOF'
 export HF_HOME="/Volumes/Ext4T/huggingface"
 export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
 export HF_HUB_CACHE="$HF_HOME/hub"
+export HF_XET_HIGH_PERFORMANCE=1
+export HF_XET_CACHE="$HF_HOME/xet"
+unset HF_HUB_ENABLE_HF_TRANSFER
 # <<< axquant-ext4t-hf <<<
 EOF
 chmod "$(stat -f '%Lp' "$ZSHRC")" "$tmp"

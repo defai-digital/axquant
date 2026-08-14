@@ -405,8 +405,11 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # Base Qwen3 causal and embedding backbones (model_type=qwen3).
         # Exclude 3.5 / 3.6 product names and Next/Coder-Next (different model_types).
         reference_pattern=r"qwen[._-]?3",
+        # Exclude product lines 3.5 / 3.6 / 3.8 / Next — not size tokens like Qwen3-8B.
+        # Version 3.8 must use a decimal (Qwen3.8-27B); bare `3-8` is a size class.
         exclude_reference_pattern=(
-            r"qwen[._-]?3[._-]?([568]|next)|qwen3_5|qwen3_next|coder[._-]?next"
+            r"qwen[._-]?3[._-]?([56]|next)|qwen[._-]?3\.8|qwen3_5|qwen3_next|"
+            r"coder[._-]?next"
         ),
         support_tier=SupportTier.CONVERTIBLE,
         notes=(
@@ -437,7 +440,9 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # layout as Qwen 3.5/3.6 dense). Super-class MoE (2.4T) uses a different
         # model_type and is out of scope for this adapter.
         model_types=("qwen3_5",),
-        reference_pattern=r"qwen[._-]?3[._-]?8",
+        # Require the decimal product form (Qwen3.8-27B). Do not match size
+        # tokens such as Qwen3-8B (model_type=qwen3).
+        reference_pattern=r"qwen[._-]?3\.8",
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=(

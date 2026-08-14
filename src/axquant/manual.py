@@ -4,7 +4,11 @@ from fnmatch import fnmatchcase
 
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
-from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
+from axquant.module_paths import (
+    fused_expert_module,
+    packed_expert_runtime_modules,
+    unique_module_planning_tensors,
+)
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
 from axquant.planner import storage_bpw, strategy_for_measurement
@@ -245,7 +249,9 @@ def manual_quantization_plan(
         raise PlanningError("manual planning requires a supported architecture adapter")
     matched_rules: set[str] = set()
     allocations: list[Allocation] = []
-    for tensor in inventory.tensors:
+    # Collapse MXFP4 scale sidecars that share module_path with quantizable blocks.
+    planning_tensors = unique_module_planning_tensors(list(inventory.tensors))
+    for tensor in planning_tensors:
         matching = next((rule for rule in recipe.rules if _matches(rule, tensor)), None)
         if matching is not None:
             matched_rules.add(matching.rule_id)
