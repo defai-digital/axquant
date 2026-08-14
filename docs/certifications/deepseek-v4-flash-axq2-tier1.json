@@ -84,7 +84,7 @@
     "Chat API is the authoritative instruct surface for runtime smoke; bare /v1/completions is untemplated."
   ],
   "public_index": {
-    "display_name": "DeepSeek V4 Flash AXQ 2-bit (exp.)",
+    "display_name": "DeepSeek V4 Flash MLX AXQ 2-bit (exp.)",
     "sort_order": 100,
     "edition_label": "main@`e22b117a`",
     "listed": true

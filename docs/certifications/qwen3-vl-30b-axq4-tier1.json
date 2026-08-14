@@ -96,7 +96,7 @@
     "model-manifest_sha256": "0335d13f885b7436c53e753b7c662cb9f1da175c6bea02dd8e99588f3c18bc14"
   },
   "public_index": {
-    "display_name": "Qwen3-VL 30B-A3B Instruct AXQ 4-bit",
+    "display_name": "Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit",
     "sort_order": 70,
     "edition_label": "main@`ffcad97e`",
     "listed": true

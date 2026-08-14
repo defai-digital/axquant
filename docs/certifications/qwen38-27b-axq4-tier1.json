@@ -92,7 +92,7 @@
     "size-evidence_sha256": "503ed61c2579edb1533ccff170faff88e509e71aab6fe378d9ae8e28f5f9cdd1"
   },
   "public_index": {
-    "display_name": "Qwen3.8-27B AXQ 4-bit",
+    "display_name": "Qwen3.8-27B MLX AXQ 4-bit",
     "sort_order": 1,
     "edition_label": "main@`a8c56f94`",
     "listed": false

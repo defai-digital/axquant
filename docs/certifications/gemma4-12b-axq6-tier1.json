@@ -51,7 +51,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24–1.38×) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
+    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24\u20131.38\u00d7) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
   },
   "toolchain": {
     "axquant": "1.6.1+local-prep-fix",
@@ -64,7 +64,7 @@
     "Vision/multimodal quality not claimed. Tier 2 not claimed."
   ],
   "public_index": {
-    "display_name": "Gemma 4 12B AXQ 6-bit",
+    "display_name": "Gemma 4 12B MLX AXQ 6-bit",
     "sort_order": 130,
     "edition_label": "main@`d0a1a932` (IT rebuild)",
     "listed": true

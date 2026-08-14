@@ -75,7 +75,7 @@
     "Re-validated on df-macbookpro-m5 2026-08-11 (agent-coding retention 1.0, general 1.0002)."
   ],
   "public_index": {
-    "display_name": "GPT-OSS 120B AXQ 6-bit",
+    "display_name": "GPT-OSS 120B MLX AXQ 6-bit",
     "sort_order": 210,
     "edition_label": "main@`50537a80`",
     "listed": true

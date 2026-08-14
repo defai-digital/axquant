@@ -79,7 +79,7 @@
     "Checkpoint quality inherits the MTP sibling language-path evidence; MTP acceleration is not applicable."
   ],
   "public_index": {
-    "display_name": "Qwen 3.6 35B-A3B AXQ 4-bit",
+    "display_name": "Qwen 3.6 35B-A3B MLX AXQ 4-bit",
     "sort_order": 20,
     "edition_label": "main@`2a5bc33c`",
     "listed": false

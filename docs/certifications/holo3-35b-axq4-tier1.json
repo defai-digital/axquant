@@ -83,9 +83,9 @@
     "Checkpoint Tier 1 on factory host id df-macstudio-m2.",
     "First architecture_prior 4-bit pack failed agent-coding retention 0.9793 (long_context 0.875).",
     "Certified pack uses plan-manual recipe examples/holo3-35b-axq4-agent-v0.1.yaml: attention 6-bit, experts/MLP 4-bit, routers/embeddings 8-bit.",
-    "Attention-8 recovery cleared quality but size ratio 1.162 > 1.15; attention-6 keeps size ≤1.15.",
+    "Attention-8 recovery cleared quality but size ratio 1.162 > 1.15; attention-6 keeps size \u22641.15.",
     "Quality retention vs matched uniform MLX 4-bit reference built from the same BF16 pin.",
-    "Adapter qwen35-moe-v1 — not the official Qwen 3.6 certification track.",
+    "Adapter qwen35-moe-v1 \u2014 not the official Qwen 3.6 certification track.",
     "Vision BF16-protected; no MTP / no Tier 2 claim."
   ],
   "evidence_hashes": {
@@ -94,7 +94,7 @@
     "size-evidence_sha256": "ca65e7a4cca32fba22545ce92b8613a86c5c70e2fe2119c0f77790fe42f983e3"
   },
   "public_index": {
-    "display_name": "Holo3-35B-A3B AXQ 4-bit",
+    "display_name": "Holo3-35B-A3B MLX AXQ 4-bit",
     "sort_order": 84,
     "edition_label": "main@`7b225613`",
     "listed": true

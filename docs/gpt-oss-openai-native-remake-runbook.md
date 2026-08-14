@@ -1,7 +1,7 @@
 # GPT-OSS remake runbook — OpenAI native source → AXQ 4/6-bit → Hub overwrite
 
 **Host:** `df-macbookpro-m5` (recommended; 120B needs large free disk + long CPU convert)  
-**Toolkit:** AXQuant ≥ 1.6.2 with `mlx-lm` that implements `model_type=gpt_oss`  
+**Toolkit:** AXQuant ≥ 1.6.2 (current release **1.7.0**) with `mlx-lm` that implements `model_type=gpt_oss`  
 **Goal:** Rebuild four AutomatosX packs from **official OpenAI native weights**, then overwrite the public Hub repos.
 
 | Pack | Hub repo | Product class | Default plan |

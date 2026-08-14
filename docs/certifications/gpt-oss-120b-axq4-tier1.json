@@ -64,7 +64,7 @@
     "Converted from mlx-community MXFP4-Q4 via --allow-quantized dequant/affine re-pack."
   ],
   "public_index": {
-    "display_name": "GPT-OSS 120B AXQ 4-bit",
+    "display_name": "GPT-OSS 120B MLX AXQ 4-bit",
     "sort_order": 200,
     "edition_label": "evaluation@`7e0f77ed`",
     "listed": false

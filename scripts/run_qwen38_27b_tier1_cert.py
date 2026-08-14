@@ -475,7 +475,7 @@ def cmd_write_certs() -> None:
                 "Quality retention vs matched uniform MLX quant from the same BF16 pin.",
             ],
             "public_index": {
-                "display_name": f"Qwen3.8-27B AXQ {meta['product_class']}"
+                "display_name": f"Qwen3.8-27B MLX AXQ {meta['product_class']}"
                 + (" MTP" if meta["mtp"] else ""),
                 # Qwen3.8 leads catalog (before Qwen 3.6 at 10+): 4bit then 6bit.
                 "sort_order": (

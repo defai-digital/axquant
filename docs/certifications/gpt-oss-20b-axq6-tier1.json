@@ -64,7 +64,7 @@
     "No MTP acceleration claim."
   ],
   "public_index": {
-    "display_name": "GPT-OSS 20B AXQ 6-bit",
+    "display_name": "GPT-OSS 20B MLX AXQ 6-bit",
     "sort_order": 190,
     "edition_label": "main@`a04eea37`",
     "listed": true

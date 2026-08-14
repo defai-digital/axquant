@@ -18,6 +18,9 @@ tensors, and multi-token-prediction (MTP) weights.
 > capabilities. The goal is lower storage and unified-memory cost while preserving important model
 > quality and runtime behavior.
 
+**Current release:** [v1.7.0](https://github.com/defai-digital/axquant/releases/tag/v1.7.0)
+(PyPI `axquant==1.7.0`).
+
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([collections](https://huggingface.co/AutomatosX/collections),
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
@@ -34,27 +37,27 @@ The tables are generated from certificate JSON
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
-| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
-| Qwen 3.6 27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
-| Qwen 3.6 27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
-| Qwen3-VL 30B-A3B Instruct AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
-| Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
-| Holo3-35B-A3B AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
-| Holo3-35B-A3B AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
-| GPT-OSS 20B AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
-| GPT-OSS 20B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| GPT-OSS 120B AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
-| DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
-| Gemma 4 12B AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
-| Gemma 4 12B AXQ 6-bit | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
-| Gemma 4 26B-A4B AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
-| Gemma 4 26B-A4B AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
-| Gemma 4 31B AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
-| Gemma 4 31B AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
+| Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
+| Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
+| Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
+| Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
+| Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
+| Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
+| Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
+| Holo3-35B-A3B MLX AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
+| Holo3-35B-A3B MLX AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
+| GPT-OSS 20B MLX AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
+| GPT-OSS 20B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
+| GPT-OSS 120B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
+| DeepSeek V4 Flash MLX AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash MLX AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
+| Gemma 4 12B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
+| Gemma 4 12B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
+| Gemma 4 26B-A4B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
+| Gemma 4 26B-A4B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
+| Gemma 4 31B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
+| Gemma 4 31B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
@@ -64,7 +67,9 @@ profile (async draft, verify-submit interval 8, pipeline granularity layer) on
 **Qwen3.8-27B** AXQ **4-bit and 6-bit** MTP packs are **checkpoint Tier 1 + scoped Tier 2 MTP**
 certified on `df-macbookpro-m3` (AX Engine 6.16.1, `QWEN38_EXACT_MTP_PROFILE_ENV` / async draft).
 Non-MTP siblings remain Tier 1 only (Tier 2 N/A). Product default remains direct fallback;
-acceleration is opt-in under the formal exact profile.
+acceleration is opt-in under the formal exact profile. Vision weights are BF16-protected, but
+end-to-end image/video quality is not certified; see the
+[Qwen3.8-27B AXQ VL retention assessment](docs/qwen38-27b-axq-vl-retention.md).
 
 **Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** fused assistant-MTP Hub packs are
 **checkpoint Tier 1 certified** on `df-macbookpro-m5` (size, matched quality, load). **Tier 2
@@ -144,7 +149,7 @@ does not treat `[mlx]` as a glob):
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install 'axquant[mlx]'
+python -m pip install 'axquant[mlx]==1.7.0'
 axquant --help
 ```
 
@@ -153,9 +158,9 @@ With the venv active, `python` and `axquant` are both from `.venv`. Without acti
 
 | Goal | Command |
 | --- | --- |
-| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]'` inside a venv |
-| Inspect / plan / report only (no Metal backends) | `python -m pip install axquant` inside a venv |
-| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]'` |
+| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.7.0'` inside a venv |
+| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.7.0'` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.7.0'` |
 
 If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
 line or paste only from the fenced block above (do not copy prose with `"` / `'` glyphs).
@@ -171,7 +176,7 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Install and convert:**
   ```bash
   python3 -m venv .venv && source .venv/bin/activate
-  python -m pip install 'axquant[mlx]'
+  python -m pip install 'axquant[mlx]==1.7.0'
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
 - **Naming isn't the bit budget:** `4bit`/`6bit` pack names are planning
@@ -180,9 +185,10 @@ Packages tab; that UI is for npm/containers, not pip).
   stable product-class repository name when the certificate pins an immutable revision and exact
   BPW; acceleration-bearing flagship claims use the measured-BPW form
   `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`. Manifests remain authoritative.
-- **Support:** Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
-  Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral/Ministral, Nemotron 3 Nano,
-  DeepSeek V4, and GPT-OSS — see the tier matrix under [Current status](#current-status).
+- **Support:** Qwen3.8, Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
+  Qwen3-ASR, Qwen3-VL (including 30B-A3B Instruct), Holo3 / Ornith, MiniCPM5, Gemma-4,
+  Mistral/Devstral/Ministral, Nemotron 3 Nano, DeepSeek V4, DeepSeek-OCR-2, Muse-Glimmer,
+  and GPT-OSS — see the tier matrix under [Current status](#current-status).
 - **Where it stands:** Qwen3.8-27B AXQ 4/6-bit MTP packs are checkpoint Tier 1 and **scoped**
   MTP Tier 2 certified on MacBook Pro M3 Max. Qwen 3.6 27B dense and 35B-A3B MoE packs are
   checkpoint Tier 1 and scoped MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4
@@ -302,10 +308,11 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.7.0` (packaging classifier: **Beta**). Its inspection,
-planning, conversion, runtime-check, validation, and publication-gating commands are implemented
-and covered by the test suite. Certification is checkpoint- and evidence-specific; a working
-command does not by itself certify an output.
+The latest tagged toolkit version is `1.7.0` (GitHub tag `v1.7.0`, PyPI `axquant==1.7.0`;
+packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
+validation, and publication-gating commands are implemented and covered by the test suite.
+Certification is checkpoint- and evidence-specific; a working command does not by itself
+certify an output.
 
 ### v1.7.x at a glance
 
@@ -382,7 +389,8 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 
 | Scope | Use today | Public certification status |
 | --- | --- | --- |
-| Qwen 3.6 language paths | `convertible`; primary certification track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
+| Qwen3.8-27B dense (`qwen38-dense-v1`) | `convertible`; certified dense VLM language-path track | AXQ 4/6-bit ± MTP are checkpoint Tier 1; MTP packs also have scoped Tier 2 on AX Engine 6.16.1. Vision stays BF16; end-to-end VL quality is not certified. Super-class 2.4T is a separate experimental stream. |
+| Qwen 3.6 language paths | `convertible`; formal campaign / primary investment track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
 | Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE + fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | Ornith development only ([runbook](docs/ornith-35b-axq-dev-runbook.md)); **Holo3 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)) |
 | **DeepSeek-OCR-2** (`deepseek-ocr2-v1`, MLX-VLM) | `convertible` thin — language MoE quantized, vision BF16-protected | Development evidence only ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)) |
 | **Muse-Glimmer-30B** (`muse-glimmer-v1`, MLX-VLM) | `convertible` thin — dense language quantized, vision BF16-protected | Development evidence only ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)) |
@@ -406,8 +414,10 @@ Release artifacts are built and signed (keyless Sigstore attestation) by the rel
 verify a downloaded dist with `gh attestation verify <file> --repo defai-digital/axquant` and
 `shasum -a 256 -c SHA256SUMS.txt`.
 
-AXQuant separates checkpoint and acceleration claims. The exact Qwen 3.6 27B AXQ 6-bit
-revision has passed:
+AXQuant separates checkpoint and acceleration claims. Dual Tier 1 + scoped Tier 2 certificates
+now exist for both **Qwen3.8-27B AXQ 4/6-bit MTP** (AX Engine 6.16.1 on `df-macbookpro-m3`)
+and **Qwen 3.6 27B / 35B-A3B AXQ 4/6-bit MTP** (AX Engine 6.14.x on `df-macbookpro-m5`).
+The exact Qwen 3.6 27B AXQ 6-bit revision, for example, has passed:
 
 - **Tier 1 (checkpoint):** measured plan and size, matched general/agent-coding quality,
   zero-fallback conversion, and the safe default runtime route
@@ -420,7 +430,7 @@ revision has passed:
 Product **default** remains Qwen linear MTP **direct fallback** (safe Tier 1 default). The
 certified acceleration route is the formal opt-in exact / certification-candidate contract—not a
 promise that every short-answer prompt is faster. Full M0–M8 flagship publication remains a
-separate campaign track. Other Qwen 3.6 packs and revisions remain development artifacts until
+separate campaign track. Other packs and revisions remain development artifacts until
 separately certified; a certificate never promotes a family by association.
 
 AXQuant records an evidence-backed **support tier** for every recognized model family
@@ -430,7 +440,8 @@ release audit. The current tier matrix:
 
 | Family | Adapter | Tier |
 | --- | --- | --- |
-| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; primary certification track |
+| **Qwen3.8-27B** dense VLM | `qwen38-dense-v1` | `convertible`; **AXQ 4/6-bit ± MTP checkpoint Tier 1**; MTP packs also **scoped Tier 2** on AX Engine 6.16.1; vision BF16; not the Qwen 3.6 campaign track |
+| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; formal campaign / primary investment track |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
 | **Qwen3.5-class 35B-A3B MoE + fine-tunes** (Ornith-1.0-35B, Holo3-35B-A3B) | `qwen35-moe-v1` | `convertible`; Ornith development only; **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); not Qwen 3.6 cert track |
 | **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)) |
@@ -454,7 +465,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE / Ornith / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
+| Conversion targets | **Qwen3.8-27B**; Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE / Ornith / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -478,13 +489,20 @@ or above the floor when the budget must be fixed.
 ### AutomatosX Hub catalog (AXQ)
 
 Public packs on [AutomatosX](https://huggingface.co/AutomatosX) are development evidence unless an
-exact immutable revision is linked to a certificate. The Qwen 3.6 27B AXQ 6-bit entry is the
-first checkpoint Tier 1 certified exception.
+exact immutable revision is linked to a certificate. As of **v1.7.0** the public catalog includes
+multiple certified families — Qwen3.8-27B, Qwen 3.6 27B/35B-A3B, Qwen3-VL 30B-A3B Instruct,
+Holo3-35B-A3B, Gemma 4, Qwen3-Coder-Next, GPT-OSS, and experimental DeepSeek V4 Flash 2/3-bit —
+each bound to its own certificate. The headline matrix at the top of this README lists the
+listed public packs; the [full list](docs/certifications/full-list.md) includes unlisted
+no-MTP siblings and evaluation archives.
+
 The stable repository names remain the canonical model identifiers. The certified Qwen 3.6 27B
-AXQ 6-bit repository now serves v3 on `main`; its preceding audited artifact remains pinned at
-`v2`. The other catalog entries continue to serve their audited v2 artifacts on `main`, with exact
-v2 revisions tagged `v2`. Artifacts predating v2 remain recoverable at `legacy-pre-v2`. Temporary
-migration repositories with edition suffixes are not part of the public catalog.
+AXQ 6-bit repository serves v3 on `main` with the preceding audited artifact pinned at `v2`.
+The original v2 fleet rebuild (see [model-fleet-v2.md](docs/model-fleet-v2.md)) still serves
+those packs on `main` tagged `v2`, with artifacts predating v2 recoverable at `legacy-pre-v2`.
+Later certified families (Qwen3.8, Holo3, Qwen3-VL 30B, GPT-OSS, Gemma 4 IT rebuilds, and
+others) are not that v2 migration; pin the Hub commit from the certificate. Temporary
+edition-suffixed migration repositories are not part of the public catalog.
 
 Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 (`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
@@ -583,8 +601,8 @@ mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
   --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
-**Investment policy:** `axquant support-policy` (primary certification track = Qwen 3.6;
-Nemotron = thin Nano only).
+**Investment policy:** `axquant support-policy` (formal campaign / primary investment track =
+Qwen 3.6; Qwen3.8-27B is a separate certified dense VLM track; Nemotron = thin Nano only).
 
 Regenerate a public card from a local pack:
 
@@ -603,8 +621,12 @@ Implemented now:
 - portable AWQ activation-scale search and GPTQ Hessian error compensation with convert-time refinement and affine packing;
 - checksum-bound per-module activation capture (`capture-activations`) feeding AWQ/GPTQ probes and conversion;
 - Qwen 3.6 tensor classification, MTP detection, and vision protection;
+- Qwen3.8-27B dense language-path conversion (`qwen38-dense-v1`) with BF16-protected vision
+  and certified AXQ 4/6-bit ± MTP packs;
 - Qwen3-ASR and Qwen3-VL text-path quantization through public MLX-Audio/MLX-VLM backends,
   with BF16 modality-tower protection and real media runtime smokes;
+- Qwen3-VL 30B-A3B Instruct MoE convert (AX Engine primary + MLX-VLM compatible) and Holo3
+  35B-A3B grafted-MTP alignment tooling;
 - auditable manual recipes with mandatory precision floors;
 - mixed-precision planning from compatible sensitivity reports;
 - architecture-specific MLX conversion with plan-to-module coverage checks;
@@ -614,10 +636,11 @@ Implemented now:
 - deterministic quality/benchmark suites and complete-model MLX quality evaluation;
 - validation gates for externally measured quality and performance evidence;
 - guarded Hugging Face publication;
-- tiered family support with declarative adapters (Qwen 3.6 primary; Qwen 3.5, Qwen3-ASR,
-  Qwen3-VL, MiniCPM5, Gemma-4, Mistral/Devstral, Mistral3, and Nemotron Nano at
-  `convertible`; Nemotron Super/Ultra remain inspect-only), including byte-preserving extraction
-  of integrated MTP heads and protected vision into canonical checksummed sidecars;
+- tiered family support with declarative adapters (Qwen 3.6 formal campaign primary;
+  Qwen3.8-27B certified dense VLM; Qwen 3.5, Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4,
+  Mistral/Devstral, Mistral3, and Nemotron Nano at `convertible`; Nemotron Super/Ultra remain
+  inspect-only), including byte-preserving extraction of integrated MTP heads and protected
+  vision into canonical checksummed sidecars;
 - development Hub model cards (`axquant.model_card` / `scripts/prepare_development_model_card.py`)
   that sanitize provenance and document evidence limits for public packs;
 - `axquant quantize`: one-command development conversion with explicit development-evidence
@@ -626,7 +649,8 @@ Implemented now:
   to user conversions without upgrading their evidence kind, resolvable locally or from
   revision-pinned `hf://` references; prepared releases package their bundle automatically;
 - a registry-derived support matrix (`support-matrix`) with investment posture and
-  `support-policy` best practices (primary Qwen cert track; thin Nemotron Nano only);
+  `support-policy` best practices (Qwen 3.6 campaign primary; Qwen3.8 certified separately;
+  thin Nemotron Nano only);
 - per-layer KV-cache precision planning **and runtime execution**: prior-based
   (`--kv-cache prior`) and measured (`analyze-kv` + `plan --kv-cache measured`, digest-bound
   to the sensitivity report) planning, and `runtime-check --runtime mlx-lm-kv` executes the
@@ -660,7 +684,9 @@ Still incomplete (external evidence / runtime / deferred scope — not missing t
   (`refine-select --interaction`, holdout-safe by construction), but no bound candidate has yet
   been optimized against real measured development-role evaluations;
 - validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
-- certification evidence for secondary families (Nemotron Super/Ultra remain inspect-only);
+- certification evidence for remaining secondary / inspect-only families (Nemotron Super/Ultra
+  remain inspect-only; Ornith, DeepSeek-OCR-2, Muse-Glimmer, Qwen3-VL 8B, and Qwen3-ASR are
+  still development evidence);
 - quantized external MTP sidecars in production: the toolkit can emit the engine's
   `mlx-affine-packed-u32` layout via `quantize-mtp-sidecar` (with a fail-closed capability
   probe), but no AX Engine build yet reports that layout as executable, so every shipped
@@ -1382,6 +1408,7 @@ and required promotion evidence are clear.
 | Doc | Audience |
 | --- | --- |
 | [AX Engine 72-hour endurance](docs/ax-engine-72h-endurance.md) | Users — AX Engine 6.15.0 passed a 72 h soak on Qwen 3.6 27B AXQ 6-bit |
+| [Qwen3.8-27B AXQ VL retention assessment](docs/qwen38-27b-axq-vl-retention.md) | Users and evaluators — BF16 vision preservation, current evidence limits, and required VL validation |
 | [Qwen3.8 AXQ 2-bit report](docs/qwen38-axq-2bit.md) | Users — Super-class 2-bit convert evidence; this revision will not be certified (too slow) |
 | [Known issues](docs/known-issues.md) | Operators — documented limitations and fail-closed gates |
 | [Environment compatibility](docs/compatibility.md) | Operators — platforms, Python, MLX extras |

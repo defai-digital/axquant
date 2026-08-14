@@ -327,7 +327,7 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert "full-list.md" in _read("README.md")
     # Full list includes unlisted no-MTP / Coder-Next records omitted from headline.
     full = _read("docs/certifications/full-list.md")
-    assert "Qwen3.8-27B AXQ 4-bit]" in full or "Qwen3.8-27B AXQ 4-bit |" in full
+    assert "Qwen3.8-27B MLX AXQ 4-bit]" in full or "Qwen3.8-27B MLX AXQ 4-bit |" in full
     assert "qwen38-27b-axq4-tier1.md" in full
     assert "qwen3-coder-next-axq4-tier1.md" in full
     assert "In headline matrix" in full

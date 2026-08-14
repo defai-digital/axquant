@@ -116,7 +116,7 @@
     "vision.safetensors": "32396b51006e25e7aea94d287b5d81d4044fa910a40aa558db55a9f273895c00"
   },
   "public_index": {
-    "display_name": "Qwen 3.6 27B AXQ 6-bit MTP",
+    "display_name": "Qwen 3.6 27B MLX AXQ 6-bit MTP",
     "sort_order": 13,
     "edition_label": "v3",
     "listed": true

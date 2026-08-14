@@ -448,7 +448,8 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         notes=(
             "Qwen 3.8 dense (e.g. Qwen3.8-27B) shares Qwen 3.5/3.6 hybrid dense tensor "
             "conventions; language path quantizes, vision stays BF16-protected.",
-            "Development convert only — not the Qwen 3.6 certification track and not "
+            "AXQ 4/6-bit ± MTP packs are checkpoint Tier 1 certified; MTP packs also have "
+            "scoped Tier 2 on AX Engine 6.16.1. Not the Qwen 3.6 campaign track and not "
             "the Super-class 2.4T MoE stream path.",
         ),
     ),

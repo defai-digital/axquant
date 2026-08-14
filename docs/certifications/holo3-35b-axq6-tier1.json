@@ -79,7 +79,7 @@
   "notes": [
     "Checkpoint Tier 1 on factory host id df-macstudio-m2.",
     "Quality retention vs matched uniform MLX 6-bit reference built from the same BF16 pin (not BF16).",
-    "Adapter qwen35-moe-v1 / product family qwen3.5-moe — not the official Qwen 3.6 certification track.",
+    "Adapter qwen35-moe-v1 / product family qwen3.5-moe \u2014 not the official Qwen 3.6 certification track.",
     "Vision tower remains BF16-protected (vision.safetensors); total BPW includes protected vision bytes.",
     "No MTP acceleration claim; Hub name omits -MTP.",
     "AX Engine product id resolves to holo3-35b from pack path (not qwen3.6)."
@@ -90,7 +90,7 @@
     "size-evidence_sha256": "9698ff93af3985581737633658862adcd434d3ed76840c2894d1ca641a5fa464"
   },
   "public_index": {
-    "display_name": "Holo3-35B-A3B AXQ 6-bit",
+    "display_name": "Holo3-35B-A3B MLX AXQ 6-bit",
     "sort_order": 85,
     "edition_label": "main@`e6cc340b`",
     "listed": true

@@ -91,7 +91,7 @@
     "size-evidence_sha256": "67ebe522efe77e42a9ae6d7242d0009acff3e66e954090c3fad8af7a517e9aa5"
   },
   "public_index": {
-    "display_name": "Qwen3.8-27B AXQ 6-bit MTP",
+    "display_name": "Qwen3.8-27B MLX AXQ 6-bit MTP",
     "sort_order": 4,
     "edition_label": "main@`a5a0b700`",
     "listed": true

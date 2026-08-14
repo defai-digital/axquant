@@ -77,7 +77,7 @@
     "runtime-mlx-lm_sha256": "2bc8ee952ba2e495ad581ba0c91ec29648854d4e378c8d961fd869d36906722b"
   },
   "public_index": {
-    "display_name": "Qwen3-Coder-Next AXQ 6-bit",
+    "display_name": "Qwen3-Coder-Next MLX AXQ 6-bit",
     "sort_order": 60,
     "edition_label": "main@`c6f3ae55`",
     "listed": false

@@ -77,7 +77,7 @@
     "runtime-mlx-lm_sha256": "c9dcbc81a1e03fd6e27bdd979c436d33b38bf66d7136f6e4a5c06fa089f98e4b"
   },
   "public_index": {
-    "display_name": "Qwen3-Coder-Next AXQ 4-bit",
+    "display_name": "Qwen3-Coder-Next MLX AXQ 4-bit",
     "sort_order": 50,
     "edition_label": "main@`53dce509`",
     "listed": false

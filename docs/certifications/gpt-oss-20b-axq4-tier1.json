@@ -83,7 +83,7 @@
     "runtime-mlx-lm_sha256": "7c1944f6fe00a43cbccc8e25003a0de410d18ae6c36b79a1f2eef0fc4f2d255e"
   },
   "public_index": {
-    "display_name": "GPT-OSS 20B AXQ 4-bit",
+    "display_name": "GPT-OSS 20B MLX AXQ 4-bit",
     "sort_order": 180,
     "edition_label": "main@`0c1806bf`",
     "listed": true
