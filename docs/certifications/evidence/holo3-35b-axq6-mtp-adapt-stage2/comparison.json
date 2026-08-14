@@ -1,0 +1,17 @@
+{
+  "schema_version": "axquant.mtp-adapt-stage1-stage2-comparison.v1",
+  "host": "df-macstudio-m2",
+  "offline_top1_grafted": 0.0,
+  "offline_top1_stage1": 0.25,
+  "offline_top1_stage2": 0.21875,
+  "online_accept_stage1": 0.023076923076923078,
+  "online_accept_stage2": 0.023076923076923078,
+  "online_speedup_stage2": 0.5169056711816515,
+  "tier2_status": "not_certified",
+  "verdict": "stage1_best_offline; stage2_full_layer_no_gain_on_this_budget",
+  "notes": [
+    "Stage-1 fc/norm adapt remains best offline top-1 (0.25 vs stage-2 0.21875).",
+    "Stage-2 trained all 19 MTP tensors for 300 steps from stage-1 init; online accept stayed ~0.023.",
+    "Further gains need more/better labels or optim, not env tuning. Tier 2 still not certified."
+  ]
+}
