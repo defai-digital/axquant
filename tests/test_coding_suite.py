@@ -151,6 +151,7 @@ def test_sandbox_profile_is_deny_default_with_split_read_write_scopes(tmp_path: 
     assert f'(allow file-write* (subpath "{source_dir.resolve()}"))' not in profile
     assert "(allow process-fork)" not in profile
     assert '(allow process-exec (literal "/usr/bin/python3"))' in profile
+    assert f'(literal "{Path("/usr/bin/python3").resolve()}")' in profile
 
 
 @pytest.mark.parametrize("control", ["\n", "\r", "\t", "\x7f"])

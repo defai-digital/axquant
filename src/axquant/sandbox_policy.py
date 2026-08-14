@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -72,7 +73,11 @@ def render_sandbox_profile(
     source = input_dir.resolve()
     output = output_dir.resolve()
     runtime_paths = sorted({path.resolve() for path in toolchain_paths})
-    entrypoints = sorted({entrypoint.absolute(), entrypoint.resolve()})
+    # ``Path.absolute()`` followed symlinks on some supported Python/platform
+    # combinations. Preserve the lexical invocation as well as the resolved target:
+    # Seatbelt may match either during exec, and version-manager shims rely on argv[0].
+    invocation = Path(os.path.abspath(os.fspath(entrypoint)))
+    entrypoints = sorted({invocation, entrypoint.resolve()})
     rules = [*_BASE_RULES]
     if allow_subprocesses:
         rules.extend(_COMPILE_PROCESS_RULES)
