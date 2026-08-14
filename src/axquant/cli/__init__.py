@@ -2507,6 +2507,81 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "mtp-align-evaluate":
+        from axquant.mtp_align.evaluate import load_report_metrics
+        from axquant.mtp_align.gates import evaluate_ladder
+
+        metrics = load_report_metrics(args.report)
+        decision = evaluate_ladder(metrics)
+        write_data(args.output, decision.as_dict())
+        log.info(
+            "mtp_align_decision",
+            output=str(args.output),
+            recommendation=decision.recommendation.value,
+            stage=decision.stage_reached,
+            accept=metrics.online_accept_rate,
+            offline_top1=metrics.offline_top1,
+            speedup=metrics.token_weighted_decode_speedup,
+        )
+        return 0
+
+    if args.command == "mtp-align-teacher-force":
+        from axquant.mtp_align.teacher_force import run_teacher_force
+
+        mtp = args.mtp or str(Path(args.model).expanduser().resolve() / "mtp.safetensors")
+        report = run_teacher_force(
+            args.model,
+            mtp,
+            args.prompts,
+            max_positions=args.max_positions,
+            max_prompt_tokens=args.max_prompt_tokens,
+            max_prompts=args.max_prompts,
+        )
+        write_data(args.output, report.as_dict())
+        log.info(
+            "mtp_align_teacher_force",
+            output=str(args.output),
+            top1=report.top1,
+            positions=report.positions,
+            correct=report.correct,
+        )
+        return 0
+
+    if args.command == "mtp-align-prepare-data":
+        from axquant.mtp_align.dataset import prepare_self_distill_dataset
+
+        summary = prepare_self_distill_dataset(
+            args.model,
+            args.prompts,
+            args.output,
+            max_prompts=args.max_prompts,
+            max_new_tokens=args.max_new_tokens,
+            max_samples=args.max_samples,
+            seed=args.seed,
+        )
+        log.info("mtp_align_dataset_written", **summary)
+        return 0
+
+    if args.command == "mtp-align-adapt-fc":
+        from axquant.mtp_align.adapt_fc import adapt_fc_norms
+
+        summary = adapt_fc_norms(
+            args.model,
+            args.data,
+            args.init_mtp,
+            args.output,
+            steps=args.steps,
+            learning_rate=args.lr,
+            batch_size=args.batch_size,
+            max_samples=args.max_samples,
+            trunk_model_id=args.trunk_model_id,
+            trunk_revision=args.trunk_revision,
+            donor_model_id=args.donor_model_id,
+            donor_revision=args.donor_revision,
+        )
+        log.info("mtp_align_adapt_fc_done", **{k: summary[k] for k in summary if k != "train"})
+        return 0
+
     if args.command == "prepare-suite":
         from axquant.suites import build_benchmark_suites
 

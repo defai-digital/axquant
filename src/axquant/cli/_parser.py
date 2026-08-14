@@ -1230,6 +1230,76 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    mtp_align_eval = subparsers.add_parser(
+        "mtp-align-evaluate",
+        help=(
+            "Score an engine A/B or probe_decision JSON against the Holo3 MTP "
+            "align ladder (accept_rate → adapt vs Tier 2 path)"
+        ),
+    )
+    mtp_align_eval.add_argument(
+        "--report",
+        required=True,
+        help="probe_decision.json / profile_summary.json / mtp_ab_comparison.json",
+    )
+    mtp_align_eval.add_argument("--output", default="mtp_align_decision.json")
+
+    mtp_align_tf = subparsers.add_parser(
+        "mtp-align-teacher-force",
+        help=(
+            "Offline depth-1 MTP top-1 vs trunk greedy labels "
+            "(cheap train metric; mlx_lm + mtp.safetensors)"
+        ),
+    )
+    mtp_align_tf.add_argument("--model", required=True, help="Holo3 MLX pack directory")
+    mtp_align_tf.add_argument(
+        "--mtp",
+        help="mtp.safetensors path (default: <model>/mtp.safetensors)",
+    )
+    mtp_align_tf.add_argument("--prompts", required=True, help="JSONL prompts")
+    mtp_align_tf.add_argument("--max-positions", type=int, default=64)
+    mtp_align_tf.add_argument("--max-prompt-tokens", type=int, default=128)
+    mtp_align_tf.add_argument("--max-prompts", type=int, default=8)
+    mtp_align_tf.add_argument("--output", default="mtp_align_teacher_force.json")
+
+    mtp_align_data = subparsers.add_parser(
+        "mtp-align-prepare-data",
+        help="Build self-distill JSONL labels from trunk greedy for MTP adapt",
+    )
+    mtp_align_data.add_argument("--model", required=True)
+    mtp_align_data.add_argument("--prompts", required=True)
+    mtp_align_data.add_argument("--output", required=True)
+    mtp_align_data.add_argument("--max-prompts", type=int, default=32)
+    mtp_align_data.add_argument("--max-new-tokens", type=int, default=64)
+    mtp_align_data.add_argument("--max-samples", type=int, default=512)
+    mtp_align_data.add_argument("--seed", type=int, default=20260728)
+
+    mtp_align_adapt = subparsers.add_parser(
+        "mtp-align-adapt-fc",
+        help=(
+            "Stage-1 adapt: freeze MTP transformer; train fc + pre_fc norms + "
+            "mtp.norm on teacher labels; write adapted sidecar + provenance"
+        ),
+    )
+    mtp_align_adapt.add_argument("--model", required=True, help="Trunk MLX pack for labels/hiddens")
+    mtp_align_adapt.add_argument("--data", required=True, help="JSONL from mtp-align-prepare-data")
+    mtp_align_adapt.add_argument("--init-mtp", required=True, help="Initial mtp.safetensors")
+    mtp_align_adapt.add_argument("--output", required=True, help="Empty output bundle directory")
+    mtp_align_adapt.add_argument("--steps", type=int, default=100)
+    mtp_align_adapt.add_argument("--lr", type=float, default=1e-4)
+    mtp_align_adapt.add_argument("--batch-size", type=int, default=1)
+    mtp_align_adapt.add_argument("--max-samples", type=int, default=256)
+    mtp_align_adapt.add_argument("--trunk-model-id", default="Hcompany/Holo3-35B-A3B")
+    mtp_align_adapt.add_argument(
+        "--trunk-revision",
+        default="208d5ae3a03f99d561f32ab5e606f73397a390ea",
+    )
+    mtp_align_adapt.add_argument("--donor-model-id", default="Qwen/Qwen3.5-35B-A3B")
+    mtp_align_adapt.add_argument(
+        "--donor-revision",
+        default="59d61f3ce65a6d9863b86d2e96597125219dc754",
+    )
+
     mtp_diagnose_parser = subparsers.add_parser(
         "mtp-diagnose",
         help="Run M2 kill-switch matrix (soft exactness) and write a diagnostic report",

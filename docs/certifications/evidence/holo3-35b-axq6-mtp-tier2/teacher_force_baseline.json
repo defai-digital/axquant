@@ -1,0 +1,12 @@
+{
+  "correct": 0,
+  "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+  "mtp_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP/mtp.safetensors",
+  "notes": [
+    "top-1 near zero matches grafted parent head on Holo3 trunk (distributional mismatch expected)"
+  ],
+  "positions": 16,
+  "prompts_used": 2,
+  "schema_version": "axquant.mtp-align-teacher-force.v1",
+  "top1": 0.0
+}

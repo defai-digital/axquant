@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "exactness_pass": true,
+    "offline_top1": null,
+    "online_accept_rate": 0.0,
+    "prompt_median_speedup": 0.5019049457690481,
+    "source": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit/probe_decision.json",
+    "token_weighted_decode_speedup": 0.5019078575869812
+  },
+  "reasons": [
+    "online accept_rate=0.0000 — env/host tuning will not create accepts",
+    "run offline teacher-force baseline then stage-1 fc/norm adapt"
+  ],
+  "recommendation": "adapt_fc_norms",
+  "schema_version": "axquant.mtp-align-decision.v1",
+  "stage_reached": "L0",
+  "thresholds": {
+    "offline_top1_strong": 0.8,
+    "offline_top1_train_ok": 0.7,
+    "online_accept_smoke_gt": 0.0,
+    "online_accept_viable": 0.5,
+    "speedup_beats_direct": 1.0,
+    "speedup_medium_probe": 1.15,
+    "speedup_tier2_median": 1.1,
+    "speedup_tier2_weighted": 1.2
+  }
+}

@@ -219,6 +219,29 @@ default remains **direct decode**; keep non-MTP SKUs as primary.
 Probe harness: [`scripts/run_holo3_35b_mtp_tier2_probe.py`](../scripts/run_holo3_35b_mtp_tier2_probe.py)  
 Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-tier2/`](certifications/evidence/holo3-35b-axq6-mtp-tier2/)
 
+## Holo3-aligned MTP (best practices + tooling)
+
+**Do not chase 1.20× while accept≈0.** Order of work:
+
+1. **Online accept_rate** (AX Engine A/B / MoE-exact probe) — ground truth  
+2. **Offline teacher-forced top-1** (trunk hidden + MTP head vs trunk greedy) — train metric  
+3. **Stage-1 adapt** — freeze trunk + freeze MTP transformer; train `mtp.fc` + pre_fc norms + `mtp.norm`  
+4. **Stage-2** — unfreeze `mtp.layers.0` if stage-1 stalls  
+5. **Speedup sweep / formal Tier 2** only after accept is viable (≥~0.5 heuristic)
+
+| Command | Purpose |
+| --- | --- |
+| `axquant mtp-align-evaluate --report probe_decision.json` | Ladder decision from existing probe |
+| `axquant mtp-align-teacher-force --model PACK --prompts P.jsonl` | Offline top-1 baseline |
+| `axquant mtp-align-prepare-data --model PACK --prompts P.jsonl --output data.jsonl` | Self-distill labels |
+| `axquant mtp-align-adapt-fc --model PACK --data data.jsonl --init-mtp PACK/mtp.safetensors --output mtp-adapted/` | Stage-1 train |
+| `axquant compose-grafted-mtp --model-dir TRUNK --mtp-dir mtp-adapted --output PACK-adapted` | Ship new sidecar without mutating main weights |
+| `scripts/run_holo3_mtp_align_campaign.py` | Measure → decide → print next commands |
+
+Provenance for adapted heads uses `graft_kind: holo3-adapted-mtp-v1` (not “co-trained Holo3 MTP” unless trunk was jointly trained).
+
+**Product:** keep non-MTP SKUs primary until formal Tier 2 passes on an adapted head.
+
 ## Claim language
 
 **Allowed:** checkpoint Tier 1 for 4/6-bit and 4/6-bit-MTP; measured size/quality vs matched uniform on the language trunk; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin; disclosure that MTP is grafted from parent Qwen3.5.  
