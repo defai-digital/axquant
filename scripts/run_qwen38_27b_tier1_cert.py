@@ -479,7 +479,8 @@ def cmd_write_certs() -> None:
             "public_index": {
                 "display_name": f"Qwen3.8-27B AXQ {meta['product_class']}"
                 + (" MTP" if meta["mtp"] else ""),
-                "sort_order": 90,
+                # Catalog leads with Qwen3.8 (before flagship Qwen 3.6 at 10+).
+                "sort_order": 2 if meta["mtp"] else 1,
                 "edition_label": f"main@`{str(meta['hub_commit'])[:8]}`",
                 "listed": True,
             },

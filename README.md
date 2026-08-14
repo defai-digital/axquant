@@ -28,6 +28,8 @@ do not edit the table cells by hand.
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
+| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
 | Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
@@ -38,8 +40,6 @@ do not edit the table cells by hand.
 | Qwen3-VL 30B-A3B Instruct AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | Gemma 4 12B AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
