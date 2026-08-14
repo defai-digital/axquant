@@ -2,7 +2,7 @@
   "schema_version": "axquant.public-mtp-acceleration-certification.v1",
   "status": "not_certified",
   "certification_tier": "mtp-acceleration",
-  "certified_at": "2026-08-14T02:06:23+00:00",
+  "certified_at": "2026-08-14T02:43:55+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit-MTP",
@@ -20,8 +20,8 @@
   },
   "mtp_acceleration": {
     "status": "not_certified",
-    "reason": "grafted-mtp-speedup-failed-sibling-probe",
-    "scope": "same grafted MTP sidecar as 6-bit-MTP; soft probe measured on 6-bit-MTP sibling",
+    "reason": "grafted-mtp-zero-accept-sibling-probe",
+    "scope": "identical grafted MTP sidecar as 6-bit-MTP; MoE exact probe measured on 6-bit sibling",
     "product_default_route": "direct-fallback",
     "ax_engine_version": "6.15.0",
     "mtp_graft": {
@@ -30,11 +30,12 @@
       "graft_kind": "parent-qwen35-moe-mtp",
       "sidecar_sha256": "a4e12f8ea03b42a10359ff52ba7bf591cbfd8b98084886f63f8810ede62dee60"
     },
+    "decision": "exactness_ok_speedup_fail_graft_limit_likely",
     "notes": [
-      "Identical grafted MTP sidecar as the 6-bit-MTP pack (byte-identical mtp.safetensors).",
-      "6-bit sibling soft mtp-diagnose: exactness pass, prompt-median speedup ~0.43× (fail).",
-      "No separate formal Tier 2 authorizing scoreboard for 4-bit-MTP; fail closed.",
-      "Do not claim MTP acceleration for this revision."
+      "Byte-identical mtp.safetensors as 6-bit-MTP.",
+      "6-bit sibling under Qwen MoE exact env: exactness pass, accept rate 0%, speedup ~0.50×.",
+      "No separate formal scoreboard for 4-bit-MTP; fail closed on the same graft limit.",
+      "Do not claim MTP acceleration. Keep non-MTP SKUs as primary product."
     ]
   },
   "toolchain": {
@@ -44,7 +45,7 @@
   },
   "related_certificates": {
     "checkpoint_tier1": "holo3-35b-axq4-mtp-tier1.json",
-    "sibling_soft_probe": "holo3-35b-axq6-mtp-tier2.json"
+    "sibling_probe": "holo3-35b-axq6-mtp-tier2.json"
   },
-  "evidence_package": "factory: /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/logs/mtp-diagnose-6bit.json"
+  "evidence_package": "evidence/holo3-35b-axq6-mtp-tier2/"
 }

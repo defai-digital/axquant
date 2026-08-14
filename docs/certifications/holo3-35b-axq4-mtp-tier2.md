@@ -12,14 +12,21 @@ commit
 Shares the **same byte-identical grafted MTP sidecar** as the 6-bit-MTP pack
 (`mtp.safetensors` SHA-256
 `a4e12f8ea03b42a10359ff52ba7bf591cbfd8b98084886f63f8810ede62dee60`).
-The 6-bit sibling soft probe on `df-macstudio-m2` saw exactness pass but
-decode speedup ~0.43× (fail). No separate formal authorizing scoreboard was
-closed for 4-bit-MTP; fail closed.
 
-Product default remains **direct decode**.
+The 6-bit sibling under the Qwen **MoE exact** profile measured:
+
+- exactness **pass**
+- draft **accept rate 0%**
+- decode speedup **~0.50×** (fail)
+
+That is a **graft limit**, not a 4-bit-vs-6-bit layout issue. Fail closed.
+
+See [holo3-35b-axq6-mtp-tier2.md](holo3-35b-axq6-mtp-tier2.md) for the full
+decision table (runtime tuning vs retrain).
 
 ## Related
 
 - Checkpoint Tier 1: [holo3-35b-axq4-mtp-tier1.md](holo3-35b-axq4-mtp-tier1.md)
-- Sibling soft probe: [holo3-35b-axq6-mtp-tier2.md](holo3-35b-axq6-mtp-tier2.md)
+- Sibling probe: [holo3-35b-axq6-mtp-tier2.md](holo3-35b-axq6-mtp-tier2.md)
+- Evidence: [evidence/holo3-35b-axq6-mtp-tier2/](evidence/holo3-35b-axq6-mtp-tier2/)
 - Machine-readable: [holo3-35b-axq4-mtp-tier2.json](holo3-35b-axq4-mtp-tier2.json)

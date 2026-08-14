@@ -200,10 +200,24 @@ Certified 4-bit uses [`examples/holo3-35b-axq4-agent-v0.1.yaml`](../examples/hol
 
 ## Tier 2 MTP acceleration
 
-**Not certified** for either `-MTP` SKU. Soft `mtp-diagnose` on 6-bit-MTP
-(`df-macstudio-m2`, AX Engine 6.15.0) saw greedy exactness pass on short probes
-but decode speedup ≪ 1.0× (~0.43× token-weighted on the diagnostic matrix) —
-not release-ready. Product default remains **direct decode**.
+**Not certified** for either `-MTP` SKU. Decision after two probes on
+`df-macstudio-m2` / AX Engine 6.15.0:
+
+| Probe | Exactness | Accept rate | Speedup | Verdict |
+| --- | --- | ---: | ---: | --- |
+| Soft `mtp-diagnose` kill-switch matrix | pass | **0%** | ~0.43–0.45× | fail |
+| Qwen **MoE exact** profile A/B (same env family as Qwen 35B Tier 2) | pass | **0%** (0/128) | **~0.50×** | fail |
+
+Exactness passes because the engine **verifies and falls back**; drafts never
+accept, so MTP only adds overhead. That is a **graft limit** (parent Qwen3.5
+head vs Holo3 fine-tune trunk), not a missing env flag.
+
+**Do not invest further in runtime-only Tier 2 for this graft.** Paths that
+could still work later: train/adapt an MTP head on Holo3. Until then, product
+default remains **direct decode**; keep non-MTP SKUs as primary.
+
+Probe harness: [`scripts/run_holo3_35b_mtp_tier2_probe.py`](../scripts/run_holo3_35b_mtp_tier2_probe.py)  
+Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-tier2/`](certifications/evidence/holo3-35b-axq6-mtp-tier2/)
 
 ## Claim language
 

@@ -2,7 +2,7 @@
   "schema_version": "axquant.public-mtp-acceleration-certification.v1",
   "status": "not_certified",
   "certification_tier": "mtp-acceleration",
-  "certified_at": "2026-08-14T02:06:23+00:00",
+  "certified_at": "2026-08-14T02:43:55+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
@@ -20,47 +20,61 @@
   },
   "mtp_acceleration": {
     "status": "not_certified",
-    "reason": "grafted-mtp-speedup-failed",
-    "scope": "soft mtp-diagnose on df-macstudio-m2 (not formal M5 authorizing route)",
+    "reason": "grafted-mtp-zero-accept-speedup-failed",
+    "scope": "MoE exact-profile probe + soft mtp-diagnose on df-macstudio-m2 (not M5 formal authorizing host)",
     "product_default_route": "direct-fallback",
+    "formal_route_attempted": "qwen36-moe-exact-profile-certification-candidate",
     "ax_engine_version": "6.15.0",
+    "engine_binary_sha256": "c59c060e35f45e1f6e52384f6ee8544d8daaffa37be566451db097caa37aa6d0",
     "mtp_graft": {
       "donor_model_id": "Qwen/Qwen3.5-35B-A3B",
       "donor_revision": "59d61f3ce65a6d9863b86d2e96597125219dc754",
-      "graft_kind": "parent-qwen35-moe-mtp"
+      "graft_kind": "parent-qwen35-moe-mtp",
+      "sidecar_sha256": "a4e12f8ea03b42a10359ff52ba7bf591cbfd8b98084886f63f8810ede62dee60"
     },
+    "decision": "exactness_ok_speedup_fail_graft_limit_likely",
     "profiles": {
-      "baseline": {
+      "agent-coding-moe-exact-probe": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 0.5019078575869812,
+        "prompt_median_speedup": 0.5019049457690481,
+        "release_ready": false,
+        "measured_trial_count": 2,
+        "prompt_count": 8,
+        "max_tokens": 128,
+        "accepted_tokens": 0,
+        "proposed_tokens": 128,
+        "accept_rate": 0.0,
+        "dataset_sha256": "a8eb77e08acbb189203127dca642553b66b1a69cd1c9db35aa44536d335d045f",
+        "comparison_sha256": "d3aa536876a58e477a3a085f1ce02bbadb4ec4a1f37833d1ffa2bf414dd3f8a5"
+      },
+      "soft-mtp-diagnose-baseline": {
         "exactness_pass": true,
         "divergent_trial_count": 0,
         "token_weighted_decode_speedup": 0.4511700406765819,
         "prompt_median_speedup": 0.42707695567689863,
         "release_ready": false,
         "measured_trial_count": 2,
-        "dataset_sha256": "cfc2791358905e40dfca84a602cbac41063298c7d2b84bf739d13021698b8c8e"
-      },
-      "disable-post-input-metal": {
-        "exactness_pass": true,
-        "divergent_trial_count": 0,
-        "token_weighted_decode_speedup": 0.4511700406765819,
-        "prompt_median_speedup": 0.43102933293833856,
-        "release_ready": false,
-        "measured_trial_count": 2
-      },
-      "disable-la-decode-metal": {
-        "exactness_pass": true,
-        "divergent_trial_count": 0,
-        "token_weighted_decode_speedup": 0.4511700406765819,
-        "prompt_median_speedup": 0.4368063520962906,
-        "release_ready": false,
-        "measured_trial_count": 2
+        "accepted_tokens": 0,
+        "proposed_tokens": 14,
+        "accept_rate": 0.0
       }
     },
+    "runtime_env_highlights": {
+      "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1",
+      "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+      "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+      "AX_MLX_MTP_ASYNC_DRAFT": "1",
+      "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+      "AX_MLX_PIPELINE_GRANULARITY": "layer"
+    },
     "notes": [
-      "Soft kill-switch matrix (mtp-diagnose) only; not a full formal Tier 2 authorizing scoreboard.",
-      "Greedy exactness passed on the short probe set; decode speedup remained ~0.43× (MTP slower than direct).",
-      "MTP head is grafted from parent Qwen3.5, not co-trained on Holo3.",
-      "Do not claim MTP acceleration for this revision."
+      "Under the same Qwen MoE exact env family used for certified Qwen 35B-A3B Tier 2, draft accept rate stayed 0% (0/128 accepted on agent-coding probe).",
+      "Greedy exactness still passed because the engine verifies and falls back to direct tokens; that path is safe but pays draft+verify overhead (~0.50×).",
+      "Soft mtp-diagnose kill-switch matrix also measured 0% accept and ~0.43–0.45× speedup.",
+      "Conclusion: grafted parent MTP does not accelerate Holo3; runtime tuning alone is unlikely to reach ≥1.20× without a Holo3-aligned MTP head.",
+      "Do not claim MTP acceleration for this revision. Keep non-MTP SKUs as the primary product."
     ]
   },
   "toolchain": {
@@ -74,5 +88,5 @@
   "related_certificates": {
     "checkpoint_tier1": "holo3-35b-axq6-mtp-tier1.json"
   },
-  "evidence_package": "factory: /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/logs/mtp-diagnose-6bit.json"
+  "evidence_package": "evidence/holo3-35b-axq6-mtp-tier2/"
 }

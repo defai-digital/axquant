@@ -1,0 +1,56 @@
+{
+  "all_exactness_pass": true,
+  "any_exactness_pass": true,
+  "any_release_ready": false,
+  "finished_at": "2026-08-14T02:43:55.860885+00:00",
+  "profiles": [
+    {
+      "comparison_sha256": "d3aa536876a58e477a3a085f1ce02bbadb4ec4a1f37833d1ffa2bf414dd3f8a5",
+      "dataset_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit/datasets/agent-coding.jsonl",
+      "dataset_sha256": "a8eb77e08acbb189203127dca642553b66b1a69cd1c9db35aa44536d335d045f",
+      "direct_token_weighted_decode_tps": 72.80487610657724,
+      "divergent_trial_count": 0,
+      "exactness_pass": true,
+      "gates": {
+        "exactness_required": 1.0,
+        "prompt_median_speedup_min": 1.1,
+        "token_weighted_decode_speedup_min": 1.2
+      },
+      "hub_commit": "f474549461817cafb73909847af43af2431d4a0d",
+      "hub_repo": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+      "issues": [
+        "prompt-median speedup is unavailable or below the configured non-regression floor"
+      ],
+      "mtp_token_weighted_decode_tps": 36.54133938853778,
+      "phase_accept": {
+        "accept_rate": 0.0,
+        "accepted_tokens": 0,
+        "direct_fallback_steps": 0,
+        "mtp_decode_steps": 128,
+        "proposed_tokens": 128
+      },
+      "profile": "agent-coding",
+      "prompt_count": 8,
+      "prompt_median_speedup": 0.5019049457690481,
+      "prompt_median_speedup_pass": false,
+      "raw_log_accept": {},
+      "release_ready": false,
+      "runtime_env": {
+        "AX_MLX_MTP_ASYNC_DRAFT": "1",
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+        "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+        "AX_MLX_PIPELINE_GRANULARITY": "layer",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+      },
+      "speedup_pass": false,
+      "token_weighted_decode_speedup": 0.5019078575869812
+    }
+  ],
+  "recommendation": "exactness_ok_speedup_fail_graft_limit_likely"
+}

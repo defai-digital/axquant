@@ -53,8 +53,8 @@ Qwen3.6 35B AXQ MTP packs. See pack file `axquant_mtp_graft.json`.
 
 ## Tier 2 status
 
-**Not certified.** Soft probe on this revision saw exactness pass but decode
-speedup ~0.43× (fail). Speculative-decode acceleration is **not** a product claim.
+**Not certified.** MoE exact-profile probe: exactness pass, **draft accept 0%**,
+decode speedup ~0.50× (fail). Grafted parent MTP does not accelerate Holo3.
 See [holo3-35b-axq6-mtp-tier2.md](holo3-35b-axq6-mtp-tier2.md).
 
 ## Related

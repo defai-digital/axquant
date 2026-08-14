@@ -1,0 +1,29 @@
+{
+  "engine_binary_sha256": "c59c060e35f45e1f6e52384f6ee8544d8daaffa37be566451db097caa37aa6d0",
+  "executable": "/Users/devop/code/ax-engine-v6150-bin/ax-engine-bench",
+  "full": false,
+  "host": "df-macstudio-m2",
+  "hub_commit": "f474549461817cafb73909847af43af2431d4a0d",
+  "hub_repo": "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+  "max_tokens": 128,
+  "measured": 2,
+  "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+  "note": "Holo3 MTP is grafted from Qwen3.5 parent; this probe uses MoE exact env to test whether formal contract can recover accept/speedup.",
+  "prompt_count": 8,
+  "runtime_env": {
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
+    "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+    "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+  },
+  "seed": 20260728,
+  "started_at": "2026-08-14T02:43:07.902236+00:00",
+  "warmup": 1
+}
