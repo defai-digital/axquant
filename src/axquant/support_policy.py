@@ -78,6 +78,26 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not treat architecture-prior quants as certified releases.",),
     ),
     FamilySupportPolicy(
+        product_family="qwen3.8",
+        adapter_id="qwen38-dense-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=10,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Qwen3.8 dense VLM (27B hybrid GDN+attention, model_type=qwen3_5): architecture-prior "
+            "AXQ convert; development evidence only."
+        ),
+        do=(
+            "Ship AXQ 4/6-bit language-path packs with vision BF16-protected.",
+            "Label Hub packs as development evidence; no Tier 1/2 cert claims yet.",
+        ),
+        do_not=(
+            "Do not route Super-class 2.4T MoE through this dense adapter.",
+            "Do not claim Qwen 3.6 certification track for Qwen3.8 dense packs.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="qwen3.5-moe",
         adapter_id="qwen35-moe-v1",
         investment_posture=InvestmentPosture.SECONDARY,

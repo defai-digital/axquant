@@ -10,10 +10,15 @@ from axquant.architectures.dense_family import (
     DenseFamilyAdapter,
     DenseFamilySpec,
 )
-from axquant.architectures.qwen36 import Qwen36Adapter
+from axquant.architectures.qwen36 import Qwen35MoeAdapter, Qwen36Adapter
 from axquant.architectures.registry import adapter_for
 from axquant.errors import ArtifactError
-from axquant.schema import SupportTier, TensorRole
+from axquant.schema import (
+    ArchitectureSupportLevel,
+    OptimizationScope,
+    SupportTier,
+    TensorRole,
+)
 
 
 def _qwen36_config() -> dict[str, object]:
@@ -133,6 +138,37 @@ def test_registry_resolves_qwen35_family_as_convertible() -> None:
     assert profile.support_tier is SupportTier.CONVERTIBLE
     assert profile.product_family == "qwen3.5"
     assert profile.text_layer_count == 36
+
+
+def test_registry_resolves_qwen38_dense_27b_as_convertible() -> None:
+    """Qwen3.8-27B is dense VLM on model_type=qwen3_5 (not Super-class MoE)."""
+    config = {
+        "model_type": "qwen3_5",
+        "architectures": ["Qwen3_5ForConditionalGeneration"],
+        "_name_or_path": "Qwen/Qwen3.8-27B",
+        "text_config": {
+            "num_hidden_layers": 64,
+            "hidden_size": 5120,
+            "intermediate_size": 17408,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {"depth": 27, "hidden_size": 1152},
+    }
+    adapter = adapter_for("Qwen/Qwen3.8-27B", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen38-dense-v1"
+    profile = adapter.profile("Qwen/Qwen3.8-27B", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.product_family == "qwen3.8"
+    assert profile.dense is True
+    assert profile.mtp_declared is True
+    assert profile.vision_present is True
+    assert profile.text_layer_count == 64
+    # Same config shell under a Qwen 3.6 product name stays on the flagship adapter.
+    qwen36_config = {**config, "_name_or_path": "Qwen/Qwen3.6-27B"}
+    qwen36 = adapter_for("Qwen/Qwen3.6-27B", qwen36_config)
+    assert qwen36 is not None
+    assert qwen36.adapter_id == "qwen36-v1"
 
 
 def test_registry_resolves_qwen3_asr_with_nested_text_and_audio_configs() -> None:
@@ -343,10 +379,11 @@ def test_registry_resolves_new_dense_families(
 
 
 def test_qwen3_dense_does_not_claim_qwen35_or_qwen36() -> None:
-    """model_type=qwen3 adapter must not match 3.5/3.6 product names."""
+    """model_type=qwen3 adapter must not match 3.5/3.6/3.8 product names."""
     config = {"model_type": "qwen3", "num_hidden_layers": 36}
     assert adapter_for("Qwen/Qwen3.5-9B", config) is None
     assert adapter_for("Qwen/Qwen3.6-27B", config) is None
+    assert adapter_for("Qwen/Qwen3.8-27B", config) is None
 
 
 def test_deepseek_v4_flash_is_convertible_moe() -> None:
@@ -591,6 +628,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     tiers = {entry.adapter_id: entry.support_tier for entry in matrix.entries}
     assert tiers == {
         "qwen36-v1": SupportTier.CONVERTIBLE,
+        "qwen35-moe-v1": SupportTier.CONVERTIBLE,
         "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-next-v1": SupportTier.CONVERTIBLE,
@@ -598,6 +636,8 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen3-asr-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-moe-v1": SupportTier.CONVERTIBLE,
+        "deepseek-ocr2-v1": SupportTier.CONVERTIBLE,
+        "muse-glimmer-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
@@ -738,3 +778,163 @@ def test_qwen36_moe_catalog_size_is_supported() -> None:
     }
     malformed_profile = Qwen36Adapter().profile("Qwen/Qwen3.6-35B-A3B", malformed)
     assert malformed_profile.support_tier is SupportTier.INSPECT_ONLY
+
+
+def _moe_35b_a3b_config(*, name_or_path: str) -> dict:
+    return {
+        "model_type": "qwen3_5_moe",
+        "architectures": ["Qwen3_5MoeForConditionalGeneration"],
+        "_name_or_path": name_or_path,
+        "text_config": {
+            "num_hidden_layers": 40,
+            "hidden_size": 2048,
+            "moe_intermediate_size": 512,
+            "shared_expert_intermediate_size": 512,
+            "num_experts": 256,
+            "num_experts_per_tok": 8,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {"model_type": "qwen3_5_moe_vision", "depth": 27},
+    }
+
+
+def test_muse_glimmer_30b_is_convertible_via_mlx_vlm() -> None:
+    config = {
+        "model_type": "muse_glimmer",
+        "architectures": ["MuseGlimmerForConditionalGeneration"],
+        "text_config": {
+            "model_type": "muse_glimmer_text",
+            "num_hidden_layers": 52,
+            "hidden_size": 6656,
+            "intermediate_size": 19968,
+        },
+        "vision_config": {
+            "model_type": "muse_glimmer_vision",
+            "num_hidden_layers": 50,
+            "hidden_size": 1536,
+        },
+        "_name_or_path": "meta-models/Muse-Glimmer-30B",
+    }
+    for reference in (
+        "meta-models/Muse-Glimmer-30B",
+        "Muse-Glimmer-30B",
+        "/Volumes/Ext4T/models/Muse-Glimmer-30B",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "muse-glimmer-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.dense is True
+        assert profile.text_layer_count == 52
+        assert profile.vision_present is True
+        assert profile.optimization_scope is OptimizationScope.TEXT_PATH
+    adapter = adapter_for("meta-models/Muse-Glimmer-30B", config)
+    assert adapter is not None
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.self_attn.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.ATTENTION
+    )
+    assert (
+        adapter.classify_tensor("model.vision_tower.layers.0.attn.q_proj.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("model.vision_adapter.fc1.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.mlp.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.MLP
+    )
+
+
+def test_deepseek_ocr2_is_convertible_via_mlx_vlm() -> None:
+    config = {
+        "model_type": "deepseekocr_2",
+        "architectures": ["DeepseekOCR2ForCausalLM"],
+        "num_hidden_layers": 12,
+        "n_routed_experts": 64,
+        "num_experts_per_tok": 6,
+        "language_config": {
+            "num_hidden_layers": 12,
+            "n_routed_experts": 64,
+            "num_experts_per_tok": 6,
+            "hidden_size": 1280,
+        },
+        "vision_config": {"model_type": "vision", "image_size": 1024},
+        "_name_or_path": "deepseek-ai/DeepSeek-OCR-2",
+    }
+    for reference in (
+        "deepseek-ai/DeepSeek-OCR-2",
+        "mlx-community/DeepSeek-OCR-2-bf16",
+        "DeepSeek-OCR-2",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "deepseek-ocr2-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.dense is False
+        assert profile.text_layer_count == 12
+        assert profile.vision_present is True
+        assert profile.optimization_scope is OptimizationScope.TEXT_PATH
+    # Role classification routes SAM / projector to vision protection.
+    adapter = adapter_for("deepseek-ai/DeepSeek-OCR-2", config)
+    assert adapter is not None
+    assert (
+        adapter.classify_tensor("sam_model.blocks.0.attn.qkv.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("projector.layers.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor(
+            "language_model.model.layers.1.mlp.switch_mlp.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+
+
+def test_ornith_and_qwen35_moe_35b_a3b_are_convertible() -> None:
+    """Non-Qwen3.6 35B-A3B MoE fine-tunes use qwen35-moe-v1 (development convert)."""
+    for reference in (
+        "deepreinforce-ai/Ornith-1.0-35B",
+        "ornith-ai/Ornith-1.0-35B",
+        "Qwen/Qwen3.5-35B-A3B",
+    ):
+        config = _moe_35b_a3b_config(name_or_path=reference)
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "qwen35-moe-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.support_level is ArchitectureSupportLevel.SUPPORTED
+        assert profile.dense is False
+        assert profile.vision_present is True
+        assert profile.product_family == "qwen3.5-moe"
+        assert profile.optimization_scope is OptimizationScope.TEXT_PATH
+
+    # Official Qwen 3.6 catalog still stays on the primary adapter.
+    qwen36_ref = "Qwen/Qwen3.6-35B-A3B"
+    qwen36_config = _moe_35b_a3b_config(name_or_path=qwen36_ref)
+    primary = adapter_for(qwen36_ref, qwen36_config)
+    assert primary is not None
+    assert primary.adapter_id == "qwen36-v1"
+
+    # Wrong expert count stays inventory-only on the secondary MoE adapter.
+    bad = _moe_35b_a3b_config(name_or_path="deepreinforce-ai/Ornith-1.0-35B")
+    bad["text_config"] = {**bad["text_config"], "num_experts": 128}
+    assert (
+        Qwen35MoeAdapter().profile("deepreinforce-ai/Ornith-1.0-35B", bad).support_tier
+        is SupportTier.INSPECT_ONLY
+    )

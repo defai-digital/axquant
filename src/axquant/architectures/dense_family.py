@@ -336,6 +336,56 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         ),
     ),
     DenseFamilySpec(
+        # DeepSeek-OCR-2: MLX-VLM deepseekocr_2 path; language MoE quantized, vision BF16.
+        adapter_id="deepseek-ocr2-v1",
+        product_family="deepseek-ocr2",
+        # Official HF ships model_type=deepseek_vl_v2; MLX BF16 remasters use deepseekocr_2.
+        model_types=("deepseekocr_2", "deepseek_vl_v2"),
+        reference_pattern=r"deepseek[._-]?ocr[._-]?2",
+        support_tier=SupportTier.CONVERTIBLE,
+        # Prefer nested language_config; fall back to top-level num_hidden_layers.
+        text_config_key="language_config",
+        allow_moe=True,
+        extra_role_patterns=(
+            ("sam_model", TensorRole.VISION),
+            ("qwen2_model", TensorRole.VISION),
+            ("qwen2_encoder", TensorRole.VISION),
+            ("vision_model", TensorRole.VISION),
+            ("projector", TensorRole.VISION),
+            ("view_separator", TensorRole.VISION),
+        ),
+        notes=(
+            "DeepSeek-OCR-2 language MoE converts through MLX-VLM (deepseekocr_2).",
+            "SAM / Qwen2 vision encoder / projector stay BF16-protected; OCR quality "
+            "claims require measured eval — development evidence only.",
+            "Prefer MLX BF16 sources (model_type=deepseekocr_2); official HF may need "
+            "model_type remap from deepseek_vl_v2.",
+        ),
+    ),
+    DenseFamilySpec(
+        # Meta Muse Glimmer 30B: dense multimodal agentic VL via MLX-VLM muse_glimmer.
+        adapter_id="muse-glimmer-v1",
+        product_family="muse-glimmer",
+        model_types=("muse_glimmer",),
+        reference_pattern=r"muse[._-]?glimmer",
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        extra_role_patterns=(
+            # Attention output gate is not an MLP gate_proj.
+            ("self_attn.gate_proj", TensorRole.ATTENTION),
+            ("vision_tower", TensorRole.VISION),
+            ("vision_adapter", TensorRole.VISION),
+            ("vision_projection", TensorRole.VISION),
+            ("perception_emb_norm", TensorRole.VISION),
+        ),
+        notes=(
+            "Muse-Glimmer-30B language decoder converts through MLX-VLM (muse_glimmer).",
+            "Vision tower / adapter / projection stay BF16-protected; agentic/OCR "
+            "quality claims require measured eval — development evidence only.",
+            "Requires mlx-vlm with models.muse_glimmer.",
+        ),
+    ),
+    DenseFamilySpec(
         adapter_id="qwen3-next-v1",
         product_family="qwen3-next",
         model_types=("qwen3_next",),
@@ -356,7 +406,7 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # Exclude 3.5 / 3.6 product names and Next/Coder-Next (different model_types).
         reference_pattern=r"qwen[._-]?3",
         exclude_reference_pattern=(
-            r"qwen[._-]?3[._-]?([56]|next)|qwen3_5|qwen3_next|coder[._-]?next"
+            r"qwen[._-]?3[._-]?([568]|next)|qwen3_5|qwen3_next|coder[._-]?next"
         ),
         support_tier=SupportTier.CONVERTIBLE,
         notes=(
@@ -379,6 +429,23 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=("Qwen 3.5 dense checkpoints share the Qwen 3.6 tensor conventions.",),
+    ),
+    DenseFamilySpec(
+        adapter_id="qwen38-dense-v1",
+        product_family="qwen3.8",
+        # Dense VLM SKUs ship as model_type=qwen3_5 (same hybrid GDN+attention
+        # layout as Qwen 3.5/3.6 dense). Super-class MoE (2.4T) uses a different
+        # model_type and is out of scope for this adapter.
+        model_types=("qwen3_5",),
+        reference_pattern=r"qwen[._-]?3[._-]?8",
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        notes=(
+            "Qwen 3.8 dense (e.g. Qwen3.8-27B) shares Qwen 3.5/3.6 hybrid dense tensor "
+            "conventions; language path quantizes, vision stays BF16-protected.",
+            "Development convert only — not the Qwen 3.6 certification track and not "
+            "the Super-class 2.4T MoE stream path.",
+        ),
     ),
     DenseFamilySpec(
         adapter_id="gemma4-dense-v1",
