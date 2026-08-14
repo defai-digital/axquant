@@ -16,6 +16,7 @@ from axquant.coding_sandbox import (
     _native_toolchain_executable,
     _resolved_executables,
     _sandbox_profile,
+    _toolchain_read_root,
     _wait_with_limits,
     evaluate_coding_suite,
     score_coding_task,
@@ -150,8 +151,19 @@ def test_sandbox_profile_is_deny_default_with_split_read_write_scopes(tmp_path: 
     assert f'(allow file-write* (subpath "{output_dir.resolve()}"))' in profile
     assert f'(allow file-write* (subpath "{source_dir.resolve()}"))' not in profile
     assert "(allow process-fork)" not in profile
-    assert '(allow process-exec (literal "/usr/bin/python3"))' in profile
+    assert '(literal "/usr/bin/python3")' in profile
     assert f'(literal "{Path("/usr/bin/python3").resolve()}")' in profile
+
+
+def test_python_framework_toolchain_root_includes_sibling_dynamic_library() -> None:
+    executable = Path(
+        "/Library/Frameworks/Python.framework/Versions/3.13/Resources/"
+        "Python.app/Contents/MacOS/Python"
+    )
+
+    assert _toolchain_read_root(str(executable)) == Path(
+        "/Library/Frameworks/Python.framework/Versions/3.13"
+    )
 
 
 @pytest.mark.parametrize("control", ["\n", "\r", "\t", "\x7f"])

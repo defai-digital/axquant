@@ -412,6 +412,13 @@ def _toolchain_read_root(executable: str) -> Path:
         except ValueError:
             continue
         return prefix
+    for ancestor in resolved_path.parents:
+        if ancestor.parent.name == "Versions" and ancestor.parent.parent.name.endswith(
+            ".framework"
+        ):
+            # Framework executables (notably GitHub Actions' Python.app) load a sibling
+            # library from the version root rather than from the app bundle itself.
+            return ancestor
     root = resolved_path.parent.parent
     home = Path.home().resolve()
     if root in {Path("/"), Path("/Users"), home}:
