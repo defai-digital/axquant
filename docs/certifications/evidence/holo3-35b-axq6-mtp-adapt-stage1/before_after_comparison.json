@@ -1,0 +1,16 @@
+{
+  "schema_version": "axquant.mtp-adapt-stage1-comparison.v1",
+  "host": "df-macstudio-m2",
+  "offline_top1_before": 0.0,
+  "offline_top1_after": 0.25,
+  "offline_positions": 32,
+  "offline_correct_after": 8,
+  "online_accept_after": 0.023076923076923078,
+  "online_speedup_after": 0.5079854884574118,
+  "tier2_status": "not_certified",
+  "notes": [
+    "Stage-1 fc/norm adapt raised offline top-1 from 0.0 to 0.25.",
+    "Online accept_rate left zero but remains far below viable (~0.5) and speedup ~0.51x.",
+    "Main trunk digests unchanged on compose; graft_kind holo3-adapted-mtp-v1."
+  ]
+}

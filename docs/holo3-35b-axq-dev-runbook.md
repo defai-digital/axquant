@@ -242,6 +242,30 @@ Provenance for adapted heads uses `graft_kind: holo3-adapted-mtp-v1` (not “co-
 
 **Product:** keep non-MTP SKUs primary until formal Tier 2 passes on an adapted head.
 
+### Multi-day factory campaign (stage-1 adapt)
+
+Order (do not skip to Tier 2):
+
+1. **Labels** — `mtp-align-prepare-data` (writes `data.jsonl` + `.features.safetensors`)
+2. **Stage-1 adapt** — `mtp-align-adapt-fc` (fc + pre_fc norms + mtp.norm only)
+3. **Offline top-1** — `mtp-align-teacher-force` before/after
+4. **Compose** — `compose-grafted-mtp` onto certified non-MTP trunk (main digests unchanged)
+5. **Online accept** — MoE-exact medium probe / `run_holo3_35b_mtp_tier2_probe.py`
+6. **Only then** speedup / formal Tier 2
+
+One-shot orchestrator on `df-macstudio-m2`:
+
+```bash
+python scripts/run_holo3_mtp_adapt_campaign.py \
+  --pack /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP \
+  --trunk /Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit \
+  --work /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2
+```
+
+If stage-1 does not raise offline top-1 after a non-trivial step budget, fail closed and escalate to stage-2 (full `mtp.layers.0`) or stop — do not claim acceleration.
+
+**Stage-1 factory result (2026-08-14, `df-macstudio-m2`):** 384 labels, 400 adapt steps, loss 14.5→3.14; offline top-1 **0.0→0.25**; online accept **0→~0.023**; speedup still ~0.51×. Compose preserved main digests. Evidence: [`docs/certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/`](certifications/evidence/holo3-35b-axq6-mtp-adapt-stage1/). Tier 2 remains **not certified**. Next: more data / stage-2 unfreeze before any acceleration claim.
+
 ## Claim language
 
 **Allowed:** checkpoint Tier 1 for 4/6-bit and 4/6-bit-MTP; measured size/quality vs matched uniform on the language trunk; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin; disclosure that MTP is grafted from parent Qwen3.5.  

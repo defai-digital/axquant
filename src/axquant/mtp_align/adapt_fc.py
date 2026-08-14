@@ -155,6 +155,7 @@ def adapt_fc_norms(
     learning_rate: float = 1e-4,
     batch_size: int = 1,
     max_samples: int | None = 256,
+    features_path: str | Path | None = None,
     trunk_model_id: str = "Hcompany/Holo3-35B-A3B",
     trunk_revision: str = "unknown",
     donor_model_id: str = "Qwen/Qwen3.5-35B-A3B",
@@ -162,7 +163,8 @@ def adapt_fc_norms(
 ) -> dict[str, Any]:
     """Freeze MTP transformer; CE-train fc/norms on teacher labels.
 
-    Requires mlx + mlx_lm. Designed for factory micro/medium runs.
+    Prefer ``features_path`` from prepare-data (fast). Without features, rebuilds
+    hiddens via mlx_lm trunk (slow on 35B).
     """
     try:
         import mlx.core as mx
@@ -172,43 +174,69 @@ def adapt_fc_norms(
 
     model_dir = Path(model_dir).expanduser().resolve()
     init_mtp = Path(init_mtp).expanduser().resolve()
-    samples = read_samples(data_path)
-    if max_samples is not None:
-        samples = samples[:max_samples]
-    if not samples:
-        raise ArtifactError("no training samples")
+    data_path = Path(data_path).expanduser().resolve()
 
-    model, _tokenizer = load(str(model_dir))
-    lm = getattr(model, "language_model", model)
-    core = lm["model"] if hasattr(lm, "__getitem__") and "model" in lm else lm.model
-    lm_head = lm["lm_head"] if hasattr(lm, "__getitem__") and "lm_head" in lm else lm.lm_head
-    embed = core.embed_tokens
+    # Prefer sibling .features.safetensors when not explicit.
+    if features_path is None:
+        candidate = data_path.with_suffix(".features.safetensors")
+        if candidate.is_file():
+            features_path = candidate
 
     head = QwenMtpHead.from_safetensors(init_mtp)
     init_sha = sidecar_sha256(init_mtp)
 
-    features: list[dict[str, Any]] = []
-    for sample in samples:
-        ids = sample["input_ids"]
-        arr = mx.array([ids], dtype=mx.int32)
-        h = embed(arr)
-        for layer in core.layers:
-            h = layer(h)
-        h = core.norm(h)
-        hidden = h[0, -1, :]
-        prev_embed = embed(mx.array([sample["prev_token"]], dtype=mx.int32))[0]
-        features.append(
-            {
-                "hidden": hidden,
-                "prev_embed": prev_embed,
-                "label_token": int(sample["label_token"]),
-            }
-        )
+    if features_path is not None:
+        from axquant.mtp_align.dataset import load_feature_bundle
+
+        features, lm_head_weight = load_feature_bundle(features_path)
+        if max_samples is not None:
+            features = features[:max_samples]
+        if lm_head_weight is None:
+            model, _tokenizer = load(str(model_dir))
+            lm = getattr(model, "language_model", model)
+            lm_head = (
+                lm["lm_head"] if hasattr(lm, "__getitem__") and "lm_head" in lm else lm.lm_head
+            )
+            lm_head_weight = lm_head.weight
+        sample_count = len(features)
+    else:
+        samples = read_samples(data_path)
+        if max_samples is not None:
+            samples = samples[:max_samples]
+        if not samples:
+            raise ArtifactError("no training samples")
+        model, _tokenizer = load(str(model_dir))
+        lm = getattr(model, "language_model", model)
+        core = lm["model"] if hasattr(lm, "__getitem__") and "model" in lm else lm.model
+        lm_head = lm["lm_head"] if hasattr(lm, "__getitem__") and "lm_head" in lm else lm.lm_head
+        embed = core.embed_tokens
+        features = []
+        for sample in samples:
+            ids = sample["input_ids"]
+            arr = mx.array([ids], dtype=mx.int32)
+            h = embed(arr)
+            for layer in core.layers:
+                h = layer(h)
+            h = core.norm(h)
+            hidden = h[0, -1, :]
+            prev_embed = embed(mx.array([sample["prev_token"]], dtype=mx.int32))[0]
+            features.append(
+                {
+                    "hidden": hidden,
+                    "prev_embed": prev_embed,
+                    "label_token": int(sample["label_token"]),
+                }
+            )
+        lm_head_weight = lm_head.weight
+        sample_count = len(samples)
+
+    if not features:
+        raise ArtifactError("no training features")
 
     head, history = adapt_fc_norms_from_features(
         head,
         features,
-        lm_head.weight,
+        lm_head_weight,
         steps=steps,
         learning_rate=learning_rate,
         batch_size=batch_size,
@@ -218,7 +246,8 @@ def adapt_fc_norms(
         "steps": steps,
         "learning_rate": learning_rate,
         "batch_size": batch_size,
-        "samples": len(samples),
+        "samples": sample_count,
+        "features_path": str(features_path) if features_path is not None else None,
         "loss_start": history[0] if history else None,
         "loss_end": history[-1] if history else None,
         "loss_history": history,

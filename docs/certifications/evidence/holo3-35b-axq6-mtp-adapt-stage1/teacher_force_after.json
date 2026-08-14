@@ -1,0 +1,10 @@
+{
+  "correct": 8,
+  "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP-adapted-fc",
+  "mtp_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP-adapted-fc/mtp.safetensors",
+  "notes": [],
+  "positions": 32,
+  "prompts_used": 4,
+  "schema_version": "axquant.mtp-align-teacher-force.v1",
+  "top1": 0.25
+}

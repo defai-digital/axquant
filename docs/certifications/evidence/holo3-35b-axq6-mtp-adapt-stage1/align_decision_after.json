@@ -1,0 +1,27 @@
+{
+  "metrics": {
+    "exactness_pass": true,
+    "offline_top1": null,
+    "online_accept_rate": 0.023076923076923078,
+    "prompt_median_speedup": 0.5080952855706518,
+    "source": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/online-probe-after/probe_decision.json",
+    "token_weighted_decode_speedup": 0.5079854884574118
+  },
+  "reasons": [
+    "partial accept_rate=0.023 below viable 0.5",
+    "continue stage-1 adapt with more data"
+  ],
+  "recommendation": "adapt_fc_norms",
+  "schema_version": "axquant.mtp-align-decision.v1",
+  "stage_reached": "L1-partial",
+  "thresholds": {
+    "offline_top1_strong": 0.8,
+    "offline_top1_train_ok": 0.7,
+    "online_accept_smoke_gt": 0.0,
+    "online_accept_viable": 0.5,
+    "speedup_beats_direct": 1.0,
+    "speedup_medium_probe": 1.15,
+    "speedup_tier2_median": 1.1,
+    "speedup_tier2_weighted": 1.2
+  }
+}

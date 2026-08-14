@@ -1272,6 +1272,12 @@ def _build_parser() -> argparse.ArgumentParser:
     mtp_align_data.add_argument("--max-prompts", type=int, default=32)
     mtp_align_data.add_argument("--max-new-tokens", type=int, default=64)
     mtp_align_data.add_argument("--max-samples", type=int, default=512)
+    mtp_align_data.add_argument("--max-seq-len", type=int, default=128)
+    mtp_align_data.add_argument(
+        "--no-features",
+        action="store_true",
+        help="Skip writing .features.safetensors (slower adapt later)",
+    )
     mtp_align_data.add_argument("--seed", type=int, default=20260728)
 
     mtp_align_adapt = subparsers.add_parser(
@@ -1289,6 +1295,10 @@ def _build_parser() -> argparse.ArgumentParser:
     mtp_align_adapt.add_argument("--lr", type=float, default=1e-4)
     mtp_align_adapt.add_argument("--batch-size", type=int, default=1)
     mtp_align_adapt.add_argument("--max-samples", type=int, default=256)
+    mtp_align_adapt.add_argument(
+        "--features",
+        help="Optional .features.safetensors from prepare-data (default: sibling of --data)",
+    )
     mtp_align_adapt.add_argument("--trunk-model-id", default="Hcompany/Holo3-35B-A3B")
     mtp_align_adapt.add_argument(
         "--trunk-revision",

@@ -2557,7 +2557,9 @@ def _run(args: argparse.Namespace) -> int:
             max_prompts=args.max_prompts,
             max_new_tokens=args.max_new_tokens,
             max_samples=args.max_samples,
+            max_seq_len=args.max_seq_len,
             seed=args.seed,
+            write_features=not args.no_features,
         )
         log.info("mtp_align_dataset_written", **summary)
         return 0
@@ -2574,6 +2576,7 @@ def _run(args: argparse.Namespace) -> int:
             learning_rate=args.lr,
             batch_size=args.batch_size,
             max_samples=args.max_samples,
+            features_path=args.features,
             trunk_model_id=args.trunk_model_id,
             trunk_revision=args.trunk_revision,
             donor_model_id=args.donor_model_id,
