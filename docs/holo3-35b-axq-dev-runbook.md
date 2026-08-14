@@ -2,14 +2,14 @@
 
 **Host:** `df-macstudio-m2` (factory convert + Ext4T)  
 **Adapter:** `qwen35-moe-v1` (Qwen3.5-class 35B-A3B MoE / fine-tunes)  
-**Claims:** **6-bit checkpoint Tier 1 certified** on `df-macstudio-m2`; **4-bit not certified** (agent-coding retention 0.9793). Not the Qwen 3.6 certificate family.  
+**Claims:** **4-bit and 6-bit checkpoint Tier 1 certified** on `df-macstudio-m2`. Not the Qwen 3.6 certificate family.  
 **Goal:** Build AutomatosX AXQ 4-bit and 6-bit MLX packs from Holo3 BF16, publish, and record Tier 1 evidence.
 
 ## Published packs (live)
 
 | Pack | Hub repo | Product class | Measured total BPW | Hub revision | Cert |
 | --- | --- | --- | --- | --- | --- |
-| 4-bit | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | `4bit` | 5.605048 | [`41c052c2906cee88ec2d282fbfe179272add3047`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit/tree/41c052c2906cee88ec2d282fbfe179272add3047) | **Not certified** ([eval](certifications/holo3-35b-axq4-tier1.md)) |
+| 4-bit | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | `4bit` (attn-6 / expert-4) | 5.665439 | [`7b2256130cd55ea6b7489817a9a00c46e9874403`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit/tree/7b2256130cd55ea6b7489817a9a00c46e9874403) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq4-tier1.md)) |
 | 6-bit | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | `6bit` | 7.006493 | [`e6cc340b04bfcec57544e462ec756e48dd248cf9`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit/tree/e6cc340b04bfcec57544e462ec756e48dd248cf9) | **Tier 1 certified** ([cert](certifications/holo3-35b-axq6-tier1.md)) |
 
 **Source pin:** `Hcompany/Holo3-35B-A3B` @
@@ -149,20 +149,23 @@ Tier 2 acceleration claim.
 
 ## Checkpoint Tier 1 (2026-08-14, `df-macstudio-m2`)
 
-| Gate | 4-bit | 6-bit |
+| Gate | 4-bit (attn-6 / expert-4 recovery) | 6-bit |
 | --- | ---: | ---: |
-| Size ratio vs uniform | 1.1347 ≤ 1.15 **pass** | 1.0135 ≤ 1.15 **pass** |
-| General retention | 1.000 **pass** | 1.000 **pass** |
-| Agent-coding retention | 0.9793 **fail** (&lt; 0.98) | 1.007 **pass** |
-| Verdict | **not certified** | **certified** |
+| Size ratio vs uniform | 1.1469 ≤ 1.15 **pass** | 1.0135 ≤ 1.15 **pass** |
+| General retention | 1.0488 **pass** | 1.000 **pass** |
+| Agent-coding retention | 1.0069 **pass** | 1.007 **pass** |
+| Verdict | **certified** | **certified** |
 
 Uniform references: `mlx_lm convert -q --q-bits {4,6} --q-group-size 64` from the same BF16 pin.
 Suites: development-agent-coding (76) + development-general (44), seed `20260728`, max gen 64.
 
+First architecture_prior 4-bit pack failed agent-coding (0.9793; long_context 0.875).
+Certified 4-bit uses [`examples/holo3-35b-axq4-agent-v0.1.yaml`](../examples/holo3-35b-axq4-agent-v0.1.yaml)
+(attention 6-bit / experts 4-bit). Attention-8 cleared quality but size 1.162 &gt; 1.15.
+
 ## Claim language
 
-**Allowed (6-bit):** checkpoint Tier 1 certificate; measured size/quality vs matched uniform-6; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin.  
-**Allowed (4-bit):** development pack + published evaluation record with measured fail; size and runtime pass.  
+**Allowed:** checkpoint Tier 1 for both 4/6-bit; measured size/quality vs matched uniform; AX Engine/MLX-LM text smoke; vision BF16-preserved; source pin.  
 **Not allowed:** GUI/VLM quality claims; Tier 2 MTP; equating Holo3 to official Qwen 3.6 35B certificates.
 
 ## Related

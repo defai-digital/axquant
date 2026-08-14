@@ -224,8 +224,8 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     unlisted = [row for row in rows if not row.listed]
     unlisted_ids = {row.record_id for row in unlisted}
     assert "gpt-oss-120b-axq4" in unlisted_ids
-    assert "holo3-35b-axq4" in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
+    assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
 
 
@@ -243,8 +243,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen3-coder-next-axq6",
         "qwen3-vl-30b-axq4",
         "qwen3-vl-30b-axq6",
-        "holo3-35b-axq6",
         "holo3-35b-axq4",
+        "holo3-35b-axq6",
         "deepseek-v4-flash-axq2",
         "deepseek-v4-flash-axq3",
         "gemma4-12b-axq4",
@@ -259,7 +259,7 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gpt-oss-120b-axq6",
     ]
     unlisted_ids = {row.record_id for row in rows if not row.listed}
-    assert "holo3-35b-axq4" in unlisted_ids
+    assert "holo3-35b-axq4" not in unlisted_ids
     assert "holo3-35b-axq6" not in unlisted_ids
 
 

@@ -34,20 +34,18 @@ def test_holo3_6bit_is_certified_with_passing_gates() -> None:
     assert cert.artifact.source_model_id.startswith("Hcompany/")
 
 
-def test_holo3_4bit_is_not_certified_with_recorded_agent_fail() -> None:
+def test_holo3_4bit_is_certified_with_recovery_layout() -> None:
     cert = load_public_checkpoint_certification(_CERT_DIR / "holo3-35b-axq4-tier1.json")
-    assert cert.status == "not_certified"
-    assert cert.public_index.listed is False
+    assert cert.status == "certified"
+    assert cert.public_index.listed is True
     assert cert.mtp_acceleration.status == "not-applicable"
+    assert cert.artifact.hub_repo_id == "AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit"
+    assert cert.plan.get("recipe") == "examples/holo3-35b-axq4-agent-v0.1.yaml"
 
     quality = cert.quality
     min_ret = float(cert.thresholds["minimum_quality_retention"])
-    agent_ret = float(quality["agent-coding"]["retention"])
-    general_ret = float(quality["general"]["retention"])
-    assert agent_ret < min_ret
-    assert general_ret >= min_ret
-    assert quality["agent-coding"]["pass"] is False
-    assert quality["general"]["pass"] is True
+    assert float(quality["agent-coding"]["retention"]) >= min_ret
+    assert float(quality["general"]["retention"]) >= min_ret
 
     size = cert.size
     assert float(size["size_ratio_vs_uniform"]) <= float(size["max_size_ratio_applied"])
