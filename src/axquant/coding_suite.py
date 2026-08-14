@@ -6,11 +6,15 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from collections.abc import Iterable
 from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path
 from axquant.errors import ArtifactError, BenchmarkError
+from axquant.sandbox_policy import SANDBOX_POLICY_CONTRACT as _SANDBOX_POLICY_CONTRACT
+from axquant.sandbox_policy import SANDBOX_PROFILE_SHA256 as _SANDBOX_PROFILE_SHA256
+from axquant.sandbox_policy import TRUSTED_SANDBOX_EXECUTABLE
 from axquant.schema import (
     CodingOverlapMatch,
     CodingOverlapReport,
@@ -23,25 +27,14 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
 
 CODING_SUITE_ID = "axquant-qwen3-next-coding-v2"
-CODING_SUITE_VERSION = "2026.08.07.1"
+CODING_SUITE_VERSION = "2026.08.14.1"
+SANDBOX_POLICY_CONTRACT = _SANDBOX_POLICY_CONTRACT
+SANDBOX_PROFILE_SHA256 = _SANDBOX_PROFILE_SHA256
 # Shared with campaign-overlap (axquant-token-5gram-v2): ASCII word runs stay
 # whole tokens; every other letter (CJK, accented Latin, Kana, Hangul) is a
 # single-character token so unspaced scripts still produce shingles.
 NORMALIZATION_ALGORITHM = "axquant-token-5gram-v2"
 NEAR_DUPLICATE_THRESHOLD = 0.85
-SANDBOX_POLICY_CONTRACT = {
-    "id": "axquant-macos-seatbelt-v2",
-    "default": "allow-runtime-read",
-    "network": "deny-all",
-    "home": "deny-read-write-except-allowlisted-toolchains",
-    "home_metadata": "allow-ancestor-resolution-only",
-    "devices": ["/dev/null", "/dev/urandom"],
-    "task_fixture": "read-only",
-    "task_output": "write-only-scope",
-    "limits": ["cpu", "wall", "address-space", "process", "file-size", "open-files"],
-}
-SANDBOX_PROFILE_SHA256 = stable_sha256(SANDBOX_POLICY_CONTRACT)
-
 _CATEGORY_COUNTS = {
     "python": 24,
     "javascript-typescript": 20,
@@ -58,7 +51,7 @@ _DEFAULT_TOOLCHAINS = {
     "typescript": "tsc",
     "rust": "rustc",
     "go": "go",
-    "sandbox": "sandbox-exec",
+    "sandbox": "/usr/bin/sandbox-exec",
 }
 
 
@@ -753,7 +746,7 @@ def probe_toolchains(
 ) -> dict[str, str]:
     configured = {**_DEFAULT_TOOLCHAINS, **(executables or {})}
     resolved_executables = {
-        name: resolved
+        name: str(Path(resolved).resolve())
         for name, executable in configured.items()
         if (resolved := shutil.which(executable)) is not None
     }
@@ -774,7 +767,12 @@ def probe_toolchains(
             continue
         version_args = [resolved, "version" if name == "go" else "--version"]
         if name == "sandbox":
-            identities[name] = f"{resolved} :: macOS Seatbelt"
+            trusted = Path(resolved).resolve() == TRUSTED_SANDBOX_EXECUTABLE
+            identities[name] = (
+                f"{TRUSTED_SANDBOX_EXECUTABLE} :: macOS Seatbelt"
+                if sys.platform == "darwin" and trusted
+                else "unavailable"
+            )
             continue
         try:
             result = subprocess.run(

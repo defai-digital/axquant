@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -10,13 +11,16 @@ from pathlib import Path
 import pytest
 
 from axquant.coding_sandbox import (
+    _CommandSpec,
     _compile_and_test_commands,
+    _sandbox_profile,
     _wait_with_limits,
     evaluate_coding_suite,
     score_coding_task,
     verify_coding_suite,
 )
 from axquant.coding_suite import (
+    SANDBOX_POLICY_CONTRACT,
     SANDBOX_PROFILE_SHA256,
     build_coding_suite,
     build_general_overlap_report,
@@ -64,6 +68,8 @@ def test_reference_coding_suite_has_frozen_quotas_and_bindings(tmp_path: Path) -
     assert sum(task.target_tokens for task in manifest.tasks) == 58_112
     assert manifest.calibration_overlap_attested
     assert manifest.sandbox_profile_sha256 == SANDBOX_PROFILE_SHA256
+    assert stable_sha256(SANDBOX_POLICY_CONTRACT) == SANDBOX_PROFILE_SHA256
+    assert SANDBOX_POLICY_CONTRACT["default"] == "deny"
     assert set(task.category for task in manifest.tasks) == {
         "python",
         "javascript-typescript",
@@ -95,11 +101,11 @@ def test_compile_only_native_tasks_do_not_require_test_fixtures(
     candidate_path: str,
     toolchain: str,
 ) -> None:
-    fixture_dir = tmp_path / "fixture"
+    source_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    fixture_dir.mkdir()
+    source_dir.mkdir()
     output_dir.mkdir()
-    (output_dir / candidate_path).write_text("", encoding="utf-8")
+    (source_dir / candidate_path).write_text("", encoding="utf-8")
     payload = CodingTaskPayload(
         task_id=f"{language}-compile",
         category=language,
@@ -112,13 +118,37 @@ def test_compile_only_native_tasks_do_not_require_test_fixtures(
 
     commands, _environment = _compile_and_test_commands(
         payload,
-        fixture_dir=fixture_dir,
+        source_dir=source_dir,
         output_dir=output_dir,
         executables={language: toolchain},
+        completion_token="a" * 32,
     )
 
     assert len(commands) == 1
-    assert commands[0][0] == toolchain
+    assert commands[0].argv[0] == toolchain
+
+
+def test_sandbox_profile_is_deny_default_with_split_read_write_scopes(tmp_path: Path) -> None:
+    source_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    source_dir.mkdir()
+    output_dir.mkdir()
+    command = _CommandSpec(argv=("/usr/bin/python3", "-c", "pass"))
+
+    profile = _sandbox_profile(
+        input_dir=source_dir,
+        output_dir=output_dir,
+        toolchain_paths=[Path("/usr")],
+        command=command,
+    )
+
+    assert profile.startswith('(version 1) (deny default) (import "system.sb")')
+    assert "(allow default)" not in profile
+    assert "(deny network*)" in profile
+    assert f'(allow file-write* (subpath "{output_dir.resolve()}"))' in profile
+    assert f'(allow file-write* (subpath "{source_dir.resolve()}"))' not in profile
+    assert "(allow process-fork)" not in profile
+    assert '(allow process-exec (literal "/usr/bin/python3"))' in profile
 
 
 def test_coding_suite_rejects_a_tampered_task_shard(tmp_path: Path) -> None:
@@ -276,19 +306,40 @@ def _python_task() -> tuple[CodingTaskManifest, CodingTaskPayload]:
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="Seatbelt is a macOS facility")
-def test_python_unit_test_runs_in_network_disabled_sandbox(tmp_path: Path) -> None:
+def test_python_unit_test_runs_in_deny_default_sandbox(tmp_path: Path) -> None:
     task, payload = _python_task()
+    external_secret = tmp_path / "outside-secret.txt"
+    external_secret.write_text("must remain unreadable", encoding="utf-8")
+    socket_id = hashlib.sha256(str(tmp_path).encode()).hexdigest()[:12]
+    agent_socket = Path("/tmp") / f"axquant-agent-{socket_id}.sock"
     tests = payload.fixture_files[payload.test_path]
     payload = payload.model_copy(
         update={
             "fixture_files": {
                 payload.test_path: tests
-                + "\nfrom candidate import NETWORK_BLOCKED\nassert NETWORK_BLOCKED\n"
+                + "\nfrom candidate import (\n"
+                + "    AGENT_SOCKET_BLOCKED, EXTERNAL_READ_BLOCKED, EXTERNAL_WRITE_BLOCKED,\n"
+                + "    INPUT_WRITE_BLOCKED, LIBRARY_READ_BLOCKED, NETWORK_BLOCKED,\n"
+                + "    PROCESS_SPAWN_BLOCKED,\n"
+                + "    SYSTEM_READ_BLOCKED, USERS_READ_BLOCKED, VOLUMES_READ_BLOCKED,\n"
+                + ")\n"
+                + "assert AGENT_SOCKET_BLOCKED\n"
+                + "assert EXTERNAL_READ_BLOCKED\n"
+                + "assert EXTERNAL_WRITE_BLOCKED\n"
+                + "assert INPUT_WRITE_BLOCKED\n"
+                + "assert LIBRARY_READ_BLOCKED\n"
+                + "assert NETWORK_BLOCKED\n"
+                + "assert PROCESS_SPAWN_BLOCKED\n"
+                + "assert SYSTEM_READ_BLOCKED\n"
+                + "assert USERS_READ_BLOCKED\n"
+                + "assert VOLUMES_READ_BLOCKED\n"
             }
         }
     )
-    output = """```python
+    output = f"""```python
+import os
 import socket
+import subprocess
 
 try:
     socket.create_connection(("1.1.1.1", 53), timeout=0.1)
@@ -296,6 +347,74 @@ except OSError:
     NETWORK_BLOCKED = True
 else:
     NETWORK_BLOCKED = False
+
+try:
+    open({str(external_secret)!r}, encoding="utf-8").read()
+except OSError:
+    EXTERNAL_READ_BLOCKED = True
+else:
+    EXTERNAL_READ_BLOCKED = False
+
+try:
+    open({str(external_secret)!r}, "w", encoding="utf-8").write("overwritten")
+except OSError:
+    EXTERNAL_WRITE_BLOCKED = True
+else:
+    EXTERNAL_WRITE_BLOCKED = False
+
+try:
+    open("/etc/hosts", encoding="utf-8").read()
+except OSError:
+    SYSTEM_READ_BLOCKED = True
+else:
+    SYSTEM_READ_BLOCKED = False
+
+try:
+    os.listdir("/Library")
+except OSError:
+    LIBRARY_READ_BLOCKED = True
+else:
+    LIBRARY_READ_BLOCKED = False
+
+try:
+    os.listdir("/Users/Shared")
+except OSError:
+    USERS_READ_BLOCKED = True
+else:
+    USERS_READ_BLOCKED = False
+
+try:
+    os.listdir("/Volumes")
+except OSError:
+    VOLUMES_READ_BLOCKED = True
+else:
+    VOLUMES_READ_BLOCKED = False
+
+agent = None
+try:
+    agent = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    agent.connect({str(agent_socket)!r})
+except OSError:
+    AGENT_SOCKET_BLOCKED = True
+else:
+    AGENT_SOCKET_BLOCKED = False
+finally:
+    if agent is not None:
+        agent.close()
+
+try:
+    os.chmod(__file__, 0o600)
+except OSError:
+    INPUT_WRITE_BLOCKED = True
+else:
+    INPUT_WRITE_BLOCKED = False
+
+try:
+    subprocess.run(["/bin/true"], check=False)
+except OSError:
+    PROCESS_SPAWN_BLOCKED = True
+else:
+    PROCESS_SPAWN_BLOCKED = False
 
 def normalize_records_00(records, modulus):
     if modulus <= 0:
@@ -308,13 +427,95 @@ def normalize_records_00(records, modulus):
             result.append((key, (value * 2 + 1) % modulus))
     return sorted(result)
 """
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
+            listener.bind(str(agent_socket))
+            listener.listen(1)
+            result = score_coding_task(
+                task=task,
+                payload=payload,
+                model_output=CodingModelOutput(
+                    task_id=task.task_id,
+                    output=output,
+                    generated_tokens=200,
+                    perplexity_loss=1.0,
+                    perplexity_tokens=10,
+                ),
+                raw_log_dir=tmp_path / "logs",
+                work_root=tmp_path / "work",
+                # Prefer the active interpreter: Apple's /usr/bin/python3 is an
+                # xcrun shim and fails under Seatbelt without a full Xcode install.
+                executable_overrides={"python": sys.executable},
+            )
+    finally:
+        agent_socket.unlink(missing_ok=True)
+
+    assert result.score == 1.0
+    assert result.syntax_valid
+    assert result.unit_tests_passed
+    assert result.sandboxed
+    assert result.network_disabled
+    assert not result.infrastructure_error
+    assert external_secret.read_text(encoding="utf-8") == "must remain unreadable"
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Seatbelt is a macOS facility")
+def test_python_unit_test_rejects_clean_early_exit(tmp_path: Path) -> None:
+    task, payload = _python_task()
+    output = """import os
+os._exit(0)
+
+def normalize_records_00(records, modulus):
+    return []
+"""
+
     result = score_coding_task(
         task=task,
         payload=payload,
         model_output=CodingModelOutput(
             task_id=task.task_id,
             output=output,
-            generated_tokens=200,
+            generated_tokens=20,
+            perplexity_loss=1.0,
+            perplexity_tokens=10,
+        ),
+        raw_log_dir=tmp_path / "logs",
+        work_root=tmp_path / "work",
+        executable_overrides={"python": sys.executable},
+    )
+
+    assert result.score == 0.0
+    assert result.syntax_valid
+    assert result.unit_tests_passed is False
+    assert result.exit_code == 0
+    assert result.stderr_excerpt == "trusted test completion evidence missing"
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Seatbelt is a macOS facility")
+def test_python_unit_test_cannot_replace_parent_logs_with_symlinks(tmp_path: Path) -> None:
+    task, payload = _python_task()
+    external_secret = tmp_path / "outside-parent-secret.txt"
+    external_secret.write_text("parent-only-secret", encoding="utf-8")
+    output = f"""import os
+import sys
+
+os.unlink("command.stdout")
+os.symlink(sys.argv[0], "command.stdout")
+os.unlink("command.stderr")
+os.symlink({str(external_secret)!r}, "command.stderr")
+os._exit(0)
+
+def normalize_records_00(records, modulus):
+    return []
+"""
+
+    result = score_coding_task(
+        task=task,
+        payload=payload,
+        model_output=CodingModelOutput(
+            task_id=task.task_id,
+            output=output,
+            generated_tokens=40,
             perplexity_loss=1.0,
             perplexity_tokens=10,
         ),
@@ -323,11 +524,76 @@ def normalize_records_00(records, modulus):
         executable_overrides={"python": shutil.which("python3") or "python3"},
     )
 
-    assert result.score == 1.0
+    assert result.score == 0.0
+    assert result.unit_tests_passed is False
+    assert result.stderr_file is not None
+    assert "parent-only-secret" not in (tmp_path / "logs" / result.stderr_file).read_text()
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Seatbelt is a macOS facility")
+@pytest.mark.parametrize(
+    ("language", "toolchain", "executable"),
+    [
+        ("python", "python", "python3"),
+        ("javascript", "node", "node"),
+        ("typescript", "typescript", "tsc"),
+        ("rust", "rust", "rustc"),
+        ("go", "go", "go"),
+    ],
+)
+def test_reference_executable_tasks_run_under_deny_default_policy(
+    tmp_path: Path,
+    language: str,
+    toolchain: str,
+    executable: str,
+) -> None:
+    # Use the active interpreter for Python: Apple's /usr/bin/python3 is an
+    # xcrun shim and fails under Seatbelt without a full Xcode install.
+    if language == "python":
+        resolved = sys.executable
+    else:
+        resolved = shutil.which(executable)
+    if resolved is None:
+        pytest.skip(f"{executable} is not installed")
+    payload = next(item for item in reference_coding_payloads() if item.language == language)
+    task = CodingTaskManifest(
+        task_id=payload.task_id,
+        category=payload.category,
+        language=payload.language,
+        prompt_sha256="a" * 64,
+        reference_sha256="b" * 64,
+        payload_sha256="c" * 64,
+        scorer=payload.scorer,
+        license_id="CC0-1.0",
+        provenance="clean-room toolchain fixture",
+        target_tokens=payload.target_tokens,
+        timeout_seconds=30,
+        cpu_time_seconds=20,
+        memory_limit_bytes=1024**3,
+        process_limit=32,
+        output_limit_bytes=1024**2,
+        file_size_limit_bytes=128 * 1024**2,
+        open_file_limit=256,
+        long_context=False,
+    )
+
+    result = score_coding_task(
+        task=task,
+        payload=payload,
+        model_output=CodingModelOutput(
+            task_id=task.task_id,
+            output=payload.reference or "",
+            generated_tokens=payload.target_tokens,
+            perplexity_loss=1.0,
+            perplexity_tokens=10,
+        ),
+        raw_log_dir=tmp_path / f"{language}-logs",
+        work_root=tmp_path / f"{language}-work",
+        executable_overrides={toolchain: resolved},
+    )
+
+    assert result.score == 1.0, result.stderr_excerpt
     assert result.syntax_valid
-    assert result.unit_tests_passed
-    assert result.sandboxed
-    assert result.network_disabled
     assert not result.infrastructure_error
 
 
@@ -351,6 +617,30 @@ def test_executable_scorer_fails_closed_without_sandbox(tmp_path: Path) -> None:
     assert result.infrastructure_error
     assert result.score == 0.0
     assert not result.sandboxed
+
+
+def test_executable_scorer_rejects_an_untrusted_sandbox_binary(tmp_path: Path) -> None:
+    task, payload = _python_task()
+    result = score_coding_task(
+        task=task,
+        payload=payload,
+        model_output=CodingModelOutput(
+            task_id=task.task_id,
+            output="def normalize_records_00(records, modulus): return []",
+            generated_tokens=10,
+            perplexity_loss=1.0,
+            perplexity_tokens=10,
+        ),
+        raw_log_dir=tmp_path / "logs",
+        work_root=tmp_path / "work",
+        executable_overrides={"sandbox": shutil.which("true") or sys.executable},
+    )
+
+    assert result.infrastructure_error
+    assert result.score == 0.0
+    assert not result.sandboxed
+    assert result.stderr_excerpt is not None
+    assert "trusted macOS sandbox" in result.stderr_excerpt
 
 
 def test_coding_raw_output_symlink_is_rejected_before_write(tmp_path: Path) -> None:

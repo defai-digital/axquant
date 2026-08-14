@@ -6,6 +6,7 @@ import math
 import os
 import re
 import resource
+import secrets
 import shutil
 import signal
 import subprocess
@@ -20,13 +21,17 @@ from pathlib import Path
 import structlog
 
 from axquant.coding_suite import (
-    SANDBOX_PROFILE_SHA256,
     load_coding_payloads,
     probe_toolchains,
 )
 from axquant.errors import BackendUnavailableError, BenchmarkError
 from axquant.identity import same_model_identity
 from axquant.quality import MlxQualityBackend, QualityBackend
+from axquant.sandbox_policy import (
+    SANDBOX_PROFILE_SHA256,
+    TRUSTED_SANDBOX_EXECUTABLE,
+    render_sandbox_profile,
+)
 from axquant.schema import (
     CodingEvaluationState,
     CodingModelOutput,
@@ -52,7 +57,7 @@ _DEFAULT_EXECUTABLES = {
     "typescript": "tsc",
     "rust": "rustc",
     "go": "go",
-    "sandbox": "sandbox-exec",
+    "sandbox": "/usr/bin/sandbox-exec",
 }
 
 
@@ -66,7 +71,15 @@ class _CommandResult:
     memory_exceeded: bool = False
     process_limit_exceeded: bool = False
     output_limit_exceeded: bool = False
+    completion_evidence_missing: bool = False
     infrastructure_error: str | None = None
+
+
+@dataclass(frozen=True)
+class _CommandSpec:
+    argv: tuple[str, ...]
+    completion_markers: tuple[bytes, ...] = ()
+    allow_subprocesses: bool = False
 
 
 def _unfenced(value: str) -> str:
@@ -79,44 +92,20 @@ def _unfenced(value: str) -> str:
     return match.group(1).rstrip() if match else stripped
 
 
-def _seatbelt_string(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
-
-
 def _sandbox_profile(
     *,
-    work_dir: Path,
+    input_dir: Path,
+    output_dir: Path,
     toolchain_paths: list[Path],
+    command: _CommandSpec,
 ) -> str:
-    home = Path.home().resolve()
-    allowed_paths = [work_dir, *toolchain_paths]
-    metadata_paths = {home}
-    for allowed_path in allowed_paths:
-        resolved_path = allowed_path.resolve()
-        try:
-            resolved_path.relative_to(home)
-        except ValueError:
-            continue
-        current = resolved_path
-        while current != home:
-            metadata_paths.add(current)
-            current = current.parent
-    rules = [
-        "(version 1)",
-        "(allow default)",
-        "(deny network*)",
-        "(deny file-write*)",
-        f'(allow file-write* (subpath "{_seatbelt_string(str(work_dir))}"))',
-        f'(deny file-read* (subpath "{_seatbelt_string(str(home))}"))',
-        f'(allow file-read* (subpath "{_seatbelt_string(str(work_dir))}"))',
-        '(allow file-read* file-write* (literal "/dev/null"))',
-        '(allow file-read* (literal "/dev/urandom"))',
-    ]
-    for path in sorted(metadata_paths):
-        rules.append(f'(allow file-read-metadata (literal "{_seatbelt_string(str(path))}"))')
-    for path in sorted({path.resolve() for path in toolchain_paths}):
-        rules.append(f'(allow file-read* (subpath "{_seatbelt_string(str(path))}"))')
-    return " ".join(rules)
+    return render_sandbox_profile(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        toolchain_paths=toolchain_paths,
+        entrypoint=Path(command.argv[0]),
+        allow_subprocesses=command.allow_subprocesses,
+    )
 
 
 def _limit_process(task: CodingTaskManifest) -> None:
@@ -233,7 +222,7 @@ def _wait_with_limits(
 
 
 def _run_command(
-    command: list[str],
+    command: _CommandSpec,
     *,
     task: CodingTaskManifest,
     work_dir: Path,
@@ -247,7 +236,7 @@ def _run_command(
     try:
         with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
             process = subprocess.Popen(
-                [sandbox_executable, "-p", profile, *command],
+                [sandbox_executable, "-p", profile, *command.argv],
                 cwd=work_dir,
                 env=environment,
                 stdin=subprocess.DEVNULL,
@@ -287,6 +276,9 @@ def _run_command(
     infrastructure_error = monitor_error
     if exit_code in {64, 65, 69, 70, 71, 72, 78} and b"sandbox" in stderr_bytes.lower():
         infrastructure_error = "sandbox initialization failed"
+    completion_evidence_missing = exit_code == 0 and any(
+        marker not in stdout_bytes for marker in command.completion_markers
+    )
     return _CommandResult(
         exit_code=exit_code,
         timed_out=timed_out,
@@ -296,6 +288,7 @@ def _run_command(
         memory_exceeded=memory_exceeded,
         process_limit_exceeded=process_limit_exceeded,
         output_limit_exceeded=output_limit_exceeded,
+        completion_evidence_missing=completion_evidence_missing,
         infrastructure_error=infrastructure_error,
     )
 
@@ -306,7 +299,19 @@ def _resolved_executables(overrides: dict[str, str] | None) -> dict[str, str]:
     for name, executable in configured.items():
         path = shutil.which(executable)
         if path is not None:
-            resolved[name] = path
+            runtime_path = Path(path).resolve()
+            if name == "python" and sys.platform == "darwin":
+                app_binary = (
+                    runtime_path.parent.parent
+                    / "Resources"
+                    / "Python.app"
+                    / "Contents"
+                    / "MacOS"
+                    / "Python"
+                )
+                if app_binary.is_file():
+                    runtime_path = app_binary
+            resolved[name] = str(runtime_path)
     return resolved
 
 
@@ -320,15 +325,111 @@ def _required_toolchain(payload: CodingTaskPayload) -> str | None:
     }.get(payload.language)
 
 
+def _toolchain_read_root(executable: str) -> Path:
+    raw_path = Path(executable).expanduser().absolute()
+    resolved_path = raw_path.resolve()
+    for prefix in (Path("/opt/homebrew"), Path("/usr/local")):
+        try:
+            resolved_path.relative_to(prefix)
+        except ValueError:
+            continue
+        return prefix
+    root = resolved_path.parent.parent
+    home = Path.home().resolve()
+    if root in {Path("/"), Path("/Users"), home}:
+        return resolved_path.parent
+    return root
+
+
+def _darwin_developer_tools() -> tuple[list[Path], dict[str, str], Path | None]:
+    if sys.platform != "darwin":
+        return [], {}, None
+    try:
+        developer = Path(
+            subprocess.run(
+                ["/usr/bin/xcode-select", "-p"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.strip()
+        ).resolve()
+        sdk = Path(
+            subprocess.run(
+                ["/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.strip()
+        ).resolve()
+    except (OSError, subprocess.SubprocessError, subprocess.TimeoutExpired):
+        return [], {}, None
+    xcode_contents = next(
+        (path for path in (developer, *developer.parents) if path.name == "Contents"), developer
+    )
+    clang = developer / "Toolchains" / "XcodeDefault.xctoolchain" / "usr" / "bin" / "clang"
+    return (
+        [xcode_contents, sdk],
+        {"DEVELOPER_DIR": str(developer), "SDKROOT": str(sdk)},
+        clang if clang.is_file() else None,
+    )
+
+
+def _sandbox_runtime_paths(
+    executables: dict[str, str],
+) -> tuple[list[Path], dict[str, str], Path | None]:
+    roots = {_toolchain_read_root(path) for name, path in executables.items() if name != "sandbox"}
+    developer_paths, developer_environment, rust_linker = _darwin_developer_tools()
+    return sorted({*roots, *developer_paths}), developer_environment, rust_linker
+
+
+def _seal_input_tree(root: Path) -> None:
+    paths = list(root.rglob("*"))
+    if any(path.is_symlink() for path in paths):
+        raise BenchmarkError("coding sandbox input tree cannot contain symbolic links")
+    for path in paths:
+        if path.is_file():
+            path.chmod(0o444)
+    for path in sorted((path for path in paths if path.is_dir()), reverse=True):
+        path.chmod(0o555)
+    root.chmod(0o555)
+
+
+def _unseal_input_tree(root: Path) -> None:
+    if not root.exists():
+        return
+    root.chmod(0o700)
+    paths = list(root.rglob("*"))
+    for path in (path for path in paths if path.is_dir() and not path.is_symlink()):
+        path.chmod(0o700)
+    for path in (path for path in paths if path.is_file() and not path.is_symlink()):
+        path.chmod(0o600)
+
+
 def _compile_and_test_commands(
     payload: CodingTaskPayload,
     *,
-    fixture_dir: Path,
+    source_dir: Path,
     output_dir: Path,
     executables: dict[str, str],
-) -> tuple[list[list[str]], dict[str, str]]:
+    completion_token: str,
+    rust_linker: Path | None = None,
+) -> tuple[list[_CommandSpec], dict[str, str]]:
     environment_updates: dict[str, str] = {}
-    candidate = output_dir / payload.candidate_path
+    candidate = source_dir / payload.candidate_path
+    completion_line = f"AXQUANT_COMPLETION:{completion_token}"
+
+    def command(
+        *argv: str,
+        completion_markers: tuple[bytes, ...] = (),
+        allow_subprocesses: bool = False,
+    ) -> _CommandSpec:
+        return _CommandSpec(
+            argv=tuple(argv),
+            completion_markers=completion_markers,
+            allow_subprocesses=allow_subprocesses,
+        )
 
     def required_test_path() -> str:
         if payload.test_path is None:
@@ -337,48 +438,66 @@ def _compile_and_test_commands(
 
     if payload.language == "python":
         python = executables["python"]
-        compile_command = [python, "-B", "-m", "py_compile", str(candidate)]
+        environment_updates["PYTHONPYCACHEPREFIX"] = str(output_dir / ".pycache")
+        compile_command = command(python, "-B", "-m", "py_compile", str(candidate))
         if payload.scorer is CodingScorer.COMPILE:
             return [compile_command], environment_updates
         test_path = required_test_path()
-        environment_updates["PYTHONPATH"] = os.pathsep.join([str(output_dir), str(fixture_dir)])
-        return [compile_command, [python, "-B", str(fixture_dir / test_path)]], (
-            environment_updates
+        runner = source_dir / test_path
+        runner.write_text(
+            runner.read_text(encoding="utf-8") + f"\nprint({completion_line!r})\n",
+            encoding="utf-8",
         )
+        environment_updates["PYTHONPATH"] = str(source_dir)
+        test_command = command(
+            python,
+            "-B",
+            str(runner),
+            completion_markers=(completion_line.encode(),),
+        )
+        return [compile_command, test_command], environment_updates
     if payload.language == "javascript":
         node = executables["node"]
-        compile_command = [node, "--check", str(candidate)]
+        compile_command = command(node, "--check", str(candidate))
         if payload.scorer is CodingScorer.COMPILE:
             return [compile_command], environment_updates
         test_path = required_test_path()
+        runner = source_dir / test_path
+        runner.write_text(
+            runner.read_text(encoding="utf-8")
+            + f"\nprocess.stdout.write({json.dumps(completion_line + chr(10))});\n",
+            encoding="utf-8",
+        )
         environment_updates["AXQ_CANDIDATE_PATH"] = str(candidate)
-        return [compile_command, [node, str(fixture_dir / test_path)]], (environment_updates)
+        test_command = command(
+            node,
+            str(runner),
+            completion_markers=(completion_line.encode(),),
+        )
+        return [compile_command, test_command], environment_updates
     if payload.language == "typescript":
         compiler = executables["typescript"]
-        copied_fixtures: list[str] = []
-        for relative_path, content in payload.fixture_files.items():
-            destination = output_dir / relative_path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(content, encoding="utf-8")
-            copied_fixtures.append(str(destination))
-        command = [
-            compiler,
-            "--strict",
-            "--noEmit",
-            "--module",
-            "commonjs",
-            "--target",
-            "es2020",
-            str(candidate),
-            *copied_fixtures,
-        ]
-        return [command], environment_updates
+        fixtures = [str(source_dir / relative_path) for relative_path in payload.fixture_files]
+        return [
+            command(
+                compiler,
+                "--strict",
+                "--noEmit",
+                "--module",
+                "commonjs",
+                "--target",
+                "es2020",
+                str(candidate),
+                *fixtures,
+                allow_subprocesses=True,
+            )
+        ], environment_updates
     if payload.language == "rust":
         compiler = executables["rust"]
         if payload.scorer is CodingScorer.COMPILE:
             library = output_dir / "libaxquant_candidate.rlib"
             return [
-                [
+                command(
                     compiler,
                     "--edition",
                     "2021",
@@ -387,18 +506,25 @@ def _compile_and_test_commands(
                     str(candidate),
                     "-o",
                     str(library),
-                ]
+                    allow_subprocesses=True,
+                )
             ], environment_updates
         test_path = required_test_path()
-        harness = output_dir / "axquant_harness.rs"
+        harness = source_dir / "axquant_harness.rs"
+        completion_test = f"axquant_completion_{completion_token}"
         harness.write_text(
             candidate.read_text(encoding="utf-8")
             + "\n"
-            + (fixture_dir / test_path).read_text(encoding="utf-8"),
+            + (source_dir / test_path).read_text(encoding="utf-8")
+            + "\n#[cfg(test)]\n"
+            + "mod zzz_axquant_completion {\n"
+            + "    #[test]\n"
+            + f"    fn {completion_test}() {{}}\n"
+            + "}\n",
             encoding="utf-8",
         )
         test_binary = output_dir / "axquant-rust-tests"
-        compile_command = [
+        compile_argv = [
             compiler,
             "--edition",
             "2021",
@@ -407,7 +533,16 @@ def _compile_and_test_commands(
             "-o",
             str(test_binary),
         ]
-        return [compile_command, [str(test_binary)]], environment_updates
+        if rust_linker is not None:
+            compile_argv.extend(["-C", f"linker={rust_linker}"])
+        expected = f"test zzz_axquant_completion::{completion_test} ... ok".encode()
+        return [
+            command(*compile_argv, allow_subprocesses=True),
+            command(
+                str(test_binary),
+                completion_markers=(expected, b"test result: ok."),
+            ),
+        ], environment_updates
     if payload.language == "go":
         go = executables["go"]
         (output_dir / "go.mod").write_text("module axquant.task\n\ngo 1.23\n", encoding="utf-8")
@@ -422,16 +557,52 @@ def _compile_and_test_commands(
             }
         )
         if payload.scorer is CodingScorer.COMPILE:
-            return [[go, "test", "-p=4", "-run", "^$", str(candidate)]], environment_updates
+            return [
+                command(
+                    go,
+                    "test",
+                    "-c",
+                    "-o",
+                    str(output_dir / "axquant-go-compile"),
+                    str(candidate),
+                    allow_subprocesses=True,
+                )
+            ], environment_updates
         test_path = required_test_path()
-        test_copy = output_dir / test_path
-        test_copy.parent.mkdir(parents=True, exist_ok=True)
-        test_copy.write_text(
-            (fixture_dir / test_path).read_text(encoding="utf-8"),
+        test_file = source_dir / test_path
+        test_names = tuple(
+            sorted(
+                set(re.findall(r"(?m)^\s*func\s+(Test[A-Za-z0-9_]+)\s*\(", test_file.read_text()))
+            )
+        )
+        if not test_names:
+            raise BenchmarkError("Go unit-test task contains no discoverable Test functions")
+        completion_test = f"TestZZZAXQuantCompletion{completion_token}"
+        completion_file = source_dir / "zzzz_axquant_completion_test.go"
+        completion_file.write_text(
+            f'package candidate\n\nimport "testing"\n\nfunc {completion_test}(t *testing.T) {{}}\n',
             encoding="utf-8",
         )
-        compile_command = [go, "test", "-p=4", "-run", "^$", str(candidate), str(test_copy)]
-        test_command = [go, "test", "-p=4", str(candidate), str(test_copy)]
+        test_binary = output_dir / "axquant-go-tests"
+        sources = [str(candidate), str(test_file), str(completion_file)]
+        compile_command = command(
+            go,
+            "test",
+            "-c",
+            "-o",
+            str(test_binary),
+            *sources,
+            allow_subprocesses=True,
+        )
+        markers = (
+            *(f"--- PASS: {name}".encode() for name in (*test_names, completion_test)),
+            b"PASS",
+        )
+        test_command = command(
+            str(test_binary),
+            "-test.v",
+            completion_markers=markers,
+        )
         return [compile_command, test_command], environment_updates
     raise BenchmarkError(f"unsupported executable coding language: {payload.language}")
 
@@ -585,8 +756,13 @@ def score_coding_task(
     executables = _resolved_executables(executable_overrides)
     required = _required_toolchain(payload)
     sandbox = executables.get("sandbox")
-    if required is None or required not in executables or sandbox is None:
-        missing = required if required not in executables else "sandbox"
+    trusted_sandbox = bool(
+        sandbox is not None
+        and sys.platform == "darwin"
+        and Path(sandbox).resolve() == TRUSTED_SANDBOX_EXECUTABLE
+    )
+    if required is None or required not in executables or not trusted_sandbox:
+        missing = required if required not in executables else "trusted macOS sandbox"
         message = f"required coding scorer toolchain is unavailable: {missing}"
         stdout_file, stderr_file, stdout_sha, stderr_sha = _write_raw_logs(
             raw_log_dir=raw_log_dir,
@@ -610,30 +786,41 @@ def score_coding_task(
             stderr_excerpt=message,
         )
 
+    if work_root.is_symlink():
+        raise BenchmarkError("coding sandbox work root cannot be a symbolic link")
     work_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix=f"{task.task_id}-", dir=work_root) as temporary:
         workspace = Path(temporary).resolve()
-        fixture_dir = workspace / "fixture"
+        source_dir = workspace / "input"
         output_dir = workspace / "output"
-        fixture_dir.mkdir()
+        source_dir.mkdir()
         output_dir.mkdir()
+        if payload.candidate_path in payload.fixture_files:
+            raise BenchmarkError("coding candidate path collides with a fixture path")
         for relative_path, content in payload.fixture_files.items():
-            fixture = fixture_dir / relative_path
+            fixture = source_dir / relative_path
             fixture.parent.mkdir(parents=True, exist_ok=True)
             fixture.write_text(content, encoding="utf-8")
-            fixture.chmod(0o444)
-        candidate = output_dir / payload.candidate_path
+        candidate = source_dir / payload.candidate_path
         candidate.parent.mkdir(parents=True, exist_ok=True)
         candidate.write_text(_unfenced(model_output.output), encoding="utf-8")
+        scorer_executables = {required: executables[required]}
+        if required == "typescript" and "node" in executables:
+            scorer_executables["node"] = executables["node"]
+        toolchain_paths, developer_environment, rust_linker = _sandbox_runtime_paths(
+            scorer_executables
+        )
         commands, environment_updates = _compile_and_test_commands(
             payload,
-            fixture_dir=fixture_dir,
+            source_dir=source_dir,
             output_dir=output_dir,
             executables=executables,
+            completion_token=secrets.token_hex(16),
+            rust_linker=rust_linker,
         )
         environment = {
             "PATH": os.pathsep.join(
-                sorted({str(Path(path).parent) for path in executables.values()})
+                sorted({str(Path(path).parent) for path in scorer_executables.values()})
             ),
             "HOME": str(output_dir / "home"),
             "TMPDIR": str(output_dir / "tmp"),
@@ -641,25 +828,42 @@ def score_coding_task(
             "LC_ALL": "C",
             "TZ": "UTC",
             "SOURCE_DATE_EPOCH": "0",
+            **developer_environment,
             **environment_updates,
         }
         Path(environment["HOME"]).mkdir()
         Path(environment["TMPDIR"]).mkdir()
-        toolchain_paths = [Path(path).parent.parent for path in executables.values()]
-        profile = _sandbox_profile(work_dir=workspace, toolchain_paths=toolchain_paths)
         results: list[_CommandResult] = []
-        for command in commands:
-            result = _run_command(
-                command,
-                task=task,
-                work_dir=workspace,
-                environment=environment,
-                profile=profile,
-                sandbox_executable=sandbox,
-            )
-            results.append(result)
-            if result.exit_code != 0 or result.timed_out or result.infrastructure_error:
-                break
+        _seal_input_tree(source_dir)
+        try:
+            for command in commands:
+                profile = _sandbox_profile(
+                    input_dir=source_dir,
+                    output_dir=output_dir,
+                    toolchain_paths=toolchain_paths,
+                    command=command,
+                )
+                result = _run_command(
+                    command,
+                    task=task,
+                    work_dir=output_dir,
+                    environment=environment,
+                    profile=profile,
+                    sandbox_executable=str(TRUSTED_SANDBOX_EXECUTABLE),
+                )
+                results.append(result)
+                if (
+                    result.exit_code != 0
+                    or result.timed_out
+                    or result.memory_exceeded
+                    or result.process_limit_exceeded
+                    or result.output_limit_exceeded
+                    or result.completion_evidence_missing
+                    or result.infrastructure_error
+                ):
+                    break
+        finally:
+            _unseal_input_tree(source_dir)
 
     stdout = b"\n".join(result.stdout for result in results)
     stderr = b"\n".join(result.stderr for result in results)
@@ -677,6 +881,7 @@ def score_coding_task(
         and not results[0].memory_exceeded
         and not results[0].process_limit_exceeded
         and not results[0].output_limit_exceeded
+        and not results[0].completion_evidence_missing
         and results[0].infrastructure_error is None
     )
     all_passed = bool(
@@ -687,6 +892,7 @@ def score_coding_task(
             and not result.memory_exceeded
             and not result.process_limit_exceeded
             and not result.output_limit_exceeded
+            and not result.completion_evidence_missing
             and result.infrastructure_error is None
             for result in results
         )
@@ -728,6 +934,11 @@ def score_coding_task(
             or (
                 "output limit exceeded"
                 if any(result.output_limit_exceeded for result in results)
+                else ""
+            )
+            or (
+                "trusted test completion evidence missing"
+                if any(result.completion_evidence_missing for result in results)
                 else ""
             )
             or stderr.decode("utf-8", errors="replace")[:_EXCERPT_LIMIT]
