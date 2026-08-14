@@ -91,7 +91,7 @@
   },
   "public_index": {
     "display_name": "Qwen3.8-27B AXQ 6-bit MTP",
-    "sort_order": 2,
+    "sort_order": 4,
     "edition_label": "main@`a5a0b700`",
     "listed": true
   }

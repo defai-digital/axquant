@@ -19,7 +19,8 @@ tensors, and multi-token-prediction (MTP) weights.
 > quality and runtime behavior.
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
-([MLX catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)).
+([collections](https://huggingface.co/AutomatosX/collections),
+[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
 Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id `df-macbookpro-m5`).
 Full index and Hub commits: [docs/certifications/](docs/certifications/README.md).
 The matrix is generated from certificate JSON (`python scripts/render_certification_docs.py --write`);
@@ -28,10 +29,10 @@ do not edit the table cells by hand.
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B AXQ 4-bit | [Certified](docs/certifications/qwen38-27b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md#tier-2-status) |
+| Qwen3.8-27B AXQ 6-bit | [Certified](docs/certifications/qwen38-27b-axq6-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md#tier-2-status) |
 | Qwen 3.6 27B AXQ 6-bit | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 27B AXQ 4-bit | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B AXQ 4-bit | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
@@ -464,8 +465,12 @@ Each repo ships a full model card (`README.md`) plus public AXQuant provenance
 present). Cards are multi-family aware and state evidence limits explicitly.
 
 The table below lists the current public packs under their stable names; the
-[AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
-provides a browsable catalog. The BPW values are rounded from each current public manifest's
+[AutomatosX collections](https://huggingface.co/AutomatosX/collections)
+group them by family (Qwen, Gemma, coding, vision, embeddings, and more), with a
+[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)
+starting list and a
+[complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog).
+The BPW values are rounded from each current public manifest's
 `measured_main_bpw`; the linked model card and manifest remain authoritative.
 
 **No distinct AXQ-4bit pack** is published when protection floors collapse the low-memory budget

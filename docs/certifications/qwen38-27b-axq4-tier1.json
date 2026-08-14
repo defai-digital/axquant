@@ -93,7 +93,7 @@
   },
   "public_index": {
     "display_name": "Qwen3.8-27B AXQ 4-bit",
-    "sort_order": 3,
+    "sort_order": 1,
     "edition_label": "main@`a8c56f94`",
     "listed": true
   }
