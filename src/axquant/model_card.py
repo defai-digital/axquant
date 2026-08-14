@@ -450,7 +450,10 @@ def _render_development_model_card(
             )
         )
         why_no_4bit_section = ""
-    catalog_url = "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
+    catalog_url = "https://huggingface.co/AutomatosX/collections"
+    complete_catalog_url = (
+        "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
+    )
     long_context_status = (
         f"{context_length}-token capacity is config metadata, not a validated claim"
     )
@@ -526,8 +529,9 @@ def _render_development_model_card(
         )
         ax_engine_section = f"""## Serve with AX Engine{" and MTP" if has_mtp else ""}
 
-After installing [AX Engine](https://github.com/defai-digital/ax-engine), download the complete
-repository and serve the local directory:
+After installing AX Engine, download the complete repository (see
+[AXQuant](https://github.com/defai-digital/axquant) for conversion, certificates, and
+model-card tooling) and serve the local directory:
 
 ```bash
 ax-engine serve ./{name} --port 31418
@@ -732,8 +736,8 @@ misleading `4bit` sibling for that base.
 | --- | --- |
 {sibling_rows}
 
-See the [AutomatosX MLX model catalog]({catalog_url})
-for related MLX and OptiQ alternatives.
+See the [AutomatosX collections]({catalog_url})
+for the family catalog, or the [complete index]({complete_catalog_url}).
 
 ## Download
 

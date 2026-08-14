@@ -103,8 +103,9 @@ does not establish MTP acceleration or vision-language quality. The artifact rec
 
 ## Serve with AX Engine
 
-After installing [AX Engine](https://github.com/defai-digital/ax-engine), download the complete
-repository and serve the local directory:
+After installing AX Engine, download the complete repository (see
+[AXQuant](https://github.com/defai-digital/axquant) for conversion, certificates, and
+model-card tooling) and serve the local directory:
 
 ```bash
 ax-engine serve ./AX-Qwen3.6-27B-MLX-AXQ-6bit --port 31418

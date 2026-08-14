@@ -72,7 +72,7 @@ misleading `4bit` sibling for that base.
 | [4bit sibling](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | Lower-storage AXQ budget; check its exact BPW |
 | [6bit sibling](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | Higher average precision near the 6-BPW budget |
 
-See the [AutomatosX MLX model catalog](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog)
+See the [AutomatosX collections](https://huggingface.co/AutomatosX/collections)
 for related MLX and OptiQ alternatives.
 
 ## Download
@@ -103,8 +103,9 @@ does not establish MTP acceleration or vision-language quality. The artifact rec
 
 ## Serve with AX Engine
 
-After installing [AX Engine](https://github.com/defai-digital/ax-engine), download the complete
-repository and serve the local directory:
+After installing AX Engine, download the complete repository (see
+[AXQuant](https://github.com/defai-digital/axquant) for conversion, certificates, and
+model-card tooling) and serve the local directory:
 
 ```bash
 ax-engine serve ./AX-Qwen3.8-27B-MLX-AXQ-4bit --port 31418
