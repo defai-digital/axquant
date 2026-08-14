@@ -14,6 +14,7 @@ from axquant.public_cert_index import (
     claim_from_public_row,
     load_public_cert_rows,
     public_row_for_repo,
+    render_full_cert_list,
     render_index_matrix,
     render_model_card_certification_section,
     render_readme_matrix,
@@ -316,11 +317,20 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert not messages, "\n".join(messages)
 
     rows = load_public_cert_rows()
+    all_rows = load_public_cert_rows(listed_only=False)
     readme_body = _extract_marked_matrix(_read("README.md"))
     index_body = _extract_marked_matrix(_read("docs/certifications/README.md"))
     assert readme_body == render_readme_matrix(rows)
     assert index_body == render_index_matrix(rows)
     assert _read("docs/releases/certification-matrix.md") == render_release_matrix(rows)
+    assert _read("docs/certifications/full-list.md") == render_full_cert_list(all_rows)
+    assert "full-list.md" in _read("README.md")
+    # Full list includes unlisted no-MTP / Coder-Next records omitted from headline.
+    full = _read("docs/certifications/full-list.md")
+    assert "Qwen3.8-27B AXQ 4-bit]" in full or "Qwen3.8-27B AXQ 4-bit |" in full
+    assert "qwen38-27b-axq4-tier1.md" in full
+    assert "qwen3-coder-next-axq4-tier1.md" in full
+    assert "In headline matrix" in full
 
     # Display names and Tier 1 verdicts agree across every generated surface.
     def _data_rows(matrix: str) -> list[str]:

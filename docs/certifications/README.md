@@ -5,9 +5,12 @@ covers the exact artifact named by its record; it does not promote sibling model
 revisions, or unscoped runtime claims.
 
 The index table below is **generated** from the `*-tier1.json` / `*-tier2.json` records
-(`public_index` fields plus verdicts). Do not edit the table by hand — update the certificate
-JSON and run `python scripts/render_certification_docs.py --write`. CI enforces exact agreement
+(`public_index` fields plus verdicts) for packs with `public_index.listed = true`.
+Do not edit the table by hand — update the certificate JSON and run
+`python scripts/render_certification_docs.py --write`. CI enforces exact agreement
 via `tests/test_documentation.py`.
+
+**Complete inventory** (listed + unlisted records): [full-list.md](full-list.md).
 
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |

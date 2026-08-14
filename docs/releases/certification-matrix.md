@@ -6,6 +6,10 @@ Source of truth: machine-readable certificates under
 [`docs/certifications/`](../certifications/).
 Regenerate with `python scripts/render_certification_docs.py --write`.
 
+Headline (listed) packs only. For every AXQ certificate record including
+unlisted no-MTP siblings and evaluation archives, see
+[full certification list](../certifications/full-list.md).
+
 | Pack family | Hub repository | Tier 1 | Tier 2 | Host |
 | --- | --- | --- | --- | --- |
 | Qwen3.8-27B AXQ 4-bit MTP | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | [Certified](../certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](../certifications/qwen38-27b-axq4-mtp-tier2.md) | `df-macbookpro-m3` |

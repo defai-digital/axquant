@@ -22,9 +22,12 @@ tensors, and multi-token-prediction (MTP) weights.
 ([collections](https://huggingface.co/AutomatosX/collections),
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
 Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id `df-macbookpro-m5`).
-Full index and Hub commits: [docs/certifications/](docs/certifications/README.md).
-The matrix is generated from certificate JSON (`python scripts/render_certification_docs.py --write`);
-do not edit the table cells by hand.
+Headline matrix below lists **public catalog** packs only (dual Tier 1+2 first).
+**Full list of every AXQ certificate record** (including unlisted no-MTP siblings and
+evaluation archives): [docs/certifications/full-list.md](docs/certifications/full-list.md).
+Listed-pack index with Hub commits: [docs/certifications/](docs/certifications/README.md).
+The tables are generated from certificate JSON
+(`python scripts/render_certification_docs.py --write`); do not edit the table cells by hand.
 
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |

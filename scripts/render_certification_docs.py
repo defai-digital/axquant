@@ -7,6 +7,7 @@ of truth. This script writes:
 * the marked matrix in ``README.md``
 * the marked matrix in ``docs/certifications/README.md``
 * ``docs/releases/certification-matrix.md``
+* ``docs/certifications/full-list.md`` (every certificate record)
 
 Usage::
 
