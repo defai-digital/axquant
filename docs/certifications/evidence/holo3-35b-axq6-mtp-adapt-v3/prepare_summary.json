@@ -1,0 +1,10 @@
+{
+  "features": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/data.features.safetensors",
+  "max_new_tokens": 64,
+  "max_seq_len": 128,
+  "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+  "output": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/data.jsonl",
+  "prompts": 40,
+  "samples": 1024,
+  "schema_version": "axquant.mtp-align-dataset.v1"
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "axquant.mtp-adapt-v3-comparison.v1",
+  "host": "df-macstudio-m2",
+  "grafted_offline_top1": 0.0,
+  "stage1_offline_top1": 0.25,
+  "stage1_online_accept": 0.023076923076923078,
+  "v3_offline_top1_before": 0.20833333333333334,
+  "v3_offline_top1_after": 0.25,
+  "v3_online_accept": 0.045112781954887216,
+  "v3_online_speedup": 0.5146910931016259,
+  "v3_samples": 1024,
+  "v3_steps": 1200,
+  "main_digests_unchanged": true,
+  "tier2_status": "not_certified",
+  "notes": [
+    "V3 continued stage-1 from best stage-1 head with 1024 labels / 1200 steps.",
+    "Offline top-1 on 48-pos budget: 0.208\u21920.25; online accept ~0.023\u2192~0.045.",
+    "Speedup still ~0.51x. Tier 2 still not certified. Non-MTP remains primary."
+  ]
+}

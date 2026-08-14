@@ -1,0 +1,61 @@
+{
+  "adapt": {
+    "loss_end": 4.68424654006958,
+    "loss_start": 3.850100517272949,
+    "output_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/mtp-adapted-fc-v3",
+    "output_mtp_sha256": "c2732c095b522f93951361aabd45349f0c3b8247a3090eaf8241869bcd3521df",
+    "samples": 1024,
+    "steps": 1200
+  },
+  "compose": {
+    "main_digests_unchanged": true,
+    "main_files": 6,
+    "output": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP-adapted-v3"
+  },
+  "finished_at": "2026-08-14T14:52:16.256628+00:00",
+  "improved": true,
+  "init_mtp": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/mtp-adapted-fc/mtp.safetensors",
+  "online": {
+    "accept_rate": 0.045112781954887216,
+    "recommendation": "adapt_fc_norms",
+    "speedup": 0.5146910931016259
+  },
+  "pack": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+  "prepare": {
+    "features": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/data.features.safetensors",
+    "max_new_tokens": 64,
+    "max_seq_len": 128,
+    "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+    "output": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/data.jsonl",
+    "prompts": 40,
+    "samples": 1024,
+    "schema_version": "axquant.mtp-align-dataset.v1"
+  },
+  "prompt_count": 40,
+  "schema_version": "axquant.mtp-adapt-v3.v1",
+  "started_at": "2026-08-14T14:44:29.814889+00:00",
+  "teacher_force_after": {
+    "correct": 12,
+    "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP-adapted-v3",
+    "mtp_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP-adapted-v3/mtp.safetensors",
+    "notes": [],
+    "positions": 48,
+    "prompts_used": 6,
+    "schema_version": "axquant.mtp-align-teacher-force.v1",
+    "top1": 0.25
+  },
+  "teacher_force_before": {
+    "correct": 10,
+    "model_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP",
+    "mtp_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/mtp-adapted-fc/mtp.safetensors",
+    "notes": [],
+    "positions": 48,
+    "prompts_used": 6,
+    "schema_version": "axquant.mtp-align-teacher-force.v1",
+    "top1": 0.20833333333333334
+  },
+  "tier2_status": "not_certified",
+  "top1_delta": 0.04166666666666666,
+  "trunk": "/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit",
+  "work": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3"
+}

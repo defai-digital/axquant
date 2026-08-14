@@ -1,0 +1,24 @@
+{
+  "graft_record": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/mtp-adapted-fc-v3/axquant_mtp_graft.json",
+  "mtp": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/mtp-adapted-fc-v3/mtp.safetensors",
+  "output_dir": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/mtp-adapted-fc-v3",
+  "output_mtp_sha256": "c2732c095b522f93951361aabd45349f0c3b8247a3090eaf8241869bcd3521df",
+  "train": {
+    "batch_size": 8,
+    "features_path": "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3/data.features.safetensors",
+    "learning_rate": 0.0003,
+    "loss_end": 4.68424654006958,
+    "loss_history_len": 1200,
+    "loss_start": 3.850100517272949,
+    "samples": 1024,
+    "stage": "fc_norms",
+    "steps": 1200,
+    "trainable": [
+      "mtp.fc.weight",
+      "mtp.pre_fc_norm_embedding.weight",
+      "mtp.pre_fc_norm_hidden.weight",
+      "mtp.norm.weight"
+    ],
+    "trainable_count": 4
+  }
+}
