@@ -29,7 +29,11 @@ from axquant.multimodal_backend import (
     convert_multimodal,
     preflight_multimodal,
 )
-from axquant.predicate import PlanPredicate, build_quant_predicate
+from axquant.predicate import (
+    PlanPredicate,
+    allocation_physical_mode,
+    build_quant_predicate,
+)
 from axquant.runtime import (
     assert_conversion_scope,
     build_runtime_metadata,
@@ -1307,6 +1311,7 @@ def _verify_converted_weights(
     plan: QuantizationPlan,
     *,
     source_tensors: Mapping[str, Any] | None = None,
+    q_mode: str = "affine",
 ) -> tuple[int, int, int, int, int, int, float, float]:
     if source_tensors is None:
         if not plan.source_model.local_path:
@@ -1432,26 +1437,40 @@ def _verify_converted_weights(
             )
         actual_shapes = tuple(component.shape for component in actual_components)
         if allocation.bits < 16:
-            if actual_shapes != expected_shapes or any(
-                component.current_bits != allocation.bits
-                or component.current_group_size != allocation.group_size
-                or component.current_method is not QuantMethod.AFFINE
+            physical_mode = allocation_physical_mode(allocation, q_mode)
+            method_ok = all(
+                component.current_method is QuantMethod.AFFINE
+                or (
+                    physical_mode == "mxfp4"
+                    and component.current_method in {QuantMethod.AFFINE, None}
+                )
                 for component in actual_components
+            )
+            if (
+                actual_shapes != expected_shapes
+                or any(
+                    component.current_bits != allocation.bits
+                    or component.current_group_size != allocation.group_size
+                    for component in actual_components
+                )
+                or not method_ok
             ):
                 raise ArtifactError(
                     f"converted tensor {verification_name} packing does not match the plan: "
-                    f"expected shapes {expected_shapes}, affine {allocation.bits}-bit "
+                    f"expected shapes {expected_shapes}, {physical_mode} {allocation.bits}-bit "
                     f"group {allocation.group_size}; found shapes {actual_shapes}"
                 )
+            suffixes = ("scales",) if physical_mode == "mxfp4" else ("scales", "biases")
             required_metadata = {
                 f"{component.module_path}.{suffix}"
                 for component in actual_components
-                for suffix in ("scales", "biases")
+                for suffix in suffixes
             }
             missing_metadata = required_metadata - metadata_names
             if missing_metadata:
+                kind = "MXFP4" if physical_mode == "mxfp4" else "affine"
                 raise ArtifactError(
-                    f"converted tensor {verification_name} lacks affine metadata: "
+                    f"converted tensor {verification_name} lacks {kind} metadata: "
                     f"{sorted(missing_metadata)}"
                 )
         else:
@@ -1556,6 +1575,7 @@ def convert_model(
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
     ax_engine_bench: str = "ax-engine-bench",
+    q_mode: Literal["affine", "mxfp4"] = "affine",
 ) -> ArtifactManifest:
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
         raise PlanningError(
@@ -1627,13 +1647,18 @@ def convert_model(
             plan,
             execute_refinement=False,
             calibration_activations=calibration_activations,
+            q_mode=q_mode,
         )
         _LOG.info("conversion_preflight_started", model=convert_model_ref)
         if backend == "mlx-lm":
             _preflight_coverage(convert_model_ref, convert_revision, predicate)
         else:
             preflight_multimodal(Path(convert_model_ref), plan, predicate)
-        predicate = build_quant_predicate(plan, calibration_activations=calibration_activations)
+        predicate = build_quant_predicate(
+            plan,
+            calibration_activations=calibration_activations,
+            q_mode=q_mode,
+        )
         default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:
             if backend == "mlx-lm":
@@ -1778,6 +1803,7 @@ def convert_model(
             staging_dir,
             plan,
             source_tensors=source_tensors,
+            q_mode=q_mode,
         )
         manifest = ArtifactManifest(
             axquant_version=plan.software_versions.axquant,

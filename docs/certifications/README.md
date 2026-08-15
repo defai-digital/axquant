@@ -27,6 +27,7 @@ or `quality-certified` only with bound evidence. Spec:
 | [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
 | [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
 | [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
+| [Qwen3.8-27B MLX AXQ MXFP4](qwen38-27b-axq-mxfp4-tier1.md) | main@`10652695` | [Certified](qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) |
 | [Qwen3.8-27B MLX AXQ 8-bit](qwen38-27b-axq8-tier1.md) | main@`36f9d25c` | [Certified](qwen38-27b-axq8-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |

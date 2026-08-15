@@ -568,6 +568,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default="required",
     )
     convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
+    convert_parser.add_argument(
+        "--q-mode",
+        choices=("affine", "mxfp4"),
+        default="affine",
+        help="Physical packing for 4-bit trunk tensors (8-bit floors stay affine)",
+    )
     convert_parser.add_argument("--output", required=True)
 
     quantize_parser = subparsers.add_parser(

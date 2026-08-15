@@ -32,7 +32,7 @@ from axquant.serde import file_sha256, load_model, read_data, stable_sha256, wri
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 _AXQ_NAME = re.compile(
     r"^(?P<stem>AX-.+-MLX-AXQ)-"
-    r"(?P<product_class>2bit(?:-experimental)?|3bit(?:-experimental)?|4bit|6bit|8bit)"
+    r"(?P<product_class>2bit(?:-experimental)?|3bit(?:-experimental)?|4bit|6bit|8bit|MXFP4)"
     r"(?P<edition>-v[1-9][0-9]*)?(?:-MTP)?$"
 )
 _PUBLIC_METADATA_FILES = (

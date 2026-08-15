@@ -378,7 +378,9 @@ def _quantization_details(
     try:
         method = QuantMethod(str(mode))
     except ValueError:
-        method = None
+        # Native MXFP4 residency still uses affine-compatible U32 packing;
+        # refinement method stays affine. Physical mode lives in config.json.
+        method = QuantMethod.AFFINE if str(mode).lower() == "mxfp4" else None
     return parsed_bits, parsed_group_size, method
 
 

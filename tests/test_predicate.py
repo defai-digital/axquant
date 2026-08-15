@@ -584,3 +584,17 @@ def test_gpt_oss_mxfp4_blocks_bind_experts_switch_glu_modules() -> None:
     down_flat = set(down_groups[0])
     assert "model.layers.0.mlp.switch_mlp.down_proj.weight" in down_flat
     assert "model.layers.0.mlp.experts.down_proj.weight" in down_flat
+
+
+def test_mxfp4_q_mode_remaps_four_bit_trunk() -> None:
+    plan = _mlp_plan()
+    plan.assignments[0].group_size = 32
+    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    assert predicate("model.layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }
+    plan.assignments[0].group_size = 64
+    with pytest.raises(PlanningError, match="group_size 32"):
+        build_quant_predicate(plan, q_mode="mxfp4")("model.layers.0.mlp.down_proj", object())

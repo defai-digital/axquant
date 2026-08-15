@@ -749,6 +749,7 @@ def _run(args: argparse.Namespace) -> int:
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,
+            q_mode=args.q_mode,
         )
         return 0
 

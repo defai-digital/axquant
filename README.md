@@ -43,6 +43,7 @@ The tables are generated from certificate JSON
 | Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen3.8-27B MLX AXQ MXFP4 | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B MLX AXQ 8-bit | [Certified](docs/certifications/qwen38-27b-axq8-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
@@ -67,7 +68,8 @@ profile (async draft, verify-submit interval 8, pipeline granularity layer) on
 
 **Qwen3.8-27B** AXQ **4-bit and 6-bit** MTP packs are **checkpoint Tier 1 + scoped Tier 2 MTP**
 certified on `df-macbookpro-m3` (AX Engine 6.16.1, `QWEN38_EXACT_MTP_PROFILE_ENV` / async draft).
-The **8-bit** no-MTP pack is **checkpoint Tier 1** on `df-macstudio-m2`.
+The **MXFP4** no-MTP pack (native MXFP4 trunk, 4.84 BPW) and the **8-bit** no-MTP pack are
+**checkpoint Tier 1** on `df-macstudio-m2`.
 Non-MTP siblings remain Tier 1 only (Tier 2 N/A). Product default remains direct fallback;
 acceleration is opt-in under the formal exact profile. Vision weights are BF16-protected, but
 end-to-end image/video quality is not certified; see the
@@ -536,6 +538,7 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
+| [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4) | 4.8441 | **Tier 1** no-MTP MXFP4 trunk ([cert](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md)); attention+MLP native MXFP4, embed/lm_head 8-bit affine |
 | [`AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | 5.0667 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq4-tier1.md)); dense hybrid `qwen3_5` |
 | [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); recovery lm_head 8-bit |
 | [`AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | 5.8448 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq6-tier1.md)) |

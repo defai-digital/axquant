@@ -272,6 +272,7 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen36-35b-axq4",
         "qwen36-35b-axq6",
         # Tier 1 only, no MTP (T2 N/A)
+        "qwen38-27b-axq-mxfp4",
         "qwen38-27b-axq4",
         "qwen38-27b-axq6",
         "qwen38-27b-axq8",

@@ -15,6 +15,43 @@ from axquant.module_paths import (
 from axquant.schema import Allocation, QuantizationPlan
 
 _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act"})
+MXFP4_GROUP_SIZE = 32
+_PHYSICAL_MODES = frozenset({"affine", "mxfp4"})
+
+
+def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> str:
+    """Return the MLX ``to_quantized`` mode for one allocation.
+
+    ``q_mode=mxfp4`` remaps 4-bit trunk tensors onto native MXFP4. 8-bit and
+    BF16 floors stay affine / unpacked. ``strategy_metadata['physical_mode']``
+    can request the same remap without a convert flag.
+    """
+
+    requested = str(q_mode or "affine").lower()
+    if requested not in _PHYSICAL_MODES:
+        raise PlanningError(f"unsupported convert q-mode: {q_mode}")
+    meta = str(allocation.strategy_metadata.get("physical_mode") or "").lower()
+    if requested == "mxfp4" and allocation.bits == 4:
+        return "mxfp4"
+    if meta == "mxfp4" and allocation.bits == 4:
+        return "mxfp4"
+    return "affine"
+
+
+def allocation_quant_params(allocation: Allocation, q_mode: str = "affine") -> dict[str, Any]:
+    mode = allocation_physical_mode(allocation, q_mode)
+    group_size = allocation.group_size
+    if mode == "mxfp4":
+        if allocation.bits != 4:
+            raise PlanningError(
+                f"MXFP4 physical mode requires 4-bit allocation: {allocation.module_path}"
+            )
+        if group_size != MXFP4_GROUP_SIZE:
+            raise PlanningError(
+                f"MXFP4 physical mode requires group_size {MXFP4_GROUP_SIZE}: "
+                f"{allocation.module_path} has {group_size}"
+            )
+    return {"group_size": group_size, "bits": allocation.bits, "mode": mode}
 
 
 def _without_weight_suffix(path: str) -> str:
@@ -28,7 +65,11 @@ class PlanPredicate:
         *,
         execute_refinement: bool = True,
         calibration_activations: Mapping[str, Any] | None = None,
+        q_mode: str = "affine",
     ) -> None:
+        self._q_mode = str(q_mode or "affine").lower()
+        if self._q_mode not in _PHYSICAL_MODES:
+            raise PlanningError(f"unsupported convert q-mode: {q_mode}")
         self._assignments = {
             _without_weight_suffix(allocation.module_path): allocation
             for allocation in plan.assignments
@@ -208,11 +249,7 @@ class PlanPredicate:
                 group_size=group_size,
                 act_order=allocation.method.value == "gptq-act",
             )
-        return {
-            "group_size": allocation.group_size,
-            "bits": allocation.bits,
-            "mode": "affine",
-        }
+        return allocation_quant_params(allocation, self._q_mode)
 
     def unmatched_quantized_modules(self) -> set[str]:
         expected = {
@@ -228,6 +265,7 @@ def build_quant_predicate(
     *,
     execute_refinement: bool = True,
     calibration_activations: Mapping[str, Any] | None = None,
+    q_mode: str = "affine",
 ) -> PlanPredicate:
     undeclared = {
         allocation.method.value
@@ -262,6 +300,7 @@ def build_quant_predicate(
         plan,
         execute_refinement=execute_refinement,
         calibration_activations=calibration_activations,
+        q_mode=q_mode,
     )
 
 
