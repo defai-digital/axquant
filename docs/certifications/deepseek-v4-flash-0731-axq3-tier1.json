@@ -1,0 +1,88 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-15T22:01:28+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-3bit",
+    "hub_commit": "bc10f5413050a18950c101cb260c0fb2016e01e3",
+    "product_class": "3bit-experimental",
+    "architecture": "DeepseekV4ForCausalLM",
+    "source_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "source_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+    "candidate_manifest_sha256": "a2f630cdc2360be2153a4024bfde657c98fb89ae97512102e9fb7d7345816e8b"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "3bit-experimental",
+    "effective_bpw": 4.8846934404928115,
+    "measured_total_bpw": 4.128490312221629,
+    "measured_main_bpw": 4.110998966099255
+  },
+  "size": {
+    "candidate_weight_bytes": 156975738865,
+    "candidate_measured_bpw": 4.110998966099255,
+    "pass": true,
+    "notes": "No public uniform 3-bit reference; size bound to measured weight bytes and BPW."
+  },
+  "quality": {
+    "agent-coding": {
+      "pass": false,
+      "reason": "mlx-lm generate smoke passed; dual-suite generation-viability not run this cycle."
+    },
+    "general": {
+      "pass": false,
+      "reason": "mlx-lm generate smoke passed; dual-suite generation-viability not run this cycle."
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "Experimental low-bit track uses generation viability, not BF16 retention."
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "MTP present; AX Engine generate-manifest skipped (split switch_mlp.up_proj vs fused gate+up)."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "generate prompt='Say OK.' returned nonempty text on df-macstudio-m2"
+    },
+    "ax_engine": {
+      "status": "fail",
+      "version": "6.16.1",
+      "notes": "same fused-gate manifest miss as the 0731 2-bit pack"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2",
+    "python": "3.12"
+  },
+  "notes": [
+    "Studio factory SF2/SF3: converted from DeepSeek-V4-Flash-0731@7872f01b on Ext12T.",
+    "Not the older DeepSeek-V4-Flash 3-bit certificate.",
+    "Not certified: dual-suite generation viability not measured; engine manifest is a named miss."
+  ],
+  "public_index": {
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 3-bit (exp.)",
+    "sort_order": 231,
+    "edition_label": "studio-eval@`bc10f541`",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text MoE Flash pack"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "no audio tower"
+    }
+  }
+}
