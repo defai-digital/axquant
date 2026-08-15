@@ -122,18 +122,14 @@ def test_all_in_tree_tier1_certs_have_valid_modalities() -> None:
 
 
 def test_qwen3_vl_is_vision_smoke_audio_na() -> None:
-    cert = load_public_checkpoint_certification(
-        _CERT_DIR / "qwen3-vl-30b-axq4-tier1.json"
-    )
+    cert = load_public_checkpoint_certification(_CERT_DIR / "qwen3-vl-30b-axq4-tier1.json")
     assert cert.modalities is not None
     assert cert.modalities.vision.status == "smoke-certified"
     assert cert.modalities.audio.status == "not-applicable"
 
 
 def test_gemma4_text_path_modalities_disabled() -> None:
-    cert = load_public_checkpoint_certification(
-        _CERT_DIR / "gemma4-12b-axq4-tier1.json"
-    )
+    cert = load_public_checkpoint_certification(_CERT_DIR / "gemma4-12b-axq4-tier1.json")
     assert cert.modalities is not None
     assert cert.modalities.vision.status == "not-applicable"
     assert cert.modalities.audio.status == "not-applicable"
