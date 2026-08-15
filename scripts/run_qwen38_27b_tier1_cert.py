@@ -45,7 +45,9 @@ SEED = 20260728
 MAX_TOKENS = 64
 MAX_SIZE_RATIO = 1.15
 MIN_QUALITY = 0.98
-HOST_ID = os.environ.get("QWEN38_CERT_HOST", "df-macbookpro-m3")
+from axquant.factory import FACTORY_HOST_ID  # noqa: E402
+
+HOST_ID = os.environ.get("QWEN38_CERT_HOST", FACTORY_HOST_ID)
 
 PACKS: dict[str, dict[str, object]] = {
     "axq4": {

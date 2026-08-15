@@ -7,8 +7,8 @@ gates honestly.
 
 Default is a **medium probe** (subset prompts, fewer trials) so operators can
 decide whether a full authorizing scoreboard is worth running. Pass
-``--full`` for formal-like size (still on the host you choose; formal Qwen
-certs used ``df-macbookpro-m5``).
+``--full`` for formal-like size. Factory Tier 1 / Tier 2 must run on
+``df-macstudio-m2`` (historical Qwen certs used ``df-macbookpro-m5``).
 
 Usage (factory)::
 

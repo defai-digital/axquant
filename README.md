@@ -5,29 +5,231 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AXQuant is a command-line toolkit that converts a supported, unquantized Safetensors checkpoint
-into an AXQuant-optimized MLX checkpoint for Apple Silicon.
+AXQuant converts a supported, unquantized Safetensors checkpoint into a mixed-precision
+MLX checkpoint for Apple Silicon. It inspects the model, assigns 4-bit, 6-bit, 8-bit, or
+BF16 per tensor, keeps sensitive layers (norms, heads, routers, vision/audio, MTP) at hard
+floors, and writes the manifests AX Engine and MLX-LM need.
 
-It inspects the model, builds an auditable mixed-precision plan, converts weights through public
-MLX-LM, MLX-Audio, or MLX-VLM interfaces, and writes the manifests and validation metadata the
-selected runtime needs. Precision can be 4-bit, 6-bit, 8-bit, or BF16 per tensor, with hard floors
-for sensitive components such as normalization layers, output heads, routers, vision/audio
-tensors, and multi-token-prediction (MTP) weights.
-
-> AXQuant improves deployment efficiency. It does not train the source model or add new learned
-> capabilities. The goal is lower storage and unified-memory cost while preserving important model
-> quality and runtime behavior.
+It does not train the source model or add new capabilities. The goal is a smaller, cheaper
+checkpoint that still behaves well.
 
 **Current release:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
 (PyPI `axquant==1.8.1`).
 
+Install from PyPI, then convert. You do not need to clone this repository.
+
+## Install
+
+Apple Silicon Mac (M1–M5) and **Python 3.11+**. Conversion needs the MLX extra; that stack
+only runs on arm64 macOS. Use Homebrew `brew install python@3.13` or
+[python.org](https://www.python.org/downloads/macos/).
+
+**Always install into a virtual environment.** Homebrew Python is
+[PEP 668](https://peps.python.org/pep-0668/) externally managed: a bare
+`python -m pip install axquant` against system Python fails with
+`externally-managed-environment`. That is expected; do **not** pass
+`--break-system-packages`.
+
+Copy the block as a whole (plain ASCII quotes; single-quote the extra so zsh does not treat
+`[mlx]` as a glob):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install 'axquant[mlx]==1.8.1'
+axquant --help
+```
+
+With the venv active, `python` and `axquant` are both from `.venv`. Without activate, call
+`.venv/bin/axquant` directly.
+
+| Goal | Command |
+| --- | --- |
+| Convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.1'` inside a venv |
+| Inspect / plan / report only (no Metal) | `python -m pip install 'axquant==1.8.1'` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.1'` |
+
+If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
+line or paste only from the fenced block above.
+
+Package index: [pypi.org/project/axquant](https://pypi.org/project/axquant/). Wheels and checksums
+also ship on [GitHub Releases](https://github.com/defai-digital/axquant/releases) (not the GitHub
+Packages tab; that UI is for npm/containers, not pip).
+
+## Convert
+
+Point `quantize` at a local BF16 Safetensors directory. `--target-bpw` defaults to 4.8.
+The result is a **development** checkpoint — good for trying the model locally, not a public
+quality or speed claim.
+
+```bash
+axquant quantize /path/to/model-bf16
+```
+
+Useful options:
+
+```bash
+# Choose the bit budget and output folder
+axquant quantize /path/to/model-bf16 --target-bpw 4.8 --output ./AXQuant-output
+
+# Hugging Face id (downloads only when you pass --allow-download)
+axquant quantize Qwen/Qwen3.6-27B --allow-download --revision COMMIT_SHA
+
+# Confirm the family is convertible before spending the convert
+axquant inspect --model /path/to/model-bf16 --output inventory.json
+```
+
+Load the output with MLX-LM:
+
+```bash
+python -m pip install -U mlx-lm
+mlx_lm.generate --model ./AXQuant-output --prompt "Hello" --max-tokens 64 --temp 0.0
+```
+
+Skip convert and use a ready-made pack from
+[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
+([certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
+`axquant quantize --help` lists every flag. Family-specific notes (ASR normalization, VL
+image smoke, recipes) are under
+[Simple development conversion](#simple-development-conversion).
+
+Conversion needs enough unified memory for the source model. Public certification of a pack
+is a separate, evidence-gated path — see [Current status](#current-status).
+
+## Contents
+
+**Start here**
+
+- [Install](#install)
+- [Convert](#convert)
+- [How it works](#how-it-works)
+- [Input and output](#input-and-output)
+- [Why AXQuant](#why-axquant)
+
+**Product status and packs**
+
+- [Current status](#current-status) (tiers, Hub catalog, known gaps, [72 h endurance](docs/ax-engine-72h-endurance.md))
+
+**Operators**
+
+- [From-source install (Mac)](#from-source-install-mac)
+- [Simple development conversion](#simple-development-conversion)
+- [Staged development conversion](#staged-development-conversion)
+- [CLI workflow](#cli-workflow)
+- [Measured planning and validation](#measured-planning-and-validation)
+- [Evidence and safety boundaries](#evidence-and-safety-boundaries)
+- [Model naming](#model-naming)
+
+**Contributors**
+
+- [Development](#development)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [License](#license)
+
+## How it works
+
+```text
+BF16 Safetensors checkpoint supported by its promoted MLX backend
+        (pin a revision for measured/release evidence)
+                         │
+                         ▼
+        inspect → plan → convert → runtime-check / validate
+           │                │
+           │                └── AXQuant-optimized MLX checkpoint
+           │                    + AX Engine runtime metadata
+           │                    + plan, manifest, and provenance
+           └── model inventory and protection boundaries
+```
+
+Most users only need [Install](#install) and [Convert](#convert):
+
+```bash
+python -m pip install 'axquant[mlx]==1.8.1'
+axquant quantize /path/to/model-bf16
+```
+
+The staged journey (inspect → plan → convert → validate → publish) is for measured
+releases and public claims. See [Simple development conversion](#simple-development-conversion)
+and [Measured planning and validation](#measured-planning-and-validation).
+
+## Input and output
+
+### Input
+
+AXQuant converts unquantized Safetensors checkpoints of families at the `convertible` tier or
+above through the public runtime backend promoted for that architecture. Text families use
+MLX-LM. Qwen3-VL uses MLX-VLM with its vision tower protected at BF16. Qwen3-ASR uses MLX-Audio
+with its audio tower protected at BF16; the pinned upstream `thinker.*` checkpoint must first be
+normalized with `scripts/hf_to_mlx_bf16.py`, which records `axquant_source.json`. Planning directly
+from the unnormalized ASR export is rejected because it contains a duplicated tied LM head and
+runtime-specific tensor layouts.
+
+A pinned source revision is mandatory for measured sensitivity and release evidence; an unpinned
+local source is permitted only for development workflows. MoE expert stacks quantize as fused
+switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The checkpoint
+must use the expected configuration and indexed Safetensors layout. Remaining recognized families
+(for example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
+
+### Output
+
+A successful conversion produces a new portable MLX model directory containing:
+
+- mixed-precision model weights and standard MLX configuration files;
+- the exact quantization plan used for the conversion;
+- an AXQuant artifact manifest with checksums and provenance;
+- architecture-specific runtime metadata for AX Engine, MLX-LM, MLX-Audio, or MLX-VLM;
+- an AX Engine native manifest when the runtime tool is available;
+- a byte-preserved external MTP sidecar by default, or an explicitly prepared development
+  sidecar with transform-level provenance;
+- a raw, checksummed BF16 sidecar for protected vision tensors when MLX-LM excludes them, or
+  protected modality tensors in the main MLX-Audio/MLX-VLM checkpoint.
+
+The artifact manifest records authoritative main-model and total logical parameters, physical
+Safetensors bytes, and measured BPW. The language-model output remains usable as a standard MLX
+checkpoint. AX Engine consumes the additional AXQuant metadata for runtime-specific behavior;
+MLX-LM may ignore that metadata and use ordinary decode.
+
+## Why AXQuant
+
+Uniform quantization gives every eligible tensor the same precision; rule-based per-module
+overrides assign precision by name pattern. AXQuant instead allocates precision per tensor from
+a budget-constrained solve over measured sensitivity, so the model spends more bits where the
+measurement shows it matters and fewer where it does not.
+
+Its design centers on:
+
+- **mixed precision:** 4-bit, 6-bit, 8-bit, and BF16 assignments, with an experimental
+  2/3-bit range for robust trunk tensors (AX Engine gates them behind
+  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`);
+- **quality protection:** hard precision floors for sensitive model components;
+- **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
+- **workload awareness:** separate objectives for general and agent/coding workloads;
+- **real deployment cost:** actual artifact bytes, unified memory, latency, and throughput;
+- **reproducibility:** revision-pinned release inputs, deterministic artifacts, checksums, and
+  manifests;
+- **fail-closed conversion:** incomplete plans or unmatched modules stop conversion;
+- **independent implementation:** public APIs and research without reused quantizer internals.
+
+## Current status
+
+The latest tagged toolkit version is `1.8.1` (GitHub tag `v1.8.1`, PyPI `axquant==1.8.1`;
+packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
+validation, and publication-gating commands are implemented and covered by the test suite.
+Certification is checkpoint- and evidence-specific; a working command does not by itself
+certify an output.
+
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([collections](https://huggingface.co/AutomatosX/collections),
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
-**Certification host (from now on):** Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`),
-with Ext4T. Existing certificates stay bound to the host recorded in each JSON record
-(`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`). The frozen M0–M8 flagship
-campaign schema still names `df-macbookpro-m5` until that contract is versioned separately.
+**Certification host (from now on):** conversion, **all Tier 1**, and **all Tier 2**
+certifications **must** run on Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`)
+with Ext12T. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
+Existing certificates stay bound to the host recorded in each JSON record
+(`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`) until recertified on
+`df-macstudio-m2`. The frozen M0–M8 flagship campaign schema still names
+`df-macbookpro-m5` until that contract is versioned separately.
 AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
 ([report](docs/ax-engine-72h-endurance.md)).
 Headline matrix below lists **public catalog** packs only (dual Tier 1+2 first).
@@ -108,222 +310,6 @@ for this base. Technical report:
 [docs/qwen38-axq-2bit.md](docs/qwen38-axq-2bit.md). Separate OptiQ 2/4-bit
 repos are not AX Engine artifacts
 ([docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md)).
-
-## Contents
-
-**Start here**
-
-- [Install (Mac / Apple Silicon)](#install-mac-apple-silicon)
-- [At a glance](#at-a-glance)
-- [Quickstart](#quickstart)
-- [How it works](#how-it-works)
-- [Input and output](#input-and-output)
-- [Why AXQuant](#why-axquant)
-
-**Product status and packs**
-
-- [Current status](#current-status) (tiers, Hub catalog, known gaps, [72 h endurance](docs/ax-engine-72h-endurance.md))
-
-**Operators**
-
-- [From-source install (Mac)](#from-source-install-mac)
-- [Simple development conversion](#simple-development-conversion)
-- [Staged development conversion](#staged-development-conversion)
-- [CLI workflow](#cli-workflow)
-- [Measured planning and validation](#measured-planning-and-validation)
-- [Evidence and safety boundaries](#evidence-and-safety-boundaries)
-- [Model naming](#model-naming)
-
-**Contributors**
-
-- [Development](#development)
-- [Contributing](#contributing)
-- [Documentation](#documentation)
-- [License](#license)
-
-## Install (Mac / Apple Silicon)
-
-AXQuant is built for **Macs with Apple Silicon** (M1-M5). Conversion and measured analysis need
-the MLX stack; that only runs on arm64 macOS. Use **Python 3.11+** (Homebrew
-`brew install python@3.13` or [python.org](https://www.python.org/downloads/macos/) both work).
-
-**Always install into a virtual environment.** Homebrew Python is
-[PEP 668](https://peps.python.org/pep-0668/) externally managed: a bare
-`python -m pip install axquant` against system Python fails with
-`externally-managed-environment`. That is expected; do **not** pass
-`--break-system-packages`.
-
-Copy the block below as a whole (plain ASCII quotes only; single-quote the extra so zsh
-does not treat `[mlx]` as a glob):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install 'axquant[mlx]==1.8.1'
-axquant --help
-```
-
-With the venv active, `python` and `axquant` are both from `.venv`. Without activate, call
-`.venv/bin/axquant` directly.
-
-| Goal | Command |
-| --- | --- |
-| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.1'` inside a venv |
-| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.8.1'` inside a venv |
-| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.1'` |
-
-If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
-line or paste only from the fenced block above (do not copy prose with `"` / `'` glyphs).
-
-Package index: [pypi.org/project/axquant](https://pypi.org/project/axquant/). Wheels and checksums
-also ship on [GitHub Releases](https://github.com/defai-digital/axquant/releases) (not the GitHub
-Packages tab; that UI is for npm/containers, not pip).
-
-## At a glance
-
-- **What it does:** turns a supported BF16 checkpoint into a mixed-precision MLX checkpoint for
-  Mac Apple Silicon, assigning bits per tensor instead of one flat width for the whole model.
-- **Install and convert:**
-  ```bash
-  python3 -m venv .venv && source .venv/bin/activate
-  python -m pip install 'axquant[mlx]==1.8.1'
-  axquant quantize /path/to/model-bf16 --target-bpw 4.8
-  ```
-- **Naming isn't the bit budget:** `4bit`/`6bit` pack names are planning
-  classes, not fixed-width claims — for example the public
-  `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` pack measures ~5.42 BPW. Tier 1 certification may retain a
-  stable product-class repository name when the certificate pins an immutable revision and exact
-  BPW; acceleration-bearing flagship claims use the measured-BPW form
-  `AX-<Base>-MLX-AXQ-MP-<N>bpw[-MTP]`. Manifests remain authoritative.
-- **Support:** Qwen3.8, Qwen 3.6, Qwen 3.5, Qwen3 dense/Embeddings, Qwen3-Next/Coder-Next,
-  Qwen3-ASR, Qwen3-VL (including 30B-A3B Instruct), Holo3 / Ornith, MiniCPM5, Gemma-4,
-  Mistral/Devstral/Ministral, Nemotron 3 Nano, DeepSeek V4, DeepSeek-OCR-2, Muse-Glimmer,
-  and GPT-OSS — see the tier matrix under [Current status](#current-status).
-- **Where it stands:** Qwen3.8-27B AXQ 4/6-bit MTP packs are checkpoint Tier 1 and **scoped**
-  MTP Tier 2 certified on MacBook Pro M3 Max. Qwen 3.6 27B dense and 35B-A3B MoE packs are
-  checkpoint Tier 1 and scoped MTP Tier 2 certified on MacBook Pro M5 (128 GB). Gemma 4
-  12B/26B/31B AXQ 4-bit and 6-bit packs are checkpoint Tier 1 only (Tier 2 not certified).
-  Qwen3-Coder-Next AXQ 4/6-bit packs are checkpoint Tier 1 only (no MTP; Tier 2 N/A).
-  GPT-OSS 20B AXQ 4/6-bit and 120B AXQ 6-bit are checkpoint Tier 1 certified (120B 4-bit not
-  certified). Product default remains direct fallback.
-  [Current status](#current-status) states the exact scope.
-
-## Quickstart
-
-This path creates a **development** conversion from a local, unquantized Safetensors checkpoint
-on an Apple Silicon Mac. It is the quickest way to verify compatibility; it is not a substitute
-for the measured calibration, evaluation, and release-audit evidence required for a public
-quality or performance claim.
-
-```bash
-git clone https://github.com/defai-digital/axquant.git
-cd axquant
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install -e '.[mlx]'
-
-MODEL=/absolute/path/to/bf16-safetensors-model
-axquant inspect --model "$MODEL" --output inventory.json
-axquant quantize "$MODEL" --output ./AXQuant-output --target-bpw 4.8
-```
-
-Read `inventory.json` before conversion: it records the adapter, support tier, protection
-boundaries, and any blocking source-layout issue. Use an explicit `--target-bpw` at or above the
-reported floor when the budget must be fixed. For a measured or publishable workflow, continue
-with [measured planning and validation](#measured-planning-and-validation) before making a
-quality or performance claim.
-
-## How it works
-
-```text
-BF16 Safetensors checkpoint supported by its promoted MLX backend
-        (pin a revision for measured/release evidence)
-                         │
-                         ▼
-        inspect → plan → convert → runtime-check / validate
-           │                │
-           │                └── AXQuant-optimized MLX checkpoint
-           │                    + AX Engine runtime metadata
-           │                    + plan, manifest, and provenance
-           └── model inventory and protection boundaries
-```
-
-The intended user journey is:
-
-1. provide a supported, unquantized LLM checkpoint;
-2. inspect its architecture and tensors;
-3. generate a manual or evidence-based mixed-precision plan;
-4. convert it from the command line;
-5. verify runtime compatibility, model quality, memory use, and speed;
-6. publish only after the required validation gates pass.
-
-## Input and output
-
-### Input
-
-AXQuant converts unquantized Safetensors checkpoints of families at the `convertible` tier or
-above through the public runtime backend promoted for that architecture. Text families use
-MLX-LM. Qwen3-VL uses MLX-VLM with its vision tower protected at BF16. Qwen3-ASR uses MLX-Audio
-with its audio tower protected at BF16; the pinned upstream `thinker.*` checkpoint must first be
-normalized with `scripts/hf_to_mlx_bf16.py`, which records `axquant_source.json`. Planning directly
-from the unnormalized ASR export is rejected because it contains a duplicated tied LM head and
-runtime-specific tensor layouts.
-
-A pinned source revision is mandatory for measured sensitivity and release evidence; an unpinned
-local source is permitted only for development workflows. MoE expert stacks quantize as fused
-switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The checkpoint
-must use the expected configuration and indexed Safetensors layout. Remaining recognized families
-(for example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
-
-### Output
-
-A successful conversion produces a new portable MLX model directory containing:
-
-- mixed-precision model weights and standard MLX configuration files;
-- the exact quantization plan used for the conversion;
-- an AXQuant artifact manifest with checksums and provenance;
-- architecture-specific runtime metadata for AX Engine, MLX-LM, MLX-Audio, or MLX-VLM;
-- an AX Engine native manifest when the runtime tool is available;
-- a byte-preserved external MTP sidecar by default, or an explicitly prepared development
-  sidecar with transform-level provenance;
-- a raw, checksummed BF16 sidecar for protected vision tensors when MLX-LM excludes them, or
-  protected modality tensors in the main MLX-Audio/MLX-VLM checkpoint.
-
-The artifact manifest records authoritative main-model and total logical parameters, physical
-Safetensors bytes, and measured BPW. The language-model output remains usable as a standard MLX
-checkpoint. AX Engine consumes the additional AXQuant metadata for runtime-specific behavior;
-MLX-LM may ignore that metadata and use ordinary decode.
-
-## Why AXQuant
-
-Uniform quantization gives every eligible tensor the same precision; rule-based per-module
-overrides assign precision by name pattern. AXQuant instead allocates precision per tensor from
-a budget-constrained solve over measured sensitivity, so the model spends more bits where the
-measurement shows it matters and fewer where it does not.
-
-Its design centers on:
-
-- **mixed precision:** 4-bit, 6-bit, 8-bit, and BF16 assignments, with an experimental
-  2/3-bit range for robust trunk tensors (AX Engine gates them behind
-  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`);
-- **quality protection:** hard precision floors for sensitive model components;
-- **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
-- **workload awareness:** separate objectives for general and agent/coding workloads;
-- **real deployment cost:** actual artifact bytes, unified memory, latency, and throughput;
-- **reproducibility:** revision-pinned release inputs, deterministic artifacts, checksums, and
-  manifests;
-- **fail-closed conversion:** incomplete plans or unmatched modules stop conversion;
-- **independent implementation:** public APIs and research without reused quantizer internals.
-
-## Current status
-
-The latest tagged toolkit version is `1.8.1` (GitHub tag `v1.8.1`, PyPI `axquant==1.8.1`;
-packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
-validation, and publication-gating commands are implemented and covered by the test suite.
-Certification is checkpoint- and evidence-specific; a working command does not by itself
-certify an output.
 
 ### v1.8.x at a glance
 
@@ -513,7 +499,7 @@ Public packs on [AutomatosX](https://huggingface.co/AutomatosX) are development 
 exact immutable revision is linked to a certificate. As of **v1.7.0** the public catalog includes
 multiple certified families — Qwen3.8-27B, Qwen 3.6 27B/35B-A3B, Qwen3-VL 30B-A3B Instruct,
 Holo3-35B-A3B, Gemma 4, Qwen3-Coder-Next, GPT-OSS, and experimental DeepSeek V4 Flash 2/3-bit —
-each bound to its own certificate. The headline matrix at the top of this README lists the
+each bound to its own certificate. The headline matrix under [Current status](#current-status) lists the
 listed public packs; the [full list](docs/certifications/full-list.md) includes unlisted
 no-MTP siblings and evaluation archives.
 
@@ -732,10 +718,12 @@ non-release development evidence. They cannot support production-quality or perf
 
 ## From-source install (Mac)
 
-PyPI install is under [Install](#install). For an editable checkout on Apple Silicon
-(conversion needs `.[mlx]`; AX Engine manifest generation needs `ax-engine-bench` on `PATH`):
+Users should install from PyPI under [Install](#install). An editable checkout is only
+needed to change the toolkit. Conversion needs `.[mlx]`; AX Engine manifest generation
+needs `ax-engine-bench` on `PATH`:
 
 ```bash
+git clone https://github.com/defai-digital/axquant.git
 cd axquant
 python3 -m venv .venv
 source .venv/bin/activate
@@ -751,7 +739,7 @@ AXQuant uses a **two-door** model:
 
 | Door | When | Command |
 | --- | --- | --- |
-| **Simple (dev)** | local trials, fit-check, smoke | `axquant quantize MODEL --target-bpw 4.8` |
+| **Simple (dev)** | local trials, fit-check, smoke | `axquant quantize MODEL` (`--target-bpw` defaults to 4.8) |
 | **Release** | public quality/speed claims | staged analyze → plan → convert → validate → scoreboard |
 
 Simple convert is **always development evidence**. It never upgrades to a certified claim.

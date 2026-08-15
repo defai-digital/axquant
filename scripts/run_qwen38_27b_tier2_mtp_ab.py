@@ -10,6 +10,7 @@ Usage (factory host with Ext4T + ax-engine-bench)::
   export PATH="/opt/homebrew/bin:$PATH"
   .venv/bin/python scripts/run_qwen38_27b_tier2_mtp_ab.py --pack axq6
   .venv/bin/python scripts/run_qwen38_27b_tier2_mtp_ab.py --pack axq4
+  .venv/bin/python scripts/run_qwen38_27b_tier2_mtp_ab.py --pack mxfp4
   .venv/bin/python scripts/run_qwen38_27b_tier2_mtp_ab.py --pack both --full
 """
 
@@ -39,7 +40,9 @@ from axquant.serde import file_sha256, write_data  # noqa: E402
 SEED = 20260728
 WEIGHTED_MIN = 1.20
 PROMPT_MEDIAN_MIN = 1.10
-HOST_ID = os.environ.get("QWEN38_CERT_HOST", "df-macbookpro-m3")
+from axquant.factory import FACTORY_HOST_ID  # noqa: E402
+
+HOST_ID = os.environ.get("QWEN38_CERT_HOST", FACTORY_HOST_ID)
 
 PACKS: dict[str, dict[str, object]] = {
     "axq4": {
@@ -57,6 +60,14 @@ PACKS: dict[str, dict[str, object]] = {
         "tier1_cert": "qwen38-27b-axq6-mtp-tier1",
         "tier2_cert": "qwen38-27b-axq6-mtp-tier2",
         "sort_order": 4,
+    },
+    "mxfp4": {
+        "name": "AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+        "hub_repo": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+        "product_class": "MXFP4",
+        "tier1_cert": "qwen38-27b-axq-mxfp4-mtp-tier1",
+        "tier2_cert": "qwen38-27b-axq-mxfp4-mtp-tier2",
+        "sort_order": 1,
     },
 }
 
@@ -363,7 +374,7 @@ def run_pack(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pack", choices=["axq4", "axq6", "both"], default="both")
+    parser.add_argument("--pack", choices=["axq4", "axq6", "mxfp4", "both"], default="both")
     parser.add_argument("--full", action="store_true", help="larger formal-like probe")
     parser.add_argument("--models-root", type=Path, default=DEFAULT_MODELS)
     parser.add_argument("--datasets", type=Path, default=DEFAULT_DATASETS)

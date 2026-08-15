@@ -2700,6 +2700,9 @@ def _run(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+    if args.command is None:
+        parser.print_help()
+        return 2
     configure_logging(args.verbose)
     try:
         return _run(args)

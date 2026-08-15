@@ -51,11 +51,13 @@ records. Within each group, `public_index.sort_order` applies.
 | [Gemma 4 31B MLX AXQ 4-bit](gemma4-31b-axq4-tier1.md) | [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
 | [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 120B MLX AXQ 4-bit](gpt-oss-120b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | evaluation@`7e0f77ed` | [Not Certified](gpt-oss-120b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
+| [Muse Glimmer 30B MLX AXQ 4-bit](muse-glimmer-30b-axq4-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | evaluation@`bcfb0b74` | [Not Certified](muse-glimmer-30b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
+| [Muse Glimmer 30B MLX AXQ 6-bit](muse-glimmer-30b-axq6-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | evaluation@`f1cfad2d` | [Not Certified](muse-glimmer-30b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 
 ## Counts
 
-- Total certificate records: **36**
+- Total certificate records: **38**
 - In README headline matrix (`listed`): **27**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **29**
-- Not checkpoint-certified (evaluation only): **1**
+- Not checkpoint-certified (evaluation only): **3**

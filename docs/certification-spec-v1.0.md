@@ -35,6 +35,11 @@ Tier 2 passed.
 Results from one host, engine build, prompt profile, or execution policy do not authorize a claim
 for another scope.
 
+**Factory host:** every new or replacement Tier 1 and Tier 2 certificate must be
+measured on `df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext12T). Do not
+issue either tier on `df-macbookpro-m5` or `df-macbookpro-m3`. Historical
+records keep the host they were measured on.
+
 ## 2. Product identity and measured precision
 
 The Hub repository is a stable product-class SKU:

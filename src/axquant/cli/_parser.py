@@ -184,13 +184,33 @@ def _iso_datetime(value: str) -> datetime:
     return parsed
 
 
+_PRODUCT_USAGE = """\
+Getting started (Apple Silicon Mac):
+
+  python3 -m venv .venv && source .venv/bin/activate
+  python -m pip install 'axquant[mlx]'
+  axquant quantize /path/to/model-bf16
+
+`--target-bpw` defaults to 4.8. Hugging Face ids need `--allow-download`.
+The result is a development checkpoint. Certified packs live on
+https://huggingface.co/AutomatosX
+
+Most users only need `quantize`. `axquant quantize --help` lists convert flags.
+"""
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="axquant",
-        description="Plan, convert, and validate supported LLM checkpoints for MLX and AX Engine",
+        description=(
+            "Convert a supported BF16 Safetensors checkpoint into a mixed-precision "
+            "MLX model for Apple Silicon. Most users only need `axquant quantize`."
+        ),
+        epilog=_PRODUCT_USAGE,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--verbose", action="store_true")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest="command", required=False)
 
     feasibility_parser = subparsers.add_parser("feasibility")
     feasibility_parser.add_argument("--reference-4bit", required=True)
@@ -578,15 +598,24 @@ def _build_parser() -> argparse.ArgumentParser:
 
     quantize_parser = subparsers.add_parser(
         "quantize",
-        help=(
-            "Simple development convert (OptiQ-like): MODEL + optional --target-bpw. "
-            "Always development evidence; release claims use the staged pipeline."
+        help="Convert a local or Hub BF16 checkpoint (the usual command)",
+        description=(
+            "Convert a supported BF16 Safetensors checkpoint into a mixed-precision "
+            "MLX directory. `--target-bpw` defaults to 4.8. Output is always "
+            "development evidence; public quality or speed claims use the staged pipeline."
         ),
+        epilog=(
+            "examples:\n"
+            "  axquant quantize /path/to/model-bf16\n"
+            "  axquant quantize /path/to/model-bf16 --target-bpw 4.8 --output ./AXQuant-output\n"
+            "  axquant quantize Qwen/Qwen3.6-27B --allow-download --revision <sha>\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     quantize_parser.add_argument(
         "model_positional",
         nargs="?",
-        help="Local BF16 MLX directory or Hub id (org/name)",
+        help="Local BF16 Safetensors directory or Hub id (org/name)",
     )
     quantize_parser.add_argument(
         "--model",

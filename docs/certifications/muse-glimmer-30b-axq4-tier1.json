@@ -1,0 +1,90 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-15T20:58:00+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
+    "hub_commit": "bcfb0b748fc44487c1657fb6ae190592d515398b",
+    "product_class": "4bit",
+    "architecture": "muse_glimmer",
+    "source_model_id": "meta-models/Muse-Glimmer-30B",
+    "source_revision": "a4e59da52a7bc87ae7251dd5545c0dd437c44b68",
+    "candidate_manifest_sha256": "291305f71ec610c252c9e543951868b3ed5494489d4d2a03322875afdb93c3e9"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "adapter_id": "muse-glimmer-v1",
+    "target_class": "4bit",
+    "measured_main_bpw": 5.9500704146383665,
+    "measured_total_bpw": 5.9500704146383665
+  },
+  "size": {
+    "candidate_weight_bytes": 22146628188,
+    "candidate_measured_bpw": 5.9500704146383665,
+    "pass": true,
+    "notes": "Language trunk 4-bit plus BF16-protected vision; no matched uniform size reference on this host."
+  },
+  "quality": {
+    "agent-coding": {
+      "pass": false,
+      "reason": "axquant evaluate-quality uses the MLX-LM backend; model_type muse_glimmer is not supported."
+    },
+    "general": {
+      "pass": false,
+      "reason": "No BF16 reference or mlx-lm quality backend on this host for Muse Glimmer."
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Muse Glimmer source declares no MTP sidecar."
+  },
+  "runtime": {
+    "mlx_vlm": {
+      "status": "pass",
+      "notes": "load_model modules=1452; generate nonempty marker GLIMMER4 in 3.28s on df-macstudio-m2"
+    },
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "ax-engine doctor result=ready (host-level, no model selected)"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2",
+    "python": "3.12"
+  },
+  "notes": [
+    "Studio factory SF3: mlx-vlm load+generate passed on df-macstudio-m2.",
+    "Not certified: dual-suite quality retention vs BF16 cannot run (MLX-LM rejects muse_glimmer).",
+    "Vision remains BF16-protected; VLM quality not claimed.",
+    "Development Hub pack unchanged except this evaluation record."
+  ],
+  "public_index": {
+    "display_name": "Muse Glimmer 30B MLX AXQ 4-bit",
+    "sort_order": 220,
+    "edition_label": "evaluation@`bcfb0b74`",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision tower BF16-protected; mlx-vlm text generate smoke passed; VL quality not certified",
+      "runtime": "mlx-vlm",
+      "evidence_kind": "studio-generate-smoke"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "no audio tower"
+    }
+  }
+}

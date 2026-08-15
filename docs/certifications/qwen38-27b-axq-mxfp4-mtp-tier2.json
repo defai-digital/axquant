@@ -1,0 +1,59 @@
+{
+  "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "mtp-acceleration",
+  "host_id": "df-macstudio-m2",
+  "certified_at": "2026-08-15T21:00:18.736518+00:00",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+    "hub_commit": "594de6507dc935d9ed6e01719865a34f10b26397",
+    "product_class": "MXFP4",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "ee704531cca3bbe083f8acb3e65d34c972d24b95b076aa51b77f21b01cd62bb1"
+  },
+  "thresholds": {
+    "exactness_required": 1.0,
+    "token_weighted_decode_speedup_min": 1.2,
+    "prompt_median_speedup_min": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "scope": "decode-heavy-authorizing-profiles",
+    "product_default_route": "direct-fallback",
+    "formal_route": "qwen38-exact-async-profile",
+    "ax_engine_version": "6.16.1",
+    "engine_binary_sha256": "c39b69a18cb8cf41c020dd52c32c6011de52f841212a5237fef9ac1e9f78dec7",
+    "profiles": {
+      "agent-coding": {
+        "exactness_pass": false,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 0.0,
+        "prompt_median_speedup": 0.0,
+        "release_ready": false,
+        "dataset_sha256": "15442a4f940e4e6dfb350090d5bb30a43a2711eb2d76a7be05bbfb0c24385557",
+        "comparison_sha256": "0fa837c5d4a65b78ab915237f95493c4f05686988b21d198748223b98a83af12"
+      },
+      "general-long": {
+        "exactness_pass": false,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 0.0,
+        "prompt_median_speedup": 0.0,
+        "release_ready": false,
+        "dataset_sha256": "b2a129cd8e43c87cdc7ae277beee9e358da4ce4cc349533a93f11c3524419a38",
+        "comparison_sha256": "5e94822af5b7b752df12c8b9662819aeb9a2ea0f108ce0cd365b84cf50f87f73"
+      }
+    },
+    "reason": "Studio factory SF4 probe on 2026-08-15: greedy exactness failed and measured speedups were 0.0 (no authorizing decode window) on in-repo development suites. Product default remains direct fallback."
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "related_certificates": {
+    "tier1": "qwen38-27b-axq-mxfp4-mtp-tier1.json"
+  },
+  "evidence_package": "/Volumes/Ext12T/axquant-certification/qwen38-mxfp4-mtp-tier2/mxfp4/TIER2_TECHNICAL_SUMMARY.json"
+}

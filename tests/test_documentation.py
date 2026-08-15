@@ -139,6 +139,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3.8-27B-MLX-AXQ-6bit",
         "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
         "AX-Qwen3.8-27B-MLX-AXQ-8bit",
+        "AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
     }
     post_migration_additions = (
         post_migration_additions
@@ -146,8 +147,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | secondary_family_additions
         | qwen_family_additions
     )
-    assert len(readme_repositories) == 55
-    assert len(set(readme_repositories)) == 55
+    assert len(readme_repositories) == 56
+    assert len(set(readme_repositories)) == 56
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -176,6 +177,23 @@ def test_internal_tree_is_not_tracked() -> None:
     )
     tracked = [line for line in listed.splitlines() if line.strip()]
     assert not tracked, f"tracked .internal paths (remove from index): {tracked}"
+
+
+def test_readme_product_path_is_install_then_convert() -> None:
+    """The public front door is PyPI + quantize, not a git clone or cert matrix."""
+    readme = _read("README.md")
+    install = readme.index("## Install\n")
+    convert = readme.index("## Convert\n")
+    matrix = readme.index("<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->")
+    pip = readme.index("python -m pip install 'axquant[mlx]==1.8.1'")
+    quantize = readme.index("axquant quantize /path/to/model-bf16")
+    clone = readme.find("git clone https://github.com/defai-digital/axquant.git")
+
+    assert install < convert < matrix
+    assert pip < matrix
+    assert quantize < matrix
+    assert clone == -1 or quantize < clone
+    assert "You do not need to clone this repository." in readme
 
 
 def test_readme_cli_table_covers_every_command() -> None:
@@ -240,6 +258,8 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     unlisted = [row for row in rows if not row.listed]
     unlisted_ids = {row.record_id for row in unlisted}
     assert "gpt-oss-120b-axq4" in unlisted_ids
+    assert "muse-glimmer-30b-axq4" in unlisted_ids
+    assert "muse-glimmer-30b-axq6" in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
@@ -306,6 +326,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gemma4-31b-axq6",
         # Not checkpoint-certified (unlisted evaluation record)
         "gpt-oss-120b-axq4",
+        "muse-glimmer-30b-axq4",
+        "muse-glimmer-30b-axq6",
     ]
     dual = [
         row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"

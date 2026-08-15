@@ -252,6 +252,16 @@ def test_recipe_export_rejects_duplicate_lineage_names() -> None:
         cli_module._run(args)
 
 
+def test_no_command_prints_product_getting_started(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main([]) == 2
+    out = capsys.readouterr().out
+    assert "python -m pip install 'axquant[mlx]'" in out
+    assert "axquant quantize /path/to/model-bf16" in out
+    assert "Most users only need `quantize`" in out
+
+
 def test_quantize_planning_overrides_are_unset_unless_explicit() -> None:
     implicit = _build_parser().parse_args(["quantize", "/model"])
     explicit = _build_parser().parse_args(

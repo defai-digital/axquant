@@ -122,6 +122,8 @@ def test_simple_convert_help_cli(tmp_path: Path) -> None:
     text = out.read_text(encoding="utf-8")
     assert "Two doors" in text
     assert "axquant quantize" in text
+    assert "python -m pip install 'axquant[mlx]'" in text
+    assert "Do not clone this repository" in text
     assert simple_convert_help_markdown() == text
 
 

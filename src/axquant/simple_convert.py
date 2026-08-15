@@ -259,21 +259,30 @@ def simple_convert_help_markdown() -> str:
     """Operator-facing best-practice cheat sheet."""
     return """# Simple convert best practices
 
+Install the toolkit from PyPI, then convert. Do not clone this repository
+just to run a conversion.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install 'axquant[mlx]'
+axquant quantize /path/to/model-bf16
+```
+
 ## Two doors
 
 | Path | Command | Evidence | Use when |
 | --- | --- | --- | --- |
-| **Simple (dev)** | `axquant quantize MODEL --target-bpw 4.8` | prior / recipe | local trials |
+| **Simple (dev)** | `axquant quantize MODEL` | prior / recipe | local trials |
 | **Release** | analyze → plan → convert → validate | measured + gates | public claims |
 
-## Simple path (OptiQ-like)
+## Simple path
 
 ```bash
-# Local BF16 checkpoint (safest)
-axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8
+# Local BF16 checkpoint (safest). --target-bpw defaults to 4.8
+axquant quantize /models/Qwen3.6-27B-bf16
 
 # Hub id from cache, or with explicit download
-axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision <sha>
+axquant quantize Qwen/Qwen3.6-27B --allow-download --revision <sha>
 
 # Optional: profile, KV prior, smoke
 axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8 --kv-cache prior --runtime-smoke mlx-lm
