@@ -8,6 +8,7 @@ from pathlib import Path
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
 from axquant.identity import same_model_identity
+from axquant.naming import format_measured_bpw
 from axquant.public_cert_index import claim_from_public_row, public_row_for_repo
 from axquant.schema import (
     ArtifactFile,
@@ -683,7 +684,7 @@ tags:
 {tag_block}
 ---
 
-# {name}
+# {name} — {format_measured_bpw(manifest.measured_main_bpw)} BPW measured main
 
 An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted directly from
 the BF16 source model. {sidecar_blurb}

@@ -18,8 +18,8 @@ tensors, and multi-token-prediction (MTP) weights.
 > capabilities. The goal is lower storage and unified-memory cost while preserving important model
 > quality and runtime behavior.
 
-**Current release:** [v1.7.0](https://github.com/defai-digital/axquant/releases/tag/v1.7.0)
-(PyPI `axquant==1.7.0`).
+**Current release:** [v1.8.0](https://github.com/defai-digital/axquant/releases/tag/v1.8.0)
+(PyPI `axquant==1.8.0`).
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([collections](https://huggingface.co/AutomatosX/collections),
@@ -149,7 +149,7 @@ does not treat `[mlx]` as a glob):
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install 'axquant[mlx]==1.7.0'
+python -m pip install 'axquant[mlx]==1.8.0'
 axquant --help
 ```
 
@@ -158,9 +158,9 @@ With the venv active, `python` and `axquant` are both from `.venv`. Without acti
 
 | Goal | Command |
 | --- | --- |
-| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.7.0'` inside a venv |
-| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.7.0'` inside a venv |
-| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.7.0'` |
+| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.0'` inside a venv |
+| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.8.0'` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.0'` |
 
 If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
 line or paste only from the fenced block above (do not copy prose with `"` / `'` glyphs).
@@ -176,7 +176,7 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Install and convert:**
   ```bash
   python3 -m venv .venv && source .venv/bin/activate
-  python -m pip install 'axquant[mlx]==1.7.0'
+  python -m pip install 'axquant[mlx]==1.8.0'
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
 - **Naming isn't the bit budget:** `4bit`/`6bit` pack names are planning
@@ -308,11 +308,21 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.7.0` (GitHub tag `v1.7.0`, PyPI `axquant==1.7.0`;
+The latest tagged toolkit version is `1.8.0` (GitHub tag `v1.8.0`, PyPI `axquant==1.8.0`;
 packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
 validation, and publication-gating commands are implemented and covered by the test suite.
 Certification is checkpoint- and evidence-specific; a working command does not by itself
 certify an output.
+
+### v1.8.x at a glance
+
+- Published [Certification Spec v1.0](docs/certification-spec-v1.0.md) and `axquant verify-cert`
+  so a third party can re-check a local certificate bundle without network access.
+- Added `axquant optimize` to spend one explicit memory budget on weights plus optional KV cache.
+  Infeasible requests fail before conversion.
+- Froze the [affine U32 interchange](docs/specs/axq-pack-interchange-v1.md) that AX Engine and
+  MLX-LM already load. Public Hub names stay `4bit`/`6bit` SKUs; measured BPW is the claim
+  ([migration](docs/migration-v1.8.md)). CUDA and other physical formats remain out of scope.
 
 ### v1.7.x at a glance
 
@@ -933,6 +943,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze` | Generate architecture priors or measure resumable affine/DWQ/AWQ/GPTQ/BF16 sensitivity from a calibration cache | Implemented |
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
+| `optimize` | Plan weights and optional KV cache under one explicit memory budget and runtime reserve | Implemented; architecture-prior inputs remain estimates |
 | `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
@@ -995,6 +1006,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `publish-prepare` | Assemble a release only after validation | Implemented |
 | `publish` | Preview or execute a guarded Hugging Face upload | Implemented |
 | `verify-reproduction` | Verify regenerated weight bytes and bound provenance | Implemented |
+| `verify-cert` | Offline-check a public certificate and optional artifact bundle with a machine-readable verdict | Implemented; exits nonzero on any inconsistent binding |
 | `name` | Generate the recommended AXQuant model name | Implemented |
 
 ## Measured planning and validation

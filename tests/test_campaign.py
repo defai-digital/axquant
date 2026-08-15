@@ -852,7 +852,7 @@ def test_publication_record_requires_downloaded_audit_claim_runtime_and_bytes(
         tmp_path / campaign.lifecycle_registry.path,
         ArtifactLifecycleRegistry,
     )
-    repository = "owner/AX-Qwen3.6-27B-MLX-AXQ-MP-5p20bpw-MTP"
+    repository = "owner/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP"
     registry = transition_lifecycle(
         registry=registry,
         candidate=campaign.candidate,

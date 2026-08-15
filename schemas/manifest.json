@@ -1,5 +1,5 @@
 {
-  "count": 111,
+  "count": 113,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -131,6 +131,14 @@
     },
     {
       "compatibility_class": "evidence",
+      "filename": "axquant.certification-verification.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.certification_verification.CertificationVerificationReport",
+      "schema_version": "axquant.certification-verification.v1",
+      "sha256": "98f35a34565b8a706cd11aa5888c93ccce45f51d454e1847fd61a202fe3e3b73"
+    },
+    {
+      "compatibility_class": "evidence",
       "filename": "axquant.certified-checkpoint-registry.v1.schema.json",
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.certification.CertifiedCheckpointRegistry",
@@ -200,6 +208,14 @@
       "model": "axquant.schema.artifacts.CompatibilityMatrixRequest",
       "schema_version": "axquant.compatibility-request.v2",
       "sha256": "bb7964c29192ae0ba5e6ace973b5506dbee627455850a4cfca408f87b8218a18"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.deployment-plan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.deployment.DeploymentPlan",
+      "schema_version": "axquant.deployment-plan.v1",
+      "sha256": "3af10064be61886172e7872071aad61af4edf56b2808deb29272a26b91debfdf"
     },
     {
       "compatibility_class": "evidence",

@@ -35,6 +35,7 @@ from axquant.schema import (
     KvSensitivityReport,
     MethodNearTie,
     MetricVector,
+    ObjectiveWeights,
     OutlierStrategy,
     PlanningConstraints,
     PlanRequest,
@@ -643,6 +644,7 @@ def plan_quantization(
     request: PlanRequest,
     *,
     kernel_latency: KernelLatencyTable | None = None,
+    objective_weights: ObjectiveWeights | None = None,
 ) -> QuantizationPlan:
     if request.candidate_count > 1:
         # Top-N generation is handled by the refinement module;
@@ -666,7 +668,11 @@ def plan_quantization(
         and not request.allow_unmeasured
     ):
         raise PlanningError("AXQuant release planning requires a supported architecture adapter")
-    weights_model = objective_for(request.profile)
+    weights_model = (
+        objective_for(request.profile)
+        if objective_weights is None
+        else objective_weights.model_copy(deep=True)
+    )
     weights = weights_model.normalized()
     latency_lookup = decode_latency_provider(kernel_latency) if kernel_latency is not None else None
     # Collapse MXFP4 scale sidecars that share module_path with quantizable bodies

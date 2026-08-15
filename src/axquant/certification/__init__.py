@@ -6,6 +6,7 @@ from axquant.certification.dispatch import (
     load_certification_request,
 )
 from axquant.certification.policy import direct_policy, direct_policy_sha256
+from axquant.certification.verify import verify_certificate
 
 __all__ = [
     "CertificationAudit",
@@ -15,4 +16,5 @@ __all__ = [
     "direct_policy_sha256",
     "load_certification_audit",
     "load_certification_request",
+    "verify_certificate",
 ]

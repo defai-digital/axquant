@@ -7,12 +7,17 @@ here is release evidence, a quality claim, or a certification statement.
 
 | Document | Purpose |
 | --- | --- |
-| [`prd.md`](prd.md) | Product requirements: what we are closing, why, and the acceptance criteria |
-| [`tech-spec.md`](tech-spec.md) | Engineering design per workstream, with module touch points and schema impact |
+| [`v1.8.0/`](v1.8.0/README.md) | **1.8.0 release program:** certified Apple Silicon deployment standard (PRD, ADRs 0007–0009, tech spec) |
+| [`prd.md`](prd.md) | Completion-program PRD: flagship closure and algorithm/runtime workstreams |
+| [`tech-spec.md`](tech-spec.md) | Engineering design per completion workstream, with module touch points and schema impact |
 | [`implementation-plan.md`](implementation-plan.md) | Phased delivery plan (Phase 0–4) with entry/exit criteria and evidence impact |
-| [`adr/`](adr/) | Architecture decision records governing the contested design choices |
+| [`adr/`](adr/) | Architecture decision records governing the contested design choices (0001–0006) |
 
 ## Reading order
+
+For the **1.8.0 release**, start at [`v1.8.0/README.md`](v1.8.0/README.md).
+
+For the **completion program** (flagship, algorithms):
 
 1. `prd.md` — scope and acceptance criteria.
 2. `adr/0001` — the freeze discipline that constrains everything else.

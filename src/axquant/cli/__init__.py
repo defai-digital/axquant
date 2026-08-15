@@ -17,6 +17,7 @@ from axquant.benchmark import (
     run_mtp_diagnostics,
 )
 from axquant.calibration import calibration_manifest_sha256, prepare_calibration
+from axquant.certification.verify import verify_certificate
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import ArtifactError, AxquantError, PlanningError
@@ -26,6 +27,7 @@ from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
+from axquant.optimizer import optimize_deployment
 from axquant.planner import allocate_kv_cache, allocate_kv_cache_measured, plan_quantization
 from axquant.profiles import thresholds_for
 from axquant.publisher import publish_model
@@ -690,6 +692,36 @@ def _run(args: argparse.Namespace) -> int:
             output=str(args.output),
             effective_bpw=round(plan.effective_bpw, 6),
             sensitivity_sha256=plan.analysis_sha256,
+        )
+        return 0
+
+    if args.command == "optimize":
+        deployment = optimize_deployment(
+            model_dir=args.model,
+            max_memory_bytes=args.max_memory,
+            context_length=args.context,
+            profile=args.profile,
+            runtime=RuntimeName(args.runtime),
+            minimum_quality_retention=args.min_quality,
+            mode=args.mode,
+            output_dir=args.output,
+            inventory_path=args.inventory,
+            sensitivity_path=args.sensitivity,
+            kv_analysis_path=args.kv_analysis,
+            allow_unmeasured=args.allow_unmeasured,
+            target_bpw=args.target_bpw,
+            kv_cache=args.kv_cache,
+            kv_default_bits=args.kv_default_bits,
+            reserve_bytes=args.reserve_memory,
+            batch_size=args.batch_size,
+            latency_table_path=args.latency_table,
+        )
+        log.info(
+            "deployment_optimized",
+            output=str(args.output),
+            feasible=deployment.feasible,
+            remainder_bytes=deployment.remainder_bytes,
+            evidence=deployment.evidence_kind,
         )
         return 0
 
@@ -1492,6 +1524,23 @@ def _run(args: argparse.Namespace) -> int:
             verified_weight_files=len(verification.verified_weight_files),
         )
         return 0 if verification.passed else 1
+
+    if args.command == "verify-cert":
+        certificate_verification = verify_certificate(
+            certificate_path=args.certificate,
+            artifact_dir=args.artifact,
+        )
+        write_data(args.output, certificate_verification)
+        log_method = log.info if certificate_verification.passed else log.error
+        log_method(
+            "certificate_verification_completed",
+            certificate=args.certificate,
+            artifact=args.artifact,
+            output=str(args.output),
+            passed=certificate_verification.passed,
+            checks=len(certificate_verification.checks),
+        )
+        return 0 if certificate_verification.passed else 1
 
     if args.command == "name":
         name = model_name(

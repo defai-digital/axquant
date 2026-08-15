@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "CertificationVerificationCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {
+          "pattern": "^[a-z0-9][a-z0-9.-]*$",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "check_id",
+        "passed",
+        "message"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "certificate_path": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "certificate_schema_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "certificate_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "certificate_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CertificationVerificationCheck"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "hub_repo_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "issues": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "manifest_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "passed": {
+      "type": "boolean"
+    },
+    "plan_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "product_class": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "recomputed_main_bpw": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.certification-verification.v1",
+      "default": "axquant.certification-verification.v1",
+      "type": "string"
+    },
+    "verified_files": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "certificate_path",
+    "certificate_sha256",
+    "certificate_schema_version",
+    "passed",
+    "checks"
+  ],
+  "type": "object"
+}

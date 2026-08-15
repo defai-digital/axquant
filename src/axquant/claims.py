@@ -4,7 +4,7 @@ from pathlib import Path
 
 from axquant.errors import ValidationGateError
 from axquant.lifecycle import require_active_certification
-from axquant.naming import certified_mixed_precision_name
+from axquant.naming import certified_mixed_precision_name, format_measured_bpw, model_name
 from axquant.schema import (
     ArtifactLifecycleRegistry,
     ArtifactManifest,
@@ -79,10 +79,10 @@ def build_public_claim(
         measured_main_bpw,
         mtp=mtp,
     )
-    repository = f"{public_owner}/{display_name}"
+    repository = f"{public_owner}/{model_name(base_model, target_class=target_class, mtp=mtp)}"
     if event.public_repository != repository:
         raise ValidationGateError(
-            "certified lifecycle repository differs from measured-BPW generated identity"
+            "certified lifecycle repository differs from the class-SKU identity"
         )
     return PublicClaimManifest(
         candidate=candidate,
@@ -115,8 +115,15 @@ def render_certified_model_card(
         claim.measured_main_bpw,
         mtp=claim.display_name.endswith("-MTP"),
     )
-    if claim.display_name != expected or not claim.public_repository.endswith(f"/{expected}"):
-        raise ValidationGateError("public claim repository does not match measured-BPW naming")
+    expected_repository_leaf = model_name(
+        source_model_id,
+        target_class=claim.target_class,
+        mtp=claim.display_name.endswith("-MTP"),
+    )
+    if claim.display_name != expected:
+        raise ValidationGateError("public claim display label does not match measured BPW")
+    if not claim.public_repository.endswith(f"/{expected_repository_leaf}"):
+        raise ValidationGateError("public claim repository does not match class-SKU naming")
 
     def rows(claims: list[BoundMetricClaim]) -> str:
         return "\n".join(
@@ -139,7 +146,7 @@ tags:
   - mtp
 ---
 
-# {claim.display_name}
+# {expected_repository_leaf} — {format_measured_bpw(claim.measured_main_bpw)} BPW measured main
 
 This is an AXQuant-certified **mixed-precision** MTP checkpoint. Its measured main-weight
 precision is **{claim.measured_main_bpw:.4f} BPW** and its measured total precision is
@@ -298,7 +305,7 @@ def render_public_claim_request(
     )
     if audit.candidate_model.model_id != claim.public_repository:
         raise ValidationGateError(
-            "authorization candidate repository differs from generated measured-BPW name"
+            "authorization candidate repository differs from generated class-SKU name"
         )
     write_public_claim(
         claim=claim,

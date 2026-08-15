@@ -76,7 +76,7 @@ def _certified_registry(tmp_path: Path, candidate: CandidateKey) -> ArtifactLife
         reason=LifecycleReason.CERTIFICATION_PASSED,
         narrative="M0-M8 passed",
         authorizing_evidence=_bound(tmp_path),
-        public_repository="owner/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP",
+        public_repository="owner/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
     )
 
 
@@ -143,9 +143,55 @@ def test_public_claim_and_card_are_generated_from_bound_metrics(tmp_path: Path) 
     )
 
     assert claim.display_name.endswith("MP-5p30bpw-MTP")
+    assert claim.public_repository == "owner/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP"
+    assert "# AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP — 5.30 BPW measured main" in card
     assert "mixed-precision" in card
     assert "df-macbookpro-m5" in card
     assert claim.audit_sha256 in card
+
+
+def test_public_claim_rejects_mp_named_repository(tmp_path: Path) -> None:
+    candidate = _candidate()
+    registry = _certified_registry(tmp_path, candidate)
+    registry.events[-1].public_repository = "owner/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP"
+    evidence = _bound(tmp_path)
+    quality = [
+        BoundMetricClaim(
+            evidence=evidence,
+            profile=profile,  # type: ignore[arg-type]
+            metric_key="quality.aggregate_retention",
+            unit="ratio",
+            value=0.99,
+            comparison="higher-is-better",
+        )
+        for profile in ("agent-coding", "general")
+    ]
+    performance = BoundMetricClaim(
+        evidence=evidence,
+        profile="hardware",
+        metric_key="hardware.effective_speedup",
+        unit="x",
+        value=1.2,
+        comparison="higher-is-better",
+    )
+
+    with pytest.raises(ValidationGateError, match="class-SKU"):
+        build_public_claim(
+            candidate=candidate,
+            lifecycle=registry,
+            audit_sha256="c" * 64,
+            public_owner="owner",
+            base_model="Qwen/Qwen3.6-27B",
+            target_class="4bit",
+            measured_main_bpw=5.295,
+            measured_total_bpw=5.41,
+            weight_bytes=1_000_000,
+            runtime_versions={"ax-engine": "1.0"},
+            quality_claims=quality,
+            performance_claims=[performance],
+            limitations=["Exact scope only."],
+            evidence_index=[evidence],
+        )
 
 
 def test_unsupported_numeric_claim_is_rejected(tmp_path: Path) -> None:

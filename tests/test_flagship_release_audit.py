@@ -19,7 +19,7 @@ from axquant.identity import (
     semantic_plan_sha256,
 )
 from axquant.lifecycle import transition_lifecycle
-from axquant.naming import certified_mixed_precision_name
+from axquant.naming import model_name
 from axquant.publisher import _rerun_release_audit
 from axquant.release_audit import build_release_audit
 from axquant.schema import (
@@ -127,12 +127,9 @@ def _flagship_fixture(
         probe,
     )
     measured_main_bpw = probe.stat().st_size * 8 / 1088
-    display_name = certified_mixed_precision_name(
-        _SOURCE_ID,
-        measured_main_bpw,
-        mtp=True,
+    candidate_repository = (
+        f"AutomatosX/{model_name(_SOURCE_ID, target_class=target_class, mtp=True)}"
     )
-    candidate_repository = f"AutomatosX/{display_name}"
     legacy_request_path = _inputs(
         root,
         source_model_id=_SOURCE_ID,

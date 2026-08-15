@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from axquant.package_data import load_package_yaml, message_template
 from axquant.schema import ObjectiveWeights, ProfileName, ValidationThresholds
@@ -41,6 +41,31 @@ def objective_for(profile: ProfileName) -> ObjectiveWeights:
             message_template("profiles", "not_implemented").format(profile=profile.value)
         )
     return _OBJECTIVES[profile].model_copy(deep=True)
+
+
+def objective_for_mode(
+    profile: ProfileName,
+    mode: Literal["balanced", "quality", "low-memory", "speed"],
+) -> ObjectiveWeights:
+    """Return the profile objective with the documented v1.8 mode overlay."""
+
+    objective = objective_for(profile)
+    if mode == "balanced":
+        return objective
+    values = objective.model_dump()
+    if mode == "quality":
+        for key in ("task_loss_delta", "output_kl", "token_disagreement"):
+            values[key] *= 1.5
+        for key in ("peak_memory_cost", "decode_latency_cost"):
+            values[key] *= 0.5
+    elif mode == "low-memory":
+        values["peak_memory_cost"] *= 2.0
+    elif mode == "speed":
+        values["decode_latency_cost"] *= 2.0
+        values["prefill_latency_cost"] *= 2.0
+    else:
+        raise ValueError(f"unsupported optimization mode: {mode}")
+    return ObjectiveWeights.model_validate(values)
 
 
 def thresholds_for(profile: ProfileName) -> ValidationThresholds:

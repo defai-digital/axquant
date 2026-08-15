@@ -1,7 +1,7 @@
 # AXQuant Weight + KV Joint Optimization — PRD
 
-**Status:** Draft
-**Target:** AXQuant v2.x
+**Status:** Draft (full joint optimizer)
+**Target:** AXQuant v2.x for the complete design; **1.8.0 extracts only one shared memory budget** — see [`docs/roadmap/v1.8.0/adr/0009-one-deployment-budget.md`](../roadmap/v1.8.0/adr/0009-one-deployment-budget.md)
 **Owner:** DEFAI Digital / AXQuant
 **Document Type:** Product Requirements Document
 

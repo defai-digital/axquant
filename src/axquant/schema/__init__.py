@@ -174,6 +174,11 @@ from axquant.schema.certification import (
     SourceCheckpointFile,
     SourceCheckpointManifest,
 )
+from axquant.schema.certification_verification import (
+    CERTIFICATION_VERIFICATION_SCHEMA_VERSION,
+    CertificationVerificationCheck,
+    CertificationVerificationReport,
+)
 from axquant.schema.claims import (
     BoundMetricClaim,
     PublicClaimManifest,
@@ -188,6 +193,12 @@ from axquant.schema.coding_suite import (
     CodingSuiteManifest,
     CodingTaskManifest,
     CodingTaskPayload,
+)
+from axquant.schema.deployment import (
+    DeploymentEvidenceKind,
+    DeploymentPlan,
+    MemoryBudgetBreakdown,
+    WeightBytesBasis,
 )
 from axquant.schema.enums import (
     ArchitectureSupportLevel,
@@ -297,6 +308,7 @@ __all__ = [
     "ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS",
     "AX_ENGINE_EXECUTABLE_BITS",
     "AX_ENGINE_EXECUTABLE_GROUP_SIZES",
+    "CERTIFICATION_VERIFICATION_SCHEMA_VERSION",
     "CHECKPOINT_SCHEMA_VERSION",
     "MTP_SCHEMA_VERSION",
     "PROTECTED_MIN_BITS",
@@ -348,6 +360,8 @@ __all__ = [
     "CaptureProgress",
     "CaptureProgressModule",
     "CertificationTrack",
+    "CertificationVerificationCheck",
+    "CertificationVerificationReport",
     "CertifiedCheckpointEntry",
     "CertifiedCheckpointRegistry",
     "CertifiedCheckpointSummary",
@@ -370,6 +384,8 @@ __all__ = [
     "CompleteCandidateMeasurement",
     "ConvertLadderName",
     "DeferredFeature",
+    "DeploymentEvidenceKind",
+    "DeploymentPlan",
     "DirectBaselineKind",
     "DirectBenchmarkArm",
     "DirectBenchmarkEvidenceIndex",
@@ -438,6 +454,7 @@ __all__ = [
     "LifecycleReason",
     "ManualPlanRecipe",
     "ManualPrecisionRule",
+    "MemoryBudgetBreakdown",
     "MethodNearTie",
     "MetricVector",
     "ModelIdentity",
@@ -557,6 +574,7 @@ __all__ = [
     "ValidationIssue",
     "ValidationReport",
     "ValidationThresholds",
+    "WeightBytesBasis",
     "load_public_checkpoint_certification",
     "load_public_mtp_acceleration_certification",
     "protected_floor_bits",

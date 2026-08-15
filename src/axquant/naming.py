@@ -17,6 +17,19 @@ _QUANT_SUFFIX = re.compile(
 _DEFAULT_QUANT_BRAND = "AXQ"
 
 
+def distinct_4bit_sibling_allowed(four_bit_bytes: int, six_bit_bytes: int) -> bool:
+    """Return whether a 4-bit SKU saves at least 5% of complete weight bytes."""
+
+    if (
+        type(four_bit_bytes) is not int
+        or type(six_bit_bytes) is not int
+        or four_bit_bytes <= 0
+        or six_bit_bytes <= 0
+    ):
+        raise ArtifactError("4-bit and 6-bit complete weight bytes must be positive integers")
+    return four_bit_bytes * 100 <= six_bit_bytes * 95
+
+
 def target_class_for_bpw(target_bpw: float) -> str:
     """Return the product precision class for a requested BPW budget.
 
@@ -80,16 +93,7 @@ def certified_mixed_precision_name(
     formatting, and always preserves two decimal places.
     """
 
-    if not math.isfinite(measured_main_bpw) or not 0 < measured_main_bpw <= 16:
-        raise ArtifactError("certified measured main BPW must be finite and in (0, 16]")
-    try:
-        rounded = Decimal(str(measured_main_bpw)).quantize(
-            Decimal("0.01"),
-            rounding=ROUND_HALF_UP,
-        )
-    except InvalidOperation as exc:
-        raise ArtifactError("certified measured main BPW cannot be rounded") from exc
-    encoded_bpw = format(rounded, ".2f").replace(".", "p")
+    encoded_bpw = format_measured_bpw(measured_main_bpw).replace(".", "p")
     base = base_model.rstrip("/").split("/")[-1]
     base = _QUANT_SUFFIX.sub("", base)
     if not _VALID_NAME.fullmatch(base):
@@ -104,3 +108,18 @@ def certified_mixed_precision_name(
     if not _VALID_NAME.fullmatch(result):
         raise ArtifactError("certified model name components produce an unsafe model name")
     return result
+
+
+def format_measured_bpw(measured_main_bpw: float) -> str:
+    """Format measured BPW with normative decimal half-up rounding."""
+
+    if not math.isfinite(measured_main_bpw) or not 0 < measured_main_bpw <= 16:
+        raise ArtifactError("certified measured main BPW must be finite and in (0, 16]")
+    try:
+        rounded = Decimal(str(measured_main_bpw)).quantize(
+            Decimal("0.01"),
+            rounding=ROUND_HALF_UP,
+        )
+    except InvalidOperation as exc:
+        raise ArtifactError("certified measured main BPW cannot be rounded") from exc
+    return format(rounded, ".2f")

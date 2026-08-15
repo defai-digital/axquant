@@ -1,0 +1,258 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "ObjectiveWeights": {
+      "additionalProperties": false,
+      "properties": {
+        "cosine_distance": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "decode_latency_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "hidden_state_error": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "long_context_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "mtp_acceptance_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "output_kl": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "peak_memory_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "prefill_latency_cost": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "task_loss_delta": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "token_disagreement": {
+          "minimum": 0.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "output_kl",
+        "hidden_state_error",
+        "cosine_distance",
+        "token_disagreement",
+        "task_loss_delta",
+        "mtp_acceptance_loss",
+        "long_context_loss",
+        "peak_memory_cost",
+        "prefill_latency_cost",
+        "decode_latency_cost"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    },
+    "RuntimeName": {
+      "enum": [
+        "ax-engine",
+        "mlx-lm",
+        "mlx-audio",
+        "mlx-vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "batch_size": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "context_length": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "estimated_main_bpw": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "evidence_kind": {
+      "enum": [
+        "architecture_prior",
+        "imported-as-estimate",
+        "estimate",
+        "measured"
+      ],
+      "type": "string"
+    },
+    "explanation": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "feasible": {
+      "type": "boolean"
+    },
+    "kv_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "kv_plan_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "limit_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "measured_main_bpw": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "minimum_quality_retention": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "type": "number"
+    },
+    "mode": {
+      "enum": [
+        "balanced",
+        "quality",
+        "low-memory",
+        "speed"
+      ],
+      "type": "string"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "objective": {
+      "$ref": "#/$defs/ObjectiveWeights"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "remainder_bytes": {
+      "type": "integer"
+    },
+    "reserve_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runtime": {
+      "$ref": "#/$defs/RuntimeName"
+    },
+    "schema_version": {
+      "const": "axquant.deployment-plan.v1",
+      "default": "axquant.deployment-plan.v1",
+      "type": "string"
+    },
+    "source_evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "target_class": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "weight_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "weight_bytes_basis": {
+      "enum": [
+        "plan-estimate",
+        "artifact-manifest"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "weight_bytes",
+    "kv_bytes",
+    "reserve_bytes",
+    "limit_bytes",
+    "remainder_bytes",
+    "feasible",
+    "evidence_kind",
+    "source_evidence_kind",
+    "context_length",
+    "batch_size",
+    "profile",
+    "target_class",
+    "runtime",
+    "mode",
+    "objective",
+    "minimum_quality_retention",
+    "weight_bytes_basis",
+    "plan_sha256",
+    "explanation"
+  ],
+  "type": "object"
+}

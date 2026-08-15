@@ -4,6 +4,7 @@ import argparse
 import sys
 from datetime import datetime
 
+from axquant.optimizer import parse_memory_bytes
 from axquant.profiles import implemented_profiles
 from axquant.schema import (
     AX_ENGINE_EXECUTABLE_BITS,
@@ -477,6 +478,53 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--kv-max-kl", type=float, default=0.005)
     plan_parser.add_argument("--output", default="quantization-plans")
 
+    optimize_parser = subparsers.add_parser(
+        "optimize",
+        help="Plan weights and optional KV cache under one explicit memory budget",
+    )
+    optimize_parser.add_argument("--model", required=True)
+    optimize_parser.add_argument("--max-memory", type=parse_memory_bytes, required=True)
+    optimize_parser.add_argument("--context", type=int, required=True)
+    optimize_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.AGENT_CODING,
+    )
+    optimize_parser.add_argument(
+        "--runtime",
+        choices=[RuntimeName.AX_ENGINE.value],
+        default=RuntimeName.AX_ENGINE.value,
+    )
+    optimize_parser.add_argument("--min-quality", type=float, default=0.98)
+    optimize_parser.add_argument(
+        "--mode",
+        choices=["balanced", "quality", "low-memory", "speed"],
+        default="balanced",
+    )
+    optimize_parser.add_argument("--inventory")
+    optimize_parser.add_argument("--sensitivity")
+    optimize_parser.add_argument("--kv-analysis")
+    optimize_parser.add_argument("--allow-unmeasured", action="store_true")
+    optimize_parser.add_argument("--target-bpw", type=float, default=4.8)
+    optimize_parser.add_argument(
+        "--kv-cache",
+        choices=["off", "prior", "measured"],
+        default="off",
+    )
+    optimize_parser.add_argument("--kv-default-bits", type=_kv_default_bit, default=4)
+    optimize_parser.add_argument(
+        "--reserve-memory",
+        type=parse_memory_bytes,
+        default=1_000_000_000,
+        help="explicit runtime reserve included in the hard budget (default: 1GB)",
+    )
+    optimize_parser.add_argument("--batch-size", type=int, default=1)
+    optimize_parser.add_argument(
+        "--latency-table",
+        help="optional measured kernel-latency table; absent preserves abstract-BPW ranking",
+    )
+    optimize_parser.add_argument("--output", required=True)
+
     replay_plan_parser = subparsers.add_parser(
         "plan-replay",
         help="Replay a prior measured allocation against exact current sensitivity evidence",
@@ -851,6 +899,14 @@ def _build_parser() -> argparse.ArgumentParser:
     reproduction_parser.add_argument("--recipe", required=True)
     reproduction_parser.add_argument("--artifact", required=True)
     reproduction_parser.add_argument("--output", default="reproduction_verification.json")
+
+    verify_cert_parser = subparsers.add_parser(
+        "verify-cert",
+        help="Offline-check a public checkpoint certificate and optional artifact bundle",
+    )
+    verify_cert_parser.add_argument("--certificate", required=True)
+    verify_cert_parser.add_argument("--artifact")
+    verify_cert_parser.add_argument("--output", default="certification_verification.json")
 
     name_parser = subparsers.add_parser("name")
     name_parser.add_argument("--base", required=True)

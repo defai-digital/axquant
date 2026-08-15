@@ -1,7 +1,7 @@
 import pytest
 
 from axquant.errors import ArtifactError, PlanningError
-from axquant.naming import model_name, target_class_for_bpw
+from axquant.naming import distinct_4bit_sibling_allowed, model_name, target_class_for_bpw
 
 
 def test_default_name_uses_mlx_and_manifest_mtp() -> None:
@@ -69,3 +69,11 @@ def test_development_card_name_regex_accepts_low_bit_classes() -> None:
         match = _AXQ_NAME.fullmatch(name)
         assert match is not None
         assert match.group("product_class") == product_class
+
+
+def test_distinct_4bit_sibling_requires_five_percent_complete_weight_savings() -> None:
+    assert distinct_4bit_sibling_allowed(95, 100) is True
+    assert distinct_4bit_sibling_allowed(94, 100) is True
+    assert distinct_4bit_sibling_allowed(96, 100) is False
+    with pytest.raises(ArtifactError, match="positive integers"):
+        distinct_4bit_sibling_allowed(0, 100)

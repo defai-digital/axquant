@@ -176,6 +176,7 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
     assert "Vision-language quality" in readme
     assert "262,144 tokens" in readme
     assert "Not certified" in readme
+    assert "# AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP — 8.00 BPW measured main" in readme
     assert original_local_path not in readme
 
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
