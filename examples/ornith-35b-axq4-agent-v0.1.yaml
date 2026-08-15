@@ -1,0 +1,58 @@
+# Ornith-1.0-35B AXQ 4-bit — agent recovery recipe (v0.1).
+# Same layout as Holo3 attn-6 / expert-4: architecture-prior 4-bit on this
+# 35B-A3B family failed Holo3 agent-coding (0.9793). Keep experts at 4-bit.
+# Source: deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660
+schema_version: axquant.manual-recipe.v1
+profile: agent-coding
+target_bpw: 5.0
+default_bits: 4
+default_method: affine
+group_size: 64
+allow_unmatched_rules: false
+lm_head_min_bits: 16
+target_mode: balanced
+primary_runtime: ax-engine
+random_seed: 20260728
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Protection floor — norms stay BF16
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: Protection floor — LM head stays BF16
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Embedding floor 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Router floor 8-bit for routing stability
+  - rule_id: attention-6bit
+    roles: [attention]
+    bits: 6
+    method: affine
+    group_size: 64
+    reason: Raise attention for long_context without exceeding size 1.15
+  - rule_id: experts-4bit
+    roles: [expert, mlp]
+    bits: 4
+    method: affine
+    group_size: 64
+    reason: MoE experts/MLP at 4-bit product trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

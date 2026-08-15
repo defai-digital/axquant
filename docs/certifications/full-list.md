@@ -35,6 +35,8 @@ records. Within each group, `public_index.sort_order` applies.
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [Holo3-35B-A3B MLX AXQ 4-bit](holo3-35b-axq4-tier1.md) | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [Holo3-35B-A3B MLX AXQ 6-bit](holo3-35b-axq6-tier1.md) | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
+| [Ornith-1.0-35B MLX AXQ 4-bit](ornith-35b-axq4-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | main@`d7416c66` | [Certified](ornith-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
+| [Ornith-1.0-35B MLX AXQ 6-bit](ornith-35b-axq6-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | main@`37361076` | [Certified](ornith-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [GPT-OSS 20B MLX AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 20B MLX AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 120B MLX AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
@@ -52,8 +54,8 @@ records. Within each group, `public_index.sort_order` applies.
 
 ## Counts
 
-- Total certificate records: **34**
-- In README headline matrix (`listed`): **25**
+- Total certificate records: **36**
+- In README headline matrix (`listed`): **27**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
-- Tier 1 certified without Tier 2 certified: **27**
+- Tier 1 certified without Tier 2 certified: **29**
 - Not checkpoint-certified (evaluation only): **1**

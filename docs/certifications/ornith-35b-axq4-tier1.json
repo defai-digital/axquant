@@ -1,0 +1,112 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-15T18:16:23.507979+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit",
+    "hub_commit": "d7416c665cd8ae6e5fbebc3f17bd547b78cf11fc",
+    "product_class": "4bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "deepreinforce-ai/Ornith-1.0-35B",
+    "source_revision": "5df2ed3f675c7beaa490328cc70bb573b65fb660",
+    "candidate_manifest_sha256": "044c6dd1caf5a4a52c442a0d5c303a961577955f186e7e7b1066c85e339625ca"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "quantize-prior",
+    "target_class": "4bit",
+    "target_bpw": 4.0,
+    "measured_total_bpw": 4.8800623001961245,
+    "measured_main_bpw": 4.8800623001961245,
+    "adapter_id": "qwen35-moe-v1"
+  },
+  "size": {
+    "candidate_weight_bytes": 21415654379,
+    "candidate_measured_bpw": 4.8800623001961245,
+    "reference_kind": "uniform-4bit",
+    "reference_model_id": "local/Ornith-1.0-35B-uniform-4bit",
+    "reference_revision": "5df2ed3f675c7beaa490328cc70bb573b65fb660",
+    "reference_weight_bytes": 19509023921,
+    "size_ratio_vs_uniform": 1.097730694560667,
+    "max_size_ratio_applied": 1.15,
+    "pass": true,
+    "compare_mode": "total",
+    "reference_build": "mlx_lm.convert -q --q-bits 4 --q-group-size 64 from packed deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660 on df-macstudio-m2"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8947368421052632,
+      "reference_score": 0.9078947368421053,
+      "retention": 0.9855072463768115,
+      "perplexity_ratio": 0.985859419978112,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76,
+      "reference_kind": "uniform-4bit-same-pin"
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 0.9934875078806473,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44,
+      "reference_kind": "uniform-4bit-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Ornith-1.0-35B has no MTP weights; certification is non-MTP direct-decode checkpoint Tier 1 only."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor on df-macstudio-m2"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macstudio-m2.",
+    "AXQ 4bit architecture-prior pack from packed BF16 source.",
+    "Quality vs matched uniform MLX convert; size vs the same uniform.",
+    "Adapter qwen35-moe-v1 \u2014 not the official Qwen 3.6 certification track.",
+    "Vision BF16-protected; no VLM quality claim. No MTP / no Tier 2 claim."
+  ],
+  "public_index": {
+    "display_name": "Ornith-1.0-35B MLX AXQ 4-bit",
+    "sort_order": 86,
+    "edition_label": "main@`d7416c66`",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision sidecar present; mlx-vlm smoke not a quality pass (prefixes=['model.visual'])",
+      "runtime": "mlx-vlm",
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}
