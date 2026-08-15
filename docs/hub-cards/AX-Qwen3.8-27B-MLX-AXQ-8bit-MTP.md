@@ -144,7 +144,7 @@ establish MTP acceleration or vision-language quality.
 | Quantizer execution | 498/498 recorded module conversions succeeded; 0 fallbacks |
 | AX Engine native manifest | included as `model-manifest.json` |
 | Quality versus BF16 or uniform baselines | Not published; no quality-retention claim |
-| MTP acceptance and speed | **not certified**; no MTP speedup claim for this checkpoint (MTP weights are packaged (BF16-protected). Scoped Tier 2 acceleration is a separate claim and is not certified on this record.) |
+| MTP acceptance and speed | **not certified** for public Tier 2. A short Studio probe on `df-macstudio-m2` / AX Engine 6.16.1 cleared exactness and ~1.23× speedup (`full=false`, 8+6 prompts). That is not the authorizing `--full` suite. See the [Tier 2 evaluation](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq8-mtp-tier2.md). |
 | AX Engine kernel evidence | `unmeasured` |
 | Vision-language quality | Present, not certified; text Tier 1 does not imply VLM quality |
 | Speech-recognition quality | Not applicable (audio disabled for this pack) |

@@ -152,6 +152,7 @@ establish MTP acceleration or vision-language quality.
 | Speech-recognition quality | Not applicable |
 | Long-context quality | 262,144-token capacity is config metadata, not a validated claim |
 | Release certification | **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14), Hub commit `a5a0b700ea7c`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
+| Studio recert (`df-macstudio-m2`, 2026-08-15) | **Not certified** as a replacement T1. Candidate means on prepare-suite v2: agent-coding 0.933 (52), general 0.875 (16). BF16 is not on Ext12T so 0.98 retention was not computed. Historical record is unchanged. See [studio evaluation](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-studio-tier1.md). |
 
 ## Intended use and limitations
 
