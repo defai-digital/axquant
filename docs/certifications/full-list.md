@@ -53,11 +53,13 @@ records. Within each group, `public_index.sort_order` applies.
 | [GPT-OSS 120B MLX AXQ 4-bit](gpt-oss-120b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | evaluation@`7e0f77ed` | [Not Certified](gpt-oss-120b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Muse Glimmer 30B MLX AXQ 4-bit](muse-glimmer-30b-axq4-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | evaluation@`bcfb0b74` | [Not Certified](muse-glimmer-30b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Muse Glimmer 30B MLX AXQ 6-bit](muse-glimmer-30b-axq6-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | evaluation@`f1cfad2d` | [Not Certified](muse-glimmer-30b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
+| [Qwen3.8-27B MLX AXQ 4-bit MTP (Studio recert)](qwen38-27b-axq4-mtp-studio-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | studio-eval@`32f44846` | [Not Certified](qwen38-27b-axq4-mtp-studio-tier1.md) | [Not Certified](qwen38-27b-axq4-mtp-studio-tier1.md#tier-2-status) | `df-macstudio-m2` | no |
+| [Qwen3.8-27B MLX AXQ 6-bit MTP (Studio recert)](qwen38-27b-axq6-mtp-studio-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | studio-eval@`a5a0b700` | [Not Certified](qwen38-27b-axq6-mtp-studio-tier1.md) | [Not Certified](qwen38-27b-axq6-mtp-studio-tier1.md#tier-2-status) | `df-macstudio-m2` | no |
 
 ## Counts
 
-- Total certificate records: **38**
+- Total certificate records: **40**
 - In README headline matrix (`listed`): **27**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **29**
-- Not checkpoint-certified (evaluation only): **3**
+- Not checkpoint-certified (evaluation only): **5**

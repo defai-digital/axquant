@@ -1,0 +1,88 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-15T22:20:00+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
+    "hub_commit": "a5a0b700ea7c5c529c66ca3005b79425ab2f7ea6",
+    "product_class": "6bit",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "c0c3588c6376bc55b3c22a80f5ca11a8befb05860d23d848d0985af0e148eebb"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "target_class": "6bit",
+    "measured_main_bpw": 5.844832555958218
+  },
+  "size": {
+    "candidate_weight_bytes": 20836337734,
+    "candidate_measured_bpw": 5.844832555958218,
+    "pass": true,
+    "notes": "Hub 6-bit-MTP pack measured on Ext12T."
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9326923076923077,
+      "samples": 52,
+      "dataset_sha256": "8d3d818eee2289864c37bd6dd1cf7910309367f822b500f6e6d6a71d7f179b2b",
+      "scoring": "prepare-suite-v2-absolute",
+      "pass": false,
+      "reason": "No BF16/uniform reference on Ext12T for this suite; 0.98 retention not computed."
+    },
+    "general": {
+      "candidate_score": 0.875,
+      "samples": 16,
+      "dataset_sha256": "c722b025884a2ba5a70e243fc1d258aa96062879a2fdf24afe1b77305638dfb9",
+      "scoring": "prepare-suite-v2-absolute",
+      "pass": false,
+      "reason": "No BF16/uniform reference on Ext12T for this suite; 0.98 retention not computed."
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "Studio recert recorded candidate quality only; T2 not re-run on this evidence root."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "evaluate-quality loaded the pack on df-macstudio-m2"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2",
+    "python": "3.12"
+  },
+  "notes": [
+    "New Studio evidence root. Does not rewrite qwen38-27b-axq6-mtp-tier1.json.",
+    "Candidate scores on prepare-suite v2 (52+16).",
+    "Not certified: retention vs BF16 cannot be computed without the BF16 pin on Ext12T."
+  ],
+  "public_index": {
+    "display_name": "Qwen3.8-27B MLX AXQ 6-bit MTP (Studio recert)",
+    "sort_order": 223,
+    "edition_label": "studio-eval@`a5a0b700`",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision sidecar present; VL quality not recertified in this evidence root"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack"
+    }
+  }
+}

@@ -260,6 +260,8 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "gpt-oss-120b-axq4" in unlisted_ids
     assert "muse-glimmer-30b-axq4" in unlisted_ids
     assert "muse-glimmer-30b-axq6" in unlisted_ids
+    assert "qwen38-27b-axq4-mtp-studio" in unlisted_ids
+    assert "qwen38-27b-axq6-mtp-studio" in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
@@ -328,6 +330,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gpt-oss-120b-axq4",
         "muse-glimmer-30b-axq4",
         "muse-glimmer-30b-axq6",
+        "qwen38-27b-axq4-mtp-studio",
+        "qwen38-27b-axq6-mtp-studio",
     ]
     dual = [
         row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"
