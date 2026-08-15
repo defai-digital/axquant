@@ -1,0 +1,1942 @@
+{
+  "by_category": {
+    "chatbot": {
+      "mean_score": 0.9305555555555555,
+      "n": 24,
+      "pass_rate": 0.875
+    },
+    "coding": {
+      "mean_score": 0.95,
+      "n": 20,
+      "pass_rate": 0.95
+    },
+    "logic": {
+      "mean_score": 0.6666666666666666,
+      "n": 24,
+      "pass_rate": 0.6666666666666666
+    },
+    "vision": {
+      "mean_score": 0.9444444444444444,
+      "n": 18,
+      "pass_rate": 0.9444444444444444
+    }
+  },
+  "commit": "f44a9eeebec0c488d0f42201c8763db770a1c0a8",
+  "hub": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+  "label": "Qwen3.6-27B AXQ 4-bit MTP",
+  "mean_score": 0.8643410852713178,
+  "model_key": "qwen36",
+  "n_tasks": 86,
+  "pass_rate": 0.8488372093023255,
+  "path": "/Volumes/Ext4T/models/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+  "tasks": [
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "regex:0": 0.0,
+        "regex:1": 1.0,
+        "regex:2": 1.0
+      },
+      "elapsed_seconds": 1.4567397909995634,
+      "error": null,
+      "final": "1. Paris",
+      "output": "FINAL: 1. Paris\n2. London\n3. Berlin\n4. Rome",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "subcategory": "instruction-format",
+      "task_id": "chat-01",
+      "usage": {
+        "completion_tokens": 18,
+        "prompt_tokens": 100,
+        "total_tokens": 118
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.9756342500040773,
+      "error": null,
+      "final": "Osaka",
+      "output": "Osaka",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "context-qa",
+      "task_id": "chat-02",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 125,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 127
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 1.120320709014777,
+      "error": null,
+      "final": "ohm",
+      "output": "FINAL: ohm",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "factual",
+      "task_id": "chat-03",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 90,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 94
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 1.19114820798859,
+      "error": null,
+      "final": "Tolstoy",
+      "output": "FINAL: Tolstoy",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "factual",
+      "task_id": "chat-04",
+      "usage": {
+        "completion_tokens": 5,
+        "prompt_tokens": 94,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 99
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 2.1618443340121303,
+      "error": null,
+      "final": "210",
+      "output": "To convert hours to minutes, multiply the number of hours by 60.\n\n$$3.5 \\times 60 = 210$$\n\nFINAL: 210",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "conversion",
+      "task_id": "chat-05",
+      "usage": {
+        "completion_tokens": 39,
+        "prompt_tokens": 89,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 128
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:1": 1.0,
+        "contains:2": 1.0,
+        "contains:3": 1.0,
+        "json-keys:0": 1.0
+      },
+      "elapsed_seconds": 1.7397952080063988,
+      "error": null,
+      "final": "}",
+      "output": "{\n  \"name\": \"Amina\",\n  \"role\": \"analyst\",\n  \"city\": \"Nairobi\"\n}",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "json",
+      "task_id": "chat-06",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 137
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "regex:0": 1.0,
+        "regex:1": 1.0,
+        "regex:2": 1.0
+      },
+      "elapsed_seconds": 0.9421123749925755,
+      "error": null,
+      "final": "The meeting tomorrow starts at 9 a.m.",
+      "output": "The meeting tomorrow starts at 9 a.m.",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "multilingual",
+      "task_id": "chat-07",
+      "usage": {
+        "completion_tokens": 10,
+        "prompt_tokens": 96,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 106
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "word-count:0": 0.0
+      },
+      "elapsed_seconds": 1.3252735830028541,
+      "error": null,
+      "final": "Tidal turbines cut bills eighteen percent and hired two local technicians.",
+      "output": "Tidal turbines cut bills eighteen percent and hired two local technicians.",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "summarize",
+      "task_id": "chat-08",
+      "usage": {
+        "completion_tokens": 13,
+        "prompt_tokens": 130,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 143
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:0": 1.0,
+        "regex:1": 1.0
+      },
+      "elapsed_seconds": 1.1663973749964498,
+      "error": null,
+      "final": "Please send the file immediately, as it is already late.",
+      "output": "Please send the file immediately, as it is already late.",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "rewrite",
+      "task_id": "chat-09",
+      "usage": {
+        "completion_tokens": 12,
+        "prompt_tokens": 104,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 116
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "regex:0": 1.0,
+        "regex:1": 1.0
+      },
+      "elapsed_seconds": 0.6829456249834038,
+      "error": null,
+      "final": "purple",
+      "output": "purple",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "constraint",
+      "task_id": "chat-10",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 98
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.80553687500651,
+      "error": null,
+      "final": "Monday",
+      "output": "Monday",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "calendar",
+      "task_id": "chat-11",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 108
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 1.0423808330087923,
+      "error": null,
+      "final": "ORD-90412",
+      "output": "ORD-90412",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "extract",
+      "task_id": "chat-12",
+      "usage": {
+        "completion_tokens": 7,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 114
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:0": 1.0,
+        "contains:1": 1.0,
+        "regex:2": 1.0,
+        "regex:3": 1.0,
+        "regex:4": 1.0
+      },
+      "elapsed_seconds": 1.5018372500198893,
+      "error": null,
+      "final": "| pears | 7 |",
+      "output": "| Name | Qty |\n|---|---|\n| apples | 4 |\n| pears | 7 |",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "table",
+      "task_id": "chat-13",
+      "usage": {
+        "completion_tokens": 26,
+        "prompt_tokens": 103,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 129
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.7226751249982044,
+      "error": null,
+      "final": "No",
+      "output": "No",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "policy-qa",
+      "task_id": "chat-14",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 115,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 116
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 1.0804183750005905,
+      "error": null,
+      "final": "Cairo,Delhi,Oslo,Zurich",
+      "output": "Cairo,Delhi,Oslo,Zurich",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "sort",
+      "task_id": "chat-15",
+      "usage": {
+        "completion_tokens": 11,
+        "prompt_tokens": 101,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 112
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:0": 1.0,
+        "contains:1": 1.0
+      },
+      "elapsed_seconds": 1.1946439999737777,
+      "error": null,
+      "final": "priya.n@example.com;ops+desk@northwind.io",
+      "output": "priya.n@example.com;ops+desk@northwind.io",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "entity",
+      "task_id": "chat-16",
+      "usage": {
+        "completion_tokens": 13,
+        "prompt_tokens": 115,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 128
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.63576629201998,
+      "error": null,
+      "final": "B",
+      "output": "B",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "compare",
+      "task_id": "chat-17",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 112,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 113
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 1.1779320840141736,
+      "error": null,
+      "final": "2",
+      "output": "FINAL: 2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "multilingual-zh",
+      "task_id": "chat-18",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 93,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 97
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "json-keys:0": 1.0,
+        "regex:1": 1.0,
+        "regex:2": 1.0
+      },
+      "elapsed_seconds": 1.3587522500019986,
+      "error": null,
+      "final": "}",
+      "output": "{\n  \"topic\": \"login\",\n  \"severity\": \"high\"\n}",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "json-enum",
+      "task_id": "chat-19",
+      "usage": {
+        "completion_tokens": 19,
+        "prompt_tokens": 121,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 140
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.91813700000057,
+      "error": null,
+      "final": "Lille",
+      "output": "Lille",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "consistency",
+      "task_id": "chat-20",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 109
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:0": 1.0,
+        "regex:1": 1.0
+      },
+      "elapsed_seconds": 1.3891347080061678,
+      "error": null,
+      "final": "Photosynthesis is how green leaves use sunlight to turn water and air into food.",
+      "output": "Photosynthesis is how green leaves use sunlight to turn water and air into food.",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "style",
+      "task_id": "chat-21",
+      "usage": {
+        "completion_tokens": 16,
+        "prompt_tokens": 109,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 125
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.6921003329916857,
+      "error": null,
+      "final": "5",
+      "output": "5",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "count",
+      "task_id": "chat-22",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 100,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 101
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.7531604170217179,
+      "error": null,
+      "final": "no",
+      "output": "no",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "boolean",
+      "task_id": "chat-23",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 116,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 117
+      }
+    },
+    {
+      "category": "chatbot",
+      "check_scores": {
+        "contains:1": 1.0,
+        "contains:2": 1.0,
+        "regex:0": 0.0
+      },
+      "elapsed_seconds": 1.1393143330060411,
+      "error": null,
+      "final": "HX-19,6,C3",
+      "output": "sku,qty,bin\nHX-19,6,C3",
+      "passed": false,
+      "score": 0.6666666666666666,
+      "subcategory": "format-csv",
+      "task_id": "chat-24",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 115,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 129
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.4822692919988185,
+      "error": null,
+      "final": "return -1",
+      "output": "def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "search",
+      "task_id": "code-01",
+      "usage": {
+        "completion_tokens": 88,
+        "prompt_tokens": 115,
+        "prompt_tokens_details": {
+          "cached_tokens": 32
+        },
+        "total_tokens": 203
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.615326750004897,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n    intervals.sort()\n    merged = [intervals[0]]\n    for start, end in intervals[1:]:\n        if start <= merged[-1][1]:\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            merged.append([start, end])\n    return merged\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "intervals",
+      "task_id": "code-02",
+      "usage": {
+        "completion_tokens": 95,
+        "prompt_tokens": 101,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 196
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.320418499992229,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef valid_parentheses(s):\n    stack = []\n    matching = {')': '(', ']': '[', '}': '{'}\n    for char in s:\n        if char in '([{':\n            stack.append(char)\n        elif char in ')]}':\n            if not stack or stack.pop() != matching[char]:\n                return False\n    return not stack\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "stack",
+      "task_id": "code-03",
+      "usage": {
+        "completion_tokens": 86,
+        "prompt_tokens": 102,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 188
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 2.4234866249898914,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef two_sum(nums, target):\n    seen = {}\n    for i, num in enumerate(nums):\n        complement = target - num\n        if complement in seen:\n            return [seen[complement], i]\n        seen[num] = i\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "hash",
+      "task_id": "code-04",
+      "usage": {
+        "completion_tokens": 59,
+        "prompt_tokens": 114,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 173
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 5.133848208002746,
+      "error": null,
+      "final": "```",
+      "output": "```python\nclass LRUCache:\n    def __init__(self, capacity: int):\n        from collections import OrderedDict\n        self.cache = OrderedDict()\n        self.capacity = capacity\n\n    def get(self, key: int) -> int:\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key: int, value: int) -> None:\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "cache",
+      "task_id": "code-05",
+      "usage": {
+        "completion_tokens": 146,
+        "prompt_tokens": 120,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 266
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 2.6587024169857614,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef group_anagrams(words):\n    from collections import defaultdict\n    anagram_map = defaultdict(list)\n    for word in words:\n        key = tuple(sorted(word))\n        anagram_map[key].append(word)\n    return list(anagram_map.values())\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "anagrams",
+      "task_id": "code-06",
+      "usage": {
+        "completion_tokens": 60,
+        "prompt_tokens": 108,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 168
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.905334374983795,
+      "error": null,
+      "final": "```",
+      "output": "```python\nclass ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next\n\n\ndef has_cycle(head: ListNode) -> bool:\n    if not head or not head.next:\n        return False\n    \n    slow = head\n    fast = head\n    \n    while fast and fast.next:\n        slow = slow.next\n        fast = fast.next.next\n        \n        if slow == fast:\n            return True\n    \n    return False\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "linked-list",
+      "task_id": "code-07",
+      "usage": {
+        "completion_tokens": 106,
+        "prompt_tokens": 105,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 211
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 8.600014374998864,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef spiral_order(matrix):\n    if not matrix or not matrix[0]:\n        return []\n    \n    result = []\n    top, bottom = 0, len(matrix) - 1\n    left, right = 0, len(matrix[0]) - 1\n    \n    while top <= bottom and left <= right:\n        # Traverse from left to right along the top row\n        for i in range(left, right + 1):\n            result.append(matrix[top][i])\n        top += 1\n        \n        # Traverse from top to bottom along the right column\n        for i in range(top, bottom + 1):\n            result.append(matrix[i][right])\n        right -= 1\n        \n        # Traverse from right to left along the bottom row, if any\n        if top <= bottom:\n            for i in range(right, left - 1, -1):\n                result.append(matrix[bottom][i])\n            bottom -= 1\n        \n        # Traverse from bottom to top along the left column, if any\n        if left <= right:\n            for i in range(bottom, top - 1, -1):\n                result.append(matrix[i][left])\n            left += 1\n    \n    return result\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "matrix",
+      "task_id": "code-08",
+      "usage": {
+        "completion_tokens": 265,
+        "prompt_tokens": 99,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 364
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 6.702494875004049,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef edit_distance(a, b):\n    m, n = len(a), len(b)\n    dp = [[0] * (n + 1) for _ in range(m + 1)]\n    for i in range(m + 1):\n        dp[i][0] = i\n    for j in range(n + 1):\n        dp[0][j] = j\n    for i in range(1, m + 1):\n        for j in range(1, n + 1):\n            if a[i - 1] == b[j - 1]:\n                dp[i][j] = dp[i - 1][j - 1]\n            else:\n                dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])\n    return dp[m][n]\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "dp",
+      "task_id": "code-09",
+      "usage": {
+        "completion_tokens": 202,
+        "prompt_tokens": 99,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 301
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.9193642080063,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef max_sliding_window(nums, k):\n    from collections import deque\n    dq = deque()\n    result = []\n    for i, num in enumerate(nums):\n        while dq and dq[-1] < num:\n            dq.pop()\n        dq.append(num)\n        if i >= k and dq[0] == nums[i - k]:\n            dq.popleft()\n        if i >= k - 1:\n            result.append(dq[0])\n    return result\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "window",
+      "task_id": "code-10",
+      "usage": {
+        "completion_tokens": 110,
+        "prompt_tokens": 99,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 209
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 6.093906499998411,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef topo_sort(n, edges):\n    from collections import defaultdict, deque\n    \n    # Build adjacency list and in-degree count\n    adj = defaultdict(list)\n    in_degree = [0] * n\n    \n    for u, v in edges:\n        adj[u].append(v)\n        in_degree[v] += 1\n    \n    # Initialize queue with nodes having in-degree 0\n    queue = deque([i for i in range(n) if in_degree[i] == 0])\n    \n    result = []\n    \n    while queue:\n        node = queue.popleft()\n        result.append(node)\n        \n        for neighbor in adj[node]:\n            in_degree[neighbor] -= 1\n            if in_degree[neighbor] == 0:\n                queue.append(neighbor)\n    \n    return result\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "graph",
+      "task_id": "code-11",
+      "usage": {
+        "completion_tokens": 176,
+        "prompt_tokens": 124,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 300
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 7.962086624989752,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef parse_csv_line(line):\n    fields = []\n    current = []\n    in_quotes = False\n    i = 0\n    while i < len(line):\n        char = line[i]\n        if in_quotes:\n            if char == '\"':\n                # Check for escaped quote \"\"\n                if i + 1 < len(line) and line[i + 1] == '\"':\n                    current.append('\"')\n                    i += 2\n                    continue\n                else:\n                    in_quotes = False\n                    i += 1\n                    continue\n            else:\n                current.append(char)\n                i += 1\n                continue\n        else:\n            if char == '\"':\n                in_quotes = True\n                i += 1\n                continue\n            elif char == ',':\n                fields.append(''.join(current))\n                current = []\n                i += 1\n                continue\n            else:\n                current.append(char)\n                i += 1\n                continue\n    fields.append(''.join(current))\n    return fields\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "parse",
+      "task_id": "code-12",
+      "usage": {
+        "completion_tokens": 231,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 338
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 0.0
+      },
+      "elapsed_seconds": 3.8216768340207636,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef except_zero_product(nums):\n    prod = 1\n    zeros = 0\n    for n in nums:\n        if n == 0:\n            zeros += 1\n        else:\n            prod *= n\n    if zeros > 1:\n        return 0\n    if zeros == 1:\n        return 0\n    return prod\n```",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "bugfix",
+      "task_id": "code-13",
+      "usage": {
+        "completion_tokens": 83,
+        "prompt_tokens": 202,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 285
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 1.7993483750033192,
+      "error": null,
+      "final": "return bucket",
+      "output": "def add_item(item, bucket=None):\n    if bucket is None:\n        bucket = []\n    bucket.append(item)\n    return bucket",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "bugfix",
+      "task_id": "code-14",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 127,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 157
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 2.7898244579846505,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef longest_common_prefix(strs):\n    if not strs:\n        return ''\n    prefix = strs[0]\n    for s in strs[1:]:\n        while not s.startswith(prefix):\n            prefix = prefix[:-1]\n            if not prefix:\n                return ''\n    return prefix\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "string",
+      "task_id": "code-15",
+      "usage": {
+        "completion_tokens": 70,
+        "prompt_tokens": 102,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 172
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 5.859516041993629,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef kth_largest(nums, k):\n    \"\"\"\n    Returns the k-th largest element in the list (1-indexed).\n    Uses a min-heap of size k to efficiently find the k-th largest element.\n    \"\"\"\n    import heapq\n    \n    # Use a min-heap of size k\n    # The heap will contain the k largest elements seen so far\n    # The root of the heap will be the k-th largest element\n    heap = []\n    \n    for num in nums:\n        if len(heap) < k:\n            heapq.heappush(heap, num)\n        else:\n            if num > heap[0]:\n                heapq.heapreplace(heap, num)\n    \n    return heap[0]\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "heap",
+      "task_id": "code-16",
+      "usage": {
+        "completion_tokens": 161,
+        "prompt_tokens": 124,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 285
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 2.3420910419954453,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef flatten(nested):\n    result = []\n    for item in nested:\n        if isinstance(item, list):\n            result.extend(flatten(item))\n        else:\n            result.append(item)\n    return result\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "recursion",
+      "task_id": "code-17",
+      "usage": {
+        "completion_tokens": 52,
+        "prompt_tokens": 100,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 152
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 3.287087167002028,
+      "error": null,
+      "final": "```",
+      "output": "```python\ndef is_prime(n):\n    if n < 2:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    i = 3\n    while i * i <= n:\n        if n % i == 0:\n            return False\n        i += 2\n    return True\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "math-code",
+      "task_id": "code-18",
+      "usage": {
+        "completion_tokens": 88,
+        "prompt_tokens": 97,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 185
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 7.915719666023506,
+      "error": null,
+      "final": "```",
+      "output": "```python\nclass RateLimiter:\n    def __init__(self, limit: int, window: int):\n        self.limit = limit\n        self.window = window\n        self.events = {}  # key -> list of timestamps\n\n    def allow(self, timestamp: int, key: str) -> bool:\n        if key not in self.events:\n            self.events[key] = []\n\n        # Remove events outside the sliding window [timestamp - window + 1, timestamp]\n        # The window is of size `window` ending at `timestamp`, so it includes timestamps in [timestamp - window + 1, timestamp]\n        events = self.events[key]\n        # Since timestamps are nondecreasing, we can remove from the front\n        cutoff = timestamp - self.window + 1\n        # Remove all events before cutoff\n        while events and events[0] < cutoff:\n            events.pop(0)\n\n        if len(events) < self.limit:\n            events.append(timestamp)\n            return True\n        else:\n            return False\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "rate-limit",
+      "task_id": "code-19",
+      "usage": {
+        "completion_tokens": 225,
+        "prompt_tokens": 137,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 362
+      }
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "python-exec:0": 1.0
+      },
+      "elapsed_seconds": 6.240764374990249,
+      "error": null,
+      "final": "```",
+      "output": "```python\nclass Trie:\n    def __init__(self):\n        self.root = {}\n\n    def insert(self, word: str) -> None:\n        node = self.root\n        for char in word:\n            if char not in node:\n                node[char] = {}\n            node = node[char]\n        node['#'] = True  # Mark end of word\n\n    def search(self, word: str) -> bool:\n        node = self.root\n        for char in word:\n            if char not in node:\n                return False\n            node = node[char]\n        return '#' in node\n\n    def starts_with(self, prefix: str) -> bool:\n        node = self.root\n        for char in prefix:\n            if char not in node:\n                return False\n            node = node[char]\n        return True\n```",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "trie",
+      "task_id": "code-20",
+      "usage": {
+        "completion_tokens": 185,
+        "prompt_tokens": 103,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 288
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.8824716669914778,
+      "error": null,
+      "final": "421",
+      "output": "421",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "arithmetic",
+      "task_id": "logic-01",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 89,
+        "prompt_tokens_details": {
+          "cached_tokens": 32
+        },
+        "total_tokens": 92
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.7932352500210982,
+      "error": null,
+      "final": "80",
+      "output": "80",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "percent",
+      "task_id": "logic-02",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 103,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 105
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "numeric:0": 1.0
+      },
+      "elapsed_seconds": 0.8569509169901721,
+      "error": null,
+      "final": "2",
+      "output": "2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "work-rate",
+      "task_id": "logic-03",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 109,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 110
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 10.474000665999483,
+      "error": null,
+      "final": "1/2",
+      "output": "To find the probability of rolling a prime number on a fair six-sided die, we follow these steps:\n\n1.  **Identify the sample space**:\n    A fair six-sided die has the outcomes $\\{1, 2, 3, 4, 5, 6\\}$.\n    The total number of possible outcomes is $6$.\n\n2.  **Identify the favorable outcomes**:\n    We need to determine which of these numbers are prime.\n    -   $1$ is not prime (by definition, prime numbers must be greater than 1).\n    -   $2$ is prime.\n    -   $3$ is prime.\n    -   $4$ is not prime ($2 \\times 2$).\n    -   $5$ is prime.\n    -   $6$ is not prime ($2 \\times 3$).\n\n    The prime numbers in the sample space are $\\{2, 3, 5\\}$.\n    The number of favorable outcomes is $3$.\n\n3.  **Calculate the probability**:\n    $$ P(\\text{prime}) = \\frac{\\text{Number of favorable outcomes}}{\\text{Total number of possible outcomes}} = \\frac{3}{6} $$\n\n4.  **Reduce the fraction**:\n    Divide the numerator and the denominator by their greatest common divisor, which is 3.\n    $$ \\frac{3}{6} = \\frac{1}{2} $$\n\n**Answer:**\n1/2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "probability",
+      "task_id": "logic-04",
+      "usage": {
+        "completion_tokens": 323,
+        "prompt_tokens": 104,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 427
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.7457042080059182,
+      "error": null,
+      "final": "120",
+      "output": "120",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "combinatorics",
+      "task_id": "logic-05",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 97,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 100
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 0.6135975000215694,
+      "error": null,
+      "final": "1",
+      "output": "1",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "modular",
+      "task_id": "logic-06",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 88,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 89
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 16.615631082997425,
+      "error": null,
+      "final": "A is a **knight**.",
+      "output": "To determine whether A is a knight or a knave, let's analyze the statements logically based on the rules:\n- **Knights** always tell the truth.\n- **Knaves** always lie.\n\n### Step 1: Analyze B's statement\nB says: *\"A and I are both knaves.\"*\n\nLet's test the two possibilities for B:\n\n**Case 1: Assume B is a Knight.**\n- If B is a Knight, B tells the truth.\n- Therefore, the statement \"A and I are both knaves\" must be true.\n- This implies B is a knave.\n- **Contradiction:** B cannot be both a Knight (our assumption) and a knave (the implication of the truth).\n- **Conclusion:** B cannot be a Knight. Therefore, **B is a Knave**.\n\n**Case 2: Assume B is a Knave.**\n- If B is a Knave, B lies.\n- Therefore, the statement \"A and I are both knaves\" is false.\n- The negation of \"A is a knave AND B is a knave\" is \"A is a Knight OR B is a Knight\".\n- Since we already established B is a Knave, for the statement to be false, it is sufficient that A is a Knight. (If A were also a knave, the statement \"A and B are both knaves\" would be true, which a Knave cannot say).\n- So, if B is a Knave, A must be a Knight for B's statement to be a lie.\n\n### Step 2: Analyze A's statement\nA says: *\"B is a knave.\"*\n\nFrom Step 1, we determined that **B is a Knave**.\n- Since B is indeed a knave, A's statement is **true**.\n- Since A tells the truth, **A must be a Knight**.\n\n### Verification\n- **A is a Knight**: Tells the truth. Says \"B is a knave.\" This is true because B is a knave. \u2705\n- **B is a Knave**: Lies. Says \"A and I are both knaves.\" Since A is a Knight, the statement \"A is a knave and B is a knave\" is false. A knave telling a false statement is consistent. \u2705\n\n### Final Answer\nA is a **knight**.",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "knights",
+      "task_id": "logic-07",
+      "usage": {
+        "completion_tokens": 512,
+        "prompt_tokens": 120,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 632
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 14.644566500006476,
+      "error": null,
+      "final": "The next integer in the sequence is **38**.",
+      "output": "To find the next integer in the sequence **3, 6, 11, 18, 27, ?**, we can analyze the differences between consecutive terms.\n\n**Step 1: Calculate the first differences**\n*   $6 - 3 = 3$\n*   $11 - 6 = 5$\n*   $18 - 11 = 7$\n*   $27 - 18 = 9$\n\nThe sequence of differences is: **3, 5, 7, 9**.\n\n**Step 2: Identify the pattern in the differences**\nThe differences form an arithmetic progression of consecutive odd numbers, increasing by 2 each time:\n*   $3 + 2 = 5$\n*   $5 + 2 = 7$\n*   $7 + 2 = 9$\n\nTherefore, the next difference should be:\n*   $9 + 2 = 11$\n\n**Step 3: Calculate the next term**\nAdd the next difference (11) to the last term in the original sequence (27):\n*   $27 + 11 = 38$\n\n**Alternative Method: Formula Analysis**\nLet $n$ be the position in the sequence ($n=1, 2, 3, \\dots$).\n*   $n=1: 1^2 + 2 = 3$\n*   $n=2: 2^2 + 2 = 6$\n*   $n=3: 3^2 + 2 = 11$\n*   $n=4: 4^2 + 2 = 18$\n*   $n=5: 5^2 + 2 = 27$\n\nThe formula for the $n$-th term is $n^2 + 2$.\nFor the next term ($n=6$):\n*   $6^2 + 2 = 36 + 2 = 38$\n\n**Conclusion**\nThe next integer in the sequence is **38**.",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "sequence",
+      "task_id": "logic-08",
+      "usage": {
+        "completion_tokens": 458,
+        "prompt_tokens": 98,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 556
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 14.896816000022227,
+      "error": null,
+      "final": "Lee is currently **4** years old.",
+      "output": "To determine Lee's current age, we can set up a system of linear equations based on the information provided.\n\n### Step 1: Define Variables\nLet $S$ be Sam's current age.\nLet $L$ be Lee's current age.\n\n### Step 2: Translate Statements into Equations\n1.  **\"Sam is twice as old as Lee.\"**\n    $$S = 2L$$\n\n2.  **\"In 4 years Sam will be 1.5 times Lee.\"**\n    In 4 years, Sam's age will be $S + 4$ and Lee's age will be $L + 4$.\n    $$S + 4 = 1.5(L + 4)$$\n\n### Step 3: Solve the System of Equations\nSubstitute the value of $S$ from the first equation ($S = 2L$) into the second equation:\n\n$$2L + 4 = 1.5(L + 4)$$\n\nExpand the right side of the equation:\n\n$$2L + 4 = 1.5L + 6$$\n\nSubtract $1.5L$ from both sides to group the variable terms:\n\n$$2L - 1.5L + 4 = 6$$\n$$0.5L + 4 = 6$$\n\nSubtract 4 from both sides:\n\n$$0.5L = 2$$\n\nDivide by 0.5 (or multiply by 2) to solve for $L$:\n\n$$L = \\frac{2}{0.5}$$\n$$L = 4$$\n\n### Step 4: Verification\n*   If Lee is 4, then Sam is $2 \\times 4 = 8$.\n*   In 4 years:\n    *   Lee will be $4 + 4 = 8$.\n    *   Sam will be $8 + 4 = 12$.\n*   Check the ratio: Is Sam 1.5 times Lee?\n    $$1.5 \\times 8 = 12$$\n*   The condition holds true.\n\n### Conclusion\nLee is currently **4** years old.",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "ages",
+      "task_id": "logic-09",
+      "usage": {
+        "completion_tokens": 467,
+        "prompt_tokens": 105,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 572
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "numeric:0": 1.0
+      },
+      "elapsed_seconds": 11.220722041005502,
+      "error": null,
+      "final": "The total time is **3.25** hours.",
+      "output": "To find the total time, we need to calculate the time spent driving for each segment and add the rest time.\n\n**Step 1: Calculate the time for the first driving segment.**\n*   Distance ($d_1$) = 90 km\n*   Speed ($v_1$) = 60 km/h\n*   Time ($t_1$) = $\\frac{d_1}{v_1} = \\frac{90}{60} = 1.5$ hours\n\n**Step 2: Convert the rest time to hours.**\n*   Rest time = 15 minutes\n*   Since there are 60 minutes in an hour:\n    $$t_{rest} = \\frac{15}{60} = 0.25 \\text{ hours}$$\n\n**Step 3: Calculate the time for the second driving segment.**\n*   Distance ($d_2$) = 60 km\n*   Speed ($v_2$) = 40 km/h\n*   Time ($t_2$) = $\\frac{d_2}{v_2} = \\frac{60}{40} = 1.5$ hours\n\n**Step 4: Calculate the total time.**\n$$Total\\ Time = t_1 + t_{rest} + t_2$$\n$$Total\\ Time = 1.5 + 0.25 + 1.5$$\n$$Total\\ Time = 3.25 \\text{ hours}$$\n\n**Final Answer:**\nThe total time is **3.25** hours.",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "distance",
+      "task_id": "logic-10",
+      "usage": {
+        "completion_tokens": 346,
+        "prompt_tokens": 115,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 461
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 11.52490229200339,
+      "error": null,
+      "final": "6",
+      "output": "To find the number of students who take neither math nor physics, we can use the Principle of Inclusion-Exclusion.\n\n**1. Define the sets:**\n*   Let $U$ be the total number of students in the class. $|U| = 30$.\n*   Let $M$ be the set of students taking Math. $|M| = 18$.\n*   Let $P$ be the set of students taking Physics. $|P| = 16$.\n*   Let $M \\cap P$ be the set of students taking both Math and Physics. $|M \\cap P| = 10$.\n\n**2. Calculate the number of students taking at least one subject (Math or Physics):**\nThe formula for the union of two sets is:\n$$|M \\cup P| = |M| + |P| - |M \\cap P|$$\n\nSubstitute the given values:\n$$|M \\cup P| = 18 + 16 - 10$$\n$$|M \\cup P| = 34 - 10$$\n$$|M \\cup P| = 24$$\n\nSo, 24 students take either Math, Physics, or both.\n\n**3. Calculate the number of students taking neither:**\nThe number of students taking neither subject is the total number of students minus those who take at least one subject.\n$$\\text{Neither} = |U| - |M \\cup P|$$\n$$\\text{Neither} = 30 - 24$$\n$$\\text{Neither} = 6$$\n\n**Answer:**\n6",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "sets",
+      "task_id": "logic-11",
+      "usage": {
+        "completion_tokens": 355,
+        "prompt_tokens": 107,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 462
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 4.0083601670048665,
+      "error": null,
+      "final": "**no**",
+      "output": "The statement \"If it rains, the match is cancelled\" establishes a conditional relationship: Rain $\\rightarrow$ Cancelled.\n\nWe are given that \"The match is not cancelled.\" In logic, this is the negation of the consequent ($\\neg$ Cancelled). According to the rule of **Modus Tollens**, if $P \\rightarrow Q$ is true and $Q$ is false, then $P$ must be false.\n\nTherefore, since the match was not cancelled, it did not rain.\n\n**no**",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "implication",
+      "task_id": "logic-12",
+      "usage": {
+        "completion_tokens": 109,
+        "prompt_tokens": 100,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 209
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.6799002920161001,
+      "error": null,
+      "final": "Saturday",
+      "output": "Saturday",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "calendar",
+      "task_id": "logic-13",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 97,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 98
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 6.969352500018431,
+      "error": null,
+      "final": "45",
+      "output": "To convert the binary number $101101$ to decimal, we expand it using powers of 2, starting from the rightmost bit (least significant bit) at position $2^0$:\n\n$$\n\\begin{align*}\n1 \\times 2^5 &= 1 \\times 32 = 32 \\\\\n0 \\times 2^4 &= 0 \\times 16 = 0 \\\\\n1 \\times 2^3 &= 1 \\times 8 = 8 \\\\\n1 \\times 2^2 &= 1 \\times 4 = 4 \\\\\n0 \\times 2^1 &= 0 \\times 2 = 0 \\\\\n1 \\times 2^0 &= 1 \\times 1 = 1 \\\\\n\\end{align*}\n$$\n\nSumming these values:\n$$ 32 + 0 + 8 + 4 + 0 + 1 = 45 $$\n\n45",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "base",
+      "task_id": "logic-14",
+      "usage": {
+        "completion_tokens": 212,
+        "prompt_tokens": 89,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 301
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 7.976314250001451,
+      "error": null,
+      "final": "36",
+      "output": "To find the least common multiple (LCM) of 12 and 18, we can use the prime factorization method.\n\n1.  **Prime factorization of 12:**\n    $12 = 2 \\times 2 \\times 3 = 2^2 \\times 3^1$\n\n2.  **Prime factorization of 18:**\n    $18 = 2 \\times 3 \\times 3 = 2^1 \\times 3^2$\n\n3.  **Calculate LCM:**\n    The LCM is found by taking the highest power of each prime factor present in the numbers.\n    - For the prime factor 2, the highest power is $2^2$.\n    - For the prime factor 3, the highest power is $3^2$.\n\n    $LCM(12, 18) = 2^2 \\times 3^2$\n    $LCM(12, 18) = 4 \\times 9$\n    $LCM(12, 18) = 36$\n\n36",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "lcm",
+      "task_id": "logic-15",
+      "usage": {
+        "completion_tokens": 245,
+        "prompt_tokens": 89,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 334
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "numeric:0": 0.0
+      },
+      "elapsed_seconds": 0.8113101659982931,
+      "error": null,
+      "final": "85",
+      "output": "85",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "weighted-avg",
+      "task_id": "logic-16",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 104,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 106
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 18.453978334000567,
+      "error": null,
+      "final": "**Answer:** 3/10",
+      "output": "To find the probability that both marbles drawn are red, we can use the concept of conditional probability or combinations. Here is the step-by-step deduction:\n\n### Method 1: Sequential Probability\n\n1.  **Total Marbles**: There are 3 red marbles and 2 blue marbles, making a total of $3 + 2 = 5$ marbles.\n2.  **First Draw**: The probability of drawing a red marble first is the number of red marbles divided by the total number of marbles.\n    $$ P(\\text{1st Red}) = \\frac{3}{5} $$\n3.  **Second Draw**: Since the drawing is **without replacement**, there is now 1 less red marble and 1 less total marble in the bag.\n    *   Remaining red marbles: $3 - 1 = 2$\n    *   Remaining total marbles: $5 - 1 = 4$\n    *   The probability of drawing a red marble second, given the first was red, is:\n    $$ P(\\text{2nd Red} | \\text{1st Red}) = \\frac{2}{4} = \\frac{1}{2} $$\n4.  **Combined Probability**: Multiply the probabilities of the two dependent events.\n    $$ P(\\text{Both Red}) = P(\\text{1st Red}) \\times P(\\text{2nd Red} | \\text{1st Red}) $$\n    $$ P(\\text{Both Red}) = \\frac{3}{5} \\times \\frac{1}{2} = \\frac{3}{10} $$\n\n### Method 2: Combinations\n\n1.  **Total Outcomes**: The number of ways to choose 2 marbles from 5 is given by the combination formula $\\binom{n}{k}$:\n    $$ \\binom{5}{2} = \\frac{5 \\times 4}{2 \\times 1} = 10 $$\n2.  **Favorable Outcomes**: The number of ways to choose 2 red marbles from the 3 available red marbles is:\n    $$ \\binom{3}{2} = \\frac{3 \\times 2}{2 \\times 1} = 3 $$\n3.  **Probability**:\n    $$ P(\\text{Both Red}) = \\frac{\\text{Favorable Outcomes}}{\\text{Total Outcomes}} = \\frac{3}{10} $$\n\n### Conclusion\n\nThe fraction $\\frac{3}{10}$ is already in its simplest form because 3 and 10 share no common factors other than 1.\n\n**Answer:** 3/10",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "conditional-prob",
+      "task_id": "logic-17",
+      "usage": {
+        "completion_tokens": 579,
+        "prompt_tokens": 100,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 679
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 12.004817957989872,
+      "error": null,
+      "final": "**Answer:** 7",
+      "output": "To find the shortest distance from City A to City D, we need to evaluate all possible paths connecting A and D using the given distances between cities.\n\n**Given Distances:**\n*   $A - B = 4$\n*   $B - C = 6$\n*   $A - C = 15$\n*   $B - D = 3$\n*   $C - D = 2$\n\n**Possible Paths from A to D:**\n\n1.  **Path A $\\rightarrow$ B $\\rightarrow$ D**\n    *   Distance: $A - B + B - D$\n    *   Calculation: $4 + 3 = 7$\n\n2.  **Path A $\\rightarrow$ C $\\rightarrow$ D**\n    *   Distance: $A - C + C - D$\n    *   Calculation: $15 + 2 = 17$\n\n3.  **Path A $\\rightarrow$ B $\\rightarrow$ C $\\rightarrow$ D**\n    *   Distance: $A - B + B - C + C - D$\n    *   Calculation: $4 + 6 + 2 = 12$\n\n4.  **Path A $\\rightarrow$ C $\\rightarrow$ B $\\rightarrow$ D**\n    *   Distance: $A - C + C - B + B - D$\n    *   Calculation: $15 + 6 + 3 = 24$\n\n**Comparison:**\n*   Path 1: 7\n*   Path 2: 17\n*   Path 3: 12\n*   Path 4: 24\n\nThe shortest distance is 7.\n\n**Answer:** 7",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "graph",
+      "task_id": "logic-18",
+      "usage": {
+        "completion_tokens": 369,
+        "prompt_tokens": 111,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 480
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.8342313749890309,
+      "error": null,
+      "final": "coin",
+      "output": "coin",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "truth",
+      "task_id": "logic-19",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 129,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 130
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 10.037140375003219,
+      "error": null,
+      "final": "3",
+      "output": "Let $p$ be the number of pens and $n$ be the number of notebooks.\n\nWe are given two conditions:\n1. The total number of items is 9:\n   $$p + n = 9$$\n2. The total cost is $27 (pens cost $2, notebooks cost $5):\n   $$2p + 5n = 27$$\n\nFrom the first equation, we can express $p$ in terms of $n$:\n$$p = 9 - n$$\n\nSubstitute this expression for $p$ into the second equation:\n$$2(9 - n) + 5n = 27$$\n\nExpand and solve for $n$:\n$$18 - 2n + 5n = 27$$\n$$18 + 3n = 27$$\n$$3n = 27 - 18$$\n$$3n = 9$$\n$$n = 3$$\n\nSo, the number of notebooks is 3.\n\nLet's verify the number of pens:\n$$p = 9 - 3 = 6$$\n\nCheck the total cost:\n$$6 \\text{ pens} \\times \\$2/\\text{pen} + 3 \\text{ notebooks} \\times \\$5/\\text{notebook} = \\$12 + \\$15 = \\$27$$\n\nThe calculations are correct.\n\n3",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "optimization",
+      "task_id": "logic-20",
+      "usage": {
+        "completion_tokens": 302,
+        "prompt_tokens": 106,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 408
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "numeric:0": 1.0
+      },
+      "elapsed_seconds": 0.8307160420226865,
+      "error": null,
+      "final": "16",
+      "output": "16",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "mixture",
+      "task_id": "logic-21",
+      "usage": {
+        "completion_tokens": 2,
+        "prompt_tokens": 105,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 107
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 4.4622811659937724,
+      "error": null,
+      "final": "90",
+      "output": "At 3:00, the minute hand points directly at the 12, and the hour hand points directly at the 3.\n\nThe clock face is a circle of 360 degrees, divided into 12 hour marks. The angle between each consecutive hour mark is:\n$$360^\\circ / 12 = 30^\\circ$$\n\nThe distance between the 12 and the 3 is 3 hour marks. Therefore, the angle is:\n$$3 \\times 30^\\circ = 90^\\circ$$\n\n90",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "clock-angle",
+      "task_id": "logic-22",
+      "usage": {
+        "completion_tokens": 122,
+        "prompt_tokens": 91,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 213
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 10.402015667001251,
+      "error": null,
+      "final": "11",
+      "output": "To find the value of $a_5$ for the sequence defined by $a_1=1$, $a_2=1$, and $a_n = a_{n-1} + 2a_{n-2}$, we calculate the terms step by step.\n\n1.  **Given:**\n    *   $a_1 = 1$\n    *   $a_2 = 1$\n\n2.  **Calculate $a_3$:**\n    Using the formula $a_n = a_{n-1} + 2a_{n-2}$ for $n=3$:\n    $$a_3 = a_2 + 2a_1$$\n    $$a_3 = 1 + 2(1) = 1 + 2 = 3$$\n\n3.  **Calculate $a_4$:**\n    Using the formula for $n=4$:\n    $$a_4 = a_3 + 2a_2$$\n    $$a_4 = 3 + 2(1) = 3 + 2 = 5$$\n\n4.  **Calculate $a_5$:**\n    Using the formula for $n=5$:\n    $$a_5 = a_4 + 2a_3$$\n    $$a_5 = 5 + 2(3) = 5 + 6 = 11$$\n\nThe value of $a_5$ is 11.\n\n11",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "recursive",
+      "task_id": "logic-23",
+      "usage": {
+        "completion_tokens": 321,
+        "prompt_tokens": 109,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 430
+      }
+    },
+    {
+      "category": "logic",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 0.7827030830085278,
+      "error": null,
+      "final": "History",
+      "output": "History",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "constraint",
+      "task_id": "logic-24",
+      "usage": {
+        "completion_tokens": 1,
+        "prompt_tokens": 117,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 118
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 0.0
+      },
+      "elapsed_seconds": 3.55947862501489,
+      "error": null,
+      "final": "6",
+      "output": "The image shows 6 red apples on the kitchen table.\n\nFINAL: 6",
+      "passed": false,
+      "score": 0.0,
+      "subcategory": "count",
+      "task_id": "vl-01",
+      "usage": {
+        "completion_tokens": 17,
+        "prompt_tokens": 433,
+        "prompt_tokens_details": {
+          "cached_tokens": 32
+        },
+        "total_tokens": 450
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.0186627090151887,
+      "error": null,
+      "final": "AXQ-38-M2U",
+      "output": "FINAL: AXQ-38-M2U",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "ocr",
+      "task_id": "vl-02",
+      "usage": {
+        "completion_tokens": 10,
+        "prompt_tokens": 401,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 411
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 6.644368499983102,
+      "error": null,
+      "final": "Q2",
+      "output": "The bar chart shows the following units sold per quarter:\n\n- Q1: 12\n- Q2: 19\n- Q3: 7\n- Q4: 15\n\nThe highest value is 19, which corresponds to Q2.\n\nFINAL: Q2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "chart",
+      "task_id": "vl-03",
+      "usage": {
+        "completion_tokens": 62,
+        "prompt_tokens": 584,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 646
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 5.243762833008077,
+      "error": null,
+      "final": "7",
+      "output": "The bar chart shows the number of units sold per quarter. For Q3, the value labeled above the orange bar is 7.\n\nFINAL: 7",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "chart-value",
+      "task_id": "vl-04",
+      "usage": {
+        "completion_tokens": 32,
+        "prompt_tokens": 574,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 606
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 2.8989054590056185,
+      "error": null,
+      "final": "cube",
+      "output": "FINAL: cube",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "spatial",
+      "task_id": "vl-05",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 421,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 424
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 4.7767452080152,
+      "error": null,
+      "final": "4821",
+      "output": "The invoice number is listed as 4821.\n\nFINAL: 4821",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "document",
+      "task_id": "vl-06",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 586,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 606
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "regex:0": 1.0
+      },
+      "elapsed_seconds": 4.142978209012654,
+      "error": null,
+      "final": "$136.50",
+      "output": "FINAL: $136.50",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "document-total",
+      "task_id": "vl-07",
+      "usage": {
+        "completion_tokens": 9,
+        "prompt_tokens": 592,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 601
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 4.616206165985204,
+      "error": null,
+      "final": "3:15",
+      "output": "The hour hand (black) is pointing just past the 3, indicating it is 3 o'clock. The minute hand (red) is pointing directly at the 3, which represents 15 minutes.\n\nTherefore, the time shown is 3:15.\n\nFINAL: 3:15",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "clock",
+      "task_id": "vl-08",
+      "usage": {
+        "completion_tokens": 64,
+        "prompt_tokens": 345,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 409
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 9.136761333007598,
+      "error": null,
+      "final": "5",
+      "output": "We are given a right triangle with legs of length 3 and 4. The hypotenuse is labeled with a question mark.\n\nBy the Pythagorean theorem:\n\n> $ a^2 + b^2 = c^2 $\n\nWhere:\n- $ a = 3 $\n- $ b = 4 $\n- $ c = ? $ (hypotenuse)\n\nSo:\n\n$ 3^2 + 4^2 = c^2 $  \n$ 9 + 16 = c^2 $  \n$ 25 = c^2 $  \n$ c = \\sqrt{25} = 5 $\n\nThe missing hypotenuse is 5.\n\nFINAL: 5",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "geometry",
+      "task_id": "vl-09",
+      "usage": {
+        "completion_tokens": 152,
+        "prompt_tokens": 422,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 574
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.1024638329981826,
+      "error": null,
+      "final": "green",
+      "output": "The green lamp is illuminated, as it is the only one that appears bright and vivid compared to the dim red and yellow lamps.\n\nFINAL: green",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "state",
+      "task_id": "vl-10",
+      "usage": {
+        "completion_tokens": 30,
+        "prompt_tokens": 272,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 302
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 2.194526125007542,
+      "error": null,
+      "final": "CONFIRM",
+      "output": "FINAL: CONFIRM",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "ui",
+      "task_id": "vl-11",
+      "usage": {
+        "completion_tokens": 4,
+        "prompt_tokens": 296,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 300
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.372913958010031,
+      "error": null,
+      "final": "center",
+      "output": "The star is located in the center cell of the 3x3 grid.\n\nFINAL: center",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "grid",
+      "task_id": "vl-12",
+      "usage": {
+        "completion_tokens": 20,
+        "prompt_tokens": 386,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 406
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.5896757500013337,
+      "error": null,
+      "final": "50",
+      "output": "The pie chart shows that the blue section represents 50% of the total market share.\n\nFINAL: 50",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "pie",
+      "task_id": "vl-13",
+      "usage": {
+        "completion_tokens": 25,
+        "prompt_tokens": 411,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 436
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 5.147147833020426,
+      "error": null,
+      "final": "14 August 2026",
+      "output": "The date written on the letter is \"14 August 2026\".\n\nFINAL: 14 August 2026",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "ocr-date",
+      "task_id": "vl-14",
+      "usage": {
+        "completion_tokens": 29,
+        "prompt_tokens": 603,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 632
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.2030920830147807,
+      "error": null,
+      "final": "3",
+      "output": "There are three yellow circles in the image.\n\nFINAL: 3",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "count-shapes",
+      "task_id": "vl-15",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 411,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 425
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 3.204206458001863,
+      "error": null,
+      "final": "2",
+      "output": "There are two purple squares in the image.\n\nFINAL: 2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "count-shapes",
+      "task_id": "vl-16",
+      "usage": {
+        "completion_tokens": 14,
+        "prompt_tokens": 411,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 425
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "final:0": 1.0
+      },
+      "elapsed_seconds": 6.105776291980874,
+      "error": null,
+      "final": "2",
+      "output": "The path from S to E consists of three straight segments connected at two points:\n\n1. From S, it goes right horizontally.\n2. Then turns downward (first right-angle corner).\n3. Then turns right again to reach E (second right-angle corner).\n\nSo there are **two** right-angle corners.\n\nFINAL: 2",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "path",
+      "task_id": "vl-17",
+      "usage": {
+        "completion_tokens": 71,
+        "prompt_tokens": 438,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 509
+      }
+    },
+    {
+      "category": "vision",
+      "check_scores": {
+        "regex:0": 1.0
+      },
+      "elapsed_seconds": 2.4173912499973085,
+      "error": null,
+      "final": "teal",
+      "output": "FINAL: teal",
+      "passed": true,
+      "score": 1.0,
+      "subcategory": "color",
+      "task_id": "vl-18",
+      "usage": {
+        "completion_tokens": 3,
+        "prompt_tokens": 346,
+        "prompt_tokens_details": {
+          "cached_tokens": 48
+        },
+        "total_tokens": 349
+      }
+    }
+  ]
+}

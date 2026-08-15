@@ -1,0 +1,258 @@
+{
+  "cases": [
+    {
+      "chars": 2000,
+      "decode_tps": null,
+      "kind": "prefill",
+      "max_tokens": 8,
+      "name": "prefill-512",
+      "prompt_tps": 156.4722344239388,
+      "trials": [
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 3.5189405829878524,
+          "error": null,
+          "prompt_tokens": 545,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 545,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 553
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 3.447151542000938,
+          "error": null,
+          "prompt_tokens": 545,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 545,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 553
+          },
+          "warmup": false
+        }
+      ]
+    },
+    {
+      "chars": 8000,
+      "decode_tps": null,
+      "kind": "prefill",
+      "max_tokens": 8,
+      "name": "prefill-2048",
+      "prompt_tps": 177.28705586508727,
+      "trials": [
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 11.307626333989901,
+          "error": null,
+          "prompt_tokens": 2004,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 2004,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 2012
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 11.299777125008404,
+          "error": null,
+          "prompt_tokens": 2004,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 2004,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 2012
+          },
+          "warmup": false
+        }
+      ]
+    },
+    {
+      "chars": 16000,
+      "decode_tps": null,
+      "kind": "prefill",
+      "max_tokens": 8,
+      "name": "prefill-4096",
+      "prompt_tps": 176.53357925425618,
+      "trials": [
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 22.3541105419863,
+          "error": null,
+          "prompt_tokens": 3945,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 3945,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 3953
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 8,
+          "elapsed_seconds": 22.339935958007118,
+          "error": null,
+          "prompt_tokens": 3945,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 8,
+            "prompt_tokens": 3945,
+            "prompt_tokens_details": {
+              "cached_tokens": 16
+            },
+            "total_tokens": 3953
+          },
+          "warmup": false
+        }
+      ]
+    },
+    {
+      "chars": 400,
+      "decode_tps": 23.380690977979757,
+      "kind": "decode",
+      "max_tokens": 128,
+      "name": "decode-128",
+      "prompt_tps": null,
+      "trials": [
+        {
+          "completion_tokens": 128,
+          "elapsed_seconds": 5.44531341700349,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 128,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 287
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 128,
+          "elapsed_seconds": 5.503892500011716,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 128,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 287
+          },
+          "warmup": false
+        }
+      ]
+    },
+    {
+      "chars": 400,
+      "decode_tps": 27.44626176909723,
+      "kind": "decode",
+      "max_tokens": 256,
+      "name": "decode-256",
+      "prompt_tps": null,
+      "trials": [
+        {
+          "completion_tokens": 256,
+          "elapsed_seconds": 9.357945833005942,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 256,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 415
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 256,
+          "elapsed_seconds": 9.296689333976246,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 256,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 415
+          },
+          "warmup": false
+        }
+      ]
+    },
+    {
+      "chars": 400,
+      "decode_tps": 28.934811176020954,
+      "kind": "decode",
+      "max_tokens": 512,
+      "name": "decode-512",
+      "prompt_tps": null,
+      "trials": [
+        {
+          "completion_tokens": 357,
+          "elapsed_seconds": 12.403189166012453,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 1,
+          "usage": {
+            "completion_tokens": 357,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 516
+          },
+          "warmup": false
+        },
+        {
+          "completion_tokens": 357,
+          "elapsed_seconds": 12.27296979201492,
+          "error": null,
+          "prompt_tokens": 159,
+          "trial": 2,
+          "usage": {
+            "completion_tokens": 357,
+            "prompt_tokens": 159,
+            "prompt_tokens_details": {
+              "cached_tokens": 32
+            },
+            "total_tokens": 516
+          },
+          "warmup": false
+        }
+      ]
+    }
+  ],
+  "collected_at": "2026-08-15T00:14:22.771179+00:00",
+  "model_key": "qwen36"
+}
