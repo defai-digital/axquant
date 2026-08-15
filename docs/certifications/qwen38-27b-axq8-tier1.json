@@ -87,7 +87,7 @@
     "display_name": "Qwen3.8-27B MLX AXQ 8-bit",
     "sort_order": 5,
     "edition_label": "main@`36f9d25c`",
-    "listed": true
+    "listed": false
   },
   "modalities": {
     "policy": "capability-gated-v1",

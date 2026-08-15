@@ -128,7 +128,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Holo3-35B-A3B-MLX-AXQ-4bit",
         "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
     }
-    # Qwen 3.6 no-MTP siblings + Qwen3.8-27B four-pack (Tier 1 / Tier 2 as certified).
+    # Qwen 3.6 no-MTP siblings + Qwen3.8-27B 4/6 ± MTP and 8-bit MTP (no-MTP MXFP4/8-bit unlisted).
     qwen_family_additions = {
         "AX-Qwen3.6-27B-MLX-AXQ-4bit",
         "AX-Qwen3.6-27B-MLX-AXQ-6bit",
@@ -138,7 +138,6 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
         "AX-Qwen3.8-27B-MLX-AXQ-6bit",
         "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
-        "AX-Qwen3.8-27B-MLX-AXQ-8bit",
         "AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
     }
     post_migration_additions = (
@@ -147,8 +146,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | secondary_family_additions
         | qwen_family_additions
     )
-    assert len(readme_repositories) == 56
-    assert len(set(readme_repositories)) == 56
+    assert len(readme_repositories) == 55
+    assert len(set(readme_repositories)) == 55
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -271,8 +270,10 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "ornith-35b-axq6" not in unlisted_ids
     # No-MTP Qwen / Coder-Next siblings stay certified on disk but off the matrix.
     for rid in (
+        "qwen38-27b-axq-mxfp4",
         "qwen38-27b-axq4",
         "qwen38-27b-axq6",
+        "qwen38-27b-axq8",
         "qwen36-27b-axq4-nomtp",
         "qwen36-27b-axq6-nomtp",
         "qwen36-35b-axq4-nomtp",
@@ -391,10 +392,9 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
 
     assert _data_rows(readme_body) == [row.display_name for row in rows]
     listed_ids = [row.record_id for row in rows]
-    assert listed_ids.index("qwen38-27b-axq-mxfp4") < listed_ids.index("qwen38-27b-axq4-mtp")
+    assert "qwen38-27b-axq-mxfp4" not in listed_ids
+    assert "qwen38-27b-axq8" not in listed_ids
     assert listed_ids.index("qwen38-27b-axq-mxfp4-mtp") < listed_ids.index("qwen38-27b-axq4-mtp")
-    assert listed_ids.index("qwen38-27b-axq-mxfp4") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
-    assert listed_ids.index("qwen38-27b-axq8") < listed_ids.index("qwen38-27b-axq8-mtp")
     assert _data_rows(index_body) == [row.display_name for row in rows]
     for row in rows:
         assert f"| {row.display_name} |" in readme_body

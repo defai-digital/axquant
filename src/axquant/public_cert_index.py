@@ -251,6 +251,8 @@ def _place_qwen38_8bit_mtp(rows: list[PublicCertRow]) -> list[PublicCertRow]:
     if not extra:
         return rows
     rest = [row for row in rows if row.record_id != "qwen38-27b-axq8-mtp"]
+    if not any(row.record_id == "qwen38-27b-axq8" for row in rest):
+        return rows
     out: list[PublicCertRow] = []
     inserted = False
     for row in rest:

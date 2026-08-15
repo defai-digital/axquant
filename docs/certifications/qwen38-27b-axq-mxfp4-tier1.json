@@ -88,7 +88,7 @@
     "display_name": "Qwen3.8-27B MLX AXQ MXFP4",
     "sort_order": 0,
     "edition_label": "main@`10652695`",
-    "listed": true
+    "listed": false
   },
   "modalities": {
     "policy": "capability-gated-v1",
