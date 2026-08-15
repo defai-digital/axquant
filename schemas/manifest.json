@@ -607,7 +607,7 @@
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.public_certification.PublicCheckpointCertification",
       "schema_version": "axquant.public-checkpoint-certification.v1",
-      "sha256": "f6b0b098f781149a261b6b0d388ac8dd2ff16b3723abd98844c1cfb957b1446c"
+      "sha256": "c3bcdd8e7debf608d6456cd1368c07569da0b3b006594e73d17be6f3e8c9562a"
     },
     {
       "compatibility_class": "public-certification",

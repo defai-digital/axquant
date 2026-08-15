@@ -86,5 +86,22 @@
     "candidate-size_sha256": "83dfe3636e8efa0f3dd8a52750a6efb4f531dd4699d4814d40793f57d1040e82",
     "reference-size_sha256": "f6b67bd6bc6bdc45cdcb336d3ccf05c20424dfdfe73118a70992e20b0dab2581",
     "runtime-mlx-lm_sha256": "8d7e0ee436ecc2a1dfb9961b88707b8a0e389e3131ea1e20b5ab447e78876f64"
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text-only pack; vision/audio not applicable",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text-only pack; vision/audio not applicable",
+      "runtime": null,
+      "evidence_kind": null
+    }
   }
 }

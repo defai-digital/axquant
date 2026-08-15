@@ -13,7 +13,8 @@ not reopen the 2.x method-federation proposal, and it does not ship CUDA.
 | [`adr/0007-axq-standard-layers.md`](adr/0007-axq-standard-layers.md) | B→D→C→A layers; Apple-only boundary |
 | [`adr/0008-public-pack-identity.md`](adr/0008-public-pack-identity.md) | `4bit`/`6bit` SKUs vs measured-BPW claims |
 | [`adr/0009-one-deployment-budget.md`](adr/0009-one-deployment-budget.md) | Weights + KV share one memory budget |
-| [`../../certification-spec-v1.0.md`](../../certification-spec-v1.0.md) | Public Certification Specification v1.0 |
+| [`../../certification-spec-v1.0.md`](../../certification-spec-v1.0.md) | Public Certification Specification v1.0 (§8 multimodal capability gates) |
+| [`adr/0010-modality-capability-gated-certification.md`](adr/0010-modality-capability-gated-certification.md) | Vision/audio: disable if unsupported, check if supported |
 
 ## Reading order
 

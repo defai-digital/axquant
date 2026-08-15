@@ -12,6 +12,12 @@ via `tests/test_documentation.py`.
 
 **Complete inventory** (listed + unlisted records): [full-list.md](full-list.md).
 
+**Multimodal (1.8.0):** Tier 1 text quality never implies vision/audio quality. Each
+certificate may carry a capability-gated `modalities` block: unsupported modalities are
+`not-applicable` (disabled); supported ones are `present-not-certified`, `smoke-certified`,
+or `quality-certified` only with bound evidence. Spec:
+[certification-spec-v1.0 §8](../certification-spec-v1.0.md).
+
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
 | --- | --- | --- | --- |

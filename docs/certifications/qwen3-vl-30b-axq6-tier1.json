@@ -99,5 +99,22 @@
     "sort_order": 80,
     "edition_label": "main@`71f90ad5`",
     "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "smoke-certified",
+      "supported": true,
+      "reason": "MLX-VLM vision generation smoke bound; vision quality retention suite not certified",
+      "runtime": "mlx-vlm",
+      "evidence_kind": "runtime-smoke-mlx-vlm"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
   }
 }

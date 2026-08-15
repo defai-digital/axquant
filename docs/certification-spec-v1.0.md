@@ -129,4 +129,64 @@ not acquire Certification Specification v1.0 claims merely by being loaded by a 
 Certification is bound to the exact repository, commit, edition/tag when present, source revision,
 artifact hashes, evidence, thresholds, runtime scope, and context stated in the records. It does
 not authorize CUDA, GGUF, NVFP4, AutoRound, another physical pack format, another host, a longer
-context, vision-tower quality, or an unrecorded MTP speed claim.
+context, vision-tower quality, or an unrecorded MTP speed claim unless a capability-gated
+multimodal claim in §8 explicitly authorizes it.
+
+## 8. Multimodal modalities (capability-gated, AXQuant 1.8.0)
+
+Tier 1 text dual-suite quality (**agent-coding** and **general**) never implies vision-tower or
+audio quality. Multimodal claims are **capability-gated**:
+
+| Pack capability | Required certification action | Allowed public status |
+| --- | --- | --- |
+| Vision **not** supported (no declaration and no vision weights/sidecar) | Disable vision checks | `vision.status = not-applicable` |
+| Vision **supported** | Smoke and/or quality suite, **or** explicit non-claim | `smoke-certified`, `quality-certified`, or `present-not-certified` |
+| Audio **not** supported | Disable audio checks | `audio.status = not-applicable` |
+| Audio **supported** | Smoke and/or quality suite, **or** explicit non-claim | same statuses as vision |
+
+### 8.1 Status definitions
+
+| Status | Meaning |
+| --- | --- |
+| `not-applicable` | Modality disabled for this pack; `supported=false`. No smoke or quality evidence required. |
+| `present-not-certified` | Modality weights may be present or BF16-protected; **no** smoke or quality claim. Cards must not say “VLM certified.” |
+| `smoke-certified` | Bound runtime smoke only (e.g. MLX-VLM image generation or MLX-Audio transcription). Not a retention-threshold quality claim. |
+| `quality-certified` | Bound multimodal quality suite met recorded thresholds against a named reference. |
+
+### 8.2 Evidence binding
+
+Smoke and quality statuses require `evidence_kind` on the modality claim (for example
+`runtime-smoke-mlx-vlm` or `multimodal-quality-vision`). Presence of a `vision.safetensors`
+sidecar or `vision_config` alone is **not** evidence of smoke or quality certification.
+
+### 8.3 Fail-closed rules
+
+1. Unsupported modality → must be `not-applicable` (do not run multimodal suites).
+2. Supported modality without smoke/quality evidence → at most `present-not-certified`.
+3. Public “vision quality certified” language requires `quality-certified`.
+4. Historical certificates may omit the `modalities` block; toolkits treat omission as
+   **legacy-unstated**, not as an implied quality pass.
+5. Gemma-style **text-path** packs that strip multimodal configs certify vision/audio as
+   `not-applicable` for that SKU even if the upstream BF16 source was multimodal.
+
+### 8.4 Machine-readable field
+
+Optional on checkpoint Tier 1 records (`axquant.public-checkpoint-certification.v1`):
+
+```json
+"modalities": {
+  "policy": "capability-gated-v1",
+  "vision": {
+    "status": "present-not-certified",
+    "supported": true,
+    "reason": "vision weights present/BF16-protected; VLM quality not certified"
+  },
+  "audio": {
+    "status": "not-applicable",
+    "supported": false,
+    "reason": "audio not supported on this pack"
+  }
+}
+```
+
+Helpers: `axquant.modality_certification` (`build_modalities_block`, `derive_modality_claim`).

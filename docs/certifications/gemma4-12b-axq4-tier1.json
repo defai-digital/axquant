@@ -68,5 +68,22 @@
     "sort_order": 120,
     "edition_label": "main@`6d124af8` (IT rebuild)",
     "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "certified text-path pack; multimodal configs stripped / not in certification scope",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "certified text-path pack; multimodal configs stripped / not in certification scope",
+      "runtime": null,
+      "evidence_kind": null
+    }
   }
 }

@@ -42,6 +42,18 @@ MtpAccelerationStatus = Literal[
     "certified-see-tier2-record",
 ]
 
+# Capability-gated multimodal claim statuses (AXQuant 1.8.0 best practice):
+#   not-applicable     — modality not supported / not shipped in this pack
+#   present-not-certified — weights may be present/protected; no smoke or quality claim
+#   smoke-certified    — bound runtime generation/transcription smoke only
+#   quality-certified  — bound multimodal quality suite (retention thresholds)
+ModalityClaimStatus = Literal[
+    "not-applicable",
+    "present-not-certified",
+    "smoke-certified",
+    "quality-certified",
+]
+
 
 class PublicIndexMeta(StrictModel):
     """Index metadata required on every checkpoint Tier 1 public record."""
@@ -82,6 +94,40 @@ class PublicMtpAccelerationBlock(StrictModel):
     token_weighted_decode_speedup_required: float | None = None
 
 
+class PublicModalityClaim(StrictModel):
+    """One modality (vision or audio) capability claim on a Tier 1 certificate.
+
+    Best practice (1.8.0): if the pack does not support the modality, status is
+    ``not-applicable`` and no smoke/quality is required. If it does support the
+    modality, certification must either run the appropriate checks or explicitly
+    remain at ``present-not-certified`` (protect-only, no quality claim).
+    """
+
+    status: ModalityClaimStatus
+    supported: bool
+    reason: str | None = Field(default=None, min_length=1)
+    runtime: str | None = Field(default=None, min_length=1)
+    evidence_kind: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode="after")
+    def support_matches_status(self) -> PublicModalityClaim:
+        if self.status == "not-applicable" and self.supported:
+            raise ValueError("not-applicable modality claim cannot set supported=true")
+        if self.status != "not-applicable" and not self.supported:
+            raise ValueError(f"{self.status} modality claim requires supported=true")
+        if self.status in {"smoke-certified", "quality-certified"} and not self.evidence_kind:
+            raise ValueError(f"{self.status} requires evidence_kind")
+        return self
+
+
+class PublicModalitiesBlock(StrictModel):
+    """Capability-gated vision/audio claims for a checkpoint Tier 1 record."""
+
+    policy: Literal["capability-gated-v1"] = "capability-gated-v1"
+    vision: PublicModalityClaim
+    audio: PublicModalityClaim
+
+
 class PublicCheckpointCertification(StrictModel):
     """Published checkpoint Tier 1 certificate (``*-tier1.json``)."""
 
@@ -104,6 +150,8 @@ class PublicCheckpointCertification(StrictModel):
     notes: list[str] | None = None
     evidence_hashes: dict[str, Any] | None = None
     runtime: dict[str, Any] | None = None
+    # Optional: pre-1.8.0 certs omit this; loaders treat missing as legacy-unstated.
+    modalities: PublicModalitiesBlock | None = None
     quality_bound_pre_fuse_revision: str | None = Field(default=None, min_length=1)
     datasets: dict[str, Any] | None = None
     evidence_scope: str | None = Field(default=None, min_length=1)

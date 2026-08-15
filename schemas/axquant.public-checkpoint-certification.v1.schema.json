@@ -144,6 +144,85 @@
       ],
       "type": "object"
     },
+    "PublicModalitiesBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/$defs/PublicModalityClaim"
+        },
+        "policy": {
+          "const": "capability-gated-v1",
+          "default": "capability-gated-v1",
+          "type": "string"
+        },
+        "vision": {
+          "$ref": "#/$defs/PublicModalityClaim"
+        }
+      },
+      "required": [
+        "vision",
+        "audio"
+      ],
+      "type": "object"
+    },
+    "PublicModalityClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_kind": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "runtime": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "not-applicable",
+            "present-not-certified",
+            "smoke-certified",
+            "quality-certified"
+          ],
+          "type": "string"
+        },
+        "supported": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "supported"
+      ],
+      "type": "object"
+    },
     "PublicMtpAccelerationBlock": {
       "additionalProperties": false,
       "properties": {
@@ -330,6 +409,17 @@
     "host_id": {
       "minLength": 1,
       "type": "string"
+    },
+    "modalities": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PublicModalitiesBlock"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "mtp_acceleration": {
       "$ref": "#/$defs/PublicMtpAccelerationBlock"

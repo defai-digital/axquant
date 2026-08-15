@@ -81,5 +81,22 @@
     "sort_order": 60,
     "edition_label": "main@`c6f3ae55`",
     "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text-only pack; vision/audio not applicable",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text-only pack; vision/audio not applicable",
+      "runtime": null,
+      "evidence_kind": null
+    }
   }
 }

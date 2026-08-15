@@ -45,6 +45,21 @@ A Spec v1.0 cert missing measured BPW is rejected.
 **Evidence impact.** Additive. Historical certificates stay valid as
 legacy; they do not auto-upgrade.
 
+### WS-B1b — Multimodal capability gates (1.8.0)
+
+**Decision:** [adr/0010-modality-capability-gated-certification.md](adr/0010-modality-capability-gated-certification.md).
+
+**Modules:** `src/axquant/modality_certification.py`,
+`schema/public_certification.py` (`PublicModalitiesBlock`), Spec §8.
+
+**Design.** If vision/audio is not supported on the pack, certification
+disables that modality (`not-applicable`). If supported, record
+`present-not-certified`, `smoke-certified`, or `quality-certified` with
+`evidence_kind`. Text dual-suite never upgrades multimodal status.
+Optional `modalities` on Tier 1 JSON; omission = legacy-unstated.
+
+**Tests.** `tests/test_modality_certification.py`; in-tree certs backfilled.
+
 ---
 
 ## WS-B2 — `axquant verify-cert`

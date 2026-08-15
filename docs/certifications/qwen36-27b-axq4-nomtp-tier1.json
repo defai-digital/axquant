@@ -88,5 +88,22 @@
     "sort_order": 10,
     "edition_label": "main@`6598b5cd`",
     "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
   }
 }
