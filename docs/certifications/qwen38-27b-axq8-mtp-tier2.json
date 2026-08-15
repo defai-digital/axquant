@@ -1,0 +1,59 @@
+{
+  "schema_version": "axquant.public-mtp-acceleration-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "mtp-acceleration",
+  "host_id": "df-macstudio-m2",
+  "certified_at": "2026-08-15T22:25:41.116566+00:00",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
+    "hub_commit": "7772fd6eb7b9bf52f62485221d98fa2ca9a02de3",
+    "product_class": "8bit",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "3b8e8c1dbde722396c3ee89d34a1c8b189d20421db6982792b24aa1f53d6ca39"
+  },
+  "thresholds": {
+    "exactness_required": 1.0,
+    "token_weighted_decode_speedup_min": 1.2,
+    "prompt_median_speedup_min": 1.1
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "scope": "decode-heavy-authorizing-profiles",
+    "product_default_route": "direct-fallback",
+    "formal_route": "qwen38-exact-async-profile",
+    "ax_engine_version": "6.16.1",
+    "engine_binary_sha256": "c39b69a18cb8cf41c020dd52c32c6011de52f841212a5237fef9ac1e9f78dec7",
+    "profiles": {
+      "agent-coding": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.225417003457629,
+        "prompt_median_speedup": 1.225417003457629,
+        "release_ready": true,
+        "dataset_sha256": "d399d6466275772430ef3d69129645cae52c5525c973ab0ccd76ebbd730b0e80",
+        "comparison_sha256": "7827418168cf8e1ccc1381a727462645cb700b55ebef51923296366f3a0fda11"
+      },
+      "general-long": {
+        "exactness_pass": true,
+        "divergent_trial_count": 0,
+        "token_weighted_decode_speedup": 1.2272352745160438,
+        "prompt_median_speedup": 1.2272352745160438,
+        "release_ready": true,
+        "dataset_sha256": "5bf68348ba73aa290189dc97bb4790790e1a521008332c84e30815dc507f9bb1",
+        "comparison_sha256": "16a05d4b86e84e62c469bcc8e6d7573e44fb9760f89265a36e729d7538430e6d"
+      }
+    },
+    "reason": "Studio factory SF4 short probe (full=false: 8+6 prompts, 1 trial) cleared exactness and speedup gates on df-macstudio-m2 / AX Engine 6.16.1. Public Tier 2 stays not certified until the authorizing --full suite is measured."
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "related_certificates": {
+    "tier1": "qwen38-27b-axq8-mtp-tier1.json"
+  },
+  "evidence_package": "/Volumes/Ext12T/axquant-certification/qwen38-27b-axq-tier2/axq8/TIER2_TECHNICAL_SUMMARY.json"
+}
