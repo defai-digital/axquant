@@ -38,6 +38,7 @@ The tables are generated from certificate JSON
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
 | Qwen3.8-27B MLX AXQ MXFP4 | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
 | Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
 | Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
@@ -45,6 +46,7 @@ The tables are generated from certificate JSON
 | Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
 | Qwen3.8-27B MLX AXQ 8-bit | [Certified](docs/certifications/qwen38-27b-axq8-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B MLX AXQ 8-bit MTP | [Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B MLX AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
@@ -539,11 +541,13 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
 | [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4) | 4.8441 | **Tier 1** no-MTP MXFP4 trunk ([cert](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md)); attention+MLP native MXFP4, embed/lm_head 8-bit affine |
+| [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP) | 4.8441 | **Tier 1** MXFP4 trunk + packaged MTP ([cert](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md)); MTP BF16; scoped Tier 2 not certified |
 | [`AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | 5.0667 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq4-tier1.md)); dense hybrid `qwen3_5` |
 | [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); recovery lm_head 8-bit |
 | [`AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | 5.8448 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq6-tier1.md)) |
 | [`AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | 5.8448 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq6-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq6-mtp-tier2.md)); product default still direct fallback |
 | [`AX-Qwen3.8-27B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit) | 8.0001 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq8-tier1.md)); dense hybrid `qwen3_5` |
+| [`AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP) | 8.6271 | **Tier 1** 8-bit affine + packaged MTP ([cert](docs/certifications/qwen38-27b-axq8-mtp-tier1.md)); MTP BF16; scoped Tier 2 not certified |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | 5.418315 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | 5.805849 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md)); language path matches v3 MTP sibling without `mtp.safetensors` |

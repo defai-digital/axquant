@@ -38,6 +38,8 @@ records. Within each group, `public_index.sort_order` applies.
 | [GPT-OSS 20B MLX AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 20B MLX AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 120B MLX AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
+| [Qwen3.8-27B MLX AXQ MXFP4 MTP](qwen38-27b-axq-mxfp4-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP) | main@`594de650` | [Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
+| [Qwen3.8-27B MLX AXQ 8-bit MTP](qwen38-27b-axq8-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP) | main@`7772fd6e` | [Certified](qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](qwen38-27b-axq8-mtp-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
 | [DeepSeek V4 Flash MLX AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | [`AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
 | [DeepSeek V4 Flash MLX AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | [`AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
 | [Gemma 4 12B MLX AXQ 4-bit](gemma4-12b-axq4-tier1.md) | [`AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
@@ -50,8 +52,8 @@ records. Within each group, `public_index.sort_order` applies.
 
 ## Counts
 
-- Total certificate records: **32**
-- In README headline matrix (`listed`): **23**
+- Total certificate records: **34**
+- In README headline matrix (`listed`): **25**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
-- Tier 1 certified without Tier 2 certified: **25**
+- Tier 1 certified without Tier 2 certified: **27**
 - Not checkpoint-certified (evaluation only): **1**

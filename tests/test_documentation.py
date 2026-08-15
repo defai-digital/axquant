@@ -290,6 +290,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gpt-oss-20b-axq6",
         "gpt-oss-120b-axq6",
         # Tier 1 certified; MTP present but Tier 2 not certified
+        "qwen38-27b-axq-mxfp4-mtp",
+        "qwen38-27b-axq8-mtp",
         "deepseek-v4-flash-axq2",
         "deepseek-v4-flash-axq3",
         "gemma4-12b-axq4",
@@ -354,6 +356,9 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert _data_rows(readme_body) == [row.display_name for row in rows]
     listed_ids = [row.record_id for row in rows]
     assert listed_ids.index("qwen38-27b-axq-mxfp4") < listed_ids.index("qwen38-27b-axq4-mtp")
+    assert listed_ids.index("qwen38-27b-axq-mxfp4-mtp") < listed_ids.index("qwen38-27b-axq4-mtp")
+    assert listed_ids.index("qwen38-27b-axq-mxfp4") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
+    assert listed_ids.index("qwen38-27b-axq8") < listed_ids.index("qwen38-27b-axq8-mtp")
     assert _data_rows(index_body) == [row.display_name for row in rows]
     for row in rows:
         assert f"| {row.display_name} |" in readme_body

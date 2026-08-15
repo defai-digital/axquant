@@ -1,0 +1,110 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-15T16:27:42.690542+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+    "hub_commit": "594de6507dc935d9ed6e01719865a34f10b26397",
+    "product_class": "MXFP4",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "ee704531cca3bbe083f8acb3e65d34c972d24b95b076aa51b77f21b01cd62bb1"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "plan-manual",
+    "target_class": "4bit",
+    "target_bpw": 5.8,
+    "measured_total_bpw": 5.014664976066166,
+    "measured_main_bpw": 4.84412269125501,
+    "adapter_id": "qwen38-dense-v1"
+  },
+  "size": {
+    "candidate_weight_bytes": 17414319217,
+    "candidate_measured_bpw": 5.014664976066166,
+    "reference_kind": "uniform-mxfp4",
+    "reference_model_id": "local/Qwen3.8-27B-uniform-mxfp4",
+    "reference_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "reference_weight_bytes": 14292560314,
+    "size_ratio_vs_uniform": 1.2184184522868267,
+    "max_size_ratio_applied": 1.28,
+    "pass": true,
+    "compare_mode": "total",
+    "reference_build": "mlx_lm.convert --q-mode mxfp4 from Qwen3.8-27B no-MTP BF16 view"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9078947368421053,
+      "reference_score": 0.9078947368421053,
+      "retention": 1.0,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76,
+      "reference_kind": "bf16-same-pin"
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44,
+      "reference_kind": "bf16-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.28
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "MTP weights are packaged (BF16-protected). Scoped Tier 2 acceleration is a separate claim and is not certified on this record."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor on df-macstudio-m2"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macstudio-m2.",
+    "AXQ-MXFP4-MTP: attention+MLP native MXFP4; embed/lm_head 8-bit affine; vision/norms/MTP BF16-protected.",
+    "Quality vs same-pin full BF16 (MTP present); size vs no-MTP uniform MXFP4.",
+    "Adapter qwen38-dense-v1 \u2014 not the Qwen 3.6 flagship track.",
+    "Vision BF16-protected; VLM quality not claimed."
+  ],
+  "public_index": {
+    "display_name": "Qwen3.8-27B MLX AXQ MXFP4 MTP",
+    "sort_order": 6,
+    "edition_label": "main@`594de650`",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision sidecar present; mlx-vlm smoke not a quality pass (prefixes=['model.visual'])",
+      "runtime": "mlx-vlm",
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

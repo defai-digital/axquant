@@ -218,17 +218,20 @@ def load_public_cert_rows(
     # ordered by each record's public_index.sort_order within the group.
     rows.sort(key=lambda row: (_matrix_completeness_rank(row), row.sort_order, row.record_id))
     if listed_only:
-        return _lead_qwen38_mxfp4_before_4bit([row for row in rows if row.listed])
+        listed = [row for row in rows if row.listed]
+        return _place_qwen38_8bit_mtp(_lead_qwen38_mxfp4_before_4bit(listed))
     return rows
 
 
 def _lead_qwen38_mxfp4_before_4bit(rows: list[PublicCertRow]) -> list[PublicCertRow]:
-    """Put the Qwen3.8 MXFP4 SKU immediately before the affine 4-bit row."""
+    """Put Qwen3.8 MXFP4 SKUs immediately before the affine 4-bit row."""
 
-    mxfp4 = [row for row in rows if row.record_id == "qwen38-27b-axq-mxfp4"]
+    wanted_ids = ("qwen38-27b-axq-mxfp4", "qwen38-27b-axq-mxfp4-mtp")
+    mxfp4 = [row for row in rows if row.record_id in wanted_ids]
     if not mxfp4:
         return rows
-    rest = [row for row in rows if row.record_id != "qwen38-27b-axq-mxfp4"]
+    mxfp4.sort(key=lambda row: wanted_ids.index(row.record_id))
+    rest = [row for row in rows if row.record_id not in wanted_ids]
     out: list[PublicCertRow] = []
     inserted = False
     for row in rest:
@@ -238,6 +241,25 @@ def _lead_qwen38_mxfp4_before_4bit(rows: list[PublicCertRow]) -> list[PublicCert
         out.append(row)
     if not inserted:
         out = mxfp4 + rest
+    return out
+
+
+def _place_qwen38_8bit_mtp(rows: list[PublicCertRow]) -> list[PublicCertRow]:
+    """Keep the 8-bit MTP sibling immediately after the no-MTP 8-bit row."""
+
+    extra = [row for row in rows if row.record_id == "qwen38-27b-axq8-mtp"]
+    if not extra:
+        return rows
+    rest = [row for row in rows if row.record_id != "qwen38-27b-axq8-mtp"]
+    out: list[PublicCertRow] = []
+    inserted = False
+    for row in rest:
+        out.append(row)
+        if row.record_id == "qwen38-27b-axq8":
+            out.extend(extra)
+            inserted = True
+    if not inserted:
+        out.extend(extra)
     return out
 
 

@@ -1,0 +1,63 @@
+# AXQ 8-bit lane for Qwen3.8-27B with integrated MTP.
+# Trunk attention+MLP+embed/head → 8-bit affine. MTP/vision/norms stay BF16.
+# Convert from the full BF16 source (do not use the no-MTP view).
+schema_version: axquant.manual-recipe.v1
+profile: agent-coding
+# MTP BF16 sidecar raises planned storage to ~8.74 BPW vs no-MTP 8.0.
+target_bpw: 8.8
+default_bits: 8
+default_method: affine
+group_size: 64
+allow_unmatched_rules: false
+lm_head_min_bits: 8
+target_mode: quality
+primary_runtime: ax-engine
+random_seed: 20260728
+rules:
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: Vision tower BF16-protected
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms non-quantizable / protected
+  - rule_id: mtp-bf16
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: Integrated MTP stays BF16; Tier 2 is a separate claim
+  - rule_id: lm-head-8
+    roles: [lm_head]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Match no-MTP 8-bit pack (lm_head 8-bit affine)
+  - rule_id: embedding-8
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Embedding 8-bit affine
+  - rule_id: attention-8
+    roles: [attention]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: 8-bit attention product trunk
+  - rule_id: mlp-8
+    roles: [mlp]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: 8-bit MLP product trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true
