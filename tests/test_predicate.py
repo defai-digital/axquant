@@ -164,7 +164,13 @@ def test_deepseek_mtp_experts_are_not_fused_for_sidecar_binding() -> None:
     fused = fused_expert_tensor_target("layers.3.ffn.experts.0.w1.weight")
     assert fused is not None
     assert fused[0].endswith("switch_mlp.gate_proj.weight")
+    up = fused_expert_tensor_target("layers.3.ffn.experts.0.w3.weight")
+    assert up is not None
+    assert up[0].endswith("switch_mlp.up_proj.weight")
     assert fused_expert_module("layers.3.ffn.experts.0.w1") is not None
+    assert fused_expert_module("layers.3.ffn.experts.0.w3") == (
+        "layers.3.ffn.switch_mlp.up_proj"
+    )
 
 
 def test_hc_learnable_scale_does_not_alias_to_quant_scales() -> None:

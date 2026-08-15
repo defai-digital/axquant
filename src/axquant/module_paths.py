@@ -17,8 +17,10 @@ _NEMOTRON_PROJ_TO_SWITCH = {
     "up_proj": "fc1",
     "down_proj": "fc2",
 }
-# DeepSeek V4 Flash/Pro: per-expert w1/w2/w3 stack into switch_mlp projections;
-# FusedSwitchGLU then concatenates gate+up into gate_proj (public deepseek_v4 sanitize).
+# DeepSeek V4 Flash/Pro: per-expert w1/w2/w3 stack into switch_mlp projections.
+# Current mlx-lm deepseek_v4 sanitize (Flash-0731 / Blaizzy) keeps gate_proj and
+# up_proj separate. Older FusedSwitchGLU builds concatenated w1+w3 into
+# gate_proj; convert binding falls back when up_proj is absent.
 _DEEPSEEK_EXPERT_MEMBER = re.compile(
     r"^(?P<prefix>.*\.ffn)\.experts\.(?P<index>\d+)\.(?P<proj>w1|w2|w3)$"
 )
@@ -69,9 +71,6 @@ def fused_expert_module(module_path: str) -> str | None:
     deepseek = _DEEPSEEK_EXPERT_MEMBER.match(module_path)
     if deepseek is not None:
         switch = _DEEPSEEK_PROJ_TO_SWITCH[deepseek.group("proj")]
-        # After sanitize fuse, both w1 and w3 land on switch_mlp.gate_proj.
-        if switch == "up_proj":
-            switch = "gate_proj"
         return f"{deepseek.group('prefix')}.switch_mlp.{switch}"
     return None
 
@@ -106,8 +105,6 @@ def fused_expert_tensor_target(tensor_path: str) -> tuple[str, int] | None:
     deepseek = _DEEPSEEK_EXPERT_MEMBER.match(module_path)
     if deepseek is not None:
         switch = _DEEPSEEK_PROJ_TO_SWITCH[deepseek.group("proj")]
-        if switch == "up_proj":
-            switch = "gate_proj"
         target = f"{deepseek.group('prefix')}.switch_mlp.{switch}.weight"
         return target, int(deepseek.group("index"))
     return None

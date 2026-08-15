@@ -1191,6 +1191,43 @@ def test_converted_tensor_binding_proves_qwen_packed_gate_up_split() -> None:
         )
 
 
+def test_deepseek_v4_split_switch_mlp_binds_gate_and_up() -> None:
+    """Flash-0731 sanitize keeps switch_mlp.up_proj; it is not an extra tensor."""
+
+    expected = {
+        f"layers.0.ffn.experts.{index}.{proj}.weight": object()
+        for index in range(2)
+        for proj in ("w1", "w2", "w3")
+    }
+    gate = object()
+    up = object()
+    down = object()
+    actual = {
+        "model.layers.0.ffn.switch_mlp.gate_proj.weight": gate,
+        "model.layers.0.ffn.switch_mlp.up_proj.weight": up,
+        "model.layers.0.ffn.switch_mlp.down_proj.weight": down,
+    }
+    bound = converter._bind_converted_tensors(expected, actual)
+    assert bound["layers.0.ffn.experts.0.w1.weight"] == (gate,)
+    assert bound["layers.0.ffn.experts.1.w3.weight"] == (up,)
+    assert bound["layers.0.ffn.experts.0.w2.weight"] == (down,)
+
+
+def test_deepseek_v4_legacy_fused_gate_proj_still_binds_w3() -> None:
+    """Older FusedSwitchGLU only emits gate_proj; w3 still binds there."""
+
+    expected = {
+        f"layers.0.ffn.experts.{index}.{proj}.weight": object()
+        for index in range(2)
+        for proj in ("w1", "w3")
+    }
+    gate = object()
+    actual = {"model.layers.0.ffn.switch_mlp.gate_proj.weight": gate}
+    bound = converter._bind_converted_tensors(expected, actual)
+    assert bound["layers.0.ffn.experts.0.w1.weight"] == (gate,)
+    assert bound["layers.0.ffn.experts.0.w3.weight"] == (gate,)
+
+
 def test_converted_tensor_binding_proves_indexed_expert_stack() -> None:
     names = [f"backbone.layers.1.mixer.experts.{index}.up_proj.weight" for index in range(3)]
     fused = object()
