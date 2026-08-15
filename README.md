@@ -297,9 +297,15 @@ AXQ **6-bit**, are checkpoint Tier 1 certified on the same host (non-MTP; 120B v
 agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding retention 0.952
 &lt; 0.98) — see
 [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md). **DeepSeek V4 Flash** AXQ
-**2/3-bit experimental** packs are **checkpoint Tier 1 certified** on `df-macstudio-m2`
-(generation viability; MTP Tier 2 not claimed). Other catalog entries remain development
-artifacts unless their own exact revision has a certificate.
+**2/3-bit experimental** packs (older `DeepSeek-V4-Flash` source) are **checkpoint Tier 1
+certified** on `df-macstudio-m2` (generation viability; MTP Tier 2 not claimed).
+**Flash-0731** AXQ 2/3-bit packs are on the Hub as a **new source revision**
+(`deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b`); they are **not certified**
+([2-bit eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md),
+[3-bit eval](docs/certifications/deepseek-v4-flash-0731-axq3-tier1.md)) — mlx-lm
+generate smoked on Studio; dual-suite viability and AX Engine manifest are named
+misses. Other catalog entries remain development artifacts unless their own exact
+revision has a certificate.
 
 **Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** is on the Hub at
 [`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit)
@@ -532,13 +538,13 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | Pack | Main-model BPW | Notes |
 | --- | --- | --- |
 | [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4) | 4.8441 | **Tier 1** no-MTP MXFP4 trunk ([cert](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md)); attention+MLP native MXFP4, embed/lm_head 8-bit affine |
-| [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP) | 4.8441 | **Tier 1** MXFP4 trunk + packaged MTP ([cert](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md)); MTP BF16; scoped Tier 2 not certified |
+| [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP) | 4.8441 | **Tier 1** MXFP4 trunk + packaged MTP ([cert](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md)); MTP BF16; scoped Tier 2 **not certified** on Studio ([eval](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier2.md)) |
 | [`AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | 5.0667 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq4-tier1.md)); dense hybrid `qwen3_5` |
-| [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); recovery lm_head 8-bit |
+| [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** on `df-macbookpro-m3` ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); Studio recert **not certified** ([eval](docs/certifications/qwen38-27b-axq4-mtp-studio-tier1.md)) |
 | [`AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | 5.8448 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq6-tier1.md)) |
-| [`AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | 5.8448 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen38-27b-axq6-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq6-mtp-tier2.md)); product default still direct fallback |
+| [`AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | 5.8448 | **Tier 1 + scoped Tier 2 MTP** on `df-macbookpro-m3` ([Tier 1](docs/certifications/qwen38-27b-axq6-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq6-mtp-tier2.md)); Studio recert **not certified** ([eval](docs/certifications/qwen38-27b-axq6-mtp-studio-tier1.md)) |
 | [`AX-Qwen3.8-27B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit) | 8.0001 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq8-tier1.md)); dense hybrid `qwen3_5` |
-| [`AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP) | 8.6271 | **Tier 1** 8-bit affine + packaged MTP ([cert](docs/certifications/qwen38-27b-axq8-mtp-tier1.md)); MTP BF16; scoped Tier 2 not certified |
+| [`AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP) | 8.6271 | **Tier 1** 8-bit affine + packaged MTP ([cert](docs/certifications/qwen38-27b-axq8-mtp-tier1.md)); MTP BF16; scoped Tier 2 **not certified** (short Studio probe passed; not `--full`) ([eval](docs/certifications/qwen38-27b-axq8-mtp-tier2.md)) |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | 5.418315 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
 | [`AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | 5.805849 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md)); language path matches v3 MTP sibling without `mtp.safetensors` |
@@ -573,16 +579,18 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | 6.000037 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP; MXFP4 re-pack |
 | [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | 6.576880 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-120b-axq6-tier1.md)); no MTP; manual no-4-bit agent-coding recipe |
 | *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
-| [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; product class `2bit-experimental` |
-| [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; product class `3bit-experimental` |
+| [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `2bit-experimental` |
+| [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `3bit-experimental` |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) | 3.132899 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)); new source `DeepSeek-V4-Flash-0731@7872f01b`; Studio convert + mlx-lm generate smoke; dual-suite / engine manifest named misses |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-3bit) | 4.110999 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq3-tier1.md)); same 0731 pin; Studio convert + mlx-lm generate smoke |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | 4.880062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq4-tier1.md)); source `deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | 6.000062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.665439 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq4-tier1.md)); attention-6 / expert-4 recovery recipe; source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | 7.006493 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
 | [`AX-DeepSeek-OCR-2-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-4bit) | ~6.80 total | **Development only** ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)); language trunk 4-bit, vision BF16; official `deepseek-ai/DeepSeek-OCR-2@aaa02f3811945a91062062994c5c4a3f4c0af2b0` |
 | [`AX-DeepSeek-OCR-2-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit) | ~8.40 total | **Development only** ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)); language trunk 6-bit (experts), attention 8-bit, vision BF16 |
-| [`AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | ~5.95 total | **Development only** ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)); language attention/MLP 4-bit, vision BF16; source `meta-models/Muse-Glimmer-30B@a4e59da52a7bc87ae7251dd5545c0dd437c44b68` |
-| [`AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | ~7.69 total | **Development only** ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)); language attention/MLP 6-bit, vision BF16 |
+| [`AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | ~5.95 total | **Not certified** ([eval](docs/certifications/muse-glimmer-30b-axq4-tier1.md)); mlx-vlm generate smoked on Studio; mlx-lm cannot score `muse_glimmer`; vision BF16; [runbook](docs/muse-glimmer-30b-axq-dev-runbook.md) |
+| [`AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | ~7.69 total | **Not certified** ([eval](docs/certifications/muse-glimmer-30b-axq6-tier1.md)); same Studio backend gap; language 6-bit, vision BF16 |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
