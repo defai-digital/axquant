@@ -12,6 +12,13 @@ via `tests/test_documentation.py`.
 
 **Complete inventory** (listed + unlisted records): [full-list.md](full-list.md).
 
+**Host policy:** new public checkpoint Tier 1 (and new product certs) run on
+`df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext4T). Do not start a new
+certification campaign on `df-macbookpro-m5`. Historical records keep the
+`host_id` they were measured on; do not rewrite those files to the new host.
+The flagship M0–M8 campaign schema remains frozen to `df-macbookpro-m5` until
+that contract is versioned separately.
+
 **Multimodal (1.8.0):** Tier 1 text quality never implies vision/audio quality. Each
 certificate may carry a capability-gated `modalities` block: unsupported modalities are
 `not-applicable` (disabled); supported ones are `present-not-certified`, `smoke-certified`,

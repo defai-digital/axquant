@@ -260,10 +260,10 @@ def main() -> int:
 
     # Transfer plan: for each unique content, need one copy at final_path on
     # each host. Prefer a host already at final_path; else host_priority order.
-    # Peer/index host labels (SSH/index short names). Keep historical mbp-m5
-    # for existing indexes; formal certification id df-macbookpro-m5 ranks
-    # the same when operators reindex under the new name.
+    # New public certs run on df-macstudio-m2. Keep historical mbp-m5 /
+    # df-macbookpro-m5 labels for existing indexes.
     host_priority = [
+        "df-macstudio-m2",
         "macstudio-m2u",
         "m3",
         "local",

@@ -41,8 +41,10 @@ KNOWN_SLUGS = {
     "AutomatosX MLX Model Catalog": COMPLETE_SLUG,
 }
 
-NOTE_T1 = "Checkpoint Tier 1 certified on MacBook Pro M5 (128 GB)."
-NOTE_T1_T2 = "Checkpoint Tier 1 and scoped MTP Tier 2 certified on MacBook Pro M5."
+NOTE_T1 = "Checkpoint Tier 1 certified. See the certificate for the bound host."
+NOTE_T1_T2 = (
+    "Checkpoint Tier 1 and scoped MTP Tier 2 certified. See the certificates for the bound host."
+)
 NOTE_T1_NO_T2 = "Checkpoint Tier 1 certified. MTP Tier 2 is not certified."
 NOTE_T1_EXP = (
     "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."

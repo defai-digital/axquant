@@ -152,7 +152,9 @@ Product default MTP remains direct fallback. These rates are the opt-in exact-as
 
 ## Claim boundaries
 
-- Not a Tier 1 or Tier 2 certificate. Certification hosts stay `df-macbookpro-m3` (3.8 MTP) and `df-macbookpro-m5` (3.6 MTP).
+- Not a Tier 1 or Tier 2 certificate. Historical 3.8 MTP certs are on
+  `df-macbookpro-m3`; historical 3.6 MTP certs are on `df-macbookpro-m5`.
+  New certifications run on `df-macstudio-m2`.
 - Thinking-on, SWE, Terminal-Bench, and OSWorld are out of scope.
 - Vision is 18 clean-room fixtures, not MathVision / CharXiv / BabyVision.
 - Cold prefill/decode used unique salts. Cached-prefix rates are discarded.

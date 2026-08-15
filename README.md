@@ -24,7 +24,10 @@ tensors, and multi-token-prediction (MTP) weights.
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([collections](https://huggingface.co/AutomatosX/collections),
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
-Certification host: **MacBook Pro M5, 128 GB, 18-core** (formal host id `df-macbookpro-m5`).
+**Certification host (from now on):** Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`),
+with Ext4T. Existing certificates stay bound to the host recorded in each JSON record
+(`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`). The frozen M0–M8 flagship
+campaign schema still names `df-macbookpro-m5` until that contract is versioned separately.
 AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
 ([report](docs/ax-engine-72h-endurance.md)).
 Headline matrix below lists **public catalog** packs only (dual Tier 1+2 first).

@@ -83,6 +83,17 @@ uniform, quality retention on agent-coding + general. **Tier 2 is not applicable
 | 30B-A3B Instruct AXQ 4-bit | [Certified](certifications/qwen3-vl-30b-axq4-tier1.md) | N/A |
 | 30B-A3B Instruct AXQ 6-bit | [Certified](certifications/qwen3-vl-30b-axq6-tier1.md) | N/A |
 
+## Future certification host
+
+New public checkpoint Tier 1 and new product certifications run on
+`df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext4T). Do not start a new
+certification campaign on `df-macbookpro-m5`.
+
+Existing certificates in this document remain bound to the host they were
+measured on (mostly `df-macbookpro-m5`). The flagship M0–M8 campaign schema
+and `PublicClaimManifest` performance-scope literal are still frozen to
+`df-macbookpro-m5` until that contract is versioned separately.
+
 ## Two-tier claim policy
 
 AXQuant checkpoint certification is the first tier: it proves the bound artifact's size,
