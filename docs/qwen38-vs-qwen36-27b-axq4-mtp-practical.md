@@ -18,8 +18,8 @@ This report answers a product question, not a quantization-retention question:
 
 | Pack | Hub revision | Local path on host | Layout |
 | --- | --- | --- | --- |
-| Qwen3.8-27B AXQ 4-bit MTP | [`32f44846`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP/tree/32f448461caf4aedcc3c16a77a63b6a94bf0667c) | `/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP` | 5.0667 main BPW; BF16 vision + MTP sidecars |
-| Qwen3.6-27B AXQ 4-bit MTP | [`f44a9ee`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP/tree/f44a9eeebec0c488d0f42201c8763db770a1c0a8) | `/Volumes/Ext4T/models/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` | 5.4183 main BPW; BF16 vision + MTP sidecars |
+| Qwen3.8-27B AXQ 4-bit MTP | [`32f44846`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP/tree/32f448461caf4aedcc3c16a77a63b6a94bf0667c) | `AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP` | 5.0667 main BPW; BF16 vision + MTP sidecars |
+| Qwen3.6-27B AXQ 4-bit MTP | [`f44a9ee`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP/tree/f44a9eeebec0c488d0f42201c8763db770a1c0a8) | `AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP` | 5.4183 main BPW; BF16 vision + MTP sidecars |
 
 Source `preprocessor_config.json` and `video_preprocessor_config.json` were copied next to each pack so image geometry is not left to the engine fallback. That is an evaluation convenience. The published Hub trees may still omit those files; see [qwen38-27b-axq-vl-retention.md](qwen38-27b-axq-vl-retention.md).
 
@@ -167,8 +167,8 @@ hostname     df-macstudio-m2
 chip         Apple M2 Ultra
 memory       192 GiB
 os           macOS 26.6.1
-engine       /Users/devop/opt/ax-engine-6.16.1  (6.16.1)
-work         /Volumes/Ext4T/axquant/eval/qwen38-vs-qwen36-27b-axq4-mtp
+engine       ax-engine-6.16.1  (6.16.1)
+work         docs/eval/qwen38-vs-qwen36-27b-axq4-mtp-macstudio-m2
 ```
 
 Copied JSON on this tree:

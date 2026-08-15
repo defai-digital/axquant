@@ -1002,10 +1002,7 @@ def _bind_converted_tensors(
     for target, members in fused_groups.items():
         aliases = mlx_tensor_binding_groups(members[0])[0]
         matches = sorted(set(aliases) & actual_names)
-        if (
-            len(matches) == 0
-            and target.endswith(".switch_mlp.up_proj.weight")
-        ):
+        if len(matches) == 0 and target.endswith(".switch_mlp.up_proj.weight"):
             # Older FusedSwitchGLU stacked w3 into gate_proj; 0731 keeps up_proj.
             gate_target = target[: -len("up_proj.weight")] + "gate_proj.weight"
             donor = next(

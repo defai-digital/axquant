@@ -121,7 +121,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3.8",
-        description="Qwen3.8 MLX: certified 27B AXQ MXFP4/4/6/8-bit ± MTP, plus experimental 2.4T 2-bit.",
+        description=(
+            "Qwen3.8 MLX: certified 27B AXQ MXFP4/4/6/8-bit ± MTP, plus experimental 2.4T 2-bit."
+        ),
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),

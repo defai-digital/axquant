@@ -74,5 +74,5 @@ Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision prese
 
 | Modality | Claim | Supported | Reason |
 | --- | --- | --- | --- |
-| Vision | `smoke-certified` | `true` | vision runtime smoke passed on df-macstudio-m2 (mlx-vlm); quality suite not certified. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen3-vl-30b-axq4.json |
+| Vision | `smoke-certified` | `true` | vision runtime smoke passed on df-macstudio-m2 (mlx-vlm); quality suite not certified. Evidence: docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen3-vl-30b-axq4.json |
 | Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

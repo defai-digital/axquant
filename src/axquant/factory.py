@@ -7,9 +7,7 @@ FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
 FACTORY_MODELS = "/Volumes/Ext12T/models"
 FACTORY_CERT_ROOT = "/Volumes/Ext12T/axquant-certification"
 FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
-HISTORICAL_CERT_HOSTS = frozenset(
-    {"df-macstudio-m2", "df-macbookpro-m5", "df-macbookpro-m3"}
-)
+HISTORICAL_CERT_HOSTS = frozenset({"df-macstudio-m2", "df-macbookpro-m5", "df-macbookpro-m3"})
 
 
 class FactoryHostError(ValueError):
@@ -25,9 +23,7 @@ def require_factory_host(observed_hostname: str, *, host_id: str = FACTORY_HOST_
     """Fail closed unless *observed_hostname* is the factory convert/cert host."""
     observed = normalize_host_id(observed_hostname)
     if observed != host_id:
-        raise FactoryHostError(
-            f"factory convert/cert must run on {host_id}; observed {observed}"
-        )
+        raise FactoryHostError(f"factory convert/cert must run on {host_id}; observed {observed}")
     return observed
 
 

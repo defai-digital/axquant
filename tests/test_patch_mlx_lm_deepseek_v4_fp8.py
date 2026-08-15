@@ -14,7 +14,7 @@ def _patcher():
 
 
 def _stock_snippet() -> str:
-    return '''        elif quant_method == "compressed-tensors":
+    return """        elif quant_method == "compressed-tensors":
             quantization = {"group_size": 32, "bits": 4, "mode": "affine"}
             config["quantization"] = quantization
             config["quantization_config"] = quantization
@@ -28,7 +28,7 @@ def _stock_snippet() -> str:
 
     if config.get("quantize_activations", False):
         pass
-'''
+"""
 
 
 def test_apply_patch_inserts_fp8_deepseek_v4_hook() -> None:
@@ -37,7 +37,7 @@ def test_apply_patch_inserts_fp8_deepseek_v4_hook() -> None:
     assert patcher.already_patched(updated)
     assert 'quant_method == "fp8"' in updated
     assert "make_quantization_config" in updated
-    assert updated.count("elif quant_method in (\"awq\", \"gptq\"):") == 1
+    assert updated.count('elif quant_method in ("awq", "gptq"):') == 1
 
 
 def test_apply_patch_is_idempotent() -> None:

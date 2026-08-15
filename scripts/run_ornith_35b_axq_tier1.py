@@ -548,11 +548,7 @@ def cmd_write_certs(bits: str | None = None) -> None:
                 "measured_total_bpw": man.get("measured_total_bpw"),
                 "measured_main_bpw": man.get("measured_main_bpw"),
                 "adapter_id": "qwen35-moe-v1",
-                **(
-                    {"recipe": "examples/ornith-35b-axq4-agent-v0.1.yaml"}
-                    if recovery
-                    else {}
-                ),
+                **({"recipe": "examples/ornith-35b-axq4-agent-v0.1.yaml"} if recovery else {}),
             },
             "size": {
                 "candidate_weight_bytes": size["candidate_bytes"],
@@ -647,7 +643,10 @@ def cmd_write_certs(bits: str | None = None) -> None:
                         f"| Size vs uniform-{key[0]} | "
                         f"`{size['size_ratio_vs_uniform']:.6f}` (≤ {MAX_SIZE_RATIO}) |"
                     ),
-                    f"| Agent-coding vs uniform-{key} | `{quality['agent-coding']['retention']:.6f}` |",
+                    (
+                        f"| Agent-coding vs uniform-{key} | "
+                        f"`{quality['agent-coding']['retention']:.6f}` |"
+                    ),
                     f"| General vs uniform-{key} | `{quality['general']['retention']:.6f}` |",
                     "| MTP acceleration | `not-applicable` |",
                     "",

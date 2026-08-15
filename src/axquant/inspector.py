@@ -375,6 +375,7 @@ def _quantization_details(
         if isinstance(group_size, int) and not isinstance(group_size, bool)
         else None
     )
+    method: QuantMethod | None
     try:
         method = QuantMethod(str(mode))
     except ValueError:

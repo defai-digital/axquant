@@ -48,5 +48,5 @@ Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision prese
 
 | Modality | Claim | Supported | Reason |
 | --- | --- | --- | --- |
-| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors'] keys=['model.visual']; mlx-vlm smoke failed on df-macstudio-m2 (see evidence). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen38-27b-axq4-mtp.json |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors'] keys=['model.visual']; mlx-vlm smoke failed on df-macstudio-m2 (see evidence). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen38-27b-axq4-mtp.json |
 | Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

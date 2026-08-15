@@ -599,9 +599,9 @@ def cmd_write_certs() -> None:
                 "",
                 "## Tier 2 status",
                 "",
-                "MTP weights are packaged (BF16-protected). Scoped acceleration is **not certified** "
-                "on this record. Product default remains direct decode until a revision-bound Tier 2 "
-                "certificate exists.",
+                "MTP weights are packaged (BF16-protected). Scoped acceleration is "
+                "**not certified** on this record. Product default remains direct decode "
+                "until a revision-bound Tier 2 certificate exists.",
                 "",
                 f"Machine-readable: [{CERT_STEM}.json]({CERT_STEM}.json).",
                 "",

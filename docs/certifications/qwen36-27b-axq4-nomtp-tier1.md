@@ -39,5 +39,5 @@ Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision prese
 | Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors'] keys=['model.visual']; mlx-vlm smoke failed on df-macbookpro-m3 (Traceback (most recent call last):
   File "<frozen runpy>", line 198, in _run_module_as_main
   File "<frozen runpy>", line 88, in _run_code
-  File "/Users/akiralam/code/axquant/.venv/lib/python3.12/site-packages/mlx_vlm/generate/__main__.py). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-capability-gated/results/qwen36-27b-axq4-nomtp-tier1.json |
+  File "site-packages/mlx_vlm/generate/__main__.py). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/qwen36-27b-axq4-nomtp-tier1.json |
 | Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |
