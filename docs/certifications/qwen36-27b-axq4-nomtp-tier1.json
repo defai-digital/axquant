@@ -81,7 +81,8 @@
   "notes": [
     "No-MTP Hub sibling of certified `qwen36-27b-axq4-tier1` MTP pack.",
     "Language and vision tensors match the MTP artifact; only mtp.safetensors / MTP sidecar metadata are removed.",
-    "Checkpoint quality inherits the MTP sibling language-path evidence; MTP acceleration is not applicable."
+    "Checkpoint quality inherits the MTP sibling language-path evidence; MTP acceleration is not applicable.",
+    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
   ],
   "public_index": {
     "display_name": "Qwen 3.6 27B MLX AXQ 4-bit",
@@ -94,7 +95,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
       "runtime": null,
       "evidence_kind": null
     },

@@ -126,7 +126,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
       "runtime": null,
       "evidence_kind": null
     },
@@ -137,5 +137,8 @@
       "runtime": null,
       "evidence_kind": null
     }
-  }
+  },
+  "notes": [
+    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
+  ]
 }

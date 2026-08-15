@@ -1,0 +1,56 @@
+{
+  "schema_version": "axquant.modality-recert.v1",
+  "created_at": "2026-08-15T01:14:04.181480+00:00",
+  "toolkit_version": "1.8.1",
+  "host_id": "df-macbookpro-m3",
+  "policy": "capability-gated-v1",
+  "summary": "Recertification under 1.8.0/1.8.1 multimodal policy: unsupported modalities stay not-applicable; supported modalities require smoke or quality evidence for higher claims. This run attempted MLX-VLM vision smokes where local packs existed.",
+  "results": [
+    {
+      "pack": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+      "local_path": "/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": false,
+      "claim_status": "present-not-certified",
+      "reason": "vision.safetensors present (model.visual.*); stock mlx_vlm load expects vision_tower.* and fails with missing parameters. Weights protected; VLM quality and mlx-vlm smoke not certified. Primary runtime remains AX Engine / text dual-suite."
+    },
+    {
+      "pack": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-* and 35B siblings with vision sidecar",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "same class as Qwen3.8 hybrid (model.visual sidecar)",
+      "passed": false,
+      "claim_status": "present-not-certified",
+      "reason": "Same mlx-vlm layout mismatch class; no successful smoke on this host."
+    },
+    {
+      "pack": "AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-{4,6}bit",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "re-smoke from local HF cache",
+      "passed": null,
+      "claim_status": "smoke-certified",
+      "reason": "Local Hub snapshot incomplete (README only). Prior Tier 1 record retains smoke-certified from original MLX-VLM smoke on formal host; not re-run this session."
+    },
+    {
+      "pack": "Gemma 4 AXQ text-path packs",
+      "vision_supported": false,
+      "audio_supported": false,
+      "attempt": "none (disabled)",
+      "passed": null,
+      "claim_status": "not-applicable",
+      "reason": "Certified text-path SKUs strip multimodal configs; modality disabled."
+    },
+    {
+      "pack": "text-only (GPT-OSS, Coder-Next, DeepSeek V4 Flash)",
+      "vision_supported": false,
+      "audio_supported": false,
+      "attempt": "none",
+      "passed": null,
+      "claim_status": "not-applicable",
+      "reason": "No vision/audio capability."
+    }
+  ]
+}

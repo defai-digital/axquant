@@ -82,7 +82,8 @@
     "Checkpoint Tier 1 on host id df-macbookpro-m3.",
     "Quality vs same-pin BF16; size vs local uniform-6 convert.",
     "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
-    "Vision BF16-protected; VLM quality not claimed."
+    "Vision BF16-protected; VLM quality not claimed.",
+    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "5258491eee37c4823f63a8527b78f36de6b14ccdceca122d282311e01467b8c6",
@@ -100,7 +101,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
       "runtime": null,
       "evidence_kind": null
     },

@@ -18,8 +18,8 @@ tensors, and multi-token-prediction (MTP) weights.
 > capabilities. The goal is lower storage and unified-memory cost while preserving important model
 > quality and runtime behavior.
 
-**Current release:** [v1.8.0](https://github.com/defai-digital/axquant/releases/tag/v1.8.0)
-(PyPI `axquant==1.8.0`).
+**Current release:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
+(PyPI `axquant==1.8.1`).
 
 **Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
 ([collections](https://huggingface.co/AutomatosX/collections),
@@ -149,7 +149,7 @@ does not treat `[mlx]` as a glob):
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install 'axquant[mlx]==1.8.0'
+python -m pip install 'axquant[mlx]==1.8.1'
 axquant --help
 ```
 
@@ -158,9 +158,9 @@ With the venv active, `python` and `axquant` are both from `.venv`. Without acti
 
 | Goal | Command |
 | --- | --- |
-| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.0'` inside a venv |
-| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.8.0'` inside a venv |
-| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.0'` |
+| Full convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.1'` inside a venv |
+| Inspect / plan / report only (no Metal backends) | `python -m pip install 'axquant==1.8.1'` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.1'` |
 
 If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
 line or paste only from the fenced block above (do not copy prose with `"` / `'` glyphs).
@@ -176,7 +176,7 @@ Packages tab; that UI is for npm/containers, not pip).
 - **Install and convert:**
   ```bash
   python3 -m venv .venv && source .venv/bin/activate
-  python -m pip install 'axquant[mlx]==1.8.0'
+  python -m pip install 'axquant[mlx]==1.8.1'
   axquant quantize /path/to/model-bf16 --target-bpw 4.8
   ```
 - **Naming isn't the bit budget:** `4bit`/`6bit` pack names are planning
@@ -308,7 +308,7 @@ Its design centers on:
 
 ## Current status
 
-The latest tagged toolkit version is `1.8.0` (GitHub tag `v1.8.0`, PyPI `axquant==1.8.0`;
+The latest tagged toolkit version is `1.8.1` (GitHub tag `v1.8.1`, PyPI `axquant==1.8.1`;
 packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
 validation, and publication-gating commands are implemented and covered by the test suite.
 Certification is checkpoint- and evidence-specific; a working command does not by itself

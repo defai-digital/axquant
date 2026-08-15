@@ -82,7 +82,8 @@
     "Adapter qwen35-moe-v1 / product family qwen3.5-moe \u2014 not the official Qwen 3.6 certification track.",
     "Vision tower remains BF16-protected (vision.safetensors); total BPW includes protected vision bytes.",
     "No MTP acceleration claim; Hub name omits -MTP.",
-    "AX Engine product id resolves to holo3-35b from pack path (not qwen3.6)."
+    "AX Engine product id resolves to holo3-35b from pack path (not qwen3.6).",
+    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "1d55c02df60b94bdab96091439539d7f9d99a2c3b5ff8e9c23c3ab21cf585690",
@@ -100,7 +101,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
       "runtime": null,
       "evidence_kind": null
     },

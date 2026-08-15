@@ -86,7 +86,8 @@
     "Attention-8 recovery cleared quality but size ratio 1.162 > 1.15; attention-6 keeps size \u22641.15.",
     "Quality retention vs matched uniform MLX 4-bit reference built from the same BF16 pin.",
     "Adapter qwen35-moe-v1 \u2014 not the official Qwen 3.6 certification track.",
-    "Vision BF16-protected; no MTP / no Tier 2 claim."
+    "Vision BF16-protected; no MTP / no Tier 2 claim.",
+    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "e383fce4f1a141a28ae6944c196d438502d35f7c5f73db933375e3431a395206",
@@ -104,7 +105,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected; VLM quality not certified (text dual-suite only)",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
       "runtime": null,
       "evidence_kind": null
     },
