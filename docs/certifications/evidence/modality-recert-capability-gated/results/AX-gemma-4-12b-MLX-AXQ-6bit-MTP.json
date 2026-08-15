@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Volumes/Ext4T/axquant/work/axquant-1.8.1/.venv/bin/python",
+    "-m",
+    "mlx_vlm.generate",
+    "--model",
+    "/Volumes/Ext4T/axquant/work/modality-recert-redo/packs/AX-gemma-4-12b-MLX-AXQ-6bit-MTP",
+    "--image",
+    "/Volumes/Ext4T/axquant/work/modality-recert-redo/media/sample.png",
+    "--prompt",
+    "Read the image and answer briefly.",
+    "--max-tokens",
+    "16",
+    "--temperature",
+    "0",
+    "--no-verbose"
+  ],
+  "exit_code": 1,
+  "passed": false,
+  "stdout": "",
+  "stderr": "ht,\nvision_tower.encoder.layers.5.input_layernorm.weight,\nvision_tower.encoder.layers.5.mlp.down_proj.linear.weight,\nvision_tower.encoder.layers.5.mlp.gate_proj.linear.weight,\nvision_tower.encoder.layers.5.mlp.up_proj.linear.weight,\nvision_tower.encoder.layers.5.post_attention_layernorm.weight,\nvision_tower.encoder.layers.5.post_feedforward_layernorm.weight,\nvision_tower.encoder.layers.5.pre_feedforward_layernorm.weight,\nvision_tower.encoder.layers.5.self_attn.k_norm.weight,\nvision_tower.encoder.layers.5.self_attn.k_proj.linear.weight,\nvision_tower.encoder.layers.5.self_attn.o_proj.linear.weight,\nvision_tower.encoder.layers.5.self_attn.q_norm.weight,\nvision_tower.encoder.layers.5.self_attn.q_proj.linear.weight,\nvision_tower.encoder.layers.5.self_attn.v_proj.linear.weight,\nvision_tower.encoder.layers.6.input_layernorm.weight,\nvision_tower.encoder.layers.6.mlp.down_proj.linear.weight,\nvision_tower.encoder.layers.6.mlp.gate_proj.linear.weight,\nvision_tower.encoder.layers.6.mlp.up_proj.linear.weight,\nvision_tower.encoder.layers.6.post_attention_layernorm.weight,\nvision_tower.encoder.layers.6.post_feedforward_layernorm.weight,\nvision_tower.encoder.layers.6.pre_feedforward_layernorm.weight,\nvision_tower.encoder.layers.6.self_attn.k_norm.weight,\nvision_tower.encoder.layers.6.self_attn.k_proj.linear.weight,\nvision_tower.encoder.layers.6.self_attn.o_proj.linear.weight,\nvision_tower.encoder.layers.6.self_attn.q_norm.weight,\nvision_tower.encoder.layers.6.self_attn.q_proj.linear.weight,\nvision_tower.encoder.layers.6.self_attn.v_proj.linear.weight,\nvision_tower.encoder.layers.7.input_layernorm.weight,\nvision_tower.encoder.layers.7.mlp.down_proj.linear.weight,\nvision_tower.encoder.layers.7.mlp.gate_proj.linear.weight,\nvision_tower.encoder.layers.7.mlp.up_proj.linear.weight,\nvision_tower.encoder.layers.7.post_attention_layernorm.weight,\nvision_tower.encoder.layers.7.post_feedforward_layernorm.weight,\nvision_tower.encoder.layers.7.pre_feedforward_layernorm.weight,\nvision_tower.encoder.layers.7.self_attn.k_norm.weight,\nvision_tower.encoder.layers.7.self_attn.k_proj.linear.weight,\nvision_tower.encoder.layers.7.self_attn.o_proj.linear.weight,\nvision_tower.encoder.layers.7.self_attn.q_norm.weight,\nvision_tower.encoder.layers.7.self_attn.q_proj.linear.weight,\nvision_tower.encoder.layers.7.self_attn.v_proj.linear.weight,\nvision_tower.encoder.layers.8.input_layernorm.weight,\nvision_tower.encoder.layers.8.mlp.down_proj.linear.weight,\nvision_tower.encoder.layers.8.mlp.gate_proj.linear.weight,\nvision_tower.encoder.layers.8.mlp.up_proj.linear.weight,\nvision_tower.encoder.layers.8.post_attention_layernorm.weight,\nvision_tower.encoder.layers.8.post_feedforward_layernorm.weight,\nvision_tower.encoder.layers.8.pre_feedforward_layernorm.weight,\nvision_tower.encoder.layers.8.self_attn.k_norm.weight,\nvision_tower.encoder.layers.8.self_attn.k_proj.linear.weight,\nvision_tower.encoder.layers.8.self_attn.o_proj.linear.weight,\nvision_tower.encoder.layers.8.self_attn.q_norm.weight,\nvision_tower.encoder.layers.8.self_attn.q_proj.linear.weight,\nvision_tower.encoder.layers.8.self_attn.v_proj.linear.weight,\nvision_tower.encoder.layers.9.input_layernorm.weight,\nvision_tower.encoder.layers.9.mlp.down_proj.linear.weight,\nvision_tower.encoder.layers.9.mlp.gate_proj.linear.weight,\nvision_tower.encoder.layers.9.mlp.up_proj.linear.weight,\nvision_tower.encoder.layers.9.post_attention_layernorm.weight,\nvision_tower.encoder.layers.9.post_feedforward_layernorm.weight,\nvision_tower.encoder.layers.9.pre_feedforward_layernorm.weight,\nvision_tower.encoder.layers.9.self_attn.k_norm.weight,\nvision_tower.encoder.layers.9.self_attn.k_proj.linear.weight,\nvision_tower.encoder.layers.9.self_attn.o_proj.linear.weight,\nvision_tower.encoder.layers.9.self_attn.q_norm.weight,\nvision_tower.encoder.layers.9.self_attn.q_proj.linear.weight,\nvision_tower.encoder.layers.9.self_attn.v_proj.linear.weight,\nvision_tower.patch_embedder.input_proj.weight,\nvision_tower.patch_embedder.position_embedding_table.\n",
+  "model": "/Volumes/Ext4T/axquant/work/modality-recert-redo/packs/AX-gemma-4-12b-MLX-AXQ-6bit-MTP"
+}

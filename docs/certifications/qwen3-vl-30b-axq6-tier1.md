@@ -67,3 +67,12 @@ Machine-readable: [qwen3-vl-30b-axq6-tier1.json](qwen3-vl-30b-axq6-tier1.json).
 | Audio | `not-applicable` | Not supported on this pack |
 
 Vision quality retention is **not** certified. Evidence: [modality-recert-macstudio-m2](evidence/modality-recert-macstudio-m2/).
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `smoke-certified` | `true` | vision runtime smoke passed on df-macstudio-m2 (mlx-vlm); quality suite not certified. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen3-vl-30b-axq6.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

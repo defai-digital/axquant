@@ -72,7 +72,8 @@
     "Quality retention vs matched MXFP4-Q4 reference (not BF16).",
     "Measured storage-adjusted BPW ~6.58 (product name remains AXQ-6bit; higher-fidelity layout vs uniform 6.0).",
     "No MTP acceleration claim.",
-    "Re-validated on df-macbookpro-m5 2026-08-11 (agent-coding retention 1.0, general 1.0002)."
+    "Re-validated on df-macbookpro-m5 2026-08-11 (agent-coding retention 1.0, general 1.0002).",
+    "Modality recert (capability-gated redo) 2026-08-15T03:04:55+00:00: ## Modalities (capability-gated) vision=not-applicable audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "public_index": {
     "display_name": "GPT-OSS 120B MLX AXQ 6-bit",
@@ -92,14 +93,14 @@
     "vision": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "text-only pack; vision/audio not applicable",
+      "reason": "vision not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "text-only pack; vision/audio not applicable",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

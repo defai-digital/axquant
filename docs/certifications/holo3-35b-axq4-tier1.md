@@ -59,3 +59,12 @@ exceeded the size gate (`1.162` &gt; `1.15`).
 - Runbook: [../holo3-35b-axq-dev-runbook.md](../holo3-35b-axq-dev-runbook.md)
 
 Machine-readable: [holo3-35b-axq4-tier1.json](holo3-35b-axq4-tier1.json).
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (mlx-vlm expects vision_tower.*; sidecar/layout mismatch). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/AX-Holo3-35B-A3B-MLX-AXQ-4bit.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

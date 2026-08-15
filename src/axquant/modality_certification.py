@@ -19,6 +19,10 @@ quality pass. Text dual-suite Tier 1 never implies vision-tower or audio quality
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
 from axquant.schema.public_certification import (
@@ -187,4 +191,167 @@ def summarize_modalities_for_markdown(block: PublicModalitiesBlock | None) -> st
         f"{'' if block.vision.supported else ' (disabled)'}; "
         f"Audio: `{block.audio.status}`"
         f"{'' if block.audio.supported else ' (disabled)'}."
+    )
+
+
+_VISION_WEIGHT_NAMES = frozenset(
+    {
+        "vision.safetensors",
+        "vision_tower.safetensors",
+    }
+)
+_AUDIO_WEIGHT_NAMES = frozenset(
+    {
+        "audio.safetensors",
+        "audio_tower.safetensors",
+    }
+)
+_AUDIO_CONFIG_KEYS = ("audio_config", "audio_encoder_config")
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactModalityInspect:
+    """Per-pack inspect of whether vision/audio are actually shipped."""
+
+    vision_declared: bool
+    audio_declared: bool
+    vision_weight_files: tuple[str, ...]
+    audio_weight_files: tuple[str, ...]
+    vision_key_prefixes: tuple[str, ...] = ()
+    source: str = "local-dir"
+    notes: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def vision_supported(self) -> bool:
+        return self.vision_declared or bool(self.vision_weight_files)
+
+    @property
+    def audio_supported(self) -> bool:
+        return self.audio_declared or bool(self.audio_weight_files)
+
+
+def _basename(entry: str) -> str:
+    return entry.replace("\\", "/").rsplit("/", 1)[-1]
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"{path} must contain a JSON object")
+    return payload
+
+
+def _declared_from_config(config: dict[str, Any]) -> tuple[bool, bool]:
+    vision_declared = isinstance(config.get("vision_config"), dict)
+    audio_declared = any(isinstance(config.get(key), dict) for key in _AUDIO_CONFIG_KEYS)
+    return vision_declared, audio_declared
+
+
+def _weight_files_from_names(names: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    basenames = [_basename(name) for name in names]
+    vision = tuple(sorted({name for name in basenames if name in _VISION_WEIGHT_NAMES}))
+    audio = tuple(sorted({name for name in basenames if name in _AUDIO_WEIGHT_NAMES}))
+    if "axquant_vision_sidecar_manifest.json" in basenames and not vision:
+        vision = ("axquant_vision_sidecar_manifest.json",)
+    if "axquant_audio_sidecar_manifest.json" in basenames and not audio:
+        audio = ("axquant_audio_sidecar_manifest.json",)
+    return vision, audio
+
+
+def _sidecar_key_prefixes(path: Path, *, limit: int = 24) -> tuple[str, ...]:
+    if not path.is_file():
+        return ()
+    try:
+        from safetensors import SafetensorError, safe_open
+    except ImportError:
+        return ()
+    try:
+        with safe_open(str(path), framework="np") as handle:
+            keys = list(handle.keys())
+    except (OSError, ValueError, RuntimeError, SafetensorError):
+        return ()
+    prefixes: set[str] = set()
+    for key in keys[:limit]:
+        parts = key.split(".")
+        prefixes.add(".".join(parts[:2]) if len(parts) >= 2 else key)
+    return tuple(sorted(prefixes))
+
+
+def inspect_hub_listing(
+    *,
+    filenames: Iterable[str],
+    config: dict[str, Any] | None = None,
+    source: str = "hub-listing",
+) -> ArtifactModalityInspect:
+    """Inspect a published pack from its file list and optional ``config.json``."""
+
+    names = tuple(filenames)
+    vision_declared = audio_declared = False
+    notes: list[str] = []
+    if config is not None:
+        vision_declared, audio_declared = _declared_from_config(config)
+    elif "config.json" not in {_basename(name) for name in names}:
+        notes.append("config.json not provided; support inferred from filenames only")
+    vision_files, audio_files = _weight_files_from_names(names)
+    return ArtifactModalityInspect(
+        vision_declared=vision_declared,
+        audio_declared=audio_declared,
+        vision_weight_files=vision_files,
+        audio_weight_files=audio_files,
+        source=source,
+        notes=tuple(notes),
+    )
+
+
+def inspect_artifact_modalities(model_dir: str | Path) -> ArtifactModalityInspect:
+    """Inspect a local artifact directory for vision/audio capability.
+
+    A modality is supported when the pack declares a tower config **or**
+    ships sidecar weights / a sidecar manifest. A lone ``audio_token_id``
+    (or similar placeholder token) is not support.
+    """
+
+    directory = Path(model_dir)
+    if not directory.is_dir():
+        raise FileNotFoundError(f"artifact directory does not exist: {directory}")
+    names = [path.name for path in directory.iterdir()]
+    config: dict[str, Any] | None = None
+    config_path = directory / "config.json"
+    if config_path.is_file():
+        config = _load_json_object(config_path)
+    inspect = inspect_hub_listing(
+        filenames=names,
+        config=config,
+        source=str(directory),
+    )
+    prefixes: list[str] = []
+    for name in inspect.vision_weight_files:
+        if name.endswith(".safetensors"):
+            prefixes.extend(_sidecar_key_prefixes(directory / name))
+    return ArtifactModalityInspect(
+        vision_declared=inspect.vision_declared,
+        audio_declared=inspect.audio_declared,
+        vision_weight_files=inspect.vision_weight_files,
+        audio_weight_files=inspect.audio_weight_files,
+        vision_key_prefixes=tuple(sorted(set(prefixes))),
+        source=inspect.source,
+        notes=inspect.notes,
+    )
+
+
+def format_modalities_card_section(block: PublicModalitiesBlock) -> str:
+    """Markdown section for Hub cards / cert notes (capability-gated)."""
+
+    def line(name: str, claim: PublicModalityClaim) -> str:
+        reason = claim.reason or ""
+        return f"| {name} | `{claim.status}` | `{str(claim.supported).lower()}` | {reason} |"
+
+    return (
+        "## Modalities (capability-gated)\n\n"
+        "Text checkpoint Tier 1 does **not** imply vision or audio quality. "
+        "`Vision present=true` on a pack is not a quality pass.\n\n"
+        "| Modality | Claim | Supported | Reason |\n"
+        "| --- | --- | --- | --- |\n"
+        f"{line('Vision', block.vision)}\n"
+        f"{line('Audio', block.audio)}\n"
     )

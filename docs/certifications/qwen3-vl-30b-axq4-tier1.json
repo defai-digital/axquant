@@ -86,7 +86,8 @@
     "Vision tower remains BF16-protected; text MoE experts quantized to product class.",
     "Hub config includes text_config.tie_word_embeddings for mlx-lm load compatibility.",
     "Hub ships model-manifest.json from AX Engine generate-manifest (qwen3_vl_moe MoE enabled).",
-    "Modality recert on df-macstudio-m2 (1.8.1): vision smoke-certified via MLX-VLM; audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
+    "Modality recert on df-macstudio-m2 (1.8.1): vision smoke-certified via MLX-VLM; audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:04:55+00:00: ## Modalities (capability-gated) vision=smoke-certified audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "d0e5289a827067c2dfc3a4105affa6d742a8218fda546045213255bd2869427c",
@@ -108,14 +109,14 @@
     "vision": {
       "status": "smoke-certified",
       "supported": true,
-      "reason": "MLX-VLM vision generation smoke passed on df-macstudio-m2 (axquant 1.8.1); vision quality retention suite not certified; audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/",
+      "reason": "vision runtime smoke passed on df-macstudio-m2 (mlx-vlm); quality suite not certified. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen3-vl-30b-axq4.json",
       "runtime": "mlx-vlm",
       "evidence_kind": "runtime-smoke-mlx-vlm"
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "audio not supported on this pack",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

@@ -1,0 +1,23 @@
+{
+  "command": [
+    "/Volumes/Ext4T/axquant/work/axquant-1.8.1/.venv/bin/python",
+    "-m",
+    "mlx_vlm.generate",
+    "--model",
+    "/Volumes/Ext4T/axquant/work/modality-recert-redo/packs/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP",
+    "--image",
+    "/Volumes/Ext4T/axquant/work/modality-recert-redo/media/sample.png",
+    "--prompt",
+    "Read the image and answer briefly.",
+    "--max-tokens",
+    "16",
+    "--temperature",
+    "0",
+    "--no-verbose"
+  ],
+  "exit_code": 1,
+  "passed": false,
+  "stdout": "",
+  "stderr": "blocks.26.attn.qkv.bias,\nvision_tower.blocks.26.attn.qkv.weight,\nvision_tower.blocks.26.mlp.linear_fc1.bias,\nvision_tower.blocks.26.mlp.linear_fc1.weight,\nvision_tower.blocks.26.mlp.linear_fc2.bias,\nvision_tower.blocks.26.mlp.linear_fc2.weight,\nvision_tower.blocks.26.norm1.bias,\nvision_tower.blocks.26.norm1.weight,\nvision_tower.blocks.26.norm2.bias,\nvision_tower.blocks.26.norm2.weight,\nvision_tower.blocks.3.attn.proj.bias,\nvision_tower.blocks.3.attn.proj.weight,\nvision_tower.blocks.3.attn.qkv.bias,\nvision_tower.blocks.3.attn.qkv.weight,\nvision_tower.blocks.3.mlp.linear_fc1.bias,\nvision_tower.blocks.3.mlp.linear_fc1.weight,\nvision_tower.blocks.3.mlp.linear_fc2.bias,\nvision_tower.blocks.3.mlp.linear_fc2.weight,\nvision_tower.blocks.3.norm1.bias,\nvision_tower.blocks.3.norm1.weight,\nvision_tower.blocks.3.norm2.bias,\nvision_tower.blocks.3.norm2.weight,\nvision_tower.blocks.4.attn.proj.bias,\nvision_tower.blocks.4.attn.proj.weight,\nvision_tower.blocks.4.attn.qkv.bias,\nvision_tower.blocks.4.attn.qkv.weight,\nvision_tower.blocks.4.mlp.linear_fc1.bias,\nvision_tower.blocks.4.mlp.linear_fc1.weight,\nvision_tower.blocks.4.mlp.linear_fc2.bias,\nvision_tower.blocks.4.mlp.linear_fc2.weight,\nvision_tower.blocks.4.norm1.bias,\nvision_tower.blocks.4.norm1.weight,\nvision_tower.blocks.4.norm2.bias,\nvision_tower.blocks.4.norm2.weight,\nvision_tower.blocks.5.attn.proj.bias,\nvision_tower.blocks.5.attn.proj.weight,\nvision_tower.blocks.5.attn.qkv.bias,\nvision_tower.blocks.5.attn.qkv.weight,\nvision_tower.blocks.5.mlp.linear_fc1.bias,\nvision_tower.blocks.5.mlp.linear_fc1.weight,\nvision_tower.blocks.5.mlp.linear_fc2.bias,\nvision_tower.blocks.5.mlp.linear_fc2.weight,\nvision_tower.blocks.5.norm1.bias,\nvision_tower.blocks.5.norm1.weight,\nvision_tower.blocks.5.norm2.bias,\nvision_tower.blocks.5.norm2.weight,\nvision_tower.blocks.6.attn.proj.bias,\nvision_tower.blocks.6.attn.proj.weight,\nvision_tower.blocks.6.attn.qkv.bias,\nvision_tower.blocks.6.attn.qkv.weight,\nvision_tower.blocks.6.mlp.linear_fc1.bias,\nvision_tower.blocks.6.mlp.linear_fc1.weight,\nvision_tower.blocks.6.mlp.linear_fc2.bias,\nvision_tower.blocks.6.mlp.linear_fc2.weight,\nvision_tower.blocks.6.norm1.bias,\nvision_tower.blocks.6.norm1.weight,\nvision_tower.blocks.6.norm2.bias,\nvision_tower.blocks.6.norm2.weight,\nvision_tower.blocks.7.attn.proj.bias,\nvision_tower.blocks.7.attn.proj.weight,\nvision_tower.blocks.7.attn.qkv.bias,\nvision_tower.blocks.7.attn.qkv.weight,\nvision_tower.blocks.7.mlp.linear_fc1.bias,\nvision_tower.blocks.7.mlp.linear_fc1.weight,\nvision_tower.blocks.7.mlp.linear_fc2.bias,\nvision_tower.blocks.7.mlp.linear_fc2.weight,\nvision_tower.blocks.7.norm1.bias,\nvision_tower.blocks.7.norm1.weight,\nvision_tower.blocks.7.norm2.bias,\nvision_tower.blocks.7.norm2.weight,\nvision_tower.blocks.8.attn.proj.bias,\nvision_tower.blocks.8.attn.proj.weight,\nvision_tower.blocks.8.attn.qkv.bias,\nvision_tower.blocks.8.attn.qkv.weight,\nvision_tower.blocks.8.mlp.linear_fc1.bias,\nvision_tower.blocks.8.mlp.linear_fc1.weight,\nvision_tower.blocks.8.mlp.linear_fc2.bias,\nvision_tower.blocks.8.mlp.linear_fc2.weight,\nvision_tower.blocks.8.norm1.bias,\nvision_tower.blocks.8.norm1.weight,\nvision_tower.blocks.8.norm2.bias,\nvision_tower.blocks.8.norm2.weight,\nvision_tower.blocks.9.attn.proj.bias,\nvision_tower.blocks.9.attn.proj.weight,\nvision_tower.blocks.9.attn.qkv.bias,\nvision_tower.blocks.9.attn.qkv.weight,\nvision_tower.blocks.9.mlp.linear_fc1.bias,\nvision_tower.blocks.9.mlp.linear_fc1.weight,\nvision_tower.blocks.9.mlp.linear_fc2.bias,\nvision_tower.blocks.9.mlp.linear_fc2.weight,\nvision_tower.blocks.9.norm1.bias,\nvision_tower.blocks.9.norm1.weight,\nvision_tower.blocks.9.norm2.bias,\nvision_tower.blocks.9.norm2.weight,\nvision_tower.merger.linear_fc1.bias,\nvision_tower.merger.linear_fc1.weight,\nvision_tower.merger.linear_fc2.bias,\nvision_tower.merger.linear_fc2.weight,\nvision_tower.merger.norm.bias,\nvision_tower.merger.norm.weight,\nvision_tower.patch_embed.proj.bias,\nvision_tower.patch_embed.proj.weight,\nvision_tower.pos_embed.weight.\n",
+  "model": "/Volumes/Ext4T/axquant/work/modality-recert-redo/packs/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP"
+}

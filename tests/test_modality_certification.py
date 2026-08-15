@@ -13,6 +13,9 @@ from axquant.modality_certification import (
     claim_allows_public_quality,
     claim_allows_public_smoke,
     derive_modality_claim,
+    format_modalities_card_section,
+    inspect_artifact_modalities,
+    inspect_hub_listing,
     summarize_modalities_for_markdown,
     validate_modality_evidence_consistency,
 )
@@ -128,11 +131,62 @@ def test_qwen3_vl_is_vision_smoke_audio_na() -> None:
     assert cert.modalities.audio.status == "not-applicable"
 
 
-def test_gemma4_text_path_modalities_disabled() -> None:
+def test_gemma4_hub_vision_sidecar_is_not_disabled() -> None:
     cert = load_public_checkpoint_certification(_CERT_DIR / "gemma4-12b-axq4-tier1.json")
     assert cert.modalities is not None
-    assert cert.modalities.vision.status == "not-applicable"
+    assert cert.modalities.vision.supported is True
+    assert cert.modalities.vision.status != "not-applicable"
     assert cert.modalities.audio.status == "not-applicable"
+    text = format_modalities_card_section(cert.modalities)
+    assert "capability-gated" in text
+    assert "not a quality pass" in text
+
+
+def test_certified_non_deepseek_support_matches_status() -> None:
+    for path in sorted(_CERT_DIR.glob("*-tier1.json")):
+        cert = load_public_checkpoint_certification(path)
+        if cert.status != "certified" or cert.modalities is None:
+            continue
+        for claim in (cert.modalities.vision, cert.modalities.audio):
+            if claim.status == "not-applicable":
+                assert claim.supported is False, path.name
+            else:
+                assert claim.supported is True, path.name
+
+
+def test_inspect_treats_sidecar_and_config_as_supported(tmp_path: Path) -> None:
+    (tmp_path / "config.json").write_text(
+        json.dumps({"model_type": "demo", "vision_config": {"depth": 1}, "audio_token_id": 7}),
+        encoding="utf-8",
+    )
+    (tmp_path / "vision.safetensors").write_bytes(b"not-a-real-sidecar")
+    inspect = inspect_artifact_modalities(tmp_path)
+    assert inspect.vision_supported
+    assert inspect.vision_declared
+    assert inspect.vision_weight_files == ("vision.safetensors",)
+    assert not inspect.audio_supported
+
+
+def test_inspect_hub_listing_audio_config_without_sidecar() -> None:
+    inspect = inspect_hub_listing(
+        filenames=("config.json", "model-00001-of-00002.safetensors"),
+        config={"audio_config": {"hidden_size": 8}},
+    )
+    assert inspect.audio_supported
+    assert not inspect.vision_supported
+
+
+def test_format_modalities_card_rejects_quality_wording() -> None:
+    block = build_modalities_block(
+        vision_supported=True,
+        audio_supported=False,
+        vision_smoke_passed=False,
+    )
+    text = format_modalities_card_section(block)
+    assert "capability-gated" in text
+    assert "not a quality pass" in text
+    assert "`present-not-certified`" in text
+    assert "`not-applicable`" in text
 
 
 def test_legacy_cert_without_modalities_still_loads(tmp_path: Path) -> None:

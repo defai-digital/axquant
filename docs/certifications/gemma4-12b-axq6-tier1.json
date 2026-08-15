@@ -51,7 +51,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24\u20131.38\u00d7) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
+    "reason": "formal pilot on df-macbookpro-m5/AX Engine 6.14.0 with gemma4-assistant exact profile: speed gates can clear (~1.24–1.38×) but greedy exactness fails when MTP accepts drafts; release_ready remains false"
   },
   "toolchain": {
     "axquant": "1.6.1+local-prep-fix",
@@ -61,7 +61,8 @@
     "Rebuilt from google/gemma-4-12b-it after google/gemma-4-12b packs failed quality (multimodal placeholder loops).",
     "gemma4_unified prep now strips vision_config/audio_config so MLX text convert does not emit empty vision_embedder biases.",
     "Checkpoint Tier 1 on fused assistant-MTP Hub revision; target digests match quality-bound IT convert.",
-    "Vision/multimodal quality not claimed. Tier 2 not claimed."
+    "Vision/multimodal quality not claimed. Tier 2 not claimed.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:09:40+00:00: ## Modalities (capability-gated) vision=present-not-certified audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "public_index": {
     "display_name": "Gemma 4 12B MLX AXQ 6-bit",
@@ -72,16 +73,16 @@
   "modalities": {
     "policy": "capability-gated-v1",
     "vision": {
-      "status": "not-applicable",
-      "supported": false,
-      "reason": "certified text-path pack; multimodal configs stripped / not in certification scope",
-      "runtime": null,
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (mlx-vlm expects vision_tower.*; sidecar/layout mismatch). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/AX-gemma-4-12b-MLX-AXQ-6bit-MTP.json",
+      "runtime": "mlx-vlm",
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "certified text-path pack; multimodal configs stripped / not in certification scope",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

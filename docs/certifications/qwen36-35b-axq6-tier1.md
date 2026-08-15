@@ -59,3 +59,12 @@ Product default remains direct fallback.
 
 - Sibling 35B 4-bit: [Tier 1](qwen36-35b-axq4-tier1.md)
 - Dense 27B flagship: [6-bit Tier 1](qwen36-27b-axq6-tier1.md)
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (mlx-vlm expects vision_tower.*; sidecar/layout mismatch). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

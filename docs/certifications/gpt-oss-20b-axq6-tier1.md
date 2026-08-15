@@ -56,3 +56,12 @@ claim is authorized.
 - Certification index: [README.md](README.md)
 
 Machine-readable: [gpt-oss-20b-axq6-tier1.json](gpt-oss-20b-axq6-tier1.json).
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `not-applicable` | `false` | vision not supported (no tower config and no sidecar weights) |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

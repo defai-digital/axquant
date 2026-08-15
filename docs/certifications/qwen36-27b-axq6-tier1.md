@@ -117,3 +117,12 @@ default); short-answer chat is not an authorizing acceleration claim.
 The certificate is valid only while the published v3 LFS object hashes match the weight-file
 hashes in the machine-readable record. A weight, plan, tokenizer, source, threshold, or runtime
 policy change requires impact review and, when material, recertification.
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (mlx-vlm expects vision_tower.*; sidecar/layout mismatch). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

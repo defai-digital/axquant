@@ -81,12 +81,13 @@
   },
   "notes": [
     "Checkpoint Tier 1 on host id df-macbookpro-m3.",
-    "Recovery plan-manual with lm_head 8-bit (AXQ-026) after architecture-prior 4-bit failed size (~1.22\u00d7).",
+    "Recovery plan-manual with lm_head 8-bit (AXQ-026) after architecture-prior 4-bit failed size (~1.22×).",
     "Quality vs same-pin BF16; size vs local uniform-4 convert.",
-    "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
+    "Adapter qwen38-dense-v1 — not Qwen 3.6 flagship track.",
     "Vision remains BF16-protected; VLM quality not claimed.",
     "MTP acceleration: see Tier 2 record qwen38-27b-axq4-mtp-tier2.json.",
-    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
+    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:05:02+00:00: ## Modalities (capability-gated) vision=present-not-certified audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "b27c7ef67dfd7b7c154e11f5a52e02dd682f2b6c5a43b240126fce5f8b5de274",
@@ -104,14 +105,14 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); mlx-vlm smoke failed on df-macstudio-m2 (expects vision_tower.*); VLM quality not certified. Evidence: evidence/modality-recert-macstudio-m2/",
-      "runtime": null,
+      "reason": "vision present sidecar=['vision.safetensors'] keys=['model.visual']; mlx-vlm smoke failed on df-macstudio-m2 (see evidence). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen38-27b-axq4-mtp.json",
+      "runtime": "mlx-vlm",
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "audio not supported on this pack",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

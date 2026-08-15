@@ -73,3 +73,12 @@ speed gates on formal authorizing profiles.
 - Short-answer / universal prompt acceleration **not** claimed.
 
 Machine-readable: [gemma4-26b-a4b-axq6-tier1.json](gemma4-26b-a4b-axq6-tier1.json).
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (mlx-vlm expects vision_tower.*; sidecar/layout mismatch). Text Tier 1 unchanged. Evidence: docs/certifications/evidence/modality-recert-capability-gated/results/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

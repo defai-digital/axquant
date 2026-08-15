@@ -8,6 +8,10 @@ from pathlib import Path
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
 from axquant.identity import same_model_identity
+from axquant.modality_certification import (
+    claim_allows_public_quality,
+    format_modalities_card_section,
+)
 from axquant.naming import format_measured_bpw
 from axquant.public_cert_index import claim_from_public_row, public_row_for_repo
 from axquant.schema import (
@@ -18,6 +22,10 @@ from axquant.schema import (
     ProtectedTensorSidecarManifest,
     QuantizationPlan,
     QuantizerExecutionManifest,
+)
+from axquant.schema.public_certification import (
+    PublicModalitiesBlock,
+    load_public_checkpoint_certification,
 )
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data, write_text
 
@@ -278,6 +286,16 @@ def _certification_blocks(
     if certified.mtp_acceleration_note:
         mtp_row = f"{mtp_row} ({certified.mtp_acceleration_note})"
     return banner, release_row, mtp_row
+
+
+def _public_modalities_for_repo(repo_id: str) -> PublicModalitiesBlock | None:
+    """Load capability-gated claims from the in-tree public certificate, if any."""
+
+    row = public_row_for_repo(repo_id, listed_only=False)
+    if row is None:
+        return None
+    record = load_public_checkpoint_certification(row.tier1_path)
+    return record.modalities
 
 
 def _certification_for_repo(
@@ -558,16 +576,45 @@ runtime path above. The artifact records AX Engine version
             "- AX Engine execution is not established because this package has no validated "
             "native manifest.\n"
         )
-    vision_quality = (
-        "Not evaluated or claimed; vision tensors are preserved at BF16"
-        if has_vision
-        else "Not applicable (no vision tower in this package)"
-    )
-    speech_quality = (
-        "Not evaluated or claimed; audio tensors are preserved at BF16"
-        if has_audio
-        else "Not applicable"
-    )
+    public_modalities = _public_modalities_for_repo(repo_id)
+    if public_modalities is not None:
+        has_vision = public_modalities.vision.supported
+        has_audio = public_modalities.audio.supported
+        if claim_allows_public_quality(public_modalities.vision.status):
+            vision_quality = (
+                f"Certified (`{public_modalities.vision.status}`); "
+                f"{public_modalities.vision.reason or 'see certificate'}"
+            )
+        elif public_modalities.vision.status == "smoke-certified":
+            vision_quality = "Runtime smoke only (`smoke-certified`); not a vision quality pass"
+        elif public_modalities.vision.status == "present-not-certified":
+            vision_quality = "Present, not certified; text Tier 1 does not imply VLM quality"
+        else:
+            vision_quality = "Not applicable (vision disabled for this pack)"
+        if claim_allows_public_quality(public_modalities.audio.status):
+            speech_quality = (
+                f"Certified (`{public_modalities.audio.status}`); "
+                f"{public_modalities.audio.reason or 'see certificate'}"
+            )
+        elif public_modalities.audio.status == "smoke-certified":
+            speech_quality = "Runtime smoke only (`smoke-certified`); not an audio quality pass"
+        elif public_modalities.audio.status == "present-not-certified":
+            speech_quality = "Present, not certified; text Tier 1 does not imply ASR quality"
+        else:
+            speech_quality = "Not applicable (audio disabled for this pack)"
+        modalities_section = "\n" + format_modalities_card_section(public_modalities)
+    else:
+        vision_quality = (
+            "Not evaluated or claimed; vision tensors are preserved at BF16"
+            if has_vision
+            else "Not applicable (no vision tower in this package)"
+        )
+        speech_quality = (
+            "Not evaluated or claimed; audio tensors are preserved at BF16"
+            if has_audio
+            else "Not applicable"
+        )
+        modalities_section = ""
     mtp_limitation = (
         "- MTP may be ignored outside AX Engine and its speedup is unmeasured for this exact "
         "checkpoint.\n"
@@ -783,7 +830,7 @@ establish MTP acceleration or vision-language quality.
 | Speech-recognition quality | {speech_quality} |
 | Long-context quality | {long_context_status} |
 {release_certification_row}
-
+{modalities_section}
 ## Intended use and limitations
 
 - Intended for local development and evaluation on Apple Silicon with MLX-compatible runtimes.

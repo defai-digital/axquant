@@ -79,7 +79,8 @@
   "notes": [
     "Plan evidence is architecture_prior; formal scoreboard release-claim eligibility remains limited.",
     "Size budget is class-specific (5p6bpw max_size_ratio 1.25), not pure-4bit 1.10.",
-    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
+    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:04:58+00:00: ## Modalities (capability-gated) vision=present-not-certified audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "public_index": {
     "display_name": "Qwen 3.6 27B MLX AXQ 4-bit MTP",
@@ -92,14 +93,14 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); mlx-vlm smoke failed on df-macstudio-m2 (expects vision_tower.*); VLM quality not certified. Evidence: evidence/modality-recert-macstudio-m2/",
-      "runtime": null,
+      "reason": "vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (see evidence). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen36-27b-axq4-mtp.json",
+      "runtime": "mlx-vlm",
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "audio not supported on this pack",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

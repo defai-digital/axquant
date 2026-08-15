@@ -81,9 +81,10 @@
   "notes": [
     "Checkpoint Tier 1 on host id df-macbookpro-m3.",
     "Quality vs same-pin BF16; size vs local uniform-6 convert.",
-    "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
+    "Adapter qwen38-dense-v1 — not Qwen 3.6 flagship track.",
     "Vision BF16-protected; VLM quality not claimed.",
-    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
+    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:05:06+00:00: ## Modalities (capability-gated) vision=present-not-certified audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "5258491eee37c4823f63a8527b78f36de6b14ccdceca122d282311e01467b8c6",
@@ -101,14 +102,14 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); mlx-vlm smoke failed on df-macstudio-m2 (expects vision_tower.*); VLM quality not certified. Evidence: evidence/modality-recert-macstudio-m2/",
-      "runtime": null,
+      "reason": "vision present sidecar=['vision.safetensors'] keys=['model.visual']; mlx-vlm smoke failed on df-macbookpro-m3 (Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"/Users/akiralam/code/axquant/.venv/lib/python3.12/site-packages/mlx_vlm/generate/__main__.py). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-capability-gated/results/qwen38-27b-axq6-tier1.json",
+      "runtime": "mlx-vlm",
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "audio not supported on this pack",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }

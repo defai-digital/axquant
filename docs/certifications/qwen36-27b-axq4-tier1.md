@@ -87,3 +87,12 @@ acceleration is covered only by [Tier 2](qwen36-27b-axq4-tier2.md).
 - [Tier 2 MTP acceleration](qwen36-27b-axq4-tier2.md)
 - Dense sibling 6-bit flagship: [Tier 1](qwen36-27b-axq6-tier1.md) /
   [Tier 2](qwen36-27b-axq6-tier2.md)
+
+## Modalities (capability-gated)
+
+Text checkpoint Tier 1 does **not** imply vision or audio quality. `Vision present=true` on a pack is not a quality pass.
+
+| Modality | Claim | Supported | Reason |
+| --- | --- | --- | --- |
+| Vision | `present-not-certified` | `true` | vision present sidecar=['vision.safetensors']; mlx-vlm smoke failed on df-macstudio-m2 (see evidence). Text Tier 1 unchanged. Evidence: /Users/akiralam/code/axquant/docs/certifications/evidence/modality-recert-macstudio-m2/results/qwen36-27b-axq4-mtp.json |
+| Audio | `not-applicable` | `false` | audio not supported (no tower config and no sidecar weights) |

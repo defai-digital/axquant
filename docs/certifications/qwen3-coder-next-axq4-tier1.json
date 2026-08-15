@@ -67,7 +67,8 @@
     "Checkpoint Tier 1 on formal host id df-macbookpro-m5.",
     "Quality retention vs matched uniform quantized reference (not BF16).",
     "No MTP acceleration claim; source has mtp_present=false.",
-    "Corrected indexed-expert packing on Hub AXQ packs."
+    "Corrected indexed-expert packing on Hub AXQ packs.",
+    "Modality recert (capability-gated redo) 2026-08-15T03:04:55+00:00: ## Modalities (capability-gated) vision=not-applicable audio=not-applicable. Evidence: evidence/modality-recert-capability-gated/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "1909ed8fe878899a5ef2027148e6c51f6b00e1ff5c9eec26ed961cae7d88fa82",
@@ -87,14 +88,14 @@
     "vision": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "text-only pack; vision/audio not applicable",
+      "reason": "vision not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     },
     "audio": {
       "status": "not-applicable",
       "supported": false,
-      "reason": "text-only pack; vision/audio not applicable",
+      "reason": "audio not supported (no tower config and no sidecar weights)",
       "runtime": null,
       "evidence_kind": null
     }
