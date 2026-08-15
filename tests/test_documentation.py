@@ -352,6 +352,8 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
         return names
 
     assert _data_rows(readme_body) == [row.display_name for row in rows]
+    listed_ids = [row.record_id for row in rows]
+    assert listed_ids.index("qwen38-27b-axq-mxfp4") < listed_ids.index("qwen38-27b-axq4-mtp")
     assert _data_rows(index_body) == [row.display_name for row in rows]
     for row in rows:
         assert f"| {row.display_name} |" in readme_body

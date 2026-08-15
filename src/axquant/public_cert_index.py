@@ -218,8 +218,27 @@ def load_public_cert_rows(
     # ordered by each record's public_index.sort_order within the group.
     rows.sort(key=lambda row: (_matrix_completeness_rank(row), row.sort_order, row.record_id))
     if listed_only:
-        return [row for row in rows if row.listed]
+        return _lead_qwen38_mxfp4_before_4bit([row for row in rows if row.listed])
     return rows
+
+
+def _lead_qwen38_mxfp4_before_4bit(rows: list[PublicCertRow]) -> list[PublicCertRow]:
+    """Put the Qwen3.8 MXFP4 SKU immediately before the affine 4-bit row."""
+
+    mxfp4 = [row for row in rows if row.record_id == "qwen38-27b-axq-mxfp4"]
+    if not mxfp4:
+        return rows
+    rest = [row for row in rows if row.record_id != "qwen38-27b-axq-mxfp4"]
+    out: list[PublicCertRow] = []
+    inserted = False
+    for row in rest:
+        if not inserted and row.record_id in {"qwen38-27b-axq4-mtp", "qwen38-27b-axq4"}:
+            out.extend(mxfp4)
+            inserted = True
+        out.append(row)
+    if not inserted:
+        out = mxfp4 + rest
+    return out
 
 
 def _matrix_completeness_rank(row: PublicCertRow) -> int:

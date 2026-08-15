@@ -37,13 +37,13 @@ The tables are generated from certificate JSON
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
+| Qwen3.8-27B MLX AXQ MXFP4 | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
 | Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
 | Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
 | Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
 | Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
 | Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
-| Qwen3.8-27B MLX AXQ MXFP4 | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) |
 | Qwen3.8-27B MLX AXQ 8-bit | [Certified](docs/certifications/qwen38-27b-axq8-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
