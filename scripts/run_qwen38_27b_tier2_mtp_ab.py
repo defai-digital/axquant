@@ -74,6 +74,14 @@ PACKS: dict[str, dict[str, object]] = {
         "tier2_cert": "qwen38-27b-axq-mxfp4-mtp-tier2",
         "sort_order": 1,
     },
+    "axq8": {
+        "name": "AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
+        "hub_repo": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
+        "product_class": "8bit",
+        "tier1_cert": "qwen38-27b-axq8-mtp-tier1",
+        "tier2_cert": "qwen38-27b-axq8-mtp-tier2",
+        "sort_order": 7,
+    },
 }
 
 DEFAULT_MODELS = Path(os.environ.get("QWEN38_MODELS", FACTORY_MODELS))
