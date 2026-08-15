@@ -379,7 +379,11 @@ def run_pack(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pack", choices=["axq4", "axq6", "mxfp4", "both"], default="both")
+    parser.add_argument(
+        "--pack",
+        choices=["axq4", "axq6", "mxfp4", "axq8", "both"],
+        default="both",
+    )
     parser.add_argument("--full", action="store_true", help="larger formal-like probe")
     parser.add_argument("--models-root", type=Path, default=DEFAULT_MODELS)
     parser.add_argument("--datasets", type=Path, default=DEFAULT_DATASETS)
