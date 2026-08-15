@@ -1,0 +1,109 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-15T04:42:32.703840+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit",
+    "hub_commit": "bf7c63b10c1719eb89522d9583eb4113e9c5feb2",
+    "product_class": "8bit",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "source_model_id": "Qwen/Qwen3.8-27B",
+    "source_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "candidate_manifest_sha256": "93fbd3310076a13746a8f98208ddc2aeaca2d563500ce9264b9a19acb647f6d1"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "quantize-prior",
+    "target_class": "8bit",
+    "target_bpw": 8.0,
+    "measured_total_bpw": 8.000077185544878,
+    "measured_main_bpw": 8.000077185544878,
+    "adapter_id": "qwen38-dense-v1"
+  },
+  "size": {
+    "candidate_weight_bytes": 27356992503,
+    "candidate_measured_bpw": 8.000077185544878,
+    "reference_kind": "uniform-8bit",
+    "reference_model_id": "local/Qwen3.8-27B-uniform-8bit",
+    "reference_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "reference_weight_bytes": 28579720515,
+    "size_ratio_vs_uniform": 0.9572169359963386,
+    "max_size_ratio_applied": 1.15,
+    "pass": true,
+    "compare_mode": "total",
+    "reference_build": "mlx_lm.convert --hf-path Qwen3.8-27B-bf16 -q --q-bits 8 --q-group-size 64"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9078947368421053,
+      "reference_score": 0.9078947368421053,
+      "retention": 1.0,
+      "dataset_sha256": "6aa91376e9f823b00d1b2df1c74f850ce2e004c8e82d1c8a60fe663547078d19",
+      "samples": 76,
+      "reference_kind": "bf16-same-pin"
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "dataset_sha256": "c0a1757ba9114735e400b202bc7299a14f025e79bb79a94e036016b759212e8f",
+      "samples": 44,
+      "reference_kind": "bf16-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.15
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "No MTP weights; checkpoint Tier 1 is non-MTP direct-decode only."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor ready / mlx_runtime_ready on df-macstudio-m2"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macstudio-m2.",
+    "Quality vs same-pin BF16; size vs local uniform-8 convert.",
+    "Adapter qwen38-dense-v1 \u2014 not the Qwen 3.6 flagship track.",
+    "Vision BF16-protected; VLM quality not claimed."
+  ],
+  "public_index": {
+    "display_name": "Qwen3.8-27B MLX AXQ 8-bit",
+    "sort_order": 5,
+    "edition_label": "main@`36f9d25c`",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision sidecar present; mlx-vlm smoke not a quality pass (prefixes=['model.visual'])",
+      "runtime": "mlx-vlm",
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

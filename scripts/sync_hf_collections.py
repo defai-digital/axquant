@@ -86,6 +86,7 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="Certified AXQ",
         description="Measured AXQ packs with a public Tier 1 certificate. Start here.",
         items=(
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
@@ -113,8 +114,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3.8",
-        description="Qwen3.8 MLX: certified 27B AXQ 4/6-bit ± MTP, plus experimental 2.4T 2-bit.",
+        description="Qwen3.8 MLX: certified 27B AXQ 4/6/8-bit ± MTP, plus experimental 2.4T 2-bit.",
         items=(
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
@@ -321,6 +323,7 @@ COLLECTIONS: tuple[Spec, ...] = (
         existing_slug=COMPLETE_SLUG,
         items=(
             # Family order, then leftover small models.
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_AXQ_DEV),

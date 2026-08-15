@@ -23,6 +23,7 @@ records. Within each group, `public_index.sort_order` applies.
 | [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) | `df-macbookpro-m5` | yes |
 | [Qwen3.8-27B MLX AXQ 4-bit](qwen38-27b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | main@`a8c56f94` | [Certified](qwen38-27b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m3` | no |
 | [Qwen3.8-27B MLX AXQ 6-bit](qwen38-27b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m3` | no |
+| [Qwen3.8-27B MLX AXQ 8-bit](qwen38-27b-axq8-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit) | main@`36f9d25c` | [Certified](qwen38-27b-axq8-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [Qwen 3.6 27B MLX AXQ 4-bit](qwen36-27b-axq4-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | main@`6598b5cd` | [Certified](qwen36-27b-axq4-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen 3.6 27B MLX AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen 3.6 35B-A3B MLX AXQ 4-bit](qwen36-35b-axq4-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit) | main@`2a5bc33c` | [Certified](qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
@@ -48,8 +49,8 @@ records. Within each group, `public_index.sort_order` applies.
 
 ## Counts
 
-- Total certificate records: **30**
-- In README headline matrix (`listed`): **21**
+- Total certificate records: **31**
+- In README headline matrix (`listed`): **22**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
-- Tier 1 certified without Tier 2 certified: **23**
+- Tier 1 certified without Tier 2 certified: **24**
 - Not checkpoint-certified (evaluation only): **1**

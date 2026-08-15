@@ -138,6 +138,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
         "AX-Qwen3.8-27B-MLX-AXQ-6bit",
         "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
+        "AX-Qwen3.8-27B-MLX-AXQ-8bit",
     }
     post_migration_additions = (
         post_migration_additions
@@ -145,8 +146,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | secondary_family_additions
         | qwen_family_additions
     )
-    assert len(readme_repositories) == 54
-    assert len(set(readme_repositories)) == 54
+    assert len(readme_repositories) == 55
+    assert len(set(readme_repositories)) == 55
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -273,6 +274,7 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         # Tier 1 only, no MTP (T2 N/A)
         "qwen38-27b-axq4",
         "qwen38-27b-axq6",
+        "qwen38-27b-axq8",
         "qwen36-27b-axq4-nomtp",
         "qwen36-27b-axq6-nomtp",
         "qwen36-35b-axq4-nomtp",
