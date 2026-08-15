@@ -66,7 +66,8 @@
     },
     "mlx_vlm": {
       "status": "pass",
-      "notes": "vision-generation-smoke with sample image on formal host."
+      "notes": "vision generation smoke re-validated on df-macstudio-m2 with axquant 1.8.1",
+      "host_id": "df-macstudio-m2"
     }
   },
   "toolchain": {
@@ -84,7 +85,8 @@
     "No MTP acceleration claim; source has mtp_present=false / mtp_declared=false.",
     "Vision tower remains BF16-protected; text MoE experts quantized to product class.",
     "Hub config includes text_config.tie_word_embeddings for mlx-lm load compatibility.",
-    "Hub ships model-manifest.json from AX Engine generate-manifest (qwen3_vl_moe MoE enabled)."
+    "Hub ships model-manifest.json from AX Engine generate-manifest (qwen3_vl_moe MoE enabled).",
+    "Modality recert on df-macstudio-m2 (1.8.1): vision smoke-certified via MLX-VLM; audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "d0e5289a827067c2dfc3a4105affa6d742a8218fda546045213255bd2869427c",
@@ -106,7 +108,7 @@
     "vision": {
       "status": "smoke-certified",
       "supported": true,
-      "reason": "MLX-VLM vision generation smoke bound; vision quality retention suite not certified",
+      "reason": "MLX-VLM vision generation smoke passed on df-macstudio-m2 (axquant 1.8.1); vision quality retention suite not certified; audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/",
       "runtime": "mlx-vlm",
       "evidence_kind": "runtime-smoke-mlx-vlm"
     },

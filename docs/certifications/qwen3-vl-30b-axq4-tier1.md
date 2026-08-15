@@ -58,3 +58,12 @@ vision compatibility). No speculative-decode speedup claim is authorized.
 - Certification index: [README.md](README.md)
 
 Machine-readable: [qwen3-vl-30b-axq4-tier1.json](qwen3-vl-30b-axq4-tier1.json).
+
+## Multimodal modalities (1.8.1)
+
+| Modality | Status | Notes |
+| --- | --- | --- |
+| Vision | `smoke-certified` | MLX-VLM generation smoke re-validated on `df-macstudio-m2` |
+| Audio | `not-applicable` | Not supported on this pack |
+
+Vision quality retention is **not** certified. Evidence: [modality-recert-macstudio-m2](evidence/modality-recert-macstudio-m2/).

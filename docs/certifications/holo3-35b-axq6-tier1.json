@@ -83,7 +83,7 @@
     "Vision tower remains BF16-protected (vision.safetensors); total BPW includes protected vision bytes.",
     "No MTP acceleration claim; Hub name omits -MTP.",
     "AX Engine product id resolves to holo3-35b from pack path (not qwen3.6).",
-    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
+    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "1d55c02df60b94bdab96091439539d7f9d99a2c3b5ff8e9c23c3ab21cf585690",
@@ -101,7 +101,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); mlx-vlm smoke failed on df-macstudio-m2 (expects vision_tower.*); VLM quality not certified. Evidence: evidence/modality-recert-macstudio-m2/",
       "runtime": null,
       "evidence_kind": null
     },

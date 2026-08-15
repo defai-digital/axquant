@@ -1,0 +1,71 @@
+{
+  "schema_version": "axquant.modality-recert.v1",
+  "created_at": "2026-08-15T01:29:12.866635+00:00",
+  "host_id": "df-macstudio-m2",
+  "host_notes": "Apple M2 Ultra, 192 GB unified memory",
+  "toolkit_version": "1.8.1",
+  "policy": "capability-gated-v1",
+  "runtime": "mlx-vlm generation smoke (axquant.runtime.check_mlx_vlm_generation)",
+  "results": [
+    {
+      "key": "qwen3-vl-30b-axq4",
+      "pack": "AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
+      "cert_stem": "qwen3-vl-30b-axq4-tier1",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": true,
+      "claim_status": "smoke-certified",
+      "exit_code": 0,
+      "runtime_check": "qwen3-vl-30b-axq4.json"
+    },
+    {
+      "key": "qwen3-vl-30b-axq6",
+      "pack": "AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit",
+      "cert_stem": "qwen3-vl-30b-axq6-tier1",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": true,
+      "claim_status": "smoke-certified",
+      "exit_code": 0,
+      "runtime_check": "qwen3-vl-30b-axq6.json"
+    },
+    {
+      "key": "qwen3-vl-8b-axq4",
+      "pack": "AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit",
+      "cert_stem": null,
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": true,
+      "claim_status": "smoke-certified",
+      "exit_code": 0,
+      "runtime_check": "qwen3-vl-8b-axq4.json"
+    },
+    {
+      "key": "qwen38-27b-axq4-mtp",
+      "pack": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": false,
+      "claim_status": "present-not-certified",
+      "reason": "vision.safetensors uses model.visual.*; stock mlx_vlm expects vision_tower.*; smoke failed on df-macstudio-m2. BF16 protection + text Tier 1 unchanged.",
+      "exit_code": 1,
+      "runtime_check": "qwen38-27b-axq4-mtp.json"
+    },
+    {
+      "key": "qwen36-27b-axq4-mtp",
+      "pack": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+      "vision_supported": true,
+      "audio_supported": false,
+      "attempt": "mlx-vlm.generate smoke",
+      "passed": false,
+      "claim_status": "present-not-certified",
+      "reason": "vision.safetensors uses model.visual.*; stock mlx_vlm expects vision_tower.*; smoke failed on df-macstudio-m2. BF16 protection + text Tier 1 unchanged.",
+      "exit_code": 1,
+      "runtime_check": "qwen36-27b-axq4-mtp.json"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "available": true,
+  "check_kind": "vision-generation-smoke",
+  "command": [
+    "/Volumes/Ext4T/axquant/work/axquant-1.8.1/.venv/bin/python",
+    "-m",
+    "mlx_vlm.generate",
+    "--model",
+    "/Volumes/Ext4T/axquant/work/modality-cert-1.8.1/packs/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
+    "--image",
+    "/Volumes/Ext4T/axquant/work/modality-cert-1.8.1/media/sample.png",
+    "--prompt",
+    "Read the image and answer briefly.",
+    "--max-tokens",
+    "16",
+    "--temperature",
+    "0",
+    "--no-verbose"
+  ],
+  "created_at": "2026-08-15T01:28:37.337555Z",
+  "exit_code": 0,
+  "model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext4T/axquant/work/modality-cert-1.8.1/packs/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
+    "model_id": "/Volumes/Ext4T/axquant/work/modality-cert-1.8.1/packs/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
+    "revision": null
+  },
+  "passed": true,
+  "report": {
+    "media_input": "sample.png",
+    "output_characters": 2,
+    "scope": "load-and-multimodal-generation"
+  },
+  "runtime": "mlx-vlm",
+  "schema_version": "axquant.runtime-check.v2",
+  "stderr": ""
+}

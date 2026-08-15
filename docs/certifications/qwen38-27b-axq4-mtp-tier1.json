@@ -86,7 +86,7 @@
     "Adapter qwen38-dense-v1 \u2014 not Qwen 3.6 flagship track.",
     "Vision remains BF16-protected; VLM quality not claimed.",
     "MTP acceleration: see Tier 2 record qwen38-27b-axq4-mtp-tier2.json.",
-    "Modality recert 1.8.1: vision present-not-certified (mlx-vlm smoke layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-1.8.1/REPORT.json"
+    "Modality recert on df-macstudio-m2 (1.8.1): vision present-not-certified (mlx-vlm layout mismatch); audio not-applicable. Evidence: evidence/modality-recert-macstudio-m2/."
   ],
   "evidence_hashes": {
     "quality-comparison-agent-coding_sha256": "b27c7ef67dfd7b7c154e11f5a52e02dd682f2b6c5a43b240126fce5f8b5de274",
@@ -104,7 +104,7 @@
     "vision": {
       "status": "present-not-certified",
       "supported": true,
-      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); 1.8.1 mlx-vlm smoke failed (expects vision_tower.*); VLM quality not certified; see evidence/modality-recert-1.8.1/REPORT.json",
+      "reason": "vision weights present/BF16-protected (vision.safetensors model.visual.*); mlx-vlm smoke failed on df-macstudio-m2 (expects vision_tower.*); VLM quality not certified. Evidence: evidence/modality-recert-macstudio-m2/",
       "runtime": null,
       "evidence_kind": null
     },
