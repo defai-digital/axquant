@@ -40,7 +40,12 @@ from axquant.serde import file_sha256, write_data  # noqa: E402
 SEED = 20260728
 WEIGHTED_MIN = 1.20
 PROMPT_MEDIAN_MIN = 1.10
-from axquant.factory import FACTORY_HOST_ID  # noqa: E402
+from axquant.factory import (  # noqa: E402
+    FACTORY_CERT_ROOT,
+    FACTORY_DATASETS,
+    FACTORY_HOST_ID,
+    FACTORY_MODELS,
+)
 
 HOST_ID = os.environ.get("QWEN38_CERT_HOST", FACTORY_HOST_ID)
 
@@ -71,18 +76,10 @@ PACKS: dict[str, dict[str, object]] = {
     },
 }
 
-DEFAULT_MODELS = Path(os.environ.get("QWEN38_MODELS", "/Volumes/Ext4T/models"))
-DEFAULT_DATASETS = Path(
-    os.environ.get(
-        "QWEN38_TIER2_DATASETS",
-        "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets",
-    )
-)
+DEFAULT_MODELS = Path(os.environ.get("QWEN38_MODELS", FACTORY_MODELS))
+DEFAULT_DATASETS = Path(os.environ.get("QWEN38_TIER2_DATASETS", FACTORY_DATASETS))
 DEFAULT_WORK = Path(
-    os.environ.get(
-        "QWEN38_TIER2_WORK",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq-tier2",
-    )
+    os.environ.get("QWEN38_TIER2_WORK", f"{FACTORY_CERT_ROOT}/qwen38-27b-axq-tier2")
 )
 
 

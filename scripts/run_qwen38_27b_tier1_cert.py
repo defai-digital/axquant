@@ -25,28 +25,29 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from axquant.factory import (  # noqa: E402
+    FACTORY_CERT_ROOT,
+    FACTORY_DATASETS,
+    FACTORY_HOST_ID,
+    FACTORY_MODELS,
+)
+
 WORK = Path(
     os.environ.get(
         "QWEN38_CERT_WORK",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq-tier1",
+        f"{FACTORY_CERT_ROOT}/qwen38-27b-axq-tier1",
     )
 )
-BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext4T/models/Qwen3.8-27B-bf16"))
-MODELS = Path(os.environ.get("QWEN38_MODELS", "/Volumes/Ext4T/models"))
-DATASETS = Path(
-    os.environ.get(
-        "QWEN38_CERT_DATASETS",
-        "/Volumes/Ext4T/axquant-certification/qwen36-27b-axq6-v1/datasets",
-    )
-)
+BF16 = Path(os.environ.get("QWEN38_BF16", f"{FACTORY_MODELS}/Qwen3.8-27B-bf16"))
+MODELS = Path(os.environ.get("QWEN38_MODELS", FACTORY_MODELS))
+DATASETS = Path(os.environ.get("QWEN38_CERT_DATASETS", FACTORY_DATASETS))
 SOURCE_ID = "Qwen/Qwen3.8-27B"
 SOURCE_REV = "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
 SEED = 20260728
 MAX_TOKENS = 64
 MAX_SIZE_RATIO = 1.15
 MIN_QUALITY = 0.98
-from axquant.factory import FACTORY_HOST_ID  # noqa: E402
-
 HOST_ID = os.environ.get("QWEN38_CERT_HOST", FACTORY_HOST_ID)
 
 PACKS: dict[str, dict[str, object]] = {

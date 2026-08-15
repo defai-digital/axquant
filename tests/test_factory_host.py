@@ -6,7 +6,11 @@ from pathlib import Path
 import pytest
 
 from axquant.factory import (
+    FACTORY_CERT_ROOT,
+    FACTORY_DATASETS,
+    FACTORY_HF_HOME,
     FACTORY_HOST_ID,
+    FACTORY_MODELS,
     FactoryHostError,
     is_historical_cert_host,
     normalize_host_id,
@@ -16,6 +20,13 @@ from axquant.public_cert_index import load_public_cert_rows
 
 _ROOT = Path(__file__).resolve().parents[1]
 _CERTS = _ROOT / "docs" / "certifications"
+
+
+def test_factory_disk_defaults_are_ext12t() -> None:
+    assert FACTORY_HF_HOME.startswith("/Volumes/Ext12T/")
+    assert FACTORY_MODELS == "/Volumes/Ext12T/models"
+    assert FACTORY_CERT_ROOT == "/Volumes/Ext12T/axquant-certification"
+    assert FACTORY_DATASETS.startswith(FACTORY_CERT_ROOT)
 
 
 def test_require_factory_host_accepts_studio_fqdn() -> None:

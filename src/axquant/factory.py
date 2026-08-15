@@ -4,6 +4,9 @@ from __future__ import annotations
 
 FACTORY_HOST_ID = "df-macstudio-m2"
 FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
+FACTORY_MODELS = "/Volumes/Ext12T/models"
+FACTORY_CERT_ROOT = "/Volumes/Ext12T/axquant-certification"
+FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
 HISTORICAL_CERT_HOSTS = frozenset(
     {"df-macstudio-m2", "df-macbookpro-m5", "df-macbookpro-m3"}
 )
