@@ -19,7 +19,7 @@ search may be worth writing. That decision needs this measurement first.
 - Not the v2 joint optimizer in `docs/prd/weight-kv-joint-optimization.md`.
   Each grid cell still plans weights and KV independently, then accounts
   memory. There is no `WeightPlan × KVPlan` search.
-- Isolated probe KL is a **proxy**. Only the optional quality triple is a
+- Isolated probe KL is a **proxy**. Only the optional quality quadruple is a
   measured interaction.
 
 ## Run
@@ -36,8 +36,9 @@ axquant diagnose-joint \
   --output ./joint-beta
 ```
 
-Architecture priors need `--allow-unmeasured`. Those runs can still report
-crossover from the memory grid; they cannot claim a measured \(I\).
+Architecture priors need `--allow-unmeasured`. Those runs can map
+feasibility, but they cannot claim a winner, a crossover, or a measured
+\(I\).
 
 To compute \(I(W, KV)\), add four matched `axquant.quality-evaluation.v2`
 files from the same suite (same dataset hash, seed, generation config, and
