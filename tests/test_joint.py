@@ -9,7 +9,7 @@ from axquant.cli import main
 from axquant.cli._parser import _build_parser
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
-from axquant.joint import _crossover, diagnose_joint_interaction
+from axquant.joint import _crossover, _same_model_id, diagnose_joint_interaction
 from axquant.schema import (
     JointBudgetCandidate,
     JointInteractionReport,
@@ -217,3 +217,39 @@ def test_crossover_detection_requires_distinct_feasible_winners() -> None:
     assert summary.detected is True
     assert summary.winners[0].target_bpw == 6.0
     assert summary.winners[1].target_bpw == 4.0
+
+
+def test_same_model_id_accepts_equivalent_paths(tmp_path: Path) -> None:
+    target = tmp_path / "model"
+    target.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(target)
+    assert _same_model_id(str(target), str(alias)) is True
+    assert _same_model_id(str(target), str(tmp_path / "other")) is False
+
+
+def test_quality_bound_to_symlink_path_matches_resolved_model(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    alias = tmp_path / "alias-model"
+    alias.symlink_to(tiny_model_dir)
+    quality = _quality(alias, 0.90, tmp_path / "alias-w.json")
+    report = diagnose_joint_interaction(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        contexts=(8,),
+        weight_bpws=(16.0,),
+        kv_bits=(8,),
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "alias-ok",
+        allow_unmeasured=True,
+        reserve_bytes=0,
+        quality_weight_only_path=quality,
+        quality_kv_only_path=_quality(tiny_model_dir, 0.95, tmp_path / "alias-k.json"),
+        quality_joint_path=_quality(tiny_model_dir, 0.85, tmp_path / "alias-j.json"),
+    )
+    assert report.verdict == "interaction-small"
+    assert report.interaction is not None
+    assert report.interaction.material is False

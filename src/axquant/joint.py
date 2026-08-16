@@ -166,8 +166,18 @@ def _quality_delta(result: QualityEvaluationResult) -> float:
     return max(0.0, 1.0 - mean)
 
 
+def _same_model_id(left: str, right: str) -> bool:
+    if left == right:
+        return True
+    left_path = Path(left)
+    right_path = Path(right)
+    if left_path.exists() and right_path.exists():
+        return left_path.resolve() == right_path.resolve()
+    return False
+
+
 def _require_same_model(result: QualityEvaluationResult, inventory: Inventory, label: str) -> None:
-    if result.model.model_id != inventory.model.model_id:
+    if not _same_model_id(result.model.model_id, inventory.model.model_id):
         raise PlanningError(
             f"{label} quality evaluation model_id does not match the inspected model"
         )
