@@ -646,9 +646,33 @@ def coupled_joint_loss(
     additive = candidate.proxy.additive_output_kl
     if weight is None or kv is None or additive is None:
         raise PlanningError("coupled ranking requires a complete additive proxy")
-    return additive + interaction * compression_intensity(
-        weight, max_weight_kl
-    ) * compression_intensity(kv, max_kv_kl)
+    weight_intensity = compression_intensity(weight, max_weight_kl)
+    kv_intensity = compression_intensity(kv, max_kv_kl)
+    # A one-sided grid (every cell shares the same isolated loss on one
+    # side) would otherwise force that intensity to 0 and make I a no-op.
+    # Keep the product form, but treat a zero-span side as fully present
+    # so I still changes ranking through the side that varies.
+    if max_weight_kl <= 0.0:
+        weight_intensity = 1.0
+    if max_kv_kl <= 0.0:
+        kv_intensity = 1.0
+    return additive + interaction * weight_intensity * kv_intensity
+
+
+def _kv_layer_signature(plan: QuantizationPlan) -> tuple[tuple[int, int, int], ...]:
+    if plan.kv_cache is None:
+        return ()
+    return tuple(
+        (layer.layer_index, layer.bits, layer.group_size) for layer in plan.kv_cache.layers
+    )
+
+
+def _same_effective_configuration(left: QuantizationPlan, right: QuantizationPlan) -> bool:
+    """Compare deployable precision, not KV allocation_basis / digest wrappers."""
+
+    return left.target_bpw == right.target_bpw and _kv_layer_signature(left) == _kv_layer_signature(
+        right
+    )
 
 
 def select_coupled_candidate(
@@ -906,15 +930,21 @@ def plan_joint_allocation(
         "Interaction is material; emitting the coupled WeightPlan x KVPlan cell "
         f"{winner.target_bpw:.3f} bpw + KV{winner.kv_default_bits}."
     )
-    selected_kv_sha = stable_sha256(plan.kv_cache)
-    differs = independent_plan is None or (
-        winner.target_bpw != independent_plan.target_bpw
-        or selected_kv_sha != (independent.kv_plan_sha256 if independent is not None else None)
+    same_configuration = independent_plan is not None and _same_effective_configuration(
+        plan, independent_plan
     )
-    if differs:
-        notes.append("Coupled search selected a configuration 1.8 independent optimize would not.")
+    if same_configuration:
+        if independent_plan is None:
+            raise PlanningError("independent plan disappeared after a same-configuration match")
+        plan = independent_plan
+        notes.append(
+            "Coupled search selected the same effective (weight BPW, per-layer KV) "
+            "configuration as independent optimize; reusing that measured plan."
+        )
     else:
-        notes.append("Coupled search selected the same configuration as independent optimize.")
+        notes.append("Coupled search selected a configuration 1.8 independent optimize would not.")
+    differs = not same_configuration
+    selected_kv_sha = stable_sha256(plan.kv_cache) if plan.kv_cache is not None else None
     winner_score = next(cell for cell in scored if cell.selected)
     selection = JointSelectionReport(
         selection_basis="coupled-interaction",

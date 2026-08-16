@@ -27,6 +27,7 @@ from axquant.schema import (
     JointBudgetCandidate,
     JointInteractionReport,
     JointProxyScores,
+    JointSelectionReport,
     KvLayerAllocation,
     KvLayerSensitivity,
     KvSensitivityReport,
@@ -40,7 +41,7 @@ from axquant.schema import (
     QuantMethod,
     SoftwareVersions,
 )
-from axquant.serde import load_model, write_data
+from axquant.serde import load_model, stable_sha256, write_data
 
 
 def _enable_kv_accounting(model_dir: Path) -> None:
@@ -663,6 +664,93 @@ def test_plan_joint_material_i_writes_coupled_plan(
     assert selection.selection_basis == "coupled-interaction"
     assert selection.interaction_material is True
     assert selection.scored_cells
+    assert selection.differs_from_independent is False
     assert (tmp_path / "material-i" / "axquant_plan.json").is_file()
     plan = load_model(tmp_path / "material-i" / "axquant_plan.json", QuantizationPlan)
     assert plan.kv_cache is not None
+    assert plan.kv_cache.allocation_basis == "measured"
+    assert selection.plan_sha256 == stable_sha256(plan)
+    assert plan.schema_version == "axquant.plan.v1"
+
+
+def test_plan_joint_negative_i_can_select_a_different_kv_cell(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    kv = _write_kv_analysis(tiny_model_dir, tmp_path / "kv.json")
+    selection = plan_joint_allocation(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        context_length=8,
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "neg-i",
+        contexts=(8,),
+        weight_bpws=(16.0,),
+        kv_bits=(4, 8, 16),
+        kv_analysis_path=kv,
+        allow_unmeasured=True,
+        reserve_bytes=0,
+        independent_bpw=16.0,
+        quality_baseline_path=_quality(tiny_model_dir, 1.00, tmp_path / "b.json"),
+        quality_weight_only_path=_quality(tiny_model_dir, 0.70, tmp_path / "w.json"),
+        quality_kv_only_path=_quality(tiny_model_dir, 0.70, tmp_path / "k.json"),
+        quality_joint_path=_quality(tiny_model_dir, 0.90, tmp_path / "j.json"),
+    )
+    assert selection.selection_basis == "coupled-interaction"
+    assert selection.interaction is not None and selection.interaction < 0
+    assert selection.differs_from_independent is True
+    assert selection.selected_kv_bits < 16
+    plan = load_model(tmp_path / "neg-i" / "axquant_plan.json", QuantizationPlan)
+    assert plan.kv_cache is not None
+    assert any(layer.bits < 16 for layer in plan.kv_cache.layers)
+
+
+def test_plan_joint_cli_writes_convert_ready_plan(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    kv = _write_kv_analysis(tiny_model_dir, tmp_path / "kv.json")
+    output = tmp_path / "cli-joint"
+    exit_code = main(
+        [
+            "plan-joint",
+            "--model",
+            str(tiny_model_dir),
+            "--max-memory",
+            "2GB",
+            "--context",
+            "8",
+            "--contexts",
+            "8",
+            "--weight-bpws",
+            "16",
+            "--kv-bits",
+            "4,8,16",
+            "--kv-analysis",
+            str(kv),
+            "--allow-unmeasured",
+            "--reserve-memory",
+            "0B",
+            "--independent-bpw",
+            "16",
+            "--quality-baseline",
+            str(_quality(tiny_model_dir, 0.80, tmp_path / "b.json")),
+            "--quality-weight-only",
+            str(_quality(tiny_model_dir, 0.80, tmp_path / "w.json")),
+            "--quality-kv-only",
+            str(_quality(tiny_model_dir, 0.80, tmp_path / "k.json")),
+            "--quality-joint",
+            str(_quality(tiny_model_dir, 0.80, tmp_path / "j.json")),
+            "--output",
+            str(output),
+        ]
+    )
+    assert exit_code == 0
+    plan = load_model(output / "axquant_plan.json", QuantizationPlan)
+    selection = load_model(output / "joint-selection.json", JointSelectionReport)
+    assert plan.schema_version == "axquant.plan.v1"
+    assert selection.certification_eligible is False
+    assert selection.selection_basis == "independent"
+    assert selection.plan_sha256 == stable_sha256(plan)

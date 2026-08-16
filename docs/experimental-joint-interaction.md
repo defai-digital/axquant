@@ -1,25 +1,29 @@
-# Experimental joint interaction diagnostic (1.9.0b1)
+# Experimental joint allocation (1.9.0b1)
 
-`axquant diagnose-joint` is a **beta try**, not a product planner.
+AXQuant 1.9 is a try at **smarter allocation** under one memory budget,
+not faster convert. AX Engine is speed; AXQuant chooses the precision mix.
 
-It answers two questions that `axquant optimize` does not:
+`axquant diagnose-joint` asks two questions that `axquant optimize` does not:
 
 1. Do isolated weight and KV losses add, or is there a joint remainder
    \(I(W, KV) = \Delta Q(W_q, KV_q) - \Delta Q(W_q) - \Delta Q(KV_q)\)?
 2. Under one memory budget, does the cheapest feasible
    `(weight BPW, KV bits)` pair flip when context length grows?
 
-If \(I\) is small and the winner does not flip, the current independent
-`optimize` path is enough. If either signal is large, a later joint
-search may be worth writing. That decision needs this measurement first.
+`axquant plan-joint` is the search that can change the plan. \(I\) is a
+gate, not the objective: small \(I\) keeps the 1.8 independent `optimize`
+plan; material \(I\) ranks feasible `WeightPlan × KVPlan` cells with a
+coupled proxy and writes convert-ready `axquant_plan.json`.
 
 ## What it is not
 
-- Not a certificate, not a Hub claim, not a convert.
-- Not the v2 joint optimizer in `docs/prd/weight-kv-joint-optimization.md`.
-  Each grid cell still plans weights and KV independently, then accounts
-  memory. There is no `WeightPlan × KVPlan` search.
-- Isolated probe KL is a **proxy**. Only the optional quality quadruple is a
+- Not a certificate, not a Hub claim.
+- Not faster decode, MTP, KV kernels, or convert (AX Engine).
+- Not the full v2 optimizer in `docs/prd/weight-kv-joint-optimization.md`
+  (task-score ranking, per-tensor joint search, method as a decision).
+  Each grid cell still plans weights and KV independently; the 1.9 search
+  only chooses among those cells.
+- Isolated probe KL is a **proxy**. Only the quality quadruple is a
   measured interaction.
 
 ## Run
@@ -53,9 +57,10 @@ task IDs):
 ```
 
 `ΔQ` is `baseline_score - treatment_score` (signed). Supplying only some of
-the four files fails closed. Winners and crossover are claimed only when
-`--kv-analysis` provides a complete additive proxy; without it the grid is
-feasibility-only.
+the four files fails closed. All four evaluations must use the same
+`--model-id` as the inspected BF16 source (converted checkpoints live at
+another path). Winners and crossover are claimed only when `--kv-analysis`
+provides a complete additive proxy; without it the grid is feasibility-only.
 
 ## Output
 
@@ -91,8 +96,9 @@ lower KV bit-width, then the lower target BPW, then more leftover memory.
 | crossover at long context | The 1.8 shared-budget check is too coarse for long context |
 | prior-only / no quality quadruple | Useful as a dry run only |
 
-Stop if the first real-model pass is small and has no crossover. Do not
-invent a named allocator just to have a paper.
+If the first real-model pass is small and has no crossover, `plan-joint`
+correctly emits the 1.8 plan. Do not invent a heavier search just to have
+a paper; I only earns a different cell when it is material.
 
 ## Turning the question into a plan
 

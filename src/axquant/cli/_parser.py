@@ -668,11 +668,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "development plan (never a certification claim)"
         ),
         description=(
-            "1.9.0b1 smarter allocation. If I(W, KV) is small, emit the 1.8 "
-            "independent optimize plan. If I is material, pick a feasible "
-            "(weight BPW, KV bits) cell with a coupled proxy and write "
-            "axquant_plan.json for convert. Requires --kv-analysis and the "
-            "quality quadruple."
+            "1.9.0b1 smarter allocation: I-gated WeightPlan x KVPlan search. "
+            "If I(W, KV) is small, emit the 1.8 independent optimize plan. "
+            "If I is material, pick a feasible (weight BPW, KV bits) cell "
+            "with a coupled proxy and write axquant_plan.json for convert. "
+            "Requires --kv-analysis and the quality quadruple."
         ),
         epilog=(
             "This command cannot authorize a Hub pack or certificate. "
