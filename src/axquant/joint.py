@@ -1,6 +1,6 @@
 """Beta weight x KV interaction diagnostic.
 
-This is the 1.9.0b1 try: measure whether isolated weight and KV losses add,
+This is the 1.9.0 try: measure whether isolated weight and KV losses add,
 and whether the memory-feasible (weight BPW, KV bits) winner flips with
 context length. It never converts weights and never emits a certificate.
 """
@@ -44,7 +44,7 @@ from axquant.serde import load_model, stable_sha256, write_data, write_text
 
 _LAYER_INDEX = re.compile(r"\.layers\.(\d+)\.")
 _BETA_NOTE = (
-    "axquant diagnose-joint is a 1.9.0b1 development diagnostic. "
+    "axquant diagnose-joint is a 1.9.0 development diagnostic. "
     "It is not a certification claim and cannot authorize a Hub pack."
 )
 
@@ -500,6 +500,7 @@ def diagnose_joint_interaction(
         )
 
     plans: dict[float, QuantizationPlan] = {}
+    skipped_bpws: list[str] = []
     for target_bpw in weight_bpws:
         request = PlanRequest(
             profile=profile,
@@ -509,7 +510,15 @@ def diagnose_joint_interaction(
             primary_runtime=RuntimeName.AX_ENGINE,
             minimum_quality_retention=0.98,
         )
-        plans[target_bpw] = plan_quantization(report, request)
+        try:
+            plans[target_bpw] = plan_quantization(report, request)
+        except PlanningError as exc:
+            skipped_bpws.append(f"{target_bpw:.3f} BPW ({exc})")
+    if not plans:
+        raise PlanningError(
+            "no weight BPW in the grid is plannable; raise --weight-bpws "
+            "above the architecture policy minimum"
+        )
 
     layer_count = text_layer_count(inventory, next(iter(plans.values())))
     group_size = next(iter(plans.values())).group_size
@@ -587,6 +596,10 @@ def diagnose_joint_interaction(
         )
     if interaction is None:
         notes.append("No measured quality quadruple: verdict is insufficient-measured-interaction.")
+    if skipped_bpws:
+        notes.append(
+            "Skipped target BPWs below the architecture policy minimum: " + "; ".join(skipped_bpws)
+        )
     notes.extend(report.warnings)
 
     result = JointInteractionReport(
@@ -834,7 +847,7 @@ def plan_joint_allocation(
         )
 
     notes = [
-        "plan-joint is a 1.9.0b1 development search. It is not a certificate.",
+        "plan-joint is a 1.9.0 development search. It is not a certificate.",
         "I is a gate: small keeps the 1.8 independent plan; material ranks "
         "feasible WeightPlan x KVPlan cells with a coupled proxy.",
     ]

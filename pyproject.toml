@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axquant"
-version = "1.9.0b1"
+version = "1.9.0"
 description = "MLX-native mixed-precision PTQ for language and multimodal checkpoints on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.11"

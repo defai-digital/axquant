@@ -5,21 +5,24 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AXQuant converts a supported, unquantized Safetensors checkpoint into a mixed-precision
-MLX checkpoint for Apple Silicon. It inspects the model, assigns 4-bit, 6-bit, 8-bit, or
-BF16 per tensor, keeps sensitive layers (norms, heads, routers, vision/audio, MTP) at hard
-floors, and writes the manifests AX Engine and MLX-LM need.
+AXQuant is a **precision allocator** for Apple Silicon. It inspects a supported
+Safetensors checkpoint, assigns 4-bit, 6-bit, 8-bit, or BF16 per tensor, keeps
+sensitive layers (norms, heads, routers, vision/audio, MTP) at hard floors, and
+writes the manifests AX Engine and MLX-LM need. Convert still goes through MLX.
+AX Engine is speed; AXQuant chooses the precision mix.
 
-It does not train the source model or add new capabilities. The goal is a smaller, cheaper
-checkpoint that still behaves well.
+It does not train the source model or add new capabilities. The goal is a smaller,
+cheaper checkpoint that still behaves well.
 
-**Current release:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
-(PyPI `axquant==1.8.1`).
+**Current PyPI / certified pin:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
+(`axquant==1.8.1`). The 1.8 inspect → plan → affine U32 convert → certify path
+stays.
 
-**Experimental line:** `1.9.0b1` adds `diagnose-joint` and `plan-joint`
-(I-gated WeightPlan x KVPlan search). It is not a certification release; the
-install pins below stay on 1.8.1. See
-[docs/experimental-joint-interaction.md](docs/experimental-joint-interaction.md).
+**`1.9.0` (this branch, Apple / MLX):** smarter allocation under one memory
+budget via `diagnose-joint` and `plan-joint`. It does not replace 1.8 convert.
+CUDA / NVFP4 is 2.x. See
+[docs/experimental-joint-interaction.md](docs/experimental-joint-interaction.md)
+and [docs/releases/1.9.0.md](docs/releases/1.9.0.md).
 
 Install from PyPI, then convert. You do not need to clone this repository.
 
@@ -960,8 +963,8 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `optimize` | Plan weights and optional KV cache under one explicit memory budget and runtime reserve | Implemented; architecture-prior inputs remain estimates |
-| `diagnose-joint` | Beta: measure weight x KV interaction I(W,KV) and memory-budget crossover across context lengths | Experimental in `1.9.0b1`; development evidence only; never a certification claim |
-| `plan-joint` | Beta: I-gated WeightPlan x KVPlan search that writes a convert-ready development plan | Experimental in `1.9.0b1`; small I keeps 1.8 independent optimize; material I selects a coupled cell |
+| `diagnose-joint` | Measure weight x KV interaction I(W,KV) and memory-budget crossover across context lengths | 1.9.0 development evidence only; never a certification claim; 1.8 convert unchanged |
+| `plan-joint` | I-gated WeightPlan x KVPlan search that writes a convert-ready development plan | 1.9.0; small I keeps 1.8 independent optimize; material I selects a coupled cell |
 | `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |

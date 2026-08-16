@@ -1,7 +1,15 @@
-# Experimental joint allocation (1.9.0b1)
+# Experimental joint allocation (1.9.0)
 
-AXQuant 1.9 is a try at **smarter allocation** under one memory budget,
+AXQuant is a **precision allocator**. 1.8 and earlier stay: inspect,
+measured or prior plan, affine U32 convert, `optimize`, certify. 1.9 does
+not replace that path.
+
+1.9 adds **smarter allocation** under one memory budget on **Apple / MLX**,
 not faster convert. AX Engine is speed; AXQuant chooses the precision mix.
+Convert, inspect, and real-model runs belong on `df-macstudio-m2`. CUDA,
+NVFP4, and a portable OCP MX packer are **v2.x**. `--q-mode mxfp4` in 1.9
+is the MLX Apple packer (group 32, scales only), not a cross-backend FP4
+dialect.
 
 `axquant diagnose-joint` asks two questions that `axquant optimize` does not:
 
@@ -19,6 +27,8 @@ coupled proxy and writes convert-ready `axquant_plan.json`.
 
 - Not a certificate, not a Hub claim.
 - Not faster decode, MTP, KV kernels, or convert (AX Engine).
+- Not CUDA, NVFP4, or a new FP4 codec. 1.9 stays on the MLX affine and
+  MLX-mxfp4 convert path.
 - Not the full v2 optimizer in `docs/prd/weight-kv-joint-optimization.md`
   (task-score ranking, per-tensor joint search, method as a decision).
   Each grid cell still plans weights and KV independently; the 1.9 search

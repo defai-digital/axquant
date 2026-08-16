@@ -1,4 +1,4 @@
-"""Development-only weight x KV interaction diagnostic (AXQuant 1.9.0b1).
+"""Development-only weight x KV interaction diagnostic (AXQuant 1.9.0).
 
 This schema is evidence, never a certificate. ``certification_eligible`` is
 frozen false so a diagnostic report cannot be mistaken for a release claim.

@@ -60,7 +60,7 @@ def _enable_kv_accounting(model_dir: Path) -> None:
 
 def _versions() -> SoftwareVersions:
     return SoftwareVersions(
-        axquant="1.9.0b1",
+        axquant="1.9.0",
         python="3.12",
         safetensors="0.6",
         pydantic="2.11",
@@ -159,6 +159,28 @@ def test_diagnose_joint_without_quality_is_not_certified(
     assert report.kv_sensitivity_sha256 is None
     assert any(output.glob("weight-plan-*.json"))
     assert any(output.glob("kv-plan-*.json"))
+
+
+def test_diagnose_joint_skips_target_bpw_below_policy_minimum(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    report = diagnose_joint_interaction(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        contexts=(8,),
+        weight_bpws=(0.5, 16.0),
+        kv_bits=(16,),
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "skip-bpw",
+        allow_unmeasured=True,
+        reserve_bytes=0,
+    )
+    planned = {candidate.target_bpw for candidate in report.candidates}
+    assert 16.0 in planned
+    assert 0.5 not in planned
+    assert any("Skipped target BPWs" in note for note in report.notes)
 
 
 def test_supplied_inventory_must_match_model(tiny_model_dir: Path, tmp_path: Path) -> None:

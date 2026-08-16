@@ -590,7 +590,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "(development evidence only; never a certification claim)"
         ),
         description=(
-            "1.9.0b1 development diagnostic. It never converts a checkpoint and "
+            "1.9.0 development diagnostic. It never converts a checkpoint and "
             "cannot authorize a Hub pack or certificate. Memory feasibility is an "
             "estimate. Winners are claimed only when --kv-analysis supplies a "
             "complete additive proxy. I(W, KV) requires a BF16 baseline plus three "
@@ -668,7 +668,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "development plan (never a certification claim)"
         ),
         description=(
-            "1.9.0b1 smarter allocation: I-gated WeightPlan x KVPlan search. "
+            "1.9.0 smarter allocation: I-gated WeightPlan x KVPlan search. "
             "If I(W, KV) is small, emit the 1.8 independent optimize plan. "
             "If I is material, pick a feasible (weight BPW, KV bits) cell "
             "with a coupled proxy and write axquant_plan.json for convert. "
