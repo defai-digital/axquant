@@ -139,6 +139,7 @@ def test_diagnose_joint_without_quality_is_not_certified(
     assert (output / "joint-interaction.md").is_file()
     markdown = (output / "joint-interaction.md").read_text(encoding="utf-8")
     assert "not a certification claim" in markdown
+    assert "## Estimated feasible cells" in markdown
     assert report.crossover.detected is False
     assert report.crossover.ranking_complete is False
     assert all(not candidate.ranking_available for candidate in report.candidates)

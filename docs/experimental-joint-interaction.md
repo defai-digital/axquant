@@ -70,6 +70,9 @@ feasibility-only.
 - `interaction-small` — `|I|` below the threshold
 - `interaction-material` — `|I|` at or above the threshold
 
+The markdown also lists **estimated feasible cells** per context. That table
+is only a static byte budget; it is not a winner and not a quality ranking.
+
 `crossover.detected` is true only when two **rankable** context winners pick
 different `(target_bpw, kv_default_bits)` pairs. Equal-proxy ties keep the
 lower KV bit-width, then the lower target BPW, then more leftover memory.

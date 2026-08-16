@@ -352,6 +352,17 @@ def joint_interaction_markdown(report: JointInteractionReport) -> str:
             f"| I(W, KV) |  | {report.interaction.interaction:.6f} ({sign}; "
             f"threshold {report.interaction.threshold:.6f}) |"
         )
+    feasible_lines: list[str] = []
+    by_context: dict[int, list[str]] = {}
+    for candidate in report.candidates:
+        if not candidate.feasible:
+            continue
+        by_context.setdefault(candidate.context_length, []).append(
+            f"{candidate.target_bpw:.3f}+KV{candidate.kv_default_bits}"
+        )
+    for context in report.contexts:
+        cells = ", ".join(by_context.get(context, [])) or "none"
+        feasible_lines.append(f"| {context} | {cells} |")
     winner_lines = []
     for winner in report.crossover.winners:
         if winner.target_bpw is None:
@@ -380,6 +391,12 @@ def joint_interaction_markdown(report: JointInteractionReport) -> str:
 ## Interaction
 
 {interaction_block}
+
+## Estimated feasible cells
+
+| Context | Feasible target BPW + KV |
+| --- | --- |
+{chr(10).join(feasible_lines)}
 
 ## Context winners (feasible rankable cells, lowest additive proxy)
 

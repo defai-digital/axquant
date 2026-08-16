@@ -211,8 +211,8 @@ class _OptiqBackend:
         self._make_sampler = None
 
     def load(self, path: Path) -> None:
-        import optiq  # noqa: F401
         import mlx.core as mx
+        import optiq  # noqa: F401
         from mlx_lm import generate
         from mlx_lm.sample_utils import make_sampler
         from optiq.runtime import moe_stream
@@ -282,7 +282,7 @@ def _run_quality(backend: Any, key: str) -> dict[str, Any]:
                 text = backend.generate(task.prompt, MAX_TOKENS_QA, SEED + index)
                 score, checks = score_quality_task_output(task, text)
                 err = None
-            except Exception as exc:  # noqa: BLE001 — record and continue
+            except Exception as exc:
                 text, score, checks, err = "", 0.0, {}, str(exc)
             scores.append(score)
             results.append(
@@ -430,7 +430,7 @@ def cmd_report() -> None:
             f"{a.get('elapsed_seconds', 0):.2f}s / {ar:.2f} | "
             f"{o.get('prompt_tokens')} / {o.get('generated_tokens')} / "
             f"{o.get('elapsed_seconds', 0):.2f}s / {or_:.2f} | "
-            f"{ratio:.2f}× |"
+            f"{ratio:.2f}x |"
             if ar and or_
             else f"| {case} | n/a | n/a | n/a |"
         )
@@ -473,7 +473,8 @@ def cmd_report() -> None:
             "",
             "## Quality (factory development suites)",
             "",
-            f"Seed `{SEED}`, max new tokens `{MAX_TOKENS_QA}`. Pass = every check on the task scores 1.0.",
+            f"Seed `{SEED}`, max new tokens `{MAX_TOKENS_QA}`. "
+            "Pass = every check on the task scores 1.0.",
             "",
             "| Suite | N | AXQ 2-bit | OptiQ 2-bit |",
             "| --- | ---: | --- | --- |",
@@ -497,12 +498,16 @@ def cmd_report() -> None:
             "## Notes",
             "",
             "- This is **not** checkpoint Tier 1 and **not** a retention-vs-BF16 claim.",
-            "- AXQ 0731 2-bit remains **not certified** (dual-suite viability was previously skipped; AX Engine manifest fails on fused gate+up).",
-            "- OptiQ streams routed experts from SSD; AXQ keeps the expert table resident. Speed is not a same-kernel A/B.",
+            "- AXQ 0731 2-bit remains **not certified** (dual-suite viability was "
+            "previously skipped; AX Engine manifest fails on fused gate+up).",
+            "- OptiQ streams routed experts from SSD; AXQ keeps the expert table "
+            "resident. Speed is not a same-kernel A/B.",
             "- Suites: `development-agent-coding` and `development-general` on Ext12T.",
             "",
-            "Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`](../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py). "
-            "Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`](eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).",
+            "Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`]"
+            "(../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).",
+            "Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`]"
+            "(eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).",
             "",
         ]
     )
