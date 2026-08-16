@@ -49,7 +49,8 @@ Converted on `df-macstudio-m2` (Apple M2 Ultra, 192 GB) from the native FP8
 | --- | --- |
 | Converted on Studio from the pinned 0731 revision | **Yes** |
 | mlx-lm load + generate smoke | **Passed** on `df-macstudio-m2` |
-| Checkpoint Tier 1 (generation viability suite) | **Not certified** this record |
+| Official DSV4 `chat_template.jinja` | **In pack** |
+| Checkpoint Tier 1 (generation viability suite) | **Not certified** on this record; Studio 15+15 factory QA with chat is 0.633 combined |
 | AX Engine native manifest | **Not generated** — `generate-manifest --validate` rejected split `switch_mlp.gate_proj` / `up_proj` (`[256, 2048, 256]` vs fused `[256, 4096, 256]`) |
 | MTP acceleration | **Not certified** |
 
