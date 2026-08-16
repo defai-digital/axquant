@@ -279,7 +279,11 @@ def _render(tokenizer: Any, prompt: str) -> str:
                     add_generation_prompt=True,
                 )
             )
-    return prompt
+    # Flash-0731 mlx convert drops chat_template; use the official DSV4 chat
+    # encoding so the model is not asked to continue a raw document.
+    from axquant.deepseek_v4_chat import render_deepseek_v4_user_prompt
+
+    return render_deepseek_v4_user_prompt(prompt, thinking=False)
 
 
 def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:

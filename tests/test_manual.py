@@ -105,6 +105,19 @@ def test_deepseek_v4_4bit_affine_recipe_is_a_valid_manual_recipe() -> None:
     assert any(rule.rule_id == "trunk-4bit" and rule.bits == 4 for rule in recipe.rules)
 
 
+def test_deepseek_v4_4bit_g128_dwq_recipe_uses_dwq_on_trunk() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-4bit-g128-dwq-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_method == QuantMethod.DWQ
+    assert recipe.group_size == 128
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-6bit-dwq")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-4bit-dwq")
+    assert attention.bits == 6 and attention.method == QuantMethod.DWQ
+    assert trunk.bits == 4 and trunk.method == QuantMethod.DWQ
+
+
 def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:
     path = Path(__file__).resolve().parents[1] / (
         "examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml"
