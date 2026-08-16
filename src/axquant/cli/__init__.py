@@ -21,6 +21,7 @@ from axquant.certification.verify import verify_certificate
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import ArtifactError, AxquantError, PlanningError
+from axquant.experimental_mix import plan_experimental_mix
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model, resolve_model_dir
@@ -675,6 +676,30 @@ def _run(args: argparse.Namespace) -> int:
             "unmeasured_manual_plan_created",
             output=str(args.output),
             effective_bpw=round(plan.effective_bpw, 6),
+        )
+        return 0
+
+    if args.command == "plan-experimental-mix":
+        analysis_report = load_model(args.sensitivity, SensitivityReport)
+        request = PlanRequest(
+            profile=analysis_report.profile,
+            target_bpw=args.target_bpw,
+            candidate_bits=args.bits,
+            group_size=args.group_size,
+            candidate_methods=(QuantMethod.AFFINE, QuantMethod.BF16),
+            allow_unmeasured=args.allow_unmeasured,
+            target_mode=args.mode,
+            random_seed=args.seed,
+        )
+        plan = plan_experimental_mix(analysis_report, request)
+        write_data(args.output, plan)
+        if args.markdown_output:
+            write_text(args.markdown_output, plan_markdown(plan))
+        log.warning(
+            "experimental_mix_plan_created",
+            output=str(args.output),
+            effective_bpw=round(plan.effective_bpw, 6),
+            evidence=plan.evidence_kind.value,
         )
         return 0
 

@@ -967,6 +967,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `plan-joint` | I-gated WeightPlan x KVPlan search that writes a convert-ready development plan | 1.9.0; small I keeps 1.8 independent optimize; material I selects a coupled cell |
 | `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
+| `plan-experimental-mix` | Measured mixed 2/3/4-bit on the robust trunk; fused switch modules upgrade as one unit | Development only; not plan-joint; not mlx-optiq |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
 | `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |

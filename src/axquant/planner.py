@@ -3,6 +3,7 @@ from __future__ import annotations
 import heapq
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from typing import Literal
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
@@ -149,6 +150,164 @@ def _apply_budget_upgrades(
         choice.upgraded = True
         running_storage_bits += delta_storage
         enqueue(choice_index)
+    return running_storage_bits
+
+
+def allocation_unit_key(module_path: str, tensor_name: str) -> str:
+    """Stable id for one executable packing unit (fused switch, packed, or tensor)."""
+
+    fused = fused_expert_module(module_path)
+    if fused is not None:
+        return f"fused:{fused}"
+    packed = packed_expert_runtime_modules(module_path)
+    if packed:
+        return f"packed:{min(packed)}"
+    return f"tensor:{tensor_name}"
+
+
+def _unit_frontier(
+    members: list[_Choice],
+) -> list[tuple[_PrecisionSignature, list[int], float, float]]:
+    """Pareto-common signatures for a fused/packed/singleton unit.
+
+    Each entry is ``(signature, per-member option indexes, group storage bits,
+    parameter-weighted ranking loss)``. Storage increases; loss must strictly
+    fall to join the frontier so a unit upgrades as one executable stack.
+    """
+
+    option_maps = [
+        {
+            (
+                option.measurement.bits,
+                option.measurement.method,
+                option.measurement.group_size,
+            ): index
+            for index, option in enumerate(member.options)
+        }
+        for member in members
+    ]
+    common_signatures = set(option_maps[0])
+    for option_map in option_maps[1:]:
+        common_signatures &= set(option_map)
+    if not common_signatures:
+        return []
+    scored: list[tuple[float, float, _PrecisionSignature, list[int]]] = []
+    for signature in common_signatures:
+        indexes = [option_map[signature] for option_map in option_maps]
+        storage = 0.0
+        loss = 0.0
+        for member, index in zip(members, indexes, strict=True):
+            option = member.options[index]
+            storage += option.storage_bpw * member.entry.tensor.parameters
+            loss += option.ranking_loss * member.entry.tensor.parameters
+        scored.append((storage, loss, signature, indexes))
+    scored.sort(
+        key=lambda item: (
+            item[0],
+            item[1],
+            item[2][0],
+            item[2][1].value,
+            item[2][2] or 0,
+        )
+    )
+    frontier: list[tuple[_PrecisionSignature, list[int], float, float]] = []
+    best_loss = float("inf")
+    for storage, loss, signature, indexes in scored:
+        if loss < best_loss - 1e-15:
+            frontier.append((signature, indexes, storage, loss))
+            best_loss = loss
+    return frontier
+
+
+def _apply_signature_to_unit(members: list[_Choice], indexes: list[int], *, upgraded: bool) -> None:
+    for member, index in zip(members, indexes, strict=True):
+        member.index = index
+        member.upgraded = upgraded
+
+
+def _apply_fused_unit_upgrades(
+    choices: list[_Choice],
+    *,
+    running_storage_bits: float,
+    target_storage_bits: float,
+    snap_to_minimum: bool = True,
+) -> float:
+    """Upgrade each fused switch (or singleton) as one (bits, method, group) unit.
+
+    Regular ``plan_quantization`` upgrades tensors first and only then
+    harmonizes a switch stack. That can spend budget on an expert that the
+    later common-signature step must collapse. This path never assigns mixed
+    bits inside one fused module: the unit starts at the cheapest common
+    signature and climbs 2→3→4 (or whatever grid is present) together.
+    """
+
+    groups: dict[str, list[_Choice]] = {}
+    for choice in choices:
+        key = allocation_unit_key(choice.entry.tensor.module_path, choice.entry.tensor.name)
+        groups.setdefault(key, []).append(choice)
+
+    _UnitFrontier = list[tuple[_PrecisionSignature, list[int], float, float]]
+    units: list[tuple[str, list[_Choice], _UnitFrontier]] = []
+    unit_index: dict[str, int] = {}
+    selected_storage = 0.0
+    for key, members in groups.items():
+        frontier = _unit_frontier(members)
+        if not frontier:
+            raise PlanningError(f"{key} has no common precision for fused-module allocation")
+        start = 0
+        if snap_to_minimum:
+            _apply_signature_to_unit(members, frontier[0][1], upgraded=False)
+        else:
+            current = (
+                members[0].selected.measurement.bits,
+                members[0].selected.measurement.method,
+                members[0].selected.measurement.group_size,
+            )
+            for index, (signature, _indexes, _storage, _loss) in enumerate(frontier):
+                if signature == current:
+                    start = index
+                    break
+        selected_storage += frontier[start][2]
+        unit_index[key] = start
+        units.append((key, members, frontier))
+    if snap_to_minimum:
+        running_storage_bits = selected_storage
+
+    pending: list[tuple[float, str, float, int]] = []
+    by_key = {key: (members, frontier) for key, members, frontier in units}
+
+    def enqueue(key: str) -> None:
+        _members, frontier = by_key[key]
+        current_index = unit_index[key]
+        current_loss = frontier[current_index][3]
+        current_storage = frontier[current_index][2]
+        for target_index in range(current_index + 1, len(frontier)):
+            upgraded_storage = frontier[target_index][2]
+            delta_storage = upgraded_storage - current_storage
+            if delta_storage <= 0:
+                continue
+            benefit = current_loss - frontier[target_index][3]
+            if benefit <= 0:
+                continue
+            efficiency = benefit / delta_storage
+            heapq.heappush(pending, (-efficiency, key, -delta_storage, target_index))
+            return
+
+    for key, _members, _frontier in units:
+        enqueue(key)
+
+    while pending:
+        _negative_efficiency, key, negative_delta, target_index = heapq.heappop(pending)
+        delta_storage = -negative_delta
+        if running_storage_bits + delta_storage > target_storage_bits + 1e-6:
+            continue
+        members, frontier = by_key[key]
+        if target_index <= unit_index[key]:
+            continue
+        _apply_signature_to_unit(members, frontier[target_index][1], upgraded=True)
+        unit_index[key] = target_index
+        running_storage_bits += delta_storage
+        enqueue(key)
     return running_storage_bits
 
 
@@ -645,7 +804,12 @@ def plan_quantization(
     *,
     kernel_latency: KernelLatencyTable | None = None,
     objective_weights: ObjectiveWeights | None = None,
+    allocation_units: Literal["tensor", "fused-module"] = "tensor",
 ) -> QuantizationPlan:
+    if allocation_units not in {"tensor", "fused-module"}:
+        raise PlanningError(
+            f"unsupported allocation unit {allocation_units!r}; use 'tensor' or 'fused-module'"
+        )
     if request.candidate_count > 1:
         # Top-N generation is handled by the refinement module;
         # the planner itself always produces a single deterministic plan.
@@ -717,11 +881,21 @@ def plan_quantization(
             f"{minimum_bpw:.4f} BPW"
         )
 
-    running_storage_bits = _apply_budget_upgrades(
-        choices,
-        running_storage_bits=running_storage_bits,
-        target_storage_bits=target_storage_bits,
-    )
+    if allocation_units == "fused-module":
+        # Spend the budget on switch stacks (and singleton tensors) as units
+        # so a fused projection never mixes bit-widths, then later only
+        # fail-closed if tied-weight harmonization breaks that invariant.
+        running_storage_bits = _apply_fused_unit_upgrades(
+            choices,
+            running_storage_bits=running_storage_bits,
+            target_storage_bits=target_storage_bits,
+        )
+    else:
+        running_storage_bits = _apply_budget_upgrades(
+            choices,
+            running_storage_bits=running_storage_bits,
+            target_storage_bits=target_storage_bits,
+        )
 
     # Fused MoE experts quantize as one MLX-LM switch module, so every member
     # of a group must share one executable (bits, method, group-size)
@@ -732,13 +906,14 @@ def plan_quantization(
         fused = fused_expert_module(choice.entry.tensor.module_path)
         if fused is not None:
             expert_groups.setdefault(fused, []).append(choice)
-    for fused_module, members in expert_groups.items():
-        running_storage_bits = _harmonize_choice_group(
-            members,
-            label=f"fused expert module {fused_module}",
-            running_storage_bits=running_storage_bits,
-            target_storage_bits=target_storage_bits,
-        )
+    if allocation_units == "tensor":
+        for fused_module, members in expert_groups.items():
+            running_storage_bits = _harmonize_choice_group(
+                members,
+                label=f"fused expert module {fused_module}",
+                running_storage_bits=running_storage_bits,
+                target_storage_bits=target_storage_bits,
+            )
 
     # Tied tensors share one physical weight. A plan that assigns different
     # packing signatures cannot be executed consistently and can also cause
@@ -814,11 +989,19 @@ def plan_quantization(
         choice for choice in choices if choice.entry.tensor.name not in grouped_tensor_names
     ]
     if ungrouped_choices:
-        running_storage_bits = _apply_budget_upgrades(
-            ungrouped_choices,
-            running_storage_bits=running_storage_bits,
-            target_storage_bits=target_storage_bits,
-        )
+        if allocation_units == "fused-module":
+            running_storage_bits = _apply_fused_unit_upgrades(
+                ungrouped_choices,
+                running_storage_bits=running_storage_bits,
+                target_storage_bits=target_storage_bits,
+                snap_to_minimum=False,
+            )
+        else:
+            running_storage_bits = _apply_budget_upgrades(
+                ungrouped_choices,
+                running_storage_bits=running_storage_bits,
+                target_storage_bits=target_storage_bits,
+            )
 
     if latency_lookup is not None and ungrouped_choices:
         _latency_polish(ungrouped_choices, epsilon=request.method_near_tie_epsilon)
@@ -831,10 +1014,16 @@ def plan_quantization(
             reason = choice.policy_reason
         elif choice.latency_polished:
             reason = "kernel-latency preferred within the quality near-tie window"
+        elif choice.upgraded and allocation_units == "fused-module":
+            reason = "fused-module unit upgraded by measured marginal quality per storage bit"
         elif choice.upgraded:
             reason = "selected by marginal quality gain per storage bit"
         else:
-            reason = "minimum storage candidate"
+            reason = (
+                "minimum common fused-module signature"
+                if allocation_units == "fused-module"
+                else "minimum storage candidate"
+            )
         scale_strategy, outlier_strategy = strategy_for_measurement(measurement)
         allocations.append(
             Allocation(
@@ -892,6 +1081,12 @@ def plan_quantization(
         warnings.append(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "
             "complete-model validation."
+        )
+    if allocation_units == "fused-module":
+        warnings.append(
+            "Allocation units are fused switch modules (and singleton tensors). "
+            "This is the experimental trunk-mix path, not the default "
+            "tensor-then-harmonize planner."
         )
     plan = QuantizationPlan(
         source_model=report.model,

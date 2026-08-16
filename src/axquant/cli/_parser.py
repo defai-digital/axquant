@@ -729,6 +729,43 @@ def _build_parser() -> argparse.ArgumentParser:
     manual_plan_parser.add_argument("--output", default="manual-plan.json")
     manual_plan_parser.add_argument("--markdown-output")
 
+    experimental_mix_parser = subparsers.add_parser(
+        "plan-experimental-mix",
+        help=(
+            "Experimental: measured mixed 2/3/4-bit on the robust trunk; "
+            "fused switch modules upgrade as one unit"
+        ),
+        description=(
+            "AXQ-owned 2/3/4 mix from a sensitivity report. Each fused MLX-LM "
+            "switch module is one allocation unit (one bit-width per projection "
+            "stack). Attention stays at least 4-bit. Not plan-joint, not "
+            "mlx-optiq, and not a certificate."
+        ),
+        epilog=(
+            "Requires measured sensitivity unless --allow-unmeasured is passed. "
+            "Convert still needs --allow-unmeasured for architecture-prior reports "
+            "and AX_ENGINE_2BIT_EXPERIMENTAL=1 / AX_ENGINE_3BIT_EXPERIMENTAL=1."
+        ),
+    )
+    experimental_mix_parser.add_argument("--sensitivity", required=True)
+    experimental_mix_parser.add_argument("--target-bpw", type=float, required=True)
+    experimental_mix_parser.add_argument(
+        "--bits",
+        type=_bits,
+        default=(2, 3, 4, 8, 16),
+        help="candidate grid; 2/3/4 trunk rungs and 8/16 floors are always added",
+    )
+    experimental_mix_parser.add_argument("--group-size", type=int, default=32)
+    experimental_mix_parser.add_argument("--allow-unmeasured", action="store_true")
+    experimental_mix_parser.add_argument(
+        "--mode",
+        choices=["balanced", "quality", "low-memory", "speed"],
+        default="low-memory",
+    )
+    experimental_mix_parser.add_argument("--seed", type=int, default=0)
+    experimental_mix_parser.add_argument("--output", default="experimental-mix-plan.json")
+    experimental_mix_parser.add_argument("--markdown-output")
+
     convert_parser = subparsers.add_parser("convert")
     convert_parser.add_argument("--model", required=True)
     convert_parser.add_argument("--revision")

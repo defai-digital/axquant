@@ -58,8 +58,9 @@ treat speed here as noisy. AXQ mixed decode **27.8** tok/s, RSS **112 GB**.
 ## What this means
 
 - Spending more bits by **hand** (shared / edges / down-proj) is not enough.
-- Next real lever is **measured** mixed precision or **AWQ/GPTQ**, and fused
-  Flash experts still cannot take AWQ/GPTQ in convert today.
+- Next shipped lever is [`plan-experimental-mix`](experimental-trunk-mix.md):
+  measured 2/3/4 on the robust trunk, fused switch modules as one unit.
+  Fused Flash experts still cannot take AWQ/GPTQ in convert today.
 - `plan-joint` still does not apply (no 2-bit cell).
 
 Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-mixed-macstudio-m2/`](eval/deepseek-v4-flash-0731-optiq2-vs-axq2-mixed-macstudio-m2/).
