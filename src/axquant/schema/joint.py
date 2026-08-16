@@ -179,6 +179,9 @@ class JointInteractionReport(StrictModel):
     evidence_kind: Literal["architecture_prior", "measured_development"]
     profile: ProfileName
     model: ModelIdentity
+    inventory_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    weight_sensitivity_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    kv_sensitivity_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     limit_bytes: int = Field(gt=0)
     reserve_bytes: int = Field(ge=0)
     batch_size: int = Field(gt=0)

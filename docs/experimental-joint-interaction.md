@@ -63,6 +63,8 @@ feasibility-only.
 | --- | --- |
 | `joint-interaction.json` | `axquant.joint-interaction.v1` |
 | `joint-interaction.md` | Operator summary |
+| `weight-plan-*.json` | Weight plans used for the grid (hash-verifiable) |
+| `kv-plan-*.json` | KV plans used for the grid (hash-verifiable) |
 
 `verdict` is one of:
 

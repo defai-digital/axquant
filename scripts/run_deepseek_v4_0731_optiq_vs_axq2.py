@@ -41,9 +41,7 @@ AXQ_REV = "408c0ab335f6211812645ca44071301c20a55957"
 SEED = 20260728
 MAX_TOKENS_QA = 64
 MAX_TOKENS_DECODE = 128
-OPTIQ_VENV = Path(
-    os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq")
-)
+OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"))
 
 PACKS: dict[str, dict[str, Any]] = {
     "axq2": {

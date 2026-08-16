@@ -463,7 +463,7 @@
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.joint.JointInteractionReport",
       "schema_version": "axquant.joint-interaction.v1",
-      "sha256": "8e2abf3f9ba3ead12ef3bcbc8b34e3f4658eba2a6901cde02a9a03d70c678402"
+      "sha256": "633baf4ddcac1241b44c5655cfd0e776f7b1cddb056e36956c64dde24aa8fefa"
     },
     {
       "compatibility_class": "evidence",

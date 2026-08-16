@@ -404,12 +404,28 @@
       ],
       "default": null
     },
+    "inventory_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
     "kv_default_bits": {
       "items": {
         "type": "integer"
       },
       "minItems": 1,
       "type": "array"
+    },
+    "kv_sensitivity_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "limit_bytes": {
       "exclusiveMinimum": 0,
@@ -450,12 +466,18 @@
       },
       "minItems": 1,
       "type": "array"
+    },
+    "weight_sensitivity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
     }
   },
   "required": [
     "evidence_kind",
     "profile",
     "model",
+    "inventory_sha256",
+    "weight_sensitivity_sha256",
     "limit_bytes",
     "reserve_bytes",
     "batch_size",

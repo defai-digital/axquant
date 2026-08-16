@@ -144,6 +144,34 @@ def test_diagnose_joint_without_quality_is_not_certified(
     assert report.crossover.ranking_complete is False
     assert all(not candidate.ranking_available for candidate in report.candidates)
     assert all(winner.target_bpw is None for winner in report.crossover.winners)
+    assert len(report.inventory_sha256) == 64
+    assert len(report.weight_sensitivity_sha256) == 64
+    assert report.kv_sensitivity_sha256 is None
+    assert any(output.glob("weight-plan-*.json"))
+    assert any(output.glob("kv-plan-*.json"))
+
+
+def test_supplied_inventory_must_match_model(tiny_model_dir: Path, tmp_path: Path) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    inventory = inspect_model(tiny_model_dir)
+    foreign = inventory.model_copy(
+        update={"model": inventory.model.model_copy(update={"model_id": "not-this-model"})}
+    )
+    path = tmp_path / "foreign-inventory.json"
+    write_data(path, foreign)
+    with pytest.raises(PlanningError, match="inventory"):
+        diagnose_joint_interaction(
+            model_dir=tiny_model_dir,
+            max_memory_bytes=2_000_000_000,
+            contexts=(8,),
+            weight_bpws=(16.0,),
+            kv_bits=(8,),
+            profile=ProfileName.GENERAL,
+            output_dir=tmp_path / "inv",
+            inventory_path=path,
+            allow_unmeasured=True,
+            reserve_bytes=0,
+        )
 
 
 def test_partial_quality_inputs_fail_closed(tiny_model_dir: Path, tmp_path: Path) -> None:

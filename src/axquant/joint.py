@@ -51,15 +51,6 @@ def _inventory_digest(inventory: Inventory) -> str:
     return stable_sha256(inventory.model_dump(mode="json", exclude={"created_at"}))
 
 
-def _load_inventory(model: Path, inventory_path: str | Path | None) -> Inventory:
-    if inventory_path is not None:
-        return load_model(inventory_path, Inventory)
-    return inspect_model(
-        model,
-        allow_quantized=(model / "axquant_manifest.json").is_file(),
-    )
-
-
 def _load_sensitivity(
     inventory: Inventory,
     sensitivity_path: str | Path | None,
@@ -461,7 +452,16 @@ def diagnose_joint_interaction(
     model = Path(model_dir).expanduser().resolve()
     if not model.is_dir():
         raise PlanningError(f"model directory does not exist: {model}")
-    inventory = _load_inventory(model, inventory_path)
+    live_inventory = inspect_model(
+        model,
+        allow_quantized=(model / "axquant_manifest.json").is_file(),
+    )
+    if inventory_path is None:
+        inventory = live_inventory
+    else:
+        inventory = load_model(inventory_path, Inventory)
+        if _inventory_digest(inventory) != _inventory_digest(live_inventory):
+            raise PlanningError("supplied --inventory does not match the inspected --model")
     report = _load_sensitivity(
         inventory,
         sensitivity_path,
@@ -591,6 +591,9 @@ def diagnose_joint_interaction(
         evidence_kind=evidence,
         profile=profile,
         model=inventory.model,
+        inventory_sha256=_inventory_digest(inventory),
+        weight_sensitivity_sha256=stable_sha256(report),
+        kv_sensitivity_sha256=stable_sha256(kv_report) if kv_report is not None else None,
         limit_bytes=max_memory_bytes,
         reserve_bytes=reserve_bytes,
         batch_size=batch_size,
@@ -605,6 +608,10 @@ def diagnose_joint_interaction(
     )
     output = Path(output_dir).expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
+    for target_bpw, plan in plans.items():
+        write_data(output / f"weight-plan-{target_bpw:.3f}.json", plan)
+    for bits, kv_plan in kv_plans.items():
+        write_data(output / f"kv-plan-{bits}.json", kv_plan)
     write_data(output / "joint-interaction.json", result)
     write_text(output / "joint-interaction.md", joint_interaction_markdown(result))
     return result
