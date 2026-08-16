@@ -39,9 +39,7 @@ OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"
 
 PACKS: dict[str, dict[str, Any]] = {
     "axq2": {
-        "label": os.environ.get(
-            "DSV4_AXQ_LABEL", "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)"
-        ),
+        "label": os.environ.get("DSV4_AXQ_LABEL", "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)"),
         "hub": AXQ_ID,
         "commit": AXQ_REV,
         "runtime": "mlx-lm-resident",
