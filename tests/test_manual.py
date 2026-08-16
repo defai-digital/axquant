@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from axquant.cli import main
 from axquant.errors import PlanningError
@@ -76,6 +77,19 @@ def test_manual_plan_applies_rules_and_mandatory_protection(
     assert plan.evidence_kind == EvidenceKind.ARCHITECTURE_PRIOR
     assert plan.global_validation_required is True
     assert plan.candidate_bits == (4, 6, 16)
+
+
+def test_deepseek_v4_mixed_2bit_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-mixed-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 2
+    ids = [rule.rule_id for rule in recipe.rules]
+    assert ids.index("shared-experts-4bit") < ids.index("trunk-experimental-2bit")
+    assert ids.index("expert-down-3bit") < ids.index("trunk-experimental-2bit")
+    assert any(rule.bits == 3 for rule in recipe.rules)
+    assert any(rule.module_glob and "shared_experts" in rule.module_glob for rule in recipe.rules)
 
 
 def test_manual_plan_rejects_unmatched_and_unsafe_rules(
