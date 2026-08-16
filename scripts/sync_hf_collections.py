@@ -56,6 +56,9 @@ NOTE_T1_EXP = (
 NOTE_0731 = (
     "Flash-0731 source revision. AXQ development artifact. Not certified; see the model card."
 )
+NOTE_0731_MEM = (
+    "Flash-0731 ship SKU. Not certified on the 192 GB factory Studio; recert on a larger Mac."
+)
 CERTIFIED_NOTES = frozenset(
     {NOTE_T1, NOTE_T1_T2, NOTE_T1_NO_T2, NOTE_T1_NOMTP, NOTE_T1_EXP}
 )
@@ -242,6 +245,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
@@ -427,6 +433,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
