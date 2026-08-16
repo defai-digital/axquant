@@ -216,3 +216,69 @@ class JointInteractionReport(StrictModel):
         elif self.verdict != "interaction-small":
             raise ValueError("immaterial interaction must use verdict interaction-small")
         return self
+
+
+class JointScoredCell(StrictModel):
+    """One feasible cell scored for joint selection."""
+
+    target_bpw: float = Field(gt=0.0, le=16.0)
+    kv_default_bits: int
+    context_length: int = Field(gt=0)
+    additive_loss: float = Field(ge=0.0)
+    coupled_loss: float
+    selected: bool
+
+    @model_validator(mode="after")
+    def bits_are_executable(self) -> JointScoredCell:
+        if self.kv_default_bits not in AX_ENGINE_EXECUTABLE_BITS:
+            raise ValueError(f"unsupported KV default bits {self.kv_default_bits}")
+        return self
+
+
+class JointSelectionReport(StrictModel):
+    """I-gated choice of a convert-ready weight + KV plan."""
+
+    schema_version: Literal["axquant.joint-selection.v1"] = "axquant.joint-selection.v1"
+    experimental: Literal[True] = True
+    certification_eligible: Literal[False] = False
+    selection_basis: Literal["independent", "coupled-interaction"]
+    context_length: int = Field(gt=0)
+    independent_target_bpw: float = Field(gt=0.0, le=16.0)
+    selected_target_bpw: float = Field(gt=0.0, le=16.0)
+    selected_kv_bits: int
+    differs_from_independent: bool
+    interaction: float | None = None
+    interaction_material: bool
+    coupled_loss: float | None = None
+    additive_loss: float | None = None
+    scored_cells: list[JointScoredCell] = Field(default_factory=list)
+    plan_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    kv_plan_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    diagnostic_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    notes: list[str] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def selection_is_consistent(self) -> JointSelectionReport:
+        if self.certification_eligible:
+            raise ValueError("joint-selection reports cannot be certification-eligible")
+        if self.selected_kv_bits not in AX_ENGINE_EXECUTABLE_BITS:
+            raise ValueError(f"unsupported selected KV bits {self.selected_kv_bits}")
+        if self.selection_basis == "independent" and self.interaction_material:
+            raise ValueError("material interaction cannot select the independent basis")
+        if self.selection_basis == "coupled-interaction" and not self.interaction_material:
+            raise ValueError("coupled selection requires a material interaction")
+        selected = [cell for cell in self.scored_cells if cell.selected]
+        if self.selection_basis == "coupled-interaction":
+            if len(selected) != 1:
+                raise ValueError("coupled selection must mark exactly one scored cell")
+            cell = selected[0]
+            if (
+                cell.target_bpw != self.selected_target_bpw
+                or cell.kv_default_bits != self.selected_kv_bits
+                or cell.context_length != self.context_length
+            ):
+                raise ValueError("selected cell does not match the reported plan coordinates")
+        elif selected:
+            raise ValueError("independent selection cannot mark a coupled scored cell")
+        return self

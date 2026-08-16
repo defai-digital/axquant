@@ -16,7 +16,7 @@ from axquant.errors import PlanningError
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model
 from axquant.memory_budget import evaluate_budget
-from axquant.optimizer import estimate_kv_bytes
+from axquant.optimizer import estimate_kv_bytes, optimize_deployment
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.schema import (
     CandidateMeasurement,
@@ -28,6 +28,8 @@ from axquant.schema import (
     JointInteractionReport,
     JointMeasuredDeltas,
     JointProxyScores,
+    JointScoredCell,
+    JointSelectionReport,
     KvCachePlan,
     KvLayerAllocation,
     KvSensitivityReport,
@@ -615,3 +617,323 @@ def diagnose_joint_interaction(
     write_data(output / "joint-interaction.json", result)
     write_text(output / "joint-interaction.md", joint_interaction_markdown(result))
     return result
+
+
+def compression_intensity(value: float, maximum: float) -> float:
+    """Map an isolated loss onto [0, 1] relative to the grid maximum."""
+
+    if maximum <= 0.0:
+        return 0.0
+    return min(1.0, max(0.0, value / maximum))
+
+
+def coupled_joint_loss(
+    candidate: JointBudgetCandidate,
+    *,
+    interaction: float,
+    max_weight_kl: float,
+    max_kv_kl: float,
+) -> float:
+    """Predict joint loss: additive proxies plus an I-weighted coupling term.
+
+    When I > 0, compressing weights and KV together is worse than the sum.
+    When I < 0, compressing both is better than the sum. A constant I does
+    not change ranking; the product of compression intensities does.
+    """
+
+    weight = candidate.proxy.weight_output_kl
+    kv = candidate.proxy.kv_output_kl
+    additive = candidate.proxy.additive_output_kl
+    if weight is None or kv is None or additive is None:
+        raise PlanningError("coupled ranking requires a complete additive proxy")
+    return additive + interaction * compression_intensity(
+        weight, max_weight_kl
+    ) * compression_intensity(kv, max_kv_kl)
+
+
+def select_coupled_candidate(
+    candidates: list[JointBudgetCandidate],
+    *,
+    context_length: int,
+    interaction: float,
+) -> tuple[JointBudgetCandidate, list[JointScoredCell]]:
+    """Pick the feasible rankable cell with the lowest coupled loss at one context."""
+
+    pool = [
+        candidate
+        for candidate in candidates
+        if candidate.context_length == context_length
+        and candidate.feasible
+        and candidate.ranking_available
+    ]
+    if not pool:
+        raise PlanningError(
+            f"no feasible rankable joint cell at context {context_length}; "
+            "widen the grid or raise --max-memory"
+        )
+    max_weight = max(
+        candidate.proxy.weight_output_kl
+        for candidate in pool
+        if candidate.proxy.weight_output_kl is not None
+    )
+    max_kv = max(
+        candidate.proxy.kv_output_kl
+        for candidate in pool
+        if candidate.proxy.kv_output_kl is not None
+    )
+    scored: list[tuple[float, JointBudgetCandidate]] = [
+        (
+            coupled_joint_loss(
+                candidate,
+                interaction=interaction,
+                max_weight_kl=max_weight,
+                max_kv_kl=max_kv,
+            ),
+            candidate,
+        )
+        for candidate in pool
+    ]
+    scored.sort(
+        key=lambda item: (
+            item[0],
+            item[1].kv_default_bits,
+            item[1].target_bpw,
+            -item[1].remainder_bytes,
+        )
+    )
+    winner = scored[0][1]
+    cells = [
+        JointScoredCell(
+            target_bpw=candidate.target_bpw,
+            kv_default_bits=candidate.kv_default_bits,
+            context_length=candidate.context_length,
+            additive_loss=candidate.proxy.additive_output_kl or 0.0,
+            coupled_loss=loss,
+            selected=candidate is winner,
+        )
+        for loss, candidate in scored
+    ]
+    return winner, cells
+
+
+def joint_selection_markdown(selection: JointSelectionReport) -> str:
+    rows = []
+    for cell in selection.scored_cells:
+        mark = " yes" if cell.selected else ""
+        rows.append(
+            f"| {cell.target_bpw:.3f} | KV{cell.kv_default_bits} | "
+            f"{cell.additive_loss:.6f} | {cell.coupled_loss:.6f} |{mark} |"
+        )
+    scored_table = "\n".join(rows) or "| (none) | | | | |"
+    notes = "\n".join(f"- {note}" for note in selection.notes) or "- None."
+    return f"""# AXQuant joint plan selection (beta)
+
+I-gated WeightPlan x KVPlan search. This writes a development plan for
+`axquant convert`. It is not a certificate.
+
+- Selection basis: `{selection.selection_basis}`
+- Differs from 1.8 independent optimize: `{selection.differs_from_independent}`
+- Context: `{selection.context_length}`
+- Independent target BPW: `{selection.independent_target_bpw:.3f}`
+- Selected: `{selection.selected_target_bpw:.3f}` bpw + KV{selection.selected_kv_bits}
+- Interaction: `{selection.interaction}` material=`{selection.interaction_material}`
+
+## Scored feasible cells
+
+| Target BPW | KV | Additive | Coupled | Selected |
+| ---: | --- | ---: | ---: | --- |
+{scored_table}
+
+## Notes
+
+{notes}
+"""
+
+
+def plan_joint_allocation(
+    *,
+    model_dir: str | Path,
+    max_memory_bytes: int,
+    context_length: int,
+    profile: ProfileName,
+    output_dir: str | Path,
+    contexts: tuple[int, ...] | None = None,
+    weight_bpws: tuple[float, ...] = (4.0, 4.8, 6.0),
+    kv_bits: tuple[int, ...] = (4, 8, 16),
+    inventory_path: str | Path | None = None,
+    sensitivity_path: str | Path | None = None,
+    kv_analysis_path: str | Path | None = None,
+    allow_unmeasured: bool = False,
+    reserve_bytes: int = 1_000_000_000,
+    batch_size: int = 1,
+    interaction_threshold: float = 0.02,
+    independent_bpw: float = 4.8,
+    independent_kv_bits: int = 4,
+    quality_baseline_path: str | Path | None = None,
+    quality_weight_only_path: str | Path | None = None,
+    quality_kv_only_path: str | Path | None = None,
+    quality_joint_path: str | Path | None = None,
+) -> JointSelectionReport:
+    """Emit a convert-ready plan: 1.8 independent if I is small, else coupled search."""
+
+    if context_length <= 0:
+        raise PlanningError("deployment context must be a positive integer")
+    if kv_analysis_path is None:
+        raise PlanningError("plan-joint requires --kv-analysis so cells can be ranked")
+    extra_contexts = contexts or (4096, 32768)
+    diagnostic_contexts = tuple(dict.fromkeys((context_length, *extra_contexts)))
+    output = Path(output_dir).expanduser().resolve()
+    diagnostic = diagnose_joint_interaction(
+        model_dir=model_dir,
+        max_memory_bytes=max_memory_bytes,
+        contexts=diagnostic_contexts,
+        weight_bpws=weight_bpws,
+        kv_bits=kv_bits,
+        profile=profile,
+        output_dir=output,
+        inventory_path=inventory_path,
+        sensitivity_path=sensitivity_path,
+        kv_analysis_path=kv_analysis_path,
+        allow_unmeasured=allow_unmeasured,
+        reserve_bytes=reserve_bytes,
+        batch_size=batch_size,
+        interaction_threshold=interaction_threshold,
+        quality_baseline_path=quality_baseline_path,
+        quality_weight_only_path=quality_weight_only_path,
+        quality_kv_only_path=quality_kv_only_path,
+        quality_joint_path=quality_joint_path,
+    )
+    if diagnostic.interaction is None:
+        raise PlanningError(
+            "plan-joint requires the BF16 baseline and three treatment quality "
+            "evaluations so I(W, KV) can gate independent vs coupled search"
+        )
+
+    notes = [
+        "plan-joint is a 1.9.0b1 development search. It is not a certificate.",
+        "I is a gate: small keeps the 1.8 independent plan; material ranks "
+        "feasible WeightPlan x KVPlan cells with a coupled proxy.",
+    ]
+    independent = None
+    independent_plan = None
+    try:
+        independent = optimize_deployment(
+            model_dir=model_dir,
+            max_memory_bytes=max_memory_bytes,
+            context_length=context_length,
+            profile=profile,
+            runtime=RuntimeName.AX_ENGINE,
+            minimum_quality_retention=0.98,
+            mode="balanced",
+            output_dir=output / "independent",
+            inventory_path=inventory_path,
+            sensitivity_path=sensitivity_path,
+            kv_analysis_path=kv_analysis_path,
+            allow_unmeasured=allow_unmeasured,
+            target_bpw=independent_bpw,
+            kv_cache="measured",
+            kv_default_bits=independent_kv_bits,
+            reserve_bytes=reserve_bytes,
+            batch_size=batch_size,
+        )
+        independent_plan = load_model(
+            output / "independent" / "axquant_plan.json", QuantizationPlan
+        )
+    except PlanningError as exc:
+        if not diagnostic.interaction.material:
+            raise
+        notes.append(f"1.8 independent optimize is infeasible: {exc}")
+    if not diagnostic.interaction.material:
+        if independent is None or independent_plan is None:
+            raise PlanningError("independent optimize did not emit a plan")
+        notes.append("Interaction is small; emitting the 1.8 independent optimize plan.")
+        selection = JointSelectionReport(
+            selection_basis="independent",
+            context_length=context_length,
+            independent_target_bpw=independent_bpw,
+            selected_target_bpw=independent_plan.target_bpw,
+            selected_kv_bits=(
+                independent_plan.kv_cache.default_bits
+                if independent_plan.kv_cache is not None
+                else independent_kv_bits
+            ),
+            differs_from_independent=False,
+            interaction=diagnostic.interaction.interaction,
+            interaction_material=False,
+            plan_sha256=independent.plan_sha256,
+            kv_plan_sha256=independent.kv_plan_sha256,
+            diagnostic_sha256=stable_sha256(diagnostic),
+            notes=notes,
+        )
+        write_data(output / "axquant_plan.json", independent_plan)
+        write_data(output / "joint-selection.json", selection)
+        write_text(output / "joint-selection.md", joint_selection_markdown(selection))
+        return selection
+
+    winner, scored = select_coupled_candidate(
+        diagnostic.candidates,
+        context_length=context_length,
+        interaction=diagnostic.interaction.interaction,
+    )
+    model = Path(model_dir).expanduser().resolve()
+    inventory = inspect_model(
+        model,
+        allow_quantized=(model / "axquant_manifest.json").is_file(),
+    )
+    sensitivity = _load_sensitivity(
+        inventory,
+        sensitivity_path,
+        profile=profile,
+        allow_unmeasured=allow_unmeasured,
+    )
+    request = PlanRequest(
+        profile=profile,
+        target_bpw=winner.target_bpw,
+        allow_unmeasured=allow_unmeasured,
+        target_mode="balanced",
+        primary_runtime=RuntimeName.AX_ENGINE,
+        minimum_quality_retention=0.98,
+    )
+    plan = plan_quantization(sensitivity, request)
+    layer_count = text_layer_count(inventory, plan)
+    plan.kv_cache = allocate_kv_cache(
+        layer_count,
+        default_bits=winner.kv_default_bits,
+        min_bits=4 if winner.kv_default_bits >= 4 else winner.kv_default_bits,
+        group_size=plan.group_size,
+    )
+    notes.append(
+        "Interaction is material; emitting the coupled WeightPlan x KVPlan cell "
+        f"{winner.target_bpw:.3f} bpw + KV{winner.kv_default_bits}."
+    )
+    selected_kv_sha = stable_sha256(plan.kv_cache)
+    differs = independent_plan is None or (
+        winner.target_bpw != independent_plan.target_bpw
+        or selected_kv_sha != (independent.kv_plan_sha256 if independent is not None else None)
+    )
+    if differs:
+        notes.append("Coupled search selected a configuration 1.8 independent optimize would not.")
+    else:
+        notes.append("Coupled search selected the same configuration as independent optimize.")
+    winner_score = next(cell for cell in scored if cell.selected)
+    selection = JointSelectionReport(
+        selection_basis="coupled-interaction",
+        context_length=context_length,
+        independent_target_bpw=independent_bpw,
+        selected_target_bpw=winner.target_bpw,
+        selected_kv_bits=winner.kv_default_bits,
+        differs_from_independent=differs,
+        interaction=diagnostic.interaction.interaction,
+        interaction_material=True,
+        coupled_loss=winner_score.coupled_loss,
+        additive_loss=winner_score.additive_loss,
+        scored_cells=scored,
+        plan_sha256=stable_sha256(plan),
+        kv_plan_sha256=selected_kv_sha,
+        diagnostic_sha256=stable_sha256(diagnostic),
+        notes=notes,
+    )
+    write_data(output / "axquant_plan.json", plan)
+    write_data(output / "joint-selection.json", selection)
+    write_text(output / "joint-selection.md", joint_selection_markdown(selection))
+    return selection

@@ -1,0 +1,169 @@
+{
+  "$defs": {
+    "JointScoredCell": {
+      "additionalProperties": false,
+      "properties": {
+        "additive_loss": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "context_length": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "coupled_loss": {
+          "type": "number"
+        },
+        "kv_default_bits": {
+          "type": "integer"
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "target_bpw": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "target_bpw",
+        "kv_default_bits",
+        "context_length",
+        "additive_loss",
+        "coupled_loss",
+        "selected"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "additive_loss": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "certification_eligible": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "context_length": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "coupled_loss": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "diagnostic_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "differs_from_independent": {
+      "type": "boolean"
+    },
+    "experimental": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "independent_target_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "interaction": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "interaction_material": {
+      "type": "boolean"
+    },
+    "kv_plan_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.joint-selection.v1",
+      "default": "axquant.joint-selection.v1",
+      "type": "string"
+    },
+    "scored_cells": {
+      "items": {
+        "$ref": "#/$defs/JointScoredCell"
+      },
+      "type": "array"
+    },
+    "selected_kv_bits": {
+      "type": "integer"
+    },
+    "selected_target_bpw": {
+      "exclusiveMinimum": 0.0,
+      "maximum": 16.0,
+      "type": "number"
+    },
+    "selection_basis": {
+      "enum": [
+        "independent",
+        "coupled-interaction"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "selection_basis",
+    "context_length",
+    "independent_target_bpw",
+    "selected_target_bpw",
+    "selected_kv_bits",
+    "differs_from_independent",
+    "interaction_material",
+    "plan_sha256",
+    "diagnostic_sha256"
+  ],
+  "type": "object"
+}

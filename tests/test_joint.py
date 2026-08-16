@@ -12,22 +12,31 @@ from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
 from axquant.joint import (
     _crossover,
+    _inventory_digest,
     _kv_candidate_matches,
     _same_model_id,
+    coupled_joint_loss,
     diagnose_joint_interaction,
+    plan_joint_allocation,
+    select_coupled_candidate,
 )
 from axquant.schema import (
+    CalibrationEvidence,
     CandidateMeasurement,
+    EvidenceKind,
     JointBudgetCandidate,
     JointInteractionReport,
     JointProxyScores,
     KvLayerAllocation,
+    KvLayerSensitivity,
+    KvSensitivityReport,
     MetricVector,
     ProfileName,
     QualityEvaluationResult,
     QualityGenerationConfig,
     QualityMetrics,
     QualityTaskResult,
+    QuantizationPlan,
     QuantMethod,
     SoftwareVersions,
 )
@@ -482,3 +491,178 @@ def test_swapped_task_categories_fail_closed(tiny_model_dir: Path, tmp_path: Pat
             quality_kv_only_path=write_pair(tmp_path / "k.json", ("general", "coding")),
             quality_joint_path=write_pair(tmp_path / "j.json", ("general", "coding")),
         )
+
+
+def _candidate(*, bpw: float, bits: int, weight_kl: float, kv_kl: float) -> JointBudgetCandidate:
+    return JointBudgetCandidate(
+        target_bpw=bpw,
+        kv_default_bits=bits,
+        context_length=4096,
+        weight_bytes=100,
+        kv_bytes=20,
+        reserve_bytes=0,
+        limit_bytes=200,
+        remainder_bytes=80,
+        feasible=True,
+        ranking_available=True,
+        estimated_main_bpw=bpw,
+        proxy=JointProxyScores(
+            weight_output_kl=weight_kl,
+            kv_output_kl=kv_kl,
+            additive_output_kl=weight_kl + kv_kl,
+        ),
+        plan_sha256="a" * 64,
+        kv_plan_sha256="b" * 64,
+    )
+
+
+def test_zero_interaction_keeps_additive_ranking() -> None:
+    even = _candidate(bpw=4.8, bits=4, weight_kl=0.4, kv_kl=0.4)
+    skewed = _candidate(bpw=6.0, bits=16, weight_kl=0.7, kv_kl=0.1)
+    zero_even = coupled_joint_loss(even, interaction=0.0, max_weight_kl=0.7, max_kv_kl=0.4)
+    zero_skewed = coupled_joint_loss(skewed, interaction=0.0, max_weight_kl=0.7, max_kv_kl=0.4)
+    assert zero_even == pytest.approx(0.8)
+    assert zero_skewed == pytest.approx(0.8)
+
+
+def test_positive_interaction_penalizes_compressing_both_sides() -> None:
+    even = _candidate(bpw=4.8, bits=4, weight_kl=0.4, kv_kl=0.4)
+    skewed = _candidate(bpw=6.0, bits=16, weight_kl=0.7, kv_kl=0.1)
+    winner, scored = select_coupled_candidate(
+        [even, skewed],
+        context_length=4096,
+        interaction=0.2,
+    )
+    assert winner.target_bpw == 6.0
+    assert winner.kv_default_bits == 16
+    assert scored[0].selected is True
+    assert scored[0].coupled_loss < scored[1].coupled_loss
+
+
+def _write_kv_analysis(model_dir: Path, path: Path) -> Path:
+    inventory = inspect_model(model_dir)
+    write_data(
+        path,
+        KvSensitivityReport(
+            model=inventory.model,
+            architecture_profile=inventory.architecture_profile,
+            profile=ProfileName.GENERAL,
+            evidence_kind=EvidenceKind.MEASURED_DEVELOPMENT,
+            inventory_sha256=_inventory_digest(inventory),
+            probe_backend="test",
+            group_size=64,
+            text_layer_count=1,
+            entries=[
+                KvLayerSensitivity(
+                    layer_index=0,
+                    candidates=[
+                        CandidateMeasurement(
+                            bits=4,
+                            method=QuantMethod.AFFINE,
+                            group_size=64,
+                            metrics=MetricVector(output_kl=0.20),
+                        ),
+                        CandidateMeasurement(
+                            bits=8,
+                            method=QuantMethod.AFFINE,
+                            group_size=64,
+                            metrics=MetricVector(output_kl=0.10),
+                        ),
+                        CandidateMeasurement(
+                            bits=16,
+                            method=QuantMethod.BF16,
+                            group_size=None,
+                            metrics=MetricVector(output_kl=0.0),
+                        ),
+                    ],
+                )
+            ],
+            calibration=CalibrationEvidence(
+                dataset_id="test",
+                dataset_sha256="c" * 64,
+                samples=8,
+                domains=["general"],
+                sequence_length=32,
+                backend="test",
+                reference="test",
+            ),
+        ),
+    )
+    return path
+
+
+def test_plan_joint_requires_quality_and_kv_analysis(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    with pytest.raises(PlanningError, match="kv-analysis"):
+        plan_joint_allocation(
+            model_dir=tiny_model_dir,
+            max_memory_bytes=2_000_000_000,
+            context_length=8,
+            profile=ProfileName.GENERAL,
+            output_dir=tmp_path / "no-kv",
+            allow_unmeasured=True,
+        )
+
+
+def test_plan_joint_small_i_emits_independent_plan(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    kv = _write_kv_analysis(tiny_model_dir, tmp_path / "kv.json")
+    selection = plan_joint_allocation(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        context_length=8,
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "small-i",
+        contexts=(8,),
+        weight_bpws=(16.0,),
+        kv_bits=(4, 8, 16),
+        kv_analysis_path=kv,
+        allow_unmeasured=True,
+        reserve_bytes=0,
+        independent_bpw=16.0,
+        quality_baseline_path=_quality(tiny_model_dir, 0.80, tmp_path / "b.json"),
+        quality_weight_only_path=_quality(tiny_model_dir, 0.80, tmp_path / "w.json"),
+        quality_kv_only_path=_quality(tiny_model_dir, 0.80, tmp_path / "k.json"),
+        quality_joint_path=_quality(tiny_model_dir, 0.80, tmp_path / "j.json"),
+    )
+    assert selection.selection_basis == "independent"
+    assert selection.differs_from_independent is False
+    assert (tmp_path / "small-i" / "axquant_plan.json").is_file()
+
+
+def test_plan_joint_material_i_writes_coupled_plan(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    kv = _write_kv_analysis(tiny_model_dir, tmp_path / "kv.json")
+    selection = plan_joint_allocation(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        context_length=8,
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "material-i",
+        contexts=(8,),
+        weight_bpws=(16.0,),
+        kv_bits=(4, 8, 16),
+        kv_analysis_path=kv,
+        allow_unmeasured=True,
+        reserve_bytes=0,
+        independent_bpw=16.0,
+        quality_baseline_path=_quality(tiny_model_dir, 1.00, tmp_path / "b.json"),
+        quality_weight_only_path=_quality(tiny_model_dir, 0.90, tmp_path / "w.json"),
+        quality_kv_only_path=_quality(tiny_model_dir, 0.95, tmp_path / "k.json"),
+        quality_joint_path=_quality(tiny_model_dir, 0.80, tmp_path / "j.json"),
+    )
+    assert selection.selection_basis == "coupled-interaction"
+    assert selection.interaction_material is True
+    assert selection.scored_cells
+    assert (tmp_path / "material-i" / "axquant_plan.json").is_file()
+    plan = load_model(tmp_path / "material-i" / "axquant_plan.json", QuantizationPlan)
+    assert plan.kv_cache is not None

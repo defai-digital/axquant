@@ -93,3 +93,16 @@ lower KV bit-width, then the lower target BPW, then more leftover memory.
 
 Stop if the first real-model pass is small and has no crossover. Do not
 invent a named allocator just to have a paper.
+
+## Turning the question into a plan
+
+`axquant plan-joint` uses the same grid, then **changes the plan**:
+
+- I small: emit the 1.8 independent `optimize` plan
+- I material: rank feasible cells at `--context` with
+  `additive + I * u(weight) * u(KV)` and write `axquant_plan.json`
+
+A constant I does not change ranking. The coupling term does: when I is
+positive, compressing weights and KV together is penalized, so the search
+can keep one side higher — a cell 1.8 would not pick. Convert that plan
+with `axquant convert --plan axquant_plan.json`.

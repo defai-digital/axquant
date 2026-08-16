@@ -244,6 +244,8 @@ from axquant.schema.joint import (
     JointInteractionReport,
     JointMeasuredDeltas,
     JointProxyScores,
+    JointScoredCell,
+    JointSelectionReport,
 )
 from axquant.schema.kernel_latency import (
     KernelLatencyEntry,
@@ -459,6 +461,8 @@ __all__ = [
     "JointInteractionReport",
     "JointMeasuredDeltas",
     "JointProxyScores",
+    "JointScoredCell",
+    "JointSelectionReport",
     "KernelLatencyEntry",
     "KernelLatencyTable",
     "KvCachePlan",

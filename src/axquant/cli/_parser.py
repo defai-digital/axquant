@@ -661,6 +661,59 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     diagnose_joint_parser.add_argument("--output", required=True)
 
+    plan_joint_parser = subparsers.add_parser(
+        "plan-joint",
+        help=(
+            "Beta: I-gated WeightPlan x KVPlan search that emits a convert-ready "
+            "development plan (never a certification claim)"
+        ),
+        description=(
+            "1.9.0b1 smarter allocation. If I(W, KV) is small, emit the 1.8 "
+            "independent optimize plan. If I is material, pick a feasible "
+            "(weight BPW, KV bits) cell with a coupled proxy and write "
+            "axquant_plan.json for convert. Requires --kv-analysis and the "
+            "quality quadruple."
+        ),
+        epilog=(
+            "This command cannot authorize a Hub pack or certificate. "
+            "Output is a development plan only."
+        ),
+    )
+    plan_joint_parser.add_argument("--model", required=True)
+    plan_joint_parser.add_argument("--max-memory", type=parse_memory_bytes, required=True)
+    plan_joint_parser.add_argument("--context", type=int, required=True)
+    plan_joint_parser.add_argument(
+        "--contexts",
+        type=_positive_ints,
+        default=(4096, 32768),
+        help="extra contexts for the diagnostic crossover table",
+    )
+    plan_joint_parser.add_argument(
+        "--weight-bpws",
+        type=_positive_floats,
+        default=(4.0, 4.8, 6.0),
+    )
+    plan_joint_parser.add_argument("--kv-bits", type=_kv_bits, default=(4, 8, 16))
+    plan_joint_parser.add_argument("--profile", type=_profile, default=ProfileName.GENERAL)
+    plan_joint_parser.add_argument("--inventory")
+    plan_joint_parser.add_argument("--sensitivity")
+    plan_joint_parser.add_argument("--kv-analysis", required=True)
+    plan_joint_parser.add_argument("--allow-unmeasured", action="store_true")
+    plan_joint_parser.add_argument(
+        "--reserve-memory",
+        type=parse_memory_bytes,
+        default=1_000_000_000,
+    )
+    plan_joint_parser.add_argument("--batch-size", type=int, default=1)
+    plan_joint_parser.add_argument("--interaction-threshold", type=float, default=0.02)
+    plan_joint_parser.add_argument("--independent-bpw", type=float, default=4.8)
+    plan_joint_parser.add_argument("--independent-kv-bits", type=_kv_bit, default=4)
+    plan_joint_parser.add_argument("--quality-baseline", required=True)
+    plan_joint_parser.add_argument("--quality-weight-only", required=True)
+    plan_joint_parser.add_argument("--quality-kv-only", required=True)
+    plan_joint_parser.add_argument("--quality-joint", required=True)
+    plan_joint_parser.add_argument("--output", required=True)
+
     replay_plan_parser = subparsers.add_parser(
         "plan-replay",
         help="Replay a prior measured allocation against exact current sensitivity evidence",
