@@ -1,0 +1,96 @@
+# Experimental Flash-0731 mixed 2-bit recipe.
+# Development only. Not a certificate. Not mlx-optiq.
+#
+# Why this exists: uniform 2-bit affine on every expert lost short QA to
+# OptiQ (0.49 vs 0.95 general). plan-joint cannot search 2-bit. This recipe
+# spends a little more BPW on tensors that usually hurt first:
+#   - shared experts and first/last decoder FFN at 4-bit
+#   - routed expert down-proj (w2) at 3-bit
+# Routed expert gate/up (w1/w3) stay 2-bit. Fused switch modules still share
+# one bit-width per projection per layer (MLX packs the stack as one unit).
+#
+# AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1 and AX_ENGINE_3BIT_EXPERIMENTAL=1.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 2
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: protect-attention
+    roles: [attention]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Attention trunk stays at least 4-bit for experimental low-bit packs
+  - rule_id: shared-experts-4bit
+    module_glob: "layers.*.ffn.shared_experts*"
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Shared experts run every token; keep them above 2-bit
+  - rule_id: first-layers-ffn-4bit
+    module_glob: "layers.[01].ffn*"
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: First decoder FFN/experts stay 4-bit
+  - rule_id: last-layer-41-ffn-4bit
+    module_glob: "layers.41.ffn*"
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Last-but-one decoder FFN/experts stay 4-bit
+  - rule_id: last-layer-42-ffn-4bit
+    module_glob: "layers.42.ffn*"
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Last decoder FFN/experts stay 4-bit
+  - rule_id: expert-down-3bit
+    module_glob: "layers.*.ffn.experts.*.w2"
+    bits: 3
+    method: affine
+    group_size: 32
+    reason: Routed down-proj is more error-sensitive than gate/up at 2-bit
+  - rule_id: trunk-experimental-2bit
+    roles: [mlp, expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Remaining robust trunk (routed gate/up and other MLP) stays 2-bit
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

@@ -39,7 +39,9 @@ OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"
 
 PACKS: dict[str, dict[str, Any]] = {
     "axq2": {
-        "label": "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)",
+        "label": os.environ.get(
+            "DSV4_AXQ_LABEL", "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)"
+        ),
         "hub": AXQ_ID,
         "commit": AXQ_REV,
         "runtime": "mlx-lm-resident",
@@ -466,7 +468,12 @@ def cmd_report() -> None:
         "optiq2": optiq,
     }
     write_json(work / "summary.json", summary)
-    raw_dir = ROOT / "docs" / "eval" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2"
+    raw_dir = Path(
+        os.environ.get(
+            "DSV4_EVAL_DIR",
+            str(ROOT / "docs" / "eval" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2"),
+        )
+    )
     raw_dir.mkdir(parents=True, exist_ok=True)
     write_json(raw_dir / "summary.json", summary)
     shutil.copy2(work / "axq2.json", raw_dir / "axq2.json")
@@ -578,7 +585,12 @@ def cmd_report() -> None:
             "",
         ]
     )
-    report = ROOT / "docs" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md"
+    report = Path(
+        os.environ.get(
+            "DSV4_REPORT",
+            str(ROOT / "docs" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md"),
+        )
+    )
     report.write_text(md + "\n", encoding="utf-8")
     shutil.copy2(report, work / "report.md")
     log(f"wrote {report}")
