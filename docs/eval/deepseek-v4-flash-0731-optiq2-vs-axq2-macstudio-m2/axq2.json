@@ -1,0 +1,379 @@
+{
+  "key": "axq2",
+  "label": "DeepSeek V4 Flash-0731 AXQ 2-bit",
+  "hub": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit",
+  "commit": "408c0ab335f6211812645ca44071301c20a55957",
+  "runtime": "mlx-lm-resident",
+  "path": "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit",
+  "host_id": "df-macstudio-m2",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "seed": 20260728,
+  "max_tokens_qa": 64,
+  "load_seconds": 192.4645020829994,
+  "quality": {
+    "agent-coding": {
+      "n": 15,
+      "mean_score": 0.13333333333333333,
+      "pass_rate": 0.0,
+      "passed": 0,
+      "seconds": 39.14568904200132,
+      "tasks": [
+        {
+          "task_id": "coding-001",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Do not use modulo. Do not use conditionals. Do not use loops. Do not use multiple if/else. Do not use any libraries. Do not use any built-in functions. Do not use any language features that allow branching. Do not use any methods that allow branching. Do not use any repetition. Do",
+          "error": null
+        },
+        {
+          "task_id": "coding-002",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should handle negative numbers by raising a ValueError. The function should be able to handle large n efficiently using memoization. The function should have no side effects and should return a single integer. The function should be called with a single integer argument. The function should not use any external libraries. The function should be pure",
+          "error": null
+        },
+        {
+          "task_id": "coding-003",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "\", \"input\": \"\", \"output\": \"Here's my solution:\\n\\n```python\\ndef is_palindrome(s):\\n    s = s.lower()\\n    return s == s[::-1]\\n```\\n\\nThis function converts the string to lowercase so that case differences are ignored, then",
+          "error": null
+        },
+        {
+          "task_id": "coding-004",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The list is sorted in ascending order. Use bisect from the bisect module. Do not write any example scenarios or tests.\n    def binary_search(sorted_list, target):\n        import bisect\n        index = bisect.bisect_left(sorted_list, target)\n        if index != len(sorted_list) and sorted",
+          "error": null
+        },
+        {
+          "task_id": "coding-005",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "\n\nNow rewrite the function to return the minimum value in a list. (Use find_max to save time.)\n\ndef find_min(values):\n    # ... (your code here)\n\nUse the find_max function to find the minimum value in a list. (Hint: Use max and min.)\n\ndef find_min(values):\n    #",
+          "error": null
+        },
+        {
+          "task_id": "coding-006",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "After defining the class, create an instance of BankAccount with a starting balance of 500 dollars. Call the deposit method with 50 dollars, then the withdraw method with 100 dollars. Finally, print the remaining balance. Do not use any type hints or comments.\n# 2. Write a Python function that takes",
+          "error": null
+        },
+        {
+          "task_id": "coding-007",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Do not use any built-in functions. Use a stack.\n</p>'\n        },\n        {\n            \"role\": \"USER\",\n            \"content\": \"The stack is a data structure that follows the Last-In-First-Out (LIFO) principle. In the context of this problem, we can use",
+          "error": null
+        },
+        {
+          "task_id": "coding-008",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The function should count both uppercase and lowercase vowels and return the count as an integer. The function should take a single string argument and return an integer. Example: 'Hello World' -> 3.\n</p>',\n        'answer': 'def count_vowels(s):\\n    vowels = \"aeiouAE",
+          "error": null
+        },
+        {
+          "task_id": "coding-009",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Do not use any third-party libs.\n### Output\ndef flatten(lst):\n    return [item for sublist in lst for item in sublist]\n</solution>\nHere is my reasoning for this solution:\n\n## Reasoning for the function `flatten`:\n\n### **Problem:**\nWe need to write a function that",
+          "error": null
+        },
+        {
+          "task_id": "coding-010",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should not use any built-in functions that directly serve the purpose of duplicates removal. The solution should be in plain Python with no imports. The solution should be in plain Python with no imports and no external code. \n### 2. The solution should not use any built-in functions like set, list comprehension,",
+          "error": null
+        },
+        {
+          "task_id": "coding-011",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should return the factorial value. Include error handling for invalid inputs.\"\n- \"Write a Python function is_palindrome(s) that checks if a given string s is a palindrome (same forwards and backwards), ignoring case, spaces, and punctuation.\"\n- \"Write a Python function to check if a number is prime",
+          "error": null
+        },
+        {
+          "task_id": "coding-012",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should take a single argument and return the converted temperature as a float or integer. Do not add any extra print statements.\n# Write a Python function `celsius_to_fahrenheit` that converts a temperature in Celsius to Fahrenheit using the formula F = C * 9/5 + 32. The function should",
+          "error": null
+        },
+        {
+          "task_id": "coding-013",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "If not, define a function that takes in width and height and returns the area of the rectangle. Use the code below as a starting template. The code should be written in the answer and should contain an explanation of the code. Format your code with 5 pargraph capitalized and punctuations. Each sentence should start",
+          "error": null
+        },
+        {
+          "task_id": "coding-014",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function signature is gcd(a, b). Do not print to stdout. Include a docstring. The function should compute the greatest common divisor (GCD) of two integers a and b. It should handle edge cases: when both numbers are zero, return 0; when one is zero, return the other. It",
+          "error": null
+        },
+        {
+          "task_id": "coding-015",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Do not use any external libraries or other functions; implement the logic yourself.\n### Parameters\n**n** : int\\n\\n    The integer to check whether it is prime.\\n\\n    n > 1.\\n\\n### Returns\\n\\n    * True: if n is prime.\\n    * False:",
+          "error": null
+        }
+      ]
+    },
+    "general": {
+      "n": 15,
+      "mean_score": 0.48717948717948717,
+      "pass_rate": 0.4666666666666667,
+      "passed": 7,
+      "seconds": 41.02321820799989,
+      "tasks": [
+        {
+          "task_id": "instruction-001",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "The provided text is: \"The quick brown fox jumped over the lazy dog. The dog did not react. The fox ran into the forest.\" The following is a summary of the text: \"The quick brown fox jumped over the lazy dog, and the dog did not react, so the fox ran into the forest.\"",
+          "error": null
+        },
+        {
+          "task_id": "instruction-002",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "In your answer, follow the same rules for capitalization that are used in French: if the English phrase has a capital letter, then the French phrase should start with a capital letter. In French, the phrase is 'bonjour' (good morning) when said as a neutral phrase or as a phrase that is neutral in",
+          "error": null
+        },
+        {
+          "task_id": "instruction-003",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "regex:0": 0.0
+          },
+          "output": "Do not add any extra text. Only these three lines. No commentary whatsoever. Keep it concise and exactly as requested.\",\n    \"model\": \"gpt-4o-mini-2024-07-18\",\n    \"messages\": [\n      {\n        \"role\": \"system\",\n        \"content\": \"You",
+          "error": null
+        },
+        {
+          "task_id": "instruction-004",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\n### Response\nTHE SUN RISES IN THE EAST\n> The response is in all caps, as requested. \nA sentence that is entirely in uppercase letters is written in all caps. The sentence is \"the sun rises in the east\", and in all caps it is \"THE SUN RISES IN THE EAST\".",
+          "error": null
+        },
+        {
+          "task_id": "instruction-005",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "Do not include any other text. If the user asked for a line of text, then\n    #   return this line: exactly as the prompt requested.\n    # - The user may ask for multiple lines, so do not put commas in the output unless\n    #   they are part of the requested line.\n",
+          "error": null
+        },
+        {
+          "task_id": "instruction-006",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "It means 'thank you' in English. In Spanish, the phrase is 'gracias' which directly translates to 'thank you' in English. So the translation is: gracias -> thank you. Now I can provide the translation: \"gracias\" means \"thank you\" in English. So the Spanish word",
+          "error": null
+        },
+        {
+          "task_id": "instruction-007",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "(A) cool (B) warm (C) cold (D) chilly. The answer is: cold. The user also asked: What is the opposite of hot? The answer is cold.\\n\\nSo the answer is: cold.\",\n    \"sample2\": {\n        \"input\": \"A car is to",
+          "error": null
+        },
+        {
+          "task_id": "instruction-008",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "Do not add any punctuation. Similarly, repeat the word 'world' exactly three times, separated by single spaces, with no other text. Do not add any punctuation. In your output, do not add any spaces around the punctuation. In your output, do not add any spaces around the punctuation. In your output,",
+          "error": null
+        },
+        {
+          "task_id": "instruction-009",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "The output should be a single string with words separated by commas, in lowercase.\n###Response:\napple, banana, cherry\n###Prompt:\nQ: A: \n###Q: Sort the following words alphabetically and return them as a comma-separated list: banana, apple, cherry. The output should be a",
+          "error": null
+        },
+        {
+          "task_id": "instruction-010",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "\", \"The sentence should be a normal sentence, not a fragment or interjection.\"}], \"chatgpt_tokens\": 0, \"history_tokens\": [{\"id\": 0, \"tokens\": [0, 0, 0, 0, 0, 0, ",
+          "error": null
+        },
+        {
+          "task_id": "instruction-011",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "If uncertain, answer with the most plausible answer. (5)??\\n\\nLet's think step by step.\\n\\n(5)??\\n\\nStep 1: The number is 5.\\n\\nStep 2: In English, the number 5 is written as \\\"five\\\".\\",
+          "error": null
+        },
+        {
+          "task_id": "instruction-012",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "Keep the formatting and the [] around it.\n- If the word is not in the text, return an empty string.\n- Include the original formatting if the word is in the text.\n- If there are multiple words, return the first one.\n- If the word is in the text but not in the exact form (",
+          "error": null
+        },
+        {
+          "task_id": "instruction-013",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "The answer should be exactly: a, b, c.\"} {\"prompt\": \"Role: user\\n\\nGiven an array of integers, find the longest subarray with the maximum product. If there are multiple such subarrays, output the one with the maximum length. If there are multiple with the maximum length,",
+          "error": null
+        },
+        {
+          "task_id": "instruction-014",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\", \"The answer is: three two one.\"} \n{\"prompt\": \"Reverse the order of these words and return them space-separated: 'one two three'.\", \"output\": \"three two one\"} \n{\"prompt\": \"Reverse the order of these words and return them space-separated",
+          "error": null
+        },
+        {
+          "task_id": "instruction-015",
+          "category": "instruction",
+          "score": 0.30769230769230765,
+          "check_scores": {
+            "token-f1:0": 0.30769230769230765
+          },
+          "output": "\",\n    \"response\": \"Copy this line verbatim.\"\n}], \"category\": \"alignment_chatterbox_task_verification_1_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0_0",
+          "error": null
+        }
+      ]
+    }
+  },
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 16,
+        "generated_tokens": 128,
+        "elapsed_seconds": 4.825469999999768,
+        "tok_per_s": 26.525913537957162,
+        "preview": "#Q: What is the next number in the sequence: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304, 8388608, 16777216, 33554432, 67108864, 134217728, 268435456,"
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 481,
+        "generated_tokens": 8,
+        "elapsed_seconds": 2.9414156250022643,
+        "tok_per_s": 2.7197788479803298,
+        "preview": "romeo sierra tango victor"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3841,
+        "generated_tokens": 8,
+        "elapsed_seconds": 18.669385042001522,
+        "tok_per_s": 0.4285090259803399,
+        "preview": "romeo sierra tango uniform vict"
+      }
+    ],
+    "rss_gb": 104.08416748046875
+  },
+  "measured_at": "2026-08-16T03:56:15.808285+00:00"
+}

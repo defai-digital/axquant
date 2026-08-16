@@ -22,16 +22,10 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
-
-from axquant.factory import (  # noqa: E402
-    FACTORY_DATASETS,
-    FACTORY_HF_HOME,
-    FACTORY_HOST_ID,
-    FACTORY_MODELS,
-    require_factory_host,
-)
-from axquant.quality import load_quality_tasks, score_quality_task_output  # noqa: E402
+FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
+FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
+FACTORY_HOST_ID = "df-macstudio-m2"
+FACTORY_MODELS = "/Volumes/Ext12T/models"
 
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
@@ -73,6 +67,31 @@ PACKS: dict[str, dict[str, Any]] = {
 
 def log(msg: str) -> None:
     print(f"[{datetime.now(UTC).strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def _require_factory_host() -> None:
+    host = socket.gethostname().split(".", 1)[0]
+    if host not in {"df-macstudio-m2", "devopsmacstudio"}:
+        raise SystemExit(f"factory eval must run on df-macstudio-m2; observed {host}")
+
+
+def _quality_lib():
+    sys.path.insert(0, str(ROOT / "src"))
+    from axquant.quality import load_quality_tasks, score_quality_task_output
+
+    return load_quality_tasks, score_quality_task_output
+
+
+def _load_task_rows(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    if not rows:
+        raise SystemExit(f"no tasks in {path}")
+    return rows
 
 
 def work_dir() -> Path:
@@ -261,46 +280,70 @@ def _render(tokenizer: Any, prompt: str) -> str:
     return prompt
 
 
-def _run_quality(backend: Any, key: str) -> dict[str, Any]:
+def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:
     datasets = Path(os.environ.get("DSV4_DATASETS", FACTORY_DATASETS))
     suites = {
         "agent-coding": datasets / "development-agent-coding" / "dataset.jsonl",
         "general": datasets / "development-general" / "dataset.jsonl",
     }
+    load_quality_tasks = score_quality_task_output = None
+    if score:
+        load_quality_tasks, score_quality_task_output = _quality_lib()
     out: dict[str, Any] = {}
     for suite, path in suites.items():
         if not path.is_file():
             raise SystemExit(f"missing dataset {path}")
-        tasks = load_quality_tasks(path)
-        results = []
-        scores = []
-        t0 = time.perf_counter()
-        for index, task in enumerate(tasks):
-            try:
-                text = backend.generate(task.prompt, MAX_TOKENS_QA, SEED + index)
-                score, checks = score_quality_task_output(task, text)
-                err = None
-            except Exception as exc:
-                text, score, checks, err = "", 0.0, {}, str(exc)
-            scores.append(score)
-            results.append(
+        if score:
+            task_iter = [
                 {
                     "task_id": task.task_id,
                     "category": task.category,
-                    "score": score,
+                    "prompt": task.prompt,
+                    "obj": task,
+                }
+                for task in load_quality_tasks(path)
+            ]
+        else:
+            task_iter = [
+                {
+                    "task_id": row["task_id"],
+                    "category": row.get("category", suite),
+                    "prompt": row["prompt"],
+                    "obj": None,
+                }
+                for row in _load_task_rows(path)
+            ]
+        results = []
+        scores: list[float] = []
+        t0 = time.perf_counter()
+        for index, task in enumerate(task_iter):
+            try:
+                text = backend.generate(task["prompt"], MAX_TOKENS_QA, SEED + index)
+                err = None
+            except Exception as exc:  # noqa: BLE001 — record and continue
+                text, err = "", str(exc)
+            if score:
+                sc, checks = score_quality_task_output(task["obj"], text)
+                scores.append(sc)
+            else:
+                sc, checks = None, {}
+            results.append(
+                {
+                    "task_id": task["task_id"],
+                    "category": task["category"],
+                    "score": sc,
                     "check_scores": checks,
                     "output": text[:2000],
                     "error": err,
                 }
             )
-            log(f"{key} {suite} {index + 1}/{len(tasks)} {task.task_id} score={score}")
-        mean = sum(scores) / len(scores) if scores else 0.0
-        passed = sum(1 for item in results if item["score"] >= 1.0)
+            log(f"{key} {suite} {index + 1}/{len(task_iter)} {task['task_id']} score={sc}")
+        passed = sum(1 for item in results if item["score"] == 1.0)
         out[suite] = {
             "n": len(results),
-            "mean_score": mean,
-            "pass_rate": passed / len(results) if results else 0.0,
-            "passed": passed,
+            "mean_score": (sum(scores) / len(scores) if scores else None),
+            "pass_rate": (passed / len(results) if results and score else None),
+            "passed": passed if score else None,
             "seconds": time.perf_counter() - t0,
             "tasks": results,
         }
@@ -339,7 +382,7 @@ def _run_speed(backend: Any) -> dict[str, Any]:
 
 
 def cmd_eval(key: str) -> None:
-    require_factory_host(socket.gethostname())
+    _require_factory_host()
     item = PACKS[key]
     pack = Path(item["path"])
     if not (pack / "config.json").is_file():
@@ -355,7 +398,7 @@ def cmd_eval(key: str) -> None:
     backend.load(pack)
     load_s = time.perf_counter() - t_load
     log(f"loaded {key} in {load_s:.1f}s rss={_rss_mb()}")
-    quality = _run_quality(backend, key)
+    quality = _run_quality(backend, key, score=(key != "optiq2"))
     speed = _run_speed(backend)
     payload = {
         "key": key,
@@ -382,6 +425,32 @@ def _load_result(key: str) -> dict[str, Any]:
     if not path.is_file():
         raise SystemExit(f"missing {path}; run eval first")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def cmd_score_optiq() -> None:
+    load_quality_tasks, score_quality_task_output = _quality_lib()
+    payload = _load_result("optiq2")
+    datasets = Path(os.environ.get("DSV4_DATASETS", FACTORY_DATASETS))
+    suites = {
+        "agent-coding": datasets / "development-agent-coding" / "dataset.jsonl",
+        "general": datasets / "development-general" / "dataset.jsonl",
+    }
+    for suite, path in suites.items():
+        tasks = {task.task_id: task for task in load_quality_tasks(path)}
+        block = payload["quality"][suite]
+        scores: list[float] = []
+        for item in block["tasks"]:
+            task = tasks[item["task_id"]]
+            sc, checks = score_quality_task_output(task, item.get("output") or "")
+            item["score"] = sc
+            item["check_scores"] = checks
+            scores.append(sc)
+        passed = sum(1 for item in block["tasks"] if item["score"] == 1.0)
+        block["mean_score"] = sum(scores) / len(scores) if scores else 0.0
+        block["passed"] = passed
+        block["pass_rate"] = passed / len(block["tasks"]) if block["tasks"] else 0.0
+        log(f"scored optiq2 {suite}: mean={block['mean_score']:.3f} pass={block['pass_rate']:.3f}")
+    write_json(work_dir() / "optiq2.json", payload)
 
 
 def cmd_report() -> None:
@@ -460,11 +529,11 @@ def cmd_report() -> None:
             "| --- | --- | --- | --- |",
             (
                 f"| {axq['label']} | [`{axq['hub']}`](https://huggingface.co/{axq['hub']}) "
-                f"@ `{axq['commit']}` | resident mlx-lm | `{axq['path']}` |"
+                f"@ `{axq['commit']}` | resident mlx-lm | `{Path(axq['path']).name}` |"
             ),
             (
                 f"| {optiq['label']} | [`{optiq['hub']}`](https://huggingface.co/{optiq['hub']}) "
-                f"| mlx-optiq stream | `{optiq['path']}` |"
+                f"| mlx-optiq stream | `{Path(optiq['path']).name}` |"
             ),
             "",
             f"Common source: `{SOURCE_ID}@{SOURCE_REV}`.",
@@ -522,7 +591,7 @@ def cmd_all() -> None:
         # AXQ eval in the axquant venv; OptiQ eval in the isolated optiq venv.
         cmd_eval("axq2")
         env = hf_env()
-        env["PYTHONPATH"] = str(ROOT / "src")
+        env.pop("PYTHONPATH", None)
         subprocess.run(
             [
                 str(OPTIQ_VENV / "bin" / "python"),
@@ -533,6 +602,7 @@ def cmd_all() -> None:
             cwd=str(ROOT),
             env=env,
         )
+        cmd_score_optiq()
     else:
         cmd_eval("optiq2")
         return
@@ -543,7 +613,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "step",
-        choices=["setup-optiq", "download-optiq", "eval-axq", "eval-optiq", "report", "all"],
+        choices=[
+            "setup-optiq",
+            "download-optiq",
+            "eval-axq",
+            "eval-optiq",
+            "score-optiq",
+            "report",
+            "all",
+        ],
     )
     args = parser.parse_args()
     {
@@ -551,6 +629,7 @@ def main() -> int:
         "download-optiq": cmd_download_optiq,
         "eval-axq": lambda: cmd_eval("axq2"),
         "eval-optiq": lambda: cmd_eval("optiq2"),
+        "score-optiq": cmd_score_optiq,
         "report": cmd_report,
         "all": cmd_all,
     }[args.step]()

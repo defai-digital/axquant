@@ -2,43 +2,52 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Scheduled** on `df-macstudio-m2`; results not yet measured |
-| Host | `df-macstudio-m2` (Apple M2 Ultra, 192 GB unified memory) |
-| First attempt | 3 hours after schedule, then every hour until the factory GPU/memory is idle |
-| Protocol | Greedy, temperature `0`, thinking off; factory development QA suites + native-runtime speed |
+| Status | Measured practical comparison; **not** a certification |
+| Host | `df-macstudio-m2` (Apple M2 Ultra, 192 GB) |
+| Date | 2026-08-16 |
+| Protocol | Greedy, temperature `0`, thinking off, factory development suites |
 
-This report answers a product question, not a certification question:
+Product question: on the same Mac Studio, how does the mlx-community OptiQ 2-bit streaming pack compare to the AutomatosX AXQ 2-bit resident pack for short QA and decode speed?
 
-> On the same Mac Studio, how does [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) compare to [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) for short QA and decode speed?
-
-**Short answer:** not measured yet. The factory job waits for Holo-3.1 convert/cert to finish (and any other large Studio job), then runs both packs under their native runtimes.
+**Short answer:** on this short greedy suite OptiQ is **much more usable** (mean `0.724` vs AXQ `0.310`), especially on general instruction items (`14/15` vs `7/15`). AXQ is **much faster** at decode (`26.5` vs `3.6` tok/s) because the expert table stays resident. Neither pack fully passes the 15 coding tasks at a 64-token cap — outputs are truncated mid-function, so `python-syntax` fails.
 
 ## Bound artifacts
 
-| Pack | Hub | Runtime | Size |
+| Pack | Hub | Runtime | Local path |
 | --- | --- | --- | --- |
-| AXQ 2-bit (exp.) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) @ `408c0ab3` | resident mlx-lm | ~114 GB on disk |
-| OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | mlx-optiq expert streaming | ~92.5 GB on disk, ~6.5 GB resident |
+| DeepSeek V4 Flash-0731 AXQ 2-bit | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) @ `408c0ab335f6211812645ca44071301c20a55957` | resident mlx-lm | `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit` |
+| DeepSeek V4 Flash-0731 OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | mlx-optiq stream | `DeepSeek-V4-Flash-0731-OptiQ-2bit` |
 
 Common source: `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 
-## Protocol
+## Quality (factory development suites)
 
-| Setting | Value | Why |
-| --- | --- | --- |
-| Decoding | temperature `0`, greedy | Reproducible A/B |
-| Thinking | off | Matched instruct-mode cost |
-| QA suites | `development-agent-coding` + `development-general` | Same factory tasks used for other Studio evals |
-| QA max tokens | 64 | Factory T1 generation length |
-| Speed | decode-128; prefill ~512 and ~2k then 8 new tokens | Separate from QA |
-| AXQ runtime | mlx-lm resident load | AX Engine 6.16.1 manifest fails on this 0731 pack (split `up_proj`) |
-| OptiQ runtime | isolated `mlx-optiq` venv + `moe_stream.load_streaming` | Intended OptiQ path; not AX Engine |
-| Isolation | one large model at a time; start only when convert/quality/T2 jobs are gone | AXQ 2-bit is ~114 GB resident on a 192 GB host |
+Seed `20260728`, max new tokens `64`. Pass = every check on the task scores 1.0.
 
-This is **not** checkpoint Tier 1. The 0731 AXQ 2-bit pack stays [not certified](certifications/deepseek-v4-flash-0731-axq2-tier1.md). Speed is not a same-kernel A/B: OptiQ streams routed experts from SSD; AXQ keeps them in memory.
+| Suite | N | AXQ 2-bit | OptiQ 2-bit |
+| --- | ---: | --- | --- |
+| agent-coding | 15 | 0 / 15 (0.0%) mean 0.133 | 0 / 15 (0.0%) mean 0.500 |
+| general | 15 | 7 / 15 (46.7%) mean 0.487 | 14 / 15 (93.3%) mean 0.948 |
 
-## Results
+## Speed (native runtime, greedy)
 
-Pending factory measurement. Raw JSON will land in
-[`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`](eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).
+Columns: prompt tokens / generated tokens / wall / tok/s. Ratio is OptiQ / AXQ.
+
+| Case | AXQ 2-bit | OptiQ 2-bit | OptiQ / AXQ |
+| --- | --- | --- | ---: |
+| decode-128 | 16 / 128 / 4.83s / 26.53 | 20 / 128 / 35.63s / 3.59 | 0.14x |
+| prefill-512-decode-8 | 481 / 8 / 2.94s / 2.72 | 485 / 8 / 12.47s / 0.64 | 0.24x |
+| prefill-2k-decode-8 | 3841 / 8 / 18.67s / 0.43 | 3845 / 8 / 55.61s / 0.14 | 0.34x |
+
+Load time: AXQ `192.5` s, OptiQ `34.8` s. Peak RSS (process): AXQ `104.1` GB, OptiQ `23.4` GB.
+
+## Notes
+
+- This is **not** checkpoint Tier 1 and **not** a retention-vs-BF16 claim.
+- AXQ 0731 2-bit remains **not certified** (dual-suite viability was previously skipped; AX Engine manifest fails on fused gate+up).
+- OptiQ streams routed experts from SSD; AXQ keeps the expert table resident. Speed is not a same-kernel A/B.
+- Factory development suites on the Studio host. Coding items are truncated at 64 new tokens, so strict `python-syntax` almost never passes; treat agent-coding as a generation-viability signal, not a unit-test pass.
+
 Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`](../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).
+Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`](eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).
+
