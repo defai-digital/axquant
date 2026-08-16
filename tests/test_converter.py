@@ -111,6 +111,17 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
     assert observed["quant_method"] == "rtn"
     assert observed["quant_predicate"] is predicate
 
+    observed.clear()
+    multimodal_backend.convert_multimodal(
+        qwen36_model_dir,
+        tmp_path / "converted-mxfp4",
+        vlm_plan,
+        predicate,
+        4,
+        q_mode="mxfp4",
+    )
+    assert observed["q_mode"] == "mxfp4"
+
 
 def test_audio_backend_uses_public_stt_model_and_mlx_quantization_contract(
     qwen36_model_dir: Path,

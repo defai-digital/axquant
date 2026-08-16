@@ -8,7 +8,13 @@ from types import SimpleNamespace
 import pytest
 
 from axquant.errors import BenchmarkError
-from axquant.quality import MlxQualityBackend, compare_quality, evaluate_quality
+from axquant.quality import (
+    MlxQualityBackend,
+    MlxVlmQualityBackend,
+    compare_quality,
+    evaluate_quality,
+    select_quality_backend,
+)
 from axquant.schema import ModelIdentity
 
 
@@ -74,6 +80,71 @@ def _quality_dataset(path: Path) -> None:
         },
     ]
     path.write_text("\n".join(json.dumps(task) for task in tasks), encoding="utf-8")
+
+
+def test_select_quality_backend_uses_mlx_vlm_for_muse_glimmer(tmp_path: Path) -> None:
+    pack = tmp_path / "glimmer"
+    pack.mkdir()
+    (pack / "config.json").write_text(json.dumps({"model_type": "muse_glimmer"}), encoding="utf-8")
+    backend = select_quality_backend(
+        ModelIdentity(
+            model_id="AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
+            local_path=str(pack),
+        )
+    )
+    assert isinstance(backend, MlxVlmQualityBackend)
+    assert isinstance(
+        select_quality_backend(ModelIdentity(model_id="local/qwen")), MlxQualityBackend
+    )
+    vl = tmp_path / "vl32"
+    vl.mkdir()
+    (vl / "config.json").write_text(json.dumps({"model_type": "qwen3_vl"}), encoding="utf-8")
+    assert isinstance(
+        select_quality_backend(
+            ModelIdentity(model_id="Qwen/Qwen3-VL-32B-Thinking", local_path=str(vl))
+        ),
+        MlxVlmQualityBackend,
+    )
+
+
+def test_mlx_vlm_backend_unwraps_logits_and_generation_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mx = pytest.importorskip("mlx.core")
+    import types
+
+    class _Tok:
+        chat_template = None
+
+        def encode(self, text: str, add_special_tokens: bool = True) -> list[int]:
+            del add_special_tokens
+            return [1, 2, 3, 4][: max(2, len(text.split()) + 1)]
+
+    class _Model:
+        def parameters(self):
+            return []
+
+        def __call__(self, inputs):
+            return SimpleNamespace(logits=mx.zeros((1, int(inputs.shape[1]), 8)))
+
+    fake_vlm = types.SimpleNamespace(
+        load=lambda *args, **kwargs: (_Model(), _Tok()),
+        generate=lambda *args, **kwargs: SimpleNamespace(text="needle"),
+    )
+    backend = MlxVlmQualityBackend()
+    original_import = __import__("importlib").import_module
+
+    def fake_import(name: str, *args, **kwargs):
+        if name == "mlx_vlm":
+            return fake_vlm
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr("importlib.import_module", fake_import)
+    backend.load_model("/tmp/unused", None)
+    loss, tokens = backend.perplexity_loss("a b c d", 8)
+    assert tokens == 3
+    assert loss >= 0.0
+    assert backend.generate("hello", 8, 0) == "needle"
 
 
 def test_quality_evaluation_scores_tasks_and_perplexity(tmp_path: Path) -> None:

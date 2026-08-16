@@ -213,56 +213,13 @@ def load_public_cert_rows(
             )
         )
 
-    # Dual Tier 1+2 certified packs lead the public matrices. Tier-1-only
-    # (including no-MTP / T2 N/A) and T1-with-uncertified-MTP follow, still
-    # ordered by each record's public_index.sort_order within the group.
+    # Dual Tier 1+2 certified packs lead every public matrix. Do not re-insert
+    # T2-not-certified siblings (MXFP4-MTP, 8-bit-MTP) above that group.
+    # Within a rank, public_index.sort_order still applies.
     rows.sort(key=lambda row: (_matrix_completeness_rank(row), row.sort_order, row.record_id))
     if listed_only:
-        listed = [row for row in rows if row.listed]
-        return _place_qwen38_8bit_mtp(_lead_qwen38_mxfp4_before_4bit(listed))
+        return [row for row in rows if row.listed]
     return rows
-
-
-def _lead_qwen38_mxfp4_before_4bit(rows: list[PublicCertRow]) -> list[PublicCertRow]:
-    """Put Qwen3.8 MXFP4 SKUs immediately before the affine 4-bit row."""
-
-    wanted_ids = ("qwen38-27b-axq-mxfp4", "qwen38-27b-axq-mxfp4-mtp")
-    mxfp4 = [row for row in rows if row.record_id in wanted_ids]
-    if not mxfp4:
-        return rows
-    mxfp4.sort(key=lambda row: wanted_ids.index(row.record_id))
-    rest = [row for row in rows if row.record_id not in wanted_ids]
-    out: list[PublicCertRow] = []
-    inserted = False
-    for row in rest:
-        if not inserted and row.record_id in {"qwen38-27b-axq4-mtp", "qwen38-27b-axq4"}:
-            out.extend(mxfp4)
-            inserted = True
-        out.append(row)
-    if not inserted:
-        out = mxfp4 + rest
-    return out
-
-
-def _place_qwen38_8bit_mtp(rows: list[PublicCertRow]) -> list[PublicCertRow]:
-    """Keep the 8-bit MTP sibling immediately after the no-MTP 8-bit row."""
-
-    extra = [row for row in rows if row.record_id == "qwen38-27b-axq8-mtp"]
-    if not extra:
-        return rows
-    rest = [row for row in rows if row.record_id != "qwen38-27b-axq8-mtp"]
-    if not any(row.record_id == "qwen38-27b-axq8" for row in rest):
-        return rows
-    out: list[PublicCertRow] = []
-    inserted = False
-    for row in rest:
-        out.append(row)
-        if row.record_id == "qwen38-27b-axq8":
-            out.extend(extra)
-            inserted = True
-    if not inserted:
-        out.extend(extra)
-    return out
 
 
 def _matrix_completeness_rank(row: PublicCertRow) -> int:

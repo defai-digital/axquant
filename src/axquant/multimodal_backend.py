@@ -152,6 +152,7 @@ def _convert_deepseek_ocr2(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
+    q_mode: str = "affine",
 ) -> None:
     """Convert DeepSeek-OCR-2 without Hugging Face AutoProcessor remote-code.
 
@@ -181,7 +182,7 @@ def _convert_deepseek_ocr2(
             config,
             plan.group_size,
             default_bits,
-            mode="affine",
+            mode=q_mode,
             quant_predicate=predicate,
         )
         # MoEGate routers are not Linear modules; quantize_model skips them.
@@ -211,6 +212,7 @@ def _convert_muse_glimmer(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
+    q_mode: str = "affine",
 ) -> None:
     """Convert Muse-Glimmer via MLX-VLM using MuseGlimmerProcessor directly."""
     import glob
@@ -235,7 +237,7 @@ def _convert_muse_glimmer(
             config,
             plan.group_size,
             default_bits,
-            mode="affine",
+            mode=q_mode,
             quant_predicate=predicate,
         )
         _visit_modules(model, predicate, backend="MLX-VLM")
@@ -261,12 +263,13 @@ def _convert_vlm(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
+    q_mode: str = "affine",
 ) -> None:
     if plan.architecture_profile.adapter_id == "deepseek-ocr2-v1":
-        _convert_deepseek_ocr2(source, destination, plan, predicate, default_bits)
+        _convert_deepseek_ocr2(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         return
     if plan.architecture_profile.adapter_id == "muse-glimmer-v1":
-        _convert_muse_glimmer(source, destination, plan, predicate, default_bits)
+        _convert_muse_glimmer(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         return
     vlm_convert = _import("mlx_vlm.convert", extra="mlx-vlm")
     vlm_convert.convert(
@@ -275,7 +278,7 @@ def _convert_vlm(
         quantize=True,
         q_group_size=plan.group_size,
         q_bits=default_bits,
-        q_mode="affine",
+        q_mode=q_mode,
         quant_method="rtn",
         quant_predicate=predicate,
     )
@@ -287,13 +290,14 @@ def convert_multimodal(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
+    q_mode: str = "affine",
 ) -> None:
     backend = conversion_backend(plan)
     try:
         if backend == "mlx-audio":
             _convert_audio(source, destination, plan, predicate, default_bits)
         elif backend == "mlx-vlm":
-            _convert_vlm(source, destination, plan, predicate, default_bits)
+            _convert_vlm(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         else:
             raise PlanningError("multimodal conversion called for the MLX-LM backend")
     except (ArtifactError, BackendUnavailableError, PlanningError):

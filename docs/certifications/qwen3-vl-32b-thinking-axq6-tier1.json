@@ -1,0 +1,105 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-15T23:56:47.742490+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit",
+    "hub_commit": "3af7b5c53855a04c534fbaaed9989d3cf6f2c86f",
+    "product_class": "6bit",
+    "architecture": "qwen3_vl",
+    "source_model_id": "Qwen/Qwen3-VL-32B-Thinking",
+    "source_revision": "7edd10ffd1196091948fb245ff63e406ccb2d4d1",
+    "candidate_manifest_sha256": "611d019ecc216560b7721fa5226350fcc9aab1ec94fc97b93ba63426a25d9306"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "plan-manual",
+    "recipe": "examples/qwen3-vl-32b-thinking-axq6-v0.1.yaml",
+    "adapter_id": "qwen3-vl-v1",
+    "target_class": "6bit",
+    "measured_main_bpw": 6.937967049939163,
+    "measured_total_bpw": 6.937967049939163
+  },
+  "size": {
+    "candidate_weight_bytes": 28929059142,
+    "candidate_measured_bpw": 6.937967049939163,
+    "pass": true,
+    "notes": "Language trunk quantized; vision BF16-protected."
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.0,
+      "reference_score": 0.0,
+      "retention": null,
+      "perplexity_ratio": 1.0058094929572923,
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "samples": 15,
+      "reference_kind": "bf16-same-pin"
+    },
+    "general": {
+      "candidate_score": 0.4045977011494253,
+      "reference_score": 0.4045977011494253,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0306489776804526,
+      "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "samples": 15,
+      "reference_kind": "bf16-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Qwen3-VL-32B-Thinking has no MTP sidecar."
+  },
+  "runtime": {
+    "mlx_vlm": {
+      "status": "pass",
+      "notes": "load_model modules=1261 in 0.9716250896453857s"
+    },
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor on df-macstudio-m2 (host-level)"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint Tier 1 attempt on df-macstudio-m2.",
+    "Quality vs same-pin BF16 through the mlx-vlm qwen3_vl backend.",
+    "Not certified: agent-coding scored 0/0 (max_tokens=64 is all thinking-trace on this SKU; retention undefined).",
+    "General retention 1.0 vs BF16. Perplexity ratio ~1.006 / 1.031.",
+    "Vision remains BF16-protected; VLM quality not claimed.",
+    "No MTP / no Tier 2 claim."
+  ],
+  "public_index": {
+    "display_name": "Qwen3-VL-32B-Thinking MLX AXQ 6-bit",
+    "sort_order": 242,
+    "edition_label": "main@`3af7b5c5`",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision tower BF16-protected; VL quality not certified",
+      "runtime": "mlx-vlm",
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

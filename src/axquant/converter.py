@@ -1694,6 +1694,7 @@ def convert_model(
                     plan,
                     predicate,
                     default_quantized_bits,
+                    q_mode=q_mode,
                 )
         except Exception as exc:
             raise ArtifactError(f"{backend} conversion failed: {exc}") from exc

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 FACTORY_HOST_ID = "df-macstudio-m2"
+FACTORY_HOST_ALIASES = frozenset({"df-macstudio-m2", "devopsmacstudio"})
 FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
 FACTORY_MODELS = "/Volumes/Ext12T/models"
 FACTORY_CERT_ROOT = "/Volumes/Ext12T/axquant-certification"
@@ -22,9 +23,10 @@ def normalize_host_id(hostname: str) -> str:
 def require_factory_host(observed_hostname: str, *, host_id: str = FACTORY_HOST_ID) -> str:
     """Fail closed unless *observed_hostname* is the factory convert/cert host."""
     observed = normalize_host_id(observed_hostname)
-    if observed != host_id:
+    allowed = FACTORY_HOST_ALIASES if host_id == FACTORY_HOST_ID else {host_id}
+    if observed not in allowed:
         raise FactoryHostError(f"factory convert/cert must run on {host_id}; observed {observed}")
-    return observed
+    return host_id
 
 
 def is_historical_cert_host(host_id: str) -> bool:

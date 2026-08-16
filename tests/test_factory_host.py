@@ -32,6 +32,7 @@ def test_factory_disk_defaults_are_ext12t() -> None:
 def test_require_factory_host_accepts_studio_fqdn() -> None:
     assert require_factory_host("df-macstudio-m2") == "df-macstudio-m2"
     assert require_factory_host("df-macstudio-m2.defai.digital") == FACTORY_HOST_ID
+    assert require_factory_host("devopsmacstudio.defai.digital") == FACTORY_HOST_ID
 
 
 def test_require_factory_host_rejects_other_machines() -> None:

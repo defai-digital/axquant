@@ -215,6 +215,49 @@ def test_registry_resolves_qwen3_vl_and_protects_vision_tower() -> None:
     )
 
 
+def test_registry_resolves_qwen3_vl_embedding_8b() -> None:
+    config = {
+        "model_type": "qwen3_vl",
+        "architectures": ["Qwen3VLForConditionalGeneration"],
+        "text_config": {"num_hidden_layers": 36, "hidden_size": 4096},
+        "vision_config": {"depth": 27},
+    }
+    for reference in (
+        "Qwen/Qwen3-VL-Embedding-8B",
+        "Qwen3-VL-Embedding-8B",
+        "/Volumes/Ext12T/models/Qwen3-VL-Embedding-8B",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "qwen3-vl-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.text_layer_count == 36
+        assert profile.vision_present is True
+
+
+def test_registry_resolves_qwen3_vl_32b_thinking() -> None:
+    config = {
+        "model_type": "qwen3_vl",
+        "architectures": ["Qwen3VLForConditionalGeneration"],
+        "text_config": {"num_hidden_layers": 64, "hidden_size": 5120},
+        "vision_config": {"depth": 27},
+    }
+    for reference in (
+        "Qwen/Qwen3-VL-32B-Thinking",
+        "Qwen3-VL-32B-Thinking",
+        "/Volumes/Ext12T/models/Qwen3-VL-32B-Thinking",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "qwen3-vl-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.text_layer_count == 64
+        assert profile.vision_present is True
+        assert profile.dense is True
+
+
 def test_registry_resolves_qwen3_vl_moe_30b_instruct() -> None:
     config = {
         "model_type": "qwen3_vl_moe",

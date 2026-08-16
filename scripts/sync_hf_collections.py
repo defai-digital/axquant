@@ -202,10 +202,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3-VL",
-        description="Qwen3-VL Instruct AXQ: certified 30B-A3B plus 8B development packs.",
+        description="Qwen3-VL Instruct AXQ: certified 30B-A3B plus 8B and 32B-Thinking packs.",
         items=(
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
         ),
@@ -382,6 +384,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Coder-Next-MLX-4bit", NOTE_UNIFORM),
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),

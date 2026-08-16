@@ -310,12 +310,16 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         adapter_id="qwen3-vl-v1",
         product_family="qwen3-vl",
         model_types=("qwen3_vl",),
-        reference_pattern=(r"(?:^|[/_.-])qwen[._-]?3[._-]vl[._-]8b[._-]instruct(?:$|[/_.-])"),
+        reference_pattern=(
+            r"(?:^|[/_.-])qwen[._-]?3[._-]vl[._-]"
+            r"(8b[._-]instruct|embedding[._-]8b|32b[._-]thinking)(?:$|[/_.-])"
+        ),
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=(
-            "The promoted Qwen3-VL 8B Instruct language decoder converts through MLX-VLM.",
+            "Qwen3-VL 8B Instruct, Embedding-8B, and 32B-Thinking convert through MLX-VLM.",
             "The complete vision tower remains protected at BF16.",
+            "Embedding SKUs are retrieval checkpoints — do not claim generative or MTP metrics.",
         ),
     ),
     DenseFamilySpec(

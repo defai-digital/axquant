@@ -242,7 +242,6 @@ The tables are generated from certificate JSON
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen3.8-27B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
 | Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
 | Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
@@ -258,6 +257,7 @@ The tables are generated from certificate JSON
 | GPT-OSS 20B MLX AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
 | GPT-OSS 20B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
 | GPT-OSS 120B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
+| Qwen3.8-27B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B MLX AXQ 8-bit MTP | [Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash MLX AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash MLX AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
@@ -591,6 +591,8 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit) | 7.999975 | MLX-VLM; protected BF16 vision tower |
 | [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | 4.860055 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
 | [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | 6.000054 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
+| [`AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit) | 6.937967 | **Not certified** ([eval](docs/certifications/qwen3-vl-32b-thinking-axq6-tier1.md)); dense `qwen3_vl` Thinking; language 6-bit, vision BF16; agent-coding 0/0 at 64 tokens (think-trace) |
+| [`AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4) | 4.833093 | **Not certified** ([eval](docs/certifications/qwen3-vl-32b-thinking-axq-mxfp4-tier1.md)); same pin; language MXFP4, vision BF16 |
 | [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path; only published budget (near floor-collapse; no 4bit sibling) |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
 | [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | 5.999912 | Mistral3 language path |

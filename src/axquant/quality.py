@@ -143,6 +143,143 @@ class MlxQualityBackend:
         )
 
 
+_MLX_VLM_QUALITY_MODEL_TYPES = frozenset({"muse_glimmer", "qwen3_vl"})
+
+
+def _config_model_type(model: str) -> str | None:
+    path = Path(model)
+    config_path = path / "config.json" if path.is_dir() else None
+    if config_path is None or not config_path.is_file():
+        return None
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("model_type")
+    return raw if isinstance(raw, str) else None
+
+
+def select_quality_backend(model: ModelIdentity | str) -> QualityBackend:
+    """Pick mlx-lm or mlx-vlm from the checkpoint ``model_type``."""
+
+    if isinstance(model, ModelIdentity):
+        local = model.local_path or model.model_id
+        identity = f"{model.model_id} {model.local_path or ''}"
+    else:
+        local = model
+        identity = model
+    model_type = _config_model_type(local)
+    lowered = identity.casefold()
+    if (
+        model_type in _MLX_VLM_QUALITY_MODEL_TYPES
+        or "muse-glimmer" in lowered
+        or ("qwen3-vl" in lowered and "embedding" not in lowered)
+    ):
+        return MlxVlmQualityBackend()
+    return MlxQualityBackend()
+
+
+class MlxVlmQualityBackend:
+    """Text quality via public MLX-VLM generate/forward (Muse Glimmer)."""
+
+    def __init__(self) -> None:
+        self._model: Any = None
+        self._processor: Any = None
+        self._tokenizer: Any = None
+        self._mx: Any = None
+        self._mlx_vlm: Any = None
+        self._prompt_format = "raw"
+        self._chat_template_sha256: str | None = None
+
+    def load_model(self, model: str, revision: str | None) -> None:
+        self._prompt_format = "raw"
+        self._chat_template_sha256 = None
+        try:
+            import importlib
+            import os
+
+            self._mx = importlib.import_module("mlx.core")
+            self._mlx_vlm = importlib.import_module("mlx_vlm")
+        except ImportError as exc:
+            raise BackendUnavailableError(
+                f"muse_glimmer quality evaluation requires mlx and mlx-vlm: {exc}"
+            ) from exc
+        force_cpu = os.environ.get("AXQUANT_FORCE_CPU", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        } or os.environ.get("MLX_FORCE_CPU", "").strip().lower() in {"1", "true", "yes"}
+        if force_cpu:
+            self._mx.set_default_device(self._mx.cpu)
+        loaded = self._mlx_vlm.load(model, revision=revision, lazy=False)
+        self._model, self._processor = loaded[:2]
+        self._tokenizer = getattr(self._processor, "tokenizer", self._processor)
+        self._mx.eval(self._model.parameters())
+        template = getattr(self._tokenizer, "chat_template", None)
+        if isinstance(template, str) and template:
+            self._prompt_format = "chat-template"
+            self._chat_template_sha256 = hashlib.sha256(template.encode("utf-8")).hexdigest()
+
+    def generation_metadata(self) -> tuple[str, str | None]:
+        return self._prompt_format, self._chat_template_sha256
+
+    def count_tokens(self, text: str) -> int:
+        if self._tokenizer is None:
+            raise BenchmarkError("quality tokenizer is not loaded")
+        return len(self._tokenizer.encode(text, add_special_tokens=False))
+
+    def perplexity_loss(self, text: str, max_length: int) -> tuple[float, int]:
+        if self._model is None or self._tokenizer is None:
+            raise BenchmarkError("quality model is not loaded")
+        try:
+            import mlx.nn as nn
+        except ImportError:
+            raise BackendUnavailableError("quality evaluation requires mlx") from None
+        token_ids = [
+            int(token)
+            for token in self._tokenizer.encode(text, add_special_tokens=True)[:max_length]
+        ]
+        if len(token_ids) < 2:
+            return 0.0, 0
+        inputs = self._mx.array([token_ids[:-1]])
+        targets = self._mx.array([token_ids[1:]])
+        output = self._model(inputs)
+        logits = output.logits if hasattr(output, "logits") else output
+        losses = nn.losses.cross_entropy(logits, targets, reduction="none")
+        total = self._mx.sum(losses)
+        self._mx.eval(total)
+        return float(total.item()), len(token_ids) - 1
+
+    def generate(self, prompt: str, max_tokens: int, random_seed: int) -> str:
+        if self._model is None or self._processor is None:
+            raise BenchmarkError("quality model is not loaded")
+        rendered_prompt = prompt
+        if self._prompt_format == "chat-template" and hasattr(
+            self._tokenizer, "apply_chat_template"
+        ):
+            rendered_prompt = str(
+                self._tokenizer.apply_chat_template(
+                    [{"role": "user", "content": prompt}],
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            )
+        self._mx.random.seed(random_seed)
+        result = self._mlx_vlm.generate(
+            self._model,
+            self._processor,
+            rendered_prompt,
+            image=None,
+            verbose=False,
+            max_tokens=max_tokens,
+            temp=0.0,
+        )
+        text = getattr(result, "text", result)
+        return str(text)
+
+
 def load_quality_tasks(dataset_path: str | Path) -> list[QualityTask]:
     dataset = Path(dataset_path).expanduser().resolve()
     tasks: list[QualityTask] = []
@@ -280,7 +417,7 @@ def evaluate_quality(
         if max_samples < 1:
             raise BenchmarkError("max_samples must be at least one")
         tasks = tasks[:max_samples]
-    active_backend = backend or MlxQualityBackend()
+    active_backend = backend or select_quality_backend(model)
     active_backend.load_model(model.local_path or model.model_id, model.revision)
     prompt_format, chat_template_sha256 = active_backend.generation_metadata()
 

@@ -85,6 +85,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
         "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
         "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit",
+        "AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit",
     }
     # Post-v2 fleet growth: Gemma-4 26B-A4B / 31B Tier 1 packs published after the
     # historical completed-migration table (which still covers the original 12b pair).
@@ -146,8 +147,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | secondary_family_additions
         | qwen_family_additions
     )
-    assert len(readme_repositories) == 55
-    assert len(set(readme_repositories)) == 55
+    assert len(readme_repositories) == 56
+    assert len(set(readme_repositories)) == 56
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -263,6 +264,8 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "qwen38-27b-axq6-mtp-studio" in unlisted_ids
     assert "deepseek-v4-flash-0731-axq2" in unlisted_ids
     assert "deepseek-v4-flash-0731-axq3" in unlisted_ids
+    assert "qwen3-vl-32b-thinking-axq6" in unlisted_ids
+    assert "qwen3-vl-32b-thinking-axq-mxfp4" in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
@@ -337,6 +340,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen38-27b-axq6-mtp-studio",
         "deepseek-v4-flash-0731-axq2",
         "deepseek-v4-flash-0731-axq3",
+        "qwen3-vl-32b-thinking-axq6",
+        "qwen3-vl-32b-thinking-axq-mxfp4",
     ]
     dual = [
         row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"
@@ -394,7 +399,9 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     listed_ids = [row.record_id for row in rows]
     assert "qwen38-27b-axq-mxfp4" not in listed_ids
     assert "qwen38-27b-axq8" not in listed_ids
-    assert listed_ids.index("qwen38-27b-axq-mxfp4-mtp") < listed_ids.index("qwen38-27b-axq4-mtp")
+    # Dual-certified rows lead; T2-not-certified MXFP4-MTP must not float to the top.
+    assert listed_ids.index("qwen38-27b-axq4-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
+    assert listed_ids.index("qwen38-27b-axq6-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
     assert _data_rows(index_body) == [row.display_name for row in rows]
     for row in rows:
         assert f"| {row.display_name} |" in readme_body
