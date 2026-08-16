@@ -154,6 +154,44 @@ def _probe_methods(value: str) -> tuple[QuantMethod, ...]:
     return result
 
 
+def _positive_ints(value: str) -> tuple[int, ...]:
+    parsed: list[int] = []
+    for item in value.split(","):
+        normalized = item.strip()
+        if not normalized:
+            continue
+        try:
+            number = int(normalized)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid integer {item!r}") from exc
+        if number <= 0:
+            raise argparse.ArgumentTypeError(f"value must be positive: {number}")
+        parsed.append(number)
+    result = tuple(parsed)
+    if not result:
+        raise argparse.ArgumentTypeError("at least one positive integer is required")
+    return result
+
+
+def _positive_floats(value: str) -> tuple[float, ...]:
+    parsed: list[float] = []
+    for item in value.split(","):
+        normalized = item.strip()
+        if not normalized:
+            continue
+        try:
+            number = float(normalized)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid number {item!r}") from exc
+        if number <= 0.0:
+            raise argparse.ArgumentTypeError(f"value must be positive: {number}")
+        parsed.append(number)
+    result = tuple(parsed)
+    if not result:
+        raise argparse.ArgumentTypeError("at least one positive number is required")
+    return result
+
+
 def _profile(value: str) -> ProfileName:
     try:
         profile = ProfileName(value)
@@ -544,6 +582,69 @@ def _build_parser() -> argparse.ArgumentParser:
         help="optional measured kernel-latency table; absent preserves abstract-BPW ranking",
     )
     optimize_parser.add_argument("--output", required=True)
+
+    diagnose_joint_parser = subparsers.add_parser(
+        "diagnose-joint",
+        help=(
+            "Beta: measure weight x KV interaction and memory-budget crossover "
+            "(development evidence only; never a certification claim)"
+        ),
+    )
+    diagnose_joint_parser.add_argument("--model", required=True)
+    diagnose_joint_parser.add_argument("--max-memory", type=parse_memory_bytes, required=True)
+    diagnose_joint_parser.add_argument(
+        "--contexts",
+        type=_positive_ints,
+        default=(4096, 32768),
+        help="comma-separated context lengths (default: 4096,32768)",
+    )
+    diagnose_joint_parser.add_argument(
+        "--weight-bpws",
+        type=_positive_floats,
+        default=(4.0, 4.8, 6.0),
+        help="comma-separated weight target BPW grid (default: 4.0,4.8,6.0)",
+    )
+    diagnose_joint_parser.add_argument(
+        "--kv-bits",
+        type=_kv_bits,
+        default=(4, 8, 16),
+        help="comma-separated KV default bit-widths (default: 4,8,16)",
+    )
+    diagnose_joint_parser.add_argument(
+        "--profile",
+        type=_profile,
+        default=ProfileName.GENERAL,
+    )
+    diagnose_joint_parser.add_argument("--inventory")
+    diagnose_joint_parser.add_argument("--sensitivity")
+    diagnose_joint_parser.add_argument("--kv-analysis")
+    diagnose_joint_parser.add_argument("--allow-unmeasured", action="store_true")
+    diagnose_joint_parser.add_argument(
+        "--reserve-memory",
+        type=parse_memory_bytes,
+        default=1_000_000_000,
+        help="explicit runtime reserve included in the hard budget (default: 1GB)",
+    )
+    diagnose_joint_parser.add_argument("--batch-size", type=int, default=1)
+    diagnose_joint_parser.add_argument(
+        "--interaction-threshold",
+        type=float,
+        default=0.02,
+        help="absolute |I(W, KV)| that counts as material (default: 0.02)",
+    )
+    diagnose_joint_parser.add_argument(
+        "--quality-weight-only",
+        help="quality-evaluation.v2 for weight-quantized / KV-BF16",
+    )
+    diagnose_joint_parser.add_argument(
+        "--quality-kv-only",
+        help="quality-evaluation.v2 for BF16 weights / KV-quantized",
+    )
+    diagnose_joint_parser.add_argument(
+        "--quality-joint",
+        help="quality-evaluation.v2 for weight-quantized / KV-quantized",
+    )
+    diagnose_joint_parser.add_argument("--output", required=True)
 
     replay_plan_parser = subparsers.add_parser(
         "plan-replay",

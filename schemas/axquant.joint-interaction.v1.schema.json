@@ -1,0 +1,431 @@
+{
+  "$defs": {
+    "EvidenceKind": {
+      "enum": [
+        "measured",
+        "measured_development",
+        "imported",
+        "architecture_prior"
+      ],
+      "type": "string"
+    },
+    "JointBudgetCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "context_length": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "estimated_main_bpw": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        },
+        "feasible": {
+          "type": "boolean"
+        },
+        "kv_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kv_default_bits": {
+          "type": "integer"
+        },
+        "kv_plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "limit_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "proxy": {
+          "$ref": "#/$defs/JointProxyScores"
+        },
+        "remainder_bytes": {
+          "type": "integer"
+        },
+        "reserve_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target_bpw": {
+          "exclusiveMinimum": 0.0,
+          "maximum": 16.0,
+          "type": "number"
+        },
+        "weight_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target_bpw",
+        "kv_default_bits",
+        "context_length",
+        "weight_bytes",
+        "kv_bytes",
+        "reserve_bytes",
+        "limit_bytes",
+        "remainder_bytes",
+        "feasible",
+        "estimated_main_bpw",
+        "proxy",
+        "plan_sha256",
+        "kv_plan_sha256"
+      ],
+      "type": "object"
+    },
+    "JointContextWinner": {
+      "additionalProperties": false,
+      "properties": {
+        "context_length": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "feasible_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "kv_default_bits": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "proxy_score": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target_bpw": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 16.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "context_length",
+        "feasible_count"
+      ],
+      "type": "object"
+    },
+    "JointCrossoverSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "detected": {
+          "type": "boolean"
+        },
+        "winners": {
+          "items": {
+            "$ref": "#/$defs/JointContextWinner"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "winners",
+        "detected"
+      ],
+      "type": "object"
+    },
+    "JointMeasuredDeltas": {
+      "additionalProperties": false,
+      "properties": {
+        "interaction": {
+          "type": "number"
+        },
+        "joint_delta": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "joint_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "kv_only_delta": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "kv_only_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "material": {
+          "type": "boolean"
+        },
+        "threshold": {
+          "exclusiveMinimum": 0.0,
+          "type": "number"
+        },
+        "weight_only_delta": {
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "weight_only_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "weight_only_delta",
+        "kv_only_delta",
+        "joint_delta",
+        "interaction",
+        "threshold",
+        "material",
+        "weight_only_sha256",
+        "kv_only_sha256",
+        "joint_sha256"
+      ],
+      "type": "object"
+    },
+    "JointProxyScores": {
+      "additionalProperties": false,
+      "properties": {
+        "additive_output_kl": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "kv_output_kl": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "weight_output_kl": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "type": "object"
+    },
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    },
+    "ProfileName": {
+      "enum": [
+        "general",
+        "agent-coding",
+        "agent",
+        "coding",
+        "translation",
+        "reasoning",
+        "long-context",
+        "cjk",
+        "rag",
+        "ocr",
+        "vlm"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "batch_size": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/JointBudgetCandidate"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "certification_eligible": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "contexts": {
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "crossover": {
+      "$ref": "#/$defs/JointCrossoverSummary"
+    },
+    "evidence_kind": {
+      "$ref": "#/$defs/EvidenceKind"
+    },
+    "experimental": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "interaction": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/JointMeasuredDeltas"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "kv_default_bits": {
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "limit_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "model": {
+      "$ref": "#/$defs/ModelIdentity"
+    },
+    "notes": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "profile": {
+      "$ref": "#/$defs/ProfileName"
+    },
+    "reserve_bytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axquant.joint-interaction.v1",
+      "default": "axquant.joint-interaction.v1",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "insufficient-measured-interaction",
+        "interaction-small",
+        "interaction-material"
+      ],
+      "type": "string"
+    },
+    "weight_bpws": {
+      "items": {
+        "type": "number"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "evidence_kind",
+    "profile",
+    "model",
+    "limit_bytes",
+    "reserve_bytes",
+    "batch_size",
+    "weight_bpws",
+    "kv_default_bits",
+    "contexts",
+    "candidates",
+    "crossover",
+    "verdict"
+  ],
+  "type": "object"
+}

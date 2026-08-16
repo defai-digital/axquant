@@ -16,6 +16,11 @@ checkpoint that still behaves well.
 **Current release:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
 (PyPI `axquant==1.8.1`).
 
+**Experimental line:** `1.9.0b1` adds `diagnose-joint` (weight×KV interaction
+and memory-budget crossover). It is not a certification release; the install
+pins below stay on 1.8.1. See
+[docs/experimental-joint-interaction.md](docs/experimental-joint-interaction.md).
+
 Install from PyPI, then convert. You do not need to clone this repository.
 
 ## Install
@@ -955,6 +960,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
 | `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
 | `optimize` | Plan weights and optional KV cache under one explicit memory budget and runtime reserve | Implemented; architecture-prior inputs remain estimates |
+| `diagnose-joint` | Beta: measure weight×KV interaction \(I(W,KV)\) and memory-budget crossover across context lengths | Experimental in `1.9.0b1`; development evidence only; never a certification claim |
 | `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |

@@ -73,6 +73,7 @@ Policy: [schema governance](schema-governance.md).
 | `axquant.hardware-registry-request.v3` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.HardwareRegistryRequest` | [`axquant.hardware-registry-request.v3.schema.json`](../schemas/axquant.hardware-registry-request.v3.schema.json) |
 | `axquant.hardware-registry.v3` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.HardwareProfileRegistry` | [`axquant.hardware-registry.v3.schema.json`](../schemas/axquant.hardware-registry.v3.schema.json) |
 | `axquant.inventory.v1` | `evidence` | `immutable-envelope` | `axquant.schema.inventory.Inventory` | [`axquant.inventory.v1.schema.json`](../schemas/axquant.inventory.v1.schema.json) |
+| `axquant.joint-interaction.v1` | `evidence` | `immutable-envelope` | `axquant.schema.joint.JointInteractionReport` | [`axquant.joint-interaction.v1.schema.json`](../schemas/axquant.joint-interaction.v1.schema.json) |
 | `axquant.kernel-latency.v1` | `evidence` | `immutable-envelope` | `axquant.schema.kernel_latency.KernelLatencyTable` | [`axquant.kernel-latency.v1.schema.json`](../schemas/axquant.kernel-latency.v1.schema.json) |
 | `axquant.kv-plan.v1` | `evidence` | `immutable-envelope` | `axquant.schema.planning.KvCachePlan` | [`axquant.kv-plan.v1.schema.json`](../schemas/axquant.kv-plan.v1.schema.json) |
 | `axquant.kv-sensitivity.v1` | `evidence` | `immutable-envelope` | `axquant.schema.planning.KvSensitivityReport` | [`axquant.kv-sensitivity.v1.schema.json`](../schemas/axquant.kv-sensitivity.v1.schema.json) |

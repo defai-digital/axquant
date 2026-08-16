@@ -24,6 +24,7 @@ from axquant.errors import ArtifactError, AxquantError, PlanningError
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model, resolve_model_dir
+from axquant.joint import diagnose_joint_interaction
 from axquant.logging import configure_logging
 from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
@@ -722,6 +723,36 @@ def _run(args: argparse.Namespace) -> int:
             feasible=deployment.feasible,
             remainder_bytes=deployment.remainder_bytes,
             evidence=deployment.evidence_kind,
+        )
+        return 0
+
+    if args.command == "diagnose-joint":
+        report = diagnose_joint_interaction(
+            model_dir=args.model,
+            max_memory_bytes=args.max_memory,
+            contexts=args.contexts,
+            weight_bpws=args.weight_bpws,
+            kv_bits=args.kv_bits,
+            profile=args.profile,
+            output_dir=args.output,
+            inventory_path=args.inventory,
+            sensitivity_path=args.sensitivity,
+            kv_analysis_path=args.kv_analysis,
+            allow_unmeasured=args.allow_unmeasured,
+            reserve_bytes=args.reserve_memory,
+            batch_size=args.batch_size,
+            interaction_threshold=args.interaction_threshold,
+            quality_weight_only_path=args.quality_weight_only,
+            quality_kv_only_path=args.quality_kv_only,
+            quality_joint_path=args.quality_joint,
+        )
+        log.info(
+            "joint_interaction_diagnosed",
+            output=str(args.output),
+            verdict=report.verdict,
+            crossover=report.crossover.detected,
+            evidence=report.evidence_kind.value,
+            certification_eligible=report.certification_eligible,
         )
         return 0
 

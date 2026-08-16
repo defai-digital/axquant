@@ -237,6 +237,14 @@ from axquant.schema.inventory import (
     SourceConversionProvenance,
     TensorSpec,
 )
+from axquant.schema.joint import (
+    JointBudgetCandidate,
+    JointContextWinner,
+    JointCrossoverSummary,
+    JointInteractionReport,
+    JointMeasuredDeltas,
+    JointProxyScores,
+)
 from axquant.schema.kernel_latency import (
     KernelLatencyEntry,
     KernelLatencyTable,
@@ -445,6 +453,12 @@ __all__ = [
     "IndependentReviewRecord",
     "IntegrityMetrics",
     "Inventory",
+    "JointBudgetCandidate",
+    "JointContextWinner",
+    "JointCrossoverSummary",
+    "JointInteractionReport",
+    "JointMeasuredDeltas",
+    "JointProxyScores",
     "KernelLatencyEntry",
     "KernelLatencyTable",
     "KvCachePlan",
