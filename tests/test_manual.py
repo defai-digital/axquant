@@ -3,15 +3,21 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from axquant.cli import main
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
 from axquant.manual import manual_quantization_plan
 from axquant.schema import (
+    ArchitectureProfile,
+    ArchitectureSupportLevel,
     EvidenceKind,
+    Inventory,
     ManualPlanRecipe,
     ManualPrecisionRule,
+    ModelIdentity,
+    OptimizationScope,
     ProfileName,
     QuantizationPlan,
     QuantMethod,
@@ -76,6 +82,130 @@ def test_manual_plan_applies_rules_and_mandatory_protection(
     assert plan.evidence_kind == EvidenceKind.ARCHITECTURE_PRIOR
     assert plan.global_validation_required is True
     assert plan.candidate_bits == (4, 6, 16)
+
+
+def test_deepseek_v4_mixed_2bit_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-mixed-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 2
+    ids = [rule.rule_id for rule in recipe.rules]
+    assert ids.index("shared-experts-4bit") < ids.index("trunk-experimental-2bit")
+    assert ids.index("expert-down-3bit") < ids.index("trunk-experimental-2bit")
+    assert any(rule.bits == 3 for rule in recipe.rules)
+    assert any(rule.module_glob and "shared_experts" in rule.module_glob for rule in recipe.rules)
+
+
+def test_deepseek_v4_4bit_affine_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / "examples/deepseek-v4-experimental-4bit-v0.1.yaml"
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 4
+    assert recipe.default_method == QuantMethod.AFFINE
+    assert any(rule.rule_id == "trunk-4bit" and rule.bits == 4 for rule in recipe.rules)
+
+
+def test_deepseek_v4_4bit_g128_dwq_recipe_clips_attention_not_fused_trunk() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-4bit-g128-dwq-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_method == QuantMethod.DWQ
+    assert recipe.group_size == 128
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-6bit-dwq")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-4bit-affine")
+    assert attention.bits == 6 and attention.method == QuantMethod.DWQ
+    assert trunk.bits == 4 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+
+
+def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.group_size == 128
+    assert recipe.default_bits == 4
+    assert all(
+        rule.group_size in (None, 128) or rule.bits == 16 for rule in recipe.rules
+    )
+
+
+def test_deepseek_v4_4bit_dwq_recipe_assigns_dwq_to_fused_experts() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-4bit-dwq-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_method == QuantMethod.DWQ
+    assert recipe.default_bits == 4
+    tensors = [
+        TensorSpec(
+            name="layers.0.ffn.experts.0.w1.weight",
+            module_path="layers.0.ffn.experts.0.w1",
+            shape=(64, 64),
+            dtype="BF16",
+            parameters=4096,
+            role=TensorRole.EXPERT,
+            quantizable=True,
+            file="model.safetensors",
+            current_precision="bf16",
+        ),
+        TensorSpec(
+            name="layers.0.ffn.experts.1.w1.weight",
+            module_path="layers.0.ffn.experts.1.w1",
+            shape=(64, 64),
+            dtype="BF16",
+            parameters=4096,
+            role=TensorRole.EXPERT,
+            quantizable=True,
+            file="model.safetensors",
+            current_precision="bf16",
+        ),
+        TensorSpec(
+            name="layers.0.attn.q_proj.weight",
+            module_path="layers.0.attn.q_proj",
+            shape=(64, 64),
+            dtype="BF16",
+            parameters=4096,
+            role=TensorRole.ATTENTION,
+            quantizable=True,
+            file="model.safetensors",
+            current_precision="bf16",
+        ),
+        TensorSpec(
+            name="lm_head.weight",
+            module_path="lm_head",
+            shape=(16, 16),
+            dtype="BF16",
+            parameters=256,
+            role=TensorRole.LM_HEAD,
+            quantizable=True,
+            file="model.safetensors",
+            current_precision="bf16",
+        ),
+    ]
+    inventory = Inventory(
+        model=ModelIdentity(model_id="org/flash-dwq", revision="a" * 40),
+        tensors=tensors,
+        total_parameters=sum(tensor.parameters for tensor in tensors),
+        quantizable_parameters=sum(tensor.parameters for tensor in tensors),
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+        architecture_profile=ArchitectureProfile(
+            support_level=ArchitectureSupportLevel.SUPPORTED,
+            product_family="deepseek-v4",
+            optimization_scope=OptimizationScope.TEXT_PATH,
+            adapter_id="generic",
+        ),
+    )
+    plan = manual_quantization_plan(inventory, recipe)
+    by_role = {item.role: item for item in plan.assignments}
+    experts = [item for item in plan.assignments if item.role == TensorRole.EXPERT]
+    assert experts and all(item.method == QuantMethod.DWQ and item.bits == 4 for item in experts)
+    assert by_role[TensorRole.ATTENTION].method == QuantMethod.DWQ
+    assert by_role[TensorRole.LM_HEAD].bits == 16
 
 
 def test_manual_plan_rejects_unmatched_and_unsafe_rules(
@@ -272,29 +402,47 @@ def _expert_tensor(name: str, module_path: str) -> TensorSpec:
 
 
 @pytest.mark.parametrize(
-    ("module_path", "method"),
+    "module_path",
     [
-        ("model.layers.0.mlp.experts.0.gate_proj", QuantMethod.AWQ),
-        ("model.layers.0.mlp.experts.gate_up_proj", QuantMethod.DWQ),
+        "model.layers.0.mlp.experts.0.gate_proj",
+        "model.layers.0.mlp.experts.gate_up_proj",
     ],
 )
-def test_manual_rejects_non_affine_method_on_fused_and_packed_experts(
+def test_manual_rejects_awq_on_fused_and_packed_experts(
     qwen36_model_dir: Path,
     module_path: str,
-    method: QuantMethod,
 ) -> None:
     inventory = _inventory(qwen36_model_dir)
     inventory.tensors.append(_expert_tensor(f"{module_path}.weight", module_path))
     rule = ManualPrecisionRule(
         rule_id="expert-refinement",
         bits=4,
-        method=method,
+        method=QuantMethod.AWQ,
         module_glob=f"*{module_path.removeprefix('model.')}",
         group_size=64,
         reason="unexecutable refinement on a fused/packed expert module",
     )
-    with pytest.raises(PlanningError, match="affine"):
+    with pytest.raises(PlanningError, match="affine or dwq"):
         manual_quantization_plan(inventory, _recipe(rules=[rule]))
+
+
+def test_manual_accepts_dwq_on_fused_experts(qwen36_model_dir: Path) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    for index in range(2):
+        module_path = f"model.layers.0.mlp.experts.{index}.gate_proj"
+        inventory.tensors.append(_expert_tensor(f"{module_path}.weight", module_path))
+    rule = ManualPrecisionRule(
+        rule_id="expert-dwq",
+        bits=4,
+        method=QuantMethod.DWQ,
+        module_glob="*experts.*.gate_proj",
+        group_size=64,
+        reason="DWQ clip then affine pack is executable on a fused switch",
+    )
+    plan = manual_quantization_plan(inventory, _recipe(rules=[rule]))
+    experts = [item for item in plan.assignments if item.role == TensorRole.EXPERT]
+    assert experts
+    assert all(item.method == QuantMethod.DWQ and item.bits == 4 for item in experts)
 
 
 def test_manual_rejects_mixed_precisions_within_fused_expert_group(

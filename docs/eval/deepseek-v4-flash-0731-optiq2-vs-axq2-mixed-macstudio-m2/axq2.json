@@ -1,0 +1,379 @@
+{
+  "key": "axq2",
+  "label": "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)",
+  "hub": "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
+  "commit": "1.9.0",
+  "runtime": "mlx-lm-resident",
+  "path": "/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-mixed",
+  "host_id": "df-macstudio-m2",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "seed": 20260728,
+  "max_tokens_qa": 64,
+  "load_seconds": 84.41144258400163,
+  "quality": {
+    "agent-coding": {
+      "n": 15,
+      "mean_score": 0.2,
+      "pass_rate": 0.0,
+      "passed": 0,
+      "seconds": 40.985438458003046,
+      "tasks": [
+        {
+          "task_id": "coding-001",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should be named fizzbuzz and should not use any external libraries. The function should be tested with the following cases: fizzbuzz(3) -> 'fizz', fizzbuzz(5) -> 'buzz', fizzbuzz(15) -> 'fizzbuzz",
+          "error": null
+        },
+        {
+          "task_id": "coding-002",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should use an iterative approach and handle n <= 0 by returning 0. The function should be efficient for n up to at least 1000. The function should be named fibonacci and should take a single integer argument n. The function should return an integer. The function should be implemented without using any external",
+          "error": null
+        },
+        {
+          "task_id": "coding-003",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "For example, \"racecar\" should return True and \"Racecar\" should also return True.\n</p>\n<p>Here's my solution:</p>\n<pre><code class=\"language-python\">def is_palindrome(s):\n    return s == s[::-1]\n</code></pre>\n<p>",
+          "error": null
+        },
+        {
+          "task_id": "coding-004",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The list is sorted in ascending order. Use binary search for efficiency. Do not use built-in functions like list.index().\\n\\n### What information does the function signature have that you are ignoring?\\nThe function signature binary_search(sorted_list, target) does not include the list length. The problem statement says to return",
+          "error": null
+        },
+        {
+          "task_id": "coding-005",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "\n\nThe bug is that it initializes best to 0, so if the list contains only negative numbers, it will return 0 instead of the maximum negative number. Rewrite the function to initialize best to the first element of the list instead.\n\ndef find_max(numbers):\n    best = numbers[0]\n    for",
+          "error": null
+        },
+        {
+          "task_id": "coding-006",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Ensure that the withdraw method only allows withdrawing funds up to the available balance; if overdrawn, raise an ValueError. Include a string representation method. Write test cases that create an instance of BankAccount, deposit and withdraw amounts, and check the final balance. Ensure the test cases cover edge cases like withdrawing more than the balance",
+          "error": null
+        },
+        {
+          "task_id": "coding-007",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should handle empty strings and strings with spaces. The input is a string, and the output is the reversed string. For example, reverse_string(\"hello\") should return \"olleh\". The function should be named reverse_string and should take a single argument. Ensure proper handling of edge cases like empty strings and strings",
+          "error": null
+        },
+        {
+          "task_id": "coding-008",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The function should count vowels case-insensitively. For example, count_vowels(\"Hello\") should return 2. The function should handle empty strings and strings with no vowels correctly. The function signature is: def count_vowels(s: str) -> int:.\n</p>\",\n    \"response\": \"def",
+          "error": null
+        },
+        {
+          "task_id": "coding-009",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Do not use any external libraries.\n# - Input: [[1,2],[3,4],[5,6,7]]\n# Output: [1,2,3,4,5,6,7]\n# - Input: [[1,2],[3,4],[5,6,7]]\n#",
+          "error": null
+        },
+        {
+          "task_id": "coding-010",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should handle both integers and strings, and case-sensitive for strings. The input list will not be empty. The function should not use any built-in functions that directly remove duplicates (e.g., set() or dict.fromkeys()). The function should be named remove_duplicates and take a list as argument.\n</",
+          "error": null
+        },
+        {
+          "task_id": "coding-011",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The factorial of 0 is 1. The function should return the factorial value (e.g., factorial(5) = 120). Ensure proper error handling for invalid inputs (negative numbers or non-integers) by raising a ValueError.\" \n            }, \n            \"response\": { \n                \"role\": \"",
+          "error": null
+        },
+        {
+          "task_id": "coding-012",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The function should return the converted temperature in Fahrenheit. The input temperature is a float. The output should also be a float. The function should handle the case where the input is a string by returning the string \"Invalid input\".</instruction>',\n    'response': 'def celsius_to_fahrenheit(celsius):\\n",
+          "error": null
+        },
+        {
+          "task_id": "coding-013",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "Then create an instance of Rectangle with width=5 and height=3 and print its area.\n</p>\n<p>\nDefine a Python class named Rectangle with width and height attributes and an area method that returns width multiplied by height. Then create an instance of Rectangle with width=5 and height=3 and print its area",
+          "error": null
+        },
+        {
+          "task_id": "coding-014",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should not use math.gcd. The function should return the gcd as its result. In addition, since the problem asks for the gcd as an integer, it is not necessary to code it in a class. The function should be named gcd and it should be in a file named solution.py. The function should",
+          "error": null
+        },
+        {
+          "task_id": "coding-015",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The function should handle edge cases and be efficient for numbers up to 10^6. Include a brief explanation of your approach.\n### Response:\n```python\ndef is_prime(n):\n    \"\"\"Return True if n is prime, False otherwise.\"\"\"\n    if n < 2:\n        return False\n    if n ==",
+          "error": null
+        }
+      ]
+    },
+    "general": {
+      "n": 15,
+      "mean_score": 0.4,
+      "pass_rate": 0.4,
+      "passed": 6,
+      "seconds": 36.25035383399518,
+      "tasks": [
+        {
+          "task_id": "instruction-001",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\",\n    \"response\": \"The quick brown fox jumped over the lazy dog, who did not react, and then ran into the forest.\"\n}]\n```\n\nThis is a good example of how to use the `summarize` function. The response is a single sentence that summarizes the input text. The response is in",
+          "error": null
+        },
+        {
+          "task_id": "instruction-002",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "The translation should be accurate, natural, and idiomatic. Use the most common form used by native speakers in everyday conversation. The translation should be faithful to the original meaning, and should read as a coherent and natural sentence in the target language, avoiding phrases that do not conform to natural usage or sound overly literal. If",
+          "error": null
+        },
+        {
+          "task_id": "instruction-003",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "regex:0": 0.0
+          },
+          "output": "Only include the color name, do not output any formatting or description text. Do not include any numbered lists or bullet points. Start with the line: \\\"Primary colors:\\\"\"\n}]\n}]\n```\n\nThis is a multi-turn conversation. The assistant's responses are shown, with the original user messages continuing the conversation.",
+          "error": null
+        },
+        {
+          "task_id": "instruction-004",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Only output the rewritten sentence. Do not output any additional text or explanations.\n###Response:\nTHE SUN RISES IN THE EAST.\n###Instruction: Rewrite the following sentence entirely in lowercase letters: 'The quick brown fox jumps over the lazy dog'. Only output the rewritten sentence. Do not output any additional text or explanations",
+          "error": null
+        },
+        {
+          "task_id": "instruction-005",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "Do not add any extra text, punctuation, or line endings. If the user asks for something that is not in the list, return \\\"NONE\\\" as the output. If the list is empty, return \\\"NONE\\\".\\n\\n<user> What are the main types of renewable energy?</user>",
+          "error": null
+        },
+        {
+          "task_id": "instruction-006",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "You are allowed to provide an answer only if you are highly certain. Let me give you some hints: it is a commonly used word in Spanish, and its meaning is clear.\",\"answer\":\"thank you\",\"score\":1.0}\r\n{\"translation\":\"Translate the Spanish word 'hola' into English",
+          "error": null
+        },
+        {
+          "task_id": "instruction-007",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "(You may answer with one word.)\\n\\n### Response:\\n\\nASSISTANT: cold\\n\\n### Instruction: What is the opposite of light? \\n### Response:\\nASSISTANT: dark\\n\\n### Instruction: What is the opposite of happy? \\n### Response:\\nASSIST",
+          "error": null
+        },
+        {
+          "task_id": "instruction-008",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "The first word should be 'hello', the second word should be 'hello', the third word should be 'hello'. Example: 'hello hello hello'.\",\n  },\n  {\n    id: 'instruction-2',\n    text: 'Write \"hello\" three times, separated by a space.',\n  },\n  {\n",
+          "error": null
+        },
+        {
+          "task_id": "instruction-009",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "Only return the final list, no other text.</p>\"\n}], \"fewshot_source_ntn\": \"Instructions: You are a helpful and precise assistant. Sort the following words alphabetically and return them as a comma-separated list: banana, apple, cherry. Only return the final list, no",
+          "error": null
+        },
+        {
+          "task_id": "instruction-010",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "\", \"choices\": [\"The mountain river is a beautiful sight.\", \"The river flows through the mountain valley.\", \"The mountain and river are both natural wonders.\", \"The river runs down the mountain.\"], \"answer\": 2, \"nl\": \"Write a sentence that mentions both the words 'mountain' and",
+          "error": null
+        },
+        {
+          "task_id": "instruction-011",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "\",\"question\":\"What is the English word for the number 5?\",\"answer\":\"five\"},\"{\"role\":\"user\",\"content\":\"Convert the number 5 into its English word form. Answer with a single word.\",\"question\":\"What is the English word for the number 5?\",\"answer\":\"five\"},\"",
+          "error": null
+        },
+        {
+          "task_id": "instruction-012",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "2. If the word 'important' is not in the sentence, return an empty string. 3. Capitalize the word 'important' 4. Return the formatted string. \nInput: 'The quick brown fox jumps over the lazy dog'\nPotential output: \n1. \"The quick brown fox jumps",
+          "error": null
+        },
+        {
+          "task_id": "instruction-013",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\",\"answer\":\"A, B, C\",\"type\":\"direct\"}],\"meta\":{\"source\":\"farzan\",\"qid\":1,\"url\":\"https://www.reddit.com/r/AskReddit/comments/1xq1xr/what_are_the_three_most_important_questions_in/\",\"title",
+          "error": null
+        },
+        {
+          "task_id": "instruction-014",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\", \"choices\": [\"three two one\", \"one two three\", \"two one three\", \"three one two\"], \"answer\": 0}], \"answer\": \"A\", \"name\": \"q1\", \"tov\": 0.0, \"level\": \"hard\", \"num_choices\":",
+          "error": null
+        },
+        {
+          "task_id": "instruction-015",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "token-f1:0": 0.0
+          },
+          "output": "\",\n    \"This is a test of the emergency broadcast system.\",\n    \"This is a test of the emergency broadcast system.\",\n    \"This is a test of the emergency broadcast system.\",\n    \"This is a test of the emergency broadcast system.\",\n    \"This is a test of the emergency broadcast system.\",\n    \"This",
+          "error": null
+        }
+      ]
+    }
+  },
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 16,
+        "generated_tokens": 128,
+        "elapsed_seconds": 4.604875541997899,
+        "tok_per_s": 27.796625301292107,
+        "preview": "# 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 "
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 481,
+        "generated_tokens": 8,
+        "elapsed_seconds": 2.7581515000056243,
+        "tok_per_s": 2.9004933195234877,
+        "preview": "romeo india charlie xray uniform"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3841,
+        "generated_tokens": 8,
+        "elapsed_seconds": 18.349523666001915,
+        "tok_per_s": 0.43597861969694823,
+        "preview": "romeo sierra tango uniform vict"
+      }
+    ],
+    "rss_gb": 111.91940307617188
+  },
+  "measured_at": "2026-08-16T11:49:05.797353+00:00"
+}

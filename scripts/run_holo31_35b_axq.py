@@ -445,10 +445,7 @@ def cmd_publish(key: str) -> None:
         ],
         work_dir() / "logs" / f"hf-upload-{key}.log",
     )
-    script = (
-        "from huggingface_hub import model_info\n"
-        f"print(model_info({repo!r}).sha)\n"
-    )
+    script = f"from huggingface_hub import model_info\nprint(model_info({repo!r}).sha)\n"
     env = hf_env()
     proc = subprocess.run(
         [str(py) if py.is_file() else "python", "-c", script],

@@ -435,8 +435,14 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
             )
         }
     )
-    with pytest.raises(PlanningError, match="requires the affine method"):
+    with pytest.raises(PlanningError, match="requires affine or dwq packing"):
         build_quant_predicate(gptq_fused, execute_refinement=False)
+
+    dwq_members = [member.model_copy(update={"method": QuantMethod.DWQ}) for member in members]
+    dwq_fused = with_assignments([*plan.assignments, *dwq_members])
+    dwq_predicate = build_quant_predicate(dwq_fused, execute_refinement=False)
+    result = dwq_predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
+    assert isinstance(result, dict) and result["bits"] == 4
 
 
 def test_packed_expert_requires_every_split_runtime_module() -> None:
@@ -475,7 +481,9 @@ def test_packed_expert_rejects_non_affine_refinement() -> None:
     )
     packed_plan = plan.model_copy(update={"assignments": [packed]})
 
-    with pytest.raises(PlanningError, match=r"packed expert tensor.*requires the affine method"):
+    with pytest.raises(
+        PlanningError, match=r"packed expert tensor.*requires affine or dwq packing"
+    ):
         build_quant_predicate(packed_plan, execute_refinement=False)
 
 

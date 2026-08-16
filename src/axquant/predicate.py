@@ -15,8 +15,17 @@ from axquant.module_paths import (
 from axquant.schema import Allocation, QuantizationPlan
 
 _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act"})
+# Fused/packed SwitchLinear stacks can only run portable affine packing.
+# DWQ is percentile clip then that same affine pack — allowed. AWQ/GPTQ are not.
+FUSED_STACK_METHODS = frozenset({"affine", "dwq"})
 MXFP4_GROUP_SIZE = 32
 _PHYSICAL_MODES = frozenset({"affine", "mxfp4"})
+
+
+def fused_stack_method_allowed(method: str) -> bool:
+    """Whether convert can execute *method* on a fused or packed expert stack."""
+
+    return method in FUSED_STACK_METHODS
 
 
 def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> str:
@@ -89,9 +98,11 @@ class PlanPredicate:
                 self._fused_members.setdefault(fused, []).append(allocation)
             packed_modules = packed_expert_runtime_modules(module_path)
             if packed_modules:
-                if allocation.bits < 16 and allocation.method.value != "affine":
+                if allocation.bits < 16 and not fused_stack_method_allowed(
+                    allocation.method.value
+                ):
                     raise PlanningError(
-                        f"packed expert tensor {module_path} requires the affine method; "
+                        f"packed expert tensor {module_path} requires affine or dwq packing; "
                         f"got {allocation.method.value}"
                     )
                 self._packed_requirements[module_path] = tuple(
@@ -108,9 +119,9 @@ class PlanPredicate:
                     f"fused expert module {fused} mixes precisions {sorted(signatures)}; "
                     "every expert in a switch group must share one assignment"
                 )
-            if members[0].bits < 16 and members[0].method.value != "affine":
+            if members[0].bits < 16 and not fused_stack_method_allowed(members[0].method.value):
                 raise PlanningError(
-                    f"fused expert module {fused} requires the affine method; "
+                    f"fused expert module {fused} requires affine or dwq packing; "
                     f"got {members[0].method.value}"
                 )
         self._aliases: dict[str, Allocation] = {}

@@ -1,0 +1,60 @@
+# Flash-0731 4-bit trunk with convert-time DWQ clip on fused experts.
+# Development only. Not a certificate. Not mlx-optiq.
+#
+# Factory 2-bit affine packs echo the prompt (general 0.487 vs OptiQ 0.948).
+# This recipe keeps the robust trunk at 4-bit and applies AXQ-owned DWQ
+# percentile clip before affine packing, including fused switch stacks.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 4
+default_method: dwq
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: quality
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: attention-4bit-dwq
+    roles: [attention]
+    bits: 4
+    method: dwq
+    group_size: 32
+    reason: Attention stays 4-bit after DWQ clip
+  - rule_id: trunk-4bit-dwq
+    roles: [mlp, expert]
+    bits: 4
+    method: dwq
+    group_size: 32
+    reason: Robust trunk (MLP + fused experts) is 4-bit DWQ then affine pack
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

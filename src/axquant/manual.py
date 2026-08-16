@@ -12,6 +12,7 @@ from axquant.module_paths import (
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
 from axquant.planner import storage_bpw, strategy_for_measurement
+from axquant.predicate import fused_stack_method_allowed
 from axquant.profiles import objective_for
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
@@ -121,16 +122,20 @@ def _precision(
         raise PlanningError(
             f"hardware profile does not support group size {group_size} for {tensor.name}"
         )
-    # Per-expert checkpoint tensors and packed expert tensors both fuse into
-    # MLX-LM switch modules that conversion can only pack affinely (see
-    # planner.py and predicate.py), so reject refinement methods at plan time
-    # instead of producing a plan the conversion preflight must reject.
+    # Per-expert checkpoint tensors and packed expert tensors fuse into
+    # MLX-LM switch modules. Convert can pack those affinely, optionally
+    # after DWQ percentile clip. AWQ/GPTQ still cannot run on the stack.
     fused_module = fused_expert_module(tensor.module_path)
     packed_modules = packed_expert_runtime_modules(tensor.module_path)
-    if bits < 16 and method != QuantMethod.AFFINE and (fused_module or packed_modules):
+    if (
+        bits < 16
+        and not fused_stack_method_allowed(method.value)
+        and (fused_module or packed_modules)
+    ):
         raise PlanningError(
             f"manual recipe assigns {method.value} to expert tensor {tensor.name}; "
-            "conversion can only execute affine packing for fused/packed expert modules"
+            "conversion can only execute affine or dwq packing for fused/packed "
+            "expert modules"
         )
     if rule is not None:
         reason = f"manual rule {rule.rule_id}: {rule.reason}"

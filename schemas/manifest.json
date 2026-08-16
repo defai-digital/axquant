@@ -1,5 +1,5 @@
 {
-  "count": 113,
+  "count": 115,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -456,6 +456,22 @@
       "model": "axquant.schema.inventory.Inventory",
       "schema_version": "axquant.inventory.v1",
       "sha256": "a6ec0b3de6828fb7350ff742cb117e5a9700e8a98264e85eb246803a648017f1"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.joint-interaction.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.joint.JointInteractionReport",
+      "schema_version": "axquant.joint-interaction.v1",
+      "sha256": "633baf4ddcac1241b44c5655cfd0e776f7b1cddb056e36956c64dde24aa8fefa"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.joint-selection.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.joint.JointSelectionReport",
+      "schema_version": "axquant.joint-selection.v1",
+      "sha256": "ecab327b983ebdb5b129e02b7b444ebf75f0cd18c56c9f8ae5a5c5be82d8cabf"
     },
     {
       "compatibility_class": "evidence",

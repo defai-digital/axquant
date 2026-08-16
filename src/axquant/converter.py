@@ -1795,6 +1795,9 @@ def convert_model(
         if kv_sensitivity_source is not None:
             _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
+        from axquant.deepseek_v4_chat import maybe_write_deepseek_v4_chat_template
+
+        maybe_write_deepseek_v4_chat_template(staging_dir, plan)
         if ax_engine_manifest == "required":
             require_ax_engine_manifest(staging_dir, executable=ax_engine_bench)
         elif ax_engine_manifest == "if-available":

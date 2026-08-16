@@ -29,7 +29,7 @@ This matrix covers **runtime environments**. For the model-family support matrix
 | `mlx-vlm` | `>= 0.6.10` | Qwen3-VL conversion and image-to-text smoke |
 
 Without the `mlx` extra these commands fail closed with `BackendUnavailableError`; everything
-else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) runs anywhere.
+else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, reporting, release audit) runs anywhere.
 
 | Stage | Needs MLX | Needs macOS arm64 |
 | --- | --- | --- |
@@ -38,7 +38,7 @@ else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) 
 | capture-activations | Yes | Yes |
 | analyze (architecture priors) | No | No |
 | analyze (measured, incl. AWQ/GPTQ) / analyze-kv | Yes | Yes |
-| plan / plan-manual / refine | No | No |
+| plan / plan-manual / plan-experimental-mix / refine | No | No |
 | convert | Yes | Yes |
 | runtime / evaluate-quality / benchmark | Yes | Yes |
 | report / release-audit / publish-prepare | No | No |
