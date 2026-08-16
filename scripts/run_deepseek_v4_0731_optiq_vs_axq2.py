@@ -30,8 +30,8 @@ FACTORY_MODELS = "/Volumes/Ext12T/models"
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
 OPTIQ_ID = "mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit"
-AXQ_ID = "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit"
-AXQ_REV = "408c0ab335f6211812645ca44071301c20a55957"
+AXQ_ID = "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0"
+AXQ_REV = "1.9.0"
 SEED = 20260728
 MAX_TOKENS_QA = 64
 MAX_TOKENS_DECODE = 128
@@ -39,14 +39,14 @@ OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"
 
 PACKS: dict[str, dict[str, Any]] = {
     "axq2": {
-        "label": "DeepSeek V4 Flash-0731 AXQ 2-bit",
+        "label": "DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0)",
         "hub": AXQ_ID,
         "commit": AXQ_REV,
         "runtime": "mlx-lm-resident",
         "path": Path(
             os.environ.get(
                 "DSV4_AXQ2",
-                f"{FACTORY_MODELS}/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit",
+                f"{FACTORY_MODELS}/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
             )
         ),
     },
@@ -98,7 +98,7 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_OPTIQ_VS_AXQ_WORK",
-            "/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-vs-axq2",
+            "/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-vs-axq2-v190",
         )
     )
 
@@ -466,7 +466,7 @@ def cmd_report() -> None:
         "optiq2": optiq,
     }
     write_json(work / "summary.json", summary)
-    raw_dir = ROOT / "docs" / "eval" / "deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2"
+    raw_dir = ROOT / "docs" / "eval" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2"
     raw_dir.mkdir(parents=True, exist_ok=True)
     write_json(raw_dir / "summary.json", summary)
     shutil.copy2(work / "axq2.json", raw_dir / "axq2.json")
@@ -506,7 +506,7 @@ def cmd_report() -> None:
     o_mean = sum(optiq["quality"][s]["mean_score"] for s in ("agent-coding", "general")) / 2
     md = "\n".join(
         [
-            "# DeepSeek V4 Flash-0731 — OptiQ 2-bit vs AXQ 2-bit",
+            "# DeepSeek V4 Flash-0731 — OptiQ 2-bit vs AXQ 2-bit (v1.9.0)",
             "",
             "| Field | Value |",
             "| --- | --- |",
@@ -516,7 +516,7 @@ def cmd_report() -> None:
             "| Protocol | Greedy, temperature `0`, thinking off, factory development suites |",
             "",
             "Product question: on the same Mac Studio, how does the mlx-community "
-            "OptiQ 2-bit streaming pack compare to the AutomatosX AXQ 2-bit resident "
+            "OptiQ 2-bit streaming pack compare to the AXQuant 1.9.0 AXQ 2-bit resident "
             "pack for short QA and decode speed?",
             "",
             f"**Short answer:** factory-suite mean score AXQ `{a_mean:.3f}` vs OptiQ "
@@ -573,12 +573,12 @@ def cmd_report() -> None:
             "",
             "Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`]"
             "(../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).",
-            "Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`]"
-            "(eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).",
+            "Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2/`]"
+            "(eval/deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2/).",
             "",
         ]
     )
-    report = ROOT / "docs" / "deepseek-v4-flash-0731-optiq2-vs-axq2.md"
+    report = ROOT / "docs" / "deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md"
     report.write_text(md + "\n", encoding="utf-8")
     shutil.copy2(report, work / "report.md")
     log(f"wrote {report}")
