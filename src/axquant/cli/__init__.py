@@ -742,6 +742,7 @@ def _run(args: argparse.Namespace) -> int:
             reserve_bytes=args.reserve_memory,
             batch_size=args.batch_size,
             interaction_threshold=args.interaction_threshold,
+            quality_baseline_path=args.quality_baseline,
             quality_weight_only_path=args.quality_weight_only,
             quality_kv_only_path=args.quality_kv_only,
             quality_joint_path=args.quality_joint,

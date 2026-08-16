@@ -39,24 +39,40 @@ class JointProxyScores(StrictModel):
 
 
 class JointMeasuredDeltas(StrictModel):
-    """One bound (W-only, KV-only, joint) quality-delta triple.
+    """One bound (baseline, W-only, KV-only, joint) quality-score quadruple.
 
-    ``interaction = joint_delta - weight_only_delta - kv_only_delta``.
+    Scores are mean task scores in ``[0, 1]``. Deltas are signed:
+
+    ``delta = baseline_score - treatment_score``
+    ``interaction = joint_delta - weight_only_delta - kv_only_delta``
+
     Positive interaction means isolated additivity understates the joint loss.
     """
 
-    weight_only_delta: float = Field(ge=0.0)
-    kv_only_delta: float = Field(ge=0.0)
-    joint_delta: float = Field(ge=0.0)
+    baseline_score: float = Field(ge=0.0, le=1.0)
+    weight_only_score: float = Field(ge=0.0, le=1.0)
+    kv_only_score: float = Field(ge=0.0, le=1.0)
+    joint_score: float = Field(ge=0.0, le=1.0)
+    weight_only_delta: float
+    kv_only_delta: float
+    joint_delta: float
     interaction: float
     threshold: float = Field(gt=0.0)
     material: bool
+    baseline_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     weight_only_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     kv_only_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     joint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    dataset_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def interaction_is_exact(self) -> JointMeasuredDeltas:
+        if abs(self.weight_only_delta - (self.baseline_score - self.weight_only_score)) > 1e-9:
+            raise ValueError("weight-only delta does not match baseline - weight-only score")
+        if abs(self.kv_only_delta - (self.baseline_score - self.kv_only_score)) > 1e-9:
+            raise ValueError("KV-only delta does not match baseline - KV-only score")
+        if abs(self.joint_delta - (self.baseline_score - self.joint_score)) > 1e-9:
+            raise ValueError("joint delta does not match baseline - joint score")
         expected = self.joint_delta - self.weight_only_delta - self.kv_only_delta
         if abs(self.interaction - expected) > 1e-9:
             raise ValueError("interaction does not match joint - weight - KV deltas")
@@ -77,6 +93,7 @@ class JointBudgetCandidate(StrictModel):
     limit_bytes: int = Field(gt=0)
     remainder_bytes: int
     feasible: bool
+    ranking_available: bool
     estimated_main_bpw: float = Field(gt=0.0, le=16.0)
     proxy: JointProxyScores
     plan_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -91,16 +108,21 @@ class JointBudgetCandidate(StrictModel):
             raise ValueError("candidate remainder does not match byte accounting")
         if self.feasible != (expected >= 0):
             raise ValueError("candidate feasibility does not match byte accounting")
+        if self.ranking_available and self.proxy.additive_output_kl is None:
+            raise ValueError("rankable candidates require a complete additive proxy")
+        if not self.ranking_available and self.proxy.additive_output_kl is not None:
+            raise ValueError("complete additive proxy must be marked rankable")
         return self
 
 
 class JointContextWinner(StrictModel):
-    """Cheapest-proxy feasible pair at one context length, if any."""
+    """Lowest-proxy feasible rankable pair at one context length, if any."""
 
     context_length: int = Field(gt=0)
     target_bpw: float | None = Field(default=None, gt=0.0, le=16.0)
     kv_default_bits: int | None = None
     feasible_count: int = Field(ge=0)
+    rankable_count: int = Field(ge=0)
     proxy_score: float | None = Field(default=None, ge=0.0)
 
     @model_validator(mode="after")
@@ -108,10 +130,14 @@ class JointContextWinner(StrictModel):
         has_winner = self.target_bpw is not None
         if has_winner != (self.kv_default_bits is not None):
             raise ValueError("context winner must set both target BPW and KV bits, or neither")
+        if has_winner and self.rankable_count < 1:
+            raise ValueError("a context winner requires at least one rankable candidate")
         if has_winner and self.feasible_count < 1:
             raise ValueError("a context winner requires at least one feasible candidate")
         if not has_winner and self.proxy_score is not None:
-            raise ValueError("infeasible context cannot record a proxy winner")
+            raise ValueError("a context without a winner cannot record a proxy score")
+        if self.rankable_count > self.feasible_count:
+            raise ValueError("rankable count cannot exceed feasible count")
         if (
             self.kv_default_bits is not None
             and self.kv_default_bits not in AX_ENGINE_EXECUTABLE_BITS
@@ -123,6 +149,7 @@ class JointContextWinner(StrictModel):
 class JointCrossoverSummary(StrictModel):
     winners: list[JointContextWinner] = Field(min_length=1)
     detected: bool
+    ranking_complete: bool
 
     @model_validator(mode="after")
     def detection_matches_winners(self) -> JointCrossoverSummary:
@@ -133,7 +160,12 @@ class JointCrossoverSummary(StrictModel):
         }
         expected = len(pairs) > 1
         if self.detected != expected:
-            raise ValueError("crossover detection does not match the distinct feasible winners")
+            raise ValueError("crossover detection does not match the distinct rankable winners")
+        complete = all(
+            winner.rankable_count == winner.feasible_count for winner in self.winners
+        )
+        if self.ranking_complete != complete:
+            raise ValueError("ranking_complete does not match per-context rankable coverage")
         contexts = [winner.context_length for winner in self.winners]
         if len(contexts) != len(set(contexts)):
             raise ValueError("crossover winners must be unique per context length")
@@ -170,21 +202,24 @@ class JointInteractionReport(StrictModel):
     def beta_contract_is_consistent(self) -> JointInteractionReport:
         if self.certification_eligible:
             raise ValueError("joint-interaction reports cannot be certification-eligible")
+        if self.evidence_kind not in {
+            EvidenceKind.ARCHITECTURE_PRIOR,
+            EvidenceKind.MEASURED_DEVELOPMENT,
+        }:
+            raise ValueError(
+                "joint-interaction is development evidence; use architecture_prior or "
+                "measured_development"
+            )
         if any(bits not in AX_ENGINE_EXECUTABLE_BITS for bits in self.kv_default_bits):
             raise ValueError("KV default bits must be AX Engine executable widths")
         if self.interaction is None:
             if self.verdict != "insufficient-measured-interaction":
                 raise ValueError(
-                    "missing measured triple must use insufficient-measured-interaction"
+                    "missing measured quadruple must use insufficient-measured-interaction"
                 )
         elif self.interaction.material:
             if self.verdict != "interaction-material":
                 raise ValueError("material interaction must use verdict interaction-material")
         elif self.verdict != "interaction-small":
             raise ValueError("immaterial interaction must use verdict interaction-small")
-        if self.evidence_kind is EvidenceKind.MEASURED:
-            raise ValueError(
-                "joint-interaction is development evidence; use measured_development, "
-                "not release-quality measured"
-            )
         return self

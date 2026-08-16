@@ -13,6 +13,7 @@ from pathlib import Path
 
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
+from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model
 from axquant.memory_budget import evaluate_budget
 from axquant.optimizer import estimate_kv_bytes
@@ -124,20 +125,28 @@ def _kv_proxy_kl(plan: KvCachePlan, report: KvSensitivityReport | None) -> float
     for layer in plan.layers:
         entry = by_layer.get(layer.layer_index)
         if entry is None:
-            return None
+            raise PlanningError(
+                f"KV sensitivity is missing layer {layer.layer_index}; "
+                "incomplete --kv-analysis cannot rank a joint grid"
+            )
         match = next(
             (
                 candidate
                 for candidate in entry.candidates
-                if candidate.bits == layer.bits and candidate.supported
+                if candidate.bits == layer.bits
+                and candidate.group_size == layer.group_size
+                and candidate.supported
             ),
             None,
         )
         if match is None:
-            return None
+            raise PlanningError(
+                f"KV sensitivity has no supported {layer.bits}-bit / group "
+                f"{layer.group_size} candidate for layer {layer.layer_index}"
+            )
         scores.append(match.metrics.output_kl)
     if not scores:
-        return None
+        raise PlanningError("KV sensitivity produced no layer scores")
     return sum(scores) / len(scores)
 
 
@@ -157,13 +166,12 @@ def _proxy_scores(
     )
 
 
-def _quality_delta(result: QualityEvaluationResult) -> float:
+def _mean_task_score(result: QualityEvaluationResult) -> float:
     if not result.metrics.task_scores:
         raise PlanningError(
-            "measured joint quality files must include task_scores so a delta can be formed"
+            "measured joint quality files must include task_scores so a score can be formed"
         )
-    mean = sum(result.metrics.task_scores.values()) / len(result.metrics.task_scores)
-    return max(0.0, 1.0 - mean)
+    return sum(result.metrics.task_scores.values()) / len(result.metrics.task_scores)
 
 
 def _same_model_id(left: str, right: str) -> bool:
@@ -177,57 +185,95 @@ def _same_model_id(left: str, right: str) -> bool:
 
 
 def _require_same_model(result: QualityEvaluationResult, inventory: Inventory, label: str) -> None:
-    if not _same_model_id(result.model.model_id, inventory.model.model_id):
-        raise PlanningError(
-            f"{label} quality evaluation model_id does not match the inspected model"
-        )
+    if _same_model_id(result.model.model_id, inventory.model.model_id):
+        return
+    if same_model_identity(result.model, inventory.model):
+        return
+    raise PlanningError(
+        f"{label} quality evaluation model identity does not match the inspected model"
+    )
+
+
+def _require_matched_quality(
+    results: tuple[tuple[str, QualityEvaluationResult], ...],
+    inventory: Inventory,
+) -> None:
+    first_label, first = results[0]
+    _require_same_model(first, inventory, first_label)
+    first_tasks = {task.task_id for task in first.task_results}
+    first_categories = set(first.metrics.task_scores)
+    for label, result in results[1:]:
+        _require_same_model(result, inventory, label)
+        if result.dataset_sha256 != first.dataset_sha256:
+            raise PlanningError(f"{label} dataset_sha256 does not match {first_label}")
+        if result.random_seed != first.random_seed:
+            raise PlanningError(f"{label} random_seed does not match {first_label}")
+        if result.generation != first.generation:
+            raise PlanningError(f"{label} generation config does not match {first_label}")
+        if set(result.metrics.task_scores) != first_categories:
+            raise PlanningError(f"{label} task categories do not match {first_label}")
+        if {task.task_id for task in result.task_results} != first_tasks:
+            raise PlanningError(f"{label} task IDs do not match {first_label}")
 
 
 def _measured_deltas(
     *,
     inventory: Inventory,
+    baseline: QualityEvaluationResult,
     weight_only: QualityEvaluationResult,
     kv_only: QualityEvaluationResult,
     joint: QualityEvaluationResult,
     threshold: float,
 ) -> JointMeasuredDeltas:
-    _require_same_model(weight_only, inventory, "weight-only")
-    _require_same_model(kv_only, inventory, "kv-only")
-    _require_same_model(joint, inventory, "joint")
+    _require_matched_quality(
+        (
+            ("baseline", baseline),
+            ("weight-only", weight_only),
+            ("kv-only", kv_only),
+            ("joint", joint),
+        ),
+        inventory,
+    )
     if threshold <= 0.0:
         raise PlanningError("interaction threshold must be positive")
-    weight_delta = _quality_delta(weight_only)
-    kv_delta = _quality_delta(kv_only)
-    joint_delta = _quality_delta(joint)
+    baseline_score = _mean_task_score(baseline)
+    weight_score = _mean_task_score(weight_only)
+    kv_score = _mean_task_score(kv_only)
+    joint_score = _mean_task_score(joint)
+    weight_delta = baseline_score - weight_score
+    kv_delta = baseline_score - kv_score
+    joint_delta = baseline_score - joint_score
     interaction = joint_delta - weight_delta - kv_delta
     return JointMeasuredDeltas(
+        baseline_score=baseline_score,
+        weight_only_score=weight_score,
+        kv_only_score=kv_score,
+        joint_score=joint_score,
         weight_only_delta=weight_delta,
         kv_only_delta=kv_delta,
         joint_delta=joint_delta,
         interaction=interaction,
         threshold=threshold,
         material=abs(interaction) >= threshold,
+        baseline_sha256=stable_sha256(baseline),
         weight_only_sha256=stable_sha256(weight_only),
         kv_only_sha256=stable_sha256(kv_only),
         joint_sha256=stable_sha256(joint),
+        dataset_sha256=baseline.dataset_sha256,
     )
 
 
-def _winner_key(candidate: JointBudgetCandidate) -> tuple[float, float, float, int]:
-    """Prefer lower additive proxy, then fewer leftover bytes, then lower BPW."""
+def _winner_key(candidate: JointBudgetCandidate) -> tuple[float, int, float, int]:
+    """Prefer lower additive proxy, then lower KV bits, then lower BPW, then more slack."""
 
-    proxy = (
-        candidate.proxy.additive_output_kl
-        if candidate.proxy.additive_output_kl is not None
-        else candidate.proxy.weight_output_kl
-    )
+    proxy = candidate.proxy.additive_output_kl
     if proxy is None:
-        proxy = 0.0
+        raise PlanningError("cannot rank a candidate without an additive proxy")
     return (
         proxy,
-        float(candidate.remainder_bytes),
-        candidate.target_bpw,
         candidate.kv_default_bits,
+        candidate.target_bpw,
+        -candidate.remainder_bytes,
     )
 
 
@@ -239,25 +285,25 @@ def _crossover(candidates: list[JointBudgetCandidate]) -> JointCrossoverSummary:
     for context in sorted(by_context):
         cells = by_context[context]
         feasible = [cell for cell in cells if cell.feasible]
-        if not feasible:
+        rankable = [cell for cell in feasible if cell.ranking_available]
+        if not rankable:
             winners.append(
                 JointContextWinner(
                     context_length=context,
-                    feasible_count=0,
+                    feasible_count=len(feasible),
+                    rankable_count=0,
                 )
             )
             continue
-        best = min(feasible, key=_winner_key)
-        score = best.proxy.additive_output_kl
-        if score is None:
-            score = best.proxy.weight_output_kl
+        best = min(rankable, key=_winner_key)
         winners.append(
             JointContextWinner(
                 context_length=context,
                 target_bpw=best.target_bpw,
                 kv_default_bits=best.kv_default_bits,
                 feasible_count=len(feasible),
-                proxy_score=score,
+                rankable_count=len(rankable),
+                proxy_score=best.proxy.additive_output_kl,
             )
         )
     pairs = {
@@ -265,7 +311,11 @@ def _crossover(candidates: list[JointBudgetCandidate]) -> JointCrossoverSummary:
         for winner in winners
         if winner.target_bpw is not None
     }
-    return JointCrossoverSummary(winners=winners, detected=len(pairs) > 1)
+    return JointCrossoverSummary(
+        winners=winners,
+        detected=len(pairs) > 1,
+        ranking_complete=all(winner.rankable_count == winner.feasible_count for winner in winners),
+    )
 
 
 def _verdict(interaction: JointMeasuredDeltas | None) -> str:
@@ -275,26 +325,38 @@ def _verdict(interaction: JointMeasuredDeltas | None) -> str:
 
 
 def joint_interaction_markdown(report: JointInteractionReport) -> str:
-    interaction_block = "Not measured. Supply the three quality evaluations to compute I(W, KV)."
+    interaction_block = (
+        "Not measured. Supply the BF16 baseline plus three treatment quality "
+        "evaluations to compute I(W, KV)."
+    )
     if report.interaction is not None:
         sign = "material" if report.interaction.material else "small"
         interaction_block = (
-            f"| Side | Quality delta (1 - mean task score) |\n"
-            f"| --- | ---: |\n"
-            f"| Weight only | {report.interaction.weight_only_delta:.6f} |\n"
-            f"| KV only | {report.interaction.kv_only_delta:.6f} |\n"
-            f"| Joint | {report.interaction.joint_delta:.6f} |\n"
-            f"| I(W, KV) | {report.interaction.interaction:.6f} ({sign}; "
+            f"| Side | Mean task score | Delta vs baseline |\n"
+            f"| --- | ---: | ---: |\n"
+            f"| Baseline | {report.interaction.baseline_score:.6f} | 0.000000 |\n"
+            f"| Weight only | {report.interaction.weight_only_score:.6f} | "
+            f"{report.interaction.weight_only_delta:.6f} |\n"
+            f"| KV only | {report.interaction.kv_only_score:.6f} | "
+            f"{report.interaction.kv_only_delta:.6f} |\n"
+            f"| Joint | {report.interaction.joint_score:.6f} | "
+            f"{report.interaction.joint_delta:.6f} |\n"
+            f"| I(W, KV) |  | {report.interaction.interaction:.6f} ({sign}; "
             f"threshold {report.interaction.threshold:.6f}) |"
         )
     winner_lines = []
     for winner in report.crossover.winners:
         if winner.target_bpw is None:
-            winner_lines.append(f"| {winner.context_length} | none (infeasible) | 0 |")
+            reason = "infeasible" if winner.feasible_count == 0 else "not rankable"
+            winner_lines.append(
+                f"| {winner.context_length} | none ({reason}) | "
+                f"{winner.feasible_count}/{winner.rankable_count} |"
+            )
             continue
         winner_lines.append(
             f"| {winner.context_length} | {winner.target_bpw:.3f} bpw + "
-            f"KV{winner.kv_default_bits} | {winner.feasible_count} |"
+            f"KV{winner.kv_default_bits} | "
+            f"{winner.feasible_count}/{winner.rankable_count} |"
         )
     notes = "\n".join(f"- {note}" for note in report.notes) or "- None."
     return f"""# AXQuant joint interaction diagnostic (beta)
@@ -311,9 +373,9 @@ def joint_interaction_markdown(report: JointInteractionReport) -> str:
 
 {interaction_block}
 
-## Context winners (feasible cells, lowest isolated proxy)
+## Context winners (feasible rankable cells, lowest additive proxy)
 
-| Context | Winner | Feasible cells |
+| Context | Winner | Feasible / rankable |
 | --- | --- | ---: |
 {chr(10).join(winner_lines)}
 
@@ -339,6 +401,7 @@ def diagnose_joint_interaction(
     reserve_bytes: int = 1_000_000_000,
     batch_size: int = 1,
     interaction_threshold: float = 0.02,
+    quality_baseline_path: str | Path | None = None,
     quality_weight_only_path: str | Path | None = None,
     quality_kv_only_path: str | Path | None = None,
     quality_joint_path: str | Path | None = None,
@@ -356,13 +419,18 @@ def diagnose_joint_interaction(
     if batch_size <= 0:
         raise PlanningError("batch size must be a positive integer")
 
-    quality_paths = (quality_weight_only_path, quality_kv_only_path, quality_joint_path)
+    quality_paths = (
+        quality_baseline_path,
+        quality_weight_only_path,
+        quality_kv_only_path,
+        quality_joint_path,
+    )
     if any(path is None for path in quality_paths) and any(
         path is not None for path in quality_paths
     ):
         raise PlanningError(
-            "measured interaction requires --quality-weight-only, --quality-kv-only, "
-            "and --quality-joint together"
+            "measured interaction requires --quality-baseline, --quality-weight-only, "
+            "--quality-kv-only, and --quality-joint together"
         )
 
     model = Path(model_dir).expanduser().resolve()
@@ -378,17 +446,26 @@ def diagnose_joint_interaction(
     kv_report = (
         load_model(kv_analysis_path, KvSensitivityReport) if kv_analysis_path is not None else None
     )
-    if kv_report is not None and kv_report.model.model_id != report.model.model_id:
-        raise PlanningError("KV sensitivity report model does not match the weight sensitivity")
+    if kv_report is not None:
+        if not same_model_identity(kv_report.model, report.model) and not _same_model_id(
+            kv_report.model.model_id, report.model.model_id
+        ):
+            raise PlanningError("KV sensitivity report model does not match the weight sensitivity")
+        if kv_report.inventory_sha256 != _inventory_digest(inventory):
+            raise PlanningError("KV sensitivity report does not bind the selected inventory")
+        if kv_report.profile != profile:
+            raise PlanningError("KV sensitivity profile does not match the requested profile")
 
     interaction = None
     if (
-        quality_weight_only_path is not None
+        quality_baseline_path is not None
+        and quality_weight_only_path is not None
         and quality_kv_only_path is not None
         and quality_joint_path is not None
     ):
         interaction = _measured_deltas(
             inventory=inventory,
+            baseline=load_model(quality_baseline_path, QualityEvaluationResult),
             weight_only=load_model(quality_weight_only_path, QualityEvaluationResult),
             kv_only=load_model(quality_kv_only_path, QualityEvaluationResult),
             joint=load_model(quality_joint_path, QualityEvaluationResult),
@@ -435,6 +512,7 @@ def diagnose_joint_interaction(
                     reserve_bytes,
                     max_memory_bytes,
                 )
+                proxy = _proxy_scores(plan, kv_plan, kv_report)
                 candidates.append(
                     JointBudgetCandidate(
                         target_bpw=target_bpw,
@@ -446,32 +524,44 @@ def diagnose_joint_interaction(
                         limit_bytes=max_memory_bytes,
                         remainder_bytes=breakdown.remainder_bytes,
                         feasible=breakdown.feasible,
+                        ranking_available=proxy.additive_output_kl is not None,
                         estimated_main_bpw=plan.effective_bpw,
-                        proxy=_proxy_scores(plan, kv_plan, kv_report),
+                        proxy=proxy,
                         plan_sha256=stable_sha256(plan),
                         kv_plan_sha256=stable_sha256(kv_plan),
                     )
                 )
 
-    if report.evidence_kind is EvidenceKind.ARCHITECTURE_PRIOR:
-        evidence = EvidenceKind.ARCHITECTURE_PRIOR
-    elif report.evidence_kind is EvidenceKind.IMPORTED:
-        evidence = EvidenceKind.IMPORTED
-    else:
-        evidence = EvidenceKind.MEASURED_DEVELOPMENT
+    if kv_report is not None:
+        expected_layers = next(iter(kv_plans.values())).layers
+        if kv_report.text_layer_count != len(expected_layers):
+            raise PlanningError(
+                "KV sensitivity text layer count does not match the planned KV grid"
+            )
+        if any(
+            plan.default_group_size != kv_report.group_size for plan in kv_plans.values()
+        ):
+            raise PlanningError("KV sensitivity group size does not match the planned KV grid")
+
+    evidence = (
+        EvidenceKind.ARCHITECTURE_PRIOR
+        if report.evidence_kind is EvidenceKind.ARCHITECTURE_PRIOR
+        else EvidenceKind.MEASURED_DEVELOPMENT
+    )
 
     notes = [
         _BETA_NOTE,
         "Independent planning is still used for each grid cell; this is not a joint solver.",
-        "I(W, KV) is only defined when the three quality evaluations are supplied.",
+        "I(W, KV) is only defined when the BF16 baseline and three treatment evaluations "
+        "are supplied.",
+        "Memory feasibility is analytical (estimated weights + KV + reserve), not measured RSS.",
     ]
     if kv_report is None:
         notes.append(
-            "No --kv-analysis: KV proxy KL is omitted and crossover ranks on weight proxy "
-            "and remainder."
+            "No --kv-analysis: cells are not rankable, so no winner or crossover is claimed."
         )
     if interaction is None:
-        notes.append("No measured quality triple: verdict is insufficient-measured-interaction.")
+        notes.append("No measured quality quadruple: verdict is insufficient-measured-interaction.")
     notes.extend(report.warnings)
 
     result = JointInteractionReport(

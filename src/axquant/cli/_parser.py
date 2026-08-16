@@ -589,6 +589,17 @@ def _build_parser() -> argparse.ArgumentParser:
             "Beta: measure weight x KV interaction and memory-budget crossover "
             "(development evidence only; never a certification claim)"
         ),
+        description=(
+            "1.9.0b1 development diagnostic. It never converts a checkpoint and "
+            "cannot authorize a Hub pack or certificate. Memory feasibility is an "
+            "estimate. Winners are claimed only when --kv-analysis supplies a "
+            "complete additive proxy. I(W, KV) requires a BF16 baseline plus three "
+            "matched treatment quality evaluations."
+        ),
+        epilog=(
+            "This command cannot authorize a Hub pack or certificate. "
+            "Output is development evidence only."
+        ),
     )
     diagnose_joint_parser.add_argument("--model", required=True)
     diagnose_joint_parser.add_argument("--max-memory", type=parse_memory_bytes, required=True)
@@ -631,6 +642,10 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.02,
         help="absolute |I(W, KV)| that counts as material (default: 0.02)",
+    )
+    diagnose_joint_parser.add_argument(
+        "--quality-baseline",
+        help="quality-evaluation.v2 for BF16 weights / BF16 KV (required for I(W, KV))",
     )
     diagnose_joint_parser.add_argument(
         "--quality-weight-only",

@@ -46,6 +46,9 @@
         "proxy": {
           "$ref": "#/$defs/JointProxyScores"
         },
+        "ranking_available": {
+          "type": "boolean"
+        },
         "remainder_bytes": {
           "type": "integer"
         },
@@ -73,6 +76,7 @@
         "limit_bytes",
         "remainder_bytes",
         "feasible",
+        "ranking_available",
         "estimated_main_bpw",
         "proxy",
         "plan_sha256",
@@ -114,6 +118,10 @@
           ],
           "default": null
         },
+        "rankable_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
         "target_bpw": {
           "anyOf": [
             {
@@ -130,7 +138,8 @@
       },
       "required": [
         "context_length",
-        "feasible_count"
+        "feasible_count",
+        "rankable_count"
       ],
       "type": "object"
     },
@@ -138,6 +147,9 @@
       "additionalProperties": false,
       "properties": {
         "detected": {
+          "type": "boolean"
+        },
+        "ranking_complete": {
           "type": "boolean"
         },
         "winners": {
@@ -150,17 +162,35 @@
       },
       "required": [
         "winners",
-        "detected"
+        "detected",
+        "ranking_complete"
       ],
       "type": "object"
     },
     "JointMeasuredDeltas": {
       "additionalProperties": false,
       "properties": {
+        "baseline_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        "baseline_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "dataset_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
         "interaction": {
           "type": "number"
         },
         "joint_delta": {
+          "type": "number"
+        },
+        "joint_score": {
+          "maximum": 1.0,
           "minimum": 0.0,
           "type": "number"
         },
@@ -169,6 +199,10 @@
           "type": "string"
         },
         "kv_only_delta": {
+          "type": "number"
+        },
+        "kv_only_score": {
+          "maximum": 1.0,
           "minimum": 0.0,
           "type": "number"
         },
@@ -184,6 +218,10 @@
           "type": "number"
         },
         "weight_only_delta": {
+          "type": "number"
+        },
+        "weight_only_score": {
+          "maximum": 1.0,
           "minimum": 0.0,
           "type": "number"
         },
@@ -193,15 +231,21 @@
         }
       },
       "required": [
+        "baseline_score",
+        "weight_only_score",
+        "kv_only_score",
+        "joint_score",
         "weight_only_delta",
         "kv_only_delta",
         "joint_delta",
         "interaction",
         "threshold",
         "material",
+        "baseline_sha256",
         "weight_only_sha256",
         "kv_only_sha256",
-        "joint_sha256"
+        "joint_sha256",
+        "dataset_sha256"
       ],
       "type": "object"
     },

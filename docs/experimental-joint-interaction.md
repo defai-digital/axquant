@@ -39,18 +39,22 @@ axquant diagnose-joint \
 Architecture priors need `--allow-unmeasured`. Those runs can still report
 crossover from the memory grid; they cannot claim a measured \(I\).
 
-To compute \(I(W, KV)\), add three `axquant.quality-evaluation.v2` files
-from matched suites:
+To compute \(I(W, KV)\), add four matched `axquant.quality-evaluation.v2`
+files from the same suite (same dataset hash, seed, generation config, and
+task IDs):
 
 ```bash
+  --quality-baseline eval-bf16.json \
   --quality-weight-only eval-weight-only.json \
   --quality-kv-only eval-kv-only.json \
   --quality-joint eval-joint.json \
   --interaction-threshold 0.02
 ```
 
-`ΔQ` is `1 − mean(task_scores)`. All three files must share the inspected
-`model_id`. Supplying only some of them fails closed.
+`ΔQ` is `baseline_score - treatment_score` (signed). Supplying only some of
+the four files fails closed. Winners and crossover are claimed only when
+`--kv-analysis` provides a complete additive proxy; without it the grid is
+feasibility-only.
 
 ## Output
 
@@ -61,12 +65,13 @@ from matched suites:
 
 `verdict` is one of:
 
-- `insufficient-measured-interaction` — no quality triple
+- `insufficient-measured-interaction` — no quality quadruple
 - `interaction-small` — `|I|` below the threshold
 - `interaction-material` — `|I|` at or above the threshold
 
-`crossover.detected` is true only when two feasible context winners pick
-different `(target_bpw, kv_default_bits)` pairs.
+`crossover.detected` is true only when two **rankable** context winners pick
+different `(target_bpw, kv_default_bits)` pairs. Equal-proxy ties keep the
+lower KV bit-width and more leftover memory.
 
 `evidence_kind` is never release-quality `measured`. Priors stay
 `architecture_prior`; probe-backed runs are `measured_development`.
@@ -78,7 +83,7 @@ different `(target_bpw, kv_default_bits)` pairs.
 | `interaction-small` and no crossover | Keep `optimize` as the product path |
 | `interaction-material` | Isolated additivity is wrong; a joint planner has a research reason |
 | crossover at long context | The 1.8 shared-budget check is too coarse for long context |
-| prior-only / no quality triple | Useful as a dry run only |
+| prior-only / no quality quadruple | Useful as a dry run only |
 
 Stop if the first real-model pass is small and has no crossover. Do not
 invent a named allocator just to have a paper.
