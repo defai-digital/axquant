@@ -105,7 +105,7 @@ def test_deepseek_v4_4bit_affine_recipe_is_a_valid_manual_recipe() -> None:
     assert any(rule.rule_id == "trunk-4bit" and rule.bits == 4 for rule in recipe.rules)
 
 
-def test_deepseek_v4_4bit_g128_dwq_recipe_uses_dwq_on_trunk() -> None:
+def test_deepseek_v4_4bit_g128_dwq_recipe_clips_attention_not_fused_trunk() -> None:
     path = Path(__file__).resolve().parents[1] / (
         "examples/deepseek-v4-experimental-4bit-g128-dwq-v0.1.yaml"
     )
@@ -113,9 +113,10 @@ def test_deepseek_v4_4bit_g128_dwq_recipe_uses_dwq_on_trunk() -> None:
     assert recipe.default_method == QuantMethod.DWQ
     assert recipe.group_size == 128
     attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-6bit-dwq")
-    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-4bit-dwq")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-4bit-affine")
     assert attention.bits == 6 and attention.method == QuantMethod.DWQ
-    assert trunk.bits == 4 and trunk.method == QuantMethod.DWQ
+    assert trunk.bits == 4 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
 
 
 def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:

@@ -1,8 +1,7 @@
-# Quality-first Flash-0731 pack: 4-bit DWQ clip on fused trunk, group 128.
-# Attention 6-bit DWQ (instruction path). Not mlx-optiq. Not another 2-bit mix.
-#
-# Affine 2/3/4 only moved mean 0.310 -> 0.339. Next spend is convert-time
-# percentile clip on the same stacks, after official DSV4 chat encoding.
+# Quality-first Flash-0731 pack that fits a 192 GB Studio convert.
+# Attention 6-bit DWQ (instruction path clip). Fused trunk stays 4-bit
+# affine — full-stack DWQ clip Killed:9 twice (BF16 materialize).
+# Not mlx-optiq. Not another 2-bit mix.
 schema_version: axquant.manual-recipe.v1
 profile: general
 target_bpw: 16.0
@@ -43,12 +42,12 @@ rules:
     method: dwq
     group_size: 128
     reason: Instruction path stays above 4-bit after DWQ clip
-  - rule_id: trunk-4bit-dwq
+  - rule_id: trunk-4bit-affine
     roles: [mlp, expert]
     bits: 4
-    method: dwq
+    method: affine
     group_size: 128
-    reason: Fused trunk is 4-bit DWQ clip then affine pack
+    reason: Fused trunk stays 4-bit affine so convert/generate fit 192 GB
 mtp:
   mode: protected
   candidate_bits: [8, 16]

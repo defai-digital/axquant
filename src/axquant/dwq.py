@@ -7,9 +7,21 @@ from axquant.errors import PlanningError
 
 # MLX encodes shape dims as int32. flatten/reshape(-1) on a fused Flash
 # switch stack (often >2^31 elements) raises. Sample those tensors by
-# striding each axis instead.
+# striding each axis instead. Never mx.eval a clipped stack that large:
+# that materializes a second BF16 copy and is what Killed:9 the first
+# Flash DWQ convert on a 192 GB Studio.
 _MLX_FLAT_LIMIT = 2_147_483_647
 _SAMPLE_LIMIT = 65536
+
+
+def dwq_should_materialize(elements: int) -> bool:
+    """Whether convert may mx.eval the clipped weight.
+
+    Attention-sized tensors fit. A fused Flash switch does not — leave the
+    clip lazy so mlx_lm ``to_quantized`` can consume it group-wise.
+    """
+
+    return int(elements) <= _MLX_FLAT_LIMIT
 
 
 def dwq_sample_strides(
@@ -80,10 +92,13 @@ def apply_mlx_dwq_clip(module: Any) -> dict[str, float | int | tuple[int, ...]]:
     upper = ordered[upper_index]
     mx.eval(lower, upper)
     module.weight = mx.clip(weight, lower, upper)
-    mx.eval(module.weight)
+    materialized = dwq_should_materialize(elements)
+    if materialized:
+        mx.eval(module.weight)
     return {
         "sample_count": sample_count,
         "sample_stride": sample_stride,
         "clip_lower": float(lower.item()),
         "clip_upper": float(upper.item()),
+        "materialized": materialized,
     }
