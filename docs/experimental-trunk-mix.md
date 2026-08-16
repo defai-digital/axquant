@@ -41,8 +41,10 @@ not because one extra bit on down-proj was missing:
   vs OptiQ 0.948 (14/15).
 - Mixed 2/3/4 got worse (mean 0.300).
 
-The follow-up pack is 4-bit affine on the robust trunk (optional DWQ clip
-that no longer flattens fused stacks past MLX int32).
+The follow-up packs are 3-bit affine and 4-bit group-128 affine. Same-run
+factory means: 3-bit **0.300**, 4-bit g128 **0.339**, OptiQ **0.724**. Decode
+~27–28 tok/s vs OptiQ ~2.5. Raising affine bits does not close the quality
+gap; fused AWQ/GPTQ is still blocked.
 
 ## Flash-0731 status (2026-08-16)
 

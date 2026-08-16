@@ -1,0 +1,379 @@
+{
+  "key": "axq2",
+  "label": "DeepSeek V4 Flash-0731 AXQ 4-bit g128",
+  "hub": "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
+  "commit": "1.9.0",
+  "runtime": "mlx-lm-resident",
+  "path": "/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-g128",
+  "host_id": "df-macstudio-m2",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "seed": 20260728,
+  "max_tokens_qa": 64,
+  "load_seconds": 183.64081987499958,
+  "quality": {
+    "agent-coding": {
+      "n": 15,
+      "mean_score": 0.2,
+      "pass_rate": 0.0,
+      "passed": 0,
+      "seconds": 38.55393362500763,
+      "tasks": [
+        {
+          "task_id": "coding-001",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Use the provided function signature: def fizzbuzz(n):' \n- **Answer**: ```python\ndef fizzbuzz(n):\n    if n % 3 == 0 and n % 5 == 0:\n        return 'fizzbuzz'\n    elif n % 3 == 0",
+          "error": null
+        },
+        {
+          "task_id": "coding-002",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should be able to handle n up to 1000 and return a large integer. Use an iterative approach with memoization.\"} \n{\"prompt\": \"Implement a Python function called fibonacci that returns the nth Fibonacci number, where fibonacci(0) is 0 and fibonacci(1) is 1.",
+          "error": null
+        },
+        {
+          "task_id": "coding-003",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should be case-insensitive and ignore spaces. The input string can contain any printable ASCII characters. The function should return False for an empty string. The function should handle strings with punctuation and special characters by ignoring them. The function should be case-insensitive and ignore spaces. The function should return True for a string",
+          "error": null
+        },
+        {
+          "task_id": "coding-004",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The list is sorted in ascending order. Implement the binary search algorithm iteratively. Do not use any built-in search functions or slicing. The function should have a time complexity of O(log n).\", \"test\": \"def test_binary_search():\\n    assert binary_search([1, 2, 3",
+          "error": null
+        },
+        {
+          "task_id": "coding-005",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 0.0
+          },
+          "output": "\n\n## 2. The following function should return the sum of all values in a list but has a bug. Rewrite it correctly.\n\ndef sum_list(values):\n    total = 0\n    for value in values:\n        total = value\n    return total\n\n## 3. The following function should return the",
+          "error": null
+        },
+        {
+          "task_id": "coding-006",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The withdraw method should raise a custom exception called InsufficientFunds if the withdrawal amount is greater than the balance. Then, write a function that creates a BankAccount, performs a series of deposits and withdrawals, and handles the InsufficientFunds exception by printing an error message.\"} {\"instruction\": \"Create a Python",
+          "error": null
+        },
+        {
+          "task_id": "coding-007",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "The function should handle empty strings and return an empty string in that case.\"} \n\t    } \n\t ], \n\t \"raw_response\": \"```python\\ndef reverse_string(s):\\n    \\\"\\\"\\\"\\n    Reverses the input string.\\n\\n    Parameters:\\n    s (str):",
+          "error": null
+        },
+        {
+          "task_id": "coding-008",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should be case-insensitive, meaning that uppercase vowels should also be counted. The input string may contain non-alphabetic characters, which should be ignored. The function should return an integer. If the input string is empty, return 0. The function should handle the input string case-insensitively. The",
+          "error": null
+        },
+        {
+          "task_id": "coding-009",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should not use any external libraries. The input list may contain nested lists of any depth. The function should be able to handle empty lists and lists with non-list elements. The output should be a flat list of all elements in the original list, in the same order as they appear. The function should be able",
+          "error": null
+        },
+        {
+          "task_id": "coding-010",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Do not use set() or in operator.\n</p>\n</div>\n    </div>\n    <div class=\"code\">\n      <p class=\"title\">Solution</p>\n      <pre><code>def remove_duplicates(lst):\n    result = []\n    for item in lst:\n        if item not",
+          "error": null
+        },
+        {
+          "task_id": "coding-011",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should return an integer.\n</p>\n<p>Write a Python function `factorial` that computes the factorial of a non-negative integer n using recursion. The function should return an integer.</p>\n<p>Write a Python function factorial that computes the factorial of a non-negative integer n using recursion. The function",
+          "error": null
+        },
+        {
+          "task_id": "coding-012",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should take a float temperature in Celsius as input and return the temperature in Fahrenheit as a float. The function should be named celsius_to_fahrenheit and should have one parameter named celsius. The return type should be a float. The function should be callable and should not print anything. The function should be in a",
+          "error": null
+        },
+        {
+          "task_id": "coding-013",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Then, create an instance of this class with width=4 and height=5, and print its area. Use the `__init__` method to initialize the attributes.\n### Response:\n```python\nclass Rectangle:\n    def __init__(self, width, height):\n        self.width = width\n        self.height",
+          "error": null
+        },
+        {
+          "task_id": "coding-014",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should have signature gcd(a, b) and return -1 if either a or b is less than or equal to 0. Otherwise, it should return the greatest common divisor of a and b. The function must be recursive. Do not include any main message or input/output prompts. Do not include docstring",
+          "error": null
+        },
+        {
+          "task_id": "coding-015",
+          "category": "coding",
+          "score": 0.0,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 0.0
+          },
+          "output": "The function should not be recursive. Use a simple loop as taught in class. 2. Write a Python function `next_prime` that takes an integer n (n >= 1) and returns the smallest prime greater than n. 3. Write a Python function `is_armstrong` that checks whether a",
+          "error": null
+        }
+      ]
+    },
+    "general": {
+      "n": 15,
+      "mean_score": 0.4782608695652174,
+      "pass_rate": 0.4666666666666667,
+      "passed": 7,
+      "seconds": 33.11392737500137,
+      "tasks": [
+        {
+          "task_id": "instruction-001",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "\",\n      \"target_sources\": [],\n      \"additional_instructions\": null,\n      \"max_tokens\": 50,\n      \"temperature\": 0.0\n    }\n  },\n  \"type\": \"completion\"\n}\n```\n</details>\n\n### 2.2.2.2.2.2",
+          "error": null
+        },
+        {
+          "task_id": "instruction-002",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "The French translation is 'bonjour'.\" \n\t  } \n\t   } \n\t   } \n\t\t</script>\n\t</body>\n</html> \n```\n\n* * *\n\n## \u56de\u7b54 #1\n\n> \u8d5e\u540c\uff1a0\n> \n> \u65f6\u95f4\uff1a2012-10-24T20:11",
+          "error": null
+        },
+        {
+          "task_id": "instruction-003",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "regex:0": 0.0
+          },
+          "output": "Do not output any additional text.\", \"weight\": null}, {\"role\": \"assistant\", \"content\": \"- Red\\n- Blue\\n- Yellow\", \"weight\": null}]}], \"meta\": {\"category\": \"General\", \"domain\": \"General\", \"language\": \"English\", \"metric\": \"simple",
+          "error": null
+        },
+        {
+          "task_id": "instruction-004",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\", \"target\": \"THE SUN RISES IN THE EAST.\", \"prediction\": \"THE SUN RISES IN THE EAST.\"}, \"score\": 1}]}], \"effective_order\": 0, \"true_order\": 0, \"order_stop\": false, \"order_decisions\": [], \"sample",
+          "error": null
+        },
+        {
+          "task_id": "instruction-005",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "Do not include any other text or formatting.\n</p>\n</div>\n\n### Response:\n\napple, banana, cherry",
+          "error": null
+        },
+        {
+          "task_id": "instruction-006",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "If the Spanish word cannot be translated, say 'not translatable'.', 'target': 'thank you', 'translation': 'thank you', 'is_natural': True, 'is_valid': True, 'is_accurate': True, 'is_natural_instructions': False, 'is_valid_instructions",
+          "error": null
+        },
+        {
+          "task_id": "instruction-007",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "(A) cold (B) warm (C) hot (D) cool\\nAnswer: cold\\n\\nWhat is the capital of France?\\nAnswer: Paris\\n\\nWhat is the largest mammal?\\nAnswer: Blue whale\\n\\nWhat is the square root of 144?\\nAnswer: 12\\n\\n",
+          "error": null
+        },
+        {
+          "task_id": "instruction-008",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "Do not add anything before or after.\", \"response\": \"hello hello hello\"}]}",
+          "error": null
+        },
+        {
+          "task_id": "instruction-009",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Only return the final list, no other text.\" }, { \"role\": \"assistant\", \"content\": \"apple, banana, cherry\" } ] } ]\n\n[ { \"role\": \"system\", \"content\": \"You are a helpful, harmless, and honest assistant.\" }, { \"role\": \"user\",",
+          "error": null
+        },
+        {
+          "task_id": "instruction-010",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "\", \"target\": \"The mountain stream feeds the river below.\", \"tokens\": [\"The\", \" mountain\", \" stream\", \" feeds\", \" the\", \" river\", \" below\", \".\"], \"pos\": {\"The\": \"DET\", \"mountain\": \"NOUN\", \"stream\": \"NOUN",
+          "error": null
+        },
+        {
+          "task_id": "instruction-011",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "(i.e. \\\"one\\\")\",\n    \"model\": \"meta-llama/Llama-3.2-3B-Instruct\",\n    \"temperature\": 0,\n    \"responses\": [\n        {\n            \"content\": \"five\",\n            \"model\": \"meta-llama/Ll",
+          "error": null
+        },
+        {
+          "task_id": "instruction-012",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "3. Replace all occurrences of 'important' with 'crucial' in the original sentence. 4. Write the resulting sentence. \n * Constraints: Do not use negative contractions. \n * Example: \n * Input: The quick brown fox jumps over the lazy dog. \n * Output: The quick brown fox",
+          "error": null
+        },
+        {
+          "task_id": "instruction-013",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Only give the list, no other text.\" Then provide the list. Do not say anything else. \\n\\nASSISTANT: a, b, c\",\n    \"tokens\": {},\n    \"valid\": true,\n    \"model\": \"gpt-4o-mini-2024-07-18",
+          "error": null
+        },
+        {
+          "task_id": "instruction-014",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\", \"target\": \"three two one\", \"tokens\": [\"three\", \"two\", \"one\"], \"min_tokens\": 3, \"max_tokens\": 3, \"stop\": [], \"prompt\": \"Reverse the order of these words and return them space-separated: 'one two",
+          "error": null
+        },
+        {
+          "task_id": "instruction-015",
+          "category": "instruction",
+          "score": 0.17391304347826086,
+          "check_scores": {
+            "token-f1:0": 0.17391304347826086
+          },
+          "output": "\",\n    \"model\": \"gpt-4o-mini\",\n    \"temperature\": 0,\n    \"responses\": [\n        {\n            \"content\": \"Copy this line verbatim.\",\n            \"role\": \"assistant\",\n            \"function_call\": null,\n            \"tool_calls\": null\n       ",
+          "error": null
+        }
+      ]
+    }
+  },
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 16,
+        "generated_tokens": 128,
+        "elapsed_seconds": 4.564904291997664,
+        "tok_per_s": 28.040018325112676,
+        "preview": "1. 1\n2. 2\n3. 3\n4. 4\n5. 5\n6. 6\n7. 7\n8. 8\n9. 9\n10. 10\n11. 11\n12. 12\n13. 13\n14. 14\n15. 15\n16. 16\n17. 17\n18. 18\n19. 19\n20. 20\n21. 21\n22. 22\n23. 23\n24. 24\n25. 25\n26. "
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 481,
+        "generated_tokens": 8,
+        "elapsed_seconds": 2.712133457986056,
+        "tok_per_s": 2.949707351768945,
+        "preview": "romeo sierra tango uniform vict"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3841,
+        "generated_tokens": 8,
+        "elapsed_seconds": 18.34129770800064,
+        "tok_per_s": 0.43617415339757165,
+        "preview": "romeo sierra tango uniform vict"
+      }
+    ],
+    "rss_gb": 144.18553161621094
+  },
+  "measured_at": "2026-08-16T15:27:02.220984+00:00"
+}

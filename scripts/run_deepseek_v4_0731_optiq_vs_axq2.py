@@ -322,7 +322,7 @@ def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:
             try:
                 text = backend.generate(task["prompt"], MAX_TOKENS_QA, SEED + index)
                 err = None
-            except Exception as exc:  # noqa: BLE001 — record and continue
+            except Exception as exc:
                 text, err = "", str(exc)
             if score:
                 sc, checks = score_quality_task_output(task["obj"], text)
@@ -401,7 +401,6 @@ def cmd_eval(key: str) -> None:
     load_s = time.perf_counter() - t_load
     log(f"loaded {key} in {load_s:.1f}s rss={_rss_mb()}")
     quality = _run_quality(backend, key, score=(key != "optiq2"))
-    speed = _run_speed(backend)
     payload = {
         "key": key,
         "label": item["label"],
@@ -415,9 +414,17 @@ def cmd_eval(key: str) -> None:
         "max_tokens_qa": MAX_TOKENS_QA,
         "load_seconds": load_s,
         "quality": quality,
-        "speed": speed,
+        "speed": None,
         "measured_at": datetime.now(UTC).isoformat(),
     }
+    write_json(out, payload)
+    log(f"wrote quality {out}")
+    try:
+        payload["speed"] = _run_speed(backend)
+    except Exception as exc:
+        payload["speed"] = {"error": f"{type(exc).__name__}: {exc}", "cases": []}
+        log(f"speed failed {key}: {exc}")
+    payload["measured_at"] = datetime.now(UTC).isoformat()
     write_json(out, payload)
     log(f"wrote {out}")
 
