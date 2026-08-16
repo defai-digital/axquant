@@ -12,7 +12,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from axquant.schema._base import StrictModel, utc_now
-from axquant.schema.enums import EvidenceKind, ProfileName
+from axquant.schema.enums import ProfileName
 from axquant.schema.inventory import ModelIdentity
 from axquant.schema.planning import AX_ENGINE_EXECUTABLE_BITS
 
@@ -161,9 +161,7 @@ class JointCrossoverSummary(StrictModel):
         expected = len(pairs) > 1
         if self.detected != expected:
             raise ValueError("crossover detection does not match the distinct rankable winners")
-        complete = all(
-            winner.rankable_count == winner.feasible_count for winner in self.winners
-        )
+        complete = all(winner.rankable_count == winner.feasible_count for winner in self.winners)
         if self.ranking_complete != complete:
             raise ValueError("ranking_complete does not match per-context rankable coverage")
         contexts = [winner.context_length for winner in self.winners]
@@ -178,7 +176,7 @@ class JointInteractionReport(StrictModel):
     schema_version: Literal["axquant.joint-interaction.v1"] = "axquant.joint-interaction.v1"
     experimental: Literal[True] = True
     certification_eligible: Literal[False] = False
-    evidence_kind: EvidenceKind
+    evidence_kind: Literal["architecture_prior", "measured_development"]
     profile: ProfileName
     model: ModelIdentity
     limit_bytes: int = Field(gt=0)
@@ -202,14 +200,6 @@ class JointInteractionReport(StrictModel):
     def beta_contract_is_consistent(self) -> JointInteractionReport:
         if self.certification_eligible:
             raise ValueError("joint-interaction reports cannot be certification-eligible")
-        if self.evidence_kind not in {
-            EvidenceKind.ARCHITECTURE_PRIOR,
-            EvidenceKind.MEASURED_DEVELOPMENT,
-        }:
-            raise ValueError(
-                "joint-interaction is development evidence; use architecture_prior or "
-                "measured_development"
-            )
         if any(bits not in AX_ENGINE_EXECUTABLE_BITS for bits in self.kv_default_bits):
             raise ValueError("KV default bits must be AX Engine executable widths")
         if self.interaction is None:

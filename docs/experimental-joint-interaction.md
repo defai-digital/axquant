@@ -72,7 +72,7 @@ feasibility-only.
 
 `crossover.detected` is true only when two **rankable** context winners pick
 different `(target_bpw, kv_default_bits)` pairs. Equal-proxy ties keep the
-lower KV bit-width and more leftover memory.
+lower KV bit-width, then the lower target BPW, then more leftover memory.
 
 `evidence_kind` is never release-quality `measured`. Priors stay
 `architecture_prior`; probe-backed runs are `measured_development`.

@@ -752,7 +752,7 @@ def _run(args: argparse.Namespace) -> int:
             output=str(args.output),
             verdict=report.verdict,
             crossover=report.crossover.detected,
-            evidence=report.evidence_kind.value,
+            evidence=report.evidence_kind,
             certification_eligible=report.certification_eligible,
         )
         return 0

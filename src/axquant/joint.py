@@ -19,6 +19,7 @@ from axquant.memory_budget import evaluate_budget
 from axquant.optimizer import estimate_kv_bytes
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.schema import (
+    CandidateMeasurement,
     EvidenceKind,
     Inventory,
     JointBudgetCandidate,
@@ -28,6 +29,7 @@ from axquant.schema import (
     JointMeasuredDeltas,
     JointProxyScores,
     KvCachePlan,
+    KvLayerAllocation,
     KvSensitivityReport,
     PlanRequest,
     ProfileName,
@@ -133,9 +135,7 @@ def _kv_proxy_kl(plan: KvCachePlan, report: KvSensitivityReport | None) -> float
             (
                 candidate
                 for candidate in entry.candidates
-                if candidate.bits == layer.bits
-                and candidate.group_size == layer.group_size
-                and candidate.supported
+                if _kv_candidate_matches(candidate, layer)
             ),
             None,
         )
@@ -148,6 +148,16 @@ def _kv_proxy_kl(plan: KvCachePlan, report: KvSensitivityReport | None) -> float
     if not scores:
         raise PlanningError("KV sensitivity produced no layer scores")
     return sum(scores) / len(scores)
+
+
+def _kv_candidate_matches(candidate: CandidateMeasurement, layer: KvLayerAllocation) -> bool:
+    """16-bit KV probes store group_size=None; quantized cells must match the plan group."""
+
+    if not candidate.supported or candidate.bits != layer.bits:
+        return False
+    if layer.bits == 16:
+        return True
+    return candidate.group_size == layer.group_size
 
 
 def _proxy_scores(
@@ -200,8 +210,7 @@ def _require_matched_quality(
 ) -> None:
     first_label, first = results[0]
     _require_same_model(first, inventory, first_label)
-    first_tasks = {task.task_id for task in first.task_results}
-    first_categories = set(first.metrics.task_scores)
+    first_tasks = {task.task_id: task.category for task in first.task_results}
     for label, result in results[1:]:
         _require_same_model(result, inventory, label)
         if result.dataset_sha256 != first.dataset_sha256:
@@ -210,10 +219,9 @@ def _require_matched_quality(
             raise PlanningError(f"{label} random_seed does not match {first_label}")
         if result.generation != first.generation:
             raise PlanningError(f"{label} generation config does not match {first_label}")
-        if set(result.metrics.task_scores) != first_categories:
-            raise PlanningError(f"{label} task categories do not match {first_label}")
-        if {task.task_id for task in result.task_results} != first_tasks:
-            raise PlanningError(f"{label} task IDs do not match {first_label}")
+        got_tasks = {task.task_id: task.category for task in result.task_results}
+        if got_tasks != first_tasks:
+            raise PlanningError(f"{label} task id/category mapping does not match {first_label}")
 
 
 def _measured_deltas(
@@ -365,7 +373,7 @@ def joint_interaction_markdown(report: JointInteractionReport) -> str:
 
 - Verdict: `{report.verdict}`
 - Crossover detected: `{report.crossover.detected}`
-- Evidence: `{report.evidence_kind.value}`
+- Evidence: `{report.evidence_kind}`
 - Profile: `{report.profile.value}`
 - Memory limit / reserve: `{report.limit_bytes}` / `{report.reserve_bytes}` bytes
 
@@ -538,9 +546,7 @@ def diagnose_joint_interaction(
             raise PlanningError(
                 "KV sensitivity text layer count does not match the planned KV grid"
             )
-        if any(
-            plan.default_group_size != kv_report.group_size for plan in kv_plans.values()
-        ):
+        if any(plan.default_group_size != kv_report.group_size for plan in kv_plans.values()):
             raise PlanningError("KV sensitivity group size does not match the planned KV grid")
 
     evidence = (

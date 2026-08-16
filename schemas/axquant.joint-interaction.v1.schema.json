@@ -1,14 +1,5 @@
 {
   "$defs": {
-    "EvidenceKind": {
-      "enum": [
-        "measured",
-        "measured_development",
-        "imported",
-        "architecture_prior"
-      ],
-      "type": "string"
-    },
     "JointBudgetCandidate": {
       "additionalProperties": false,
       "properties": {
@@ -391,7 +382,11 @@
       "$ref": "#/$defs/JointCrossoverSummary"
     },
     "evidence_kind": {
-      "$ref": "#/$defs/EvidenceKind"
+      "enum": [
+        "architecture_prior",
+        "measured_development"
+      ],
+      "type": "string"
     },
     "experimental": {
       "const": true,
