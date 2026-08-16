@@ -1,5 +1,8 @@
 # DeepSeek V4 Flash AXQ 3-bit (experimental) — checkpoint Tier 1 certification
 
+> **Withdrawn SKU (2026-08-16).** 3-bit Flash has no unique size or quality
+> slot vs 2-bit / 4-bit. Hub pack removed. This page is a historical record.
+
 **Verdict:** certified for AXQuant checkpoint Tier 1 (**experimental low-bit**) on 2026-08-10
 on host **`df-macstudio-m2`** (Apple M2 Ultra, 192 GB).
 

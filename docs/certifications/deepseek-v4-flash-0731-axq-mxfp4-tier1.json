@@ -1,0 +1,79 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-16T16:50:00+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4",
+    "hub_commit": "unpublished",
+    "product_class": "mxfp4",
+    "architecture": "DeepseekV4ForCausalLM",
+    "source_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "source_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "recipe": "examples/deepseek-v4-experimental-mxfp4-v0.1.yaml",
+    "target_class": "mxfp4"
+  },
+  "size": {
+    "pass": false,
+    "notes": "Pack not converted yet. MXFP4 group-32 is expected near the 4-bit g32 179 GB class that already OOMed generate on 192 GB."
+  },
+  "quality": {
+    "agent-coding": {
+      "pass": false,
+      "reason": "No pack on df-macstudio-m2; dual-suite not run."
+    },
+    "general": {
+      "pass": false,
+      "reason": "No pack on df-macstudio-m2; dual-suite not run."
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "If convert lands above ~170 GB resident, factory generate/cert is blocked on 192 GB unified memory."
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "No pack; MTP not claimed."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "fail",
+      "notes": "No local MXFP4 0731 pack to load."
+    },
+    "ax_engine": {
+      "status": "fail",
+      "notes": "No pack."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.9.0",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Listed ship SKU. Convert with --q-mode mxfp4 from examples/deepseek-v4-experimental-mxfp4-v0.1.yaml.",
+    "Not certified: no artifact yet. If the pack does not generate on 192 GB, it stays listed-not-certified (factory host memory)."
+  ],
+  "public_index": {
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ MXFP4",
+    "sort_order": 233,
+    "edition_label": "recipe-only",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text MoE Flash pack"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "no audio tower"
+    }
+  }
+}

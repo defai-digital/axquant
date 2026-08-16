@@ -49,13 +49,16 @@ or `quality-certified` only with bound evidence. Spec:
 | [Qwen3.8-27B MLX AXQ MXFP4 MTP](qwen38-27b-axq-mxfp4-mtp-tier1.md) | main@`594de650` | [Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | [Qwen3.8-27B MLX AXQ 8-bit MTP](qwen38-27b-axq8-mtp-tier1.md) | main@`7772fd6e` | [Certified](qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash MLX AXQ 2-bit (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash MLX AXQ 3-bit (exp.)](deepseek-v4-flash-axq3-tier1.md) | main@`5f00e2df` | [Certified](deepseek-v4-flash-axq3-tier1.md) | [Not Certified](deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | [Gemma 4 12B MLX AXQ 4-bit](gemma4-12b-axq4-tier1.md) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 12B MLX AXQ 6-bit](gemma4-12b-axq6-tier1.md) | main@`d0a1a932` (IT rebuild) | [Certified](gemma4-12b-axq6-tier1.md) | [Not Certified](gemma4-12b-axq6-tier1.md#tier-2-status) |
 | [Gemma 4 26B-A4B MLX AXQ 4-bit](gemma4-26b-a4b-axq4-tier1.md) | main@`85b0a78a` | [Certified](gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 26B-A4B MLX AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | [Gemma 4 31B MLX AXQ 4-bit](gemma4-31b-axq4-tier1.md) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash-0731 MLX AXQ 2-bit (exp.)](deepseek-v4-flash-0731-axq2-tier1.md) | studio-eval@`408c0ab3` | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash-0731 MLX AXQ 4-bit](deepseek-v4-flash-0731-axq4-tier1.md) | studio-local-g128 | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash-0731 MLX AXQ MXFP4](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | recipe-only | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP
@@ -72,12 +75,12 @@ are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality,
 certified** (agent-coding retention best ~0.952 &lt; 0.98; further recert skipped).
 See the unlisted [evaluation record](gpt-oss-120b-axq4-tier1.md).
 
-**DeepSeek V4 Flash:** experimental **2/3-bit** AXQ packs are checkpoint Tier 1 on
-`df-macstudio-m2` (generation viability on development suites). AX Engine **6.15.0**
-runtime smoke also passed on that host (chat exact-match + ~1.3k context retrieval)
-with `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`. Product classes
-remain `*-experimental`; measured BPW exceeds the nominal class; MTP acceleration is
-not certified.
+**DeepSeek V4 Flash:** the older-source experimental **2-bit** pack is checkpoint
+Tier 1 on `df-macstudio-m2`. **3-bit Flash is withdrawn.** Flash-0731 ship SKUs
+are 2-bit, 4-bit g128, MXFP4, and 6-bit; 0731 dual-suite cert is not closed.
+**6-bit (and likely MXFP4 if it lands near 179 GB) cannot be certified on
+192 GB** — listed as not-certified for factory-host memory. MTP acceleration
+is not certified.
 
 **Qwen3-VL 30B-A3B Instruct:** vision MoE Instruct with **no declared MTP**. Public
 **4-bit** and **6-bit** packs are checkpoint Tier 1 on `df-macbookpro-m5` with AX Engine

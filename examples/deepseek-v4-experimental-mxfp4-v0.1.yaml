@@ -1,0 +1,57 @@
+# Flash-0731 AXQ-MXFP4. Convert with --q-mode mxfp4 --allow-unmeasured.
+# Attention + fused trunk native MXFP4 (group 32). Floors stay affine 8 / BF16.
+# Ship SKU. Not mlx-optiq. Not an OCP/NVIDIA checkpoint.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 4
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: quality
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: attention-mxfp4
+    roles: [attention]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: AXQ-MXFP4 attention trunk
+  - rule_id: trunk-mxfp4
+    roles: [mlp, expert]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: AXQ-MXFP4 fused trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

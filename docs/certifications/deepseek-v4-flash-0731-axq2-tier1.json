@@ -70,7 +70,7 @@
     "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 2-bit (exp.)",
     "sort_order": 230,
     "edition_label": "studio-eval@`408c0ab3`",
-    "listed": false
+    "listed": true
   },
   "modalities": {
     "policy": "capability-gated-v1",

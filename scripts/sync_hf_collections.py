@@ -30,6 +30,7 @@ KNOWN_SLUGS = {
     "DeepSeek": "AutomatosX/deepseek-6a7f539f6dbb163f53e10230",
     "GPT-OSS": "AutomatosX/gpt-oss-6a7f53a1b91ffbc9d632a263",
     "Holo3": "AutomatosX/holo3-6a7f53a1cf47102943335f3e",
+    "Holo-3.1": "AutomatosX/holo-31-6a819f5921908d636ae8b2a8",
     "Devstral": "AutomatosX/devstral-6a7f53a28f83a5c088373faf",
     "Ornith 1.0": "AutomatosX/ornith-10-6a7f53a328beff762aced1c9",
     "Mistral": "AutomatosX/mistral-6a7f53a3c81397e9339a5b75",
@@ -46,8 +47,17 @@ NOTE_T1_T2 = (
     "Checkpoint Tier 1 and scoped MTP Tier 2 certified. See the certificates for the bound host."
 )
 NOTE_T1_NO_T2 = "Checkpoint Tier 1 certified. MTP Tier 2 is not certified."
+NOTE_T1_NOMTP = (
+    "Checkpoint Tier 1 certified. No-MTP sibling of the certified MTP pack; language path matches."
+)
 NOTE_T1_EXP = (
     "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."
+)
+NOTE_0731 = (
+    "Flash-0731 source revision. AXQ development artifact. Not certified; see the model card."
+)
+CERTIFIED_NOTES = frozenset(
+    {NOTE_T1, NOTE_T1_T2, NOTE_T1_NO_T2, NOTE_T1_NOMTP, NOTE_T1_EXP}
 )
 NOTE_OPTIQ = "OptiQ mixed 4/8-bit."
 NOTE_UNIFORM = "Uniform MLX quantization."
@@ -93,11 +103,17 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
@@ -105,8 +121,6 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
@@ -118,7 +132,6 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-gemma-4-12b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-gemma-4-12b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-3bit", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
         ),
     ),
@@ -133,20 +146,26 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit", NOTE_24T),
         ),
     ),
     Spec(
         title="Qwen3.6",
-        description="Qwen3.6 27B and 35B-A3B: uniform, OptiQ, and certified AXQ 4/6-bit MTP.",
+        description=(
+            "Qwen3.6 27B and 35B-A3B: uniform, OptiQ, certified AXQ 4/6-bit MTP, and no-MTP siblings."
+        ),
         items=(
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
             _ax("AX-Qwen3.6-27B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
             _ax("AX-Qwen3.6-27B-MLX-6bit-MTP", NOTE_UNIFORM),
@@ -217,12 +236,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="DeepSeek",
-        description="DeepSeek V4 Flash AXQ 2/3/4/6-bit and DeepSeek-OCR-2.",
+        description="DeepSeek V4 Flash AXQ 2/4/6-bit, Flash-0731 2/4/MXFP4/6-bit, and DeepSeek-OCR-2. 3-bit withdrawn.",
         items=(
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-3bit", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
@@ -354,14 +373,18 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit", NOTE_24T),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
             _ax("AX-Qwen3.6-27B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
             _ax("AX-Qwen3.6-27B-MLX-6bit-MTP", NOTE_UNIFORM),
@@ -402,8 +425,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-3bit", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
@@ -467,6 +490,10 @@ def _validate() -> None:
             seen.add(item.repo)
             if item.note is not None and len(item.note) > 500:
                 raise SystemExit(f"note too long for {item.repo} in {spec.title!r}")
+            if spec.title == "Certified AXQ" and item.note not in CERTIFIED_NOTES:
+                raise SystemExit(
+                    f"Certified AXQ has a non-certificate note for {item.repo}: {item.note!r}"
+                )
 
 
 def _retry(fn, *, retries: int = 6):

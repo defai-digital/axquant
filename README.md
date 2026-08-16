@@ -269,13 +269,16 @@ The tables are generated from certificate JSON
 | Qwen3.8-27B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | Qwen3.8-27B MLX AXQ 8-bit MTP | [Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash MLX AXQ 2-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash MLX AXQ 3-bit (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq3-tier1.md#tier-2-status) |
 | Gemma 4 12B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 12B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 26B-A4B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 26B-A4B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 31B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 31B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash-0731 MLX AXQ 2-bit (exp.) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash-0731 MLX AXQ 4-bit | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash-0731 MLX AXQ MXFP4 | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
+| DeepSeek V4 Flash-0731 MLX AXQ 6-bit | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
@@ -301,16 +304,15 @@ direct fallback until Tier 2 gates pass on a released engine.
 AXQ **6-bit**, are checkpoint Tier 1 certified on the same host (non-MTP; 120B via manual no-4-bit
 agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding retention 0.952
 &lt; 0.98) — see
-[evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md). **DeepSeek V4 Flash** AXQ
-**2/3-bit experimental** packs (older `DeepSeek-V4-Flash` source) are **checkpoint Tier 1
-certified** on `df-macstudio-m2` (generation viability; MTP Tier 2 not claimed).
-**Flash-0731** AXQ 2/3-bit packs are on the Hub as a **new source revision**
-(`deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b`); they are **not certified**
-([2-bit eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md),
-[3-bit eval](docs/certifications/deepseek-v4-flash-0731-axq3-tier1.md)) — mlx-lm
-generate smoked on Studio; dual-suite viability and AX Engine manifest are named
-misses. Other catalog entries remain development artifacts unless their own exact
-revision has a certificate.
+[evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md). **DeepSeek V4 Flash** AXQ **2-bit experimental** (older `DeepSeek-V4-Flash` source)
+is **checkpoint Tier 1 certified** on `df-macstudio-m2` (generation viability;
+MTP Tier 2 not claimed). **3-bit Flash SKUs are withdrawn** (no unique quality
+or size slot vs 2-bit / 4-bit). **Flash-0731** ship SKUs are 2-bit, 4-bit g128,
+MXFP4, and 6-bit g128 (`deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b`); 0731
+certificates are in progress
+([2-bit eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)). Other
+catalog entries remain development artifacts unless their own exact revision
+has a certificate.
 
 **Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** is on the Hub at
 [`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit)
@@ -353,11 +355,10 @@ repos are not AX Engine artifacts
 ### v1.6.x at a glance
 
 - DeepSeek V4 Flash is **convertible** (mixed FP4+FP8 source → dequant/affine re-pack) with
-  experimental 2/3-bit recipes. AXQ **2/3-bit experimental** packs are checkpoint Tier 1
-  certified on `df-macstudio-m2`
-  ([2bit](docs/certifications/deepseek-v4-flash-axq2-tier1.md),
-  [3bit](docs/certifications/deepseek-v4-flash-axq3-tier1.md)). Requires an `mlx-lm` build that
-  includes `deepseek_v4` (v1.6.0+).
+  experimental 2-bit recipes. The older-source AXQ **2-bit experimental** pack is checkpoint
+  Tier 1 certified on `df-macstudio-m2`
+  ([2bit](docs/certifications/deepseek-v4-flash-axq2-tier1.md)). **3-bit Flash is withdrawn.**
+  Requires an `mlx-lm` build that includes `deepseek_v4` (v1.6.0+).
 - Convert/inventory hardening for DeepSeek sanitizer renames, FP4 expert logical params,
   MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
 - Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
@@ -583,9 +584,10 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | 6.576880 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-120b-axq6-tier1.md)); no MTP; manual no-4-bit agent-coding recipe |
 | *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `2bit-experimental` |
-| [`AX-DeepSeek-V4-Flash-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-3bit) | 4.110998 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq3-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `3bit-experimental` |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) | 3.132899 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)); new source `DeepSeek-V4-Flash-0731@7872f01b`; Studio convert + mlx-lm generate smoke; dual-suite / engine manifest named misses |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-3bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-3bit) | 4.110999 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq3-tier1.md)); same 0731 pin; Studio convert + mlx-lm generate smoke |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) | 3.132899 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)); source `DeepSeek-V4-Flash-0731@7872f01b`; 128 GB / stream SKU |
+| `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit` | 4.35 (g128) | Local Studio pack; Hub publish + dual-suite cert in progress |
+| `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4` | — | Recipe `examples/deepseek-v4-experimental-mxfp4-v0.1.yaml`; convert `--q-mode mxfp4` |
+| `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit` | — | Recipe `examples/deepseek-v4-experimental-6bit-g128-v0.1.yaml`; may exceed 192 GB generate |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | 4.880062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq4-tier1.md)); source `deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | 6.000062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.665439 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq4-tier1.md)); attention-6 / expert-4 recovery recipe; source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |

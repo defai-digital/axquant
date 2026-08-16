@@ -87,7 +87,7 @@
     "display_name": "DeepSeek V4 Flash MLX AXQ 3-bit (exp.)",
     "sort_order": 110,
     "edition_label": "main@`5f00e2df`",
-    "listed": true
+    "listed": false
   },
   "modalities": {
     "policy": "capability-gated-v1",

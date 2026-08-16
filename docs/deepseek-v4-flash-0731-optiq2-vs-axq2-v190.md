@@ -15,7 +15,7 @@ Product question: on the same Mac Studio, how does the mlx-community OptiQ 2-bit
 
 | Pack | Hub | Runtime | Local path |
 | --- | --- | --- | --- |
-| DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0) | local convert on Studio (`axquant==1.9.0`, not Hub-published) | resident mlx-lm | `/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0` |
+| DeepSeek V4 Flash-0731 AXQ 2-bit (v1.9.0) | local convert on Studio (`axquant==1.9.0`, not Hub-published) | resident mlx-lm | Studio Ext12T `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0` |
 | DeepSeek V4 Flash-0731 OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | mlx-optiq stream | `DeepSeek-V4-Flash-0731-OptiQ-2bit` |
 
 Common source: `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062`.

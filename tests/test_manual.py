@@ -119,6 +119,31 @@ def test_deepseek_v4_4bit_g128_dwq_recipe_clips_attention_not_fused_trunk() -> N
     assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
 
 
+def test_deepseek_v4_6bit_g128_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-6bit-g128-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 6
+    assert recipe.group_size == 128
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-6bit")
+    assert trunk.bits == 6 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+
+
+def test_deepseek_v4_mxfp4_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-mxfp4-v0.1.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 4
+    assert recipe.group_size == 32
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-mxfp4")
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-mxfp4")
+    assert trunk.bits == 4 and attention.bits == 4
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+
+
 def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:
     path = Path(__file__).resolve().parents[1] / (
         "examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml"

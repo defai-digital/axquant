@@ -1,0 +1,83 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-16T16:50:00+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit",
+    "hub_commit": "local-g128",
+    "product_class": "4bit",
+    "architecture": "DeepseekV4ForCausalLM",
+    "source_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "source_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "recipe": "examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml",
+    "target_class": "4bit",
+    "measured_main_bpw": 4.346776021448865,
+    "measured_total_bpw": 4.346776021448865
+  },
+  "size": {
+    "candidate_weight_bytes": 165255000000,
+    "candidate_measured_bpw": 4.346776021448865,
+    "pass": true,
+    "notes": "Local 154 GB group-128 pack. Group-32 179 GB OOMed generate on 192 GB (172 GB Metal)."
+  },
+  "quality": {
+    "agent-coding": {
+      "pass": false,
+      "reason": "Factory 15-task mean 0.500 with DSV4 chat; 76-task generation-viability suite not closed."
+    },
+    "general": {
+      "pass": false,
+      "reason": "Factory 15-task mean 0.933 with DSV4 chat; 44-task generation-viability suite not closed."
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "Flash experimental track uses generation viability, not BF16 retention."
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "MTP sidecar present; acceleration not claimed."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "decode-128 27.889 tok/s on df-macstudio-m2; group-128 fits 192 GB generate"
+    },
+    "ax_engine": {
+      "status": "fail",
+      "notes": "generate-manifest fused gate+up shape miss (same 0731 family)"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.9.0",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Ship SKU is 4-bit group-128. Group-32 4-bit cannot certify on df-macstudio-m2: Metal OOM.",
+    "Hub publish pending. Dual-suite formal cert not closed."
+  ],
+  "public_index": {
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 4-bit",
+    "sort_order": 232,
+    "edition_label": "studio-local-g128",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text MoE Flash pack"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "no audio tower"
+    }
+  }
+}

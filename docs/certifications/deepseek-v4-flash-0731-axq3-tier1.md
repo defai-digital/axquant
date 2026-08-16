@@ -1,5 +1,8 @@
 # DeepSeek V4 Flash-0731 AXQ 3-bit (experimental) — Studio evaluation
 
+> **Withdrawn SKU (2026-08-16).** 3-bit Flash has no unique size or quality
+> slot. Hub pack removed. Not a ship SKU.
+
 **Verdict:** **not certified** for checkpoint Tier 1 on `df-macstudio-m2` (2026-08-15).
 
 Converted from

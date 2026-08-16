@@ -264,8 +264,11 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "muse-glimmer-30b-axq6" in unlisted_ids
     assert "qwen38-27b-axq4-mtp-studio" in unlisted_ids
     assert "qwen38-27b-axq6-mtp-studio" in unlisted_ids
-    assert "deepseek-v4-flash-0731-axq2" in unlisted_ids
-    assert "deepseek-v4-flash-0731-axq3" in unlisted_ids
+    assert "deepseek-v4-flash-0731-axq2" not in unlisted_ids  # listed ship SKU
+    assert "deepseek-v4-flash-0731-axq3" in unlisted_ids  # withdrawn
+    assert "deepseek-v4-flash-0731-axq4" not in unlisted_ids
+    assert "deepseek-v4-flash-0731-axq-mxfp4" not in unlisted_ids
+    assert "deepseek-v4-flash-0731-axq6" not in unlisted_ids
     assert "qwen3-vl-32b-thinking-axq6" in unlisted_ids
     assert "qwen3-vl-32b-thinking-axq-mxfp4" in unlisted_ids
     assert "holo31-35b-axq6" in unlisted_ids
@@ -348,6 +351,9 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen38-27b-axq6-mtp-studio",
         "deepseek-v4-flash-0731-axq2",
         "deepseek-v4-flash-0731-axq3",
+        "deepseek-v4-flash-0731-axq4",
+        "deepseek-v4-flash-0731-axq-mxfp4",
+        "deepseek-v4-flash-0731-axq6",
         "qwen3-vl-32b-thinking-axq6",
         "qwen3-vl-32b-thinking-axq-mxfp4",
     ]

@@ -1,0 +1,56 @@
+# Flash-0731 6-bit trunk, group 128 so 192 GB has a chance to generate.
+# Ship SKU. Not 3-bit. Not mlx-optiq.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 6
+default_method: affine
+group_size: 128
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: quality
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 128
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 128
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: attention-6bit
+    roles: [attention]
+    bits: 6
+    method: affine
+    group_size: 128
+    reason: Attention trunk 6-bit at group 128
+  - rule_id: trunk-6bit
+    roles: [mlp, expert]
+    bits: 6
+    method: affine
+    group_size: 128
+    reason: Fused trunk 6-bit affine, group 128
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

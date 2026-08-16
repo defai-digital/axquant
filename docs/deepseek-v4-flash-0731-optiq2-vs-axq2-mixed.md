@@ -28,9 +28,9 @@ close the OptiQ gap.
 
 | Pack | Origin | Size | Path |
 | --- | --- | --- | --- |
-| AXQ mixed 2-bit | `axquant==1.9.0` local convert | 130 GB, 3.666 BPW | `/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-mixed` |
-| AXQ uniform 2-bit (prior) | `axquant==1.9.0` same source | 114 GB, 3.214 BPW | `/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0` |
-| OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | 86 GB streamed | `/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731-OptiQ-2bit` |
+| AXQ mixed 2-bit | `axquant==1.9.0` local convert | 130 GB, 3.666 BPW | Studio Ext12T `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-mixed` |
+| AXQ uniform 2-bit (prior) | `axquant==1.9.0` same source | 114 GB, 3.214 BPW | Studio Ext12T `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0` |
+| OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | 86 GB streamed | Studio Ext12T `DeepSeek-V4-Flash-0731-OptiQ-2bit` |
 
 Common source: `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 

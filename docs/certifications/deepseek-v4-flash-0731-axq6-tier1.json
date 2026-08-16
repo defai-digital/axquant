@@ -1,0 +1,79 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-16T16:50:00+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit",
+    "hub_commit": "unpublished",
+    "product_class": "6bit",
+    "architecture": "DeepseekV4ForCausalLM",
+    "source_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "source_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "recipe": "examples/deepseek-v4-experimental-6bit-g128-v0.1.yaml",
+    "target_class": "6bit"
+  },
+  "size": {
+    "pass": false,
+    "notes": "6-bit g128 is estimated ~200 GB+, above the 192 GB factory host. 4-bit g32 (179 GB) already required 172 GB Metal and OOMed generate."
+  },
+  "quality": {
+    "agent-coding": {
+      "pass": false,
+      "reason": "Cannot run dual-suite generate on df-macstudio-m2 (192 GB unified memory)."
+    },
+    "general": {
+      "pass": false,
+      "reason": "Cannot run dual-suite generate on df-macstudio-m2 (192 GB unified memory)."
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "Factory host memory blocks certification. Recert would need a larger Studio (e.g. 512 GB)."
+  },
+  "mtp_acceleration": {
+    "status": "not-certified",
+    "reason": "No generate path on factory host; MTP not claimed."
+  },
+  "runtime": {
+    "mlx_lm": {
+      "status": "fail",
+      "notes": "Expected resident generate exceeds 192 GB (same class as 179 GB 4-bit g32 OOM)."
+    },
+    "ax_engine": {
+      "status": "fail",
+      "notes": "Not loaded on df-macstudio-m2."
+    }
+  },
+  "toolchain": {
+    "axquant": "1.9.0",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Listed ship SKU. Recipe examples/deepseek-v4-experimental-6bit-g128-v0.1.yaml.",
+    "Not certified: df-macstudio-m2 192 GB cannot run the dual-suite generate required for checkpoint Tier 1."
+  ],
+  "public_index": {
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 6-bit",
+    "sort_order": 234,
+    "edition_label": "memory-blocked-192gb",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "text MoE Flash pack"
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "no audio tower"
+    }
+  }
+}

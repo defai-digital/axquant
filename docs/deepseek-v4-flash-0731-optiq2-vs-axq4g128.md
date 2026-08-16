@@ -17,8 +17,8 @@ Same-run factory bench of the 4-bit group-128 AXQ pack against
 
 | Pack | Origin | Size | Path |
 | --- | --- | --- | --- |
-| AXQ 4-bit g128 | `axquant` local convert, recipe `examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml` | 154 GB, 4.35 BPW | `/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-g128` |
-| OptiQ 2-bit | mlx-community OptiQ-2bit | streamed | `/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731-OptiQ-2bit` |
+| AXQ 4-bit g128 | `axquant` local convert, recipe `examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml` | 154 GB, 4.35 BPW | Studio Ext12T `AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-g128` |
+| OptiQ 2-bit | mlx-community OptiQ-2bit | streamed | Studio Ext12T `DeepSeek-V4-Flash-0731-OptiQ-2bit` |
 
 Common source: `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 
