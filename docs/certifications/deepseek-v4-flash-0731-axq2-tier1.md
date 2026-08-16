@@ -19,3 +19,5 @@ This is **not** the older Flash source (`60d8d707`) certified in
 | AX Engine manifest | **Fail** (split `up_proj` vs fused gate+up) |
 
 Machine-readable: [deepseek-v4-flash-0731-axq2-tier1.json](deepseek-v4-flash-0731-axq2-tier1.json).
+
+Practical QA/speed vs the mlx-community OptiQ 2-bit pack: [deepseek-v4-flash-0731-optiq2-vs-axq2.md](../deepseek-v4-flash-0731-optiq2-vs-axq2.md).
