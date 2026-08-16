@@ -326,7 +326,7 @@ def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:
             try:
                 text = backend.generate(task["prompt"], MAX_TOKENS_QA, SEED + index)
                 err = None
-            except Exception as exc:  # noqa: BLE001 — record and continue
+            except Exception as exc:
                 text, err = "", str(exc)
             if score:
                 sc, checks = score_quality_task_output(task["obj"], text)
