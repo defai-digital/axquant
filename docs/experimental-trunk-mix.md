@@ -30,6 +30,20 @@ A full Flash-0731 measured sensitivity is tens of thousands of tensors and is
 not a CI or laptop job. Unit tests drive the shipped functions on a handful of
 fused modules.
 
+## Flash-0731 quality gap (factory)
+
+Uniform 2-bit and heuristic mixed 2/3/4 lose because the model is **incoherent**,
+not because one extra bit on down-proj was missing:
+
+- AXQ 2-bit coding outputs echo constraints ("Do not use modulo...") instead of
+  writing functions. Mean 0.133 vs OptiQ 0.500.
+- AXQ 2-bit general often leaks the prompt or JSON scaffolding. Mean 0.487
+  vs OptiQ 0.948 (14/15).
+- Mixed 2/3/4 got worse (mean 0.300).
+
+The follow-up pack is 4-bit affine on the robust trunk (optional DWQ clip
+that no longer flattens fused stacks past MLX int32).
+
 ## Flash-0731 status (2026-08-16)
 
 `df-macstudio-m2` is reachable and has the 0731 inventory plus both AXQ packs

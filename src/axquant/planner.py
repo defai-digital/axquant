@@ -20,6 +20,7 @@ from axquant.module_paths import (
 )
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
+from axquant.predicate import fused_stack_method_allowed
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
@@ -648,7 +649,7 @@ def _options_for(
         and (
             not (fused_expert or packed_expert)
             or candidate.bits == 16
-            or candidate.method == QuantMethod.AFFINE
+            or fused_stack_method_allowed(candidate.method.value)
         )
         and (
             candidate.bits == 16

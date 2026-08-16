@@ -628,7 +628,7 @@ def test_plan_rejects_a_loaded_allocation_below_its_protection_floor() -> None:
         "model.layers.0.mlp.experts.gate_up_proj",
     ],
 )
-def test_planner_only_selects_executable_affine_method_for_fused_experts(
+def test_planner_selects_dwq_but_not_awq_on_fused_experts(
     module_path: str,
 ) -> None:
     tensor = _tensor(f"{module_path}.weight", 10_000, TensorRole.EXPERT)
@@ -644,26 +644,35 @@ def test_planner_only_selects_executable_affine_method_for_fused_experts(
     )
     report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
     entry = report.entries[0]
-    entry.candidates.append(
-        CandidateMeasurement(
-            bits=4,
-            method=QuantMethod.DWQ,
-            group_size=64,
-            metrics=MetricVector(),
-            note="lower-loss refinement candidate",
-        )
+    entry.candidates.extend(
+        [
+            CandidateMeasurement(
+                bits=4,
+                method=QuantMethod.DWQ,
+                group_size=64,
+                metrics=MetricVector(output_kl=0.01),
+                note="executable fused-stack clip",
+            ),
+            CandidateMeasurement(
+                bits=4,
+                method=QuantMethod.AWQ,
+                group_size=64,
+                metrics=MetricVector(output_kl=0.001),
+                note="not executable on fused switch stacks",
+            ),
+        ]
     )
 
     plan = plan_quantization(
         report,
         _request(
             target_bpw=4.5,
-            candidate_methods=(QuantMethod.AFFINE, QuantMethod.DWQ),
+            candidate_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.AWQ),
         ),
     )
 
     assert plan.assignments[0].bits == 4
-    assert plan.assignments[0].method is QuantMethod.AFFINE
+    assert plan.assignments[0].method is QuantMethod.DWQ
 
 
 def test_planner_rejects_fused_experts_without_a_common_budgeted_signature() -> None:

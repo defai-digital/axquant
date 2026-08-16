@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from axquant.dwq import apply_mlx_dwq_clip
+from axquant.dwq import apply_mlx_dwq_clip, dwq_sample_strides
 from axquant.errors import PlanningError
 
 
@@ -33,6 +33,18 @@ def test_apply_mlx_dwq_clip_requires_a_weight_tensor() -> None:
     pytest.importorskip("mlx.core")
     with pytest.raises(PlanningError, match="requires a module with a weight"):
         apply_mlx_dwq_clip(SimpleNamespace())
+
+
+def test_dwq_sample_strides_keep_fused_flash_stacks_under_int32() -> None:
+    # One DeepSeek V4 fused switch is far above MLX's int32 flatten limit.
+    shape = (256, 8192, 7168)
+    assert 256 * 8192 * 7168 > 2_147_483_647
+    strides = dwq_sample_strides(shape)
+    sampled = 1
+    for dim, stride in zip(shape, strides, strict=True):
+        sampled *= (dim + stride - 1) // stride
+    assert sampled <= 65536
+    assert all(stride >= 1 for stride in strides)
 
 
 def test_apply_mlx_dwq_clip_requires_multiple_elements() -> None:
