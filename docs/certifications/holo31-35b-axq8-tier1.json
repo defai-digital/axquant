@@ -1,0 +1,104 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-16T00:58:08.689200+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit",
+    "hub_commit": "4b1284784455e915adc08a9b67d414d781067bdf",
+    "product_class": "8bit",
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "source_model_id": "Hcompany/Holo-3.1-35B-A3B",
+    "source_revision": "2bdb92851a8cd9d72cdd891fdf38cfcc7fefae2c",
+    "candidate_manifest_sha256": "fceeac8ad4eef819c54eacd14c3fbf74c71fa958812b4fbdd17844743d0ebeb8"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "plan-manual",
+    "recipe": "examples/holo31-35b-axq8-v0.1.yaml",
+    "adapter_id": "qwen35-moe-v1",
+    "target_class": "8bit",
+    "measured_main_bpw": 9.423038812373903,
+    "measured_total_bpw": 9.423038812373903
+  },
+  "size": {
+    "candidate_weight_bytes": 41352042247,
+    "candidate_measured_bpw": 9.423038812373903,
+    "pass": true,
+    "notes": "Language trunk 8bit; vision BF16-protected; no matched uniform size reference."
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.9333333333333333,
+      "reference_score": 0.9333333333333333,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0000876681657818,
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "samples": 15,
+      "reference_kind": "bf16-same-pin"
+    },
+    "general": {
+      "candidate_score": 0.8666666666666667,
+      "reference_score": 0.9333333333333333,
+      "retention": 0.9285714285714286,
+      "perplexity_ratio": 1.0079195154123832,
+      "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "samples": 15,
+      "reference_kind": "bf16-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Holo-3.1-35B-A3B source declares no MTP sidecar."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor on df-macstudio-m2 (host-level)"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.8.1",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint attempt on df-macstudio-m2.",
+    "Quality vs same-pin BF16 through the mlx-lm qwen3_5_moe backend.",
+    "Adapter qwen35-moe-v1 \u2014 not the official Qwen 3.6 certification track.",
+    "Vision remains BF16-protected; VLM quality not claimed.",
+    "No MTP / no Tier 2 claim."
+  ],
+  "public_index": {
+    "display_name": "Holo-3.1-35B-A3B MLX AXQ 8-bit",
+    "sort_order": 92,
+    "edition_label": "main@4b128478",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "vision sidecar present; mlx-vlm smoke not a quality pass (prefixes=['model.visual'])",
+      "runtime": "mlx-vlm",
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

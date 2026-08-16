@@ -128,6 +128,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Muse-Glimmer-30B-MLX-AXQ-6bit",
         "AX-Holo3-35B-A3B-MLX-AXQ-4bit",
         "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
+        "AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit",
+        "AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit",
     }
     # Qwen 3.6 no-MTP siblings + Qwen3.8-27B 4/6 ± MTP and 8-bit MTP (no-MTP MXFP4/8-bit unlisted).
     qwen_family_additions = {
@@ -147,8 +149,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | secondary_family_additions
         | qwen_family_additions
     )
-    assert len(readme_repositories) == 56
-    assert len(set(readme_repositories)) == 56
+    assert len(readme_repositories) == 58
+    assert len(set(readme_repositories)) == 58
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -266,6 +268,9 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "deepseek-v4-flash-0731-axq3" in unlisted_ids
     assert "qwen3-vl-32b-thinking-axq6" in unlisted_ids
     assert "qwen3-vl-32b-thinking-axq-mxfp4" in unlisted_ids
+    assert "holo31-35b-axq6" in unlisted_ids
+    assert "holo31-35b-axq8" in unlisted_ids
+    assert "holo31-35b-axq-mxfp4" not in unlisted_ids
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
@@ -318,6 +323,7 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "holo3-35b-axq6",
         "ornith-35b-axq4",
         "ornith-35b-axq6",
+        "holo31-35b-axq-mxfp4",
         "gpt-oss-20b-axq4",
         "gpt-oss-20b-axq6",
         "gpt-oss-120b-axq6",
@@ -333,6 +339,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "gemma4-31b-axq4",
         "gemma4-31b-axq6",
         # Not checkpoint-certified (unlisted evaluation record)
+        "holo31-35b-axq6",
+        "holo31-35b-axq8",
         "gpt-oss-120b-axq4",
         "muse-glimmer-30b-axq4",
         "muse-glimmer-30b-axq6",

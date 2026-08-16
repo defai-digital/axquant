@@ -37,6 +37,7 @@ records. Within each group, `public_index.sort_order` applies.
 | [Holo3-35B-A3B MLX AXQ 6-bit](holo3-35b-axq6-tier1.md) | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [Ornith-1.0-35B MLX AXQ 4-bit](ornith-35b-axq4-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | main@`d7416c66` | [Certified](ornith-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [Ornith-1.0-35B MLX AXQ 6-bit](ornith-35b-axq6-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | main@`37361076` | [Certified](ornith-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
+| [Holo-3.1-35B-A3B MLX AXQ MXFP4](holo31-35b-axq-mxfp4-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4) | main@23aa374f | [Certified](holo31-35b-axq-mxfp4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [GPT-OSS 20B MLX AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 20B MLX AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 120B MLX AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
@@ -50,6 +51,8 @@ records. Within each group, `public_index.sort_order` applies.
 | [Gemma 4 26B-A4B MLX AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | [`AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
 | [Gemma 4 31B MLX AXQ 4-bit](gemma4-31b-axq4-tier1.md) | [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
 | [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
+| [Holo-3.1-35B-A3B MLX AXQ 6-bit](holo31-35b-axq6-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit) | main@344d66ed | [Not Certified](holo31-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
+| [Holo-3.1-35B-A3B MLX AXQ 8-bit](holo31-35b-axq8-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit) | main@4b128478 | [Not Certified](holo31-35b-axq8-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [GPT-OSS 120B MLX AXQ 4-bit](gpt-oss-120b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | evaluation@`7e0f77ed` | [Not Certified](gpt-oss-120b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Muse Glimmer 30B MLX AXQ 4-bit](muse-glimmer-30b-axq4-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | evaluation@`bcfb0b74` | [Not Certified](muse-glimmer-30b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Muse Glimmer 30B MLX AXQ 6-bit](muse-glimmer-30b-axq6-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | evaluation@`f1cfad2d` | [Not Certified](muse-glimmer-30b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
@@ -62,8 +65,8 @@ records. Within each group, `public_index.sort_order` applies.
 
 ## Counts
 
-- Total certificate records: **44**
-- In README headline matrix (`listed`): **25**
+- Total certificate records: **47**
+- In README headline matrix (`listed`): **26**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
-- Tier 1 certified without Tier 2 certified: **29**
-- Not checkpoint-certified (evaluation only): **9**
+- Tier 1 certified without Tier 2 certified: **30**
+- Not checkpoint-certified (evaluation only): **11**

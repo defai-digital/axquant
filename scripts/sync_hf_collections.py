@@ -104,6 +104,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
@@ -239,6 +242,15 @@ COLLECTIONS: tuple[Spec, ...] = (
         items=(
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
+        ),
+    ),
+    Spec(
+        title="Holo-3.1",
+        description="Holo-3.1-35B-A3B AXQ MXFP4 (Tier 1) plus 6/8-bit eval packs.",
+        items=(
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -399,6 +411,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-gpt-oss-20b-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Devstral-Small-2-24B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Devstral-Small-2505-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-Devstral-Small-2505-MLX-AXQ-4bit", NOTE_AXQ_DEV),

@@ -111,8 +111,9 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         cert_track=False,
         summary=(
             "Qwen3.5-class 35B-A3B MoE and fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, "
-            "Qwen3.5-35B-A3B): fused-expert convert via the same MLX layout as Qwen 3.6 MoE. "
-            "Holo3 and Ornith AXQ 4/6-bit direct-decode packs are checkpoint Tier 1."
+            "Holo-3.1-35B-A3B, Qwen3.5-35B-A3B): fused-expert convert via the same MLX "
+            "layout as Qwen 3.6 MoE. Holo3 and Ornith AXQ 4/6-bit direct-decode packs "
+            "are checkpoint Tier 1."
         ),
         do=(
             "Allow architecture-prior AXQ 4/6-bit packs for signature-matched "

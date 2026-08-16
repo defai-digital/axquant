@@ -15,10 +15,10 @@ This report answers a product question, not a certification question:
 
 ## Bound artifacts
 
-| Pack | Hub | Runtime | Local path on host |
+| Pack | Hub | Runtime | Size |
 | --- | --- | --- | --- |
-| AXQ 2-bit (exp.) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) @ `408c0ab3` | resident mlx-lm | `/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit` (~114 GB) |
-| OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | mlx-optiq expert streaming | `/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731-OptiQ-2bit` (~92.5 GB on disk, ~6.5 GB resident) |
+| AXQ 2-bit (exp.) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit) @ `408c0ab3` | resident mlx-lm | ~114 GB on disk |
+| OptiQ 2-bit | [`mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit`](https://huggingface.co/mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit) | mlx-optiq expert streaming | ~92.5 GB on disk, ~6.5 GB resident |
 
 Common source: `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 
@@ -42,5 +42,3 @@ This is **not** checkpoint Tier 1. The 0731 AXQ 2-bit pack stays [not certified]
 Pending factory measurement. Raw JSON will land in
 [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/`](eval/deepseek-v4-flash-0731-optiq2-vs-axq2-macstudio-m2/).
 Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`](../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).
-
-Studio log: `/Volumes/Ext12T/logs/dsv4-optiq-vs-axq2.log`.

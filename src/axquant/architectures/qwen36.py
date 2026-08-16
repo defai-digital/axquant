@@ -185,8 +185,8 @@ class Qwen35MoeAdapter:
             "AXQuant optimizes the Qwen3.5-class 35B-A3B MoE language path only "
             "(development convert; not the Qwen 3.6 certification track).",
             "Vision tensors are preserved at BF16 and VLM quality is not claimed.",
-            "Fine-tunes such as Ornith-1.0-35B and Holo3-35B-A3B are eligible when the "
-            "text_config matches the 35B-A3B MoE signature.",
+            "Fine-tunes such as Ornith-1.0-35B, Holo3-35B-A3B, and Holo-3.1-35B-A3B "
+            "are eligible when the text_config matches the 35B-A3B MoE signature.",
         ]
         if supported:
             notes.append(

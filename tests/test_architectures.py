@@ -956,6 +956,8 @@ def test_ornith_and_qwen35_moe_35b_a3b_are_convertible() -> None:
         "deepreinforce-ai/Ornith-1.0-35B",
         "ornith-ai/Ornith-1.0-35B",
         "Qwen/Qwen3.5-35B-A3B",
+        "Hcompany/Holo3-35B-A3B",
+        "Hcompany/Holo-3.1-35B-A3B",
     ):
         config = _moe_35b_a3b_config(name_or_path=reference)
         adapter = adapter_for(reference, config)
