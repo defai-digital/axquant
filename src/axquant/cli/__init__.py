@@ -752,7 +752,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "diagnose-joint":
-        report = diagnose_joint_interaction(
+        joint_report = diagnose_joint_interaction(
             model_dir=args.model,
             max_memory_bytes=args.max_memory,
             contexts=args.contexts,
@@ -775,10 +775,10 @@ def _run(args: argparse.Namespace) -> int:
         log.info(
             "joint_interaction_diagnosed",
             output=str(args.output),
-            verdict=report.verdict,
-            crossover=report.crossover.detected,
-            evidence=report.evidence_kind,
-            certification_eligible=report.certification_eligible,
+            verdict=joint_report.verdict,
+            crossover=joint_report.crossover.detected,
+            evidence=joint_report.evidence_kind,
+            certification_eligible=joint_report.certification_eligible,
         )
         return 0
 

@@ -24,9 +24,7 @@ class _Plan:
 
 def test_render_matches_official_chat_encode_for_one_user_turn() -> None:
     rendered = render_deepseek_v4_user_prompt("Say hello.", thinking=False)
-    assert rendered == (
-        "<｜begin▁of▁sentence｜><｜User｜>Say hello.<｜Assistant｜></think>"
-    )
+    assert rendered == ("<｜begin▁of▁sentence｜><｜User｜>Say hello.<｜Assistant｜></think>")
     thinking = render_deepseek_v4_user_prompt("Say hello.", thinking=True)
     assert thinking.endswith("<｜Assistant｜><think>")
     assert "<think>" in thinking and thinking.count("</think>") == 0

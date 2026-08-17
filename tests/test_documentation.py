@@ -143,14 +143,21 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
         "AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
     }
+    # Flash-0731 4/6-bit listed after the historical migration table. 2-bit and
+    # MXFP4 Hub IDs are excluded by the catalog regex (4/6/8-bit only).
+    flash_0731_additions = {
+        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit",
+        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit",
+    }
     post_migration_additions = (
         post_migration_additions
         | gpt_oss_additions
         | secondary_family_additions
         | qwen_family_additions
+        | flash_0731_additions
     )
-    assert len(readme_repositories) == 58
-    assert len(set(readme_repositories)) == 58
+    assert len(readme_repositories) == 60
+    assert len(set(readme_repositories)) == 60
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25

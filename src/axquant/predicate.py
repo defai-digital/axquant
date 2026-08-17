@@ -98,9 +98,7 @@ class PlanPredicate:
                 self._fused_members.setdefault(fused, []).append(allocation)
             packed_modules = packed_expert_runtime_modules(module_path)
             if packed_modules:
-                if allocation.bits < 16 and not fused_stack_method_allowed(
-                    allocation.method.value
-                ):
+                if allocation.bits < 16 and not fused_stack_method_allowed(allocation.method.value):
                     raise PlanningError(
                         f"packed expert tensor {module_path} requires affine or dwq packing; "
                         f"got {allocation.method.value}"
@@ -144,7 +142,7 @@ class PlanPredicate:
         self.matched: set[str] = set()
         self._execute_refinement = execute_refinement
         self._calibration_activations = dict(calibration_activations or {})
-        self.dwq_metadata: dict[str, dict[str, float | int]] = {}
+        self.dwq_metadata: dict[str, dict[str, float | int | tuple[int, ...]]] = {}
         self.method_metadata: dict[str, dict[str, Any]] = {}
 
     def lookup(self, path: str) -> Allocation | None:

@@ -151,9 +151,7 @@ def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:
     recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
     assert recipe.group_size == 128
     assert recipe.default_bits == 4
-    assert all(
-        rule.group_size in (None, 128) or rule.bits == 16 for rule in recipe.rules
-    )
+    assert all(rule.group_size in (None, 128) or rule.bits == 16 for rule in recipe.rules)
 
 
 def test_deepseek_v4_4bit_dwq_recipe_assigns_dwq_to_fused_experts() -> None:

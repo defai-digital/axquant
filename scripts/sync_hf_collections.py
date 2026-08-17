@@ -59,9 +59,7 @@ NOTE_0731 = (
 NOTE_0731_MEM = (
     "Flash-0731 ship SKU. Not certified on the 192 GB factory Studio; recert on a larger Mac."
 )
-CERTIFIED_NOTES = frozenset(
-    {NOTE_T1, NOTE_T1_T2, NOTE_T1_NO_T2, NOTE_T1_NOMTP, NOTE_T1_EXP}
-)
+CERTIFIED_NOTES = frozenset({NOTE_T1, NOTE_T1_T2, NOTE_T1_NO_T2, NOTE_T1_NOMTP, NOTE_T1_EXP})
 NOTE_OPTIQ = "OptiQ mixed 4/8-bit."
 NOTE_UNIFORM = "Uniform MLX quantization."
 NOTE_QAT = "Official QAT 4-bit, converted to MLX."
@@ -158,7 +156,8 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="Qwen3.6",
         description=(
-            "Qwen3.6 27B and 35B-A3B: uniform, OptiQ, certified AXQ 4/6-bit MTP, and no-MTP siblings."
+            "Qwen3.6 27B and 35B-A3B: uniform, OptiQ, certified AXQ 4/6-bit MTP, "
+            "and no-MTP siblings."
         ),
         items=(
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
@@ -239,7 +238,10 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="DeepSeek",
-        description="DeepSeek V4 Flash AXQ 2/4/6-bit, Flash-0731 2/4/MXFP4/6-bit, and DeepSeek-OCR-2. 3-bit withdrawn.",
+        description=(
+            "DeepSeek V4 Flash AXQ 2/4/6-bit, Flash-0731 2/4/MXFP4/6-bit, "
+            "and DeepSeek-OCR-2. 3-bit withdrawn."
+        ),
         items=(
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
