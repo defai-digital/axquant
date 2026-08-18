@@ -299,8 +299,9 @@ while greedy exactness fails when drafts are accepted. The 12B packs were rebuil
 `google/gemma-4-12b-it` after the earlier non-IT base failed quality. Product default remains
 direct fallback until Tier 2 gates pass on a released engine.
 
-**Qwen3-Coder-Next** AXQ 4/6-bit packs are **checkpoint Tier 1 certified** on `df-macbookpro-m5`
-(non-MTP direct-decode; Tier 2 N/A). **GPT-OSS 20B** AXQ **4-bit and 6-bit**, and **GPT-OSS 120B**
+**Qwen3-Coder-Next** AXQ **MXFP4** is **checkpoint Tier 1 certified** on `df-macstudio-m2`
+(non-MTP direct-decode; Tier 2 N/A). The AXQ 4/6-bit siblings remain certified on
+`df-macbookpro-m5`. **GPT-OSS 20B** AXQ **4-bit and 6-bit**, and **GPT-OSS 120B**
 AXQ **6-bit**, are checkpoint Tier 1 certified on the same host (non-MTP; 120B via manual no-4-bit
 agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding retention 0.952
 &lt; 0.98) — see
@@ -465,7 +466,7 @@ release audit. The current tier matrix:
 | **Qwen3.5-class 35B-A3B MoE + fine-tunes** (Ornith-1.0-35B, Holo3-35B-A3B, Holo-3.1-35B-A3B) | `qwen35-moe-v1` | `convertible`; **Ornith 4/6-bit Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); not Qwen 3.6 cert track |
 | **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/deepseek-ocr2-axq-dev-runbook.md)) |
 | **Muse-Glimmer-30B** | `muse-glimmer-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/muse-glimmer-30b-axq-dev-runbook.md)) |
-| **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ 4/6-bit checkpoint Tier 1 certified** ([4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
+| **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ MXFP4/4/6-bit checkpoint Tier 1 certified** ([MXFP4](docs/certifications/qwen3-coder-next-axq-mxfp4-tier1.md), [4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
 | **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
 | **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
@@ -577,6 +578,7 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | 7.999979 | embedding |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | 4.830057 | embedding |
 | [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
+| [`AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4) | 4.315400 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq-mxfp4-tier1.md)); no MTP; factory host `df-macstudio-m2` |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq4-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
 | [`AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | 5.055321 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq4-tier1.md)); no MTP; manual attention-8 / expert-4 recipe |

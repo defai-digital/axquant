@@ -67,6 +67,7 @@ while formal assistant-MTP exactness remains open on a released engine.
 
 **Qwen3-Coder-Next:** hybrid MoE coding checkpoint with **no declared MTP**. Public certificates
 are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality, MLX-LM load).
+MXFP4 is certified on `df-macstudio-m2`; 4/6-bit remain on `df-macbookpro-m5`.
 
 **GPT-OSS:** OpenAI MoE (`GptOssForCausalLM`) with **no declared MTP**. Converted from
 `mlx-community` MXFP4-Q4 via `--allow-quantized` re-pack on `df-macbookpro-m5`. Public
@@ -103,6 +104,7 @@ Machine-readable companions:
 - [26B-A4B 6-bit Tier 1 JSON](gemma4-26b-a4b-axq6-tier1.json)
 - [31B 4-bit Tier 1 JSON](gemma4-31b-axq4-tier1.json)
 - [31B 6-bit Tier 1 JSON](gemma4-31b-axq6-tier1.json)
+- [Coder-Next MXFP4 Tier 1 JSON](qwen3-coder-next-axq-mxfp4-tier1.json)
 - [Coder-Next 4-bit Tier 1 JSON](qwen3-coder-next-axq4-tier1.json)
 - [Coder-Next 6-bit Tier 1 JSON](qwen3-coder-next-axq6-tier1.json)
 - [Qwen3-VL 30B 4-bit Tier 1 JSON](qwen3-vl-30b-axq4-tier1.json)

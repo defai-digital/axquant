@@ -25,10 +25,12 @@ remains available at the immutable `v2` tag; certified v3 is Hub commit
 `cdd13bf81cf21818a01cf59a31fc116ef84326bc`.
 
 On 2026-08-10, the corrected Qwen3-Coder-Next Hub heads closed **checkpoint Tier 1** (non-MTP
-direct-decode) on `df-macbookpro-m5`:
+direct-decode) on `df-macbookpro-m5`. On 2026-08-18, the AXQ-MXFP4 pack closed checkpoint
+Tier 1 on `df-macstudio-m2`:
 
 | Pack | Hub commit | BPW | Certificate |
 | --- | --- | ---: | --- |
+| `AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4` | `5ccdfb385b05cba3d8610c771185afd203fe174c` | 4.315400 | [Tier 1](certifications/qwen3-coder-next-axq-mxfp4-tier1.md) |
 | `AX-Qwen3-Coder-Next-MLX-AXQ-4bit` | `53dce509aa115e7fae583516b494a5dafebf31a9` | 4.797752 | [Tier 1](certifications/qwen3-coder-next-axq4-tier1.md) |
 | `AX-Qwen3-Coder-Next-MLX-AXQ-6bit` | `c6f3ae556f95ce13b7d319486ad2d4d753726216` | 5.998996 | [Tier 1](certifications/qwen3-coder-next-axq6-tier1.md) |
 

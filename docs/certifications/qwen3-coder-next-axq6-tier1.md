@@ -51,6 +51,7 @@ claim is authorized.
 
 ## Related
 
+- Sibling MXFP4: [qwen3-coder-next-axq-mxfp4-tier1.md](qwen3-coder-next-axq-mxfp4-tier1.md)
 - Sibling 4-bit: [qwen3-coder-next-axq4-tier1.md](qwen3-coder-next-axq4-tier1.md)
 - Certification index: [README.md](README.md)
 

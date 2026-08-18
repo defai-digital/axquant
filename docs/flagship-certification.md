@@ -63,11 +63,14 @@ exactness is fail-closed, so Tier 2 stays unclaimed. Product default remains dir
 ### Qwen3-Coder-Next (non-MTP direct-decode)
 
 Hybrid MoE coding checkpoint (`Qwen3NextForCausalLM`) with **no declared MTP**. Public
-certificates are checkpoint **Tier 1 only** on `df-macbookpro-m5` (2026-08-10): size vs matched
-uniform, quality retention on agent-coding + general, MLX-LM load. **Tier 2 is not applicable.**
+certificates are checkpoint **Tier 1 only**. The AXQ **MXFP4** pack was certified on
+`df-macstudio-m2` (2026-08-18). The AXQ 4/6-bit packs were certified on `df-macbookpro-m5`
+(2026-08-10). Gates: size vs matched uniform, quality retention on agent-coding + general,
+MLX-LM load. **Tier 2 is not applicable.**
 
 | Pack | Tier 1 | Tier 2 |
 | --- | --- | --- |
+| Coder-Next AXQ MXFP4 | [Certified](certifications/qwen3-coder-next-axq-mxfp4-tier1.md) | N/A |
 | Coder-Next AXQ 4-bit | [Certified](certifications/qwen3-coder-next-axq4-tier1.md) | N/A |
 | Coder-Next AXQ 6-bit | [Certified](certifications/qwen3-coder-next-axq6-tier1.md) | N/A |
 

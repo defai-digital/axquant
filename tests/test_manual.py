@@ -144,6 +144,20 @@ def test_deepseek_v4_mxfp4_recipe_is_a_valid_manual_recipe() -> None:
     assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
 
 
+def test_qwen3_coder_next_mxfp4_recipe_is_a_valid_manual_recipe() -> None:
+    path = Path(__file__).resolve().parents[1] / ("examples/qwen3-coder-next-axq-mxfp4-v0.1.yaml")
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 4
+    assert recipe.group_size == 32
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-mxfp4")
+    experts = next(rule for rule in recipe.rules if rule.rule_id == "experts-mxfp4")
+    routers = next(rule for rule in recipe.rules if rule.rule_id == "routers-8")
+    assert attention.bits == 4 and attention.group_size == 32
+    assert set(experts.roles) == {TensorRole.EXPERT, TensorRole.MLP}
+    assert routers.bits == 8 and routers.method == QuantMethod.AFFINE
+    assert all(rule.rule_id != "protect-vision" for rule in recipe.rules)
+
+
 def test_deepseek_v4_4bit_g128_recipe_uses_group_128() -> None:
     path = Path(__file__).resolve().parents[1] / (
         "examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml"

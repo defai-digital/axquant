@@ -1,0 +1,112 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "certified",
+  "certification_tier": "checkpoint",
+  "certified_at": "2026-08-18T18:37:26.460887+00:00",
+  "host_id": "df-macstudio-m2",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4",
+    "hub_commit": "5ccdfb385b05cba3d8610c771185afd203fe174c",
+    "product_class": "MXFP4",
+    "architecture": "Qwen3NextForCausalLM",
+    "source_model_id": "Qwen/Qwen3-Coder-Next",
+    "source_revision": "a7fbcb5c0e12d62a448eaa0e260346bf5dcc0feb",
+    "candidate_manifest_sha256": "a5c796a0de63182b71f93cf159e6bf706a0f7c89ba2f3faf4493b03cbce60f57"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "plan-manual",
+    "recipe": "examples/qwen3-coder-next-axq-mxfp4-v0.1.yaml",
+    "target_class": "4bit",
+    "target_bpw": 5.6,
+    "measured_total_bpw": 4.31539975260861,
+    "measured_main_bpw": 4.31539975260861,
+    "adapter_id": "qwen3-next-v1"
+  },
+  "size": {
+    "candidate_weight_bytes": 42978356061,
+    "candidate_measured_bpw": 4.31539975260861,
+    "reference_kind": "uniform-mxfp4",
+    "reference_model_id": "local/Qwen3-Coder-Next-uniform-mxfp4",
+    "reference_revision": "a7fbcb5c0e12d62a448eaa0e260346bf5dcc0feb",
+    "reference_weight_bytes": 42356026188,
+    "size_ratio_vs_uniform": 1.0146928295453814,
+    "max_size_ratio_applied": 1.2,
+    "pass": true,
+    "compare_mode": "total"
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.5,
+      "reference_score": 0.5,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0048899658298767,
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "samples": 15,
+      "reference_kind": "uniform-mxfp4-same-pin"
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "perplexity_ratio": 1.0204901171178204,
+      "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "samples": 15,
+      "reference_kind": "uniform-mxfp4-same-pin"
+    }
+  },
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "max_size_ratio_vs_uniform": 1.2
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Qwen3-Coder-Next source declares no MTP; certification is non-MTP direct-decode checkpoint Tier 1 only (qwen3-next-direct track)."
+  },
+  "runtime": {
+    "ax_engine": {
+      "status": "pass",
+      "version": "6.16.1",
+      "notes": "doctor on df-macstudio-m2 (host-level)"
+    },
+    "mlx_lm": {
+      "status": "pass",
+      "notes": "runtime-check passed=True"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.9.0",
+    "ax_engine": "6.16.1",
+    "host": "df-macstudio-m2"
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macstudio-m2.",
+    "AXQ-MXFP4: attention + fused expert/MLP native MXFP4; embed/router 8-bit affine; norms/lm_head protected.",
+    "Quality vs matched uniform MXFP4 when available, else mlx-community 4-bit.",
+    "Adapter qwen3-next-v1.",
+    "No MTP acceleration claim; source has no declared MTP weights."
+  ],
+  "public_index": {
+    "display_name": "Qwen3-Coder-Next MLX AXQ MXFP4",
+    "sort_order": 45,
+    "edition_label": "main@`5ccdfb38`",
+    "listed": false
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "vision not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

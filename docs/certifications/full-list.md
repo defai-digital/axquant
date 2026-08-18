@@ -29,6 +29,7 @@ records. Within each group, `public_index.sort_order` applies.
 | [Qwen 3.6 27B MLX AXQ 6-bit](qwen36-27b-axq6-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | main@`66a3ad41` | [Certified](qwen36-27b-axq6-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen 3.6 35B-A3B MLX AXQ 4-bit](qwen36-35b-axq4-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit) | main@`2a5bc33c` | [Certified](qwen36-35b-axq4-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen 3.6 35B-A3B MLX AXQ 6-bit](qwen36-35b-axq6-nomtp-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit) | main@`8519cd1d` | [Certified](qwen36-35b-axq6-nomtp-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
+| [Qwen3-Coder-Next MLX AXQ MXFP4](qwen3-coder-next-axq-mxfp4-tier1.md) | [`AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4) | main@`5ccdfb38` | [Certified](qwen3-coder-next-axq-mxfp4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Qwen3-Coder-Next MLX AXQ 4-bit](qwen3-coder-next-axq4-tier1.md) | [`AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | main@`53dce509` | [Certified](qwen3-coder-next-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen3-Coder-Next MLX AXQ 6-bit](qwen3-coder-next-axq6-tier1.md) | [`AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | main@`c6f3ae55` | [Certified](qwen3-coder-next-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
@@ -68,8 +69,8 @@ records. Within each group, `public_index.sort_order` applies.
 
 ## Counts
 
-- Total certificate records: **50**
+- Total certificate records: **51**
 - In README headline matrix (`listed`): **29**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
-- Tier 1 certified without Tier 2 certified: **30**
+- Tier 1 certified without Tier 2 certified: **31**
 - Not checkpoint-certified (evaluation only): **14**

@@ -115,6 +115,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
+            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
@@ -215,8 +216,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3-Coder-Next",
-        description="Qwen3-Coder-Next: uniform, OptiQ, and certified AXQ 4/6-bit.",
+        description="Qwen3-Coder-Next: uniform, OptiQ, and certified AXQ MXFP4/4/6-bit.",
         items=(
+            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-OptiQ-4bit", NOTE_OPTIQ),
@@ -420,6 +422,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.5-9B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
             _ax("AX-Qwen3.5-9B-MLX-6bit-MTP", NOTE_UNIFORM),
             _ax("AX-Qwen3.5-9B-MLX-4bit-MTP", NOTE_UNIFORM),
+            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3-Coder-Next-MLX-OptiQ-4bit", NOTE_OPTIQ),

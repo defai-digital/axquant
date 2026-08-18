@@ -296,6 +296,7 @@ def test_public_certification_json_is_loadable_ssot() -> None:
         "qwen36-27b-axq6-nomtp",
         "qwen36-35b-axq4-nomtp",
         "qwen36-35b-axq6-nomtp",
+        "qwen3-coder-next-axq-mxfp4",
         "qwen3-coder-next-axq4",
         "qwen3-coder-next-axq6",
     ):
@@ -325,6 +326,7 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "qwen36-27b-axq6-nomtp",
         "qwen36-35b-axq4-nomtp",
         "qwen36-35b-axq6-nomtp",
+        "qwen3-coder-next-axq-mxfp4",
         "qwen3-coder-next-axq4",
         "qwen3-coder-next-axq6",
         "qwen3-vl-30b-axq4",
@@ -398,6 +400,7 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert "Qwen3.8-27B MLX AXQ 4-bit]" in full or "Qwen3.8-27B MLX AXQ 4-bit |" in full
     assert "qwen38-27b-axq4-tier1.md" in full
     assert "qwen3-coder-next-axq4-tier1.md" in full
+    assert "qwen3-coder-next-axq-mxfp4-tier1.md" in full
     assert "In headline matrix" in full
 
     # Display names and Tier 1 verdicts agree across every generated surface.
