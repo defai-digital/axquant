@@ -11,10 +11,12 @@ from axquant.factory import (
     FACTORY_HF_HOME,
     FACTORY_HOST_ID,
     FACTORY_MODELS,
+    LARGE_MEMORY_CERT_HOST_ID,
     FactoryHostError,
     is_historical_cert_host,
     normalize_host_id,
     require_factory_host,
+    require_large_memory_cert_host,
 )
 from axquant.public_cert_index import load_public_cert_rows
 
@@ -50,11 +52,26 @@ def test_historical_cert_hosts_are_recognized_and_not_rewritten() -> None:
     rows = load_public_cert_rows(_CERTS)
     assert rows, "expected published cert rows"
     hosts = {row.host_id for row in rows}
-    assert hosts <= {"df-macstudio-m2", "df-macbookpro-m5", "df-macbookpro-m3"}
+    assert hosts <= {
+        "df-macstudio-m2",
+        "df-macbookpro-m5",
+        "df-macbookpro-m3",
+        "tn-macstudio-m3",
+    }
     # Immutable historical hosts must remain present in the published set.
     assert "df-macbookpro-m5" in hosts or "df-macbookpro-m3" in hosts
     for host in hosts:
         assert is_historical_cert_host(host)
+
+
+def test_require_large_memory_cert_host_accepts_m3_studio_aliases() -> None:
+    assert require_large_memory_cert_host("tn-macstudio-m3") == LARGE_MEMORY_CERT_HOST_ID
+    assert require_large_memory_cert_host("localadacStudio") == LARGE_MEMORY_CERT_HOST_ID
+    assert (
+        require_large_memory_cert_host("localadmins-Mac-Studio.local") == LARGE_MEMORY_CERT_HOST_ID
+    )
+    with pytest.raises(FactoryHostError, match="tn-macstudio-m3"):
+        require_large_memory_cert_host("df-macstudio-m2")
 
 
 def test_qwen38_4bit_mtp_historical_host_json_not_rewritten() -> None:
