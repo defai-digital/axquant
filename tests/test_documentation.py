@@ -146,7 +146,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     # Flash-0731 4/6-bit listed after the historical migration table. 2-bit and
     # MXFP4 Hub IDs are excluded by the catalog regex (4/6/8-bit only).
     flash_0731_additions = {
-        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit",
+        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP",
         "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit",
     }
     post_migration_additions = (

@@ -5,7 +5,7 @@
   "evaluated_at": "2026-08-15T21:50:16+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
-    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit",
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
     "hub_commit": "408c0ab335f6211812645ca44071301c20a55957",
     "product_class": "2bit-experimental",
     "architecture": "DeepseekV4ForCausalLM",
@@ -29,11 +29,11 @@
   "quality": {
     "agent-coding": {
       "pass": false,
-      "reason": "mlx-lm generate smoke passed; 76-task generation-viability suite not run this cycle."
+      "reason": "factory 15+15 agent-coding mean 0.500 (0/15 full pass) on mlx-lm and AX Engine 7.0.2 native; 64-token cap truncates functions."
     },
     "general": {
       "pass": false,
-      "reason": "mlx-lm generate smoke passed; 44-task generation-viability suite not run this cycle."
+      "reason": "factory 15+15 + official DSV4 chat combined 0.633 on mlx-lm and AX Engine 7.0.2 native; below 0.90 generation-viability floor."
     }
   },
   "thresholds": {
@@ -42,7 +42,7 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "MTP present; AX Engine generate-manifest skipped (split switch_mlp.up_proj vs fused gate+up)."
+    "reason": "MTP sidecar present; MTP acceleration not measured this cycle. Native 7.0.2 load now works after split switch_mlp remapping."
   },
   "runtime": {
     "mlx_lm": {
@@ -50,24 +50,24 @@
       "notes": "generate prompt='Say OK.' returned nonempty text on df-macstudio-m2"
     },
     "ax_engine": {
-      "status": "fail",
-      "version": "6.16.1",
-      "notes": "generate-manifest --validate: ffn_gate_up_exps_packed expected [256, 4096, 256] got [256, 2048, 256]"
+      "status": "pass",
+      "version": "7.0.2",
+      "notes": "native mlx-preview load after remapping split switch_mlp.gate_proj+up_proj to ffn_gate_exps/ffn_up_exps; smoke 'Okay.'; factory QA combined 0.633; decode-128 15.196 tok/s"
     }
   },
   "toolchain": {
     "axquant": "1.8.1",
-    "ax_engine": "6.16.1",
+    "ax_engine": "7.0.2",
     "host": "df-macstudio-m2",
     "python": "3.12"
   },
   "notes": [
     "Studio factory SF2/SF3: converted from DeepSeek-V4-Flash-0731@7872f01b on Ext12T.",
     "Not the older DeepSeek-V4-Flash 2-bit certificate (source 60d8d707).",
-    "Not certified: dual-suite generation viability not measured; engine manifest is a named miss."
+    "Not certified: factory 15+15 + official DSV4 chat combined 0.633 < 0.90. Native AX Engine 7.0.2 load now works; quality is unchanged vs mlx-lm+chat."
   ],
   "public_index": {
-    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 2-bit (exp.)",
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)",
     "sort_order": 230,
     "edition_label": "studio-eval@`408c0ab3`",
     "listed": true

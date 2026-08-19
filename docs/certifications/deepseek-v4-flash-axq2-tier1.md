@@ -4,9 +4,9 @@
 on host **`df-macstudio-m2`** (Apple M2 Ultra, 192 GB).
 
 This certificate covers
-[`AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit)
+[`AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP)
 commit
-[`e22b117aa812b29943b160bb0fbf0b962d0d3819`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit/tree/e22b117aa812b29943b160bb0fbf0b962d0d3819).
+[`e22b117aa812b29943b160bb0fbf0b962d0d3819`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP/tree/e22b117aa812b29943b160bb0fbf0b962d0d3819).
 
 ## Bound artifact
 

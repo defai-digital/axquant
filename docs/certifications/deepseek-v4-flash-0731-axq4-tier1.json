@@ -5,7 +5,7 @@
   "evaluated_at": "2026-08-16T16:50:00+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
-    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit",
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP",
     "hub_commit": "local-g128",
     "product_class": "4bit",
     "architecture": "DeepseekV4ForCausalLM",
@@ -62,7 +62,7 @@
     "Hub publish pending. Dual-suite formal cert not closed."
   ],
   "public_index": {
-    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 4-bit",
+    "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP",
     "sort_order": 232,
     "edition_label": "studio-local-g128",
     "listed": true

@@ -42,7 +42,7 @@ from axquant.errors import BenchmarkError, InvariantViolationError
 from axquant.schema import BenchmarkConfig, ModelIdentity
 from axquant.serde import file_sha256, write_data
 
-HUB_REPO = "AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit"
+HUB_REPO = "AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP"
 HUB_COMMIT = "e22b117aa812b29943b160bb0fbf0b962d0d3819"
 SEED = 20260728
 WEIGHTED_MIN = 1.20

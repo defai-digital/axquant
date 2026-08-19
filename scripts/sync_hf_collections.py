@@ -134,7 +134,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-gemma-4-12b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
             _ax("AX-gemma-4-12b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
         ),
     ),
     Spec(
@@ -241,15 +241,15 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="DeepSeek",
         description=(
-            "DeepSeek V4 Flash AXQ 2/4/6-bit, Flash-0731 2/4/MXFP4/6-bit, "
-            "and DeepSeek-OCR-2. 3-bit withdrawn."
+            "DeepSeek V4 Flash AXQ 2/4/6-bit MTP, Flash-0731 2/4-bit MTP plus "
+            "MXFP4/6-bit stubs, and DeepSeek-OCR-2. 3-bit withdrawn."
         ),
         items=(
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
@@ -434,11 +434,11 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit", NOTE_T1_EXP),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),

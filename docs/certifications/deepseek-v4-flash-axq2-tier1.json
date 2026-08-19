@@ -5,7 +5,7 @@
   "certified_at": "2026-08-10T23:35:02.327275+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
-    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit",
+    "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP",
     "hub_commit": "e22b117aa812b29943b160bb0fbf0b962d0d3819",
     "product_class": "2bit-experimental",
     "architecture": "DeepseekV4ForCausalLM",
@@ -84,7 +84,7 @@
     "Chat API is the authoritative instruct surface for runtime smoke; bare /v1/completions is untemplated."
   ],
   "public_index": {
-    "display_name": "DeepSeek V4 Flash MLX AXQ 2-bit (exp.)",
+    "display_name": "DeepSeek V4 Flash MLX AXQ 2-bit MTP (exp.)",
     "sort_order": 100,
     "edition_label": "main@`e22b117a`",
     "listed": true

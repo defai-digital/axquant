@@ -15,7 +15,7 @@ tags:
 - deepseek-v4
 ---
 
-# AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit
+# AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP
 
 AXQuant 4-bit group-128 pack of
 [`deepseek-ai/DeepSeek-V4-Flash-0731`](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731)
@@ -40,5 +40,5 @@ Group-32 4-bit (179 GB) OOMed generate on 192 GB and is not published.
 
 ## Runtime
 
-mlx-lm resident. AX Engine 2-bit env is not required. MTP sidecar is present;
-acceleration is not claimed.
+mlx-lm resident. AX Engine 2-bit env is not required. MTP sidecar is packaged
+(`-MTP` Hub name). Acceleration is not claimed.
