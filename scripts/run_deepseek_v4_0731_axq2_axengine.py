@@ -11,6 +11,11 @@ Factory host only (df-macstudio-m2). Does **not** delegate to mlx-lm.
 binaries (generate-manifest is `ax-engine-bench generate-manifest`). Stock
 7.0.2 generate-manifest writes the fused packed role and fails validation;
 use generate-manifest-split for that release.
+
+QA protocol (env ``DSV4_QA_PROTOCOL``): default ``v256-strict`` (256 tokens +
+suite system prompts). Set ``v64`` to reproduce the original 64-token
+user-only measurement. Work dir includes the protocol so evidence is not
+overwritten.
 """
 
 from __future__ import annotations
@@ -30,6 +35,15 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from axquant.deepseek_v4_qa import (  # noqa: E402
+    DEFAULT_PROTOCOL,
+    build_qa_messages,
+    normalize_qa_protocol,
+    qa_max_tokens,
+    qa_protocol_record,
+)
+
 FACTORY_HOST_ID = "df-macstudio-m2"
 FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
 PACK = Path(
@@ -58,7 +72,12 @@ ENGINE_VERSION = os.environ.get("AX_ENGINE_VERSION", "7.0.2")
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
 SEED = 20260728
-MAX_TOKENS_QA = 64
+QA_PROTOCOL = normalize_qa_protocol(os.environ.get("DSV4_QA_PROTOCOL", DEFAULT_PROTOCOL))
+_MAX_TOKENS_OVERRIDE = os.environ.get("DSV4_MAX_TOKENS_QA")
+MAX_TOKENS_QA = qa_max_tokens(
+    QA_PROTOCOL,
+    override=int(_MAX_TOKENS_OVERRIDE) if _MAX_TOKENS_OVERRIDE else None,
+)
 MAX_TOKENS_DECODE = 128
 PORT = int(os.environ.get("DSV4_AXENGINE_PORT", "8765"))
 
@@ -71,7 +90,8 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_AXENGINE_WORK",
-            f"/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-axq2-axengine-{ENGINE_VERSION}",
+            "/Volumes/Ext12T/axquant-certification/"
+            f"deepseek-v4-0731-axq2-axengine-{ENGINE_VERSION}-{QA_PROTOCOL}",
         )
     )
 
@@ -223,13 +243,20 @@ def stop_server(proc: subprocess.Popen[str]) -> None:
         proc.wait(timeout=30)
 
 
-def chat_complete(base: str, prompt: str, max_tokens: int, seed: int) -> dict[str, Any]:
+def chat_complete(
+    base: str,
+    prompt: str,
+    max_tokens: int,
+    seed: int,
+    *,
+    messages: list[dict[str, str]] | None = None,
+) -> dict[str, Any]:
     payload = {
         "model": MODEL_ID,
         "temperature": 0.0,
         "max_tokens": max_tokens,
         "seed": seed,
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": messages if messages is not None else [{"role": "user", "content": prompt}],
         "chat_template_kwargs": {
             "enable_thinking": False,
             "preserve_thinking": False,
@@ -266,7 +293,13 @@ def _run_quality(base: str) -> dict[str, Any]:
         t0 = time.perf_counter()
         for index, task in enumerate(tasks):
             try:
-                reply = chat_complete(base, task.prompt, MAX_TOKENS_QA, SEED + index)
+                reply = chat_complete(
+                    base,
+                    task.prompt,
+                    MAX_TOKENS_QA,
+                    SEED + index,
+                    messages=build_qa_messages(suite, task.prompt, QA_PROTOCOL),
+                )
                 text, err = reply["text"], None
             except Exception as exc:
                 text, err = "", str(exc)
@@ -402,6 +435,7 @@ def cmd_eval() -> None:
             "source": f"{SOURCE_ID}@{SOURCE_REV}",
             "seed": SEED,
             "max_tokens_qa": MAX_TOKENS_QA,
+            "qa_protocol": qa_protocol_record(QA_PROTOCOL, MAX_TOKENS_QA),
             "load_seconds": load_s,
             "quality": quality,
             "speed": None,
