@@ -1,0 +1,74 @@
+{
+  "schema_version": "axquant.flash0731-2bit-v-extract-exhaustion.v1",
+  "host_id": "df-macstudio-m2",
+  "protocol": "v-extract",
+  "seed": 20260728,
+  "floor": 0.9,
+  "engine": "ax-engine-80f2a3e6",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "product_class": "2bit-experimental",
+  "tier1_certified": false,
+  "tier2_certified": false,
+  "tier2_reason": "T1 combined mean stayed below 0.90; MTP A/B was not run.",
+  "best_v_extract": {
+    "recipe": "examples/deepseek-v4-experimental-2bit-v0.1.yaml",
+    "pack": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP@cb1a34b4",
+    "combined_mean": 0.8870370370370371,
+    "agent-coding": 0.9,
+    "general": 0.874074074074074,
+    "eval": "docs/eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-v-extract-macstudio-m2/"
+  },
+  "levers": [
+    {
+      "id": "uniform-v0.1",
+      "recipe": "examples/deepseek-v4-experimental-2bit-v0.1.yaml",
+      "protocol": "v-extract",
+      "combined_mean": 0.8870370370370371,
+      "agent-coding": 0.9,
+      "general": 0.874074074074074,
+      "vs_best": "best"
+    },
+    {
+      "id": "mixed-v0.1",
+      "recipe": "examples/deepseek-v4-experimental-2bit-mixed-v0.1.yaml",
+      "protocol": "factory-64-token-mlx-lm",
+      "combined_mean": 0.3,
+      "notes": "shared 4-bit + first/last FFN 4-bit + routed w2 3-bit; worse than uniform on the same host. Not a v-extract re-run (plan: unchanged mixed is not a new lever)."
+    },
+    {
+      "id": "attn6-v0.2",
+      "recipe": "examples/deepseek-v4-experimental-2bit-attn6-v0.2.yaml",
+      "protocol": "v-extract",
+      "combined_mean": 0.85,
+      "agent-coding": 0.9333333333333333,
+      "general": 0.7666666666666667,
+      "vs_best": "worse"
+    },
+    {
+      "id": "attn6-affine-v0.3",
+      "recipe": "examples/deepseek-v4-experimental-2bit-attn6-affine-v0.3.yaml",
+      "protocol": "v-extract",
+      "combined_mean": 0.8382716049382717,
+      "agent-coding": 0.8666666666666667,
+      "general": 0.8098765432098766,
+      "vs_best": "worse"
+    },
+    {
+      "id": "shared4-v0.4",
+      "recipe": "examples/deepseek-v4-experimental-2bit-shared4-v0.4.yaml",
+      "protocol": "v-extract",
+      "combined_mean": 0.8333333333333334,
+      "agent-coding": 0.9,
+      "general": 0.7666666666666667,
+      "vs_best": "worse"
+    }
+  ],
+  "not_tried_and_why": [
+    "Attention 8-bit: 4->6 affine already scored worse than uniform.",
+    "DWQ on 4-bit attention: DWQ on attention in attn6-v0.2 scored worse.",
+    "First/last decoder FFN 4-bit without 3-bit: mixed-v0.1 already spent bits on those stacks and scored worse.",
+    "Routed w2 3-bit only: mixed-v0.1 unique extra; historically worse; also needs 3-bit experimental engine gate.",
+    "plan-experimental-mix from architecture prior: unmeasured ranking repeats a heuristic mix (docs/experimental-trunk-mix.md)."
+  ],
+  "stop_reason": "No remaining distinct AXQ-owned 2bit-experimental convert that is not a repeat of a worse-or-equal measurement. Uniform v0.1 stays the best v-extract pack at 0.887 < 0.90. Hitting the floor at 2-bit on this checkpoint is treated as infeasible."
+}

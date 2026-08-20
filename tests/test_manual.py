@@ -117,6 +117,45 @@ def test_deepseek_v4_attn6_2bit_recipe_clips_attention_not_fused_trunk() -> None
     assert not any(rule.bits == 3 for rule in recipe.rules)
 
 
+def test_deepseek_v4_attn6_affine_2bit_recipe_raises_attention_only() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-attn6-affine-v0.3.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 2
+    assert recipe.default_method == QuantMethod.AFFINE
+    ids = [rule.rule_id for rule in recipe.rules]
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-6bit-affine")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-experimental-2bit")
+    assert attention.bits == 6 and attention.method == QuantMethod.AFFINE
+    assert trunk.bits == 2 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+    assert ids.index("attention-6bit-affine") < ids.index("trunk-experimental-2bit")
+    assert not any(rule.bits == 3 for rule in recipe.rules)
+    assert not any(rule.method == QuantMethod.DWQ for rule in recipe.rules)
+    assert not any(rule.module_glob and "shared_experts" in rule.module_glob for rule in recipe.rules)
+
+
+def test_deepseek_v4_shared4_2bit_recipe_raises_shared_experts_only() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-shared4-v0.4.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 2
+    assert recipe.default_method == QuantMethod.AFFINE
+    ids = [rule.rule_id for rule in recipe.rules]
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "protect-attention")
+    shared = next(rule for rule in recipe.rules if rule.rule_id == "shared-experts-4bit")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-experimental-2bit")
+    assert attention.bits == 4 and attention.method == QuantMethod.AFFINE
+    assert shared.bits == 4 and shared.method == QuantMethod.AFFINE
+    assert trunk.bits == 2 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+    assert ids.index("shared-experts-4bit") < ids.index("trunk-experimental-2bit")
+    assert not any(rule.bits == 3 for rule in recipe.rules)
+    assert not any(rule.method == QuantMethod.DWQ for rule in recipe.rules)
+
+
 def test_deepseek_v4_4bit_affine_recipe_is_a_valid_manual_recipe() -> None:
     path = Path(__file__).resolve().parents[1] / "examples/deepseek-v4-experimental-4bit-v0.1.yaml"
     recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))

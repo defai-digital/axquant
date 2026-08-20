@@ -1,0 +1,9 @@
+{
+  "task_id": "instruction-011",
+  "seed": 20260738,
+  "chat_text": "Five",
+  "completions_raw_text": "Five",
+  "think_in_raw": false,
+  "eot_in_raw": false,
+  "rendered_prompt_has_system": true
+}

@@ -75,7 +75,10 @@
   "notes": [
     "AX Engine 7.1.5 native recert on df-macstudio-m2 of Hub AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP@cb1a34b4.",
     "Not the older DeepSeek-V4-Flash 2-bit certificate (source 60d8d707).",
-    "Not certified: factory 15+15 combined generation viability 0.633 < 0.90. Quality matches the prior 7.0.2 native measurement; engine load/smoke passed on 7.1.5 without the 7.0.2 split generate-manifest patch."
+    "Not certified: factory 15+15 combined generation viability 0.633 < 0.90. Quality matches the prior 7.0.2 native measurement; engine load/smoke passed on 7.1.5 without the 7.0.2 split generate-manifest patch.",
+    "v-extract recert on AX Engine HEAD 80f2a3e6 of the same Hub pack is combined 0.887 (coding 0.900, general 0.874), still below 0.90.",
+    "Distinct 2bit-experimental converts on this host all scored worse-or-equal than uniform v0.1: mixed-v0.1 0.300 (64-token), attn6-v0.2 0.850, attn6-affine-v0.3 0.838, shared4-v0.4 0.833. Remaining 2-bit mixes would repeat those. Exhaustion: docs/eval/deepseek-v4-flash-0731-axq2-v-extract-exhaustion.json.",
+    "Tier 2 not certified: T1 did not pass, so MTP A/B was not run."
   ],
   "public_index": {
     "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)",

@@ -29,9 +29,31 @@ Prior 7.0.2 native QA was the same combined **0.633**. Practical QA/speed vs
 the mlx-community OptiQ 2-bit pack:
 [deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md](../deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
 
+## v-extract recert (AX Engine HEAD `80f2a3e6`)
+
+Same Hub pack, factory `v-extract` protocol (coding 384 / general 64, fenced
+Python extract). Combined **0.887** (agent-coding **0.900**, general **0.874**).
+Still **below 0.90**. Evidence:
+[eval](../eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-v-extract-macstudio-m2/).
+
+Further 2-bit-class converts on this host did not beat that pack:
+
+| Lever | Combined | Notes |
+| --- | ---: | --- |
+| uniform v0.1 (Hub) | **0.887** | best; still not certified |
+| attn6-v0.2 (DWQ + shared 4-bit) | 0.850 | [eval](../eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-attn6-v-extract-macstudio-m2/) |
+| attn6-affine-v0.3 | 0.838 | [eval](../eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-attn6-affine-v-extract-macstudio-m2/) |
+| shared4-v0.4 | 0.833 | [eval](../eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-shared4-v-extract-macstudio-m2/) |
+| mixed-v0.1 | 0.300 | 64-token mlx-lm; not a new v-extract lever |
+
+Machine-readable stop:
+[exhaustion.json](../eval/deepseek-v4-flash-0731-axq2-v-extract-exhaustion.json).
+No remaining distinct AXQ-owned `2bit-experimental` convert that is not a
+repeat of a worse-or-equal measurement.
+
 ## Tier 2 status
 
 **Not certified.** MTP weights are packaged (`mtp.safetensors`; Hub leaf uses
-`-MTP`). AX Engine 7.1.5 keeps uncertified MTP on direct decode unless an
-operator opts into a certification run. This record does not authorize
+`-MTP`). Tier 1 did not pass, so factory MTP A/B was not run. AX Engine keeps
+uncertified MTP on direct decode. This record does not authorize
 speculative-decode speedup.

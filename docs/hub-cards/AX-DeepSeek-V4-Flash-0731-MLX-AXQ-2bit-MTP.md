@@ -48,11 +48,11 @@ Converted on `df-macstudio-m2` (Apple M2 Ultra, 192 GB) from the native FP8
 | --- | --- |
 | Converted on Studio from the pinned 0731 revision | **Yes** |
 | Official DSV4 `chat_template.jinja` | **In pack** |
-| Checkpoint Tier 1 (generation viability suite) | **Not certified** — factory 15+15 combined **0.633** on AX Engine **7.1.5** native (floor 0.90). Same score as the prior 7.0.2 native run. |
+| Checkpoint Tier 1 (generation viability suite) | **Not certified** — 7.1.5 native 15+15 combined **0.633**; `v-extract` on AX Engine HEAD `80f2a3e6` combined **0.887** (floor 0.90). Distinct 2-bit recipe converts scored worse. |
 | AX Engine 7.1.5 native load | **Passed** on `df-macstudio-m2` (Hub commit `cb1a34b4`, `--stream-experts off`, chat smoke `Okay.`) |
 | Decode-128 (informational) | 15.535 tok/s on 7.1.5; not a Tier 1 claim |
 | MTP assets (`mtp.safetensors`) | **Packaged** — Hub name uses `-MTP` |
-| MTP acceleration | **Not certified** (7.1.5 default is direct decode for uncertified MTP) |
+| MTP acceleration | **Not certified** (T1 below 0.90; MTP A/B not run) |
 
 Requires `AX_ENGINE_2BIT_EXPERIMENTAL=1` for AX Engine native serve.
 Certificate:
