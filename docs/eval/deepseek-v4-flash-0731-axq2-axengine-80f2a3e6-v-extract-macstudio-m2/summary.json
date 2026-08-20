@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-08-20T05:32:01.275612+00:00",
+  "host_id": "df-macstudio-m2",
+  "hub": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
+  "hub_commit": "cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
+  "engine_bin": "/Users/devop/opt/ax-engine-80f2a3e6/ax-engine-server",
+  "runtime": "ax-engine-80f2a3e6-native",
+  "protocol": "v-extract",
+  "combined_mean": 0.8870370370370371,
+  "suite_means": {
+    "agent-coding": 0.9,
+    "general": 0.874074074074074
+  },
+  "floor": 0.9,
+  "certified": false,
+  "instruction_011_probe": {
+    "task_id": "instruction-011",
+    "seed": 20260738,
+    "chat_text": "Five",
+    "completions_raw_text": "Five",
+    "think_in_raw": false,
+    "eot_in_raw": false,
+    "rendered_prompt_has_system": true
+  }
+}
