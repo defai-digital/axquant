@@ -110,8 +110,7 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_OPTIQ_VS_AXQ_WORK",
-            "/Volumes/Ext12T/axquant-certification/"
-            f"deepseek-v4-0731-optiq-vs-axq2-{QA_PROTOCOL}",
+            f"/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-vs-axq2-{QA_PROTOCOL}",
         )
     )
 
@@ -595,8 +594,7 @@ def cmd_report() -> None:
             "",
             "## Quality (factory development suites)",
             "",
-            f"Seed `{SEED}`, protocol `{QA_PROTOCOL}`. "
-            "Pass = every check on the task scores 1.0.",
+            f"Seed `{SEED}`, protocol `{QA_PROTOCOL}`. Pass = every check on the task scores 1.0.",
             "",
             "| Suite | N | AXQ 2-bit | OptiQ 2-bit |",
             "| --- | ---: | --- | --- |",
