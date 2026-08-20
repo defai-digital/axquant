@@ -126,7 +126,7 @@ def test_flagship_publication_rescans_files_added_after_request_scan(
     with pytest.raises(PublishingError, match="privacy scan failed"):
         publisher.publish_model(
             model_dir=artifact,
-            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP",
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw",
             validation_index_path=tmp_path / "validation.json",
             hardware_registry_path=tmp_path / "hardware.json",
             pareto_report_path=tmp_path / "pareto.json",

@@ -27,11 +27,12 @@ between published versions.
 - **2-bit and 3-bit remain experimental**, gated by AX Engine's documented switches; GPTQ at 2/3
   bits is allowed but quality at 2-bit scalar grids is limited by the packing format, not the
   optimizer.
-- **Qwen3.8-2.4T-A95B AXQ 2-bit is an experimental Super-class stream pack and
-  will not be certified in this revision** (SSD paging is too slow for
-  practical serving). Hobby / curiosity only. It cannot resident-load on any
-  shipping Mac and needs layer-stack expert paging plus
-  `AX_ENGINE_2BIT_EXPERIMENTAL=1`. Technical report:
+- **Qwen3.8-2.4T-A95B AXQ 2-bit (`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP`) is
+  an experimental Super-class stream pack and will not be certified in this
+  revision** (SSD paging is too slow for practical serving). Native MTP
+  sidecar is packaged; acceleration is not claimed. Hobby / curiosity only.
+  It cannot resident-load on any shipping Mac and needs layer-stack expert
+  paging plus `AX_ENGINE_2BIT_EXPERIMENTAL=1`. Technical report:
   [qwen38-axq-2bit.md](qwen38-axq-2bit.md). **No AXQ 4-bit pack will be
   released** for this base. Separate OptiQ 2/4-bit Hub repos are not AX
   Engine artifacts ([qwen38-optiq-experimental.md](qwen38-optiq-experimental.md)).

@@ -2,7 +2,7 @@
 
 | Pack | Hub | Notes |
 | --- | --- | --- |
-| AXQ 2-bit | [`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit) | Convert complete. **[Technical report](qwen38-axq-2bit.md).** **Will not certify** — SSD paging is too slow for practical use (hobby / curiosity pack). |
+| AXQ 2-bit | [`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP) | Convert complete. Native MTP sidecar packaged; acceleration not claimed. **[Technical report](qwen38-axq-2bit.md).** **Will not certify** — SSD paging is too slow for practical use (hobby / curiosity pack). |
 
 **No AXQ 4-bit pack will be released** for this base. A 4-bit sibling would
 be even larger (~1.8 TB class) and still require the same layer-stack SSD

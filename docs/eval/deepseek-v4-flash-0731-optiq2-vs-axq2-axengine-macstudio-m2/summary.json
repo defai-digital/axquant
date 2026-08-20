@@ -1,0 +1,28 @@
+{
+  "generated_at": "2026-08-16T19:32:29.575668+00:00",
+  "host_id": "df-macstudio-m2",
+  "status": "measured",
+  "not_a_certification": true,
+  "protocol": "official DSV4 chat, thinking off, greedy, seed 20260728, max_tokens_qa 64",
+  "combined_mean": {
+    "axq2_mlx_lm": 0.6333333333333333,
+    "axq2_ax_engine_7_0_2": 0.6333333333333333,
+    "optiq2_mlx_optiq": 0.7240740740740741
+  },
+  "decode_128_tok_per_s": {
+    "axq2_mlx_lm": 27.83736638504998,
+    "axq2_ax_engine_7_0_2": 15.195765308213959,
+    "optiq2_mlx_optiq": 3.470733057053173
+  },
+  "engines": {
+    "axq2_mlx_lm": "mlx-lm-resident",
+    "axq2_ax_engine_7_0_2": "ax-engine-7.0.2-native",
+    "optiq2_mlx_optiq": "mlx-optiq-stream"
+  },
+  "not_delegated": true,
+  "notes": [
+    "AX Engine 7.0.2 native load required remapping split switch_mlp.gate_proj+up_proj to ffn_gate_exps/ffn_up_exps.",
+    "Quality on AX Engine matches mlx-lm + official chat (0.633). OptiQ remains ahead on this suite (0.724).",
+    "AX Engine decode is slower than mlx-lm because the 0731 pack is split, not fused packed experts."
+  ]
+}

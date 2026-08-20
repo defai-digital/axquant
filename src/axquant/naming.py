@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Collection
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from axquant.errors import ArtifactError, PlanningError
@@ -15,6 +16,22 @@ _QUANT_SUFFIX = re.compile(
 # Hub / filesystem brand for converted checkpoints (short). The toolkit remains
 # "AXQuant"; published model ids use AXQ so users can search MLX-AXQ packs.
 _DEFAULT_QUANT_BRAND = "AXQ"
+
+# Reserved empty -MTP Hub leaf (D2). Publish still fails closed; only the
+# operator Hub-audit path may pass allow_reserved_empty_mtp=True.
+RESERVED_EMPTY_MTP_LEAVES: frozenset[str] = frozenset(
+    {
+        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP",
+    }
+)
+_NATIVE_MTP_ROOT_FILES = frozenset(
+    {
+        "mtp.safetensors",
+        "mtp_head.safetensors",
+        "axquant_mtp_sidecar_manifest.json",
+    }
+)
+_ASSISTANT_CONTRACT = "ax_gemma4_assistant_mtp.json"
 
 
 def distinct_4bit_sibling_allowed(four_bit_bytes: int, six_bit_bytes: int) -> bool:
@@ -123,3 +140,98 @@ def format_measured_bpw(measured_main_bpw: float) -> str:
     except InvalidOperation as exc:
         raise ArtifactError("certified measured main BPW cannot be rounded") from exc
     return format(rounded, ".2f")
+
+
+def _posix_relative(name: str) -> str:
+    return name.replace("\\", "/")
+
+
+def _filename_set(filenames: Collection[str]) -> set[str]:
+    return {_posix_relative(name) for name in filenames}
+
+
+def _has_assistant_tree(names: set[str]) -> bool:
+    return any(name == "assistant" or name.startswith("assistant/") for name in names)
+
+
+def packaged_mtp_present(*, filenames: Collection[str]) -> bool:
+    """Return True iff the published tree contains a usable MTP artifact.
+
+    Native sidecar files count only at the repository root. Nested
+    ``optiq/mtp.safetensors`` does not. Assistant-MTP requires the root
+    contract file and an ``assistant/`` path. Leftover ``mtplx_runtime.json``
+    and ``manifest.mtp_present`` never count here.
+    """
+
+    names = _filename_set(filenames)
+    if names & _NATIVE_MTP_ROOT_FILES:
+        return True
+    return _ASSISTANT_CONTRACT in names and _has_assistant_tree(names)
+
+
+def _has_reserved_empty_weights(filenames: Collection[str]) -> bool:
+    names = _filename_set(filenames)
+    if names & _NATIVE_MTP_ROOT_FILES:
+        return True
+    if any(name.endswith(".safetensors") for name in names):
+        return True
+    return _ASSISTANT_CONTRACT in names and _has_assistant_tree(names)
+
+
+def assert_manifest_mtp_files_agree(
+    *,
+    filenames: Collection[str],
+    manifest_mtp_present: bool | None,
+) -> None:
+    """Raise if the manifest claims MTP while the tree has no usable MTP files.
+
+    ``False`` or ``None`` is a no-op, including Gemma assistant-MTP packs whose
+    ``mtp_present`` is False.
+    """
+
+    if manifest_mtp_present is not True:
+        return
+    if packaged_mtp_present(filenames=filenames):
+        return
+    raise ArtifactError(
+        "corrupt pack: axquant_manifest.json sets mtp_present true without a usable MTP artifact"
+    )
+
+
+def require_mtp_suffix_matches_packaging(
+    repo_leaf: str,
+    *,
+    filenames: Collection[str],
+    allow_reserved_empty_mtp: bool = False,
+) -> None:
+    """Fail closed: ``repo_leaf.endswith('-MTP')`` iff packaged MTP is present.
+
+    Does not compare against ``has_mtp`` / ``manifest.mtp_present``. The D2
+    reserved-empty exception applies only when the leaf is in
+    ``RESERVED_EMPTY_MTP_LEAVES``, ``allow_reserved_empty_mtp`` is True, and
+    the tree has no weights.
+    """
+
+    if type(allow_reserved_empty_mtp) is not bool:
+        raise ArtifactError("allow_reserved_empty_mtp must be a boolean")
+    packaged = packaged_mtp_present(filenames=filenames)
+    named_mtp = repo_leaf.endswith("-MTP")
+    if packaged == named_mtp:
+        return
+    if (
+        named_mtp
+        and not packaged
+        and allow_reserved_empty_mtp
+        and repo_leaf in RESERVED_EMPTY_MTP_LEAVES
+        and not _has_reserved_empty_weights(filenames)
+    ):
+        return
+    if packaged and not named_mtp:
+        raise ArtifactError(
+            f"repository name {repo_leaf!r} must end with -MTP because the "
+            "published tree contains a usable MTP artifact"
+        )
+    raise ArtifactError(
+        f"repository name {repo_leaf!r} ends with -MTP but the published tree "
+        "has no usable MTP artifact"
+    )

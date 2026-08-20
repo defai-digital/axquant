@@ -21,8 +21,12 @@ from axquant.certification.registry import (
     DIRECT_CERTIFICATION_ALLOWED_CLAIMS,
     append_certified_checkpoint,
 )
-from axquant.errors import AxquantError, PublishingError
+from axquant.errors import ArtifactError, AxquantError, PublishingError
 from axquant.lifecycle import require_active_certification
+from axquant.naming import (
+    assert_manifest_mtp_files_agree,
+    require_mtp_suffix_matches_packaging,
+)
 from axquant.release_audit import build_release_audit
 from axquant.reporting import prepare_publication
 from axquant.revisions import is_immutable_revision
@@ -502,6 +506,23 @@ def prepare_flagship_publication(
     return _publication_files(directory)
 
 
+def _require_mtp_suffix_for_publication(directory: Path, repo_id: str) -> None:
+    files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
+    leaf = repo_id.split("/", 1)[1]
+    try:
+        require_mtp_suffix_matches_packaging(leaf, filenames=files)
+        manifest_path = directory / "axquant_manifest.json"
+        if manifest_path.is_file():
+            payload = read_data(manifest_path)
+            present = payload.get("mtp_present") if isinstance(payload, dict) else None
+            assert_manifest_mtp_files_agree(
+                filenames=files,
+                manifest_mtp_present=present if isinstance(present, bool) else None,
+            )
+    except ArtifactError as exc:
+        raise PublishingError(str(exc)) from exc
+
+
 def publish_model(
     *,
     model_dir: str | Path,
@@ -526,6 +547,7 @@ def publish_model(
     _publication_files(directory)
     if not _REPO_ID.fullmatch(repo_id):
         raise PublishingError("Hub repository must use the owner/name form")
+    _require_mtp_suffix_for_publication(directory, repo_id)
     request_schema: str | None = None
     if release_audit_request_path is not None:
         payload = read_data(release_audit_request_path)

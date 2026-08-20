@@ -1,7 +1,15 @@
 import pytest
 
 from axquant.errors import ArtifactError, PlanningError
-from axquant.naming import distinct_4bit_sibling_allowed, model_name, target_class_for_bpw
+from axquant.naming import (
+    RESERVED_EMPTY_MTP_LEAVES,
+    assert_manifest_mtp_files_agree,
+    distinct_4bit_sibling_allowed,
+    model_name,
+    packaged_mtp_present,
+    require_mtp_suffix_matches_packaging,
+    target_class_for_bpw,
+)
 
 
 def test_default_name_uses_mlx_and_manifest_mtp() -> None:
@@ -69,6 +77,83 @@ def test_development_card_name_regex_accepts_low_bit_classes() -> None:
         match = _AXQ_NAME.fullmatch(name)
         assert match is not None
         assert match.group("product_class") == product_class
+
+
+def test_packaged_mtp_present_is_file_based_only() -> None:
+    assert packaged_mtp_present(filenames=["mtp.safetensors"]) is True
+    assert packaged_mtp_present(filenames=["mtp_head.safetensors"]) is True
+    assert packaged_mtp_present(filenames=["axquant_mtp_sidecar_manifest.json"]) is True
+    assert (
+        packaged_mtp_present(filenames=["ax_gemma4_assistant_mtp.json", "assistant/config.json"])
+        is True
+    )
+    assert packaged_mtp_present(filenames=["mtplx_runtime.json"]) is False
+    assert packaged_mtp_present(filenames=["optiq/mtp.safetensors"]) is False
+    assert packaged_mtp_present(filenames=["ax_gemma4_assistant_mtp.json"]) is False
+    assert packaged_mtp_present(filenames=["assistant/config.json"]) is False
+    assert packaged_mtp_present(filenames=["README.md", "model.safetensors"]) is False
+
+
+def test_require_mtp_suffix_native_sidecar_needs_mtp_leaf() -> None:
+    require_mtp_suffix_matches_packaging(
+        "AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP",
+        filenames=["mtp.safetensors", "axquant_mtp_sidecar_manifest.json"],
+    )
+    with pytest.raises(ArtifactError, match="must end with -MTP"):
+        require_mtp_suffix_matches_packaging(
+            "AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit",
+            filenames=["mtp.safetensors"],
+        )
+
+
+def test_require_mtp_suffix_rejects_mtp_leaf_without_packaged_files() -> None:
+    with pytest.raises(ArtifactError, match="has no usable MTP artifact"):
+        require_mtp_suffix_matches_packaging(
+            "AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+            filenames=["mtplx_runtime.json", "README.md"],
+        )
+
+
+def test_require_mtp_suffix_accepts_gemma_assistant_with_false_manifest() -> None:
+    names = ["ax_gemma4_assistant_mtp.json", "assistant/model.safetensors"]
+    require_mtp_suffix_matches_packaging(
+        "AX-gemma-4-12b-MLX-AXQ-4bit-MTP",
+        filenames=names,
+    )
+    assert_manifest_mtp_files_agree(filenames=names, manifest_mtp_present=False)
+
+
+def test_assert_manifest_mtp_files_agree_is_corrupt_pack_not_packaged() -> None:
+    with pytest.raises(ArtifactError, match="corrupt pack"):
+        assert_manifest_mtp_files_agree(
+            filenames=["README.md"],
+            manifest_mtp_present=True,
+        )
+    assert_manifest_mtp_files_agree(filenames=["README.md"], manifest_mtp_present=None)
+    assert_manifest_mtp_files_agree(filenames=["README.md"], manifest_mtp_present=False)
+
+
+def test_reserved_empty_mtp_leaf_requires_operator_flag() -> None:
+    leaf = next(iter(RESERVED_EMPTY_MTP_LEAVES))
+    with pytest.raises(ArtifactError, match="has no usable MTP artifact"):
+        require_mtp_suffix_matches_packaging(leaf, filenames=[".gitattributes", "README.md"])
+    require_mtp_suffix_matches_packaging(
+        leaf,
+        filenames=[".gitattributes", "README.md"],
+        allow_reserved_empty_mtp=True,
+    )
+    with pytest.raises(ArtifactError, match="has no usable MTP artifact"):
+        require_mtp_suffix_matches_packaging(
+            "AX-Some-Other-MLX-AXQ-4bit-MTP",
+            filenames=[".gitattributes", "README.md"],
+            allow_reserved_empty_mtp=True,
+        )
+    with pytest.raises(ArtifactError, match="has no usable MTP artifact"):
+        require_mtp_suffix_matches_packaging(
+            leaf,
+            filenames=[".gitattributes", "model.safetensors"],
+            allow_reserved_empty_mtp=True,
+        )
 
 
 def test_distinct_4bit_sibling_requires_five_percent_complete_weight_savings() -> None:

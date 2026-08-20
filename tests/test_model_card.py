@@ -393,13 +393,13 @@ def test_embedding_model_card_links_4bit_and_8bit_v2_siblings(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
     _prepare_card(
         artifact_dir=directory,
-        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2",
+        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2-MTP",
         product_class="4bit",
     )
 
     readme = (directory / "README.md").read_text(encoding="utf-8")
-    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" in readme
-    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2-MTP" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-v2-MTP" in readme
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-6bit-v2" not in readme
 
 
@@ -410,14 +410,14 @@ def test_embedding_model_card_links_stable_4bit_and_8bit_siblings(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
     _prepare_card(
         artifact_dir=directory,
-        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit",
+        repo_id="AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-MTP",
         product_class="4bit",
         artifact_edition=2,
     )
 
     readme = (directory / "README.md").read_text(encoding="utf-8")
-    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit" in readme
-    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-MTP" in readme
+    assert "AX-Qwen3-Embedding-8B-MLX-AXQ-8bit-MTP" in readme
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-6bit" not in readme
     assert "AX-Qwen3-Embedding-8B-MLX-AXQ-4bit-v2" not in readme
 
@@ -535,6 +535,26 @@ def test_multimodal_model_cards_use_executable_runtime_commands(
     assert "pipeline_tag: image-text-to-text" in vlm_card
     assert "--temperature 0.0" in vlm_card
     assert "--temp 0.0" not in vlm_card
+
+
+def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    (directory / "mtp.safetensors").unlink()
+    (directory / "axquant_mtp_sidecar_manifest.json").unlink()
+    assistant = directory / "assistant"
+    assistant.mkdir()
+    (assistant / "config.json").write_text("{}\n", encoding="utf-8")
+    (directory / "ax_gemma4_assistant_mtp.json").write_text("{}\n", encoding="utf-8")
+
+    written = _prepare_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP",
+        product_class="6bit",
+    )
+    assert (directory / "README.md") in written
 
 
 def test_development_model_card_rejects_stale_execution_before_mutating(

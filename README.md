@@ -316,11 +316,11 @@ catalog entries remain development artifacts unless their own exact revision
 has a certificate.
 
 **Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** is on the Hub at
-[`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit)
-(layer-stack expert stream, ~1.13 TiB, measured 4.074 BPW). **This revision
-will not be certified** — SSD paging is too slow for practical serving; it
-stays as a hobby / curiosity pack. **No AXQ 4-bit pack will be released**
-for this base. Technical report:
+[`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP)
+(layer-stack expert stream, ~1.13 TiB, measured 4.074 BPW, native MTP sidecar
+packaged; acceleration not claimed). **This revision will not be certified**
+— SSD paging is too slow for practical serving; it stays as a hobby /
+curiosity pack. **No AXQ 4-bit pack will be released** for this base. Technical report:
 [docs/qwen38-axq-2bit.md](docs/qwen38-axq-2bit.md). Separate OptiQ 2/4-bit
 repos are not AX Engine artifacts
 ([docs/qwen38-optiq-experimental.md](docs/qwen38-optiq-experimental.md)).
@@ -587,9 +587,9 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
 | [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `2bit-experimental`; MTP assets packaged |
 | [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP) | 3.133 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)); AX Engine 7.1.5 native recert on `df-macstudio-m2` (viability 0.633 &lt; 0.90); MTP assets packaged |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | 4.371 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md)); g128 DWQ-attn; cert later on a larger Mac; MTP assets packaged |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4) | — | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md)); listed; convert `--q-mode mxfp4`; 192 GB may block generate |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit) | — | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md)); listed; 192 GB factory host cannot run dual-suite generate |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | — | **Reserved / not uploaded.** `-MTP` is kept because the 2-bit sibling ships `mtp.safetensors`. Hub tree has no weights yet. [Eval record](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) is not a shipped-pack claim. |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4) | — | **Stub / not uploaded.** No `-MTP` until a sidecar ships. [Eval](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md); convert `--q-mode mxfp4`; 192 GB may block generate |
+| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit) | — | **Stub / not uploaded.** No `-MTP` until a sidecar ships. [Eval](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md); 192 GB factory host cannot run dual-suite generate |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | 4.880062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq4-tier1.md)); source `deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | 6.000062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.665439 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq4-tier1.md)); attention-6 / expert-4 recovery recipe; source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |

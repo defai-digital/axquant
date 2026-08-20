@@ -54,7 +54,8 @@ NOTE_T1_EXP = (
     "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."
 )
 NOTE_0731 = (
-    "Flash-0731 source revision. AXQ development artifact. Not certified; see the model card."
+    "Flash-0731 source revision. AXQ 2-bit MTP is listed but not certified "
+    "(AX Engine 7.1.5 factory viability 0.633). See the model card."
 )
 NOTE_0731_MEM = (
     "Flash-0731 ship SKU. Not certified on the 192 GB factory Studio; recert on a larger Mac."
@@ -71,8 +72,16 @@ NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
 NOTE_CUDA = "CUDA AWQ W4A16. Not an MLX pack."
 NOTE_MXFP8 = "MLX MXFP8 OCR pack."
 NOTE_24T = (
-    "Experimental 2-bit of the 2.4T MoE. SSD paging is too slow for practical "
-    "serving; this revision will not be certified."
+    "Experimental 2-bit of the 2.4T MoE with a packaged native MTP sidecar. "
+    "SSD paging is too slow for practical serving; this revision will not be "
+    "certified. MTP acceleration is not claimed."
+)
+NOTE_0731_RESERVED = (
+    "Flash-0731 4-bit-MTP name is reserved; Hub weights are not uploaded. See the model card."
+)
+NOTE_0731_STUB = (
+    "Flash-0731 ship SKU stub. Hub weights are not uploaded. Not certified on "
+    "the 192 GB factory Studio; -MTP is added only when a sidecar ships."
 )
 
 
@@ -140,7 +149,8 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="Qwen3.8",
         description=(
-            "Qwen3.8 MLX: certified 27B AXQ MXFP4/4/6/8-bit ± MTP, plus experimental 2.4T 2-bit."
+            "Qwen3.8 MLX: certified 27B AXQ ± MTP, plus experimental 2.4T 2-bit MTP "
+            "(sidecar packaged; not certified)."
         ),
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4", NOTE_T1),
@@ -151,7 +161,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit", NOTE_24T),
+            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP", NOTE_24T),
         ),
     ),
     Spec(
@@ -249,9 +259,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
@@ -386,7 +396,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit", NOTE_24T),
+            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP", NOTE_24T),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
@@ -438,9 +448,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_MEM),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_MEM),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),

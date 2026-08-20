@@ -571,7 +571,7 @@ def test_flagship_package_rejects_legacy_request_downgrade(tmp_path: Path) -> No
     with pytest.raises(PublishingError, match="cannot be published through an older"):
         publish_model(
             model_dir=artifact,
-            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP",
+            repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw",
             validation_index_path=tmp_path / "validation.json",
             hardware_registry_path=tmp_path / "hardware.json",
             pareto_report_path=tmp_path / "pareto.json",
@@ -625,7 +625,7 @@ def test_flagship_preview_publication_preserves_certified_model_card(
 
     files = publish_model(
         model_dir=artifact,
-        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw-MTP",
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MP-5p30bpw",
         validation_index_path=tmp_path / "validation.json",
         hardware_registry_path=tmp_path / "hardware.json",
         pareto_report_path=tmp_path / "pareto.json",
@@ -635,3 +635,70 @@ def test_flagship_preview_publication_preserves_certified_model_card(
 
     assert "README.md" in files
     assert readme.read_bytes() == certified_card
+
+
+def test_publish_model_rejects_packaged_mtp_without_suffix(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "mtp.safetensors").write_bytes(b"mtp")
+
+    with pytest.raises(PublishingError, match="must end with -MTP"):
+        publish_model(
+            model_dir=artifact,
+            repo_id="AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit",
+            validation_index_path=tmp_path / "validation.json",
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+            execute=False,
+        )
+
+
+def test_publish_preview_accepts_assistant_mtp_suffix(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FlagshipAudit:
+        pass
+
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "ax_gemma4_assistant_mtp.json").write_text("{}\n", encoding="utf-8")
+    assistant = artifact / "assistant"
+    assistant.mkdir()
+    (assistant / "model.safetensors").write_bytes(b"asst")
+    (artifact / "README.md").write_text("# assistant-MTP\n", encoding="utf-8")
+    (artifact / "public-claim.json").write_text("{}\n", encoding="utf-8")
+    request = tmp_path / "flagship-request.json"
+    write_data(
+        request,
+        {
+            "schema_version": "axquant.flagship-release-audit-request.v1",
+        },
+    )
+
+    monkeypatch.setattr(publisher, "FlagshipReleaseAudit", _FlagshipAudit)
+    monkeypatch.setattr(
+        publisher,
+        "_require_release_audit",
+        lambda **_kwargs: _FlagshipAudit(),
+    )
+    monkeypatch.setattr(
+        publisher,
+        "_require_flagship_request_inputs",
+        lambda **_kwargs: None,
+    )
+    monkeypatch.setattr(publisher, "_rerun_release_audit", lambda **_kwargs: None)
+    monkeypatch.setattr(publisher, "_require_release_validation", lambda **_kwargs: None)
+    monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: None)
+
+    files = publish_model(
+        model_dir=artifact,
+        repo_id="AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP",
+        validation_index_path=tmp_path / "validation.json",
+        hardware_registry_path=tmp_path / "hardware.json",
+        pareto_report_path=tmp_path / "pareto.json",
+        release_audit_request_path=request,
+        execute=False,
+    )
+    assert "ax_gemma4_assistant_mtp.json" in files
+    assert "assistant/model.safetensors" in files

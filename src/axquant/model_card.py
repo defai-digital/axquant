@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Collection
 from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
@@ -12,7 +13,11 @@ from axquant.modality_certification import (
     claim_allows_public_quality,
     format_modalities_card_section,
 )
-from axquant.naming import format_measured_bpw
+from axquant.naming import (
+    assert_manifest_mtp_files_agree,
+    format_measured_bpw,
+    require_mtp_suffix_matches_packaging,
+)
 from axquant.public_cert_index import claim_from_public_row, public_row_for_repo
 from axquant.schema import (
     ArtifactFile,
@@ -864,6 +869,16 @@ limitations, and responsible-use guidance.
 """
 
 
+def _sidecar_derived_mtp_filenames(
+    mtp_sidecar: ProtectedTensorSidecarManifest,
+) -> list[str]:
+    names = ["axquant_mtp_sidecar_manifest.json"]
+    output_path = mtp_sidecar.output.path.replace("\\", "/")
+    if output_path:
+        names.append(output_path)
+    return names
+
+
 def render_development_model_card(
     *,
     directory: Path,
@@ -876,13 +891,30 @@ def render_development_model_card(
     vision_sidecar: ProtectedTensorSidecarManifest | None,
     artifact_edition: int | None = None,
     certification: CheckpointCertificationClaim | None = None,
+    filenames: Collection[str] | None = None,
 ) -> str:
     """Render an evidence-safe Hub card for an existing AXQ checkpoint.
 
     Direct rendering verifies a supplied certification against the manifest
     currently on disk. Preparation uses the private renderer to calculate the
     final README-bound manifest first, then verifies that prospective digest.
+
+    The optional ``filenames`` list is an explicit packaged-MTP file list for
+    the suffix lint. When ``mtp_sidecar`` is set, filenames are derived from
+    that sidecar. When both are omitted the suffix hook is skipped so reused
+    fixture directories are not surprise-scanned.
     """
+
+    lint_names: list[str] | None = None
+    if mtp_sidecar is not None:
+        lint_names = _sidecar_derived_mtp_filenames(mtp_sidecar)
+    elif filenames is not None:
+        lint_names = [name.replace("\\", "/") for name in filenames]
+    if lint_names is not None:
+        require_mtp_suffix_matches_packaging(
+            repo_id.rsplit("/", 1)[-1],
+            filenames=lint_names,
+        )
 
     certified = _verified_certification(
         directory=directory,
@@ -1067,6 +1099,14 @@ def prepare_development_model_card(
     manifest = load_model(manifest_path, ArtifactManifest)
     plan = load_model(plan_path, QuantizationPlan)
     execution = load_model(execution_path, QuantizerExecutionManifest)
+    packaged_names = [
+        path.relative_to(directory).as_posix() for path in artifact_tree_files(directory)
+    ]
+    require_mtp_suffix_matches_packaging(name, filenames=packaged_names)
+    assert_manifest_mtp_files_agree(
+        filenames=packaged_names,
+        manifest_mtp_present=manifest.mtp_present,
+    )
 
     mtp_path = directory / "axquant_mtp_sidecar_manifest.json"
     vision_path = directory / "axquant_vision_sidecar_manifest.json"

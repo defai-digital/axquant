@@ -11,11 +11,12 @@ tags:
 - qwen
 - experimental
 - not-certified
+- mtp
 pipeline_tag: text-generation
 library_name: mlx
 ---
 
-# AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit
+# AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP
 
 Experimental **AXQ 2-bit** MLX pack of
 [`Qwen/Qwen3.8-2.4T-A95B-FP8`](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B-FP8).
@@ -79,6 +80,7 @@ From `axquant_manifest.json` after weight verification (2026-08-13):
 | Logical parameters | 2,446,182,725,504 |
 | Weight files | 1,245,853,341,088 bytes (1.13 TiB) |
 | MTP sidecar | 26,989,794,744 bytes |
+| Hub budget class | `2bit` (leaf). Recipe class remains `2bit-experimental`. |
 | Product class | `2bit-experimental` |
 
 Stream contract: 512 experts, 10 per token, 828 streamed tensors, layer-stack
@@ -93,6 +95,7 @@ hidden 8192, MoE intermediate 2048, one MTP layer).
 | Hub weights | Uploaded |
 | Quality vs BF16 / FP8 | Not measured |
 | AX Engine cert | **Will not certify this revision** (too slow to be practical) |
+| MTP present | `True` (native `mtp.safetensors` sidecar, ~27 GiB) |
 | MTP acceleration | Not claimed |
 
 Hobby use only. Not a supported product pack.

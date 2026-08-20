@@ -1,9 +1,9 @@
-# AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit
+# AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP
 
 Technical report for the experimental AXQuant 2-bit Super-class pack of
 Qwen3.8-2.4T-A95B. Hub:
 
-[`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit)
+[`AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP)
 
 **This revision will not be certified.** SSD layer-stack paging is too slow
 for practical serving. The pack stays on the Hub as convert evidence and a
@@ -143,5 +143,10 @@ python -m axquant convert \
   --allow-unmeasured \
   --expert-stream required \
   --ax-engine-manifest skip \
-  --output ./AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit
+  --output ./AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP
 ```
+
+The historical convert used `--output ./AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit`
+(no `-MTP`) even though convert packaged `mtp.safetensors`. That name is a
+defect: Hub identity is `...-2bit-MTP`. The operator move is
+`scripts/hnc_hub_move_and_refresh.py` (dry-run default).
