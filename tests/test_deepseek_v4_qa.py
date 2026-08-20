@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001
 from __future__ import annotations
 
 import pytest
@@ -14,6 +15,7 @@ from axquant.deepseek_v4_qa import (
     qa_protocol_record,
     qa_suite_config,
     qa_system_prompt,
+    render_v4_non_thinking_completion_prompt,
 )
 
 
@@ -48,6 +50,17 @@ def test_v_extract_splits_budgets_and_stops() -> None:
     messages = build_qa_messages("agent-coding", "Write fizzbuzz", PROTOCOL_V_EXTRACT)
     assert messages[0] == {"role": "system", "content": AGENT_CODING_SYSTEM}
     assert "exactly" in GENERAL_SYSTEM.lower()
+
+
+def test_render_v4_non_thinking_completion_prompt_embeds_system() -> None:
+    rendered = render_v4_non_thinking_completion_prompt(
+        GENERAL_SYSTEM,
+        "Convert the number 5 into its English word form. Answer with a single word.",
+    )
+    assert rendered.startswith("<｜begin▁of▁sentence｜>" + GENERAL_SYSTEM)
+    assert "<｜User｜>Convert the number 5" in rendered
+    assert rendered.endswith("<｜Assistant｜></think>")
+    assert "<｜System｜>" not in rendered
 
 
 def test_v_extract_stop_lists_fit_ax_engine_limit() -> None:

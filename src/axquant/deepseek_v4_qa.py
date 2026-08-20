@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from axquant.deepseek_v4_chat import ASSISTANT_TOKEN, BOS_TOKEN, THINK_END, USER_TOKEN
+
 QaProtocol = Literal["v64", "v256-strict", "v-extract"]
 
 PROTOCOL_V64: QaProtocol = "v64"
@@ -134,6 +136,13 @@ def qa_system_prompt(suite: str, protocol: QaProtocol) -> str | None:
     if suite == "general":
         return GENERAL_SYSTEM
     raise ValueError(f"unknown QA suite {suite!r}")
+
+
+def render_v4_non_thinking_completion_prompt(system: str | None, user: str) -> str:
+    """Prompt string for /v1/completions that matches DSV4 non-thinking chat."""
+
+    prefix = f"{BOS_TOKEN}{system or ''}"
+    return f"{prefix}{USER_TOKEN}{user}{ASSISTANT_TOKEN}{THINK_END}"
 
 
 def build_qa_messages(

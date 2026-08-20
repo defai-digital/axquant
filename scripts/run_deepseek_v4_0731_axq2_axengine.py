@@ -42,6 +42,8 @@ from axquant.deepseek_v4_qa import (  # noqa: E402
     normalize_qa_protocol,
     qa_protocol_record,
     qa_suite_config,
+    qa_system_prompt,
+    render_v4_non_thinking_completion_prompt,
 )
 
 FACTORY_HOST_ID = "df-macstudio-m2"
@@ -276,6 +278,62 @@ def chat_complete(
     }
 
 
+INSTRUCTION_011_PROMPT = (
+    "Convert the number 5 into its English word form. Answer with a single word."
+)
+INSTRUCTION_011_INDEX = 10  # 0-based index in development-general
+
+
+def probe_instruction_011(base: str) -> dict[str, Any]:
+    """Chat (possibly sanitized) vs completions (raw) for instruction-011."""
+
+    seed = SEED + INSTRUCTION_011_INDEX
+    cfg = qa_suite_config("general", QA_PROTOCOL)
+    chat = chat_complete(
+        base,
+        INSTRUCTION_011_PROMPT,
+        cfg.max_tokens,
+        seed,
+        messages=build_qa_messages("general", INSTRUCTION_011_PROMPT, QA_PROTOCOL),
+        stop=cfg.stop,
+    )
+    system = qa_system_prompt("general", QA_PROTOCOL)
+    rendered = render_v4_non_thinking_completion_prompt(system, INSTRUCTION_011_PROMPT)
+    raw = http_json(
+        "POST",
+        base + "/v1/completions",
+        {
+            "model": MODEL_ID,
+            "prompt": rendered,
+            "temperature": 0.0,
+            "max_tokens": cfg.max_tokens,
+            "seed": seed,
+        },
+        timeout=900,
+    )
+    raw_text = ""
+    choices = raw.get("choices") or [{}]
+    raw_text = str(choices[0].get("text") or "")
+    payload = {
+        "task_id": "instruction-011",
+        "seed": seed,
+        "chat_text": chat["text"],
+        "completions_raw_text": raw_text,
+        "think_in_raw": "</think>" in raw_text,
+        "eot_in_raw": "<|eot|>" in raw_text,
+        "rendered_prompt_has_system": bool(system) and (system in rendered),
+    }
+    log(
+        "probe 011 chat={chat!r} raw={raw!r} think={think} eot={eot}".format(
+            chat=payload["chat_text"],
+            raw=payload["completions_raw_text"][:240],
+            think=payload["think_in_raw"],
+            eot=payload["eot_in_raw"],
+        )
+    )
+    return payload
+
+
 def _run_quality(base: str) -> dict[str, Any]:
     load_quality_tasks, score_quality_task_output = _quality_lib()
     datasets = Path(os.environ.get("DSV4_DATASETS", FACTORY_DATASETS))
@@ -433,6 +491,8 @@ def cmd_eval() -> None:
         log(f"smoke={smoke['text']!r}")
         if not (smoke["text"] or "").strip():
             raise SystemExit("native AX Engine smoke returned empty text")
+        probe_011 = probe_instruction_011(base)
+        write_json(work / "instruction-011-probe.json", probe_011)
         quality = _run_quality(base)
         payload = {
             "key": "axq2-axengine",
@@ -441,6 +501,7 @@ def cmd_eval() -> None:
             "commit": os.environ.get("DSV4_AXQ2_HUB_COMMIT", ENGINE_VERSION),
             "runtime": f"ax-engine-{ENGINE_VERSION}-native",
             "engine_bin": str(ENGINE_BIN),
+            "instruction_011_probe": probe_011,
             "path": str(PACK),
             "host_id": FACTORY_HOST_ID,
             "source": f"{SOURCE_ID}@{SOURCE_REV}",
