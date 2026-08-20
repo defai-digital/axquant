@@ -5,6 +5,8 @@ Intended host: df-macstudio-m2. Not a certification. Each pack uses its
 native runtime (AXQ = resident mlx-lm; OptiQ = mlx-optiq expert streaming).
 
   PYTHONPATH=src .venv/bin/python scripts/run_deepseek_v4_0731_optiq_vs_axq2.py all
+  DSV4_QA_PROTOCOL=v-extract PYTHONPATH=src \\
+    .venv/bin/python scripts/run_deepseek_v4_0731_optiq_vs_axq2.py eval-optiq
 """
 
 from __future__ import annotations
@@ -22,6 +24,16 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from axquant.deepseek_v4_qa import (  # noqa: E402
+    DEFAULT_PROTOCOL,
+    normalize_qa_protocol,
+    qa_completion_prompt,
+    qa_protocol_record,
+    qa_suite_config,
+    truncate_at_stop,
+)
+
 FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
 FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
 FACTORY_HOST_ID = "df-macstudio-m2"
@@ -33,9 +45,9 @@ OPTIQ_ID = "mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit"
 AXQ_ID = "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0"
 AXQ_REV = "1.9.0"
 SEED = 20260728
-MAX_TOKENS_QA = 64
 MAX_TOKENS_DECODE = 128
 OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"))
+QA_PROTOCOL = normalize_qa_protocol(os.environ.get("DSV4_QA_PROTOCOL", DEFAULT_PROTOCOL))
 
 PACKS: dict[str, dict[str, Any]] = {
     "axq2": {
@@ -98,7 +110,8 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_OPTIQ_VS_AXQ_WORK",
-            "/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-vs-axq2-v190",
+            "/Volumes/Ext12T/axquant-certification/"
+            f"deepseek-v4-0731-optiq-vs-axq2-{QA_PROTOCOL}",
         )
     )
 
@@ -193,26 +206,36 @@ class _AxqBackend:
     def load(self, path: Path) -> None:
         import mlx.core as mx
         import mlx_lm
+        from mlx_lm.generate import stream_generate
         from mlx_lm.sample_utils import make_sampler
 
         self._mx = mx
         self._mlx_lm = mlx_lm
+        self._stream_generate = stream_generate
         self._make_sampler = make_sampler
         self._model, self._tokenizer = mlx_lm.load(str(path), lazy=False)
         mx.eval(self._model.parameters())
 
-    def generate(self, prompt: str, max_tokens: int, seed: int) -> str:
-        rendered = _render(self._tokenizer, prompt)
-        self._mx.random.seed(seed)
-        return str(
-            self._mlx_lm.generate(
-                self._model,
-                self._tokenizer,
-                rendered,
-                verbose=False,
-                max_tokens=max_tokens,
-                sampler=self._make_sampler(temp=0.0),
-            )
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int,
+        seed: int,
+        *,
+        suite: str = "agent-coding",
+        stop: tuple[str, ...] = (),
+    ) -> str:
+        rendered = qa_completion_prompt(suite, prompt, QA_PROTOCOL)
+        return _stream_until_stop(
+            self._stream_generate,
+            self._mx,
+            self._model,
+            self._tokenizer,
+            rendered,
+            max_tokens,
+            seed,
+            self._make_sampler(temp=0.0),
+            stop,
         )
 
     def count(self, text: str) -> int:
@@ -230,58 +253,66 @@ class _OptiqBackend:
     def load(self, path: Path) -> None:
         import mlx.core as mx
         import optiq  # noqa: F401
-        from mlx_lm import generate
+        from mlx_lm.generate import stream_generate
         from mlx_lm.sample_utils import make_sampler
         from optiq.runtime import moe_stream
 
         self._mx = mx
-        self._generate = generate
+        self._stream_generate = stream_generate
         self._make_sampler = make_sampler
         self._model, self._tokenizer = moe_stream.load_streaming(str(path))
 
-    def generate(self, prompt: str, max_tokens: int, seed: int) -> str:
-        rendered = _render(self._tokenizer, prompt)
-        self._mx.random.seed(seed)
-        return str(
-            self._generate(
-                self._model,
-                self._tokenizer,
-                rendered,
-                verbose=False,
-                max_tokens=max_tokens,
-                sampler=self._make_sampler(temp=0.0),
-            )
+    def generate(
+        self,
+        prompt: str,
+        max_tokens: int,
+        seed: int,
+        *,
+        suite: str = "agent-coding",
+        stop: tuple[str, ...] = (),
+    ) -> str:
+        rendered = qa_completion_prompt(suite, prompt, QA_PROTOCOL)
+        return _stream_until_stop(
+            self._stream_generate,
+            self._mx,
+            self._model,
+            self._tokenizer,
+            rendered,
+            max_tokens,
+            seed,
+            self._make_sampler(temp=0.0),
+            stop,
         )
 
     def count(self, text: str) -> int:
         return len(self._tokenizer.encode(text, add_special_tokens=False))
 
 
-def _render(tokenizer: Any, prompt: str) -> str:
-    template = getattr(tokenizer, "chat_template", None)
-    if isinstance(template, str) and template and hasattr(tokenizer, "apply_chat_template"):
-        try:
-            return str(
-                tokenizer.apply_chat_template(
-                    [{"role": "user", "content": prompt}],
-                    tokenize=False,
-                    add_generation_prompt=True,
-                    enable_thinking=False,
-                )
-            )
-        except TypeError:
-            return str(
-                tokenizer.apply_chat_template(
-                    [{"role": "user", "content": prompt}],
-                    tokenize=False,
-                    add_generation_prompt=True,
-                )
-            )
-    # Flash-0731 mlx convert drops chat_template; use the official DSV4 chat
-    # encoding so the model is not asked to continue a raw document.
-    from axquant.deepseek_v4_chat import render_deepseek_v4_user_prompt
-
-    return render_deepseek_v4_user_prompt(prompt, thinking=False)
+def _stream_until_stop(
+    stream_generate: Any,
+    mx: Any,
+    model: Any,
+    tokenizer: Any,
+    rendered: str,
+    max_tokens: int,
+    seed: int,
+    sampler: Any,
+    stop: tuple[str, ...],
+) -> str:
+    mx.random.seed(seed)
+    text = ""
+    for response in stream_generate(
+        model,
+        tokenizer,
+        rendered,
+        max_tokens=max_tokens,
+        sampler=sampler,
+    ):
+        text += str(response.text)
+        trimmed = truncate_at_stop(text, stop)
+        if trimmed != text:
+            return trimmed
+    return truncate_at_stop(text, stop)
 
 
 def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:
@@ -319,10 +350,17 @@ def _run_quality(backend: Any, key: str, *, score: bool) -> dict[str, Any]:
             ]
         results = []
         scores: list[float] = []
+        config = qa_suite_config(suite, QA_PROTOCOL)
         t0 = time.perf_counter()
         for index, task in enumerate(task_iter):
             try:
-                text = backend.generate(task["prompt"], MAX_TOKENS_QA, SEED + index)
+                text = backend.generate(
+                    task["prompt"],
+                    config.max_tokens,
+                    SEED + index,
+                    suite=suite,
+                    stop=config.stop,
+                )
                 err = None
             except Exception as exc:
                 text, err = "", str(exc)
@@ -363,14 +401,14 @@ def _run_speed(backend: Any) -> dict[str, Any]:
         ("prefill-2k-decode-8", (prefill_block + " ") * 4, 8),
     ]
     # Warmup
-    backend.generate("Say OK.", 8, SEED)
+    backend.generate("Say OK.", 8, SEED, suite="general", stop=())
     rows = []
     for name, prompt, max_tokens in cases:
         t0 = time.perf_counter()
-        text = backend.generate(prompt, max_tokens, SEED)
+        text = backend.generate(prompt, max_tokens, SEED, suite="general", stop=())
         elapsed = time.perf_counter() - t0
         gen_tokens = max(backend.count(text), 1)
-        prompt_tokens = backend.count(_render(backend._tokenizer, prompt))
+        prompt_tokens = backend.count(qa_completion_prompt("general", prompt, QA_PROTOCOL))
         rows.append(
             {
                 "case": name,
@@ -413,7 +451,8 @@ def cmd_eval(key: str) -> None:
         "host_id": FACTORY_HOST_ID,
         "source": f"{SOURCE_ID}@{SOURCE_REV}",
         "seed": SEED,
-        "max_tokens_qa": MAX_TOKENS_QA,
+        "qa_protocol": qa_protocol_record(QA_PROTOCOL),
+        "max_tokens_qa": qa_suite_config("agent-coding", QA_PROTOCOL).max_tokens,
         "load_seconds": load_s,
         "quality": quality,
         "speed": None,
@@ -556,7 +595,7 @@ def cmd_report() -> None:
             "",
             "## Quality (factory development suites)",
             "",
-            f"Seed `{SEED}`, max new tokens `{MAX_TOKENS_QA}`. "
+            f"Seed `{SEED}`, protocol `{QA_PROTOCOL}`. "
             "Pass = every check on the task scores 1.0.",
             "",
             "| Suite | N | AXQ 2-bit | OptiQ 2-bit |",
@@ -605,6 +644,67 @@ def cmd_report() -> None:
     log(f"wrote {report}")
 
 
+def cmd_market_v_extract() -> None:
+    """OptiQ-2bit only, same v-extract protocol as AXQ T1. Does not reconvert."""
+
+    _require_factory_host()
+    if QA_PROTOCOL != "v-extract":
+        raise SystemExit(f"market baseline requires DSV4_QA_PROTOCOL=v-extract; got {QA_PROTOCOL}")
+    cmd_setup_optiq()
+    cmd_download_optiq()
+    env = hf_env()
+    env["PYTHONPATH"] = str(ROOT / "src")
+    env["DSV4_QA_PROTOCOL"] = "v-extract"
+    env["DSV4_FORCE_EVAL"] = os.environ.get("DSV4_FORCE_EVAL", "1")
+    subprocess.run(
+        [
+            str(OPTIQ_VENV / "bin" / "python"),
+            str(ROOT / "scripts" / "run_deepseek_v4_0731_optiq_vs_axq2.py"),
+            "eval-optiq",
+        ],
+        check=True,
+        cwd=str(ROOT),
+        env=env,
+    )
+    cmd_score_optiq()
+    payload = _load_result("optiq2")
+    quality = payload["quality"]
+    coding = quality["agent-coding"]["mean_score"]
+    general = quality["general"]["mean_score"]
+    combined = (coding + general) / 2
+    summary = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "host_id": FACTORY_HOST_ID,
+        "hub": payload["hub"],
+        "path": payload["path"],
+        "runtime": payload["runtime"],
+        "protocol": QA_PROTOCOL,
+        "seed": SEED,
+        "combined_mean": combined,
+        "suite_means": {"agent-coding": coding, "general": general},
+        "passed": {
+            "agent-coding": quality["agent-coding"]["passed"],
+            "general": quality["general"]["passed"],
+        },
+        "floor": 0.9,
+        "axq_uniform_v01_v_extract": {
+            "combined_mean": 0.8870370370370371,
+            "agent-coding": 0.9,
+            "general": 0.874074074074074,
+        },
+        "notes": (
+            "Market baseline on the same v-extract protocol as AXQ T1. "
+            "Native mlx-optiq stream runtime. Not a certificate."
+        ),
+    }
+    write_json(work_dir() / "summary.json", summary)
+    log(
+        f"market v-extract combined={combined:.3f} "
+        f"coding={coding:.3f} general={general:.3f} "
+        f"vs axq-uniform 0.887"
+    )
+
+
 def cmd_all() -> None:
     cmd_setup_optiq()
     cmd_download_optiq()
@@ -612,7 +712,7 @@ def cmd_all() -> None:
         # AXQ eval in the axquant venv; OptiQ eval in the isolated optiq venv.
         cmd_eval("axq2")
         env = hf_env()
-        env.pop("PYTHONPATH", None)
+        env["PYTHONPATH"] = str(ROOT / "src")
         subprocess.run(
             [
                 str(OPTIQ_VENV / "bin" / "python"),
@@ -640,6 +740,7 @@ def main() -> int:
             "eval-axq",
             "eval-optiq",
             "score-optiq",
+            "market-v-extract",
             "report",
             "all",
         ],
@@ -651,6 +752,7 @@ def main() -> int:
         "eval-axq": lambda: cmd_eval("axq2"),
         "eval-optiq": lambda: cmd_eval("optiq2"),
         "score-optiq": cmd_score_optiq,
+        "market-v-extract": cmd_market_v_extract,
         "report": cmd_report,
         "all": cmd_all,
     }[args.step]()

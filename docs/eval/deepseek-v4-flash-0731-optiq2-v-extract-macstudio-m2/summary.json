@@ -1,0 +1,25 @@
+{
+  "generated_at": "2026-08-20T15:41:11.690029+00:00",
+  "host_id": "df-macstudio-m2",
+  "hub": "mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit",
+  "path": "/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731-OptiQ-2bit",
+  "runtime": "mlx-optiq-stream",
+  "protocol": "v-extract",
+  "seed": 20260728,
+  "combined_mean": 0.9666666666666667,
+  "suite_means": {
+    "agent-coding": 1.0,
+    "general": 0.9333333333333333
+  },
+  "passed": {
+    "agent-coding": 15,
+    "general": 14
+  },
+  "floor": 0.9,
+  "axq_uniform_v01_v_extract": {
+    "combined_mean": 0.8870370370370371,
+    "agent-coding": 0.9,
+    "general": 0.874074074074074
+  },
+  "notes": "Market baseline on the same v-extract protocol as AXQ T1. Native mlx-optiq stream runtime. Not a certificate."
+}

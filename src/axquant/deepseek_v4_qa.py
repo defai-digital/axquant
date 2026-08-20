@@ -145,6 +145,28 @@ def render_v4_non_thinking_completion_prompt(system: str | None, user: str) -> s
     return f"{prefix}{USER_TOKEN}{user}{ASSISTANT_TOKEN}{THINK_END}"
 
 
+def qa_completion_prompt(suite: str, user: str, protocol: QaProtocol) -> str:
+    """DSV4 non-thinking prompt for one factory QA item (system + user)."""
+
+    return render_v4_non_thinking_completion_prompt(
+        qa_system_prompt(suite, protocol),
+        user,
+    )
+
+
+def truncate_at_stop(text: str, stop: tuple[str, ...] | list[str]) -> str:
+    """Keep text before the earliest stop sequence. Empty stops are ignored."""
+
+    cut: int | None = None
+    for marker in stop:
+        if not marker:
+            continue
+        index = text.find(marker)
+        if index >= 0 and (cut is None or index < cut):
+            cut = index
+    return text if cut is None else text[:cut]
+
+
 def build_qa_messages(
     suite: str,
     prompt: str,

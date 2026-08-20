@@ -1,0 +1,407 @@
+{
+  "key": "optiq2",
+  "label": "DeepSeek V4 Flash-0731 OptiQ 2-bit",
+  "hub": "mlx-community/DeepSeek-V4-Flash-0731-OptiQ-2bit",
+  "commit": "main",
+  "runtime": "mlx-optiq-stream",
+  "path": "/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731-OptiQ-2bit",
+  "host_id": "df-macstudio-m2",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "seed": 20260728,
+  "qa_protocol": {
+    "id": "v-extract",
+    "max_tokens_qa": 384,
+    "system_prompts": true,
+    "agent_coding_system": "Reply with Python source only. No preamble, no markdown fences, no explanation.",
+    "general_system": "Follow the user instruction exactly. Output only the requested text. No markdown, no extra words, no quotes around the answer unless asked.",
+    "per_suite": {
+      "agent-coding": {
+        "max_tokens": 384,
+        "stop": [
+          "<|eot|>",
+          "</think>",
+          "<\uff5cUser\uff5c>",
+          "<\uff5cend\u2581of\u2581sentence\uff5c>"
+        ]
+      },
+      "general": {
+        "max_tokens": 64,
+        "stop": [
+          "\n\n",
+          "<|eot|>",
+          "</think>",
+          "<\uff5cUser\uff5c>"
+        ]
+      }
+    },
+    "notes": "Fenced Python extract + per-suite budgets (coding 384, general 64) and at most 4 stop sequences (AX Engine limit). Scoring change, not a weight change."
+  },
+  "max_tokens_qa": 384,
+  "load_seconds": 81.26598504197318,
+  "quality": {
+    "agent-coding": {
+      "n": 15,
+      "mean_score": 1.0,
+      "pass_rate": 1.0,
+      "passed": 15,
+      "seconds": 373.69930812501116,
+      "tasks": [
+        {
+          "task_id": "coding-001",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def fizzbuzz(n):\n    if n % 3 == 0 and n % 5 == 0:\n        return 'fizzbuzz'\n    if n % 3 == 0:\n        return 'fizz'\n    if n % 5 == 0:\n        return 'buzz'\n    return str(n)",
+          "error": null
+        },
+        {
+          "task_id": "coding-002",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def fibonacci(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a",
+          "error": null
+        },
+        {
+          "task_id": "coding-003",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def is_palindrome(s):\n    s = s.lower()\n    return s == s[::-1]",
+          "error": null
+        },
+        {
+          "task_id": "coding-004",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def binary_search(sorted_list, target):\n    left, right = 0, len(sorted_list) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if sorted_list[mid] == target:\n            return mid\n        elif sorted_list[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1",
+          "error": null
+        },
+        {
+          "task_id": "coding-005",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def find_max(numbers):\n    if not numbers:\n        return None\n    best = numbers[0]\n    for value in numbers:\n        if value > best:\n            best = value\n    return best",
+          "error": null
+        },
+        {
+          "task_id": "coding-006",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "class BankAccount:\n    def __init__(self, initial_balance=0):\n        self.balance = initial_balance\n\n    def deposit(self, amount):\n        self.balance += amount\n\n    def withdraw(self, amount):\n        if amount <= self.balance:\n            self.balance -= amount\n        else:\n            raise ValueError(\"Insufficient funds\")",
+          "error": null
+        },
+        {
+          "task_id": "coding-007",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a simple Python function that reverses a string:  \n\n```python\ndef reverse_string(s):\n    return s[::-1]\n```",
+          "error": null
+        },
+        {
+          "task_id": "coding-008",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def count_vowels(s):\r\n    vowels = set('aeiou')\r\n    return sum(1 for c in s.lower() if c in vowels)",
+          "error": null
+        },
+        {
+          "task_id": "coding-009",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a Python function that flattens a list of lists:  \n\n```python\ndef flatten(lst):\n    return [item for sublist in lst for item in sublist]\n```",
+          "error": null
+        },
+        {
+          "task_id": "coding-010",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def remove_duplicates(lst):\n    seen = set()\n    result = []\n    for item in lst:\n        if item not in seen:\n            seen.add(item)\n            result.append(item)\n    return result",
+          "error": null
+        },
+        {
+          "task_id": "coding-011",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "Here is a Python function that computes the factorial of a non-negative integer using recursion:\n\n```python\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n```",
+          "error": null
+        },
+        {
+          "task_id": "coding-012",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def celsius_to_fahrenheit(c):\r\n    return c * 9 / 5 + 32",
+          "error": null
+        },
+        {
+          "task_id": "coding-013",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "class Rectangle:\n    def __init__(self, width, height):\n        self.width = width\n        self.height = height\n\n    def area(self):\n        return self.width * self.height",
+          "error": null
+        },
+        {
+          "task_id": "coding-014",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a Python function that computes the greatest common divisor using the Euclidean algorithm:\n\n```python\ndef gcd(a, b):\n    while b != 0:\n        a, b = b, a % b\n    return a\n```",
+          "error": null
+        },
+        {
+          "task_id": "coding-015",
+          "category": "coding",
+          "score": 1.0,
+          "check_scores": {
+            "python-syntax:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "def is_prime(n):\n    if n <= 1:\n        return False\n    if n == 2:\n        return True\n    if n % 2 == 0:\n        return False\n    for i in range(3, int(n**0.5) + 1, 2):\n        if n % i == 0:\n            return False\n    return True",
+          "error": null
+        }
+      ]
+    },
+    "general": {
+      "n": 15,
+      "mean_score": 0.9333333333333333,
+      "pass_rate": 0.9333333333333333,
+      "passed": 14,
+      "seconds": 128.3490898750024,
+      "tasks": [
+        {
+          "task_id": "instruction-001",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "The fox jumped over the unresponsive dog and ran into the forest.",
+          "error": null
+        },
+        {
+          "task_id": "instruction-002",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Bonjour",
+          "error": null
+        },
+        {
+          "task_id": "instruction-003",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "regex:0": 1.0
+          },
+          "output": "- red\n- blue\n- yellow",
+          "error": null
+        },
+        {
+          "task_id": "instruction-004",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "THE SUN RISES IN THE EAST",
+          "error": null
+        },
+        {
+          "task_id": "instruction-005",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "apple,banana,cherry",
+          "error": null
+        },
+        {
+          "task_id": "instruction-006",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": ":thank you",
+          "error": null
+        },
+        {
+          "task_id": "instruction-007",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": "cold",
+          "error": null
+        },
+        {
+          "task_id": "instruction-008",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": "hello hello hello",
+          "error": null
+        },
+        {
+          "task_id": "instruction-009",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "banana, apple, cherry",
+          "error": null
+        },
+        {
+          "task_id": "instruction-010",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": "The mountain stood silent and ancient, while the river carved its path through the valley below.",
+          "error": null
+        },
+        {
+          "task_id": "instruction-011",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": "five",
+          "error": null
+        },
+        {
+          "task_id": "instruction-012",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": "[important]",
+          "error": null
+        },
+        {
+          "task_id": "instruction-013",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "A, B, C",
+          "error": null
+        },
+        {
+          "task_id": "instruction-014",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "three two one",
+          "error": null
+        },
+        {
+          "task_id": "instruction-015",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "token-f1:0": 1.0
+          },
+          "output": "Copy this line verbatim.",
+          "error": null
+        }
+      ]
+    }
+  },
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 48,
+        "generated_tokens": 20,
+        "elapsed_seconds": 10.286998708965257,
+        "tok_per_s": 1.9442016632674146,
+        "preview": ":1 2 3 4 5 6 7 8 9 10"
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 513,
+        "generated_tokens": 8,
+        "elapsed_seconds": 14.494015499949455,
+        "tok_per_s": 0.5519519418223264,
+        "preview": "alpha bravo charlie delta echo fo"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3873,
+        "generated_tokens": 8,
+        "elapsed_seconds": 58.248875082994346,
+        "tok_per_s": 0.1373417081205674,
+        "preview": "alpha bravo charlie delta echo fo"
+      }
+    ],
+    "rss_gb": 23.403457641601562
+  },
+  "measured_at": "2026-08-20T15:41:11.508639+00:00"
+}

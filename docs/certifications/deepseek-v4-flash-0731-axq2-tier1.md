@@ -46,10 +46,13 @@ Further 2-bit-class converts on this host did not beat that pack:
 | shared4-v0.4 | 0.833 | [eval](../eval/deepseek-v4-flash-0731-axq2-axengine-80f2a3e6-shared4-v-extract-macstudio-m2/) |
 | mixed-v0.1 | 0.300 | 64-token mlx-lm; not a new v-extract lever |
 
-Machine-readable stop:
+Machine-readable stop of **AXQ-owned YAML levers**:
 [exhaustion.json](../eval/deepseek-v4-flash-0731-axq2-v-extract-exhaustion.json).
-No remaining distinct AXQ-owned `2bit-experimental` convert that is not a
-repeat of a worse-or-equal measurement.
+
+Same-protocol market baseline (not an AXQ pack): OptiQ 2-bit on `v-extract`
+combined **0.967** (coding 1.000, general 0.933). The 0.90 floor is reachable
+in the 2-bit *class* on this checkpoint; it is not reachable with uniform v0.1.
+[optiq2 v-extract](../deepseek-v4-flash-0731-optiq2-v-extract.md).
 
 ## Tier 2 status
 

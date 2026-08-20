@@ -11,11 +11,13 @@ from axquant.deepseek_v4_qa import (
     PROTOCOL_V_EXTRACT,
     build_qa_messages,
     normalize_qa_protocol,
+    qa_completion_prompt,
     qa_max_tokens,
     qa_protocol_record,
     qa_suite_config,
     qa_system_prompt,
     render_v4_non_thinking_completion_prompt,
+    truncate_at_stop,
 )
 
 
@@ -36,6 +38,20 @@ def test_v64_is_user_only_64_tokens() -> None:
     assert build_qa_messages("agent-coding", "Write fizzbuzz", PROTOCOL_V64) == [
         {"role": "user", "content": "Write fizzbuzz"}
     ]
+
+
+def test_qa_completion_prompt_embeds_v_extract_system() -> None:
+    prompt = qa_completion_prompt("general", "Say five", PROTOCOL_V_EXTRACT)
+    assert GENERAL_SYSTEM in prompt
+    assert prompt.endswith("<｜Assistant｜></think>")
+    legacy = qa_completion_prompt("general", "Say five", PROTOCOL_V64)
+    assert GENERAL_SYSTEM not in legacy
+
+
+def test_truncate_at_stop_keeps_prefix_before_earliest_marker() -> None:
+    assert truncate_at_stop("hello\n\nworld", ("\n\n", "<|eot|>")) == "hello"
+    assert truncate_at_stop("no stop here", ("\n\n",)) == "no stop here"
+    assert truncate_at_stop("a<|eot|>b\n\nc", ("\n\n", "<|eot|>")) == "a"
 
 
 def test_v_extract_splits_budgets_and_stops() -> None:
