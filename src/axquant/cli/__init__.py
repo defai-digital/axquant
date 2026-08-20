@@ -16,7 +16,12 @@ from axquant.benchmark import (
     run_mtp_ab,
     run_mtp_diagnostics,
 )
-from axquant.calibration import calibration_manifest_sha256, prepare_calibration
+from axquant.calibration import (
+    calibration_manifest_sha256,
+    prepare_calibration,
+    reference_calibration_path,
+    resolve_calibration_dataset,
+)
 from axquant.certification.verify import verify_certificate
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
@@ -410,9 +415,10 @@ def _run(args: argparse.Namespace) -> int:
             revision=args.revision,
             local_path=str(model_path.resolve()) if model_path.is_dir() else None,
         )
+        dataset_path = resolve_calibration_dataset(args.dataset)
         manifest = prepare_calibration(
             model=model_identity,
-            dataset=args.dataset,
+            dataset=dataset_path,
             output_dir=args.output,
             profile=args.profile,
             domains=args.domains,
@@ -427,7 +433,7 @@ def _run(args: argparse.Namespace) -> int:
 
             tokenized_manifest = tokenize_calibration(
                 model=model_identity,
-                dataset_path=args.dataset,
+                dataset_path=dataset_path,
                 output_dir=args.output,
                 profile=args.profile,
                 sequence_length=args.max_seq_length,
@@ -2006,7 +2012,7 @@ def _run(args: argparse.Namespace) -> int:
                     else None
                 ),
             ),
-            dataset_path=args.dataset,
+            dataset_path=resolve_calibration_dataset(args.dataset),
             output_dir=args.output,
             profile=args.profile,
             sequence_length=args.max_seq_length,
@@ -2772,17 +2778,13 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "validate-calibration-dataset":
         from axquant.calibration_dataset import validate_calibration_dataset
 
-        resolved: str = args.path
-        if resolved is None:
-            from importlib.resources import files
-
-            resolved = str(files("axquant.data") / "reference_calibration.jsonl")
-        issues = validate_calibration_dataset(Path(resolved))
+        resolved = Path(args.path) if args.path is not None else reference_calibration_path()
+        issues = validate_calibration_dataset(resolved)
         if issues:
             for issue in issues:
                 log.error("dataset_validation_failed", issue=issue)
             return 2
-        log.info("dataset_validation_passed", path=resolved)
+        log.info("dataset_validation_passed", path=str(resolved))
         return 0
 
     raise AssertionError(f"unhandled command {args.command}")

@@ -5,9 +5,12 @@ from pathlib import Path
 import pytest
 
 from axquant.calibration import (
+    REFERENCE_CALIBRATION_DATASET,
     calibration_manifest_matches,
     calibration_manifest_sha256,
     prepare_calibration,
+    reference_calibration_path,
+    resolve_calibration_dataset,
 )
 from axquant.errors import ArtifactError
 from axquant.schema import ModelIdentity, ProfileName
@@ -102,3 +105,40 @@ def test_calibration_reports_jsonl_line_number_for_invalid_json(tmp_path: Path) 
             separation_attested=False,
         )
     assert f"{dataset}:3:" in str(excinfo.value)
+
+
+def test_reference_calibration_default_resolves_to_packaged_mix() -> None:
+    path = reference_calibration_path()
+    assert path.is_file()
+    assert path.name == REFERENCE_CALIBRATION_DATASET
+    assert resolve_calibration_dataset(None) == path
+
+
+def test_resolve_calibration_dataset_prefers_explicit_path(tmp_path: Path) -> None:
+    explicit = tmp_path / "custom.jsonl"
+    explicit.write_text('{"text":"one"}\n', encoding="utf-8")
+    assert resolve_calibration_dataset(explicit) == explicit
+    assert resolve_calibration_dataset(str(explicit)) == explicit
+
+
+def test_calibrate_cli_defaults_to_reference_mix(tmp_path: Path) -> None:
+    from axquant.cli import main
+    from axquant.schema import CalibrationManifest
+    from axquant.serde import load_model
+
+    output = tmp_path / "calibration-cache"
+    result = main(
+        [
+            "calibrate",
+            "--model",
+            str(tmp_path / "missing-model"),
+            "--manifest-only",
+            "--output",
+            str(output),
+        ]
+    )
+    assert result == 0
+    manifest = load_model(output / "calibration_manifest.json", CalibrationManifest)
+    reference = reference_calibration_path()
+    assert manifest.dataset_sha256 == file_sha256(reference)
+    assert manifest.samples >= 128

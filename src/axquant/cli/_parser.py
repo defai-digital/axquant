@@ -389,7 +389,10 @@ def _build_parser() -> argparse.ArgumentParser:
     calibrate_parser.add_argument("--model-id")
     calibrate_parser.add_argument("--revision")
     calibrate_parser.add_argument("--tokenizer-revision")
-    calibrate_parser.add_argument("--dataset", required=True)
+    calibrate_parser.add_argument(
+        "--dataset",
+        help="Calibration JSONL path; defaults to the packaged clean-room reference mix",
+    )
     calibrate_parser.add_argument(
         "--profile",
         type=_profile,
@@ -1709,7 +1712,10 @@ def _build_parser() -> argparse.ArgumentParser:
     tokenize_parser.add_argument("--model", required=True)
     tokenize_parser.add_argument("--model-id")
     tokenize_parser.add_argument("--revision")
-    tokenize_parser.add_argument("--dataset", required=True)
+    tokenize_parser.add_argument(
+        "--dataset",
+        help="Calibration JSONL path; defaults to the packaged clean-room reference mix",
+    )
     tokenize_parser.add_argument(
         "--profile",
         type=_profile,

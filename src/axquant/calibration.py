@@ -1,11 +1,39 @@
 from __future__ import annotations
 
 import json
+from importlib.resources import files
 from pathlib import Path
 
 from axquant.errors import ArtifactError
 from axquant.schema import CalibrationManifest, ModelIdentity, ProfileName
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+
+REFERENCE_CALIBRATION_DATASET = "reference_calibration.jsonl"
+
+
+def reference_calibration_path() -> Path:
+    """Resolve the packaged clean-room reference calibration mix.
+
+    The reference mix ships in the wheel under ``axquant.data`` and is the
+    default calibration source for ``calibrate`` / ``tokenize-calibration``
+    when no explicit ``--dataset`` is supplied. Provenance stays bound via
+    ``dataset_sha256`` in the resulting manifest, exactly like any explicit
+    dataset path.
+    """
+
+    resource = files("axquant.data").joinpath(REFERENCE_CALIBRATION_DATASET)
+    path = Path(str(resource))
+    if not path.is_file():
+        raise ArtifactError(f"packaged reference calibration dataset is missing: {resource}")
+    return path
+
+
+def resolve_calibration_dataset(dataset: str | Path | None) -> Path:
+    """Resolve an explicit calibration dataset path or the packaged default."""
+
+    if dataset is None:
+        return reference_calibration_path()
+    return Path(dataset)
 
 
 def calibration_manifest_sha256(manifest: CalibrationManifest) -> str:
