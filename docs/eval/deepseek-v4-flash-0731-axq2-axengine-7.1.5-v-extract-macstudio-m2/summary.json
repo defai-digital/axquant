@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-08-20T04:39:13.642835+00:00",
+  "host_id": "df-macstudio-m2",
+  "hub": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
+  "hub_commit": "cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
+  "protocol": "v-extract",
+  "combined_mean": 0.8537037037037036,
+  "suite_means": {
+    "agent-coding": 0.9,
+    "general": 0.8074074074074074
+  },
+  "floor": 0.9,
+  "certified": false,
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "notes": [
+    "v-extract: fenced Python extract, coding 384 / general 64, <=4 stop sequences.",
+    "Remaining misses are model/format (verbose truncated code; exact Cool/five/verbatim).",
+    "Weights snapshot cb1a34b4 unchanged."
+  ]
+}
