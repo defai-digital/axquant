@@ -25,10 +25,26 @@ tags:
 
 Converted on `df-macstudio-m2` (Apple M2 Ultra, 192 GB) from the native FP8
 0731 source (`quant_method=fp8`). Product class `2bit-experimental`.
+Recipe: AXQuant manual
+[`deepseek-v4-experimental-2bit-v0.1.yaml`](https://github.com/defai-digital/axquant/blob/main/examples/deepseek-v4-experimental-2bit-v0.1.yaml)
+(uniform 2-bit trunk). MTP sidecar is packaged (`mtp.safetensors`).
 
 > This is **not** the older `DeepSeek-V4-Flash` Hub pack. Do not treat
 > [AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP)
 > certificates as evidence for this 0731 revision.
+
+## Recipe (uniform v0.1)
+
+This is the AXQuant assignment that scored best among 2-bit-class converts
+on the factory `v-extract` suite. Later mixed / attention-6 / shared-4-bit
+recipes scored worse and are not this pack.
+
+| Tensors | Bits | Method |
+| --- | ---: | --- |
+| Routed experts + MLP | 2 | affine, group 32 |
+| Attention | 4 | affine, group 32 |
+| Embeddings / routers | 8 | affine, group 32 |
+| Norms, LM head, MTP | 16 | bf16 |
 
 ## Measured precision
 
