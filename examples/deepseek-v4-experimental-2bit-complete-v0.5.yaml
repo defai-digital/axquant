@@ -1,0 +1,73 @@
+# Experimental Flash-0731 2-bit recipe v0.5 (complete assignment).
+# Development only. Not a certificate. Not mlx-optiq.
+#
+# Hypothesis: the market 2-bit pack clears the factory v-extract 0.90 floor
+# (combined 0.967 vs AXQ uniform v0.1 at 0.887) because it is a different
+# COMPLETE assignment, not a one-axis raise. The isolated AXQ raises
+# (attn6-v0.2 DWQ, attn6-affine-v0.3, shared4-v0.4) all scored worse than
+# uniform. This recipe re-derives the public role-level assignment from card
+# facts with AXQ-owned rules: attention 6-bit, shared experts 8-bit,
+# LM head 8-bit (AXQ-026 governed opt-in), routed trunk 2-bit.
+# No competitor code, calibration, or metadata is used.
+# AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 2
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 8
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: lm-head-8bit-governed
+    roles: [lm_head]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: AXQ-026 governed opt-in lowers the LM head floor to 8-bit for this recipe
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: attention-6bit-affine
+    roles: [attention]
+    bits: 6
+    method: affine
+    group_size: 32
+    reason: Complete-assignment hypothesis raises attention to 6-bit
+  - rule_id: shared-experts-8bit
+    module_glob: "layers.*.ffn.shared_experts*"
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Shared experts run every token; complete assignment keeps them at 8-bit
+  - rule_id: trunk-experimental-2bit
+    roles: [mlp, expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Experimental 2-bit robust trunk (routed experts + remaining MLP)
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

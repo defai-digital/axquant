@@ -133,7 +133,9 @@ def test_deepseek_v4_attn6_affine_2bit_recipe_raises_attention_only() -> None:
     assert ids.index("attention-6bit-affine") < ids.index("trunk-experimental-2bit")
     assert not any(rule.bits == 3 for rule in recipe.rules)
     assert not any(rule.method == QuantMethod.DWQ for rule in recipe.rules)
-    assert not any(rule.module_glob and "shared_experts" in rule.module_glob for rule in recipe.rules)
+    assert not any(
+        rule.module_glob and "shared_experts" in rule.module_glob for rule in recipe.rules
+    )
 
 
 def test_deepseek_v4_shared4_2bit_recipe_raises_shared_experts_only() -> None:
@@ -154,6 +156,51 @@ def test_deepseek_v4_shared4_2bit_recipe_raises_shared_experts_only() -> None:
     assert ids.index("shared-experts-4bit") < ids.index("trunk-experimental-2bit")
     assert not any(rule.bits == 3 for rule in recipe.rules)
     assert not any(rule.method == QuantMethod.DWQ for rule in recipe.rules)
+
+
+def test_deepseek_v4_complete_2bit_recipe_assigns_full_role_mix() -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-complete-v0.5.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    assert recipe.default_bits == 2
+    assert recipe.default_method == QuantMethod.AFFINE
+    assert recipe.lm_head_min_bits == 8
+    ids = [rule.rule_id for rule in recipe.rules]
+    attention = next(rule for rule in recipe.rules if rule.rule_id == "attention-6bit-affine")
+    shared = next(rule for rule in recipe.rules if rule.rule_id == "shared-experts-8bit")
+    head = next(rule for rule in recipe.rules if rule.rule_id == "lm-head-8bit-governed")
+    trunk = next(rule for rule in recipe.rules if rule.rule_id == "trunk-experimental-2bit")
+    assert attention.bits == 6 and attention.method == QuantMethod.AFFINE
+    assert shared.bits == 8 and shared.method == QuantMethod.AFFINE
+    assert head.bits == 8 and head.method == QuantMethod.AFFINE
+    assert trunk.bits == 2 and trunk.method == QuantMethod.AFFINE
+    assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
+    # First-match-wins: the shared-expert glob must precede the trunk role rule.
+    assert ids.index("shared-experts-8bit") < ids.index("trunk-experimental-2bit")
+    assert not any(rule.method == QuantMethod.DWQ for rule in recipe.rules)
+
+
+def test_deepseek_v4_complete_2bit_recipe_plans_lm_head_at_8bit(
+    qwen36_model_dir: Path,
+) -> None:
+    path = Path(__file__).resolve().parents[1] / (
+        "examples/deepseek-v4-experimental-2bit-complete-v0.5.yaml"
+    )
+    recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+    plan = manual_quantization_plan(_inventory(qwen36_model_dir), recipe)
+    head = next(
+        allocation for allocation in plan.assignments if allocation.role == TensorRole.LM_HEAD
+    )
+    attention = next(
+        allocation
+        for allocation in plan.assignments
+        if allocation.role == TensorRole.ATTENTION and allocation.bits < 16
+    )
+    assert head.bits == 8 and head.method == QuantMethod.AFFINE
+    assert attention.bits == 6
+    # The AXQ-026 governed deviation is recorded for audits.
+    assert plan.constraints.lm_head_min_bits == 8
 
 
 def test_deepseek_v4_4bit_affine_recipe_is_a_valid_manual_recipe() -> None:
