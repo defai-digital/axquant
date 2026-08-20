@@ -28,12 +28,19 @@ GENERAL_SYSTEM = (
     "No markdown, no extra words, no quotes around the answer unless asked."
 )
 
-# DSV4 / OpenAI-style turn endings. Truncate generation before the next turn.
+# DSV4 / OpenAI-style turn endings. AX Engine 7.1.5 accepts at most 4 stop
+# sequences; keep this tuple at length 4.
 _CHAT_STOP = (
     "<|eot|>",
     "</think>",
     "<｜User｜>",
     "<｜end▁of▁sentence｜>",
+)
+_GENERAL_STOP = (
+    "\n\n",
+    "<|eot|>",
+    "</think>",
+    "<｜User｜>",
 )
 
 
@@ -53,8 +60,8 @@ _SUITE_CONFIGS: dict[QaProtocol, dict[str, SuiteConfig]] = {
         "general": SuiteConfig(256, ()),
     },
     PROTOCOL_V_EXTRACT: {
-        "agent-coding": SuiteConfig(256, _CHAT_STOP),
-        "general": SuiteConfig(64, ("\n\n", *_CHAT_STOP)),
+        "agent-coding": SuiteConfig(384, _CHAT_STOP),
+        "general": SuiteConfig(64, _GENERAL_STOP),
     },
 }
 
@@ -95,6 +102,10 @@ def qa_suite_config(
     if suite not in suites:
         raise ValueError(f"unknown QA suite {suite!r}")
     config = suites[suite]
+    if len(config.stop) > 4:
+        raise ValueError(
+            f"{protocol}/{suite} stop has {len(config.stop)} sequences; AX Engine allows at most 4"
+        )
     if max_tokens_override is None:
         return config
     if max_tokens_override < 1:
@@ -161,8 +172,8 @@ def qa_protocol_record(protocol: QaProtocol) -> dict[str, object]:
                 "256-token decode with suite system prompts; single budget for both suites."
             ),
             PROTOCOL_V_EXTRACT: (
-                "Fenced Python extract + per-suite budgets (coding 256, general 64) and stop "
-                "sequences. Scoring change, not a weight change."
+                "Fenced Python extract + per-suite budgets (coding 384, general 64) and at most "
+                "4 stop sequences (AX Engine limit). Scoring change, not a weight change."
             ),
         }[protocol],
     }

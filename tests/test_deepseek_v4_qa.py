@@ -39,13 +39,22 @@ def test_v64_is_user_only_64_tokens() -> None:
 def test_v_extract_splits_budgets_and_stops() -> None:
     coding = qa_suite_config("agent-coding", PROTOCOL_V_EXTRACT)
     general = qa_suite_config("general", PROTOCOL_V_EXTRACT)
-    assert coding.max_tokens == 256
+    assert coding.max_tokens == 384
     assert general.max_tokens == 64
     assert "</think>" in coding.stop
     assert "\n\n" in general.stop
+    assert len(coding.stop) <= 4
+    assert len(general.stop) <= 4
     messages = build_qa_messages("agent-coding", "Write fizzbuzz", PROTOCOL_V_EXTRACT)
     assert messages[0] == {"role": "system", "content": AGENT_CODING_SYSTEM}
     assert "exactly" in GENERAL_SYSTEM.lower()
+
+
+def test_v_extract_stop_lists_fit_ax_engine_limit() -> None:
+    for protocol in (PROTOCOL_V64, PROTOCOL_V256_STRICT, PROTOCOL_V_EXTRACT):
+        for suite in ("agent-coding", "general"):
+            cfg = qa_suite_config(suite, protocol)
+            assert len(cfg.stop) <= 4
 
 
 def test_v256_strict_single_budget() -> None:
