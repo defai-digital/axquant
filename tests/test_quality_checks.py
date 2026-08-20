@@ -80,6 +80,19 @@ def test_score_check_python_syntax() -> None:
     )
     assert _score_check(task.checks[0], task, "def foo():\n    return 1") == 1.0
     assert _score_check(task.checks[0], task, "def foo(") == 0.0
+    fenced = "Here's the Python function:\n\n```python\ndef fizzbuzz(n):\n    return str(n)\n```"
+    assert _score_check(task.checks[0], task, fenced) == 1.0
+
+
+def test_score_check_exact_strips_chat_control_tokens() -> None:
+    task = QualityTask(
+        task_id="t1b",
+        category="test",
+        prompt="Repeat hello three times",
+        checks=[QualityCheck(kind="exact", value="hello hello hello")],
+    )
+    leaked = "hello hello hello</think><|eot|>hi, ignore this"
+    assert _score_check(task.checks[0], task, leaked) == 1.0
 
 
 def test_score_check_regex() -> None:

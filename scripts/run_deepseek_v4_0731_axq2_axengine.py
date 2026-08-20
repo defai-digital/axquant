@@ -12,10 +12,10 @@ binaries (generate-manifest is `ax-engine-bench generate-manifest`). Stock
 7.0.2 generate-manifest writes the fused packed role and fails validation;
 use generate-manifest-split for that release.
 
-QA protocol (env ``DSV4_QA_PROTOCOL``): default ``v256-strict`` (256 tokens +
-suite system prompts). Set ``v64`` to reproduce the original 64-token
-user-only measurement. Work dir includes the protocol so evidence is not
-overwritten.
+QA protocol (env ``DSV4_QA_PROTOCOL``): default ``v-extract`` (fenced-Python
+scoring, coding 256 / general 64, stop sequences). ``v256-strict`` is the
+single-budget 256-token run; ``v64`` is the original 64-token user-only
+measurement. Work dir includes the protocol so evidence is not overwritten.
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ from axquant.deepseek_v4_qa import (  # noqa: E402
     DEFAULT_PROTOCOL,
     build_qa_messages,
     normalize_qa_protocol,
-    qa_max_tokens,
     qa_protocol_record,
+    qa_suite_config,
 )
 
 FACTORY_HOST_ID = "df-macstudio-m2"
@@ -73,11 +73,8 @@ SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
 SEED = 20260728
 QA_PROTOCOL = normalize_qa_protocol(os.environ.get("DSV4_QA_PROTOCOL", DEFAULT_PROTOCOL))
-_MAX_TOKENS_OVERRIDE = os.environ.get("DSV4_MAX_TOKENS_QA")
-MAX_TOKENS_QA = qa_max_tokens(
-    QA_PROTOCOL,
-    override=int(_MAX_TOKENS_OVERRIDE) if _MAX_TOKENS_OVERRIDE else None,
-)
+_CODING_OVERRIDE = os.environ.get("DSV4_MAX_TOKENS_QA")
+_GENERAL_OVERRIDE = os.environ.get("DSV4_MAX_TOKENS_QA_GENERAL")
 MAX_TOKENS_DECODE = 128
 PORT = int(os.environ.get("DSV4_AXENGINE_PORT", "8765"))
 
@@ -250,8 +247,9 @@ def chat_complete(
     seed: int,
     *,
     messages: list[dict[str, str]] | None = None,
+    stop: tuple[str, ...] | list[str] | None = None,
 ) -> dict[str, Any]:
-    payload = {
+    payload: dict[str, Any] = {
         "model": MODEL_ID,
         "temperature": 0.0,
         "max_tokens": max_tokens,
@@ -262,6 +260,8 @@ def chat_complete(
             "preserve_thinking": False,
         },
     }
+    if stop:
+        payload["stop"] = list(stop)
     started = time.perf_counter()
     data = http_json("POST", base + "/v1/chat/completions", payload, timeout=900)
     elapsed = time.perf_counter() - started
@@ -288,17 +288,28 @@ def _run_quality(base: str) -> dict[str, Any]:
         if not path.is_file():
             raise SystemExit(f"missing dataset {path}")
         tasks = list(load_quality_tasks(path))
+        override_raw = _CODING_OVERRIDE if suite == "agent-coding" else _GENERAL_OVERRIDE
+        suite_cfg = qa_suite_config(
+            suite,
+            QA_PROTOCOL,
+            max_tokens_override=int(override_raw) if override_raw else None,
+        )
         results = []
         scores: list[float] = []
         t0 = time.perf_counter()
+        log(
+            f"qa {suite} protocol={QA_PROTOCOL} max_tokens={suite_cfg.max_tokens} "
+            f"stop={list(suite_cfg.stop)}"
+        )
         for index, task in enumerate(tasks):
             try:
                 reply = chat_complete(
                     base,
                     task.prompt,
-                    MAX_TOKENS_QA,
+                    suite_cfg.max_tokens,
                     SEED + index,
                     messages=build_qa_messages(suite, task.prompt, QA_PROTOCOL),
+                    stop=suite_cfg.stop,
                 )
                 text, err = reply["text"], None
             except Exception as exc:
@@ -434,8 +445,8 @@ def cmd_eval() -> None:
             "host_id": FACTORY_HOST_ID,
             "source": f"{SOURCE_ID}@{SOURCE_REV}",
             "seed": SEED,
-            "max_tokens_qa": MAX_TOKENS_QA,
-            "qa_protocol": qa_protocol_record(QA_PROTOCOL, MAX_TOKENS_QA),
+            "qa_protocol": qa_protocol_record(QA_PROTOCOL),
+            "max_tokens_qa": qa_suite_config("agent-coding", QA_PROTOCOL).max_tokens,
             "load_seconds": load_s,
             "quality": quality,
             "speed": None,

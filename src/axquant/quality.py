@@ -1,3 +1,4 @@
+# ruff: noqa: RUF001
 from __future__ import annotations
 
 import ast
@@ -308,10 +309,54 @@ def _normalized_text(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
+# Chat-control markers that leak into completions when EOS is late or the
+# template prefixes non-thinking with ``</think>``. Truncate at the first hit
+# so exact/syntax scoring is not poisoned by the next turn.
+_CONTROL_TOKEN_MARKERS = (
+    "</think>",
+    "<|eot|>",
+    "<|endoftext|>",
+    "<|im_end|>",
+    "<｜User｜>",
+    "<｜end▁of▁sentence｜>",
+)
+_FENCE_PYTHON = re.compile(r"```(?:python|py)\b[^\n]*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+_FENCE_ANY = re.compile(r"```[^\n]*\n?(.*?)```", re.DOTALL)
+
+
+def _strip_control_tokens(value: str) -> str:
+    cut = len(value)
+    for marker in _CONTROL_TOKEN_MARKERS:
+        index = value.find(marker)
+        if 0 <= index < cut:
+            cut = index
+    return value[:cut].strip()
+
+
 def _unfenced(value: str) -> str:
     stripped = value.strip()
     match = re.fullmatch(r"```(?:json|python)?\s*(.*?)\s*```", stripped, flags=re.DOTALL)
-    return match.group(1) if match else stripped
+    if match:
+        return match.group(1)
+    embedded = re.search(
+        r"```(?:json|python|py)?\s*(.*?)```",
+        stripped,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+    return embedded.group(1).strip() if embedded else stripped
+
+
+def _python_source(value: str) -> str:
+    """Body to ``ast.parse`` for python-syntax: first fenced block, else bare text."""
+
+    text = _strip_control_tokens(value)
+    python_fence = _FENCE_PYTHON.search(text)
+    if python_fence:
+        return python_fence.group(1).strip()
+    any_fence = _FENCE_ANY.search(text)
+    if any_fence:
+        return any_fence.group(1).strip()
+    return text.strip()
 
 
 def _json_value(output: str) -> Any:
@@ -345,19 +390,20 @@ def _token_f1(reference: str, candidate: str) -> float:
 
 
 def _score_check(check: QualityCheck, task: QualityTask, output: str) -> float:
+    scored = _strip_control_tokens(output)
     if check.kind == "exact":
         expected = check.value if isinstance(check.value, str) else task.reference
         if expected is None:
             raise BenchmarkError(f"{task.task_id}: exact check requires a value or reference")
-        return float(_normalized_text(output) == _normalized_text(expected))
+        return float(_normalized_text(scored) == _normalized_text(expected))
     if check.kind == "contains":
         if not isinstance(check.value, str):
             raise BenchmarkError(f"{task.task_id}: contains check requires a string value")
-        return float(_normalized_text(check.value) in _normalized_text(output))
+        return float(_normalized_text(check.value) in _normalized_text(scored))
     if check.kind == "regex":
         if not isinstance(check.value, str):
             raise BenchmarkError(f"{task.task_id}: regex check requires a string value")
-        return float(re.search(check.value, output, flags=re.IGNORECASE | re.DOTALL) is not None)
+        return float(re.search(check.value, scored, flags=re.IGNORECASE | re.DOTALL) is not None)
     if check.kind == "json-valid":
         try:
             _json_value(output)
@@ -376,7 +422,7 @@ def _score_check(check: QualityCheck, task: QualityTask, output: str) -> float:
         return float(isinstance(value, dict) and all(key in value for key in check.value))
     if check.kind == "python-syntax":
         try:
-            ast.parse(_unfenced(output))
+            ast.parse(_python_source(output))
             return 1.0
         except SyntaxError:
             return 0.0
@@ -384,7 +430,7 @@ def _score_check(check: QualityCheck, task: QualityTask, output: str) -> float:
         expected = check.value if isinstance(check.value, str) else task.reference
         if expected is None:
             raise BenchmarkError(f"{task.task_id}: token-f1 requires a value or reference")
-        return _token_f1(expected, output)
+        return _token_f1(expected, scored)
     raise AssertionError(f"unhandled quality check {check.kind}")
 
 
