@@ -55,7 +55,7 @@ or `quality-certified` only with bound evidence. Spec:
 | [Gemma 4 26B-A4B MLX AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | [Gemma 4 31B MLX AXQ 4-bit](gemma4-31b-axq4-tier1.md) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) |
 | [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)](deepseek-v4-flash-0731-axq2-tier1.md) | studio-eval@`408c0ab3` | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
+| [DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)](deepseek-v4-flash-0731-axq2-tier1.md) | axengine-7.1.5@`cb1a34b4` | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP](deepseek-v4-flash-0731-axq4-tier1.md) | studio-local-g128 | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash-0731 MLX AXQ MXFP4](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | recipe-only | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
@@ -78,7 +78,8 @@ See the unlisted [evaluation record](gpt-oss-120b-axq4-tier1.md).
 
 **DeepSeek V4 Flash:** the older-source experimental **2-bit** pack is checkpoint
 Tier 1 on `df-macstudio-m2`. **3-bit Flash is withdrawn.** Flash-0731 ship SKUs
-are 2-bit, 4-bit g128, MXFP4, and 6-bit; 0731 dual-suite cert is not closed.
+are 2-bit, 4-bit g128, MXFP4, and 6-bit; 0731 dual-suite cert is not closed
+(2-bit recert on AX Engine 7.1.5 still 0.633 &lt; 0.90).
 **6-bit (and likely MXFP4 if it lands near 179 GB) cannot be certified on
 192 GB** — listed as not-certified for factory-host memory. MTP acceleration
 is not certified.

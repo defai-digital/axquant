@@ -2,16 +2,16 @@
   "schema_version": "axquant.public-checkpoint-certification.v1",
   "status": "not_certified",
   "certification_tier": "checkpoint",
-  "evaluated_at": "2026-08-15T21:50:16+00:00",
+  "evaluated_at": "2026-08-20T02:48:54.660912+00:00",
   "host_id": "df-macstudio-m2",
   "artifact": {
     "hub_repo_id": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
-    "hub_commit": "408c0ab335f6211812645ca44071301c20a55957",
+    "hub_commit": "cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
     "product_class": "2bit-experimental",
     "architecture": "DeepseekV4ForCausalLM",
     "source_model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
     "source_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
-    "candidate_manifest_sha256": "c54e6056954d09e55645436312223f1263c03be172676d87088efcd51607aba7"
+    "candidate_manifest_sha256": "7b5353939671ba7adf5279c50568e20daecb906548195ce491bca708e53c999a"
   },
   "plan": {
     "evidence_kind": "architecture_prior",
@@ -29,11 +29,17 @@
   "quality": {
     "agent-coding": {
       "pass": false,
-      "reason": "factory 15+15 agent-coding mean 0.500 (0/15 full pass) on mlx-lm and AX Engine 7.0.2 native; 64-token cap truncates functions."
+      "candidate_score": 0.5,
+      "samples": 15,
+      "scoring": "experimental-generation-viability",
+      "reason": "factory 15+15 agent-coding mean 0.500 (0/15 full pass) on AX Engine 7.1.5 native; 64-token cap truncates functions."
     },
     "general": {
       "pass": false,
-      "reason": "factory 15+15 + official DSV4 chat combined 0.633 on mlx-lm and AX Engine 7.0.2 native; below 0.90 generation-viability floor."
+      "candidate_score": 0.7666666666666667,
+      "samples": 15,
+      "scoring": "experimental-generation-viability",
+      "reason": "factory 15+15 general mean 0.767; combined 15+15 viability 0.633 on AX Engine 7.1.5 native; below 0.90 generation-viability floor."
     }
   },
   "thresholds": {
@@ -42,34 +48,39 @@
   },
   "mtp_acceleration": {
     "status": "not-certified",
-    "reason": "MTP sidecar present; MTP acceleration not measured this cycle. Native 7.0.2 load now works after split switch_mlp remapping."
+    "reason": "MTP sidecar present; 7.1.5 default is direct decode for uncertified MTP. Acceleration not measured this cycle.",
+    "ax_engine_version": "7.1.5"
   },
   "runtime": {
     "mlx_lm": {
-      "status": "pass",
-      "notes": "generate prompt='Say OK.' returned nonempty text on df-macstudio-m2"
+      "status": "not-remeasured",
+      "notes": "This cycle measured AX Engine 7.1.5 native on Hub commit cb1a34b4. mlx-lm generate previously passed on the 0731 2-bit SKU."
     },
     "ax_engine": {
       "status": "pass",
-      "version": "7.0.2",
-      "notes": "native mlx-preview load after remapping split switch_mlp.gate_proj+up_proj to ffn_gate_exps/ffn_up_exps; smoke 'Okay.'; factory QA combined 0.633; decode-128 15.196 tok/s"
+      "version": "7.1.5",
+      "support_tier": "mlx-preview",
+      "env_required": [
+        "AX_ENGINE_2BIT_EXPERIMENTAL=1"
+      ],
+      "notes": "native load of Hub snapshot cb1a34b4 with stream-experts off; smoke 'Okay.'; factory 15+15 combined 0.633; decode-128 15.535 tok/s"
     }
   },
   "toolchain": {
-    "axquant": "1.8.1",
-    "ax_engine": "7.0.2",
+    "axquant": "1.9.0",
+    "ax_engine": "7.1.5",
     "host": "df-macstudio-m2",
-    "python": "3.12"
+    "host_hardware": "Apple M2 Ultra 192 GB"
   },
   "notes": [
-    "Studio factory SF2/SF3: converted from DeepSeek-V4-Flash-0731@7872f01b on Ext12T.",
+    "AX Engine 7.1.5 native recert on df-macstudio-m2 of Hub AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP@cb1a34b4.",
     "Not the older DeepSeek-V4-Flash 2-bit certificate (source 60d8d707).",
-    "Not certified: factory 15+15 + official DSV4 chat combined 0.633 < 0.90. Native AX Engine 7.0.2 load now works; quality is unchanged vs mlx-lm+chat."
+    "Not certified: factory 15+15 combined generation viability 0.633 < 0.90. Quality matches the prior 7.0.2 native measurement; engine load/smoke passed on 7.1.5 without the 7.0.2 split generate-manifest patch."
   ],
   "public_index": {
     "display_name": "DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)",
     "sort_order": 230,
-    "edition_label": "studio-eval@`408c0ab3`",
+    "edition_label": "axengine-7.1.5@`cb1a34b4`",
     "listed": true
   },
   "modalities": {

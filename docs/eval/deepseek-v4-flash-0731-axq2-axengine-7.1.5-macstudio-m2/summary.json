@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-08-20T02:48:54.660912+00:00",
+  "host_id": "df-macstudio-m2",
+  "hub": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
+  "hub_commit": "cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
+  "runtime": "ax-engine-7.1.5-native",
+  "engine_bin": "/Users/devop/opt/ax-engine-7.1.5/ax-engine-server",
+  "status": "measured",
+  "not_a_certification": true,
+  "protocol": "factory 15+15 development suites, official DSV4 chat via AX Engine, thinking off, greedy, seed 20260728, max_tokens_qa 64",
+  "smoke": "Okay.",
+  "load_seconds": 430.2235658330028,
+  "combined_mean": 0.6333333333333333,
+  "suite_means": {
+    "agent-coding": 0.5,
+    "general": 0.7666666666666667
+  },
+  "decode_128_tok_per_s": 15.534828650319824,
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 20,
+        "generated_tokens": 128,
+        "elapsed_seconds": 8.239550166996196,
+        "tok_per_s": 15.534828650319824,
+        "preview": ": 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, "
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 485,
+        "generated_tokens": 8,
+        "elapsed_seconds": 3.0297287920257077,
+        "tok_per_s": 2.6405003712068624,
+        "preview": "Let me break down the structure and content"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3845,
+        "generated_tokens": 8,
+        "elapsed_seconds": 16.418573958042543,
+        "tok_per_s": 0.48725303552207994,
+        "preview": " echo nonecho echo echo echo echo echo"
+      }
+    ]
+  },
+  "notes": [
+    "Native AX Engine 7.1.5 load of Hub snapshot cb1a34b4 with --stream-experts off.",
+    "Generation viability combined 0.633, unchanged vs AX Engine 7.0.2 native on the same 15+15 protocol.",
+    "Agent-coding 0.500: 64-token cap still truncates function bodies (0/15 full pass).",
+    "Checkpoint Tier 1 floor is 0.90; this measurement does not certify the pack."
+  ]
+}

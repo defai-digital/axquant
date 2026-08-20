@@ -3,7 +3,7 @@
 
 512 GB M3 Ultra recert host. AX Engine 7.1.x requires macOS 26+; this
 machine is currently 15.5 — preflight fails closed until the OS is
-upgraded. Published engine latest is v7.1.3 (v7.1.4 is not released).
+upgraded. Published engine latest is v7.1.5.
 
   PYTHONPATH=src .venv/bin/python scripts/run_deepseek_v4_0731_tier1.py preflight
   PYTHONPATH=src .venv/bin/python scripts/run_deepseek_v4_0731_tier1.py \\
@@ -41,8 +41,7 @@ from axquant.factory import (  # noqa: E402
 
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
-# Latest published 7.1.x. There is no v7.1.4 tag/release as of 2026-08-19.
-ENGINE_RELEASE = os.environ.get("AX_ENGINE_RELEASE", "v7.1.3")
+ENGINE_RELEASE = os.environ.get("AX_ENGINE_RELEASE", "v7.1.5")
 ENGINE_VERSION = ENGINE_RELEASE.lstrip("v")
 MIN_MACOS_MAJOR = 26
 MIN_QUALITY = 0.90
@@ -258,8 +257,8 @@ def cmd_preflight() -> None:
         "macos_major": major,
         "memory_bytes": mem,
         "engine_release": ENGINE_RELEASE,
-        "engine_published": ENGINE_RELEASE == "v7.1.3",
-        "note_7_1_4": "No GitHub tag/release v7.1.4; latest published is v7.1.3.",
+        "engine_published": ENGINE_RELEASE == "v7.1.5",
+        "latest_published": "v7.1.5",
         "engine_server": str(engine_server()),
         "engine_present": engine_server().is_file(),
         "os_ok": major is not None and major >= MIN_MACOS_MAJOR,
@@ -271,8 +270,8 @@ def cmd_preflight() -> None:
             f"AX Engine {ENGINE_VERSION} requires macOS {MIN_MACOS_MAJOR}+; "
             f"this host is {platform.mac_ver()[0]}. Upgrade the OS before cert."
         )
-    if ENGINE_RELEASE == "v7.1.4":
-        log("warning: v7.1.4 is not a published release; install-engine will 404")
+    if ENGINE_RELEASE not in {"v7.1.5", "v7.1.4", "v7.1.3"}:
+        log(f"warning: installing unpublished or unexpected release {ENGINE_RELEASE}")
 
 
 def cmd_install_engine() -> None:

@@ -40,24 +40,25 @@ Converted on `df-macstudio-m2` (Apple M2 Ultra, 192 GB) from the native FP8
 | Weight bytes | `122,212,298,775` |
 | Source | `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062` |
 | Convert host | `df-macstudio-m2` |
-| AXQuant | `1.8.1` |
-| mlx / mlx-lm | `0.32.0` / `0.31.3` (vendored `deepseek_v4` + FP8 load hook) |
+| AXQuant | `1.9.0` |
 
 ## Claims
 
 | Claim | Status |
 | --- | --- |
 | Converted on Studio from the pinned 0731 revision | **Yes** |
-| mlx-lm load + generate smoke | **Passed** on `df-macstudio-m2` |
 | Official DSV4 `chat_template.jinja` | **In pack** |
-| Checkpoint Tier 1 (generation viability suite) | **Not certified** on this record; Studio 15+15 factory QA with official DSV4 chat is combined **0.633** on both mlx-lm and AX Engine 7.0.2 native |
-| AX Engine native manifest | **Generated** on `df-macstudio-m2` — split `switch_mlp.gate_proj` + `up_proj` remapped to `ffn_gate_exps` / `ffn_up_exps` (`packed=0`, 43/43). Stock 7.0.2 server loaded and served `/v1/chat/completions` |
+| Checkpoint Tier 1 (generation viability suite) | **Not certified** — factory 15+15 combined **0.633** on AX Engine **7.1.5** native (floor 0.90). Same score as the prior 7.0.2 native run. |
+| AX Engine 7.1.5 native load | **Passed** on `df-macstudio-m2` (Hub commit `cb1a34b4`, `--stream-experts off`, chat smoke `Okay.`) |
+| Decode-128 (informational) | 15.535 tok/s on 7.1.5; not a Tier 1 claim |
 | MTP assets (`mtp.safetensors`) | **Packaged** — Hub name uses `-MTP` |
-| MTP acceleration | **Not certified** (direct decode is the default) |
+| MTP acceleration | **Not certified** (7.1.5 default is direct decode for uncertified MTP) |
 
-Requires `AX_ENGINE_2BIT_EXPERIMENTAL=1` for AX Engine 7.0.2 native serve.
-mlx-lm generate does not need that env. Comparison:
-[optiq2-vs-axq2-v190](../deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
+Requires `AX_ENGINE_2BIT_EXPERIMENTAL=1` for AX Engine native serve.
+Certificate:
+[deepseek-v4-flash-0731-axq2-tier1.md](https://github.com/defai-digital/axquant/blob/main/docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md).
+Comparison vs OptiQ 2-bit:
+[optiq2-vs-axq2-v190](https://github.com/defai-digital/axquant/blob/main/docs/deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
 
 ## Attribution
 

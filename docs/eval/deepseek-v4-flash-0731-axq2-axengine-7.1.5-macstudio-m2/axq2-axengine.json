@@ -1,0 +1,380 @@
+{
+  "key": "axq2-axengine",
+  "label": "DeepSeek V4 Flash-0731 AXQ 2-bit (AX Engine 7.1.5 native)",
+  "hub": "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
+  "commit": "cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
+  "runtime": "ax-engine-7.1.5-native",
+  "engine_bin": "/Users/devop/opt/ax-engine-7.1.5/ax-engine-server",
+  "path": "/Volumes/Ext12T/huggingface/hub/models--AutomatosX--AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP/snapshots/cb1a34b4dc8e182cc94689fce013d85766c5f3d1",
+  "host_id": "df-macstudio-m2",
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "seed": 20260728,
+  "max_tokens_qa": 64,
+  "load_seconds": 430.2235658330028,
+  "quality": {
+    "agent-coding": {
+      "n": 15,
+      "mean_score": 0.5,
+      "pass_rate": 0.0,
+      "passed": 0,
+      "seconds": 64.20211695804028,
+      "tasks": [
+        {
+          "task_id": "coding-001",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean implementation of the `fizzbuzz` function following your specifications:\n\n```python\ndef fizzbuzz(n: int) -> str:\n    \"\"\"\n    Returns 'fizz' if n is divisible by 3, 'buzz' if divisible by 5,\n    'fizzb",
+          "error": null
+        },
+        {
+          "task_id": "coding-002",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "I'll implement the Fibonacci function following your specifications.\n\n```python\ndef fibonacci(n):\n    \"\"\"\n    Returns the nth Fibonacci number where fibonacci(0) is 0 and fibonacci(1) is 1.\n    \n    Args:\n        n: non-negative integer index of the Fibonacci number to compute\n        \n    Returns:\n       ",
+          "error": null
+        },
+        {
+          "task_id": "coding-003",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean implementation of a palindrome checker that's case-insensitive:\n\n```python\ndef is_palindrome(s):\n    \"\"\"\n    Checks if a string is a palindrome, ignoring case.\n    \n    A palindrome reads the same forwards and backwards.\n    Case is ignored, so \"Racecar\" and \"racecar",
+          "error": null
+        },
+        {
+          "task_id": "coding-004",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean implementation of a Python `binary_search` function following your specification:\n\n```python\ndef binary_search(sorted_list, target):\n    \"\"\"\n    Performs a binary search on a sorted list to find the index of a target value.\n    \n    Parameters:\n        sorted_list (list): A list of comparable items",
+          "error": null
+        },
+        {
+          "task_id": "coding-005",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "I'll rewrite the corrected function with proper handling of edge cases, particularly for empty lists and negative numbers:\n\n```python\ndef find_max(numbers):\n    # Handle empty list case - return None or raise an error\n    if not numbers:\n        return None  # or raise ValueError(\"Empty list provided\")\n    \n    #",
+          "error": null
+        },
+        {
+          "task_id": "coding-006",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "I'll define a `BankAccount` class with the methods you requested, along with some additional methods for practical use and safety checks. Here's a complete implementation:\n\n```python\nclass BankAccount:\n    \"\"\"A simple bank account class with basic deposit and withdrawal methods.\"\"\"\n    \n    def __init__(self, initial_",
+          "error": null
+        },
+        {
+          "task_id": "coding-007",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean implementation of the `reverse_string` function in Python:  \n\n```python\ndef reverse_string(input_string):\n    \"\"\"\n    Returns the reverse of an input string.\n    \n    Parameters:\n    input_string (str): The string to reverse.\n    \n    Returns:\n    str: The reversed string.\n    \n   ",
+          "error": null
+        },
+        {
+          "task_id": "coding-008",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean and efficient Python function to count vowels in a given string:\n\n```python\ndef count_vowels(text):\n    \"\"\"\n    Counts the number of vowels (a, e, i, o, u) in a given string.\n    \n    Args:\n        text: The input string to count vowels in",
+          "error": null
+        },
+        {
+          "task_id": "coding-009",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a Python function that implements the `flatten` function to flatten nested lists into a single list:\n\n```python\ndef flatten(lst):\n    \"\"\"\n    Takes a list of lists and returns a single flat list containing all elements.\n    \n    Args:\n        lst: A list of lists (possibly nested lists can be",
+          "error": null
+        },
+        {
+          "task_id": "coding-010",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean implementation of the `remove_duplicates` function in Python that preserves the original order while removing duplicates:\n\n```python\ndef remove_duplicates(lst):\n    \"\"\"\n    Removes duplicates from a list while preserving the original order.\n    \n    Args:\n        lst: A list from which duplicates will be",
+          "error": null
+        },
+        {
+          "task_id": "coding-011",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a recursive Python function to compute the factorial of a non-negative integer using recursion:\n\n```python\ndef factorial(n):\n    \"\"\"\n    Compute the factorial of a non-negative integer n using recursion.\n    \n    Args:\n        n (int): A non-negative integer whose factorial is to be computed.\n    \n    Returns:\n",
+          "error": null
+        },
+        {
+          "task_id": "coding-012",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "To write the requested Python function, here's a clean implementation:\n\n```python\ndef celsius_to_fahrenheit(celsius):\n    \"\"\"\n    Converts a temperature from Celsius to Fahrenheit.\n    \n    Parameters:\n        celsius (float): Temperature in Celsius\n    \n    Returns:\n        float: Temperature in Fahrenheit\n    \"\"\"\n    # Using",
+          "error": null
+        },
+        {
+          "task_id": "coding-013",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "I'll define a Python class named `Rectangle` with the requested attributes and methods. Here's the implementation:\n\n```python\nclass Rectangle:\n    def __init__(self, width, height):\n        \"\"\"Initialize a rectangle with given width and height.\"\"\"\n        self.width = width\n        self.height = height\n    \n    def",
+          "error": null
+        },
+        {
+          "task_id": "coding-014",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "I'll implement the `gcd` function using the Euclidean algorithm as requested.\n\n```python\ndef gcd(a: int, b: int) -> int:\n    \"\"\"\n    Compute the greatest common divisor of two positive integers using the Euclidean algorithm.\n    \n    Parameters:\n        a (int): First positive integer.\n        b (",
+          "error": null
+        },
+        {
+          "task_id": "coding-015",
+          "category": "coding",
+          "score": 0.5,
+          "check_scores": {
+            "python-syntax:0": 0.0,
+            "contains:1": 1.0
+          },
+          "output": "Here's a clean and efficient implementation of the `is_prime` function in Python:\n\n```python\ndef is_prime(n):\n    \"\"\"\n    Returns True if n is prime, otherwise False.\n    Assumes n > 1.\n    \"\"\"\n    # Check if n is even or less than 2 (though input is",
+          "error": null
+        }
+      ]
+    },
+    "general": {
+      "n": 15,
+      "mean_score": 0.7666666666666667,
+      "pass_rate": 0.7333333333333333,
+      "passed": 11,
+      "seconds": 18.605726791953202,
+      "tasks": [
+        {
+          "task_id": "instruction-001",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": " to the following in exactly one sentence: 'The quick brown fox jumped over the lazy dog, who did not react, and then ran into the forest.'",
+          "error": null
+        },
+        {
+          "task_id": "instruction-002",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Bonjour",
+          "error": null
+        },
+        {
+          "task_id": "instruction-003",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "regex:0": 1.0
+          },
+          "output": "- red\n- blue\n- yellow",
+          "error": null
+        },
+        {
+          "task_id": "instruction-004",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "THE SUN RISES IN THE EAST",
+          "error": null
+        },
+        {
+          "task_id": "instruction-005",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "contains:0": 0.0
+          },
+          "output": "apple, banana, cherry",
+          "error": null
+        },
+        {
+          "task_id": "instruction-006",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "\u201cThanks\u201d or \u201cthank you\u201d is the correct translation.",
+          "error": null
+        },
+        {
+          "task_id": "instruction-007",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "The opposite of hot is **cold**.",
+          "error": null
+        },
+        {
+          "task_id": "instruction-008",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": " hello hello hello",
+          "error": null
+        },
+        {
+          "task_id": "instruction-009",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "Let me sort the words alphabetically: apple, banana, cherry. As a comma-separated list, that gives: apple, banana, cherry. \nDone. \nFor reference, here is the final answer: apple, banana, cherry. \nI hope this helps. \nHave a great day. \nThank",
+          "error": null
+        },
+        {
+          "task_id": "instruction-010",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0,
+            "contains:1": 1.0
+          },
+          "output": ": **High above the misty valley, the jagged mountain ridge cast a shadow that stretched all the way down to the serpentine river, where the water's silvery glint mirrored the dark, looming peaks above.**",
+          "error": null
+        },
+        {
+          "task_id": "instruction-011",
+          "category": "instruction",
+          "score": 0.0,
+          "check_scores": {
+            "exact:0": 0.0
+          },
+          "output": "\n5",
+          "error": null
+        },
+        {
+          "task_id": "instruction-012",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "exact:0": 1.0
+          },
+          "output": "[important]",
+          "error": null
+        },
+        {
+          "task_id": "instruction-013",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "a, b, c",
+          "error": null
+        },
+        {
+          "task_id": "instruction-014",
+          "category": "instruction",
+          "score": 1.0,
+          "check_scores": {
+            "contains:0": 1.0
+          },
+          "output": "three two one",
+          "error": null
+        },
+        {
+          "task_id": "instruction-015",
+          "category": "instruction",
+          "score": 0.5,
+          "check_scores": {
+            "token-f1:0": 0.5
+          },
+          "output": "'Copy this line verbatim.'",
+          "error": null
+        }
+      ]
+    }
+  },
+  "speed": {
+    "cases": [
+      {
+        "case": "decode-128",
+        "prompt_tokens": 20,
+        "generated_tokens": 128,
+        "elapsed_seconds": 8.239550166996196,
+        "tok_per_s": 15.534828650319824,
+        "preview": ": 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, "
+      },
+      {
+        "case": "prefill-512-decode-8",
+        "prompt_tokens": 485,
+        "generated_tokens": 8,
+        "elapsed_seconds": 3.0297287920257077,
+        "tok_per_s": 2.6405003712068624,
+        "preview": "Let me break down the structure and content"
+      },
+      {
+        "case": "prefill-2k-decode-8",
+        "prompt_tokens": 3845,
+        "generated_tokens": 8,
+        "elapsed_seconds": 16.418573958042543,
+        "tok_per_s": 0.48725303552207994,
+        "preview": " echo nonecho echo echo echo echo echo"
+      }
+    ]
+  },
+  "measured_at": "2026-08-20T02:48:54.660912+00:00",
+  "not_delegated": true
+}

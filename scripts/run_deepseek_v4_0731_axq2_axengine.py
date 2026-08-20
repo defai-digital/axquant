@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native AX Engine 7.0.2 QA + decode for Flash-0731 AXQ 2-bit.
+"""Native AX Engine QA + decode for Flash-0731 AXQ 2-bit.
 
 Factory host only (df-macstudio-m2). Does **not** delegate to mlx-lm.
 
@@ -7,9 +7,10 @@ Factory host only (df-macstudio-m2). Does **not** delegate to mlx-lm.
   PYTHONPATH=src python scripts/run_deepseek_v4_0731_axq2_axengine.py eval
   PYTHONPATH=src python scripts/run_deepseek_v4_0731_axq2_axengine.py all
 
-Requires a generate-manifest binary that remaps split switch_mlp.gate_proj +
-up_proj to ffn_gate_exps / ffn_up_exps. Stock 7.0.2 generate-manifest writes
-the fused packed role and fails validation.
+7.1.x: set AX_ENGINE_SERVER / AX_ENGINE_GENERATE_MANIFEST to the 7.1.5
+binaries (generate-manifest is `ax-engine-bench generate-manifest`). Stock
+7.0.2 generate-manifest writes the fused packed role and fails validation;
+use generate-manifest-split for that release.
 """
 
 from __future__ import annotations
@@ -53,6 +54,7 @@ MODEL_ID = os.environ.get(
     "DSV4_AXQ2_MODEL_ID",
     "AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP",
 )
+ENGINE_VERSION = os.environ.get("AX_ENGINE_VERSION", "7.0.2")
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
 SEED = 20260728
@@ -69,9 +71,22 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_AXENGINE_WORK",
-            "/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-axq2-axengine-7.0.2",
+            f"/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-axq2-axengine-{ENGINE_VERSION}",
         )
     )
+
+
+def _manifest_cmd() -> list[str]:
+    name = GENERATE_MANIFEST_BIN.name
+    if name in {"ax-engine-bench", "ax-engine"}:
+        return [
+            str(GENERATE_MANIFEST_BIN),
+            "generate-manifest",
+            "--force",
+            "--validate",
+            str(PACK),
+        ]
+    return [str(GENERATE_MANIFEST_BIN), "--force", "--validate", str(PACK)]
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -147,7 +162,7 @@ def cmd_manifest() -> None:
         )
     if not (PACK / "config.json").is_file():
         raise SystemExit(f"missing pack {PACK}")
-    cmd = [str(GENERATE_MANIFEST_BIN), "--force", "--validate", str(PACK)]
+    cmd = _manifest_cmd()
     log("$ " + " ".join(cmd))
     subprocess.run(cmd, check=True, env=engine_env())
     manifest = json.loads((PACK / "model-manifest.json").read_text(encoding="utf-8"))
@@ -377,10 +392,10 @@ def cmd_eval() -> None:
         quality = _run_quality(base)
         payload = {
             "key": "axq2-axengine",
-            "label": "DeepSeek V4 Flash-0731 AXQ 2-bit (AX Engine 7.0.2 native)",
-            "hub": "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
-            "commit": "1.9.0",
-            "runtime": "ax-engine-7.0.2-native",
+            "label": f"DeepSeek V4 Flash-0731 AXQ 2-bit (AX Engine {ENGINE_VERSION} native)",
+            "hub": MODEL_ID,
+            "commit": os.environ.get("DSV4_AXQ2_HUB_COMMIT", ENGINE_VERSION),
+            "runtime": f"ax-engine-{ENGINE_VERSION}-native",
             "engine_bin": str(ENGINE_BIN),
             "path": str(PACK),
             "host_id": FACTORY_HOST_ID,
