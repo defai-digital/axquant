@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-08-20T06:15:13+00:00",
+  "host_id": "df-macstudio-m2",
+  "pack": "/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-attn6",
+  "recipe": "examples/deepseek-v4-experimental-2bit-attn6-v0.2.yaml",
+  "measured_bpw": 3.166,
+  "source": "deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "engine_bin": "/Users/devop/opt/ax-engine-80f2a3e6/ax-engine-server",
+  "runtime": "ax-engine-80f2a3e6-attn6-native",
+  "protocol": "v-extract",
+  "combined_mean": 0.85,
+  "suite_means": {
+    "agent-coding": 0.9333333333333333,
+    "general": 0.7666666666666667
+  },
+  "floor": 0.9,
+  "certified": false,
+  "vs_uniform_v0_1": {
+    "combined_mean": 0.8870370370370371,
+    "agent-coding": 0.9,
+    "general": 0.874074074074074
+  },
+  "instruction_011_probe": {
+    "task_id": "instruction-011",
+    "seed": 20260738,
+    "chat_text": ": five",
+    "completions_raw_text": ": five",
+    "think_in_raw": false,
+    "eot_in_raw": false,
+    "rendered_prompt_has_system": true
+  }
+}
