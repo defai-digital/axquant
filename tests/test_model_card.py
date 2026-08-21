@@ -85,6 +85,14 @@ def _development_artifact(
         {"visual.patch_embed.weight": np.zeros((1,), dtype=np.float32)},
         directory / "vision.safetensors",
     )
+    write_data(
+        directory / "mtplx_runtime.json",
+        {
+            "arch_id": "qwen3-next-mtp",
+            "mtp_depth_max": 1,
+            "schema_version": "axquant.mtp-runtime.v1",
+        },
+    )
     write_data(directory / "axquant_plan.json", plan)
     runtime = build_runtime_metadata(plan, directory)
     write_data(directory / "axquant_runtime.json", runtime)
@@ -176,6 +184,9 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
     assert "Vision-language quality" in readme
     assert "262,144 tokens" in readme
     assert "Not certified" in readme
+    assert "## Use the packaged Qwen MTP head with oMLX or MTPLX" in readme
+    assert "Import MTP side-car" in readme
+    assert "qwen3-next-mtp" in readme
     assert "# AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP — 8.00 BPW measured main" in readme
     assert original_local_path not in readme
 
@@ -189,9 +200,10 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
     assert plan.source_model.local_path is None
     assert manifest.plan_sha256 == stable_sha256(plan) == execution.plan_sha256
     records = {record.path: record for record in manifest.files}
-    assert {"README.md", "LICENSE", "model-manifest.json"}.issubset(records)
+    assert {"README.md", "LICENSE", "model-manifest.json", "mtplx_runtime.json"}.issubset(records)
     assert records["README.md"].sha256 == file_sha256(directory / "README.md")
     assert records["README.md"].size_bytes == (directory / "README.md").stat().st_size
+    assert records["mtplx_runtime.json"].sha256 == file_sha256(directory / "mtplx_runtime.json")
     for name in (
         "axquant_manifest.json",
         "axquant_plan.json",

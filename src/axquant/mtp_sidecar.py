@@ -70,6 +70,29 @@ QWEN36_MTP_PROJECTION_TENSORS = frozenset(
 
 QWEN36_MTP_TENSORS = QWEN36_MTP_NORM_TENSORS | QWEN36_MTP_PROJECTION_TENSORS
 QWEN36_MTP_LAYOUT = "ax-engine-qwen36-v1"
+QWEN_NEXT_MTP_ARCH_ID = "qwen3-next-mtp"
+QWEN_NEXT_MTP_ADAPTER_IDS = frozenset(
+    {
+        "qwen35-dense-v1",
+        "qwen36-v1",
+        "qwen38-dense-v1",
+    }
+)
+# Older AutomatosX Qwen sidecar bundles used AX Engine packaging labels in the
+# cross-runtime ``arch_id`` field. They describe the same Qwen MTP execution
+# contract, but strict importers such as oMLX accept only the canonical MTPLX
+# identifier. Conversion may normalize these known aliases; any other explicit
+# identifier remains a fail-closed mismatch.
+QWEN_NEXT_MTP_LEGACY_ARCH_IDS = frozenset(
+    {
+        "qwen-dense",
+        "qwen-moe-packed",
+        "qwen3_5",
+        "qwen3_5_moe",
+        "qwen3_5_mtp",
+        "qwen3_6_mtp",
+    }
+)
 _MAX_SAFETENSORS_HEADER_BYTES = 16 * 1024 * 1024
 _COPY_CHUNK_BYTES = 8 * 1024 * 1024
 
@@ -369,7 +392,7 @@ def _transform_norm_payloads(
 def _runtime_contract(source_model: ModelIdentity) -> dict[str, Any]:
     return {
         "schema_version": "axquant.mtp-runtime.v1",
-        "arch_id": "qwen3-next-mtp",
+        "arch_id": QWEN_NEXT_MTP_ARCH_ID,
         "layout": QWEN36_MTP_LAYOUT,
         # The prepared layout has already applied the +1.0 HF-delta -> MLX
         # multiplier shift; AX Engine must not shift the norms again.

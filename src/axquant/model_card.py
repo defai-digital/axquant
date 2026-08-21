@@ -13,6 +13,7 @@ from axquant.modality_certification import (
     claim_allows_public_quality,
     format_modalities_card_section,
 )
+from axquant.mtp_sidecar import QWEN_NEXT_MTP_ADAPTER_IDS
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
     format_measured_bpw,
@@ -52,6 +53,7 @@ _REFRESHABLE_FILES = frozenset(
         "README.md",
         "LICENSE",
         "model-manifest.json",
+        "mtplx_runtime.json",
         *_PUBLIC_METADATA_FILES[1:],
     }
 )
@@ -547,6 +549,7 @@ def _render_development_model_card(
         else ""
     )
     mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
+    qwen_mtp_interop = has_mtp and plan.architecture_profile.adapter_id in QWEN_NEXT_MTP_ADAPTER_IDS
     if has_native_manifest:
         ax_engine_runtime_status = (
             "Native manifest included; execution still requires a runtime check"
@@ -581,6 +584,33 @@ runtime path above. The artifact records AX Engine version
             "- AX Engine execution is not established because this package has no validated "
             "native manifest.\n"
         )
+    if qwen_mtp_interop:
+        mtp_interop_section = f"""## Use the packaged Qwen MTP head with oMLX or MTPLX
+
+This repository keeps the Qwen MTP head in `mtp.safetensors`; stock MLX-LM does not load that
+sidecar by itself. Download the complete repository to a writable local directory before using a
+sidecar-aware runtime.
+
+In oMLX `0.6.3rc2` or newer, add the local directory, open **Model Settings**, choose
+**Import MTP side-car**, and then enable **Lightning MTP**. The import changes only the local copy
+so the MTP tensors become visible through the checkpoint index.
+
+MTPLX can consume the packaged sidecar directly:
+
+```bash
+mtplx quickstart \\
+  --model ./{name} \\
+  --profile stable \\
+  --depth 1 \\
+  --reasoning off
+```
+
+`mtplx_runtime.json` declares the canonical `qwen3-next-mtp` execution contract. This enables
+strict runtime discovery; it does not extend AXQuant quality, exactness, or speed certification to
+oMLX or MTPLX.
+"""
+    else:
+        mtp_interop_section = ""
     public_modalities = _public_modalities_for_repo(repo_id)
     if public_modalities is not None:
         has_vision = public_modalities.vision.supported
@@ -620,12 +650,18 @@ runtime path above. The artifact records AX Engine version
             else "Not applicable"
         )
         modalities_section = ""
-    mtp_limitation = (
-        "- MTP may be ignored outside AX Engine and its speedup is unmeasured for this exact "
-        "checkpoint.\n"
-        if has_mtp
-        else ""
-    )
+    if qwen_mtp_interop:
+        mtp_limitation = (
+            "- MTP requires a sidecar-aware runtime. oMLX/MTPLX discovery compatibility does "
+            "not establish exactness or speed certification for those runtimes.\n"
+        )
+    elif has_mtp:
+        mtp_limitation = (
+            "- MTP may be ignored outside AX Engine and its speedup is unmeasured for this exact "
+            "checkpoint.\n"
+        )
+    else:
+        mtp_limitation = ""
     vision_limitation = (
         "- Vision weights are preserved at BF16, but this release does not claim validated "
         "VLM quality.\n"
@@ -804,6 +840,7 @@ deployments rather than relying indefinitely on `main`.
 
 {runtime_section}
 {ax_engine_section}
+{mtp_interop_section}
 ## Quantization layout
 
 | Main-weight precision | Parameters | Share |

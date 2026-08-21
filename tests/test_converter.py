@@ -1036,6 +1036,143 @@ def test_mtp_sidecar_contract_gains_structured_bits_from_free_text(tmp_path: Pat
     assert runtime["mtp_norm_layout"] == "raw_hf_delta"
 
 
+def test_qwen_byte_preserved_sidecar_gains_complete_runtime_contract(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {name: np.zeros((1,), dtype=np.float32) for name in converter.QWEN36_MTP_TENSORS},
+        sidecar / "mtp.safetensors",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+    plan = _plan(qwen36_model_dir)
+
+    converter._copy_external_mtp_bundle(sidecar, output, plan=plan)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["arch_id"] == "qwen3-next-mtp"
+    assert runtime["exactness_baseline"] == {
+        "notes": (
+            "No MTPLX Forge exactness baseline has been recorded for this development artifact."
+        ),
+        "public_release_blocker": True,
+        "scope": "compatibility-smoke-only",
+        "status": "unverified",
+    }
+    assert runtime["layout"] == "ax-engine-qwen36-v1"
+    assert runtime["mtp_depth_max"] == 1
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["mtp_tensor_count"] == len(converter.QWEN36_MTP_TENSORS)
+    assert runtime["mtplx_version"] == "2.5.2"
+    assert runtime["recommended_draft_sampler"] == {
+        "temperature": 0.7,
+        "top_k": 20,
+        "top_p": 0.95,
+    }
+    assert runtime["recommended_profile"] == "stable"
+    assert runtime["release_status"] == "development-only"
+    assert runtime["source_model"] == {
+        "model_id": plan.source_model.model_id,
+        "revision": plan.source_model.revision,
+    }
+    assert runtime["verified_on"] == {
+        "host_id": None,
+        "notes": "Compatibility smoke tests are not AXQuant Tier 1 or Tier 2 certification.",
+        "status": "not-certified",
+    }
+
+
+def test_qwen_sidecar_normalizes_legacy_arch_id_without_overwriting_evidence(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        sidecar / "mtp.safetensors",
+    )
+    exactness = {"context": 2048, "max_abs_diff": 0.0}
+    (sidecar / "mtplx_runtime.json").write_text(
+        json.dumps(
+            {
+                "arch_id": "qwen-dense",
+                "exactness_baseline": exactness,
+                "mtp_tensor_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+
+    converter._copy_external_mtp_bundle(
+        sidecar,
+        output,
+        plan=_plan(qwen36_model_dir),
+    )
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["arch_id"] == "qwen3-next-mtp"
+    assert runtime["exactness_baseline"] == exactness
+    assert "layout" not in runtime
+
+
+def test_qwen_byte_preserved_sidecar_rejects_incompatible_runtime_identity(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        sidecar / "mtp.safetensors",
+    )
+    (sidecar / "mtplx_runtime.json").write_text(
+        json.dumps({"arch_id": "another-family-mtp"}),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+
+    with pytest.raises(ArtifactError, match="incompatible runtime arch_id"):
+        converter._copy_external_mtp_bundle(
+            sidecar,
+            output,
+            plan=_plan(qwen36_model_dir),
+        )
+
+
+def test_super_class_qwen_sidecar_does_not_claim_resident_runtime_contract(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        sidecar / "mtp.safetensors",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+    plan = _plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen38-moe-v1", "product_family": "qwen3.8"}
+    )
+
+    converter._copy_external_mtp_bundle(sidecar, output, plan=plan)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime == {
+        "mtp_depth_max": 1,
+        "mtp_norm_layout": "raw_hf_delta",
+        "schema_version": "axquant.mtp-runtime.v1",
+    }
+
+
 def test_mtp_sidecar_provenance_binds_alternate_filename(tmp_path: Path) -> None:
     """``mtp_head.safetensors`` is a recognized external sidecar filename
     alongside ``mtp.safetensors`` (converter/probe/release_audit all accept

@@ -14,6 +14,7 @@ from axquant.mtp_sidecar import (
     QWEN36_MTP_NORM_TENSORS,
     QWEN36_MTP_PROJECTION_TENSORS,
     QWEN36_MTP_TENSORS,
+    QWEN_NEXT_MTP_ARCH_ID,
     prepare_qwen36_mtp_sidecar,
     probe_ax_engine_mtp_capability,
     quantize_qwen36_mtp_sidecar,
@@ -166,6 +167,7 @@ def test_prepare_qwen36_mtp_sidecar_transforms_only_norms(tmp_path: Path) -> Non
         assert record.operation == "byte_preserved"
         assert record.sha256 == record.source_sha256
     runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["arch_id"] == QWEN_NEXT_MTP_ARCH_ID
     assert runtime["layout"] == "ax-engine-qwen36-v1"
     assert runtime["mtp_norm_layout"] == "mlx_multiplier"
     assert runtime["mtp_depth_max"] == 1

@@ -908,8 +908,15 @@ If the plan preserves MTP as an external bundle, conversion requires:
 
 The default `--mtp-layout byte-preserved` path never changes tensor payloads; the copied bundle's
 `mtplx_runtime.json` declares `mtp_norm_layout: raw_hf_delta` so AX Engine converts every MTP
-norm deterministically at load time instead of guessing from tensor statistics. The explicit
-development path:
+norm deterministically at load time instead of guessing from tensor statistics.
+
+For the resident-loadable Qwen 3.5, Qwen 3.6, and Qwen 3.8 dense adapters, that runtime file also
+declares the canonical `qwen3-next-mtp` identity required by strict sidecar importers such as oMLX.
+Known historical `qwen-dense` / `qwen-moe-packed` labels are normalized without replacing any
+existing exactness evidence. The Super-class `qwen38-moe-v1` stream pack is deliberately excluded:
+it cannot resident-load on a Mac, and an oMLX/MTPLX sidecar-import claim would be misleading.
+
+The explicit development path:
 
 ```bash
 --mtp-layout ax-engine-qwen36-v1

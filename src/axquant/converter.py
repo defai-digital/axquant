@@ -23,7 +23,15 @@ from axquant.capture_binding import (
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
-from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES, prepare_qwen36_mtp_sidecar
+from axquant.mtp_sidecar import (
+    EXTERNAL_MTP_SIDECAR_FILENAMES,
+    QWEN36_MTP_LAYOUT,
+    QWEN36_MTP_TENSORS,
+    QWEN_NEXT_MTP_ADAPTER_IDS,
+    QWEN_NEXT_MTP_ARCH_ID,
+    QWEN_NEXT_MTP_LEGACY_ARCH_IDS,
+    prepare_qwen36_mtp_sidecar,
+)
 from axquant.multimodal_backend import (
     conversion_backend,
     convert_multimodal,
@@ -61,6 +69,7 @@ _ACTIVATION_REFINEMENT_METHODS = frozenset(
     {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
 )
 _CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
+_MTPLX_RUNTIME_COMPATIBILITY_VERSION = "2.5.2"
 
 
 def _maybe_force_mlx_cpu() -> None:
@@ -363,7 +372,12 @@ def _resolve_external_mtp_sidecar_file(sidecar: Path) -> Path:
     )
 
 
-def _copy_external_mtp_bundle(sidecar: Path, output_dir: Path) -> None:
+def _copy_external_mtp_bundle(
+    sidecar: Path,
+    output_dir: Path,
+    *,
+    plan: QuantizationPlan | None = None,
+) -> None:
     source = _resolve_external_mtp_sidecar_file(sidecar)
     if not source.is_file():
         raise ArtifactError(f"MTP sidecar does not exist: {source}")
@@ -373,19 +387,26 @@ def _copy_external_mtp_bundle(sidecar: Path, output_dir: Path) -> None:
         companion = source.parent / companion_name
         if companion.is_file():
             _copy_verified(companion, output_dir / companion_name)
-    _declare_raw_mtp_norm_layout(output_dir)
+    _declare_raw_mtp_runtime_contract(output_dir, plan=plan)
 
 
-def _declare_raw_mtp_norm_layout(output_dir: Path) -> None:
-    """Declare the byte-preserved sidecar's norm representation for AX Engine.
+def _declare_raw_mtp_runtime_contract(
+    output_dir: Path,
+    *,
+    plan: QuantizationPlan | None = None,
+) -> None:
+    """Declare the byte-preserved sidecar's runtime and norm contracts.
 
     Byte preservation keeps the raw HF zero-centred norm deltas. AX Engine
     reads ``mtp_norm_layout`` from ``mtplx_runtime.json`` and applies the
     ``+1.0`` HF-delta conversion to every norm at load time; without the
-    declaration it must guess from tensor statistics. Only the sidecar tensor
-    payloads are byte-preserved; the runtime contract is AXQuant metadata, so
-    adding the declaration does not touch preserved bytes. An explicit layout
-    declaration copied from the source bundle always wins.
+    declaration it must guess from tensor statistics. For resident-loadable
+    Qwen 3.5/3.6/3.8 adapters, the same file also declares the
+    ``qwen3-next-mtp`` execution contract used by strict importers such as
+    oMLX. Only the sidecar tensor payloads are byte-preserved; the runtime
+    contract is AXQuant metadata, so adding these declarations does not touch
+    preserved bytes. Known legacy Qwen identifiers are normalized; an unknown
+    explicit identifier fails closed.
     """
     runtime_path = output_dir / "mtplx_runtime.json"
     contract: dict[str, Any] = {
@@ -404,6 +425,83 @@ def _declare_raw_mtp_norm_layout(output_dir: Path) -> None:
     if "mtp_norm_layout" not in contract:
         contract["mtp_norm_layout"] = "raw_hf_delta"
         changed = True
+    if plan is not None and plan.architecture_profile.adapter_id in QWEN_NEXT_MTP_ADAPTER_IDS:
+        sidecar_path = output_dir / "mtp.safetensors"
+        _, header = _safetensor_header(sidecar_path)
+        tensor_names = {name for name in header if name != "__metadata__"}
+        tensor_count = len(tensor_names)
+        if tensor_count < 1:
+            raise ArtifactError("Qwen MTP sidecar contains no tensors")
+        existing_arch_id = contract.get("arch_id")
+        allowed_arch_ids = {
+            None,
+            "",
+            QWEN_NEXT_MTP_ARCH_ID,
+            *QWEN_NEXT_MTP_LEGACY_ARCH_IDS,
+        }
+        if (
+            existing_arch_id is not None and not isinstance(existing_arch_id, str)
+        ) or existing_arch_id not in allowed_arch_ids:
+            raise ArtifactError(
+                f"Qwen MTP sidecar declares incompatible runtime arch_id {existing_arch_id!r}"
+            )
+        if existing_arch_id != QWEN_NEXT_MTP_ARCH_ID:
+            contract["arch_id"] = QWEN_NEXT_MTP_ARCH_ID
+            changed = True
+        declared_tensor_count = contract.get("mtp_tensor_count")
+        if declared_tensor_count is not None and (
+            not isinstance(declared_tensor_count, int)
+            or isinstance(declared_tensor_count, bool)
+            or declared_tensor_count != tensor_count
+        ):
+            raise ArtifactError(
+                "Qwen MTP runtime tensor count does not match the sidecar header: "
+                f"{declared_tensor_count!r} != {tensor_count}"
+            )
+        qwen_contract = {
+            # This is the MTP execution-contract id shared by Qwen 3.5/3.6/3.8,
+            # not the base checkpoint's config.model_type.
+            "exactness_baseline": {
+                "notes": (
+                    "No MTPLX Forge exactness baseline has been recorded for this "
+                    "development artifact."
+                ),
+                "public_release_blocker": True,
+                "scope": "compatibility-smoke-only",
+                "status": "unverified",
+            },
+            "mtp_depth_max": 1,
+            "mtp_tensor_count": tensor_count,
+            "mtplx_version": _MTPLX_RUNTIME_COMPATIBILITY_VERSION,
+            "recommended_draft_sampler": {
+                "temperature": 0.7,
+                "top_k": 20,
+                "top_p": 0.95,
+            },
+            "recommended_profile": "stable",
+            "release_status": "development-only",
+            "schema_version": "axquant.mtp-runtime.v1",
+            "source_model": {
+                "model_id": plan.source_model.model_id,
+                "revision": plan.source_model.revision,
+            },
+            "verified_on": {
+                "host_id": None,
+                "notes": (
+                    "Compatibility smoke tests are not AXQuant Tier 1 or Tier 2 certification."
+                ),
+                "status": "not-certified",
+            },
+        }
+        # ``ax-engine-qwen36-v1`` names the canonical dense 15-tensor head.
+        # MoE Qwen heads contain additional tensors and must not be mislabeled
+        # merely to satisfy an importer that does not require this field.
+        if tensor_names == QWEN36_MTP_TENSORS:
+            qwen_contract["layout"] = QWEN36_MTP_LAYOUT
+        for key, value in qwen_contract.items():
+            if key not in contract:
+                contract[key] = value
+                changed = True
     if "mtp_sidecar_bits" not in contract:
         sidecar_description = contract.get("mtp_sidecar")
         if isinstance(sidecar_description, str):
@@ -724,7 +822,7 @@ def _extract_protected_integrated_mtp(
         allocations=[allocation for allocation in plan.assignments if allocation.role.is_mtp],
     )
     if manifest is not None:
-        _declare_raw_mtp_norm_layout(output_dir)
+        _declare_raw_mtp_runtime_contract(output_dir, plan=plan)
     return manifest
 
 
@@ -1769,6 +1867,7 @@ def convert_model(
                 _copy_external_mtp_bundle(
                     Path(mtp_sidecar).expanduser().resolve(),
                     staging_dir,
+                    plan=plan,
                 )
             elif mtp_layout == MtpSidecarLayout.AX_ENGINE_QWEN36_V1:
                 prepare_qwen36_mtp_sidecar(

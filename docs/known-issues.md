@@ -56,6 +56,11 @@ between published versions.
 
 ## Public Hub catalog
 
+- **Qwen MTP is packaged as a sidecar.** Stock MLX-LM loads the text backbone but does not consume
+  `mtp.safetensors`. For resident-loadable AXQ Qwen 3.5/3.6/3.8 packs, download the complete Hub
+  repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
+  Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
+  current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
 - **Some bases do not publish an AXQ-4bit pack.** When protection floors raise both the ~4.8 and
   ~6.0 BPW budgets to the same (or near-identical) artifact, publishing a separate `4bit` sibling
   is misleading. Removed from Hugging Face (use the `6bit` pack only):

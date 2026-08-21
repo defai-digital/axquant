@@ -24,10 +24,12 @@ tags:
 An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted directly from
 the BF16 source model. The language path is quantized while the multi-token-prediction (MTP) head and vision tower are preserved at BF16 in the checkpoint (or a bound sidecar when present).
 
-> **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14) for this exact
-> revision — measured size against a matched uniform baseline, quality retention, and
-> conversion integrity. Tier 1 is a checkpoint claim, **not** a speed claim: MTP
-> acceleration is certified for the certificate's authorizing profiles only; outside that scope there is no speedup claim.
+> **Checkpoint Tier 1 certified** on `df-macbookpro-m3` (2026-08-14) at Hub commit
+> `a5a0b700ea7c` — measured size against a matched uniform baseline, quality retention,
+> and conversion integrity. Current `main` preserves that revision's exact Safetensors
+> payloads while allowing metadata-only compatibility fixes. Tier 1 is a checkpoint claim,
+> **not** a general speed claim: MTP acceleration is certified for the certificate's
+> authorizing profiles only; outside that scope there is no speedup claim.
 > See the [checkpoint Tier 1 certificate](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-tier1.md) and [Tier 2 MTP acceleration certificate](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq6-mtp-tier2.md) for the bound evidence and thresholds.
 
 
@@ -113,9 +115,61 @@ ax-engine serve ./AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP --port 31418
 ```
 
 AX Engine is the authority for the AXQ runtime contract and native MTP sidecar.
-This development package does not claim runtime speedups until identical-checkpoint benchmarks are
-published. The artifact records AX Engine version `6.16.1`. Native
+Runtime speedup claims are limited to the authorizing profiles in the linked Tier 2 certificate.
+The artifact records AX Engine version `6.16.1`. Native
 `model-manifest.json` status: included as `model-manifest.json`.
+
+## Use with oMLX Lightning MTP
+
+Download the complete repository into a writable local directory and add that directory to oMLX.
+With an oMLX build that includes the sidecar importer, select **Import MTP side-car** in
+**Model Settings**, then enable **Lightning MTP**. The bundled `mtplx_runtime.json` declares the
+`qwen3-next-mtp` execution contract required by oMLX's strict importer; this identifier describes
+the MTP head layout, not the base model's `qwen3_5` model type.
+
+The one-time import adds the sidecar tensors to the local checkpoint index. oMLX compatibility does
+not extend AXQuant's Tier 2 speed claim beyond the certificate's authorizing profiles; benchmark the
+result in the intended oMLX workload. At the time of the 2026-08-20 smoke test, direct sidecar import
+was available on oMLX `main` (`0.6.3rc2`); stable oMLX `0.5.7` successfully served the already
+imported text checkpoint with Lightning MTP. Its VLM loader rejected 333 vision parameters and
+fell back to the LLM path, so this is a text-only compatibility result.
+
+## Use with MTPLX
+
+MTPLX `2.5.2` recognizes the bundled depth-1 sidecar and can serve it with the stable profile:
+
+```bash
+mtplx quickstart \
+  --model ./AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP \
+  --profile stable \
+  --depth 1 \
+  --reasoning off
+```
+
+The contract is intentionally marked `unverified` with a public-release blocker because no MTPLX
+Forge exactness baseline is bound to this development artifact. It permits compatibility testing
+without `--unsafe-force-unverified`; it does not claim MTPLX exactness certification.
+
+## Runtime compatibility speed smoke (not certification)
+
+Measured on an Apple M5 Max with 128 GB unified memory and AC power. Each number is the median of
+three measured batch-1 requests after one warmup, with temperature `0`, thinking off, and MTP depth
+1. Prefill prompts use a unique salt; decode uses the same fixed prompt and runs to 256 tokens.
+
+| Runtime | Prefill input | Prefill | Decode input / output | Decode |
+| --- | ---: | ---: | ---: | ---: |
+| oMLX `0.5.7` | 2,158 uncached tokens | **838.9 tok/s** | 155 / 256 tokens | **43.46 tok/s** |
+| AX Engine `7.1.5` | 2,122 uncached of 2,154 tokens | 802.5 tok/s | 148 / 256 tokens | 42.56 tok/s |
+| MTPLX `2.5.2` | 2,157 uncached tokens | 738.5 tok/s | 155 / 256 tokens | 42.89 tok/s |
+
+Prefill throughput is uncached prompt tokens divided by local loopback time to first content, so it
+includes HTTP, scheduling, and first-token overhead. Decode throughput is `(completion tokens - 1)`
+divided by the first-to-last-content interval. The three decode results are within about 2.1%; do
+not generalize this short smoke to concurrency, long context, vision, quality, or another host.
+
+> **Metadata compatibility update (2026-08-20):** `mtplx_runtime.json` now includes the complete
+> Qwen MTP runtime identity, tensor count, MTPLX compatibility version, recommended profile, and
+> explicit unverified-exactness status. Safetensors payloads are unchanged.
 
 ## Quantization layout
 
@@ -161,7 +215,8 @@ establish MTP acceleration or vision-language quality.
   KV-cache policy, runtime buffers, and other processes using unified memory.
 - Architecture-prior allocation is not measured sensitivity. It must not be presented as measured
   model quality.
-- MTP may be ignored outside AX Engine and its speedup is unmeasured for this exact checkpoint.
+- MTP requires a sidecar-aware runtime. oMLX/MTPLX discovery compatibility does not extend the
+  linked AX Engine certificate to those runtimes.
 - Vision weights are preserved at BF16, but this release does not claim validated VLM quality.
 - The configured context window can require substantially more memory as the KV cache grows.
 
