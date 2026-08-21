@@ -13,6 +13,7 @@ tags:
 - axq
 - deepseek
 - deepseek-v4
+- mtp
 ---
 
 # AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP

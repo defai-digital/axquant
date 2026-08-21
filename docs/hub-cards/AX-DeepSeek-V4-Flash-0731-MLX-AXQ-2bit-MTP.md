@@ -15,6 +15,7 @@ tags:
 - deepseek
 - deepseek-v4
 - experimental
+- mtp
 ---
 
 # AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP
@@ -75,6 +76,24 @@ Certificate:
 [deepseek-v4-flash-0731-axq2-tier1.md](https://github.com/defai-digital/axquant/blob/main/docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md).
 Comparison vs OptiQ 2-bit:
 [optiq2-vs-axq2-v190](https://github.com/defai-digital/axquant/blob/main/docs/deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
+
+## Runtime and MTP policy
+
+Download the complete snapshot before serving it:
+
+```bash
+hf download AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP \
+  --local-dir ./AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP
+AX_ENGINE_2BIT_EXPERIMENTAL=1 \
+  ax-engine serve ./AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP --port 31418
+```
+
+`mtp.safetensors` is the native DeepSeek V4 `nextn` sidecar. It is not a Qwen
+`qwen3-next-mtp` sidecar, so the oMLX/MTPLX Qwen import workflow does not apply. AX Engine 7.1.5
+recognizes the sidecar, but keeps this checkpoint on direct fallback because no revision-bound
+Tier 2 MTP acceptance, exactness, or speed evidence exists. The internal DeepSeek MTP
+certification-candidate switch is for the formal harness, not normal serving. Stock MLX-LM can
+run the text backbone but does not activate this sidecar.
 
 ## Attribution
 

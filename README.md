@@ -916,6 +916,11 @@ Known historical `qwen-dense` / `qwen-moe-packed` labels are normalized without 
 existing exactness evidence. The Super-class `qwen38-moe-v1` stream pack is deliberately excluded:
 it cannot resident-load on a Mac, and an oMLX/MTPLX sidecar-import claim would be misleading.
 
+The complete, family-specific Hub inventory is maintained in the
+[AXQ MTP runtime matrix](docs/mtp-hub-models.md). It distinguishes resident Qwen sidecars, Gemma
+assistant bundles, DeepSeek `nextn` sidecars, and the Qwen expert-stream artifact; these contracts
+are not interchangeable.
+
 The explicit development path:
 
 ```bash
