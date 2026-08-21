@@ -202,7 +202,10 @@ class QwenMtpHead:
         # argpartition not always available; use top-k via sort for modest E in tests.
         # For E=256 production, sort is OK for offline micro-batches.
         order = mx.argsort(-router, axis=-1)
-        top_idx = order[:, :k]
+        # Expert selection is non-differentiable. mlx >= 0.32.1 rejects VJPs
+        # through gather indices, so detach the indices while gradients keep
+        # flowing through the selected gating values.
+        top_idx = mx.stop_gradient(order[:, :k])
         top_logits = mx.take_along_axis(router, top_idx, axis=-1)
         top_w = mx.softmax(top_logits.astype(mx.float32), axis=-1).astype(x.dtype)
 
