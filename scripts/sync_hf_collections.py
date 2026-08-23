@@ -76,6 +76,19 @@ NOTE_24T = (
     "SSD paging is too slow for practical serving; this revision will not be "
     "certified. MTP acceleration is not claimed."
 )
+NOTE_PRO_0813 = (
+    "Experimental 2-bit Super-class stream pack of DeepSeek-V4-Pro-0813. "
+    "SSD paging required; not certified. DSpark sidecar packaged; acceleration "
+    "not claimed. No 4-bit sibling."
+)
+NOTE_MINIMAX_M3 = (
+    "Experimental Super-class stream pack of MiniMax-M3. SSD paging required; "
+    "not certified. Config MTP flags are not packaged MTP. Vision BF16."
+)
+NOTE_KIMI_K3 = (
+    "Experimental Super-class stream pack of Kimi-K3. SSD paging required; "
+    "not certified. Native MXFP4 dequantized to affine 2-bit. No packaged MTP."
+)
 NOTE_0731_RESERVED = (
     "Flash-0731 4-bit-MTP name is reserved; Hub weights are not uploaded. See the model card."
 )
@@ -252,7 +265,8 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="DeepSeek",
         description=(
             "DeepSeek V4 Flash AXQ 2/4/6-bit MTP, Flash-0731 2/4-bit MTP plus "
-            "MXFP4/6-bit stubs, and DeepSeek-OCR-2. 3-bit withdrawn."
+            "MXFP4/6-bit stubs, Pro-0813 hobby 2-bit MTP, and DeepSeek-OCR-2. "
+            "3-bit withdrawn."
         ),
         items=(
             _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
@@ -262,6 +276,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
+            _ax("AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP", NOTE_PRO_0813),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
@@ -397,6 +412,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP", NOTE_24T),
+            _ax("AX-MiniMax-M3-MLX-AXQ-2bit", NOTE_MINIMAX_M3),
+            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
+            _ax("AX-Kimi-K3-MLX-AXQ-2bit", NOTE_KIMI_K3),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
             _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
@@ -451,6 +469,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
+            _ax("AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP", NOTE_PRO_0813),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),

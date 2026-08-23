@@ -144,7 +144,9 @@ class MlxQualityBackend:
         )
 
 
-_MLX_VLM_QUALITY_MODEL_TYPES = frozenset({"muse_glimmer", "qwen3_vl"})
+_MLX_VLM_QUALITY_MODEL_TYPES = frozenset(
+    {"muse_glimmer", "qwen3_vl", "minimax_m3_vl", "minimax_m3"}
+)
 
 
 def _config_model_type(model: str) -> str | None:
@@ -176,6 +178,8 @@ def select_quality_backend(model: ModelIdentity | str) -> QualityBackend:
     if (
         model_type in _MLX_VLM_QUALITY_MODEL_TYPES
         or "muse-glimmer" in lowered
+        or "minimax-m3" in lowered
+        or "minimax_m3" in lowered
         or ("qwen3-vl" in lowered and "embedding" not in lowered)
     ):
         return MlxVlmQualityBackend()

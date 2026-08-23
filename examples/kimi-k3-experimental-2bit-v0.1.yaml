@@ -1,0 +1,56 @@
+# Experimental 2-bit Super-class recipe for Kimi-K3 (native MXFP4 source).
+# Hobby / curiosity pack only. Will not be certified. 2-bit only (no AXQ MXFP4 SKU).
+# Convert blocked unless mlx-vlm kimi_k3 KDA exists.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 2
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: MoonViT-V2 stays BF16 (AXQ-006)
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit
+  - rule_id: trunk-experimental-2bit
+    roles: [mlp, attention, expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Dequant native MXFP4 experts to affine 2-bit
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

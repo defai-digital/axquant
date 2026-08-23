@@ -1,0 +1,102 @@
+{
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "status": "not_certified",
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-08-23T18:46:47.582469+00:00",
+  "host_id": "tn-macstudio-m3",
+  "artifact": {
+    "hub_repo_id": "AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4",
+    "hub_commit": "228f7b75249a92ed1abf43bc5b7b7d8c388c55b3",
+    "product_class": "MXFP4",
+    "architecture": "MiniMaxM3SparseForConditionalGeneration",
+    "source_model_id": "MiniMaxAI/MiniMax-M3",
+    "source_revision": "f0e1c1e04d40177e4673a22097036854f536e9c0",
+    "candidate_manifest_sha256": "e9f37c102c48e5014a0e1802beef7fb70c83c881d1490d1f4c81bd5f794c621c"
+  },
+  "plan": {
+    "evidence_kind": "architecture_prior",
+    "plan_source": "existing-pack",
+    "recipe": "examples/minimax-m3-experimental-mxfp4-v0.1.yaml",
+    "target_class": "MXFP4",
+    "adapter_id": "minimax-m3-v1",
+    "measured_total_bpw": 4.365766982835565,
+    "measured_main_bpw": 4.365766982835565
+  },
+  "size": {
+    "candidate_weight_bytes": 233044718032,
+    "candidate_measured_bpw": 4.365766982835565,
+    "pass": true,
+    "notes": "MiniMax-M3 experimental Super-class track: size bound to measured bytes (no uniform 2-bit / MXFP4 reference on this host)."
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.0,
+      "samples": 15,
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "scoring": "experimental-generation-viability",
+      "pass": false
+    },
+    "general": {
+      "candidate_score": 0.0,
+      "samples": 15,
+      "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "scoring": "experimental-generation-viability",
+      "pass": false
+    }
+  },
+  "thresholds": {
+    "minimum_generation_viability": 0.9,
+    "notes": "Experimental Super-class track uses generation viability on the 15+15 development suites, not BF16 retention. Seed 20260728, max gen 64."
+  },
+  "mtp_acceleration": {
+    "status": "not-applicable",
+    "reason": "Config num_mtp_modules is not packaged MTP; Hub leaf has no -MTP and no mtp.safetensors."
+  },
+  "runtime": {
+    "mlx_vlm": {
+      "status": "fail",
+      "notes": "skipped: mlx-vlm 0.6.16 cannot load this AXQ pack (855 unexpected shared_experts/switch_mlp parameters). Primary cert path is AX Engine 7.1.5 native. on tn-macstudio-m3"
+    },
+    "ax_engine": {
+      "status": "pass",
+      "version": "7.2.0",
+      "env_required": [],
+      "notes": "native chat smoke + doctor / generate-manifest on tn-macstudio-m3"
+    }
+  },
+  "toolchain": {
+    "axquant": "1.6.2",
+    "ax_engine": "7.2.0",
+    "host": "tn-macstudio-m3",
+    "host_hardware": "Apple M3 Ultra 512 GB"
+  },
+  "notes": [
+    "Checkpoint attempt on tn-macstudio-m3 with AX Engine 7.2.0.",
+    "Language path only. Vision stays BF16; vision generate is not claimed.",
+    "ax_expert_stream.json is required. Engine Auto may keep the ~220 GB pack resident on 512 GB.",
+    "No AXQ 4-bit affine sibling."
+  ],
+  "public_index": {
+    "display_name": "MiniMax-M3 MLX AXQ MXFP4 (exp.)",
+    "sort_order": 241,
+    "edition_label": "m3@7.2.0",
+    "listed": true
+  },
+  "modalities": {
+    "policy": "capability-gated-v1",
+    "vision": {
+      "status": "present-not-certified",
+      "supported": true,
+      "reason": "Vision tower is BF16-protected; language-path cert does not claim image/video quality.",
+      "runtime": null,
+      "evidence_kind": null
+    },
+    "audio": {
+      "status": "not-applicable",
+      "supported": false,
+      "reason": "audio not supported on this pack",
+      "runtime": null,
+      "evidence_kind": null
+    }
+  }
+}

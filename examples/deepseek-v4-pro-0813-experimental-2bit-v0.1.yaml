@@ -1,0 +1,61 @@
+# Experimental 2-bit Super-class recipe for DeepSeek-V4-Pro-0813.
+# Hobby / curiosity pack only. Will not be certified in this revision.
+# Convert uses the stream backend (--expert-stream required). mlx_lm cannot
+# load the 1.78 TB mixed FP4+FP8 snapshot. AX Engine needs
+# AX_ENGINE_2BIT_EXPERIMENTAL=1 and layer-stack SSD paging.
+#
+# target_bpw is intentionally loose: protected embeddings / LM-head / norms /
+# MTP stay high-bit. Routed experts dominate the disk.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 2
+default_method: affine
+group_size: 32
+allow_unmatched_rules: true
+lm_head_min_bits: 16
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 0
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms stay BF16 under protection floors
+  - rule_id: protect-lm-head
+    roles: [lm_head]
+    bits: 16
+    method: bf16
+    reason: LM head stays BF16 by default
+  - rule_id: protect-embeddings
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor remains 8-bit
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit when routers are present
+  - rule_id: protect-mtp
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: DSpark / nextn tensors stay protected; convert extracts mtp.safetensors
+  - rule_id: trunk-experimental-2bit
+    roles: [mlp, attention, expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Experimental 2-bit trunk, attention, and fused routed experts
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true
