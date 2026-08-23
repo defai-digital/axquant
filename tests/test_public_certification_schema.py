@@ -76,9 +76,11 @@ def test_registry_lists_both_public_certification_versions() -> None:
     assert CHECKPOINT_SCHEMA_VERSION in versions
     assert MTP_SCHEMA_VERSION in versions
     entries = schema_registry()
-    assert all(entry.compatibility_class == "public-certification" for entry in entries)
-    assert all(entry.freeze_policy == "immutable-envelope" for entry in entries)
-    assert {entry.model for entry in entries} == {
+    public_entries = [
+        entry for entry in entries if entry.compatibility_class == "public-certification"
+    ]
+    assert all(entry.freeze_policy == "immutable-envelope" for entry in public_entries)
+    assert {entry.model for entry in public_entries} == {
         PublicCheckpointCertification,
         PublicMtpAccelerationCertification,
     }

@@ -33,16 +33,19 @@ between published versions.
   sidecar is packaged; acceleration is not claimed. Hobby / curiosity only.
   It cannot resident-load on any shipping Mac and needs layer-stack expert
   paging plus `AX_ENGINE_2BIT_EXPERIMENTAL=1`. Technical report:
-  [qwen38-axq-2bit.md](qwen38-axq-2bit.md). **No AXQ 4-bit pack will be
+  [qwen38-axq-2bit.md](../reports/qwen38-axq-2bit.md). **No AXQ 4-bit pack will be
   released** for this base. Separate OptiQ 2/4-bit Hub repos are not AX
-  Engine artifacts ([qwen38-optiq-experimental.md](qwen38-optiq-experimental.md)).
+  Engine artifacts
+  ([qwen38-optiq-experimental.md](../reports/qwen38-optiq-experimental.md)).
+  Native convert emits `ax_expert_stream.json`; see
+  [expert-ssd-stream.md](expert-ssd-stream.md).
 - **DeepSeek-V4-Pro-0813 AXQ 2-bit (`AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP`)
   is the same class of experimental Super-class stream pack and will not be
   certified in this revision** (SSD paging is too slow for practical serving).
   Native DSpark sidecar is packaged as `mtp.safetensors`; acceleration is not
   claimed. Hobby / curiosity only. It cannot resident-load on any shipping Mac
   and needs layer-stack expert paging plus `AX_ENGINE_2BIT_EXPERIMENTAL=1`.
-  Technical report: [deepseek-v4-pro-0813-axq-2bit.md](deepseek-v4-pro-0813-axq-2bit.md).
+  Technical report: [deepseek-v4-pro-0813-axq-2bit.md](../reports/deepseek-v4-pro-0813-axq-2bit.md).
   **No AXQ 4-bit pack will be released** for this base.
 - **MiniMax-M3 AXQ 2-bit (`AX-MiniMax-M3-MLX-AXQ-2bit`) is the same class of
   experimental Super-class stream pack and will not be certified in this
@@ -56,6 +59,12 @@ between published versions.
   experimental Super-class stream pack and will not be certified in this
   revision.** Native MXFP4 expert bodies are dequantized to affine 2-bit.
   No packaged MTP. Vision is a BF16 sidecar. 2-bit only.
+- **DeepSeek V4 Flash AXQ 2/3-bit packs can be SSD-streamed by AX Engine.** New
+  converts emit `ax_expert_stream.json`. Published Flash packs without that
+  file still stream when `ax-engine serve --stream-experts` is set; the engine
+  infers packed `ffn.switch_mlp` stacks. Flash 2-bit (~115 GB) can still
+  resident-load on 192 GB; streaming is optional unless convert used
+  `--expert-stream required`.
 
 ## Activation capture
 

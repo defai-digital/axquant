@@ -11,6 +11,7 @@ from axquant.architectures.dense_family import (
     DenseFamilySpec,
 )
 from axquant.architectures.qwen36 import Qwen35MoeAdapter, Qwen36Adapter
+from axquant.architectures.qwen38 import Qwen38Adapter
 from axquant.architectures.registry import adapter_for
 from axquant.errors import ArtifactError
 from axquant.schema import (
@@ -120,6 +121,63 @@ def test_qwen36_structural_signature_supports_renamed_artifact_without_size() ->
 
 def test_registry_resolves_qwen36_without_ambiguity() -> None:
     adapter = adapter_for("Qwen/Qwen3.6-27B", _qwen36_config())
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen36-v1"
+
+
+def _qwen38_config() -> dict[str, object]:
+    return {
+        "model_type": "qwen3_5_moe_text",
+        "architectures": ["Qwen3_5MoeForCausalLM"],
+        "num_hidden_layers": 80,
+        "hidden_size": 8192,
+        "num_experts": 256,
+        "num_experts_per_tok": 8,
+        "moe_intermediate_size": 4096,
+    }
+
+
+def test_qwen38_adapter_matches_only_catalog_super_identity() -> None:
+    config = _qwen38_config()
+    adapter = Qwen38Adapter()
+    reference = "Qwen/Qwen3.8-2.4T-A95B"
+
+    assert adapter.matches(reference, config)
+    assert not adapter.matches("Qwen/Qwen3.8-32B-A3B", config)
+    assert not adapter.matches("Qwen/Qwen3.6-35B-A3B", config)
+    assert not adapter.matches(reference, {**config, "model_type": "qwen3_5"})
+
+    resolved = adapter_for(reference, config)
+    assert resolved is not None
+    assert resolved.adapter_id == "qwen38-moe-v1"
+    profile = resolved.profile(reference, config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.product_family == "qwen3.8"
+    assert profile.dense is False
+    assert any("stream required" in note.lower() for note in profile.notes)
+    assert (
+        resolved.classify_tensor(
+            "model.layers.0.mlp.shared_expert.down_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.MLP
+    )
+
+
+def test_qwen38_adapter_does_not_steal_qwen36_35b_a3b() -> None:
+    config = {
+        "model_type": "qwen3_5_moe",
+        "text_config": {
+            "num_hidden_layers": 40,
+            "hidden_size": 2048,
+            "moe_intermediate_size": 512,
+            "shared_expert_intermediate_size": 512,
+            "num_experts": 256,
+            "num_experts_per_tok": 8,
+        },
+    }
+    adapter = adapter_for("Qwen/Qwen3.6-35B-A3B", config)
+
     assert adapter is not None
     assert adapter.adapter_id == "qwen36-v1"
 
@@ -672,6 +730,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
     assert tiers == {
         "qwen36-v1": SupportTier.CONVERTIBLE,
         "qwen35-moe-v1": SupportTier.CONVERTIBLE,
+        "qwen38-moe-v1": SupportTier.CONVERTIBLE,
         "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         "qwen38-dense-v1": SupportTier.CONVERTIBLE,

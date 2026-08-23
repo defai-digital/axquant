@@ -483,6 +483,7 @@ release audit. The current tier matrix:
 | --- | --- | --- |
 | **Qwen3.8-27B** dense VLM | `qwen38-dense-v1` | `convertible`; **AXQ 4/6-bit ± MTP checkpoint Tier 1**; MTP packs also **scoped Tier 2** on AX Engine 6.16.1; vision BF16; not the Qwen 3.6 campaign track |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; formal campaign / primary investment track |
+| **Qwen 3.8 2.4T-A95B text MoE** | `qwen38-moe-v1` | `convertible` thin development path; native layer-stack expert stream required; no cert track |
 | Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
 | **Qwen3.5-class 35B-A3B MoE + fine-tunes** (Ornith-1.0-35B, Holo3-35B-A3B, Holo-3.1-35B-A3B) | `qwen35-moe-v1` | `convertible`; **Ornith 4/6-bit Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); not Qwen 3.6 cert track |
 | **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
@@ -494,7 +495,7 @@ release audit. The current tier matrix:
 | **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
 | Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
-| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** (no SSD-stream product path) |
+| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** until a Nemotron-specific stream convert exists |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
 | **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 4/6-bit + 120B 6-bit Tier 1** ([20B-4](docs/certifications/gpt-oss-20b-axq4-tier1.md), [20B-6](docs/certifications/gpt-oss-20b-axq6-tier1.md), [120B-6](docs/certifications/gpt-oss-120b-axq6-tier1.md)); **120B 4-bit not certified** ([record](docs/certifications/gpt-oss-120b-axq4-tier1.md)); no MTP |

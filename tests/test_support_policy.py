@@ -25,6 +25,27 @@ def test_qwen_is_primary_cert_track() -> None:
     assert policy.priority == 1
 
 
+def test_qwen38_is_thin_stream_track_without_association_claims() -> None:
+    policy = policy_for_adapter("qwen38-moe-v1")
+    assert policy is not None
+    assert policy.investment_posture is InvestmentPosture.THIN
+    assert policy.cert_track is False
+    text = support_policy_markdown()
+    assert "Do not invent SSD expert streaming" not in text
+    assert "explicit Super-class product path" in text
+    assert "Do not copy mlx-optiq" in text
+
+
+def test_deepseek_v4_policy_allows_flash_stream_convert() -> None:
+    policy = policy_for_adapter("deepseek-v4-v1")
+    assert policy is not None
+    assert policy.investment_posture is InvestmentPosture.THIN
+    assert any("ax_expert_stream.json" in item for item in policy.do)
+    text = support_policy_markdown()
+    assert "DeepSeek V4 Flash" in text
+    assert "expert stream contract" in text
+
+
 def test_nemotron_is_thin_and_nano_only_convertible() -> None:
     policy = policy_for_adapter("nemotron3-v1")
     assert policy is not None
@@ -75,11 +96,12 @@ def test_support_matrix_includes_posture_and_sorted_priority() -> None:
 
 
 def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
-    """Every declared-convertible adapter is in the conversion-host smoke set.
+    """Every declared-convertible adapter is tracked by conversion smoke coverage.
 
     Keeps the remote family matrix and registry from drifting. Qwen3-ASR and
     Qwen3-VL use their architecture runtimes on df-macbookpro-m5; the text families also
-    remain in the macstudio-m2u coverage set.
+    remain in the macstudio-m2u coverage set. Qwen 3.8 is synthetic-contract coverage only
+    until the native runtime loads a real streamed pack.
     """
     matrix = support_matrix()
     convertible = {
@@ -90,6 +112,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
     # One representative smoke per adapter (Qwen 3.6 covers dense + MoE path).
     expected = {
         "qwen36-v1",
+        "qwen38-moe-v1",
         "qwen35-dense-v1",
         "qwen38-dense-v1",
         "qwen35-moe-v1",

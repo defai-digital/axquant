@@ -1,6 +1,10 @@
 # Qwen3.8-2.4T-A95B — experimental OptiQ MLX packs
 
-**These are not AXQ packs and they are not supported by AX Engine.**
+**These published packs are not AXQ packs and they are not supported by AX Engine.**
+
+OptiQ remains the current published experimental serve path. A separate native AXQ + AX Engine
+layer-stack streaming path is in progress; it has not yet loaded a real Qwen 3.8 pack and does not
+make these OptiQ repositories AX Engine-compatible.
 
 Former Hub repos were removed (2026-08-13):
 
@@ -9,12 +13,13 @@ Former Hub repos were removed (2026-08-13):
 | Experimental OptiQ 2-bit | `AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-2bit` | `optiq convert --method static --candidate-bits 2,4 --target-bpw 2.5` |
 | Experimental OptiQ 4-bit | `AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-OptiQ-4bit` | `optiq convert --method static --candidate-bits 4,8 --target-bpw 4.5` |
 
-## Why OptiQ, not AXQuant
+## Why the current published path uses OptiQ
 
 Qwen3.8-2.4T-A95B is 2.4T total / 95B active (`model_type=qwen3_5_moe_text`). A 192 GB Mac
-Studio cannot hold the expert table. AXQuant / mlx-lm / AX Engine keep all experts resident,
-so an AXQ 2-bit pack (~0.8 TB) still cannot *run* on this host. OptiQ can page routed
-experts from SSD (`optiq serve --stream-experts`).
+Studio cannot hold the expert table. The currently published OptiQ path pages routed experts from
+SSD (`optiq serve --stream-experts`). The in-progress native path instead defines an AXQuant
+`ax_expert_stream.json` contract for AX Engine to page one fused layer stack at a time; see
+[AX Expert SSD Stream v1](expert-ssd-stream.md).
 
 Convert input is the official FP8 dump
 [`Qwen/Qwen3.8-2.4T-A95B-FP8`](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B-FP8)
@@ -25,32 +30,13 @@ Convert input is the official FP8 dump
 | Claim | Status |
 | --- | --- |
 | Experimental OptiQ MLX artifact | Intended |
-| AX Engine supported | **No** |
-| AXQuant inspect/convert/cert track | **No** — not in the public certification matrix |
-| Quality vs BF16 | **Not measured** |
+| AX Engine supported | **No** for these OptiQ packs; native real-pack validation is pending |
+| AXQuant inspect/convert/cert track | Thin native development track; **no certification track** |
+| Quality evidence | **Not measured or claimed** |
 | MTP acceleration | **Not claimed** (OptiQ's large-FP8 streaming convert may drop the MTP head) |
 
-Serve only with `mlx-optiq` ≥ 0.4.19. Do not load these checkpoints in `ax-engine`.
+Serve these published packs only with their documented OptiQ runtime. Do not load them in
+`ax-engine`. Keep this warning until AX Engine loads and validates a real native AXQ Qwen 3.8 pack.
 
-## Operator job (macstudio)
-
-Hub pulls on this host use the project Xet arrangement (see `AGENTS.md`): cache on
-Ext4T, `HF_XET_HIGH_PERFORMANCE=1`, logged-in Hub token. Do not use
-`HF_HUB_ENABLE_HF_TRANSFER`.
-
-Orchestrator (already launched on `df-macstudio-m2`):
-
-```text
-/path/to/axquant-work/scripts/run_qwen38_optiq_experimental.sh
-```
-
-Logs:
-
-```text
-/path/to/axquant-work/logs/qwen38-optiq-orchestrator.log
-/path/to/axquant-work/logs/qwen38-optiq-2bit-convert.log
-/path/to/axquant-work/logs/qwen38-optiq-4bit-convert.log
-```
-
-The job converts 2-bit, uploads, deletes the local 2-bit tree, then converts and uploads 4-bit.
-Each Hub card states the experimental / not-AX-Engine disclaimer.
+Each Hub card retains the experimental / not-AX-Engine disclaimer. Internal conversion jobs and
+logs are operational state, not a public reproduction contract.

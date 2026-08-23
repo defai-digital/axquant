@@ -20,6 +20,7 @@ from axquant.schema import (
     AX_ENGINE_EXECUTABLE_BITS,
     AX_ENGINE_EXECUTABLE_GROUP_SIZES,
     AxEngineOptimizationMetadata,
+    ExpertStreamManifest,
     KvCacheRuntimeMetadata,
     ModelIdentity,
     MtpRuntimeMetadata,
@@ -648,6 +649,12 @@ def build_runtime_metadata(
     draft_tokens, precision = _mtp_contract_values(contract)
     mtp_detected = sidecar is not None
     mtp_capable = mtp_detected
+    expert_stream_path = directory / "ax_expert_stream.json"
+    expert_stream = (
+        load_model(expert_stream_path, ExpertStreamManifest)
+        if expert_stream_path.is_file()
+        else None
+    )
     kv_metadata: KvCacheRuntimeMetadata | None = None
     if plan.kv_cache is not None:
         kv = plan.kv_cache
@@ -767,6 +774,18 @@ def build_runtime_metadata(
             "prefix_cache": "runtime-managed",
             "mtp_buffers": "preallocate-when-enabled" if mtp_detected else "not-required",
             "unified_memory_safety_margin": "benchmark-required",
+            "expert_stream": (
+                "required"
+                if expert_stream is not None and expert_stream.required
+                else "optional"
+                if expert_stream is not None
+                else "off"
+            ),
+            **(
+                {"expert_stream_manifest": expert_stream_path.name}
+                if expert_stream is not None
+                else {}
+            ),
         },
     )
 

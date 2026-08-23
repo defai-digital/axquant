@@ -219,6 +219,12 @@ from axquant.schema.enums import (
     SupportTier,
     TensorRole,
 )
+from axquant.schema.expert_stream import (
+    ExpertStreamManifest,
+    ExpertStreamProjection,
+    ExpertStreamResidentRole,
+    ExpertStreamTensor,
+)
 from axquant.schema.flagship import ActivationCaptureSentinel, CandidateKey, CheckpointKey
 from axquant.schema.flagship_audit import (
     FinalPublicationReviewRecord,
@@ -423,6 +429,10 @@ __all__ = [
     "EvidenceArchiveRecord",
     "EvidenceKind",
     "ExactCertificationScope",
+    "ExpertStreamManifest",
+    "ExpertStreamProjection",
+    "ExpertStreamResidentRole",
+    "ExpertStreamTensor",
     "FeasibilityReport",
     "FinalPublicationReviewRecord",
     "FlagshipArchiveProof",

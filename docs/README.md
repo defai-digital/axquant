@@ -20,6 +20,7 @@ published here.
 - Install and convert: repository [README](../README.md)
 - Known limitations: [guides/known-issues.md](guides/known-issues.md)
 - Pack format: [contracts/axq-pack-interchange-v1.md](contracts/axq-pack-interchange-v1.md)
+- Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
 - Public certificates: [certifications/README.md](certifications/README.md)
 - Certification rules: [contracts/certification-spec-v1.0.md](contracts/certification-spec-v1.0.md)
 

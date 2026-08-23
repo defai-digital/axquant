@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Literal
 
 from axquant.errors import PlanningError
+from axquant.expert_stream import ExpertStreamSetting
 from axquant.ladders import get_ladder
 from axquant.naming import model_name, target_class_for_bpw
 from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke
@@ -142,6 +143,7 @@ def simple_convert(
     audio_input: str | Path | None = None,
     image_input: str | Path | None = None,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "if-available",
+    expert_stream: ExpertStreamSetting = "auto",
     mtp_sidecar: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
     kv_sensitivity: str | Path | None = None,
@@ -234,6 +236,7 @@ def simple_convert(
         audio_input=audio_input,
         image_input=image_input,
         ax_engine_manifest=ax_engine_manifest,
+        expert_stream=expert_stream,
         allow_download=False,  # already resolved above
         allow_quantized=allow_quantized,
     )
@@ -294,7 +297,7 @@ axquant quantize /models/Qwen3-VL-8B-Instruct --target-bpw 6.36 \\
   --runtime-smoke mlx-vlm --image-input ./sample.png
 ```
 
-Defaults: ladder `prior` (groups 32,64), auto output name
+Defaults: ladder `prior` (groups 32,64), expert stream `auto`, auto output name
 `AX-<model>-MLX-AXQ-4bit`, development evidence banner.
 
 ## Do not

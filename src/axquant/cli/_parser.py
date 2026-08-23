@@ -796,6 +796,12 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["required", "if-available", "skip"],
         default="required",
     )
+    convert_parser.add_argument(
+        "--expert-stream",
+        choices=["off", "auto", "required"],
+        default="auto",
+        help="emit the layer-stack SSD expert stream contract when applicable",
+    )
     convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
     convert_parser.add_argument(
         "--q-mode",
@@ -897,6 +903,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ax-engine-manifest",
         choices=["required", "if-available", "skip"],
         default="if-available",
+    )
+    quantize_parser.add_argument(
+        "--expert-stream",
+        choices=["off", "auto", "required"],
+        default="auto",
+        help="emit the layer-stack SSD expert stream contract when applicable",
     )
     quantize_parser.add_argument("--json", dest="json_output")
 
