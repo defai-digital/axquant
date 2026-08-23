@@ -68,7 +68,7 @@
     "DWQ on 4-bit attention: DWQ on attention in attn6-v0.2 scored worse.",
     "First/last decoder FFN 4-bit without 3-bit: mixed-v0.1 already spent bits on those stacks and scored worse.",
     "Routed w2 3-bit only: mixed-v0.1 unique extra; historically worse; also needs 3-bit experimental engine gate.",
-    "plan-experimental-mix from architecture prior: unmeasured ranking repeats a heuristic mix (docs/experimental-trunk-mix.md)."
+    "plan-experimental-mix from architecture prior: unmeasured ranking repeats a heuristic mix (docs/guides/experimental-trunk-mix.md)."
   ],
   "stop_reason": "No remaining distinct AXQ-owned 2bit-experimental convert that is not a repeat of a worse-or-equal measurement. Uniform v0.1 stays the best v-extract pack at 0.887 < 0.90. Hitting the floor at 2-bit on this checkpoint is treated as infeasible."
 }

@@ -99,7 +99,7 @@ jobs:
             echo "After registering a Trusted Publisher on pypi.org for"
             echo "defai-digital/axquant workflow release.yml, set the repository"
             echo "variable ENABLE_PYPI_PUBLISH=true and re-run Release."
-            echo "See docs/ci-root-causes.md."
+            echo "See docs/guides/ci-root-causes.md."
           fi
 
   # OIDC Trusted Publishing requires a matching publisher on pypi.org / test.pypi.org.
@@ -194,5 +194,5 @@ jobs:
           The optional "Record PyPI deployment" step uses the Deployments API with
           environment name "pypi" for the UI only — that is not a job environment
           claim and must not be added to the Trusted Publisher config.
-          Then keep ENABLE_PYPI_PUBLISH=true. Details: docs/ci-root-causes.md
+          Then keep ENABLE_PYPI_PUBLISH=true. Details: docs/guides/ci-root-causes.md
           EOF

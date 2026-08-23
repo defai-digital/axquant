@@ -389,7 +389,7 @@ eval_pair 120b-axq6 "$OUT120_6" \
 - MLX-LM load/smoke pass
 - size ratio vs **mlx-community MXFP4-Q4** still applied for product packaging continuity (next section)
 
-If 120B 4-bit still fails agent-coding, **do not publish** that class; keep certified 6-bit only (see `docs/known-issues.md`).
+If 120B 4-bit still fails agent-coding, **do not publish** that class; keep certified 6-bit only (see `docs/guides/known-issues.md`).
 
 ---
 
@@ -534,7 +534,7 @@ For each pack that passes gates:
 python scripts/render_certification_docs.py --write
 ```
 
-3. Adjust `docs/known-issues.md` / `docs/certifications/README.md` GPT-OSS blurb:
+3. Adjust `docs/guides/known-issues.md` / `docs/certifications/README.md` GPT-OSS blurb:
    - source lineage is OpenAI native, not community Q4 re-pack
 4. Commit docs in the axquant git repo (separate from Hub weight upload).
 

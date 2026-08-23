@@ -56,7 +56,7 @@ exceeded the size gate (`1.162` &gt; `1.15`).
 ## Related
 
 - Sibling 6-bit: [holo3-35b-axq6-tier1.md](holo3-35b-axq6-tier1.md)
-- Runbook: [../holo3-35b-axq-dev-runbook.md](../holo3-35b-axq-dev-runbook.md)
+- Runbook: [../holo3-35b-axq-dev-runbook.md](../runbooks/holo3-35b-axq-dev-runbook.md)
 
 Machine-readable: [holo3-35b-axq4-tier1.json](holo3-35b-axq4-tier1.json).
 

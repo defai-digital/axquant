@@ -9,7 +9,7 @@
 #             integration when present. Apple Silicon only.
 #
 # Local mirror: ./scripts/ci-local.sh (isolated non-MLX venv + host MLX).
-# Background: docs/ci-root-causes.md
+# Background: docs/guides/ci-root-causes.md
 name: CI
 
 on:

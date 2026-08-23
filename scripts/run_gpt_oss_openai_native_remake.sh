@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Driver skeleton for GPT-OSS OpenAI-native remake.
-# Full narrative: docs/gpt-oss-openai-native-remake-runbook.md
+# Full narrative: docs/runbooks/gpt-oss-openai-native-remake-runbook.md
 #
 # Usage:
 #   export OSS20_REV=... OSS120_REV=...
@@ -106,7 +106,7 @@ case "$cmd" in
     ;;
   *)
     echo "Usage: $0 plan|convert-20b|convert-120b|card" >&2
-    echo "See docs/gpt-oss-openai-native-remake-runbook.md" >&2
+    echo "See docs/runbooks/gpt-oss-openai-native-remake-runbook.md" >&2
     exit 2
     ;;
 esac

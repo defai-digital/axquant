@@ -37,7 +37,7 @@ def _simulate_ubuntu_without_mlx(monkeypatch: pytest.MonkeyPatch) -> None:
 
     Host Macs often have both; without this, generation-smoke tests pass locally
     while the same code fails on python-compatibility jobs. See
-    docs/ci-root-causes.md.
+    docs/guides/ci-root-causes.md.
     """
 
     monkeypatch.setattr("axquant.runtime.importlib.util.find_spec", lambda _name: None)

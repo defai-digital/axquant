@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument(
         "--write",
         action="store_true",
-        help="Regenerate schemas/*.schema.json, schemas/manifest.json, docs/schema-catalog.md",
+        help="Regenerate schemas/*.schema.json, schemas/manifest.json, docs/guides/schema-catalog.md",
     )
     mode.add_argument(
         "--check",

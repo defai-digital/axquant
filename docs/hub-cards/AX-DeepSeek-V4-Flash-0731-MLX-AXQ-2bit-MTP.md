@@ -75,7 +75,7 @@ Requires `AX_ENGINE_2BIT_EXPERIMENTAL=1` for AX Engine native serve.
 Certificate:
 [deepseek-v4-flash-0731-axq2-tier1.md](https://github.com/defai-digital/axquant/blob/main/docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md).
 Comparison vs OptiQ 2-bit:
-[optiq2-vs-axq2-v190](https://github.com/defai-digital/axquant/blob/main/docs/deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
+[optiq2-vs-axq2-v190](https://github.com/defai-digital/axquant/blob/main/docs/reports/deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
 
 ## Runtime and MTP policy
 

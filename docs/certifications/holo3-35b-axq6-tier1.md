@@ -60,7 +60,7 @@ authorized.
 ## Related
 
 - Sibling 4-bit evaluation record: [holo3-35b-axq4-tier1.md](holo3-35b-axq4-tier1.md)
-- Development runbook: [../holo3-35b-axq-dev-runbook.md](../holo3-35b-axq-dev-runbook.md)
+- Development runbook: [../holo3-35b-axq-dev-runbook.md](../runbooks/holo3-35b-axq-dev-runbook.md)
 - Certification index: [README.md](README.md)
 
 Machine-readable: [holo3-35b-axq6-tier1.json](holo3-35b-axq6-tier1.json).

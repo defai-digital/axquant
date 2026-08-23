@@ -27,7 +27,7 @@ Native 7.1.5 evidence: [axq2-axengine.json](../eval/deepseek-v4-flash-0731-axq2-
 
 Prior 7.0.2 native QA was the same combined **0.633**. Practical QA/speed vs
 the mlx-community OptiQ 2-bit pack:
-[deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md](../deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
+[deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md](../reports/deepseek-v4-flash-0731-optiq2-vs-axq2-v190.md).
 
 ## v-extract recert (AX Engine HEAD `80f2a3e6`)
 
@@ -52,7 +52,7 @@ Machine-readable stop of **AXQ-owned YAML levers**:
 Same-protocol market baseline (not an AXQ pack): OptiQ 2-bit on `v-extract`
 combined **0.967** (coding 1.000, general 0.933). The 0.90 floor is reachable
 in the 2-bit *class* on this checkpoint; it is not reachable with uniform v0.1.
-[optiq2 v-extract](../deepseek-v4-flash-0731-optiq2-v-extract.md).
+[optiq2 v-extract](../reports/deepseek-v4-flash-0731-optiq2-v-extract.md).
 
 ## Tier 2 status
 

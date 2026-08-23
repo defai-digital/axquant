@@ -36,7 +36,7 @@ This is an **AXQuant** pack (`qwen38-moe-v1`), not mlx-optiq. Do not load
 the OptiQ Qwen 3.8 repos in AX Engine.
 
 Full convert notes:
-[docs/qwen38-axq-2bit.md](https://github.com/defai-digital/axquant/blob/main/docs/qwen38-axq-2bit.md).
+[docs/reports/qwen38-axq-2bit.md](https://github.com/defai-digital/axquant/blob/main/docs/reports/qwen38-axq-2bit.md).
 
 ## Why it is slow
 

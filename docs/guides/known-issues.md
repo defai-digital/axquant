@@ -36,6 +36,26 @@ between published versions.
   [qwen38-axq-2bit.md](qwen38-axq-2bit.md). **No AXQ 4-bit pack will be
   released** for this base. Separate OptiQ 2/4-bit Hub repos are not AX
   Engine artifacts ([qwen38-optiq-experimental.md](qwen38-optiq-experimental.md)).
+- **DeepSeek-V4-Pro-0813 AXQ 2-bit (`AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP`)
+  is the same class of experimental Super-class stream pack and will not be
+  certified in this revision** (SSD paging is too slow for practical serving).
+  Native DSpark sidecar is packaged as `mtp.safetensors`; acceleration is not
+  claimed. Hobby / curiosity only. It cannot resident-load on any shipping Mac
+  and needs layer-stack expert paging plus `AX_ENGINE_2BIT_EXPERIMENTAL=1`.
+  Technical report: [deepseek-v4-pro-0813-axq-2bit.md](deepseek-v4-pro-0813-axq-2bit.md).
+  **No AXQ 4-bit pack will be released** for this base.
+- **MiniMax-M3 AXQ 2-bit (`AX-MiniMax-M3-MLX-AXQ-2bit`) is the same class of
+  experimental Super-class stream pack and will not be certified in this
+  revision** (SSD paging is too slow for practical serving). Public BF16
+  weights ship decoder layers 0–59 only; config `num_mtp_modules` is not
+  packaged MTP, so the Hub leaf has no `-MTP`. Hobby / curiosity only. Needs
+  layer-stack expert paging plus `AX_ENGINE_2BIT_EXPERIMENTAL=1`. An MXFP4
+  sibling [`AX-MiniMax-M3-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4)
+  is the same class (MXFP4 trunk, vision sidecar, no packaged MTP).
+- **Kimi-K3 AXQ 2-bit (`AX-Kimi-K3-MLX-AXQ-2bit`) is the same class of
+  experimental Super-class stream pack and will not be certified in this
+  revision.** Native MXFP4 expert bodies are dequantized to affine 2-bit.
+  No packaged MTP. Vision is a BF16 sidecar. 2-bit only.
 
 ## Activation capture
 

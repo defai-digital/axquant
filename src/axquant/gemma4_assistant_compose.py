@@ -1,7 +1,7 @@
 """Compose byte-identical AXQ Gemma targets with assistant-MTP drafters.
 
 Implements the ST2 composite pack layout from
-``.internal/engineering/sibling-tier2-expansion-technical-specification.md``:
+``.internal/specs/sibling-tier2-expansion-technical-specification.md``:
 
 - copy/hardlink Tier 1 AXQ target files without rewriting tensors;
 - attach ``assistant/`` + ``ax_gemma4_assistant_mtp.json``;

@@ -183,5 +183,5 @@ do **not** republish as a customer SKU without a new Tier 2 pass.
 
 - Adapter: `qwen35-moe-v1` in `src/axquant/architectures/qwen36.py`
 - Graft tooling: `src/axquant/grafted_mtp.py` (`prepare-grafted-mtp`, `compose-grafted-mtp`)
-- Same family path as Ornith: [docs/ornith-35b-axq-dev-runbook.md](ornith-35b-axq-dev-runbook.md)
+- Same family path as Ornith: [docs/runbooks/ornith-35b-axq-dev-runbook.md](ornith-35b-axq-dev-runbook.md)
 - AX Engine: preset `holo3-35b`, model-id inference, download aliases in `ax-engine`

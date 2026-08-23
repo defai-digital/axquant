@@ -8,7 +8,7 @@
 # Why: MLX is Apple Silicon only and optional (axquant[mlx]). Ubuntu CI is the
 # hard gate for the non-MLX package contract; a green Mac pytest with MLX on
 # PATH does not prove Ubuntu will pass. Always run this before pushing to main.
-# See docs/ci-root-causes.md and CONTRIBUTING.md.
+# See docs/guides/ci-root-causes.md and CONTRIBUTING.md.
 #
 # Usage:
 #   ./scripts/ci-local.sh              # lint + non-MLX suite (+ MLX suite if importable)

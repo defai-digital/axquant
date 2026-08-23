@@ -31,7 +31,7 @@ exact artifact and may reference certificates that freeze a schema version.
 1. **Models** — each top-level `schema_version` has one owning `StrictModel`.
 2. **Snapshots** — `schemas/<schema_version>.schema.json` is the canonical JSON Schema lock.
 3. **Manifest** — `schemas/manifest.json` lists versions, model owners, and content digests.
-4. **Catalog** — `docs/schema-catalog.md` is generated for humans (not authoritative alone).
+4. **Catalog** — `docs/guides/schema-catalog.md` is generated for humans (not authoritative alone).
 5. **CI** — `python scripts/render_schema_contracts.py --check` fails on model/snapshot drift
    and on base-ref mutation of an existing version’s digest.
 
@@ -43,7 +43,8 @@ Public certification records additionally load through
 1. Introduce a **new** `schema_version` (e.g. `axquant.plan.v2`) with a new model or
    successor fields.
 2. Keep the previous version’s model and snapshot loadable.
-3. Add a short migration note in `docs/` (or the relevant `docs/migration-*.md`).
+3. Add a short migration note in `docs/migrations/` (or the relevant
+   `docs/migrations/migration-*.md`).
 4. Run:
 
    ```bash
@@ -57,5 +58,7 @@ Public certification records additionally load through
 
 ## Related policy
 
-- Campaign freeze discipline: [ADR-0001](roadmap/adr/0001-certification-freeze-discipline.md)
+- Campaign freeze discipline: a frozen campaign runs the exact wheel digest
+  recorded at freeze; new algorithms get a new candidate label, never a
+  changed meaning for an existing label.
 - Public matrices SSOT: `axquant.public_cert_index` + `scripts/render_certification_docs.py`

@@ -59,10 +59,17 @@ not be assigned `qwen3-next-mtp` or sent through the oMLX/MTPLX Qwen importer.
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP) | Populated; checkpoint and MTP Tier 2 not certified |
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | Reserved name; no weights or MTP sidecar uploaded |
 
-## Super-class expert-stream pack
+## Super-class expert-stream packs
 
-[AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP)
-is a separate AX Engine expert-stream artifact. `ax_expert_stream.json` is required because the
-full expert table cannot fit in unified memory. It is not a resident `qwen3-next-mtp` import
-target, cannot be loaded with `mlx_lm.load`, has no 4-bit sibling, and will not be certified in
-this revision. Its MTP sidecar is packaged, but MTP acceleration is not claimed.
+These checkpoints cannot resident-load on any shipping Mac. `ax_expert_stream.json` is required.
+They are not resident `qwen3-next-mtp` import targets, cannot be loaded with `mlx_lm.load`, have
+no 4-bit sibling, and will not be certified in this revision. Sidecars are packaged; MTP / DSpark
+acceleration is not claimed.
+
+| Hugging Face model | Notes |
+| --- | --- |
+| [AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP) | Qwen 3.8 2.4T; native Qwen MTP sidecar |
+| [AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP) | DeepSeek V4 Pro 0813; native `mtp.safetensors` DSpark sidecar, not a Qwen sidecar |
+| [AX-MiniMax-M3-MLX-AXQ-2bit](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit) | MiniMax M3; **no** packaged MTP (config `num_mtp_modules` only). Listed here because it is the Super-class stream queue, not because it has a sidecar |
+| [AX-MiniMax-M3-MLX-AXQ-MXFP4](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4) | MiniMax M3 MXFP4; **no** packaged MTP; `vision.safetensors` sidecar |
+| [AX-Kimi-K3-MLX-AXQ-2bit](https://huggingface.co/AutomatosX/AX-Kimi-K3-MLX-AXQ-2bit) | Kimi K3; **no** packaged MTP; native MXFP4 dequant → affine 2-bit; `vision.safetensors` sidecar |

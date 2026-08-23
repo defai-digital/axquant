@@ -35,7 +35,7 @@ from axquant.schema.registry import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_SCHEMAS_DIR = _REPO_ROOT / "schemas"
-_DEFAULT_CATALOG = _REPO_ROOT / "docs" / "schema-catalog.md"
+_DEFAULT_CATALOG = _REPO_ROOT / "docs" / "guides" / "schema-catalog.md"
 _MANIFEST_NAME = "manifest.json"
 
 # Drop documentation-only keys so Pydantic docstring/title churn is not a freeze break.
@@ -210,7 +210,7 @@ def schemas_dir(root: Path | None = None) -> Path:
 
 
 def catalog_path(root: Path | None = None) -> Path:
-    return (root or _REPO_ROOT) / "docs" / "schema-catalog.md"
+    return (root or _REPO_ROOT) / "docs" / "guides" / "schema-catalog.md"
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,7 +255,7 @@ def render_schema_catalog(entries: tuple[SchemaRegistryEntry, ...] | None = None
         "",
         "Machine-owned freeze catalog for versioned artifact models. Source of truth is",
         "the Pydantic model registered for each `schema_version`; JSON Schema snapshots",
-        "under [`schemas/`](../schemas/) lock the serialized contract.",
+        "under [`schemas/`](../../schemas/) lock the serialized contract.",
         "",
         "Regenerate:",
         "",
@@ -271,7 +271,7 @@ def render_schema_catalog(entries: tuple[SchemaRegistryEntry, ...] | None = None
     for entry in sorted(registry, key=lambda item: item.schema_version):
         model_name = f"`{entry.model.__module__}.{entry.model.__name__}`"
         filename = schema_filename(entry.schema_version)
-        snap = f"[`{filename}`](../schemas/{filename})"
+        snap = f"[`{filename}`](../../schemas/{filename})"
         lines.append(
             f"| `{entry.schema_version}` | `{entry.compatibility_class}` | "
             f"`{entry.freeze_policy}` | {model_name} | {snap} |"

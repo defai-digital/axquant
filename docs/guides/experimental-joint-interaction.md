@@ -29,10 +29,10 @@ coupled proxy and writes convert-ready `axquant_plan.json`.
 - Not faster decode, MTP, KV kernels, or convert (AX Engine).
 - Not CUDA, NVFP4, or a new FP4 codec. 1.9 stays on the MLX affine and
   MLX-mxfp4 convert path.
-- Not the full v2 optimizer in `docs/prd/weight-kv-joint-optimization.md`
-  (task-score ranking, per-tensor joint search, method as a decision).
-  Each grid cell still plans weights and KV independently; the 1.9 search
-  only chooses among those cells.
+- Not an unbuilt v2 Deployment Planner (task-score ranking, per-tensor
+  joint search, method as a decision). That draft was never implemented
+  and is not a public spec. Each grid cell still plans weights and KV
+  independently; the 1.9 search only chooses among those cells.
 - Isolated probe KL is a **proxy**. Only the quality quadruple is a
   measured interaction.
 

@@ -30,10 +30,7 @@ _PUBLIC_MARKDOWN_GLOBS = (
     "README.md",
     "CONTRIBUTING.md",
     "THIRD_PARTY_NOTICES.md",
-    "docs/*.md",
-    "docs/certifications/*.md",
-    "docs/releases/*.md",
-    "docs/roadmap/**/*.md",
+    "docs/**/*.md",
     "examples/**/*.md",
     "examples/**/*.yaml",
     "examples/**/*.yml",
@@ -71,7 +68,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         )[1]
         .split("**Development naming:**", 1)[0]
     )
-    completion = _read("docs/model-fleet-v2.md").split("## Completed migration", 1)[1]
+    completion = _read("docs/guides/model-fleet-v2.md").split("## Completed migration", 1)[1]
     repository_link = re.compile(
         r"https://huggingface\.co/AutomatosX/"
         r"(AX-[A-Za-z0-9._-]+-MLX-AXQ-(?:4bit|6bit|8bit)(?:-MTP)?)"
@@ -466,7 +463,7 @@ def test_schema_catalog_matches_registry_generator() -> None:
     """Human schema catalog must stay byte-identical to the freeze generator."""
 
     assert not check_schema_contracts(root=_ROOT)
-    assert _read("docs/schema-catalog.md") == render_schema_catalog()
+    assert _read("docs/guides/schema-catalog.md") == render_schema_catalog()
 
 
 def test_every_listed_certificate_has_public_index_metadata() -> None:

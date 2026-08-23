@@ -1,9 +1,14 @@
 # AXQ pack interchange v1 (`axq-affine-u32-v1`)
 
-- **Status:** normative
+- **Status:** normative (live)
+- **Last reviewed:** 2026-08-23
 - **Physical format:** MLX affine packed U32
 - **Primary runtime:** AX Engine
 - **Compatibility runtime:** stock MLX-LM text/backbone loading
+
+This remains the public pack contract for 1.8 certified converts and 1.9
+Apple / MLX packs. `--q-mode mxfp4` is a separate MLX Apple packer, not a
+second affine-U32 dialect and not NVFP4.
 
 This document freezes the existing AXQuant pack contract. It changes no packed bytes and permits
 one unchanged checkpoint to serve both runtimes without an intermediate repack.

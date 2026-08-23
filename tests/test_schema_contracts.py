@@ -52,7 +52,7 @@ def test_schema_snapshots_match_live_models() -> None:
 
 
 def test_catalog_matches_generator() -> None:
-    catalog = _ROOT / "docs" / "schema-catalog.md"
+    catalog = _ROOT / "docs" / "guides" / "schema-catalog.md"
     assert catalog.is_file()
     assert catalog.read_text(encoding="utf-8") == render_schema_catalog()
 

@@ -25,7 +25,7 @@ separately.
 certificate may carry a capability-gated `modalities` block: unsupported modalities are
 `not-applicable` (disabled); supported ones are `present-not-certified`, `smoke-certified`,
 or `quality-certified` only with bound evidence. Spec:
-[certification-spec-v1.0 §8](../certification-spec-v1.0.md).
+[certification-spec-v1.0 §8](../contracts/certification-spec-v1.0.md).
 
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
@@ -117,5 +117,5 @@ Machine-readable companions:
 - [DeepSeek V4 Flash 2-bit Tier 1 JSON](deepseek-v4-flash-axq2-tier1.json)
 - [DeepSeek V4 Flash 3-bit Tier 1 JSON](deepseek-v4-flash-axq3-tier1.json)
 
-See [flagship certification](../flagship-certification.md) for the two-tier policy and claim
+See [flagship certification](../guides/flagship-certification.md) for the two-tier policy and claim
 boundaries (default route vs formal acceleration route; decode-heavy vs short-answer).
