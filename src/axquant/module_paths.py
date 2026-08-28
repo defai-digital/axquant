@@ -138,7 +138,14 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
 
     One plan allocation therefore covers each packed tensor's MLX modules,
     which share its single precision by construction.
+
+    Qwen4-exp / Flash-Next MTP keeps packed ``mtp.*.mlp.experts.{gate_up,down}_proj``
+    in ``mtp.safetensors``. Mapping those onto ``switch_mlp`` makes coverage list
+    the packed name as both missing and extra. DeepSeek unfused
+    ``mtp.*.ffn.experts.<i>.w*`` never matches these packed forms.
     """
+    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+        return ()
     if module_path.endswith(".mlp.experts.gate_up_proj"):
         prefix = module_path.removesuffix(".experts.gate_up_proj")
         return (f"{prefix}.switch_mlp.gate_proj", f"{prefix}.switch_mlp.up_proj")
@@ -217,7 +224,15 @@ def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
     GPT-OSS identity under ``experts.down_proj``, Nemotron mixer packs) are
     lookup aliases via ``mlx_module_aliases`` and return an empty tuple here so
     one matching visit marks the plan module complete.
+
+    Qwen4-exp / Flash-Next MTP keeps packed ``mtp.*.mlp.experts.gate_up_proj``
+    in ``mtp.safetensors`` (mlx-vlm does not split those into ``switch_mlp``).
+    Requiring the main-layer gate/up split lists the packed name as both
+    missing and extra. DeepSeek unfused ``mtp.*.ffn.experts.<i>.w*`` is
+    unchanged (it never matches this packed form).
     """
+    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+        return ()
     if module_path.endswith(".mlp.experts.gate_up_proj"):
         prefix = module_path.removesuffix(".experts.gate_up_proj")
         return (f"{prefix}.switch_mlp.gate_proj", f"{prefix}.switch_mlp.up_proj")
@@ -448,6 +463,17 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
     elif tensor_path.endswith("_scales"):
         packed_module = tensor_path[: -len("_scales")] + "_blocks"
         packed_suffix = ".scales"
+    # Flash-Next MTP packed experts stay packed. Do not OR-alias them onto a
+    # fictional switch_mlp split; plans use the packed name with or without
+    # ``.weight`` while mlx-vlm may emit the other form.
+    if packed_module.startswith("mtp.") or packed_module.startswith("model.mtp."):
+        if packed_module.endswith(
+            (".mlp.experts.gate_up_proj", ".mlp.experts.down_proj")
+        ):
+            aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))
+            aliases.update(_mlx_wrapper_tensor_aliases(packed_module))
+            aliases.update(_mlx_wrapper_tensor_aliases(f"{packed_module}.weight"))
+            return (tuple(sorted(aliases)),)
     # Multi-module packs (gate_up → gate + up) require every component.
     # Single-output renames expose alternative names as one alias set (OR).
     runtime_modules = packed_expert_runtime_modules(packed_module)

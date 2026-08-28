@@ -1645,6 +1645,64 @@ def test_converted_tensor_binding_proves_qwen_packed_gate_up_split() -> None:
         )
 
 
+def test_converted_tensor_binding_keeps_qwen4_exp_mtp_packed_experts() -> None:
+    """Flash-Next MTP stays packed in mtp.safetensors; main-layer still splits.
+
+    Factory coverage listed ``mtp.layers.0.mlp.experts.gate_up_proj`` as both
+    missing and extra when binding required a fictional ``switch_mlp`` split.
+    """
+
+    mtp_gate_up = "mtp.layers.0.mlp.experts.gate_up_proj"
+    mtp_down = "mtp.layers.0.mlp.experts.down_proj"
+    main_gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    ple = (
+        "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
+    )
+    mtp_gate_up_w = object()
+    mtp_down_w = object()
+    gate = object()
+    up = object()
+    ple_w = object()
+    actual = {
+        mtp_gate_up: mtp_gate_up_w,
+        mtp_down: mtp_down_w,
+        "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight": gate,
+        "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight": up,
+        "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight": ple_w,
+    }
+    expected = {
+        mtp_gate_up: object(),
+        mtp_down: object(),
+        main_gate_up: object(),
+        ple: object(),
+    }
+    bound = converter._bind_converted_tensors(expected, actual)
+    assert bound[mtp_gate_up] == (mtp_gate_up_w,)
+    assert bound[mtp_down] == (mtp_down_w,)
+    assert bound[main_gate_up] == (gate, up)
+    assert bound[ple] == (ple_w,)
+    weight_actual = {
+        f"{mtp_gate_up}.weight": mtp_gate_up_w,
+        f"{mtp_down}.weight": mtp_down_w,
+        "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight": gate,
+        "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight": up,
+        "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight": ple_w,
+    }
+    weight_bound = converter._bind_converted_tensors(expected, weight_actual)
+    assert weight_bound[mtp_gate_up] == (mtp_gate_up_w,)
+    assert weight_bound[mtp_down] == (mtp_down_w,)
+    assert weight_bound[ple] == (ple_w,)
+    # The packed name is consumed, so it cannot be listed as extra.
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch") as leftover:
+        converter._bind_converted_tensors(
+            {mtp_gate_up: object()},
+            {mtp_gate_up: mtp_gate_up_w, "unrelated.weight": object()},
+        )
+    leftover_message = str(leftover.value)
+    assert f"missing=['{mtp_gate_up}']" not in leftover_message
+    assert "unrelated.weight" in leftover_message
+
+
 def test_deepseek_v4_split_switch_mlp_binds_gate_and_up() -> None:
     """Flash-0731 sanitize keeps switch_mlp.up_proj; it is not an extra tensor."""
 
@@ -1851,6 +1909,33 @@ def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transfo
         (8192, 4, 1),
     )
 
+    qwen4_exp_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "qwen4_exp"}
+            )
+        }
+    )
+    assert converter._protected_shape_matches(
+        qwen4_exp_plan,
+        tensor,
+        (10240, 1, 4),
+        (10240, 4, 1),
+    )
+    # qwen4_exp.sanitize moveaxis applies to every conv1d.weight, including PLE.
+    assert converter._protected_shape_matches(
+        qwen4_exp_plan,
+        "model.language_model.layers.1.ple.conv1d.weight",
+        (10240, 1, 4),
+        (10240, 4, 1),
+    )
+    assert not converter._protected_shape_matches(
+        qwen4_exp_plan,
+        "model.language_model.layers.1.ple.key_proj.weight",
+        (10240, 1, 4),
+        (10240, 4, 1),
+    )
+
     nemotron_plan = plan.model_copy(
         update={
             "architecture_profile": plan.architecture_profile.model_copy(
@@ -1872,7 +1957,10 @@ def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transfo
     )
 
 
-@pytest.mark.parametrize("model_type", ["qwen3_vl", "qwen3_vl_moe"])
+@pytest.mark.parametrize(
+    "model_type",
+    ["qwen3_vl", "qwen3_vl_moe", "qwen3_5", "qwen3_next", "qwen4_exp"],
+)
 def test_protected_shape_matching_allows_qwen3_vl_conv3d_sanitize_transform(
     qwen36_model_dir: Path,
     model_type: str,
@@ -1893,6 +1981,13 @@ def test_protected_shape_matching_allows_qwen3_vl_conv3d_sanitize_transform(
         (1152, 3, 2, 16, 16),
         (1152, 2, 16, 16, 3),
     )
+    # mlx-vlm also emits the rewritten vision_tower prefix.
+    assert converter._protected_shape_matches(
+        qwen3_vl_plan,
+        "vision_tower.patch_embed.proj.weight",
+        (1152, 3, 2, 16, 16),
+        (1152, 2, 16, 16, 3),
+    )
     assert not converter._protected_shape_matches(
         qwen3_vl_plan,
         "model.visual.blocks.0.attn.qkv.weight",
@@ -1904,6 +1999,59 @@ def test_protected_shape_matching_allows_qwen3_vl_conv3d_sanitize_transform(
         tensor,
         (1152, 3, 2, 16, 16),
         (1152, 16, 16, 2, 3),
+    )
+
+
+def test_qwen4_exp_protected_sanitize_covers_factory_conv_and_vision(
+    qwen36_model_dir: Path,
+) -> None:
+    """Flash-Next factory convert failed one sanitize layout at a time.
+
+    mlx-vlm qwen4_exp.sanitize moveaxis every conv1d; VisionModel.sanitize
+    transposes patch_embed. Both must be accepted together.
+    """
+
+    base = _plan(qwen36_model_dir)
+    plan = base.model_copy(
+        update={
+            "architecture_profile": base.architecture_profile.model_copy(
+                update={"config_model_type": "qwen4_exp"}
+            )
+        }
+    )
+    conv1d = (10240, 1, 4)
+    conv1d_mlx = (10240, 4, 1)
+    patch = (1152, 3, 2, 16, 16)
+    patch_mlx = (1152, 2, 16, 16, 3)
+    assert converter._protected_shape_matches(
+        plan,
+        "model.language_model.layers.0.linear_attn.conv1d.weight",
+        conv1d,
+        conv1d_mlx,
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "model.language_model.layers.1.ple.conv1d.weight",
+        conv1d,
+        conv1d_mlx,
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "model.visual.patch_embed.proj.weight",
+        patch,
+        patch_mlx,
+    )
+    assert not converter._protected_shape_matches(
+        plan,
+        "model.visual.pos_embed.weight",
+        patch,
+        patch_mlx,
+    )
+    assert not converter._protected_shape_matches(
+        plan,
+        "model.language_model.layers.0.linear_attn.in_proj_qkv.weight",
+        conv1d,
+        conv1d_mlx,
     )
 
 

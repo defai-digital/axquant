@@ -951,6 +951,43 @@ def test_qwen4_exp_ngram_shard_aliases_mlx_vlm_shards() -> None:
     packed_flat = {name for group in packed for name in group}
     assert "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight" in packed_flat
     assert "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight" in packed_flat
+    assert len(packed) == 2
+
+
+def test_qwen4_exp_mtp_packed_experts_bind_identity_not_switch_mlp_split() -> None:
+    from axquant.module_paths import (
+        fused_expert_module,
+        mlx_tensor_binding_groups,
+        packed_expert_runtime_modules,
+    )
+
+    mtp_gate_up = "mtp.layers.0.mlp.experts.gate_up_proj"
+    mtp_down = "mtp.layers.0.mlp.experts.down_proj"
+    main_gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    assert packed_expert_runtime_modules(mtp_gate_up) == ()
+    assert packed_expert_runtime_modules(mtp_down) == ()
+    assert packed_expert_runtime_modules(f"model.{mtp_gate_up}") == ()
+    # Main-layer packed experts still require the switch_mlp gate/up split.
+    main_runtime = packed_expert_runtime_modules(main_gate_up)
+    assert main_runtime[0].endswith("switch_mlp.gate_proj")
+    assert main_runtime[1].endswith("switch_mlp.up_proj")
+    groups = mlx_tensor_binding_groups(mtp_gate_up)
+    assert len(groups) == 1
+    assert mtp_gate_up in groups[0]
+    assert f"{mtp_gate_up}.weight" in groups[0]
+    assert not any("switch_mlp" in name for name in groups[0])
+    down_groups = mlx_tensor_binding_groups(mtp_down)
+    assert len(down_groups) == 1
+    assert mtp_down in down_groups[0]
+    assert not any("switch_mlp" in name for name in down_groups[0])
+    weight_groups = mlx_tensor_binding_groups(f"{mtp_gate_up}.weight")
+    assert len(weight_groups) == 1
+    assert mtp_gate_up in weight_groups[0]
+    assert f"{mtp_gate_up}.weight" in weight_groups[0]
+    assert not any("switch_mlp" in name for name in weight_groups[0])
+    # DeepSeek unfused MTP experts stay unfused.
+    assert fused_expert_module("mtp.0.ffn.experts.0.w1") is None
+    assert fused_expert_module("model.mtp.0.ffn.experts.1.w2") is None
 
 
 def test_nemotron_expert_fuses_to_switch_mlp_fc() -> None:

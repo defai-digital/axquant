@@ -169,6 +169,16 @@ def test_deepseek_mtp_experts_are_not_fused_for_sidecar_binding() -> None:
     assert up[0].endswith("switch_mlp.up_proj.weight")
     assert fused_expert_module("layers.3.ffn.experts.0.w1") is not None
     assert fused_expert_module("layers.3.ffn.experts.0.w3") == ("layers.3.ffn.switch_mlp.up_proj")
+    from axquant.module_paths import packed_expert_runtime_modules
+
+    # Qwen4-exp packed MTP is identity; DeepSeek indexed MTP is still unfused.
+    assert packed_expert_runtime_modules("mtp.layers.0.mlp.experts.gate_up_proj") == ()
+    assert packed_expert_runtime_modules("mtp.0.ffn.experts.0.w1") == ()
+    mtp_groups = mlx_tensor_binding_groups("mtp.layers.0.mlp.experts.gate_up_proj")
+    assert len(mtp_groups) == 1
+    assert "mtp.layers.0.mlp.experts.gate_up_proj" in mtp_groups[0]
+    assert "mtp.layers.0.mlp.experts.gate_up_proj.weight" in mtp_groups[0]
+    assert not any("switch_mlp" in name for name in mtp_groups[0])
 
 
 def test_hc_learnable_scale_does_not_alias_to_quant_scales() -> None:

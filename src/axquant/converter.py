@@ -1354,6 +1354,29 @@ def _shape_element_count(shape: tuple[int, ...]) -> int:
     return total
 
 
+# Families whose public sanitizer moveaxis(2, 1) every ``conv1d.weight`` with
+# last dim != 1 (GDN linear_attn and, for qwen4_exp, PLE conv1d).
+_QWEN_HYBRID_CONV1D_TYPES = frozenset(
+    {"qwen3_5", "qwen3_5_moe", "qwen3_next", "qwen4_exp"}
+)
+# Families that inherit mlx-vlm ``qwen3_vl.VisionModel.sanitize``:
+# PyTorch Conv3d ``(O, I, D, H, W)`` → MLX ``(O, D, H, W, I)``.
+_QWEN_VL_PATCH_EMBED_TYPES = frozenset(
+    {
+        "qwen3_vl",
+        "qwen3_vl_moe",
+        "qwen3_5",
+        "qwen3_5_moe",
+        "qwen3_next",
+        "qwen4_exp",
+    }
+)
+
+
+def _permute_shape(shape: tuple[int, ...], axes: tuple[int, ...]) -> tuple[int, ...]:
+    return tuple(shape[axis] for axis in axes)
+
+
 def _protected_shape_matches(
     plan: QuantizationPlan,
     tensor_name: str,
@@ -1381,17 +1404,17 @@ def _protected_shape_matches(
             transform="mlx-lm-deepseek-v4-wo_a-multilinear-reshape",
         )
         return True
-    qwen_hybrid_conv1d = model_type in {
-        "qwen3_5",
-        "qwen3_5_moe",
-        "qwen3_next",
-    } and tensor_name.endswith(".linear_attn.conv1d.weight")
-    nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(".mixer.conv1d.weight")
+    qwen_hybrid_conv1d = (
+        model_type in _QWEN_HYBRID_CONV1D_TYPES and tensor_name.endswith(".conv1d.weight")
+    )
+    nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(
+        ".mixer.conv1d.weight"
+    )
     if (
         (qwen_hybrid_conv1d or nemotron_conv1d)
         and len(source_shape) == 3
         and source_shape[-1] != 1
-        and actual_shape == (source_shape[0], source_shape[2], source_shape[1])
+        and actual_shape == _permute_shape(source_shape, (0, 2, 1))
     ):
         _LOG.info(
             "converted_shape_transform_verified",
@@ -1401,20 +1424,14 @@ def _protected_shape_matches(
             transform=f"mlx-lm-{model_type}-conv1d-moveaxis-2-1",
         )
         return True
-    qwen3_vl_patch_embed = (
-        model_type in {"qwen3_vl", "qwen3_vl_moe"}
-        and tensor_name.endswith(".visual.patch_embed.proj.weight")
+    # mlx-vlm qwen3_vl VisionModel.sanitize (qwen4_exp subclasses it):
+    # ``patch_embed.proj.weight`` transpose(0, 2, 3, 4, 1).
+    if (
+        model_type in _QWEN_VL_PATCH_EMBED_TYPES
+        and "patch_embed.proj.weight" in tensor_name
         and len(source_shape) == 5
-        and actual_shape
-        == (
-            source_shape[0],
-            source_shape[2],
-            source_shape[3],
-            source_shape[4],
-            source_shape[1],
-        )
-    )
-    if qwen3_vl_patch_embed:
+        and actual_shape == _permute_shape(source_shape, (0, 2, 3, 4, 1))
+    ):
         _LOG.info(
             "converted_shape_transform_verified",
             tensor=tensor_name,
@@ -1603,9 +1620,19 @@ def _verify_converted_weights(
                     actual_components[0].shape,
                 )
             if not shape_matches:
+                hint = ""
+                if (
+                    len(actual_components) == 1
+                    and _shape_element_count(source_shape)
+                    == _shape_element_count(actual_components[0].shape)
+                ):
+                    hint = (
+                        f"; equal element count under {model_type} — missing a "
+                        "documented sanitize permute in _protected_shape_matches"
+                    )
                 raise ArtifactError(
                     f"protected tensor {verification_name} shape changed during conversion: "
-                    f"{actual_shapes} != {expected_shapes}"
+                    f"{actual_shapes} != {expected_shapes}{hint}"
                 )
             # Byte-preserved MTP sidecars keep the source's native packing
             # (DeepSeek V4 Flash experts stay FP4/I8). Only non-MTP protected
