@@ -276,7 +276,7 @@ def render_index_matrix(rows: list[PublicCertRow] | None = None) -> str:
 
     catalog = rows if rows is not None else load_public_cert_rows()
     lines = [
-        "| Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |",
+        "| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP) |",
         "| --- | --- | --- | --- |",
     ]
     for row in catalog:
@@ -306,7 +306,7 @@ def render_release_matrix(rows: list[PublicCertRow] | None = None) -> str:
         "unlisted no-MTP siblings and evaluation archives, see",
         "[full certification list](../certifications/full-list.md).",
         "",
-        "| Pack family | Hub repository | Tier 1 | Tier 2 | Host |",
+        "| Pack family | Hub repository | Tier 1 (quality) | Tier 2 (MTP) | Host |",
         "| --- | --- | --- | --- | --- |",
     ]
     prefix = "../certifications/"
@@ -347,7 +347,10 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "then Tier 1 with Tier 2 not certified, then non-certified evaluation",
         "records. Within each group, `public_index.sort_order` applies.",
         "",
-        "| Pack family | Hub repository | Edition | Tier 1 | Tier 2 | Host | In headline matrix |",
+        "**Tier 1** is checkpoint **quality**. **Tier 2** is scoped **MTP**",
+        "acceleration (N/A when the pack has no MTP).",
+        "",
+        "| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP) | Host | In headline matrix |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in catalog:

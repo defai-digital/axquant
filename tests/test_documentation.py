@@ -360,6 +360,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         "deepseek-v4-flash-0731-axq4",
         "deepseek-v4-flash-0731-axq-mxfp4",
         "deepseek-v4-flash-0731-axq6",
+        "minimax-m3-axq2",
+        "minimax-m3-axq-mxfp4",
         "qwen3-vl-32b-thinking-axq6",
         "qwen3-vl-32b-thinking-axq-mxfp4",
     ]
@@ -399,6 +401,9 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert "qwen3-coder-next-axq4-tier1.md" in full
     assert "qwen3-coder-next-axq-mxfp4-tier1.md" in full
     assert "In headline matrix" in full
+    assert "Tier 1 (quality)" in full
+    assert "Tier 2 (MTP)" in full
+    assert "checkpoint **quality**" in full
 
     # Display names and Tier 1 verdicts agree across every generated surface.
     def _data_rows(matrix: str) -> list[str]:

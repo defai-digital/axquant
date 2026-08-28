@@ -279,6 +279,8 @@ The tables are generated from certificate JSON
 | DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash-0731 MLX AXQ MXFP4 | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash-0731 MLX AXQ 6-bit | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
+| MiniMax-M3 MLX AXQ 2-bit (exp.) | [Not Certified](docs/certifications/minimax-m3-axq2-tier1.md) | N/A (no MTP) |
+| MiniMax-M3 MLX AXQ MXFP4 (exp.) | [Not Certified](docs/certifications/minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact

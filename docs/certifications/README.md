@@ -28,7 +28,7 @@ or `quality-certified` only with bound evidence. Spec:
 [certification-spec-v1.0 §8](../contracts/certification-spec-v1.0.md).
 
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
-| Checkpoint | Edition | Tier 1 (checkpoint) | Tier 2 (MTP acceleration) |
+| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP) |
 | --- | --- | --- | --- |
 | [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) |
 | [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) |
@@ -59,6 +59,8 @@ or `quality-certified` only with bound evidence. Spec:
 | [DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP](deepseek-v4-flash-0731-axq4-tier1.md) | studio-local-g128 | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash-0731 MLX AXQ MXFP4](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | recipe-only | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
 | [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
+| [MiniMax-M3 MLX AXQ 2-bit (exp.)](minimax-m3-axq2-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq2-tier1.md) | N/A (no MTP) |
+| [MiniMax-M3 MLX AXQ MXFP4 (exp.)](minimax-m3-axq-mxfp4-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP

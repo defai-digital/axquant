@@ -10,7 +10,7 @@ Headline (listed) packs only. For every AXQ certificate record including
 unlisted no-MTP siblings and evaluation archives, see
 [full certification list](../certifications/full-list.md).
 
-| Pack family | Hub repository | Tier 1 | Tier 2 | Host |
+| Pack family | Hub repository | Tier 1 (quality) | Tier 2 (MTP) | Host |
 | --- | --- | --- | --- | --- |
 | Qwen3.8-27B MLX AXQ 4-bit MTP | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | [Certified](../certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](../certifications/qwen38-27b-axq4-mtp-tier2.md) | `df-macbookpro-m3` |
 | Qwen3.8-27B MLX AXQ 6-bit MTP | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | [Certified](../certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](../certifications/qwen38-27b-axq6-mtp-tier2.md) | `df-macbookpro-m3` |
@@ -41,3 +41,5 @@ unlisted no-MTP siblings and evaluation archives, see
 | DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) | `df-macstudio-m2` |
 | DeepSeek V4 Flash-0731 MLX AXQ MXFP4 | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) | `df-macstudio-m2` |
 | DeepSeek V4 Flash-0731 MLX AXQ 6-bit | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](../certifications/deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) | `df-macstudio-m2` |
+| MiniMax-M3 MLX AXQ 2-bit (exp.) | [`AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit) | [Not Certified](../certifications/minimax-m3-axq2-tier1.md) | N/A (no MTP) | `tn-macstudio-m3` |
+| MiniMax-M3 MLX AXQ MXFP4 (exp.) | [`AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4) | [Not Certified](../certifications/minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) | `tn-macstudio-m3` |

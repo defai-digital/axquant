@@ -13,7 +13,10 @@ Sort order: dual Tier 1+2 certified first, then Tier 1 only (T2 N/A),
 then Tier 1 with Tier 2 not certified, then non-certified evaluation
 records. Within each group, `public_index.sort_order` applies.
 
-| Pack family | Hub repository | Edition | Tier 1 | Tier 2 | Host | In headline matrix |
+**Tier 1** is checkpoint **quality**. **Tier 2** is scoped **MTP**
+acceleration (N/A when the pack has no MTP).
+
+| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP) | Host | In headline matrix |
 | --- | --- | --- | --- | --- | --- | --- |
 | [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) | `df-macbookpro-m3` | yes |
 | [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) | `df-macbookpro-m3` | yes |
@@ -64,13 +67,15 @@ records. Within each group, `public_index.sort_order` applies.
 | [DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP](deepseek-v4-flash-0731-axq4-tier1.md) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | studio-local-g128 | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
 | [DeepSeek V4 Flash-0731 MLX AXQ MXFP4](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4) | recipe-only | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
 | [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | [`AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) | `df-macstudio-m2` | yes |
+| [MiniMax-M3 MLX AXQ 2-bit (exp.)](minimax-m3-axq2-tier1.md) | [`AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit) | m3@7.2.0 | [Not Certified](minimax-m3-axq2-tier1.md) | N/A (no MTP) | `tn-macstudio-m3` | yes |
+| [MiniMax-M3 MLX AXQ MXFP4 (exp.)](minimax-m3-axq-mxfp4-tier1.md) | [`AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4) | m3@7.2.0 | [Not Certified](minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) | `tn-macstudio-m3` | yes |
 | [Qwen3-VL-32B-Thinking MLX AXQ 6-bit](qwen3-vl-32b-thinking-axq6-tier1.md) | [`AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit) | main@`3af7b5c5` | [Not Certified](qwen3-vl-32b-thinking-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Qwen3-VL-32B-Thinking MLX AXQ MXFP4](qwen3-vl-32b-thinking-axq-mxfp4-tier1.md) | [`AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4) | main@`5d5d1853` | [Not Certified](qwen3-vl-32b-thinking-axq-mxfp4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 
 ## Counts
 
-- Total certificate records: **51**
-- In README headline matrix (`listed`): **29**
+- Total certificate records: **53**
+- In README headline matrix (`listed`): **31**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **31**
-- Not checkpoint-certified (evaluation only): **14**
+- Not checkpoint-certified (evaluation only): **16**
