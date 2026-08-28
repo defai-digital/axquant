@@ -75,8 +75,80 @@ PACKS: dict[str, dict[str, Any]] = {
 }
 
 
+class ConvertInterrupted(SystemExit):
+    """Raised when a child convert is SIGTERM/SIGINT/SIGKILL'd.
+
+    ``cmd_remaining`` must not treat this as a per-pack failure and start the
+    next SKU — that is how a stopped MXFP4 job used to launch AXQ4.
+    """
+
+
 def log(msg: str) -> None:
     print(msg, flush=True)
+
+
+def leftover_staging_dirs(pack: Path) -> list[Path]:
+    """Temporary convert trees left behind when the process is SIGKILL'd.
+
+    ``convert_model`` stages under ``.{pack.name}.<rand>/`` next to the output.
+    ``finally: rmtree`` does not run after SIGKILL, so factory restarts must
+    delete these before the next convert.
+    """
+
+    if pack.parent.is_dir():
+        return sorted(path for path in pack.parent.glob(f".{pack.name}.*") if path.is_dir())
+    return []
+
+
+def remove_leftover_staging(pack: Path) -> None:
+    for path in leftover_staging_dirs(pack):
+        log(f"removing leftover convert staging {path}")
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def convert_exit_was_signaled(returncode: int) -> bool:
+    if returncode < 0:
+        return True
+    return returncode in {130, 137, 143}
+
+
+def find_inflight_flash_next_converts(*, pid_self: int | None = None) -> list[tuple[int, str]]:
+    """Return PIDs already converting this Flash-Next source or pack."""
+
+    pid_self = os.getpid() if pid_self is None else pid_self
+    try:
+        raw = subprocess.check_output(["ps", "-ax", "-o", "pid=,command="], text=True)
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    tokens = (
+        "Qwen3.8-Flash-Next",
+        "qwen38-flash-next",
+        *(str(item["hub_name"]) for item in PACKS.values()),
+    )
+    found: list[tuple[int, str]] = []
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        pid_s, _, command = stripped.partition(" ")
+        try:
+            pid = int(pid_s)
+        except ValueError:
+            continue
+        if pid == pid_self:
+            continue
+        if "-m axquant convert" not in command and "axquant convert" not in command:
+            continue
+        if any(token in command for token in tokens):
+            found.append((pid, command))
+    return found
+
+
+def refuse_inflight_convert() -> None:
+    inflight = find_inflight_flash_next_converts()
+    if inflight:
+        pid, command = inflight[0]
+        raise SystemExit(f"Flash-Next convert already running (pid {pid}): {command}")
 
 
 def shard_name(index: int) -> str:
@@ -193,18 +265,53 @@ def run(
     require_xet_env(env)
     log("$ " + " ".join(cmd))
     if log_path is None:
-        proc = subprocess.run(cmd, check=check, cwd=str(ROOT), env=env)
-        return int(proc.returncode)
+        proc = subprocess.Popen(cmd, cwd=str(ROOT), env=env)
+        returncode = _wait_forwarding_stop_signals(proc)
+        if convert_exit_was_signaled(returncode):
+            raise ConvertInterrupted(f"interrupted ({returncode})")
+        if check and returncode != 0:
+            raise SystemExit(f"command failed ({returncode})")
+        return int(returncode)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write("\n$ " + " ".join(cmd) + "\n\n")
         handle.flush()
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             cmd, stdout=handle, stderr=subprocess.STDOUT, cwd=str(ROOT), env=env
         )
-    if check and proc.returncode != 0:
-        raise SystemExit(f"command failed ({proc.returncode}): see {log_path}")
-    return int(proc.returncode)
+        returncode = _wait_forwarding_stop_signals(proc)
+    if convert_exit_was_signaled(returncode):
+        raise ConvertInterrupted(f"interrupted ({returncode}): see {log_path}")
+    if check and returncode != 0:
+        raise SystemExit(f"command failed ({returncode}): see {log_path}")
+    return int(returncode)
+
+
+def _wait_forwarding_stop_signals(proc: subprocess.Popen[Any]) -> int:
+    """Wait for *proc*, forwarding SIGTERM/SIGINT so a stopped driver kills convert."""
+
+    interrupted = False
+
+    def _forward(signum: int, _frame: object) -> None:
+        nonlocal interrupted
+        interrupted = True
+        try:
+            proc.send_signal(signum)
+        except ProcessLookupError:
+            return
+
+    previous_term = signal.getsignal(signal.SIGTERM)
+    previous_int = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGTERM, _forward)
+    signal.signal(signal.SIGINT, _forward)
+    try:
+        returncode = int(proc.wait())
+    finally:
+        signal.signal(signal.SIGTERM, previous_term)
+        signal.signal(signal.SIGINT, previous_int)
+    if interrupted and not convert_exit_was_signaled(returncode):
+        return -signal.SIGTERM
+    return returncode
 
 
 def venv_python() -> Path:
@@ -469,6 +576,7 @@ def cmd_inspect() -> None:
 
 def cmd_convert(key: str) -> None:
     require_factory_host(socket.gethostname())
+    refuse_inflight_convert()
     if key not in PACKS:
         raise SystemExit(f"unknown pack {key}")
     item = PACKS[key]
@@ -485,21 +593,23 @@ def cmd_convert(key: str) -> None:
     if pack.exists():
         log(f"removing incomplete pack {pack}")
         shutil.rmtree(pack)
+    remove_leftover_staging(pack)
     plan = WORK / f"plan-{key}.json"
-    if not plan.is_file():
-        run(
-            [
-                *axquant_cmd(),
-                "plan-manual",
-                "--inventory",
-                str(inventory),
-                "--recipe",
-                str(recipe),
-                "--output",
-                str(plan),
-            ],
-            WORK / "logs" / f"plan-{key}.log",
-        )
+    # Always rewrite the plan. Reusing yesterday's JSON after a recipe or
+    # classifier change is how factory converts kept the wrong group size.
+    run(
+        [
+            *axquant_cmd(),
+            "plan-manual",
+            "--inventory",
+            str(inventory),
+            "--recipe",
+            str(recipe),
+            "--output",
+            str(plan),
+        ],
+        WORK / "logs" / f"plan-{key}.log",
+    )
     extra: dict[str, str] = {}
     if item.get("experimental_2bit"):
         extra["AX_ENGINE_2BIT_EXPERIMENTAL"] = "1"
@@ -576,6 +686,8 @@ def cmd_remaining() -> None:
             cmd_convert(key)
             cmd_publish(key)
             failed.unlink(missing_ok=True)
+        except ConvertInterrupted:
+            raise
         except SystemExit as exc:
             failures.append(f"{key}: {exc}")
             log(f"FAILED {key}: {exc}")

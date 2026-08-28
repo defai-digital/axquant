@@ -24,8 +24,12 @@ PY="${FLASH_NEXT_VENV}/bin/python"
 LOG="${FLASH_NEXT_WORK}/logs/retry-remaining.log"
 mkdir -p "${FLASH_NEXT_WORK}/logs"
 exec >>"$LOG" 2>&1
-echo "[$(date -Iseconds)] waiting for in-flight axquant convert"
-while ps -ax -o command= | awk '/python -m axquant convert/ && $0 !~ /retry_qwen38_flash_next/ { found=1 } END { exit !found }'; do
+echo "[$(date -Iseconds)] waiting for in-flight axquant convert or driver"
+while ps -ax -o command= | awk '
+  /python -m axquant convert/ && $0 !~ /awk/ { found=1 }
+  /run_qwen38_flash_next_axq.py/ && $0 !~ /retry_qwen38_flash_next/ && $0 !~ /awk/ { found=1 }
+  END { exit !found }
+'; do
   sleep 30
 done
 echo "[$(date -Iseconds)] converting remaining Flash-Next packs"
