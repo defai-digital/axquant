@@ -1,0 +1,68 @@
+# Experimental 2-bit AXQ recipe for Qwen3.8-Flash-Next (qwen4_exp).
+# Development evidence only. Experts/MLP 2-bit; attention stays 4-bit.
+# PLE/n-gram embeddings use the 8-bit embedding floor. Vision + gated residual BF16.
+schema_version: axquant.manual-recipe.v1
+profile: general
+target_bpw: 16.0
+default_bits: 2
+default_method: affine
+group_size: 32
+allow_unmatched_rules: false
+lm_head_min_bits: 8
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 20260828
+rules:
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: Vision tower BF16-protected
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms and gated-residual mixers stay BF16
+  - rule_id: mtp-bf16
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: Integrated MTP extracted as a BF16 sidecar
+  - rule_id: lm-head-8
+    roles: [lm_head]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: LM head 8-bit affine floor
+  - rule_id: embedding-8
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Token + PLE/n-gram embedding floor
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Router floor remains 8-bit
+  - rule_id: protect-attention
+    roles: [attention]
+    bits: 4
+    method: affine
+    group_size: 32
+    reason: Attention trunk stays at least 4-bit for experimental 2-bit packs
+  - rule_id: trunk-experimental-2bit
+    roles: [mlp, expert]
+    bits: 2
+    method: affine
+    group_size: 32
+    reason: Experimental 2-bit robust trunk (shared MLP + fused experts)
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

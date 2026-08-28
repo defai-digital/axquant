@@ -97,6 +97,7 @@ def _validate_runtime_smoke(
     exclusive = {
         "qwen3-asr-v1": "mlx-audio",
         "qwen3-vl-v1": "mlx-vlm",
+        "qwen4-exp-v1": "mlx-vlm",
     }.get(adapter_id)
     # Dual-runtime MoE VL: AX Engine primary + MLX-VLM compatibility (convert is mlx-vlm).
     dual_vl_moe = adapter_id == "qwen3-vl-moe-v1"

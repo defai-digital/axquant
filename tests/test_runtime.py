@@ -224,6 +224,7 @@ def test_runtime_metadata_declares_ax_primary_and_mlx_fallback(
     [
         ("qwen3-asr-v1", RuntimeName.MLX_AUDIO),
         ("qwen3-vl-v1", RuntimeName.MLX_VLM),
+        ("qwen4-exp-v1", RuntimeName.MLX_VLM),
     ],
 )
 def test_runtime_metadata_declares_architecture_specific_multimodal_primary(

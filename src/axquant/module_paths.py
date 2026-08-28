@@ -30,6 +30,19 @@ _DEEPSEEK_PROJ_TO_SWITCH = {
     "w3": "up_proj",
 }
 _PACKED_TENSOR_SUFFIXES = (".weight", ".scales", ".biases", "_blocks", "_scales")
+# Qwen4-exp PLE table: HF shards are ``ngram_embedding.shard_N``; mlx-vlm
+# sanitize rewrites them to ``ngram_embedding.shards.N`` (ShardedEmbedding).
+_NGRAM_SHARD = re.compile(r"\.ngram_embedding\.shard_(\d+)(?=\.|$)")
+_NGRAM_SHARDS = re.compile(r"\.ngram_embedding\.shards\.(\d+)(?=\.|$)")
+
+
+def _ngram_embedding_aliases(path: str) -> set[str]:
+    aliases = {path}
+    if _NGRAM_SHARD.search(path):
+        aliases.add(_NGRAM_SHARD.sub(r".ngram_embedding.shards.\1", path))
+    if _NGRAM_SHARDS.search(path):
+        aliases.add(_NGRAM_SHARDS.sub(r".ngram_embedding.shard_\1", path))
+    return aliases
 
 
 def _is_hc_learnable_scale_path(path: str) -> bool:
@@ -230,6 +243,7 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
     identity rule.
     """
     base = {module_path}
+    base.update(_ngram_embedding_aliases(module_path))
     base.update(_packed_expert_aliases(module_path))
     fused = fused_expert_module(module_path)
     if fused is not None:
@@ -283,7 +297,7 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
 def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
     """Return aliases for the Qwen wrapper-only tensor-path rewrite."""
 
-    aliases = {tensor_path}
+    aliases = _ngram_embedding_aliases(tensor_path)
     checkpoint_prefix = "model.language_model."
     mlx_prefix = "language_model.model."
     if tensor_path.startswith(checkpoint_prefix):
@@ -345,6 +359,11 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         changed = False
         expanded = set(aliases)
         for candidate in list(aliases):
+            expanded.update(_ngram_embedding_aliases(candidate))
+            if candidate.startswith(checkpoint_prefix):
+                expanded.add(f"{mlx_prefix}{candidate.removeprefix(checkpoint_prefix)}")
+            if candidate.startswith(mlx_prefix):
+                expanded.add(f"{checkpoint_prefix}{candidate.removeprefix(mlx_prefix)}")
             if candidate.startswith("layers.") and not candidate.startswith("model.layers."):
                 expanded.add(f"model.{candidate}")
             if candidate.startswith("model.layers."):

@@ -1,0 +1,68 @@
+# AXQ 6-bit recipe for Qwen3.8-Flash-Next (qwen4_exp).
+# Language attention/MLP/experts 6-bit affine. Vision + gated residual BF16.
+# Development evidence only — not a certificate.
+schema_version: axquant.manual-recipe.v1
+profile: agent-coding
+target_bpw: 8.0
+default_bits: 6
+default_method: affine
+group_size: 64
+allow_unmatched_rules: false
+lm_head_min_bits: 8
+target_mode: balanced
+primary_runtime: ax-engine
+random_seed: 20260828
+rules:
+  - rule_id: protect-vision
+    roles: [vision]
+    bits: 16
+    method: bf16
+    reason: Vision tower BF16-protected
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Norms and gated-residual mixers stay BF16
+  - rule_id: mtp-bf16
+    roles: [mtp_projection, mtp_block, mtp_output]
+    bits: 16
+    method: bf16
+    reason: Integrated MTP extracted as a BF16 sidecar
+  - rule_id: lm-head-8
+    roles: [lm_head]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: LM head 8-bit affine floor
+  - rule_id: embedding-8
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Token + PLE/n-gram floor; PLE shard width 160 requires gs32
+  - rule_id: protect-routers
+    roles: [router]
+    bits: 8
+    method: affine
+    group_size: 64
+    reason: Router floor remains 8-bit
+  - rule_id: attention-6
+    roles: [attention]
+    bits: 6
+    method: affine
+    group_size: 64
+    reason: Language attention 6-bit trunk
+  - rule_id: mlp-6
+    roles: [mlp, expert]
+    bits: 6
+    method: affine
+    group_size: 64
+    reason: Language MLP + fused expert 6-bit trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

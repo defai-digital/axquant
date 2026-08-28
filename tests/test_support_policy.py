@@ -115,6 +115,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
         "qwen38-moe-v1",
         "qwen35-dense-v1",
         "qwen38-dense-v1",
+        "qwen4-exp-v1",
         "qwen35-moe-v1",
         "qwen3-next-v1",
         "qwen3-dense-v1",

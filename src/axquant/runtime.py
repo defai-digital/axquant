@@ -714,7 +714,7 @@ def build_runtime_metadata(
             notes=["MLX-Audio loads the protected modality tower and AXQ language decoder."],
         )
         compatible_runtimes = []
-    elif adapter_id == "qwen3-vl-v1":
+    elif adapter_id in {"qwen3-vl-v1", "qwen4-exp-v1"}:
         primary_runtime = RuntimeProfile(
             name=RuntimeName.MLX_VLM,
             compatibility_level="A",

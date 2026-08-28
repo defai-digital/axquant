@@ -90,6 +90,27 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         ),
     ),
     FamilySupportPolicy(
+        product_family="qwen4-exp",
+        adapter_id="qwen4-exp-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=6,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin Qwen4-exp preview path: Qwen3.8-Flash-Next multimodal MoE converts "
+            "through MLX-VLM (qwen4_exp). Development evidence only."
+        ),
+        do=(
+            "Convert from the pinned BF16 Flash-Next revision; protect vision and gated "
+            "residual mixers at BF16; keep PLE on the embedding floor.",
+            "Keep Hub packs labeled development evidence until a later cert campaign.",
+        ),
+        do_not=(
+            "Do not route this checkpoint through qwen38-moe-v1 or qwen38-dense-v1.",
+            "Do not claim AX Engine certification or Super-class 2.4T stream policy.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="qwen3.5",
         adapter_id="qwen35-dense-v1",
         investment_posture=InvestmentPosture.SECONDARY,

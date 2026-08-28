@@ -20,6 +20,7 @@ from axquant.capture_binding import (
 )
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.inspector import inspect_model
+from axquant.module_paths import fused_expert_module
 from axquant.planner import plan_quantization
 from axquant.predicate import build_quant_predicate
 from axquant.schema import (
@@ -28,12 +29,15 @@ from axquant.schema import (
     CalibrationEvidence,
     CalibrationManifest,
     EvidenceKind,
+    Inventory,
+    ModelIdentity,
     PlanRequest,
     ProfileName,
     QuantizationPlan,
     QuantizerExecutionManifest,
     QuantMethod,
     TensorRole,
+    TensorSpec,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
@@ -81,6 +85,14 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
         }
     )
     assert multimodal_backend.conversion_backend(vlm_plan) == "mlx-vlm"
+    qwen4_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen4-exp-v1"}
+            )
+        }
+    )
+    assert multimodal_backend.conversion_backend(qwen4_plan) == "mlx-vlm"
     predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
     observed: dict[str, object] = {}
 
@@ -328,6 +340,300 @@ def test_multimodal_backend_rejects_wrong_calls_and_wraps_backend_failures(
             predicate,
             4,
         )
+
+
+class _FakeQuantWeight:
+    def __init__(self, last_dim: int) -> None:
+        self.shape = (8, last_dim)
+
+
+class _FakeQuantModule:
+    def __init__(self, last_dim: int) -> None:
+        self.weight = _FakeQuantWeight(last_dim)
+
+    def to_quantized(self, **kwargs: object) -> _FakeQuantModule:
+        del kwargs
+        return self
+
+
+class _FakeDenseModule:
+    """Router-like module: planned, but MLX has no to_quantized()."""
+
+
+def _qwen4_mixed_group_plan(model_dir: Path) -> tuple[QuantizationPlan, str]:
+    plan = _plan(model_dir)
+    target = next(
+        allocation
+        for allocation in plan.assignments
+        if allocation.bits < 16 and fused_expert_module(allocation.module_path) is None
+    )
+    plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen4-exp-v1"}
+            ),
+            "group_size": 64,
+            "assignments": [
+                (
+                    target.model_copy(update={"group_size": 32})
+                    if allocation.module_path == target.module_path
+                    else allocation
+                )
+                for allocation in plan.assignments
+            ],
+        }
+    )
+    return plan, target.module_path
+
+
+def test_qwen4_exp_ple_mlx_shards_path_keeps_embedding_group_size_32() -> None:
+    tensor = TensorSpec(
+        name="model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight",
+        module_path="model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0",
+        shape=(2500012, 160),
+        dtype="BF16",
+        parameters=2500012 * 160,
+        role=TensorRole.EMBEDDING,
+        quantizable=True,
+        file="model.safetensors",
+        current_precision="bf16",
+    )
+    inventory = Inventory(
+        model=ModelIdentity(model_id="Qwen/Qwen3.8-Flash-Next"),
+        tensors=[tensor],
+        total_parameters=tensor.parameters,
+        quantizable_parameters=tensor.parameters,
+        mtp_present=False,
+        quantized_source=False,
+        source_files=["model.safetensors"],
+        config_sha256="a" * 64,
+    )
+    report = architecture_prior_report(inventory, profile=ProfileName.GENERAL)
+    plan = plan_quantization(
+        report,
+        PlanRequest(profile=ProfileName.GENERAL, target_bpw=12.0, allow_unmeasured=True),
+    )
+    assignment = plan.assignments[0]
+    assert assignment.bits < 16
+    plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "qwen4-exp-v1"}
+            ),
+            "group_size": 64,
+            "assignments": [
+                allocation.model_copy(update={"group_size": 32}) for allocation in plan.assignments
+            ],
+        }
+    )
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    mlx_path = "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0"
+    params = multimodal_backend._quant_params_for_runtime_module(
+        mlx_path,
+        _FakeQuantModule(160),
+        predicate,
+        default_group_size=64,
+        default_bits=4,
+        default_mode="affine",
+    )
+    assert params == {
+        "group_size": 32,
+        "bits": assignment.bits,
+        "mode": "affine",
+    }
+    assert predicate.unmatched_quantized_modules() == set()
+
+
+def test_qwen4_exp_quant_params_use_planned_group_size_for_ple_width(
+    qwen36_model_dir: Path,
+) -> None:
+    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    assignment = next(item for item in plan.assignments if item.module_path == module_path)
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    params = multimodal_backend._quant_params_for_runtime_module(
+        module_path,
+        _FakeQuantModule(160),
+        predicate,
+        default_group_size=plan.group_size,
+        default_bits=4,
+        default_mode="affine",
+    )
+    assert params == {
+        "group_size": 32,
+        "bits": assignment.bits,
+        "mode": "affine",
+    }
+    assert predicate.unmatched_quantized_modules() == {
+        item.module_path
+        for item in plan.assignments
+        if item.bits < 16 and item.module_path != module_path
+    }
+
+
+def test_qwen4_exp_quant_params_fail_closed_when_group_size_does_not_divide(
+    qwen36_model_dir: Path,
+) -> None:
+    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    assignment = next(
+        allocation for allocation in plan.assignments if allocation.module_path == module_path
+    )
+    plan = plan.model_copy(
+        update={
+            "assignments": [
+                (
+                    assignment.model_copy(update={"group_size": 64})
+                    if allocation.module_path == module_path
+                    else allocation
+                )
+                for allocation in plan.assignments
+            ]
+        }
+    )
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    with pytest.raises(ArtifactError, match="last dimension 160 is not divisible"):
+        multimodal_backend._quant_params_for_runtime_module(
+            module_path,
+            _FakeQuantModule(160),
+            predicate,
+            default_group_size=64,
+            default_bits=4,
+            default_mode="affine",
+        )
+    assert module_path in predicate.unmatched_quantized_modules()
+
+
+def test_qwen4_exp_unmatched_quantizable_modules_fail_closed(
+    qwen36_model_dir: Path,
+) -> None:
+    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    with pytest.raises(PlanningError, match="did not quantize planned modules"):
+        multimodal_backend._require_quantized_plan_coverage(predicate, backend="MLX-VLM")
+    assert module_path in predicate.unmatched_quantized_modules()
+
+
+def test_qwen4_exp_convert_quantizes_ple_width_at_planned_group_size(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    assignment = next(item for item in plan.assignments if item.module_path == module_path)
+    quantized_paths = [item.module_path for item in plan.assignments if item.bits < 16]
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+    observed: dict[str, object] = {}
+
+    class FakeModel:
+        def named_modules(self):
+            return [
+                (
+                    path,
+                    _FakeQuantModule(160) if path == module_path else _FakeQuantModule(64),
+                )
+                for path in quantized_paths
+            ]
+
+    def fake_quantize(model, group_size, bits, *, mode, class_predicate):
+        observed["nn"] = {"group_size": group_size, "bits": bits, "mode": mode}
+        results = {}
+        for path, module in model.named_modules():
+            results[path] = class_predicate(path, module)
+        observed["preds"] = results
+
+    def fake_import(module: str, *, extra: str):
+        if module == "mlx.core":
+            return SimpleNamespace(
+                cpu="cpu",
+                set_default_device=lambda device: observed.update(device=device),
+            )
+        if module == "mlx.nn":
+            return SimpleNamespace(quantize=fake_quantize)
+        if module == "mlx_vlm.utils":
+            return SimpleNamespace(
+                load_model=lambda source, *, lazy: FakeModel(),
+                load_config=lambda source: {"model_type": "qwen4_exp"},
+                save_weights=lambda destination, model, *, donate_weights: (
+                    destination / "model.safetensors"
+                ).write_bytes(b"fake"),
+                save_config=lambda config, *, config_path: config_path.write_text(
+                    json.dumps(config), encoding="utf-8"
+                ),
+            )
+        if module == "mlx_vlm.models.qwen3_vl.processing_qwen3_vl":
+            return SimpleNamespace(
+                Qwen3VLProcessor=SimpleNamespace(from_pretrained=lambda source: SimpleNamespace())
+            )
+        raise AssertionError(module)
+
+    monkeypatch.delenv("AXQUANT_FORCE_CPU", raising=False)
+    monkeypatch.setattr(multimodal_backend, "_import", fake_import)
+    destination = tmp_path / "converted-qwen4"
+    multimodal_backend.convert_multimodal(
+        qwen36_model_dir,
+        destination,
+        plan,
+        predicate,
+        4,
+    )
+    assert observed["device"] == "cpu"
+    assert observed["nn"] == {"group_size": 64, "bits": 4, "mode": "affine"}
+    assert observed["preds"][module_path] == {
+        "group_size": 32,
+        "bits": assignment.bits,
+        "mode": "affine",
+    }
+    saved = json.loads((destination / "config.json").read_text(encoding="utf-8"))
+    assert saved["quantization"][module_path]["group_size"] == 32
+    assert (destination / "model.safetensors").is_file()
+
+
+def test_qwen4_exp_convert_rejects_planned_modules_without_to_quantized(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    quantized_paths = [item.module_path for item in plan.assignments if item.bits < 16]
+    predicate = build_quant_predicate(plan, execute_refinement=False)
+
+    class FakeModel:
+        def named_modules(self):
+            return [(path, _FakeDenseModule()) for path in quantized_paths]
+
+    def fake_quantize(model, group_size, bits, *, mode, class_predicate):
+        del group_size, bits, mode
+        for path, module in model.named_modules():
+            class_predicate(path, module)
+
+    def fake_import(module: str, *, extra: str):
+        if module == "mlx.core":
+            return SimpleNamespace(cpu="cpu", set_default_device=lambda device: None)
+        if module == "mlx.nn":
+            return SimpleNamespace(quantize=fake_quantize)
+        if module == "mlx_vlm.utils":
+            return SimpleNamespace(
+                load_model=lambda source, *, lazy: FakeModel(),
+                load_config=lambda source: {"model_type": "qwen4_exp"},
+                save_weights=lambda destination, model, *, donate_weights: None,
+                save_config=lambda config, *, config_path: None,
+            )
+        if module == "mlx_vlm.models.qwen3_vl.processing_qwen3_vl":
+            return SimpleNamespace(
+                Qwen3VLProcessor=SimpleNamespace(from_pretrained=lambda source: SimpleNamespace())
+            )
+        raise AssertionError(module)
+
+    monkeypatch.delenv("AXQUANT_FORCE_CPU", raising=False)
+    monkeypatch.setattr(multimodal_backend, "_import", fake_import)
+    with pytest.raises(PlanningError, match="did not quantize planned modules"):
+        multimodal_backend.convert_multimodal(
+            qwen36_model_dir,
+            tmp_path / "rejected-qwen4",
+            plan,
+            predicate,
+            4,
+        )
+    assert module_path in predicate.unmatched_quantized_modules()
 
 
 def test_multimodal_backend_reports_missing_dependency_and_bad_audio_resolution(

@@ -458,6 +458,32 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         ),
     ),
     DenseFamilySpec(
+        adapter_id="qwen4-exp-v1",
+        product_family="qwen4-exp",
+        # Qwen3.8-Flash-Next open weights: Qwen4 architecture preview (GDN + QSA
+        # MoE, gated residual, 51B n-gram PLE, vision encoder).
+        model_types=("qwen4_exp",),
+        reference_pattern=r"(qwen[._-]?3\.8[._-]?flash[._-]?next|qwen4[._-]?exp)",
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        allow_moe=True,
+        extra_role_patterns=(
+            # Hashed n-gram PLE table + projections (51B). key/value_proj and
+            # conv1d would otherwise classify as attention.
+            (".ple.", TensorRole.EMBEDDING),
+            ("ngram_embedding", TensorRole.EMBEDDING),
+            ("hyper_connection", TensorRole.NORM),
+            ("shared_expert", TensorRole.MLP),
+            ("pos_embed", TensorRole.VISION),
+        ),
+        notes=(
+            "Qwen3.8-Flash-Next (model_type=qwen4_exp) converts through MLX-VLM.",
+            "Vision stays BF16-protected; PLE/n-gram embeddings use the embedding floor.",
+            "Gated-residual mixers stay BF16 (norm). Requires mlx-vlm with models.qwen4_exp.",
+            "Development evidence only; not the Qwen 3.6 cert track and not Super-class 2.4T.",
+        ),
+    ),
+    DenseFamilySpec(
         adapter_id="gemma4-dense-v1",
         product_family="gemma-4",
         # The public google/gemma-4-12b checkpoint declares `gemma4_unified`

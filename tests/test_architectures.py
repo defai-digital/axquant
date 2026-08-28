@@ -229,6 +229,91 @@ def test_registry_resolves_qwen38_dense_27b_as_convertible() -> None:
     assert qwen36.adapter_id == "qwen36-v1"
 
 
+def _qwen4_exp_config() -> dict[str, object]:
+    return {
+        "model_type": "qwen4_exp",
+        "architectures": ["Qwen4ExpForConditionalGeneration"],
+        "text_config": {
+            "num_hidden_layers": 48,
+            "hidden_size": 2560,
+            "num_experts": 512,
+            "num_experts_per_tok": 10,
+            "moe_intermediate_size": 640,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {"depth": 27, "hidden_size": 1152},
+    }
+
+
+def test_registry_resolves_qwen38_flash_next_as_qwen4_exp() -> None:
+    config = _qwen4_exp_config()
+    adapter = adapter_for("Qwen/Qwen3.8-Flash-Next", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen4-exp-v1"
+    profile = adapter.profile("Qwen/Qwen3.8-Flash-Next", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.product_family == "qwen4-exp"
+    assert profile.dense is False
+    assert profile.mtp_declared is True
+    assert profile.vision_present is True
+    assert profile.text_layer_count == 48
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EMBEDDING
+    )
+    # `.ple.` must win over attention tokens (key_proj / conv1d) so the 160-wide
+    # table stays on the embedding floor instead of the gs64 trunk.
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.1.ple.key_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EMBEDDING
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.1.ple.conv1d.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EMBEDDING
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.attn_hyper_connection.input_mix_weight_down.weight",
+            "model.safetensors",
+        )
+        is TensorRole.NORM
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.mlp.experts.gate_up_proj",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.visual.pos_embed",
+            "model.safetensors",
+        )
+        is TensorRole.VISION
+    )
+    # Super-class 2.4T and dense 27B stay on their own adapters.
+    assert adapter_for("Qwen/Qwen3.8-2.4T-A95B", config) is None
+    dense = adapter_for("Qwen/Qwen3.8-27B", {**config, "model_type": "qwen3_5"})
+    assert dense is None or dense.adapter_id == "qwen38-dense-v1"
+
+
+def test_qwen38_dense_does_not_claim_flash_next_qwen4_exp() -> None:
+    assert adapter_for("Qwen/Qwen3.8-Flash-Next", _qwen4_exp_config()) is not None
+    assert adapter_for("Qwen/Qwen3.8-Flash-Next", _qwen4_exp_config()).adapter_id == (
+        "qwen4-exp-v1"
+    )
+
+
 def test_registry_resolves_qwen3_asr_with_nested_text_and_audio_configs() -> None:
     config = {
         "model_type": "qwen3_asr",
@@ -734,6 +819,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "nemotron3-v1": SupportTier.CONVERTIBLE,
         "qwen35-dense-v1": SupportTier.CONVERTIBLE,
         "qwen38-dense-v1": SupportTier.CONVERTIBLE,
+        "qwen4-exp-v1": SupportTier.CONVERTIBLE,
         "qwen3-next-v1": SupportTier.CONVERTIBLE,
         "qwen3-dense-v1": SupportTier.CONVERTIBLE,
         "qwen3-asr-v1": SupportTier.CONVERTIBLE,
@@ -832,6 +918,39 @@ def test_nemotron3_catalog_moe_is_convertible() -> None:
     }
     for name, expected in cases.items():
         assert adapter.classify_tensor(name, "model.safetensors") is expected
+
+
+def test_qwen4_exp_ngram_shard_aliases_mlx_vlm_shards() -> None:
+    from axquant.module_paths import (
+        mlx_module_aliases,
+        mlx_tensor_aliases,
+        mlx_tensor_binding_groups,
+    )
+
+    path = "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0"
+    aliases = set(mlx_module_aliases(path))
+    assert "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shards.0" in aliases
+    assert "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0" in aliases
+    tensor_aliases = set(mlx_tensor_aliases(f"{path}.weight"))
+    assert (
+        "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight"
+        in tensor_aliases
+    )
+    # Coverage binds the HF name to the converted MLX-VLM name; both rewrites
+    # must compose (wrapper prefix + shard→shards).
+    assert (
+        "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight"
+        in tensor_aliases
+    )
+    groups = mlx_tensor_binding_groups(f"{path}.weight")
+    actual = "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0.weight"
+    assert any(actual in group for group in groups)
+    # Packed MoE gate_up also has to compose wrapper + switch_mlp split.
+    gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
+    packed = mlx_tensor_binding_groups(gate_up)
+    packed_flat = {name for group in packed for name in group}
+    assert "language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight" in packed_flat
+    assert "language_model.model.layers.0.mlp.switch_mlp.up_proj.weight" in packed_flat
 
 
 def test_nemotron_expert_fuses_to_switch_mlp_fc() -> None:

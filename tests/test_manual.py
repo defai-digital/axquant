@@ -250,6 +250,29 @@ def test_deepseek_v4_mxfp4_recipe_is_a_valid_manual_recipe() -> None:
     assert set(trunk.roles) == {TensorRole.MLP, TensorRole.EXPERT}
 
 
+def test_qwen38_flash_next_recipes_keep_ple_on_group_size_32() -> None:
+    """PLE shards are 160-wide; 160 % 64 != 0, so embeddings must stay gs32."""
+
+    recipes = (
+        ("examples/qwen38-flash-next-axq4-v0.1.yaml", 4, 64),
+        ("examples/qwen38-flash-next-axq6-v0.1.yaml", 6, 64),
+        ("examples/qwen38-flash-next-axq2-v0.1.yaml", 2, 32),
+        ("examples/qwen38-flash-next-axq-mxfp4-v0.1.yaml", 4, 32),
+    )
+    for relative, default_bits, global_group in recipes:
+        path = Path(__file__).resolve().parents[1] / relative
+        recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
+        assert recipe.default_bits == default_bits
+        assert recipe.group_size == global_group
+        embedding = next(rule for rule in recipe.rules if rule.rule_id == "embedding-8")
+        assert TensorRole.EMBEDDING in embedding.roles
+        assert embedding.bits == 8
+        assert embedding.group_size == 32
+        assert 160 % embedding.group_size == 0
+        vision = next(rule for rule in recipe.rules if rule.rule_id == "protect-vision")
+        assert vision.bits == 16
+
+
 def test_qwen3_coder_next_mxfp4_recipe_is_a_valid_manual_recipe() -> None:
     path = Path(__file__).resolve().parents[1] / ("examples/qwen3-coder-next-axq-mxfp4-v0.1.yaml")
     recipe = ManualPlanRecipe.model_validate(yaml.safe_load(path.read_text(encoding="utf-8")))
