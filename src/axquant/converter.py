@@ -406,10 +406,12 @@ def _declare_raw_mtp_runtime_contract(
     Byte preservation keeps the raw HF zero-centred norm deltas. AX Engine
     reads ``mtp_norm_layout`` from ``mtplx_runtime.json`` and applies the
     ``+1.0`` HF-delta conversion to every norm at load time; without the
-    declaration it must guess from tensor statistics. For resident-loadable
-    Qwen 3.5/3.6/3.8 adapters, the same file also declares the
-    ``qwen3-next-mtp`` execution contract used by strict importers such as
-    oMLX. Only the sidecar tensor payloads are byte-preserved; the runtime
+    declaration it must guess from tensor statistics. For recognized Qwen MTP
+    sidecar adapters (Qwen 3.5/3.6/3.8 dense and the qwen4-exp Flash-Next
+    preview), the same file also declares the ``qwen3-next-mtp`` execution
+    contract used by strict importers such as oMLX; the dense 15-tensor
+    ``layout`` label stays restricted to heads that exactly match the Qwen 3.6
+    tensor set. Only the sidecar tensor payloads are byte-preserved; the runtime
     contract is AXQuant metadata, so adding these declarations does not touch
     preserved bytes. Known legacy Qwen identifiers are normalized; an unknown
     explicit identifier fails closed.

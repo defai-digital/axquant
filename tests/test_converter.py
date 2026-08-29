@@ -1391,6 +1391,122 @@ def test_qwen_byte_preserved_sidecar_gains_complete_runtime_contract(
     }
 
 
+def test_qwen4_exp_byte_preserved_sidecar_gains_contract_without_dense_layout(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """qwen4-exp-v1 (Flash-Next) sidecars get the canonical contract, no layout.
+
+    The 31-tensor Flash-Next head (hyper_connection / fc_embedding / MoE
+    experts) must not be mislabeled with the dense 15-tensor
+    ``ax-engine-qwen36-v1`` layout. A 5-tensor sidecar is enough to exercise
+    the layout guard (5 != 15) and the canonical-contract writer.
+    """
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {
+            "mtp.fc_embedding.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.fc_hidden.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.hyper_connection.0.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.layers.0.mlp.experts.gate_up_proj": np.zeros((1,), dtype=np.float32),
+            "mtp.layers.0.mlp.experts.down_proj": np.zeros((1,), dtype=np.float32),
+        },
+        sidecar / "mtp.safetensors",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+    plan = _plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen4-exp-v1", "product_family": "qwen4-exp"}
+    )
+
+    converter._copy_external_mtp_bundle(sidecar, output, plan=plan)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["arch_id"] == "qwen3-next-mtp"
+    assert runtime["exactness_baseline"] == {
+        "notes": (
+            "No MTPLX Forge exactness baseline has been recorded for this development artifact."
+        ),
+        "public_release_blocker": True,
+        "scope": "compatibility-smoke-only",
+        "status": "unverified",
+    }
+    assert "layout" not in runtime
+    assert runtime["mtp_depth_max"] == 1
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["mtp_tensor_count"] == 5
+    assert runtime["mtplx_version"] == "2.5.2"
+    assert runtime["recommended_draft_sampler"] == {
+        "temperature": 0.7,
+        "top_k": 20,
+        "top_p": 0.95,
+    }
+    assert runtime["recommended_profile"] == "stable"
+    assert runtime["release_status"] == "development-only"
+    assert runtime["source_model"] == {
+        "model_id": plan.source_model.model_id,
+        "revision": plan.source_model.revision,
+    }
+    assert runtime["verified_on"] == {
+        "host_id": None,
+        "notes": "Compatibility smoke tests are not AXQuant Tier 1 or Tier 2 certification.",
+        "status": "not-certified",
+    }
+
+
+def test_qwen4_exp_minimal_runtime_file_upgraded_in_place(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """A shipped minimal 108-byte mtplx_runtime.json upgrades in place.
+
+    Published Flash-Next packs carry only the byte-preserved fields; re-running
+    the bundle copy over a minimal runtime file must keep the existing keys and
+    add the canonical contract without setting the dense layout label.
+    """
+    sidecar = tmp_path / "sidecar"
+    sidecar.mkdir()
+    save_file(
+        {
+            "mtp.fc_embedding.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.fc_hidden.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.hyper_connection.0.weight": np.zeros((1,), dtype=np.float32),
+            "mtp.layers.0.mlp.experts.gate_up_proj": np.zeros((1,), dtype=np.float32),
+            "mtp.layers.0.mlp.experts.down_proj": np.zeros((1,), dtype=np.float32),
+        },
+        sidecar / "mtp.safetensors",
+    )
+    (sidecar / "mtplx_runtime.json").write_text(
+        json.dumps(
+            {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "raw_hf_delta",
+                "schema_version": "axquant.mtp-runtime.v1",
+            }
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "output"
+    output.mkdir()
+    plan = _plan(qwen36_model_dir)
+    plan.architecture_profile = plan.architecture_profile.model_copy(
+        update={"adapter_id": "qwen4-exp-v1", "product_family": "qwen4-exp"}
+    )
+
+    converter._copy_external_mtp_bundle(sidecar, output, plan=plan)
+
+    runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["schema_version"] == "axquant.mtp-runtime.v1"
+    assert runtime["mtp_depth_max"] == 1
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["arch_id"] == "qwen3-next-mtp"
+    assert runtime["mtp_tensor_count"] == 5
+    assert runtime["mtplx_version"] == "2.5.2"
+    assert "layout" not in runtime
+
+
 def test_qwen_sidecar_normalizes_legacy_arch_id_without_overwriting_evidence(
     qwen36_model_dir: Path,
     tmp_path: Path,

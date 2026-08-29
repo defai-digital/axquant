@@ -76,6 +76,7 @@ QWEN_NEXT_MTP_ADAPTER_IDS = frozenset(
         "qwen35-dense-v1",
         "qwen36-v1",
         "qwen38-dense-v1",
+        "qwen4-exp-v1",
     }
 )
 # Older AutomatosX Qwen sidecar bundles used AX Engine packaging labels in the

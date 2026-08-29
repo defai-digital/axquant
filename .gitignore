@@ -25,3 +25,6 @@ runtime_check.json
 AGENTS.md
 Agents.md
 agents.md
+# Local agent tooling state and config (never publish).
+.ax-code/
+ax-code.json
