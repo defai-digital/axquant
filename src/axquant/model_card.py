@@ -8,6 +8,10 @@ from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
+from axquant.gemma4_assistant_compose import (
+    COMPOSITE_MANIFEST_NAME,
+    refresh_gemma4_assistant_composite_manifest,
+)
 from axquant.gemma4_vlm import validate_gemma4_mlx_vlm_vision_layout
 from axquant.identity import same_model_identity
 from axquant.modality_certification import (
@@ -55,6 +59,7 @@ _REFRESHABLE_FILES = frozenset(
         "LICENSE",
         "model-manifest.json",
         "mtplx_runtime.json",
+        "axquant_runtime.json",
         *_PUBLIC_METADATA_FILES[1:],
     }
 )
@@ -459,6 +464,8 @@ def _render_development_model_card(
         mtp_sidecar,
         fallback_bytes=manifest.mtp_weight_file_size_bytes,
     )
+    if gemma_assistant_mtp:
+        mtp_detail = "external assistant under `assistant/` (checksum-bound composite)"
     vision_detail = _render_sidecar_detail(
         vision_sidecar,
         fallback_bytes=manifest.protected_weight_file_size_bytes,
@@ -661,7 +668,10 @@ publish a new immutable revision before claiming oMLX compatibility.
 """
     else:
         mtp_interop_section = ""
-    public_modalities = _public_modalities_for_repo(repo_id)
+    # Capability notes in a public certificate bind its exact immutable revision. A new
+    # development artifact must not inherit an older revision's smoke result merely because it
+    # reuses the same Hub repository name.
+    public_modalities = _public_modalities_for_repo(repo_id) if certified is not None else None
     if public_modalities is not None:
         has_vision = public_modalities.vision.supported
         has_audio = public_modalities.audio.supported
@@ -1286,8 +1296,20 @@ def prepare_development_model_card(
     if file_sha256(manifest_path) != prospective_sha256:
         raise ArtifactError("serialized public artifact manifest digest changed during write")
     _assert_public_consistency(directory)
+    composite_manifest_path = directory / COMPOSITE_MANIFEST_NAME
+    if composite_manifest_path.is_file():
+        refresh_gemma4_assistant_composite_manifest(directory)
     return [
         path
-        for path in (manifest_path, plan_path, execution_path, mtp_path, vision_path, readme)
+        for path in (
+            manifest_path,
+            plan_path,
+            execution_path,
+            mtp_path,
+            vision_path,
+            directory / "axquant_runtime.json",
+            readme,
+            composite_manifest_path,
+        )
         if path.is_file()
     ]

@@ -10,6 +10,10 @@ from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
+from axquant.gemma4_assistant_compose import (
+    refresh_gemma4_assistant_composite_manifest,
+    validate_gemma4_assistant_composite,
+)
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.model_card import (
@@ -201,10 +205,17 @@ def test_development_model_card_is_detailed_sanitized_and_bound(
     assert plan.source_model.local_path is None
     assert manifest.plan_sha256 == stable_sha256(plan) == execution.plan_sha256
     records = {record.path: record for record in manifest.files}
-    assert {"README.md", "LICENSE", "model-manifest.json", "mtplx_runtime.json"}.issubset(records)
+    assert {
+        "README.md",
+        "LICENSE",
+        "model-manifest.json",
+        "mtplx_runtime.json",
+        "axquant_runtime.json",
+    }.issubset(records)
     assert records["README.md"].sha256 == file_sha256(directory / "README.md")
     assert records["README.md"].size_bytes == (directory / "README.md").stat().st_size
     assert records["mtplx_runtime.json"].sha256 == file_sha256(directory / "mtplx_runtime.json")
+    assert records["axquant_runtime.json"].sha256 == file_sha256(directory / "axquant_runtime.json")
     for name in (
         "axquant_manifest.json",
         "axquant_plan.json",
@@ -583,8 +594,42 @@ def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
     )
     assistant = directory / "assistant"
     assistant.mkdir()
-    (assistant / "config.json").write_text("{}\n", encoding="utf-8")
-    (directory / "ax_gemma4_assistant_mtp.json").write_text("{}\n", encoding="utf-8")
+    (assistant / "config.json").write_text('{"model_type":"gemma4_assistant"}\n', encoding="utf-8")
+    (assistant / "model.safetensors").write_bytes(b"assistant-test-weights")
+    (directory / "tokenizer.json").write_text('{"version":"1.0"}\n', encoding="utf-8")
+    (assistant / "tokenizer.json").write_text('{"version":"1.0"}\n', encoding="utf-8")
+    write_data(
+        directory / "ax_gemma4_assistant_mtp.json",
+        {
+            "schema_version": "ax.gemma4_assistant_mtp.v1",
+            "backend": "gemma4_assistant",
+            "target_model_id": "gemma-4-12b-it",
+            "assistant_model_id": "gemma-4-12b-it-assistant",
+            "assistant_path": "assistant",
+            "max_depth": 1,
+            "pairing": "exact",
+        },
+    )
+    write_data(
+        directory / "ax_composite_pack_manifest.json",
+        {
+            "schema_version": "axquant.composite-pack-manifest.v1",
+            "product_class": "gemma4-axq-assistant-mtp",
+            "base_pack_id": "AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP",
+            "base_tier1_certificate": None,
+            "base_weight_digests": {"placeholder": "0" * 64},
+            "assistant_source_id": "test/assistant",
+            "assistant_weight_digests": {"assistant/placeholder": "0" * 64},
+            "contract_file": "ax_gemma4_assistant_mtp.json",
+            "contract_sha256": "0" * 64,
+            "target_model_id": "gemma-4-12b-it",
+            "assistant_model_id": "gemma-4-12b-it-assistant",
+            "composed_at": "2026-08-30T00:00:00Z",
+            "tool_versions": {"axquant": "test"},
+            "prefer_hardlink": False,
+        },
+    )
+    refresh_gemma4_assistant_composite_manifest(directory)
 
     written = _prepare_card(
         artifact_dir=directory,
@@ -598,6 +643,10 @@ def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
     assert "vlm_mtp_draft_block_size: 2" in readme
     assert "do not enable **Lightning MTP**" in readme
     assert "## Run with MLX-VLM" in readme
+    assert "MTP sidecar: external assistant under `assistant/`" in readme
+    assert "layout mismatch" not in readme
+    assert directory / "ax_composite_pack_manifest.json" in written
+    validate_gemma4_assistant_composite(directory)
 
 
 def test_development_model_card_rejects_stale_execution_before_mutating(

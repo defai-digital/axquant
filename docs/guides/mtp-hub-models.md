@@ -1,9 +1,19 @@
 # AXQ MTP Hub model runtime matrix
 
-Verified against the `AutomatosX` Hugging Face organization on 2026-08-21. The inventory contains
-20 populated AXQ MTP checkpoints and one explicitly reserved repository. An `-MTP` name means MTP
+Verified against the `AutomatosX` Hugging Face organization on 2026-08-30. The inventory contains
+25 populated AXQ MTP checkpoints and one explicitly reserved repository. An `-MTP` name means MTP
 assets are packaged; it does not by itself mean that speculative decoding is enabled, compatible
 with every runtime, or Tier 2 certified.
+
+Run the architecture-aware, header-only fleet audit with:
+
+```bash
+python scripts/audit_mtp_hub_fleet.py --json-output /path/to/mtp-fleet-audit.json
+```
+
+The audit validates immutable revisions and the distinct Gemma assistant, resident Qwen,
+expert-stream Qwen, and DeepSeek `nextn` packaging contracts without downloading full model
+weights. It is a static publication gate, not runtime or certification evidence.
 
 ## Resident Qwen sidecars
 
@@ -83,6 +93,20 @@ not be assigned `qwen3-next-mtp` or sent through the oMLX/MTPLX Qwen importer.
 | [AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP) | Populated; MTP Tier 2 not certified |
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP) | Populated; checkpoint and MTP Tier 2 not certified |
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | Reserved name; no weights or MTP sidecar uploaded |
+
+## Qwen 3.8 Flash Next preview sidecars
+
+These four preview checkpoints carry `mtp.safetensors` together with `ax_expert_stream.json`.
+They use the MLX-VLM `qwen4_exp` text/vision path; AX Engine MTP acceleration is not claimed.
+Their sidecars pass the expert-stream packaging audit but are not resident
+`qwen3-next-mtp` oMLX/MTPLX import targets.
+
+| Hugging Face model | Status |
+| --- | --- |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-4bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-4bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
 
 ## Super-class expert-stream packs
 

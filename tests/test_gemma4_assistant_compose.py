@@ -18,8 +18,10 @@ from axquant.gemma4_assistant_compose import (
     ASSISTANT_CONTRACT_NAME,
     COMPOSITE_MANIFEST_NAME,
     Gemma4AssistantComposeRequest,
+    bind_gemma4_assistant_runtime_metadata,
     compose_gemma4_assistant_mtp,
     load_composite_manifest,
+    refresh_gemma4_assistant_composite_manifest,
     validate_gemma4_assistant_composite,
     validate_known_gemma4_assistant_pair,
 )
@@ -28,8 +30,17 @@ from axquant.gemma4_vlm import (
     normalize_gemma4_vision_tensor_names,
     validate_gemma4_mlx_vlm_vision_layout,
 )
+from axquant.schema import (
+    AxEngineOptimizationMetadata,
+    MtpRuntimeMetadata,
+    OptimizationScope,
+    RuntimeMetadata,
+    RuntimeName,
+    RuntimeProfile,
+    RuntimeSupportLevel,
+)
 from axquant.schema.artifacts import ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS
-from axquant.serde import file_sha256
+from axquant.serde import file_sha256, load_model, write_data
 
 
 def _write_minimal_target(root: Path) -> None:
@@ -89,6 +100,61 @@ def test_known_pair_validation() -> None:
         validate_known_gemma4_assistant_pair("gemma-4-unknown-it", "gemma-4-unknown-it-assistant")
     with pytest.raises(ArtifactError, match="must be"):
         validate_known_gemma4_assistant_pair("gemma-4-26b-a4b-it", "gemma-4-31b-it-assistant")
+
+
+def test_refresh_composite_manifest_rebinds_public_metadata(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    assistant = tmp_path / "assistant"
+    output = tmp_path / "composite"
+    _write_minimal_target(target)
+    _write_minimal_assistant(assistant)
+    (target / "README.md").write_text("# Before\n", encoding="utf-8")
+    compose_gemma4_assistant_mtp(
+        Gemma4AssistantComposeRequest(
+            target_dir=target,
+            assistant_dir=assistant,
+            output_dir=output,
+            target_model_id="gemma-4-31b-it",
+            assistant_model_id="gemma-4-31b-it-assistant",
+            prefer_hardlink=False,
+        )
+    )
+    (output / "README.md").write_text("# Public card\n", encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match="digest mismatch"):
+        validate_gemma4_assistant_composite(output)
+
+    refreshed = refresh_gemma4_assistant_composite_manifest(output)
+
+    assert refreshed["base_weight_digests"]["README.md"] == file_sha256(output / "README.md")
+
+
+def test_bind_assistant_runtime_metadata_declares_external_drafter(tmp_path: Path) -> None:
+    runtime = RuntimeMetadata(
+        primary_runtime=RuntimeProfile(
+            name=RuntimeName.AX_ENGINE,
+            compatibility_level="A",
+            support_level=RuntimeSupportLevel.OPTIMIZED,
+            standard_inference=True,
+            mtp_support="none",
+        ),
+        compatible_runtimes=[],
+        optimization_scope=OptimizationScope.TEXT_PATH,
+        mtp=MtpRuntimeMetadata(detected=False),
+        ax_engine=AxEngineOptimizationMetadata(),
+    )
+    write_data(tmp_path / "axquant_runtime.json", runtime)
+
+    bound = bind_gemma4_assistant_runtime_metadata(tmp_path, max_depth=2)
+
+    assert bound is not None
+    assert bound.mtp.detected
+    assert bound.mtp.sidecar_file == "assistant"
+    assert bound.mtp.draft_tokens == 2
+    assert bound.mtp.verification_mode == "external-assistant"
+    assert bound.primary_runtime.mtp_support == "native"
+    assert [item.name for item in bound.compatible_runtimes] == [RuntimeName.MLX_VLM]
+    assert load_model(tmp_path / "axquant_runtime.json", RuntimeMetadata) == bound
 
 
 def test_gemma4_mlx_vlm_layout_rejects_source_prefix(tmp_path: Path) -> None:

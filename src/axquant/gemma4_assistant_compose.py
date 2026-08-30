@@ -22,7 +22,14 @@ from typing import Any
 
 from axquant.errors import ArtifactError
 from axquant.gemma4_vlm import validate_gemma4_mlx_vlm_vision_layout
-from axquant.serde import file_sha256
+from axquant.schema import (
+    MtpRuntimeMetadata,
+    RuntimeMetadata,
+    RuntimeName,
+    RuntimeProfile,
+    RuntimeSupportLevel,
+)
+from axquant.serde import file_sha256, load_model, write_data
 
 COMPOSITE_MANIFEST_NAME = "ax_composite_pack_manifest.json"
 ASSISTANT_CONTRACT_NAME = "ax_gemma4_assistant_mtp.json"
@@ -212,6 +219,62 @@ def _write_contract(
     return file_sha256(path)
 
 
+def bind_gemma4_assistant_runtime_metadata(
+    directory: str | Path,
+    *,
+    max_depth: int,
+) -> RuntimeMetadata | None:
+    """Declare the external assistant path in an existing AXQuant runtime artifact."""
+
+    root = Path(directory).expanduser().resolve()
+    runtime_path = root / "axquant_runtime.json"
+    if not runtime_path.is_file():
+        return None
+    runtime = load_model(runtime_path, RuntimeMetadata)
+    primary_notes = list(runtime.primary_runtime.notes)
+    assistant_note = (
+        "Gemma assistant MTP uses the checksum-bound external drafter under assistant/."
+    )
+    if assistant_note not in primary_notes:
+        primary_notes.append(assistant_note)
+    runtime.primary_runtime = runtime.primary_runtime.model_copy(
+        update={"mtp_support": "native", "notes": primary_notes}
+    )
+
+    vlm_profile = RuntimeProfile(
+        name=RuntimeName.MLX_VLM,
+        compatibility_level="B",
+        support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+        standard_inference=True,
+        mtp_support="runtime-dependent",
+        manifest="config.json",
+        notes=[
+            "MLX-VLM loads the normalized protected multimodal sidecar.",
+            "External assistant MTP requires explicit drafter configuration in oMLX.",
+        ],
+    )
+    compatible = [
+        profile for profile in runtime.compatible_runtimes if profile.name != RuntimeName.MLX_VLM
+    ]
+    compatible.append(vlm_profile)
+    runtime.compatible_runtimes = compatible
+    runtime.mtp = MtpRuntimeMetadata(
+        detected=True,
+        sidecar_file="assistant",
+        optimized=False,
+        enabled_by_default=True,
+        draft_tokens=max_depth,
+        verification_mode="external-assistant",
+        head_precision="assistant-checkpoint",
+    )
+    runtime.memory_policy = {
+        **runtime.memory_policy,
+        "mtp_buffers": "runtime-managed-external-assistant",
+    }
+    write_data(runtime_path, runtime)
+    return runtime
+
+
 def compose_gemma4_assistant_mtp(
     request: Gemma4AssistantComposeRequest,
 ) -> Gemma4AssistantComposeResult:
@@ -265,6 +328,15 @@ def compose_gemma4_assistant_mtp(
                 f"composed base file {key!r} digest mismatch (target={digest} composite={composed})"
             )
 
+    bind_gemma4_assistant_runtime_metadata(output_dir, max_depth=request.max_depth)
+    base_weight_digests = {
+        key: digest
+        for key, digest in _digest_tree(output_dir).items()
+        if not key.startswith("assistant/")
+        and Path(key).name
+        not in {ASSISTANT_CONTRACT_NAME, COMPOSITE_MANIFEST_NAME, *_SKIP_TARGET_NAMES}
+    }
+
     contract_path = output_dir / ASSISTANT_CONTRACT_NAME
     contract_sha256 = _write_contract(
         contract_path,
@@ -306,6 +378,52 @@ def compose_gemma4_assistant_mtp(
         base_weight_digests=base_weight_digests,
         assistant_weight_digests=assistant_weight_digests,
     )
+
+
+def refresh_gemma4_assistant_composite_manifest(
+    directory: str | Path,
+) -> Mapping[str, Any]:
+    """Rebind a composite manifest after sanctioned public-metadata updates.
+
+    Model-card preparation rewrites public AXQuant metadata and ``README.md``.
+    Those files are checksum-bound by the composite manifest, so publication
+    tooling must refresh the two digest maps before its final validation.
+    """
+
+    supplied = Path(directory).expanduser()
+    if supplied.is_symlink():
+        raise ArtifactError(f"composite root must not be a symlink: {supplied}")
+    root = supplied.resolve()
+    if not root.is_dir():
+        raise ArtifactError(f"composite directory is missing: {root}")
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ArtifactError(
+                f"composite tree must not contain symlinks: {path.relative_to(root).as_posix()}"
+            )
+
+    manifest_path = root / COMPOSITE_MANIFEST_NAME
+    contract_path = root / ASSISTANT_CONTRACT_NAME
+    manifest = dict(load_composite_manifest(manifest_path))
+    if not contract_path.is_file():
+        raise ArtifactError(f"composite contract is missing: {ASSISTANT_CONTRACT_NAME}")
+    assistant_root = root / "assistant"
+    if not assistant_root.is_dir():
+        raise ArtifactError("composite assistant directory is missing")
+
+    manifest["base_weight_digests"] = {
+        key: digest
+        for key, digest in sorted(_digest_tree(root).items())
+        if not key.startswith("assistant/")
+        and Path(key).name
+        not in {ASSISTANT_CONTRACT_NAME, COMPOSITE_MANIFEST_NAME, *_SKIP_TARGET_NAMES}
+    }
+    manifest["assistant_weight_digests"] = dict(
+        sorted(_digest_tree(assistant_root, prefix="assistant/").items())
+    )
+    manifest["contract_sha256"] = file_sha256(contract_path)
+    write_data(manifest_path, manifest)
+    return validate_gemma4_assistant_composite(root)
 
 
 def load_composite_manifest(path: Path) -> Mapping[str, Any]:
