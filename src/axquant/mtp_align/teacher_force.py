@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from axquant.errors import ArtifactError
 from axquant.mtp_align.qwen_mtp_head import QwenMtpHead
@@ -152,7 +152,7 @@ def run_teacher_force(
         max_prompt_tokens=max_prompt_tokens,
     ):
         hidden, trunk_logits = _trunk_hidden_and_logits(model, prefix)
-        teacher = int(mx.argmax(trunk_logits).item())
+        teacher = cast(int, mx.argmax(trunk_logits).item())
         # Prefer greedy trunk next-token as teacher (may differ from dataset token).
         label_token = teacher
         prev = prefix[-1]
@@ -162,7 +162,7 @@ def run_teacher_force(
             prev_token_embed=prev_embed,
             lm_head_weight=lm_head.weight,
         )[0]
-        pred = int(mx.argmax(draft_logits).item())
+        pred = cast(int, mx.argmax(draft_logits).item())
         if pred == label_token:
             correct += 1
         total += 1

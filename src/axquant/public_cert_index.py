@@ -350,7 +350,10 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "**Tier 1** is checkpoint **quality**. **Tier 2** is scoped **MTP**",
         "acceleration (N/A when the pack has no MTP).",
         "",
-        "| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP) | Host | In headline matrix |",
+        (
+            "| Pack family | Hub repository | Edition | Tier 1 (quality) | "
+            "Tier 2 (MTP) | Host | In headline matrix |"
+        ),
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in catalog:

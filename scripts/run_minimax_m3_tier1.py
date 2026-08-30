@@ -291,9 +291,9 @@ def hf_env(*, extra: dict[str, str] | None = None) -> dict[str, str]:
     hf_home = os.environ.get("HF_HOME", str(HOME / ".cache" / "huggingface"))
     env = {
         **os.environ,
-        "PYTHONPATH": os.pathsep.join(
-            [str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]
-        ).strip(os.pathsep),
+        "PYTHONPATH": os.pathsep.join([str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]).strip(
+            os.pathsep
+        ),
         "HF_HOME": hf_home,
         "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", str(Path(hf_home) / "hub")),
         "HUGGINGFACE_HUB_CACHE": os.environ.get(
@@ -310,7 +310,12 @@ def hf_env(*, extra: dict[str, str] | None = None) -> dict[str, str]:
     return env
 
 
-def run(cmd: list[str], log_path: Path | None = None, *, extra_env: dict[str, str] | None = None) -> None:
+def run(
+    cmd: list[str],
+    log_path: Path | None = None,
+    *,
+    extra_env: dict[str, str] | None = None,
+) -> None:
     log("$ " + " ".join(cmd))
     env = hf_env(extra=extra_env)
     if log_path is None:
@@ -320,9 +325,7 @@ def run(cmd: list[str], log_path: Path | None = None, *, extra_env: dict[str, st
     with log_path.open("w", encoding="utf-8") as handle:
         handle.write("$ " + " ".join(cmd) + "\n\n")
         handle.flush()
-        proc = subprocess.run(
-            cmd, stdout=handle, stderr=subprocess.STDOUT, cwd=str(ROOT), env=env
-        )
+        proc = subprocess.run(cmd, stdout=handle, stderr=subprocess.STDOUT, cwd=str(ROOT), env=env)
     if proc.returncode != 0:
         raise SystemExit(f"command failed ({proc.returncode}): see {log_path}")
 
@@ -370,6 +373,7 @@ def cmd_preflight() -> None:
         from mlx_vlm.models.minimax_m3.minimax_m3 import Model
         from mlx_vlm.models.minimax_m3_vl.language import MiniMaxAttention
 
+        _ = Model
         mlx_ok = hasattr(MiniMaxAttention, "_build_sparse_mask")
         mlx_note = (
             "mlx-vlm MiniMaxAttention MSA present"
@@ -554,8 +558,7 @@ def cmd_quality(key: str) -> None:
         "yes",
     }
     reusable = (not force) and all(
-        (qdir / f"{suite}.json").is_file()
-        and (_quality_score(qdir / f"{suite}.json") or 0.0) > 0.0
+        (qdir / f"{suite}.json").is_file() and (_quality_score(qdir / f"{suite}.json") or 0.0) > 0.0
         for suite in ("agent-coding", "general")
     )
     if reusable:
@@ -622,10 +625,8 @@ def cmd_quality(key: str) -> None:
             for index, task in enumerate(tasks):
                 err = None
                 try:
-                    text = chat_complete(
-                        base, model_id, task.prompt, MAX_TOKENS, SEED + index
-                    )
-                except Exception as exc:  # noqa: BLE001
+                    text = chat_complete(base, model_id, task.prompt, MAX_TOKENS, SEED + index)
+                except Exception as exc:
                     text, err = "", str(exc)
                 score, checks = score_quality_task_output(task, text)
                 scores.append(score)
@@ -639,10 +640,7 @@ def cmd_quality(key: str) -> None:
                         "error": err,
                     }
                 )
-                log(
-                    f"quality {key} {suite} {index + 1}/{len(tasks)} "
-                    f"{task.task_id} score={score}"
-                )
+                log(f"quality {key} {suite} {index + 1}/{len(tasks)} {task.task_id} score={score}")
             mean = sum(scores) / len(scores) if scores else 0.0
             payload = {
                 "samples": len(results),
@@ -768,15 +766,12 @@ def cmd_write_certs(key: str) -> None:
         audio_supported=inspect.audio_supported,
         vision_smoke_passed=None,
         vision_reason=(
-            "Vision tower is BF16-protected; language-path cert does not claim "
-            "image/video quality."
+            "Vision tower is BF16-protected; language-path cert does not claim image/video quality."
             if inspect.vision_supported
             else None
         ),
     )
-    hub_commit = os.environ.get(
-        f"MINIMAX_M3_{key.upper()}_HUB_COMMIT", str(item["hub_commit"])
-    )
+    hub_commit = os.environ.get(f"MINIMAX_M3_{key.upper()}_HUB_COMMIT", str(item["hub_commit"]))
     payload = {
         "schema_version": "axquant.public-checkpoint-certification.v1",
         "status": "certified" if certified else "not_certified",
@@ -834,8 +829,7 @@ def cmd_write_certs(key: str) -> None:
                 "version": ENGINE_VERSION,
                 "env_required": list(item["experimental_env"]),
                 "notes": (
-                    f"native chat smoke + doctor / generate-manifest on "
-                    f"{LARGE_MEMORY_CERT_HOST_ID}"
+                    f"native chat smoke + doctor / generate-manifest on {LARGE_MEMORY_CERT_HOST_ID}"
                 ),
             },
         },
@@ -846,12 +840,12 @@ def cmd_write_certs(key: str) -> None:
             "host_hardware": "Apple M3 Ultra 512 GB",
         },
         "notes": [
-            (
-                f"Checkpoint attempt on {LARGE_MEMORY_CERT_HOST_ID} with AX Engine "
-                f"{ENGINE_VERSION}."
-            ),
+            (f"Checkpoint attempt on {LARGE_MEMORY_CERT_HOST_ID} with AX Engine {ENGINE_VERSION}."),
             "Language path only. Vision stays BF16; vision generate is not claimed.",
-            "ax_expert_stream.json is required. Engine Auto may keep the ~220 GB pack resident on 512 GB.",
+            (
+                "ax_expert_stream.json is required. Engine Auto may keep the ~220 GB pack "
+                "resident on 512 GB."
+            ),
             "No AXQ 4-bit affine sibling.",
         ],
         "public_index": {
@@ -899,7 +893,7 @@ def cmd_write_certs(key: str) -> None:
                 f"| General viability | `{general.get('candidate_score')}` "
                 f"(need ≥ {MIN_QUALITY}) |",
                 "| MTP acceleration | `not-applicable` (no packaged MTP) |",
-                f"| Stream | `ax_expert_stream.json` required |",
+                "| Stream | `ax_expert_stream.json` required |",
                 "",
                 "## Notes",
                 "",
@@ -911,7 +905,10 @@ def cmd_write_certs(key: str) -> None:
                 "",
                 "- Sibling 2-bit: [minimax-m3-axq2-tier1.md](minimax-m3-axq2-tier1.md)"
                 if key == "mxfp4"
-                else "- Sibling MXFP4: [minimax-m3-axq-mxfp4-tier1.md](minimax-m3-axq-mxfp4-tier1.md)",
+                else (
+                    "- Sibling MXFP4: "
+                    "[minimax-m3-axq-mxfp4-tier1.md](minimax-m3-axq-mxfp4-tier1.md)"
+                ),
                 "",
                 f"Machine-readable: [{item['cert_stem']}.json]({item['cert_stem']}.json).",
                 "",
@@ -932,7 +929,7 @@ def cmd_all(key: str) -> None:
     cmd_size(key)
     try:
         cmd_quality(key)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         log(f"quality {key} did not complete: {exc}")
         qdir = work_dir() / key / "quality"
         rdir = work_dir() / key / "runtime"

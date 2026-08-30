@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from itertools import pairwise
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import structlog
 
@@ -272,7 +272,7 @@ def _tokenize_prompts(config: BenchmarkConfig, prompts: list[str]) -> list[list[
                     isinstance(token, bool) or not isinstance(token, int) for token in rendered
                 ):
                     raise TypeError("chat template did not return a token-id list")
-                tokenized.append([int(token) for token in rendered])
+                tokenized.append(cast(list[int], rendered))
             return tokenized
         return [
             [int(token) for token in tokenizer.encode(prompt, add_special_tokens=True)]

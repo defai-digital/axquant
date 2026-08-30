@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from axquant.errors import ArtifactError
+from axquant.serde import write_data, write_text
 
 SAMPLE_SCHEMA = "axquant.mtp-align-sample.v1"
 FEATURE_SCHEMA = "axquant.mtp-align-features.v1"
@@ -37,10 +38,8 @@ def load_prompt_strings(path: str | Path) -> list[str]:
 
 def write_samples(path: str | Path, samples: list[dict[str, Any]]) -> Path:
     path = Path(path).expanduser().resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        for sample in samples:
-            handle.write(json.dumps(sample, ensure_ascii=False) + "\n")
+    payload = "".join(json.dumps(sample, ensure_ascii=False) + "\n" for sample in samples)
+    write_text(path, payload)
     return path
 
 
@@ -132,7 +131,7 @@ def prepare_self_distill_dataset(
         for i in range(0, max_len - 1):
             if len(samples) >= max_samples:
                 break
-            label = int(mx.argmax(logits[0, i]).item())
+            label = cast(int, mx.argmax(logits[0, i]).item())
             samples.append(
                 {
                     "schema_version": SAMPLE_SCHEMA,
@@ -171,9 +170,7 @@ def prepare_self_distill_dataset(
             "hidden_shape": list(hidden_rows[0].shape),
             "has_lm_head_weight": True,
         }
-        feature_path.with_suffix(".features.json").write_text(
-            json.dumps(meta, indent=2) + "\n", encoding="utf-8"
-        )
+        write_data(feature_path.with_suffix(".features.json"), meta)
 
     return {
         "schema_version": "axquant.mtp-align-dataset.v1",
@@ -196,7 +193,10 @@ def load_feature_bundle(feature_path: str | Path) -> tuple[list[dict[str, Any]],
     path = Path(feature_path).expanduser().resolve()
     if not path.is_file():
         raise ArtifactError(f"feature file missing: {path}")
-    data = mx.load(str(path))
+    loaded = mx.load(str(path))
+    if not isinstance(loaded, dict):
+        raise ArtifactError("feature Safetensors must load as a tensor mapping")
+    data: dict[str, Any] = loaded
     n = int(data["label_token"].shape[0])
     rows: list[dict[str, Any]] = []
     for i in range(n):
@@ -204,7 +204,7 @@ def load_feature_bundle(feature_path: str | Path) -> tuple[list[dict[str, Any]],
             {
                 "hidden": data["hidden"][i],
                 "prev_embed": data["prev_embed"][i],
-                "label_token": int(data["label_token"][i].item()),
+                "label_token": cast(int, data["label_token"][i].item()),
             }
         )
     lm_head = data.get("lm_head_weight")

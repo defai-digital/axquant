@@ -12,7 +12,7 @@ import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pydantic import ValidationError
 
@@ -815,9 +815,11 @@ def quantize_qwen36_mtp_sidecar(
             # mis-typed packing produces errors on the order of the weight
             # range itself, far beyond this bound.
             error = mx.abs(reconstructed.astype(mx.float32) - weight_mx.astype(mx.float32))
-            max_error = float(mx.max(error).item())
-            max_step = float(mx.max(mx.abs(scales.astype(mx.float32))).item())
-            max_magnitude = float(mx.max(mx.abs(weight_mx.astype(mx.float32))).item())
+            max_error = float(cast(int | float, mx.max(error).item()))
+            max_step = float(cast(int | float, mx.max(mx.abs(scales.astype(mx.float32))).item()))
+            max_magnitude = float(
+                cast(int | float, mx.max(mx.abs(weight_mx.astype(mx.float32))).item())
+            )
             bound = max_step + max_magnitude * 2.0**-7 + 1e-6
             if not math.isfinite(max_error) or max_error > bound:
                 raise ArtifactError(

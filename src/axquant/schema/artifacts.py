@@ -1115,7 +1115,8 @@ class BenchmarkConfig(StrictModel):
 
 
 class BenchmarkConfigV2(BenchmarkConfig):
-    schema_version: Literal["axquant.benchmark-config.v2"] = "axquant.benchmark-config.v2"
+    # Pydantic versioned artifacts intentionally replace the discriminator literal.
+    schema_version: Literal["axquant.benchmark-config.v2"] = "axquant.benchmark-config.v2"  # type: ignore[assignment]
     prompt_format: Literal["raw", "chat-template"] = "raw"
 
 
@@ -1174,7 +1175,8 @@ class BenchmarkResult(StrictModel):
 
 
 class BenchmarkResultV2(BenchmarkResult):
-    schema_version: Literal["axquant.benchmark-result.v2"] = "axquant.benchmark-result.v2"
+    # Pydantic versioned artifacts intentionally replace the discriminator literal.
+    schema_version: Literal["axquant.benchmark-result.v2"] = "axquant.benchmark-result.v2"  # type: ignore[assignment]
     config: BenchmarkConfigV2
 
 

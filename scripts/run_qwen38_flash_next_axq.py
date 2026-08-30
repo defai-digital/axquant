@@ -18,6 +18,7 @@ Usage (on the convert host, typically via the screen/nohup launcher):
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
@@ -205,38 +206,30 @@ def run_timed(cmd: list[str], log_path: Path, *, timeout_s: int) -> int:
             return int(proc.wait(timeout=timeout_s))
         except subprocess.TimeoutExpired:
             log(f"timed out after {timeout_s}s; killing pid {proc.pid}")
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.killpg(proc.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
             try:
                 proc.wait(timeout=20)
             except subprocess.TimeoutExpired:
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     os.killpg(proc.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
             return 124
 
 
 def hf_env() -> dict[str, str]:
     env = {
         **os.environ,
-        "PYTHONPATH": os.pathsep.join(
-            [str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]
-        ).strip(os.pathsep),
+        "PYTHONPATH": os.pathsep.join([str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]).strip(
+            os.pathsep
+        ),
         "HF_HOME": str(HF_HOME),
         "HUGGINGFACE_HUB_CACHE": str(HF_HOME / "hub"),
         "HF_HUB_CACHE": str(HF_HOME / "hub"),
         "HF_XET_HIGH_PERFORMANCE": "1",
         "HF_XET_CACHE": str(HF_HOME / "xet"),
-        "HF_XET_RECONSTRUCT_WRITE_ENABLED": os.environ.get(
-            "HF_XET_RECONSTRUCT_WRITE_ENABLED", "1"
-        ),
+        "HF_XET_RECONSTRUCT_WRITE_ENABLED": os.environ.get("HF_XET_RECONSTRUCT_WRITE_ENABLED", "1"),
         # CAS reconstruction I/O errors are less frequent at lower fan-out.
-        "HF_XET_NUM_CONCURRENT_RANGE_GETS": os.environ.get(
-            "HF_XET_NUM_CONCURRENT_RANGE_GETS", "4"
-        ),
+        "HF_XET_NUM_CONCURRENT_RANGE_GETS": os.environ.get("HF_XET_NUM_CONCURRENT_RANGE_GETS", "4"),
         # 180B Flash-Next Metal quantize times out; factory converts on CPU.
         "AXQUANT_FORCE_CPU": os.environ.get("AXQUANT_FORCE_CPU", "1"),
     }
@@ -378,7 +371,6 @@ def pack_dir(key: str) -> Path:
 
 def write_readme(pack: Path, key: str, *, measured_bpw: str | None) -> None:
     item = PACKS[key]
-    repo = f"{HUB_OWNER}/{item['hub_name']}"
     bpw_line = measured_bpw or "see axquant_manifest.json"
     text = f"""---
 license: other
