@@ -286,7 +286,11 @@ def test_tokenize_prompts_applies_chat_template(
     class _Tokenizer:
         def apply_chat_template(self, messages: object, **kwargs: object) -> list[int]:
             assert messages == [{"role": "user", "content": "hello"}]
-            assert kwargs == {"tokenize": True, "add_generation_prompt": True}
+            assert kwargs == {
+                "tokenize": True,
+                "add_generation_prompt": True,
+                "return_dict": False,
+            }
             return [2, 105, 106]
 
         def encode(self, _prompt: str, *, add_special_tokens: bool) -> list[int]:
@@ -305,6 +309,41 @@ def test_tokenize_prompts_applies_chat_template(
     config = base_config.model_copy(update={"prompt_format": "chat-template"})
 
     assert _tokenize_prompts(config, ["hello"]) == [[2, 105, 106]]
+
+
+def test_tokenize_prompts_forces_flat_chat_template_tokens(
+    base_config: BenchmarkConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Tokenizer:
+        def apply_chat_template(
+            self,
+            _messages: object,
+            **kwargs: object,
+        ) -> list[int] | dict[str, list[int]]:
+            if kwargs.get("return_dict") is False:
+                return [2, 105, 2364, 106]
+            return {
+                "input_ids": [2, 105, 2364, 106],
+                "attention_mask": [1, 1, 1, 1],
+            }
+
+        def encode(self, _prompt: str, *, add_special_tokens: bool) -> list[int]:
+            raise AssertionError(f"raw encode must not run: {add_special_tokens}")
+
+    class _AutoTokenizer:
+        @staticmethod
+        def from_pretrained(_source: str, **_kwargs: object) -> _Tokenizer:
+            return _Tokenizer()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(AutoTokenizer=_AutoTokenizer),
+    )
+    config = base_config.model_copy(update={"prompt_format": "chat-template"})
+
+    assert _tokenize_prompts(config, ["hello"]) == [[2, 105, 2364, 106]]
 
 
 def test_runtime_environment_includes_kill_switches(base_config: BenchmarkConfig) -> None:

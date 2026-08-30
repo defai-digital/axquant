@@ -262,6 +262,11 @@ def _tokenize_prompts(config: BenchmarkConfig, prompts: list[str]) -> list[list[
                     [{"role": "user", "content": prompt}],
                     tokenize=True,
                     add_generation_prompt=True,
+                    # Some Gemma tokenizers default to a BatchEncoding even
+                    # though the Transformers API normally returns token IDs.
+                    # The benchmark passes a flat comma-separated token list
+                    # to AX Engine, so require the portable list form.
+                    return_dict=False,
                 )
                 if not isinstance(rendered, list) or any(
                     isinstance(token, bool) or not isinstance(token, int) for token in rendered
