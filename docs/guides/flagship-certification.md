@@ -40,9 +40,11 @@ Sibling packs certified on the same host (`df-macbookpro-m5`) for **checkpoint T
 ### Gemma-4 AXQ siblings
 
 Hub packs ship fused **assistant-MTP** (`assistant/` + `ax_gemma4_assistant_mtp.json`) under the
-Qwen-style `…-MLX-AXQ-*-MTP` names. Checkpoint **Tier 1** is certified for both AXQ 4-bit and
-6-bit fused Hub heads on `df-macbookpro-m5` (2026-08-09). **Tier 2 is not certified** on any
-Gemma pack.
+Qwen-style `…-MLX-AXQ-*-MTP` names. The table below records revision-bound **historical Tier 1**
+certificates measured on `df-macbookpro-m5` (2026-08-09). The six Hub heads rebuilt on
+2026-08-30 for the corrected Gemma/oMLX layout have different immutable revisions, so none of
+the historical certificates applies to the current heads. **Tier 2 is not certified** on any
+current Gemma pack.
 
 | Pack | Tier 1 | Tier 2 |
 | --- | --- | --- |
@@ -53,8 +55,9 @@ Gemma pack.
 | 31B AXQ 4-bit | [Certified](certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | 31B AXQ 6-bit | [Certified](certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
 
-Tier 1 binds the **fused Hub head**: target weight digests match the quality-bound canonical
-pack; assistant assets are attached without mutating target weights. The 12B packs were rebuilt
+Each historical Tier 1 record binds its exact **fused Hub revision**: target weight digests match
+the quality-bound canonical pack; assistant assets are attached without mutating target weights.
+The 12B packs were rebuilt
 from `google/gemma-4-12b-it` after non-IT sources failed quality. Formal assistant-MTP A/B pilots
 on `df-macbookpro-m5` / AX Engine 6.14.0 (complete exact-profile confidence gates) show weighted
 and prompt-median speed can clear while **greedy outputs diverge** when drafts are accepted —

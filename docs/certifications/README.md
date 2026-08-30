@@ -63,9 +63,11 @@ or `quality-certified` only with bound evidence. Spec:
 | [MiniMax-M3 MLX AXQ MXFP4 (exp.)](minimax-m3-axq-mxfp4-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
-**Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP
-Hub packs (12B / 26B-A4B / 31B). **Tier 2 (MTP acceleration) is not certified** on any Gemma pack
-while formal assistant-MTP exactness remains open on a released engine.
+**Gemma 4:** the table preserves revision-bound checkpoint **Tier 1** records for historical AXQ
+4-bit and 6-bit fused assistant-MTP revisions (12B / 26B-A4B / 31B). The six Hub heads rebuilt on
+2026-08-30 for corrected Gemma/oMLX layout compatibility have different immutable revisions and
+are not covered by those records. **Tier 2 (MTP acceleration) is not certified** on any current
+Gemma head.
 
 **Qwen3-Coder-Next:** hybrid MoE coding checkpoint with **no declared MTP**. Public certificates
 are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality, MLX-LM load).

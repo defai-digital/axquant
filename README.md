@@ -294,12 +294,12 @@ acceleration is opt-in under the formal exact profile. Vision weights are BF16-p
 end-to-end image/video quality is not certified; see the
 [Qwen3.8-27B AXQ VL retention assessment](docs/reports/qwen38-27b-axq-vl-retention.md).
 
-**Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** bundled assistant-MTP Hub packs are
-**checkpoint Tier 1 certified** on `df-macbookpro-m5` (size, matched quality, load). **Tier 2
-is not certified** on any Gemma pack: formal assistant-MTP A/B pilots can clear speed gates
-while greedy exactness fails when drafts are accepted. The 12B packs were rebuilt from
-`google/gemma-4-12b-it` after the earlier non-IT base failed quality. Product default remains
-direct fallback until Tier 2 gates pass on a released engine.
+**Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** historical revisions have
+revision-bound checkpoint Tier 1 records on `df-macbookpro-m5` (size, matched quality, load).
+The six Hub heads rebuilt on 2026-08-30 for the corrected Gemma/oMLX layout are new immutable
+revisions and are **not** covered by those records; they remain development artifacts until
+recertified on the current factory host. **Tier 2 is not certified** on any current Gemma head.
+The 12B targets use `google/gemma-4-12b-it` after the earlier non-IT base failed quality.
 
 **Qwen3-Coder-Next** AXQ **MXFP4** is **checkpoint Tier 1 certified** on `df-macstudio-m2`
 (non-MTP direct-decode; Tier 2 N/A). The AXQ 4/6-bit siblings remain certified on

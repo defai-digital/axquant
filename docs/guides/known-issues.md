@@ -169,11 +169,11 @@ between published versions.
 - **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
   27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
   ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 + scoped Tier 2 on the
-  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit bundled `-MTP` Hub packs
-  are **checkpoint Tier 1 certified**; **Tier 2 is not certified** (formal assistant-MTP A/B
-  pilots on AX Engine 6.14.0 can clear speed gates while greedy exactness fails when drafts are
-  accepted — see any
-  [Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status)). The 12B packs
+  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit historical revisions
+  have revision-bound checkpoint Tier 1 records. The six 2026-08-30 compatibility rebuilds are
+  new immutable Hub heads and are **not covered** by those records. **Tier 2 is not certified**
+  for any current Gemma head; see any
+  [historical Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status). The 12B packs
   were **rebuilt from `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b`
   converts failed quality with multimodal placeholder loops; text-path prep now also strips
   `vision_config` / `audio_config` so MLX convert does not emit empty `vision_embedder` biases.
