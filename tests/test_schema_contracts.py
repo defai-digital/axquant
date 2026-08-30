@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from axquant.schema import BenchmarkConfig, BenchmarkConfigV1, BenchmarkResult, BenchmarkResultV1
 from axquant.schema.public_certification import (
     CHECKPOINT_SCHEMA_VERSION,
     MTP_SCHEMA_VERSION,
@@ -32,6 +33,16 @@ def test_discovery_finds_unique_schema_versions() -> None:
     assert owned[CHECKPOINT_SCHEMA_VERSION] is PublicCheckpointCertification
     assert len(owned) >= 50
     assert len(owned) == len(set(owned))
+
+
+def test_benchmark_schema_v1_remains_loadable_after_v2_prompt_format() -> None:
+    owned = discover_versioned_models()
+    assert owned["axquant.benchmark-config.v1"] is BenchmarkConfigV1
+    assert owned["axquant.benchmark-config.v2"] is BenchmarkConfig
+    assert owned["axquant.benchmark-result.v1"] is BenchmarkResultV1
+    assert owned["axquant.benchmark-result.v2"] is BenchmarkResult
+    assert "prompt_format" not in BenchmarkConfigV1.model_fields
+    assert BenchmarkConfig.model_fields["prompt_format"].default == "raw"
 
 
 def test_registry_covers_every_discovered_version() -> None:

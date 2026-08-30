@@ -1314,6 +1314,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "AX_MLX_QWEN_LINEAR_ATTENTION_DECODE_POST_INPUT_METAL=0",
     )
     benchmark_parser.add_argument("--output", default="evaluation_bundle.json")
+    benchmark_parser.add_argument(
+        "--prompt-format",
+        choices=["raw", "chat-template"],
+        default="raw",
+        help="Tokenize prompts as raw text or through the model chat template",
+    )
     benchmark_parser.add_argument("--log-dir")
     benchmark_parser.add_argument("--quality-evaluation")
 
@@ -1359,6 +1365,15 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_ab_parser.add_argument("--warmup", type=int, default=2)
     benchmark_ab_parser.add_argument("--max-tokens", type=int, default=512)
     benchmark_ab_parser.add_argument("--temperature", type=float, default=0.0)
+    benchmark_ab_parser.add_argument(
+        "--prompt-format",
+        choices=["raw", "chat-template"],
+        default=None,
+        help=(
+            "Tokenize prompts as raw text or through the model chat template; "
+            "the Gemma assistant exact profile requires chat-template"
+        ),
+    )
     benchmark_ab_parser.add_argument("--draft-depth", type=int)
     benchmark_ab_parser.add_argument(
         "--minimum-speedup",

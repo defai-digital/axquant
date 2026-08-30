@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -26,6 +27,7 @@ COMPOSITE_MANIFEST_NAME = "ax_composite_pack_manifest.json"
 ASSISTANT_CONTRACT_NAME = "ax_gemma4_assistant_mtp.json"
 COMPOSITE_SCHEMA_VERSION = "axquant.composite-pack-manifest.v1"
 ASSISTANT_CONTRACT_SCHEMA = "ax.gemma4_assistant_mtp.v1"
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 # Engine known-pair leaves (gemma4_assistant_mtp.rs).
 KNOWN_TARGET_LEAVES: frozenset[str] = frozenset(
@@ -292,6 +294,7 @@ def compose_gemma4_assistant_mtp(
     manifest_path.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    validate_gemma4_assistant_composite(output_dir)
 
     return Gemma4AssistantComposeResult(
         output_dir=output_dir,
@@ -304,7 +307,7 @@ def compose_gemma4_assistant_mtp(
 
 
 def load_composite_manifest(path: Path) -> Mapping[str, Any]:
-    """Load and lightly validate a composite pack manifest."""
+    """Load and validate the composite manifest envelope."""
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
@@ -316,3 +319,165 @@ def load_composite_manifest(path: Path) -> Mapping[str, Any]:
             f"unsupported composite manifest schema_version: {payload.get('schema_version')!r}"
         )
     return payload
+
+
+def _load_json_object(path: Path, *, label: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"{label} is unreadable: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ArtifactError(f"{label} must be a JSON object")
+    return payload
+
+
+def _safe_manifest_file(root: Path, relative: str, *, label: str) -> Path:
+    if not relative or relative.startswith("/") or "\\" in relative:
+        raise ArtifactError(f"{label} contains an unsafe path: {relative!r}")
+    parts = relative.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ArtifactError(f"{label} contains an unsafe path: {relative!r}")
+    path = root.joinpath(*parts)
+    if path.is_symlink() or not path.is_file():
+        raise ArtifactError(f"{label} is missing or not a regular file: {relative!r}")
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError as exc:
+        raise ArtifactError(f"{label} escapes the composite root: {relative!r}") from exc
+    return path
+
+
+def _validate_digest_map(
+    root: Path,
+    value: object,
+    *,
+    label: str,
+    required_prefix: str | None,
+) -> dict[str, str]:
+    if not isinstance(value, dict) or not value:
+        raise ArtifactError(f"{label} must be a non-empty object")
+    validated: dict[str, str] = {}
+    for raw_path, raw_digest in value.items():
+        if not isinstance(raw_path, str) or not isinstance(raw_digest, str):
+            raise ArtifactError(f"{label} entries must map string paths to SHA-256 strings")
+        if required_prefix is not None and not raw_path.startswith(required_prefix):
+            raise ArtifactError(f"{label} path must start with {required_prefix!r}: {raw_path!r}")
+        if required_prefix is None and raw_path.startswith("assistant/"):
+            raise ArtifactError(f"{label} must not contain assistant paths: {raw_path!r}")
+        if _SHA256.fullmatch(raw_digest) is None:
+            raise ArtifactError(f"{label} has an invalid SHA-256 for {raw_path!r}")
+        path = _safe_manifest_file(root, raw_path, label=label)
+        measured = file_sha256(path)
+        if measured != raw_digest:
+            raise ArtifactError(
+                f"{label} digest mismatch for {raw_path!r}: expected {raw_digest}, got {measured}"
+            )
+        validated[raw_path] = raw_digest
+    return validated
+
+
+def validate_gemma4_assistant_composite(directory: str | Path) -> Mapping[str, Any]:
+    """Fail closed unless *directory* is a complete, checksum-bound composite."""
+
+    supplied = Path(directory).expanduser()
+    if supplied.is_symlink():
+        raise ArtifactError(f"composite root must not be a symlink: {supplied}")
+    root = supplied.resolve()
+    if not root.is_dir():
+        raise ArtifactError(f"composite directory is missing: {root}")
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ArtifactError(
+                f"composite tree must not contain symlinks: {path.relative_to(root).as_posix()}"
+            )
+
+    contract_path = root / ASSISTANT_CONTRACT_NAME
+    manifest_path = root / COMPOSITE_MANIFEST_NAME
+    contract = _load_json_object(contract_path, label=ASSISTANT_CONTRACT_NAME)
+    expected_contract_keys = {
+        "schema_version",
+        "backend",
+        "target_model_id",
+        "assistant_model_id",
+        "assistant_path",
+        "max_depth",
+        "pairing",
+    }
+    if set(contract) != expected_contract_keys:
+        raise ArtifactError(f"{ASSISTANT_CONTRACT_NAME} fields do not match the v1 contract")
+    if contract.get("schema_version") != ASSISTANT_CONTRACT_SCHEMA:
+        raise ArtifactError("unsupported Gemma4 assistant contract schema_version")
+    if contract.get("backend") != "gemma4_assistant":
+        raise ArtifactError("Gemma4 assistant contract backend must be 'gemma4_assistant'")
+    if contract.get("assistant_path") != "assistant":
+        raise ArtifactError("Gemma4 assistant contract assistant_path must be 'assistant'")
+    if contract.get("pairing") != "exact":
+        raise ArtifactError("Gemma4 assistant contract pairing must be 'exact'")
+    max_depth = contract.get("max_depth")
+    if isinstance(max_depth, bool) or not isinstance(max_depth, int) or max_depth < 1:
+        raise ArtifactError("Gemma4 assistant contract max_depth must be an integer >= 1")
+    target_model_id = contract.get("target_model_id")
+    assistant_model_id = contract.get("assistant_model_id")
+    if not isinstance(target_model_id, str) or not isinstance(assistant_model_id, str):
+        raise ArtifactError("Gemma4 assistant contract model ids must be strings")
+    validate_known_gemma4_assistant_pair(target_model_id, assistant_model_id)
+
+    manifest = dict(load_composite_manifest(manifest_path))
+    if manifest.get("product_class") != "gemma4-axq-assistant-mtp":
+        raise ArtifactError("composite product_class must be 'gemma4-axq-assistant-mtp'")
+    if manifest.get("contract_file") != ASSISTANT_CONTRACT_NAME:
+        raise ArtifactError("composite manifest contract_file is invalid")
+    if manifest.get("contract_sha256") != file_sha256(contract_path):
+        raise ArtifactError("composite manifest contract_sha256 does not match the contract")
+    if manifest.get("target_model_id") != target_model_id:
+        raise ArtifactError("composite target_model_id does not match the assistant contract")
+    if manifest.get("assistant_model_id") != assistant_model_id:
+        raise ArtifactError("composite assistant_model_id does not match the assistant contract")
+
+    base_digests = _validate_digest_map(
+        root,
+        manifest.get("base_weight_digests"),
+        label="base_weight_digests",
+        required_prefix=None,
+    )
+    assistant_digests = _validate_digest_map(
+        root,
+        manifest.get("assistant_weight_digests"),
+        label="assistant_weight_digests",
+        required_prefix="assistant/",
+    )
+    base_weights = {
+        path.relative_to(root).as_posix() for path in root.glob("*.safetensors") if path.is_file()
+    }
+    declared_base_weights = {path for path in base_digests if path.endswith(".safetensors")}
+    if not base_weights or base_weights != declared_base_weights:
+        raise ArtifactError("base Safetensors files do not match the composite manifest")
+    assistant_root = root / "assistant"
+    actual_assistant_files = {
+        path.relative_to(root).as_posix() for path in _iter_files(assistant_root)
+    }
+    if actual_assistant_files != set(assistant_digests):
+        raise ArtifactError("assistant file set does not match assistant_weight_digests")
+    if not any(path.endswith(".safetensors") for path in actual_assistant_files):
+        raise ArtifactError("assistant directory contains no Safetensors weights")
+
+    target_config = _load_json_object(root / "config.json", label="target config.json")
+    assistant_config = _load_json_object(
+        assistant_root / "config.json", label="assistant config.json"
+    )
+    if target_config.get("model_type") != "gemma4":
+        raise ArtifactError("target model_type must be 'gemma4'")
+    if assistant_config.get("model_type") != "gemma4_assistant":
+        raise ArtifactError("assistant model_type must be 'gemma4_assistant'")
+    for name in ("tokenizer.json", "tokenizer_config.json"):
+        target_tokenizer = root / name
+        assistant_tokenizer = assistant_root / name
+        if target_tokenizer.is_file() != assistant_tokenizer.is_file():
+            raise ArtifactError(f"target and assistant must both contain {name}")
+        if target_tokenizer.is_file() and file_sha256(target_tokenizer) != file_sha256(
+            assistant_tokenizer
+        ):
+            raise ArtifactError(f"target and assistant {name} files must be byte-identical")
+    if not (root / "tokenizer.json").is_file():
+        raise ArtifactError("composite target tokenizer.json is missing")
+    return manifest

@@ -18,6 +18,7 @@ from axquant.gemma4_assistant_compose import (
     Gemma4AssistantComposeRequest,
     compose_gemma4_assistant_mtp,
     load_composite_manifest,
+    validate_gemma4_assistant_composite,
     validate_known_gemma4_assistant_pair,
 )
 from axquant.schema.artifacts import ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS
@@ -100,6 +101,53 @@ def test_compose_preserves_base_digests(tmp_path: Path) -> None:
     assert manifest["schema_version"] == "axquant.composite-pack-manifest.v1"
     assert manifest["contract_sha256"] == result.contract_sha256
     assert manifest["base_pack_id"] == "AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit"
+    assert validate_gemma4_assistant_composite(output)["contract_sha256"] == (
+        result.contract_sha256
+    )
+
+
+def test_composite_validation_rejects_assistant_digest_drift(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    assistant = tmp_path / "assistant"
+    output = tmp_path / "composite"
+    _write_minimal_target(target)
+    _write_minimal_assistant(assistant)
+    compose_gemma4_assistant_mtp(
+        Gemma4AssistantComposeRequest(
+            target_dir=target,
+            assistant_dir=assistant,
+            output_dir=output,
+            target_model_id="gemma-4-26b-a4b-it",
+            assistant_model_id="gemma-4-26b-a4b-it-assistant",
+            prefer_hardlink=False,
+        )
+    )
+    (output / "assistant" / "model.safetensors").write_bytes(b"tampered")
+
+    with pytest.raises(ArtifactError, match="digest mismatch"):
+        validate_gemma4_assistant_composite(output)
+
+
+def test_composite_validation_rejects_unbound_assistant_file(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    assistant = tmp_path / "assistant"
+    output = tmp_path / "composite"
+    _write_minimal_target(target)
+    _write_minimal_assistant(assistant)
+    compose_gemma4_assistant_mtp(
+        Gemma4AssistantComposeRequest(
+            target_dir=target,
+            assistant_dir=assistant,
+            output_dir=output,
+            target_model_id="gemma-4-26b-a4b-it",
+            assistant_model_id="gemma-4-26b-a4b-it-assistant",
+            prefer_hardlink=False,
+        )
+    )
+    (output / "assistant" / "unbound.json").write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match="file set"):
+        validate_gemma4_assistant_composite(output)
 
 
 def test_compose_rejects_non_empty_output(tmp_path: Path) -> None:

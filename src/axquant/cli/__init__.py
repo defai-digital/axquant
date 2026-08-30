@@ -1739,6 +1739,7 @@ def _run(args: argparse.Namespace) -> int:
             workload=args.workload,
             dataset_sha256=dataset_sha,
             prompt_count=args.trials,
+            prompt_format=args.prompt_format,
             warmup_trials=args.warmup,
             measured_trials=args.trials,
             temperature=args.temperature,
@@ -1820,6 +1821,14 @@ def _run(args: argparse.Namespace) -> int:
             from axquant.benchmark import GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV
 
             runtime_env = {**GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV, **runtime_env}
+        prompt_format = args.prompt_format or (
+            "chat-template" if args.gemma4_assistant_exact_profile else "raw"
+        )
+        if args.gemma4_assistant_exact_profile and prompt_format != "chat-template":
+            raise SystemExit(
+                "benchmark-ab: --gemma4-assistant-exact-profile requires "
+                "--prompt-format chat-template"
+            )
         config_direct = BenchmarkConfig(
             model=model_identity,
             mtp_enabled=False,
@@ -1827,6 +1836,7 @@ def _run(args: argparse.Namespace) -> int:
             workload=args.workload,
             dataset_sha256=dataset_sha,
             prompt_count=args.trials,
+            prompt_format=prompt_format,
             warmup_trials=args.warmup,
             measured_trials=args.trials,
             temperature=args.temperature,
@@ -1846,6 +1856,7 @@ def _run(args: argparse.Namespace) -> int:
             workload=args.workload,
             dataset_sha256=dataset_sha,
             prompt_count=args.trials,
+            prompt_format=prompt_format,
             warmup_trials=args.warmup,
             measured_trials=args.trials,
             temperature=args.temperature,

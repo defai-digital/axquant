@@ -985,8 +985,13 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         "AX_MLX_MTP_BYPASS_MIN_SAMPLES",
         "AX_MLX_MTP_BYPASS_THRESHOLD",
         "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE",
+        "AX_MLX_MTP_DISABLE_NGRAM_STACKING",
+        "AX_MLX_MTP_FIXED_DRAFT_DEPTH",
         "AX_MLX_MTP_MAX_DEPTH",
         "AX_MLX_MTP_MIN_REMAINING_TOKENS",
+        "AX_MLX_MTP_VERIFY_QMM_MIN_N",
+        "AX_MLX_MTP_VERIFY_QMM_MSG_SIMDGROUPS",
+        "AX_MLX_ROTATING_SLIDING_DECODE",
         "AX_MLX_SPECULATIVE_INVARIANT_PROJECTIONS",
         "AX_MLX_SPECULATIVE_ROW_EXACT_POST_INPUT",
         "AX_MLX_SPECULATIVE_SPLIT_FFN",
@@ -1036,6 +1041,7 @@ ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
         "AX_MLX_GEMMA4_ASSISTANT_MTP_SEQUENTIAL_ORACLE",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_CYCLE_GUARD",
         "AX_MLX_GEMMA4_ASSISTANT_MTP_EARLY_GEN_PURE_DIRECT",
+        "AX_MLX_GEMMA4_VERIFY_QMM_LM_HEAD",
         # MoE long multi-token (dual-edge + qmv-256 identity). Engine product
         # default is fail-closed; formal Gemma assistant-exact profile opts in.
         "AX_MLX_GEMMA4_MOE_LONG_MT",
@@ -1108,6 +1114,11 @@ class BenchmarkConfig(StrictModel):
         return dict(sorted(cleaned.items()))
 
 
+class BenchmarkConfigV2(BenchmarkConfig):
+    schema_version: Literal["axquant.benchmark-config.v2"] = "axquant.benchmark-config.v2"
+    prompt_format: Literal["raw", "chat-template"] = "raw"
+
+
 class TrialResult(StrictModel):
     trial_index: int = Field(ge=0)
     is_warmup: bool = False
@@ -1160,6 +1171,11 @@ class BenchmarkResult(StrictModel):
     ax_engine_version: str | None = None
     software_versions: SoftwareVersions | None = None
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class BenchmarkResultV2(BenchmarkResult):
+    schema_version: Literal["axquant.benchmark-result.v2"] = "axquant.benchmark-result.v2"
+    config: BenchmarkConfigV2
 
 
 class MtpTrialComparison(StrictModel):

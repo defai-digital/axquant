@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,7 @@ from axquant.benchmark import (
     _percentile,
     _runtime_environment,
     _standalone_ax_engine_version,
+    _tokenize_prompts,
     compare_mtp_ab_results,
     parse_runtime_env_items,
     result_to_evaluation_bundle,
@@ -275,6 +277,34 @@ def test_runtime_environment_records_mtp_depth(base_config: BenchmarkConfig) -> 
     mtp = direct.model_copy(update={"mtp_enabled": True})
     assert _runtime_environment(direct) == ["AX_NO_SPEC=1", "AX_MLX_MTP_MAX_DEPTH=1"]
     assert _runtime_environment(mtp) == ["AX_MLX_MTP_MAX_DEPTH=1"]
+
+
+def test_tokenize_prompts_applies_chat_template(
+    base_config: BenchmarkConfig,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Tokenizer:
+        def apply_chat_template(self, messages: object, **kwargs: object) -> list[int]:
+            assert messages == [{"role": "user", "content": "hello"}]
+            assert kwargs == {"tokenize": True, "add_generation_prompt": True}
+            return [2, 105, 106]
+
+        def encode(self, _prompt: str, *, add_special_tokens: bool) -> list[int]:
+            raise AssertionError(f"raw encode must not run: {add_special_tokens}")
+
+    class _AutoTokenizer:
+        @staticmethod
+        def from_pretrained(_source: str, **_kwargs: object) -> _Tokenizer:
+            return _Tokenizer()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        SimpleNamespace(AutoTokenizer=_AutoTokenizer),
+    )
+    config = base_config.model_copy(update={"prompt_format": "chat-template"})
+
+    assert _tokenize_prompts(config, ["hello"]) == [[2, 105, 106]]
 
 
 def test_runtime_environment_includes_kill_switches(base_config: BenchmarkConfig) -> None:
@@ -602,6 +632,49 @@ class TestResultToEvaluationBundle:
         assert bundle.mtp.acceptance_rate == pytest.approx(0.75)
         assert bundle.mtp.token_accuracy == {"1": pytest.approx(0.75)}
         assert bundle.mtp.repetition_rate == pytest.approx(1 / 3)
+
+    def test_assistant_composite_sets_mtp_layout_valid(
+        self,
+        base_config: BenchmarkConfig,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        model_dir = tmp_path / "model"
+        model_dir.mkdir()
+        (model_dir / "ax_gemma4_assistant_mtp.json").write_text("{}\n", encoding="utf-8")
+        monkeypatch.setattr(
+            "axquant.benchmark.inspect_model",
+            lambda *_args, **_kwargs: SimpleNamespace(mtp_present=False),
+        )
+        validated: list[Path] = []
+        monkeypatch.setattr(
+            "axquant.benchmark.validate_gemma4_assistant_composite",
+            lambda path: validated.append(Path(path)),
+        )
+        config = base_config.model_copy(
+            update={
+                "model": base_config.model.model_copy(update={"local_path": str(model_dir)}),
+                "mtp_enabled": True,
+                "baseline_kind": "axquant-mtp-on",
+            }
+        )
+        result = BenchmarkResult(
+            config=config,
+            trials=[
+                TrialResult(
+                    trial_index=0,
+                    tokens_generated=1,
+                    output_token_ids=[1],
+                    tokens_per_second=1.0,
+                )
+            ],
+            measured_count=1,
+        )
+
+        bundle = result_to_evaluation_bundle(result)
+
+        assert bundle.integrity.mtp_layout_valid is True
+        assert validated == [model_dir]
 
     def test_acceptance_rate_pairs_accepted_and_proposed_counters(
         self,
@@ -1221,6 +1294,17 @@ class TestMtpDiagnostics:
         with pytest.raises(InvariantViolationError, match="runtime_env"):
             validate_ab_invariant(base_config, mtp_config)
 
+    def test_mismatched_prompt_format_rejected(self, base_config: BenchmarkConfig) -> None:
+        mtp_config = base_config.model_copy(
+            update={
+                "mtp_enabled": True,
+                "baseline_kind": "axquant-mtp-on",
+                "prompt_format": "chat-template",
+            }
+        )
+        with pytest.raises(InvariantViolationError, match="prompt_format"):
+            validate_ab_invariant(base_config, mtp_config)
+
 
 def test_qwen36_exact_profile_env_is_complete_and_allowlisted(
     base_config: BenchmarkConfig,
@@ -1253,6 +1337,21 @@ def test_qwen36_exact_profile_env_is_complete_and_allowlisted(
     # Explicit user overrides must win over the profile defaults.
     merged = {**QWEN36_EXACT_MTP_PROFILE_ENV, **{"AX_MLX_MTP_BYPASS_MIN_SAMPLES": "8"}}
     assert merged["AX_MLX_MTP_BYPASS_MIN_SAMPLES"] == "8"
+
+
+def test_gemma4_exact_profile_uses_ordered_sliding_kv(
+    base_config: BenchmarkConfig,
+) -> None:
+    from axquant.benchmark import GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV
+
+    config = base_config.model_copy(
+        update={"runtime_env": dict(GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV)}
+    )
+
+    assert config.runtime_env == dict(sorted(GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV.items()))
+    assert GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV["AX_MLX_ROTATING_SLIDING_DECODE"] == "0"
+    assert GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_FIXED_DRAFT_DEPTH"] == "2"
+    assert GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV["AX_MLX_MTP_DISABLE_NGRAM_STACKING"] == "1"
 
 
 def test_qwen38_exact_profile_env_extends_dense_with_async_draft(

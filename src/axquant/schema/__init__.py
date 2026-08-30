@@ -8,12 +8,10 @@ from axquant.schema.artifacts import (
     AxEngineMtpCapabilityCheck,
     AxEngineOptimizationMetadata,
     BaselineAudit,
-    BenchmarkConfig,
     BenchmarkEvidenceEntry,
     BenchmarkEvidenceIndex,
     BenchmarkEvidenceInput,
     BenchmarkEvidenceRequest,
-    BenchmarkResult,
     BenchmarkSuiteManifest,
     BytePreservedMtpSidecarManifest,
     BytePreservedMtpTransform,
@@ -105,6 +103,18 @@ from axquant.schema.artifacts import (
     ValidationIssue,
     ValidationReport,
     ValidationThresholds,
+)
+from axquant.schema.artifacts import (
+    BenchmarkConfig as BenchmarkConfigV1,
+)
+from axquant.schema.artifacts import (
+    BenchmarkConfigV2 as BenchmarkConfig,
+)
+from axquant.schema.artifacts import (
+    BenchmarkResult as BenchmarkResultV1,
+)
+from axquant.schema.artifacts import (
+    BenchmarkResultV2 as BenchmarkResult,
 )
 from axquant.schema.campaign import (
     BoundFile,
@@ -350,12 +360,14 @@ __all__ = [
     "BaselineAudit",
     "BaselineKind",
     "BenchmarkConfig",
+    "BenchmarkConfigV1",
     "BenchmarkEvidenceEntry",
     "BenchmarkEvidenceIndex",
     "BenchmarkEvidenceInput",
     "BenchmarkEvidenceKind",
     "BenchmarkEvidenceRequest",
     "BenchmarkResult",
+    "BenchmarkResultV1",
     "BenchmarkSuiteManifest",
     "BoundFile",
     "BoundMetricClaim",

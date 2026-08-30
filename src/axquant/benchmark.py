@@ -25,6 +25,10 @@ from typing import Any, Literal
 import structlog
 
 from axquant.errors import BackendUnavailableError, BenchmarkError, InvariantViolationError
+from axquant.gemma4_assistant_compose import (
+    ASSISTANT_CONTRACT_NAME,
+    validate_gemma4_assistant_composite,
+)
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model
 from axquant.revisions import is_immutable_revision
@@ -197,6 +201,7 @@ def validate_ab_invariant(
         "quantizer",
         "quantizer_version",
         "runtime_env",
+        "prompt_format",
     ):
         if getattr(direct_config, field_name) != getattr(mtp_config, field_name):
             raise InvariantViolationError(
@@ -250,6 +255,20 @@ def _tokenize_prompts(config: BenchmarkConfig, prompts: list[str]) -> list[list[
         kwargs["revision"] = config.model.revision
     try:
         tokenizer = AutoTokenizer.from_pretrained(source, **kwargs)
+        if config.prompt_format == "chat-template":
+            tokenized: list[list[int]] = []
+            for prompt in prompts:
+                rendered = tokenizer.apply_chat_template(
+                    [{"role": "user", "content": prompt}],
+                    tokenize=True,
+                    add_generation_prompt=True,
+                )
+                if not isinstance(rendered, list) or any(
+                    isinstance(token, bool) or not isinstance(token, int) for token in rendered
+                ):
+                    raise TypeError("chat template did not return a token-id list")
+                tokenized.append([int(token) for token in rendered])
+            return tokenized
         return [
             [int(token) for token in tokenizer.encode(prompt, add_special_tokens=True)]
             for prompt in prompts
@@ -377,6 +396,8 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
     "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
     "AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH": "2",
+    "AX_MLX_MTP_FIXED_DRAFT_DEPTH": "2",
+    "AX_MLX_MTP_DISABLE_NGRAM_STACKING": "1",
     # Gemma gates: must be a *tiny positive* value, not 0.
     # first_gate<=0 selects the sampled draft path (non-empty distributions), which
     # makes mtp_request_route treat the step as non-exact and DirectFallback —
@@ -394,6 +415,16 @@ GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV: dict[str, str] = {
     # repetition cycle (dominant formal divergence mode under multi-token adopt).
     # Engine default ON; listed here so formal provenance records the contract.
     "AX_MLX_GEMMA4_ASSISTANT_MTP_CYCLE_GUARD": "1",
+    # MLX 0.32.2 admission route: keep all recurrent assistant depths lazy and
+    # use the exact skinny multi-row verifier kernel only for the Gemma lm_head.
+    "AX_MLX_GEMMA4_ASSISTANT_LAZY_MULTI_DEPTH": "1",
+    "AX_MLX_GEMMA4_VERIFY_QMM_LM_HEAD": "1",
+    "AX_MLX_MTP_VERIFY_QMM_MIN_N": "0",
+    "AX_MLX_MTP_VERIFY_QMM_MSG_SIMDGROUPS": "4",
+    # Bounded rotating rings can change MLX's BF16 SDPA reduction when a
+    # multi-token verify straddles Gemma's 1024-token sliding window. Formal
+    # direct/MTP A/B uses identical ordered sliding-KV views on both arms.
+    "AX_MLX_ROTATING_SLIDING_DECODE": "0",
     # MoE long multi-token identity (dual-edge + qmv-256) is required for agent
     # long trials to clear weighted >=1.20x. Engine product default remains
     # fail-closed unless this formal profile opts in.
@@ -1063,7 +1094,7 @@ def result_to_evaluation_bundle(
     safetensors_valid = False
     index_complete = False
     config_valid = False
-    mtp_layout_valid: bool | None = None
+    mtp_layout_valid: bool | None = False if config.mtp_enabled else None
     if config.model.local_path is not None:
         model_path = Path(config.model.local_path)
         try:
@@ -1076,7 +1107,11 @@ def result_to_evaluation_bundle(
             safetensors_valid = True
             index_complete = True
             config_valid = True
-            mtp_layout_valid = inventory.mtp_present if config.mtp_enabled else None
+            if config.mtp_enabled:
+                mtp_layout_valid = inventory.mtp_present
+                if not mtp_layout_valid and (model_path / ASSISTANT_CONTRACT_NAME).is_file():
+                    validate_gemma4_assistant_composite(model_path)
+                    mtp_layout_valid = True
         except Exception as exc:
             log.warning("benchmark_integrity_check_failed", error=str(exc))
 
@@ -1116,6 +1151,7 @@ def result_to_evaluation_bundle(
             "top_p": config.top_p,
             "top_k": config.top_k,
             "max_tokens": config.max_tokens,
+            "prompt_format": config.prompt_format,
             "draft_depth": config.draft_depth,
             "power_mode": config.power_mode,
             "quantizer": config.quantizer,
@@ -1280,6 +1316,7 @@ _AB_GENERATION_CONTROL_FIELDS = (
     "top_p",
     "top_k",
     "max_tokens",
+    "prompt_format",
     "ignore_eos",
     "timeout_seconds",
     "draft_depth",
