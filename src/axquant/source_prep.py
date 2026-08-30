@@ -36,7 +36,7 @@ _GEMMA4_MULTIMODAL_DROP = (
 
 # Config fields that cause MLX-LM's gemma4 loader to construct multimodal
 # submodules (and emit empty bias/weight sidecars) during text convert. The
-# converter restores vision_config from the original source after convert when
+# converter restores the original multimodal config contract after convert when
 # protected multimodal tensors are reattached.
 _GEMMA4_MULTIMODAL_CONFIG_DROP = (
     "vision_config",

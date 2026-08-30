@@ -467,8 +467,8 @@ def validate_gemma4_assistant_composite(directory: str | Path) -> Mapping[str, A
     assistant_config = _load_json_object(
         assistant_root / "config.json", label="assistant config.json"
     )
-    if target_config.get("model_type") != "gemma4":
-        raise ArtifactError("target model_type must be 'gemma4'")
+    if target_config.get("model_type") not in {"gemma4", "gemma4_unified"}:
+        raise ArtifactError("target model_type must be 'gemma4' or 'gemma4_unified'")
     if assistant_config.get("model_type") != "gemma4_assistant":
         raise ArtifactError("assistant model_type must be 'gemma4_assistant'")
     validate_gemma4_mlx_vlm_vision_layout(root)

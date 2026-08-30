@@ -96,8 +96,10 @@ between published versions.
   In oMLX, enable **VLM MTP**, select the packaged `assistant/` as the external draft model, and
   use draft block size 2. Do not enable **Lightning MTP** or add synthetic MTP head-count fields:
   the corresponding embedded weights do not exist. The target must carry the
-  `mlx-vlm-gemma4-v1` vision layout and exact `vision.safetensors` index entries. Rebuild older
-  revisions that lack this contract; a config-only edit is insufficient. oMLX 0.6.4 officially
+  `mlx-vlm-gemma4-v1` vision layout and exact `vision.safetensors` index entries. The 12B unified
+  target must also preserve `gemma4_unified`, `audio_config`, and normalized `vision_embedder` /
+  `embed_audio` modules. Rebuild older revisions that lack this contract; a config-only edit is
+  insufficient. oMLX 0.6.4 officially
   pins MLX 0.32.0, so an MLX 0.32.2 override requires MLX-VLM 0.6.17 or newer and remains
   diagnostic until oMLX and its native kernels are rebuilt for that ABI. Runtime compatibility
   does not imply Tier 2 certification.

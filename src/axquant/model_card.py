@@ -646,6 +646,8 @@ vlm_mtp_draft_block_size: 2
 ```
 
 The normalized and indexed `vision.safetensors` layout is loadable by MLX-VLM 0.6.17 or newer.
+For `gemma4_unified` targets, the same sidecar includes the protected `vision_embedder`,
+`embed_vision`, and `embed_audio` modules and the output restores the upstream unified config.
 Runtime discovery does not establish identical-output, acceptance-rate, or speed certification
 for oMLX. Follow the exact checkpoint revision's Tier 2 status.
 """

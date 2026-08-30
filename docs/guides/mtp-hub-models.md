@@ -34,9 +34,12 @@ direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at on
 
 The same bundle can use oMLX's **VLM MTP** path when the target was built with AXQuant's
 `mlx-vlm-gemma4-v1` protected-vision layout. That layout removes the source-only `model.` prefix
-from `vision_tower.*` and `embed_vision.*` tensors and maps every normalized tensor to
-`vision.safetensors` in `model.safetensors.index.json`. Older revisions without that layout marker
-must be rebuilt and recomposed; editing only `config.json` cannot repair their weights or index.
+from `vision_tower.*` and `embed_vision.*` tensors. For the 12B `gemma4_unified` source it also
+normalizes `vision_embedder.*` and `embed_audio.*`, then restores `model_type=gemma4_unified` and
+the upstream audio contract after text conversion. Every normalized tensor is mapped to
+`vision.safetensors` in `model.safetensors.index.json`. Older revisions without that layout marker,
+exact index coverage, or the restored unified config must be rebuilt and recomposed; editing only
+`config.json` cannot repair their weights or index.
 
 Download the complete repository, register the target and its `assistant/` directory as separate
 local oMLX models, and configure the target as follows:

@@ -323,10 +323,12 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         aliases.add(f"vision_tower.{tensor_path.removeprefix('model.visual.')}")
     if tensor_path.startswith("vision_tower."):
         aliases.add(f"model.visual.{tensor_path.removeprefix('vision_tower.')}")
-    # Muse Glimmer: strip/add the HF ``model.`` prefix on vision modules.
+    # Public VLM sanitizers strip/add the HF ``model.`` prefix on modality modules.
     for vision_prefix in (
         "vision_tower.",
+        "vision_embedder.",
         "embed_vision.",
+        "embed_audio.",
         "vision_adapter.",
         "vision_projection",
         "perception_emb_norm",
@@ -366,7 +368,9 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
     gate_bias_maps = ((".ffn.gate.bias", ".ffn.gate.e_score_correction_bias"),)
     vision_module_prefixes = (
         "vision_tower.",
+        "vision_embedder.",
         "embed_vision.",
+        "embed_audio.",
         "vision_adapter.",
         "vision_projection",
         "perception_emb_norm",

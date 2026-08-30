@@ -124,6 +124,14 @@ def test_gemma4_protected_vision_paths_bind_normalized_mlx_vlm_outputs() -> None
             "model.embed_vision.embedding_projection.weight",
             "embed_vision.embedding_projection.weight",
         ),
+        (
+            "model.vision_embedder.patch_dense.weight",
+            "vision_embedder.patch_dense.weight",
+        ),
+        (
+            "model.embed_audio.embedding_projection.weight",
+            "embed_audio.embedding_projection.weight",
+        ),
     ):
         assert output_name in mlx_tensor_binding_groups(source_name)[0]
 

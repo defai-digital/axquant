@@ -243,7 +243,10 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         priority=20,
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
-        summary="Convertible via gemma4_unified→gemma4 text-path prep; multimodal sidecars.",
+        summary=(
+            "Convertible via temporary gemma4_unified→gemma4 text-path prep; restored unified "
+            "multimodal output."
+        ),
         do=("Keep source_prep + vision sidecar path covered by tests.",),
         do_not=("Do not claim native gemma4_unified MLX support without prep.",),
     ),

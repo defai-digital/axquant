@@ -131,6 +131,107 @@ def test_gemma4_vision_name_normalization_rejects_collisions() -> None:
         )
 
 
+def test_gemma4_unified_layout_accepts_vision_and_audio_modules(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    names = (
+        "vision_embedder.patch_dense.weight",
+        "embed_vision.embedding_projection.weight",
+        "embed_audio.embedding_projection.weight",
+    )
+    (target / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "gemma4_unified",
+                "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+                "vision_config": {"hidden_size": 8},
+                "audio_config": {"hidden_size": 8},
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {name: np.zeros((2, 2), dtype=np.float32) for name in names},
+        target / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    save_file(
+        {"language_model.model.embed_tokens.weight": np.zeros((2, 2), dtype=np.float32)},
+        target / "model.safetensors",
+        metadata={"format": "mlx"},
+    )
+    (target / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_parameters": 16, "total_size": 64},
+                "weight_map": {
+                    "language_model.model.embed_tokens.weight": "model.safetensors",
+                    **{name: "vision.safetensors" for name in names},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (target / "tokenizer.json").write_text('{"version":"1.0"}', encoding="utf-8")
+
+    assert validate_gemma4_mlx_vlm_vision_layout(target) == tuple(sorted(names))
+    assistant = tmp_path / "assistant"
+    output = tmp_path / "composite"
+    _write_minimal_assistant(assistant)
+    result = compose_gemma4_assistant_mtp(
+        Gemma4AssistantComposeRequest(
+            target_dir=target,
+            assistant_dir=assistant,
+            output_dir=output,
+            target_model_id="gemma-4-12b-it",
+            assistant_model_id="gemma-4-12b-it-assistant",
+            base_pack_id="AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit",
+            base_tier1_certificate="docs/certifications/gemma4-12b-axq6-tier1.md",
+            assistant_source_id="google/gemma-4-12b-it-assistant",
+            max_depth=1,
+            prefer_hardlink=False,
+            axquant_version="test",
+        )
+    )
+    assert result.output_dir == output.resolve()
+    assert validate_gemma4_assistant_composite(output)["target_model_id"] == "gemma-4-12b-it"
+
+
+def test_gemma4_unified_layout_requires_audio_module_when_configured(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    names = (
+        "vision_embedder.patch_dense.weight",
+        "embed_vision.embedding_projection.weight",
+    )
+    (target / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "gemma4_unified",
+                "vision_config": {"hidden_size": 8},
+                "audio_config": {"hidden_size": 8},
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {name: np.zeros((2, 2), dtype=np.float32) for name in names},
+        target / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+
+    with pytest.raises(ArtifactError, match="missing MLX-VLM multimodal modules"):
+        validate_gemma4_mlx_vlm_vision_layout(target)
+
+
 def test_compose_preserves_base_digests(tmp_path: Path) -> None:
     target = tmp_path / "target"
     assistant = tmp_path / "assistant"

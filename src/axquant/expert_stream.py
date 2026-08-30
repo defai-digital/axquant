@@ -239,7 +239,13 @@ def emit_expert_stream_manifest(
         raise ArtifactError("converted config.json must contain an object")
     experts_per_tok = _positive_config_int(
         config_value,
-        ("num_experts_per_tok", "num_experts_per_token", "experts_per_token", "top_k"),
+        (
+            "num_experts_per_tok",
+            "num_experts_per_token",
+            "experts_per_token",
+            "top_k_experts",
+            "top_k",
+        ),
     )
     if experts_per_tok is None:
         raise ArtifactError("converted config does not declare experts per token")

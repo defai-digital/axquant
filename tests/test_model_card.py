@@ -555,6 +555,11 @@ def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
     tmp_path: Path,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
+    config_path = directory / "config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["model_type"] = "gemma4"
+    config["architectures"] = ["Gemma4ForConditionalGeneration"]
+    config_path.write_text(json.dumps(config), encoding="utf-8")
     (directory / "mtp.safetensors").unlink()
     (directory / "axquant_mtp_sidecar_manifest.json").unlink()
     vision_name = "vision_tower.patch_embed.weight"

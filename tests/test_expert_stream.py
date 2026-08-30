@@ -229,6 +229,33 @@ def test_emit_manifest_and_runtime_pointer_from_synthetic_inventory(
     assert runtime.memory_policy["expert_stream_manifest"] == "ax_expert_stream.json"
 
 
+def test_emit_manifest_accepts_nested_gemma4_top_k_experts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "config.json").write_text(
+        '{"model_type":"gemma4","text_config":{"num_experts":4,"top_k_experts":2}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(expert_stream, "inspect_model", lambda *args, **kwargs: _packed_inventory())
+    plan = SimpleNamespace(
+        source_model=ModelIdentity(model_id="google/gemma-4-26B-A4B-it"),
+        architecture_profile=SimpleNamespace(
+            adapter_id="gemma4-dense-v1",
+            optimization_scope=OptimizationScope.TEXT_PATH,
+        ),
+        group_size=64,
+        kv_cache=None,
+        assignments=[SimpleNamespace(role=TensorRole.EXPERT)],
+    )
+
+    emitted = expert_stream.emit_expert_stream_manifest(tmp_path, plan, setting="auto")
+
+    assert emitted is not None
+    assert emitted.required is False
+    assert emitted.experts_per_tok == 2
+
+
 def test_expert_stream_flags_default_auto_and_super_off_fails_closed() -> None:
     parser = _build_parser()
     staged = parser.parse_args(

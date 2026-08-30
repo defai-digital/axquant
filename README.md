@@ -496,7 +496,7 @@ release audit. The current tier matrix:
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
 | **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
-| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
+| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` uses a temporary `gemma4` text path; the upstream unified config and normalized multimodal sidecar are restored in the output |
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** until a Nemotron-specific stream convert exists |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |

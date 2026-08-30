@@ -707,14 +707,16 @@ def _source_weight_map(model_dir: Path) -> dict[str, Path]:
 
 
 def _restore_protected_vision_config(model_dir: Path, output_dir: Path) -> None:
-    """Restore upstream vision metadata removed by text-weight MLX conversion.
+    """Restore upstream multimodal metadata removed by text-weight MLX conversion.
 
     MLX-LM converts the language trunk and may omit ``vision_config`` even when
     AXQuant subsequently restores the protected vision tensors into their own
     sidecar.  AX Engine 6.12+ indexes that sidecar and therefore needs the
-    original vision contract to interpret it.  Copy only the immutable
-    architecture/token fields from the revision-pinned source and fail closed
-    if the converted config already contains conflicting values.
+    original multimodal contract to interpret it. Gemma 4 unified preparation
+    also remaps ``model_type`` to the MLX-LM text implementation; restore that
+    deliberate remap after the protected modules are reattached. Copy only the
+    immutable architecture/token fields from the revision-pinned source and
+    fail closed if the converted config already contains conflicting values.
     """
 
     source_path = model_dir / "config.json"
@@ -730,15 +732,36 @@ def _restore_protected_vision_config(model_dir: Path, output_dir: Path) -> None:
     if not isinstance(source_vision, dict) or not source_vision:
         raise ArtifactError("protected vision tensors require a non-empty source vision_config")
 
-    protected_fields = (
+    source_model_type = source.get("model_type")
+    unified = source_model_type == "gemma4_unified"
+    converted_model_type = converted.get("model_type")
+    if unified:
+        if converted_model_type not in {None, "gemma4", "gemma4_unified"}:
+            raise ArtifactError("converted config conflicts with protected source field model_type")
+        converted["model_type"] = "gemma4_unified"
+
+    protected_fields = [
         "vision_config",
         "image_token_id",
         "video_token_id",
         "vision_start_token_id",
         "vision_end_token_id",
         "language_model_only",
-    )
-    changed = False
+    ]
+    if unified:
+        protected_fields.extend(
+            (
+                "architectures",
+                "audio_config",
+                "audio_token_id",
+                "boi_token_id",
+                "eoi_token_id",
+                "boa_token_id",
+                "eoa_token_id",
+                "eoa_token_index",
+            )
+        )
+    changed = unified and converted_model_type != "gemma4_unified"
     for field_name in protected_fields:
         if field_name not in source:
             continue

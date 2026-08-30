@@ -1197,16 +1197,27 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     assert converted_config["vision_config"] == source_config["vision_config"]
 
 
+@pytest.mark.parametrize(
+    "source_names",
+    [
+        (
+            "model.embed_vision.embedding_projection.weight",
+            "model.vision_tower.encoder.layers.0.input_layernorm.weight",
+        ),
+        (
+            "model.embed_vision.embedding_projection.weight",
+            "model.vision_embedder.patch_dense.weight",
+            "model.embed_audio.embedding_projection.weight",
+        ),
+    ],
+)
 def test_gemma4_protected_vision_uses_mlx_vlm_names_and_index(
     qwen36_model_dir: Path,
     tmp_path: Path,
+    source_names: tuple[str, ...],
 ) -> None:
     source = tmp_path / "gemma-source"
     source.mkdir()
-    source_names = (
-        "model.embed_vision.embedding_projection.weight",
-        "model.vision_tower.encoder.layers.0.input_layernorm.weight",
-    )
     save_file(
         {name: np.arange(4, dtype=np.float32).reshape(2, 2) for name in source_names},
         source / "model.safetensors",
@@ -1266,7 +1277,10 @@ def test_gemma4_protected_vision_uses_mlx_vlm_names_and_index(
         for output_name in output_names:
             assert sidecar.get_tensor(output_name).tolist() == [[0.0, 1.0], [2.0, 3.0]]
     index = json.loads((output / "model.safetensors.index.json").read_text(encoding="utf-8"))
-    assert index["metadata"] == {"total_parameters": 12, "total_size": 48}
+    assert index["metadata"] == {
+        "total_parameters": 4 + 4 * len(source_names),
+        "total_size": 16 + 16 * len(source_names),
+    }
     for output_name in output_names:
         assert index["weight_map"][output_name] == "vision.safetensors"
     assert manifest.tensor_names_sha256 == stable_sha256(sorted(output_names))
@@ -1324,6 +1338,52 @@ def test_restore_protected_vision_config_mirrors_tie_word_embeddings_into_text_c
     restored = json.loads((output / "config.json").read_text(encoding="utf-8"))
     assert restored["vision_config"] == source_config["vision_config"]
     assert restored["text_config"]["tie_word_embeddings"] is False
+
+
+def test_restore_protected_vision_config_restores_gemma4_unified_contract(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    output = tmp_path / "converted"
+    source.mkdir()
+    output.mkdir()
+    source_config = {
+        "model_type": "gemma4_unified",
+        "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+        "vision_config": {"hidden_size": 1152},
+        "audio_config": {"hidden_size": 768},
+        "text_config": {"hidden_size": 3840, "vocab_size": 262144},
+        "image_token_id": 258880,
+        "audio_token_id": 258881,
+        "boi_token_id": 255999,
+        "eoi_token_id": 258882,
+        "boa_token_id": 256000,
+        "eoa_token_index": 258883,
+    }
+    converted_config = {
+        "model_type": "gemma4",
+        "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+        "text_config": {"hidden_size": 3840, "vocab_size": 262144},
+    }
+    (source / "config.json").write_text(json.dumps(source_config), encoding="utf-8")
+    (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
+
+    converter._restore_protected_vision_config(source, output)
+
+    restored = json.loads((output / "config.json").read_text(encoding="utf-8"))
+    for field in (
+        "model_type",
+        "architectures",
+        "vision_config",
+        "audio_config",
+        "image_token_id",
+        "audio_token_id",
+        "boi_token_id",
+        "eoi_token_id",
+        "boa_token_id",
+        "eoa_token_index",
+    ):
+        assert restored[field] == source_config[field]
 
 
 def test_mtp_sidecar_provenance_rejects_transformed_bundle(tmp_path: Path) -> None:
