@@ -33,7 +33,7 @@ SUITE_DIR = ROOT / "data" / "eval" / "practical-qwen38-vs-qwen36"
 DEFAULT_WORK = Path(
     os.environ.get(
         "QWEN38_VS36_WORK",
-        "/Volumes/Ext4T/axquant/eval/qwen38-vs-qwen36-27b-axq4-mtp",
+        "/Volumes/Ext16TR0/axquant/eval/qwen38-vs-qwen36-27b-axq4-mtp",
     )
 )
 ENGINE_BIN = Path(
@@ -55,7 +55,7 @@ MODELS: dict[str, dict[str, str]] = {
         "short": "3.6",
         "path": os.environ.get(
             "QWEN36_PACK",
-            "/Volumes/Ext4T/models/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
+            "/Volumes/Ext16TR0/models/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
         ),
         "hub": "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP",
         "commit": "f44a9eeebec0c488d0f42201c8763db770a1c0a8",
@@ -65,7 +65,7 @@ MODELS: dict[str, dict[str, str]] = {
         "short": "3.8",
         "path": os.environ.get(
             "QWEN38_PACK",
-            "/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
+            "/Volumes/Ext16TR0/models/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
         ),
         "hub": "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
         "commit": "32f448461caf4aedcc3c16a77a63b6a94bf0667c",

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Sync Ext4T Hugging Face cache across factory Macs (union, no deletes).
+# Sync Ext16TR0 Hugging Face cache across factory Macs (union, no deletes).
 #
 # Canonical layout on every machine:
-#   /Volumes/Ext4T/huggingface/{hub,xet,datasets,...}
-#   ~/.cache/huggingface -> /Volumes/Ext4T/huggingface
-#   HF_HOME=/Volumes/Ext4T/huggingface
+#   /Volumes/Ext16TR0/huggingface/{hub,xet,datasets,...}
+#   ~/.cache/huggingface -> /Volumes/Ext16TR0/huggingface
+#   HF_HOME=/Volumes/Ext16TR0/huggingface
 #
 # Peers (SSH host aliases):
 #   mbp-m5          (AKMBPM5MAX, user akiralam)
@@ -12,15 +12,15 @@
 #                   script standardizes to huggingface
 #
 # Usage (run from a machine that can SSH to peers, usually M3):
-#   bash scripts/sync-ext4t-hf-fleet.sh --status
-#   bash scripts/sync-ext4t-hf-fleet.sh --prepare-m2u
-#   bash scripts/sync-ext4t-hf-fleet.sh --push-all          # local HF -> all peers
-#   bash scripts/sync-ext4t-hf-fleet.sh --pull-all          # all peers -> local
-#   bash scripts/sync-ext4t-hf-fleet.sh --sync-all          # push then pull (union)
-#   bash scripts/sync-ext4t-hf-fleet.sh --peer mbp-m5 --push
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --status
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --prepare-m2u
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --push-all          # local HF -> all peers
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --pull-all          # all peers -> local
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --sync-all          # push then pull (union)
+#   bash scripts/sync-ext16tr0-hf-fleet.sh --peer mbp-m5 --push
 set -euo pipefail
 
-EXT_ROOT="${EXT_ROOT:-/Volumes/Ext4T}"
+EXT_ROOT="${EXT_ROOT:-/Volumes/Ext16TR0}"
 HF_LOCAL="${EXT_ROOT}/huggingface"
 LOG_DIR="${EXT_ROOT}/logs/hf-fleet"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -44,10 +44,10 @@ for ssh_arg in ${SSH_ARGS[@]+"${SSH_ARGS[@]}"}; do
   printf -v RSYNC_SSH '%s %q' "$RSYNC_SSH" "$ssh_arg"
 done
 
-# Per-host remote Ext4T HF path (after prepare, all use huggingface)
+# Per-host remote Ext16TR0 HF path (after prepare, all use huggingface)
 remote_hf_path() {
   # Always target the standard path; prepare-m2u creates it.
-  echo "/Volumes/Ext4T/huggingface"
+  echo "/Volumes/Ext16TR0/huggingface"
 }
 
 log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
@@ -65,7 +65,7 @@ validate_configuration() {
     die "EXT_ROOT must be a simple canonical absolute path: $EXT_ROOT"
   }
   [[ "$EXT_ROOT" != "/" && "$EXT_ROOT" != "/Volumes" ]] || {
-    die "refusing broad Ext4T root: $EXT_ROOT"
+    die "refusing broad Ext16TR0 root: $EXT_ROOT"
   }
   [[ "/$EXT_ROOT/" != *"/../"* && "/$EXT_ROOT/" != *"/./"* && "$EXT_ROOT" != *"//"* ]] || {
     die "EXT_ROOT must not contain dot or empty components: $EXT_ROOT"
@@ -99,7 +99,7 @@ require_local() {
     die "$EXT_ROOT is not an exact mounted volume (df reports ${mounted_at:-unknown})"
   }
   [[ -d "$HF_LOCAL" && ! -L "$HF_LOCAL" ]] || {
-    die "missing or symlinked $HF_LOCAL — run setup-ext4t-hf.sh --layout first"
+    die "missing or symlinked $HF_LOCAL — run setup-ext16tr0-hf.sh --layout first"
   }
   local path
   for path in "$HF_LOCAL/hub" "$HF_LOCAL/xet" "$HF_LOCAL/datasets"; do
@@ -117,29 +117,29 @@ ssh_peer() {
   ssh ${SSH_ARGS[@]+"${SSH_ARGS[@]}"} "$peer" "$@"
 }
 
-require_peer_ext4t() {
+require_peer_ext16tr0() {
   local peer="$1"
   if ! ssh_peer "$peer" bash -s <<'REMOTE'
 set -eu
-ext=/Volumes/Ext4T
+ext=/Volumes/Ext16TR0
 test -d "$ext"
 test ! -L "$ext"
 mounted_at="$(df -P "$ext" | awk 'NR == 2 {print $NF}')"
 test "$mounted_at" = "$ext"
 REMOTE
   then
-    die "$peer is missing a real exact mount at /Volumes/Ext4T"
+    die "$peer is missing a real exact mount at /Volumes/Ext16TR0"
   fi
 }
 
 ensure_peer_hf() {
   local peer="$1"
   local mode="${2:-require}"
-  require_peer_ext4t "$peer"
+  require_peer_ext16tr0 "$peer"
   if ! ssh_peer "$peer" bash -s -- "$mode" <<'REMOTE'
 set -eu
 mode="$1"
-hf=/Volumes/Ext4T/huggingface
+hf=/Volumes/Ext16TR0/huggingface
 if test -L "$hf" || { test -e "$hf" && test ! -d "$hf"; }; then
   exit 1
 fi
@@ -222,10 +222,10 @@ verify_peer() {
 prepare_m2u() {
   local peer="macstudio-m2u"
   validate_peer "$peer"
-  log "prepare $peer Ext4T HF standard path"
+  log "prepare $peer Ext16TR0 HF standard path"
   ssh_peer "$peer" bash -s <<'REMOTE'
 set -euo pipefail
-EXT=/Volumes/Ext4T
+EXT=/Volumes/Ext16TR0
 HF="$EXT/huggingface"
 OLD="$EXT/hf-data"
 
@@ -328,8 +328,8 @@ fi
 
 # Shell env block
 ZSHRC="${HOME}/.zshrc"
-MARKER_BEGIN="# >>> axquant-ext4t-hf >>>"
-MARKER_END="# <<< axquant-ext4t-hf <<<"
+MARKER_BEGIN="# >>> axquant-ext16tr0-hf >>>"
+MARKER_END="# <<< axquant-ext16tr0-hf <<<"
 [[ ! -L "$ZSHRC" ]] || die "refusing to rewrite symlinked shell configuration: $ZSHRC"
 [[ ! -e "$ZSHRC" || -f "$ZSHRC" ]] || die "shell configuration is not a file: $ZSHRC"
 touch "$ZSHRC"
@@ -356,15 +356,15 @@ fi
 # user's last line and break both that line and future marker matching
 [[ ! -s "$tmp" ]] || [[ -z "$(tail -c1 "$tmp")" ]] || echo >>"$tmp"
 cat >>"$tmp" <<'EOF'
-# >>> axquant-ext4t-hf >>>
-# Local Ext4T Hugging Face cache (shared standard: M2U / M3 / M5)
-export HF_HOME="/Volumes/Ext4T/huggingface"
+# >>> axquant-ext16tr0-hf >>>
+# Local Ext16TR0 Hugging Face cache (shared standard: M2U / M3 / M5)
+export HF_HOME="/Volumes/Ext16TR0/huggingface"
 export HUGGINGFACE_HUB_CACHE="$HF_HOME/hub"
 export HF_HUB_CACHE="$HF_HOME/hub"
 export HF_XET_HIGH_PERFORMANCE=1
 export HF_XET_CACHE="$HF_HOME/xet"
 unset HF_HUB_ENABLE_HF_TRANSFER
-# <<< axquant-ext4t-hf <<<
+# <<< axquant-ext16tr0-hf <<<
 EOF
 chmod "$(stat -f '%Lp' "$ZSHRC")" "$tmp"
 mv "$tmp" "$ZSHRC"
@@ -443,7 +443,7 @@ sync_all() {
 
 show_status() {
   echo "=== local $(scutil --get ComputerName 2>/dev/null || hostname) ==="
-  df -h "$EXT_ROOT" 2>/dev/null | tail -1 || echo "Ext4T missing"
+  df -h "$EXT_ROOT" 2>/dev/null | tail -1 || echo "Ext16TR0 missing"
   echo "HF_LOCAL=$HF_LOCAL"
   if [[ -L "${HOME}/.cache/huggingface" ]]; then
     echo "HF link: $(readlink "${HOME}/.cache/huggingface")"
@@ -464,11 +464,11 @@ show_status() {
       continue
     fi
     ssh_peer "$p" bash -s <<'REMOTE'
-df -h /Volumes/Ext4T 2>/dev/null | tail -1 || echo "Ext4T missing"
+df -h /Volumes/Ext16TR0 2>/dev/null | tail -1 || echo "Ext16TR0 missing"
 if [ -L "$HOME/.cache/huggingface" ]; then
   echo "HF link: $(readlink "$HOME/.cache/huggingface")"
 fi
-for path in /Volumes/Ext4T/huggingface /Volumes/Ext4T/hf-data; do
+for path in /Volumes/Ext16TR0/huggingface /Volumes/Ext16TR0/hf-data; do
   if [ -e "$path" ] || [ -L "$path" ]; then
     if [ -L "$path" ]; then
       echo "$path -> $(readlink "$path")"

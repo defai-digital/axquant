@@ -3,7 +3,7 @@
 # Does not convert. Does not copy mlx-optiq. Does not claim certification.
 set -euo pipefail
 export PATH="/Users/devop/.local/bin:$PATH"
-export HF_HOME=/Volumes/Ext12T/huggingface
+export HF_HOME=/Volumes/Ext16TR0/huggingface
 export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
 export HF_HUB_CACHE=$HF_HOME/hub
 export HF_XET_HIGH_PERFORMANCE=1
@@ -11,7 +11,7 @@ export HF_XET_CACHE=$HF_HOME/xet
 unset HF_HUB_ENABLE_HF_TRANSFER
 export DSV4_QA_PROTOCOL=v-extract
 export DSV4_FORCE_EVAL=1
-export DSV4_OPTIQ_VS_AXQ_WORK=/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-v-extract
+export DSV4_OPTIQ_VS_AXQ_WORK=/Volumes/Ext16TR0/axquant-certification/deepseek-v4-0731-optiq-v-extract
 export PYTHONPATH=/Users/devop/code/axquant/src
 
 ROOT=/Users/devop/code/axquant

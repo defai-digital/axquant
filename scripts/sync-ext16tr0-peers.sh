@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2029
-# Bidirectional union-sync of Ext4T between factory Macs (M3 <-> M5).
+# Bidirectional union-sync of Ext16TR0 between factory Macs (M3 <-> M5).
 #
 # Goal: both machines end with the same content under:
-#   /Volumes/Ext4T/{huggingface,models,axquant}
+#   /Volumes/Ext16TR0/{huggingface,models,axquant}
 #
 # Strategy (safe union — no deletes):
 #   1) push local -> peer
@@ -11,15 +11,15 @@
 # Re-run anytime; rsync is restartable.
 #
 # Usage (run on either machine that can SSH to the peer):
-#   bash scripts/sync-ext4t-peers.sh --peer mbp-m5
-#   bash scripts/sync-ext4t-peers.sh --peer mbp-m5 --status
-#   bash scripts/sync-ext4t-peers.sh --peer mbp-m5 --models-only
-#   bash scripts/sync-ext4t-peers.sh --peer mbp-m5 --hf-only
+#   bash scripts/sync-ext16tr0-peers.sh --peer mbp-m5
+#   bash scripts/sync-ext16tr0-peers.sh --peer mbp-m5 --status
+#   bash scripts/sync-ext16tr0-peers.sh --peer mbp-m5 --models-only
+#   bash scripts/sync-ext16tr0-peers.sh --peer mbp-m5 --hf-only
 set -euo pipefail
 
-EXT_ROOT="${EXT_ROOT:-/Volumes/Ext4T}"
+EXT_ROOT="${EXT_ROOT:-/Volumes/Ext16TR0}"
 PEER="${PEER:-mbp-m5}"
-PEER_EXT="${PEER_EXT:-/Volumes/Ext4T}"
+PEER_EXT="${PEER_EXT:-/Volumes/Ext16TR0}"
 LOG_DIR="${EXT_ROOT}/logs/peer-sync"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 SSH_OPTS="${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=60}"
@@ -32,7 +32,7 @@ for ssh_arg in ${SSH_ARGS[@]+"${SSH_ARGS[@]}"}; do
   printf -v RSYNC_SSH '%s %q' "$RSYNC_SSH" "$ssh_arg"
 done
 
-# Trees to keep identical (relative to Ext4T)
+# Trees to keep identical (relative to Ext16TR0)
 TREES=(huggingface models axquant)
 
 log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }

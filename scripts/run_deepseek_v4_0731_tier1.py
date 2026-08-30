@@ -322,7 +322,9 @@ def cmd_download(key: str) -> None:
         work_dir() / "logs" / f"download-{key}.log",
     )
     if not pack_ready(dest):
-        raise SystemExit(f"Hub pack incomplete: {dest}. Convert on this host or rsync from Ext12T.")
+        raise SystemExit(
+            f"Hub pack incomplete: {dest}. Convert on this host or rsync from Ext16TR0."
+        )
 
 
 def cmd_convert(key: str) -> None:

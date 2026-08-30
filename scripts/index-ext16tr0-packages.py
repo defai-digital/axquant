@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Index Ext4T package directories for cross-host dedupe + layout planning.
+"""Index Ext16TR0 package directories for cross-host dedupe + layout planning.
 
 For each package dir under models/ and axquant/{models,axq-publish,work,smokes,...}
 emits a JSON line with:
@@ -20,10 +20,13 @@ action). cheap mode (HF rollups) hashes only total size + file count and is
 likewise never safe for deletion.
 
 Usage:
-  python3 scripts/index-ext4t-packages.py --root /Volumes/Ext4T --host local > index.jsonl
-  python3 scripts/index-ext4t-packages.py --root /Volumes/Ext4T --host mbp-m5 --trees models,axquant
+  python3 scripts/index-ext16tr0-packages.py \\
+    --root /Volumes/Ext16TR0 --host local > index.jsonl
+  python3 scripts/index-ext16tr0-packages.py \\
+    --root /Volumes/Ext16TR0 --host mbp-m5 --trees models,axquant
   # inventory-only fast path (path+size; not safe for delete planning):
-  python3 scripts/index-ext4t-packages.py --root /Volumes/Ext4T --host local --fingerprint path-size
+  python3 scripts/index-ext16tr0-packages.py \\
+    --root /Volumes/Ext16TR0 --host local --fingerprint path-size
 """
 
 from __future__ import annotations
@@ -325,12 +328,12 @@ def _cheap_size(root: Path) -> tuple[int, int]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default="/Volumes/Ext4T")
+    ap.add_argument("--root", default="/Volumes/Ext16TR0")
     ap.add_argument("--host", required=True, help="logical host label")
     ap.add_argument(
         "--trees",
         default="models,axquant",
-        help="comma-separated under Ext4T (default: models,axquant)",
+        help="comma-separated under Ext16TR0 (default: models,axquant)",
     )
     ap.add_argument(
         "--include-huggingface",

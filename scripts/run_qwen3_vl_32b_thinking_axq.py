@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + checkpoint Tier 1 for Qwen3-VL-32B-Thinking AXQ 6-bit and MXFP4.
 
-Run on df-macstudio-m2 + Ext12T:
+Run on df-macstudio-m2 + Ext16TR0:
 
   PYTHONPATH=src .venv/bin/python scripts/run_qwen3_vl_32b_thinking_axq.py --pack axq6 all
   PYTHONPATH=src .venv/bin/python scripts/run_qwen3_vl_32b_thinking_axq.py --pack mxfp4 all
@@ -83,7 +83,7 @@ def source_dir() -> Path:
     return Path(
         os.environ.get(
             "VL32_BF16",
-            "/Volumes/Ext12T/axquant/work/qwen3-vl-32b-thinking/src",
+            "/Volumes/Ext16TR0/axquant/work/qwen3-vl-32b-thinking/src",
         )
     )
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge multi-host Ext4T package indexes; report dups and a final layout plan.
+"""Merge multi-host Ext16TR0 package indexes; report dups and a final layout plan.
 
 Content identity for delete / alias renames is proven only by
 ``fingerprint_mode == "content"`` records from the indexer (full-file
@@ -7,11 +7,11 @@ sha256 per path). cheap, incomplete, path-size/manifest, and legacy
 records are never used to recommend delete_duplicate.
 
 Usage:
-  python3 scripts/plan-ext4t-from-index.py \\
-    --index /Volumes/Ext4T/logs/index/m3.jsonl \\
-    --index /Volumes/Ext4T/logs/index/m5.jsonl \\
-    --index /Volumes/Ext4T/logs/index/m2u.jsonl \\
-    -o /Volumes/Ext4T/logs/index/plan.md
+  python3 scripts/plan-ext16tr0-from-index.py \\
+    --index /Volumes/Ext16TR0/logs/index/m3.jsonl \\
+    --index /Volumes/Ext16TR0/logs/index/m5.jsonl \\
+    --index /Volumes/Ext16TR0/logs/index/m2u.jsonl \\
+    -o /Volumes/Ext16TR0/logs/index/plan.md
 """
 
 from __future__ import annotations
@@ -53,13 +53,13 @@ def content_identity_key(rec: dict) -> str:
     return f"unverified:{rec['host']}:{rec['path']}"
 
 
-# Absolute root for Ext4T fleet layouts. Paths in indexes are absolute under this.
-_EXT4T_ROOT = "/Volumes/Ext4T"
+# Absolute root for Ext16TR0 fleet layouts. Paths in indexes are absolute under this.
+_EXT16TR0_ROOT = "/Volumes/Ext16TR0"
 
 
 def final_absolute_path(final: str) -> str:
     """Absolute path for a relative final layout location (e.g. models/Foo)."""
-    return f"{_EXT4T_ROOT}/{final}"
+    return f"{_EXT16TR0_ROOT}/{final}"
 
 
 def is_at_final_path(path: str, final: str) -> bool:
@@ -437,7 +437,7 @@ def main() -> int:
     host_local_bytes = sum(e["size_bytes"] for e in host_local_entries)
 
     lines: list[str] = []
-    lines.append("# Ext4T fleet index plan")
+    lines.append("# Ext16TR0 fleet index plan")
     lines.append("")
     lines.append(f"Hosts indexed: {', '.join(hosts)}")
     lines.append(f"Unique content packages: **{len(unique_content)}** ({human(total_unique)})")
@@ -466,7 +466,7 @@ def main() -> int:
     lines.append("## Final layout standard")
     lines.append("")
     lines.append("```")
-    lines.append("/Volumes/Ext4T/")
+    lines.append("/Volumes/Ext16TR0/")
     lines.append("  huggingface/           # HF cache only (do not mix models here)")
     lines.append("  models/                # BF16 / factory sources (canonical names)")
     lines.append("  axquant/")

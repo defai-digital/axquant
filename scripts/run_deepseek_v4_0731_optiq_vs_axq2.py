@@ -34,10 +34,10 @@ from axquant.deepseek_v4_qa import (  # noqa: E402
     truncate_at_stop,
 )
 
-FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
-FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
+FACTORY_DATASETS = "/Volumes/Ext16TR0/axquant-certification/datasets"
+FACTORY_HF_HOME = "/Volumes/Ext16TR0/huggingface"
 FACTORY_HOST_ID = "df-macstudio-m2"
-FACTORY_MODELS = "/Volumes/Ext12T/models"
+FACTORY_MODELS = "/Volumes/Ext16TR0/models"
 
 SOURCE_ID = "deepseek-ai/DeepSeek-V4-Flash-0731"
 SOURCE_REV = "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
@@ -46,7 +46,7 @@ AXQ_ID = "local/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0"
 AXQ_REV = "1.9.0"
 SEED = 20260728
 MAX_TOKENS_DECODE = 128
-OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext12T/venvs/mlx-optiq"))
+OPTIQ_VENV = Path(os.environ.get("OPTIQ_VENV", "/Volumes/Ext16TR0/venvs/mlx-optiq"))
 QA_PROTOCOL = normalize_qa_protocol(os.environ.get("DSV4_QA_PROTOCOL", DEFAULT_PROTOCOL))
 
 PACKS: dict[str, dict[str, Any]] = {
@@ -110,7 +110,7 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_OPTIQ_VS_AXQ_WORK",
-            f"/Volumes/Ext12T/axquant-certification/deepseek-v4-0731-optiq-vs-axq2-{QA_PROTOCOL}",
+            f"/Volumes/Ext16TR0/axquant-certification/deepseek-v4-0731-optiq-vs-axq2-{QA_PROTOCOL}",
         )
     )
 
@@ -622,7 +622,7 @@ def cmd_report() -> None:
             "previously skipped; AX Engine manifest fails on fused gate+up).",
             "- OptiQ streams routed experts from SSD; AXQ keeps the expert table "
             "resident. Speed is not a same-kernel A/B.",
-            "- Suites: `development-agent-coding` and `development-general` on Ext12T.",
+            "- Suites: `development-agent-coding` and `development-general` on Ext16TR0.",
             "",
             "Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`]"
             "(../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).",

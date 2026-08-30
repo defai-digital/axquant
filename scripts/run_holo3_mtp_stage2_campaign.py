@@ -21,19 +21,21 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--work",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2"),
+        default=Path("/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/align-campaign-v2"),
     )
     p.add_argument(
         "--pack",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     p.add_argument(
         "--trunk",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"),
+        default=Path(
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"
+        ),
     )
     p.add_argument("--steps", type=int, default=300)
     p.add_argument("--lr", type=float, default=1e-4)

@@ -89,7 +89,7 @@ uniform, quality retention on agent-coding + general. **Tier 2 is not applicable
 ## Factory host
 
 Factory **conversion**, **all Tier 1**, and **all Tier 2** certifications
-**must** run on `df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext12T). Do not
+**must** run on `df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext16TR0). Do not
 convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
 
 Existing certificates in this document remain bound to the host they were

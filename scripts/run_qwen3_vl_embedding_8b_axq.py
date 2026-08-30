@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + try checkpoint Tier 1 for Qwen3-VL-Embedding-8B AXQ.
 
-Packs: 6-bit affine and MXFP4. Convert on df-macstudio-m2 + Ext12T.
+Packs: 6-bit affine and MXFP4. Convert on df-macstudio-m2 + Ext16TR0.
 
   PYTHONPATH=src .venv/bin/python scripts/run_qwen3_vl_embedding_8b_axq.py --pack axq6 all
   PYTHONPATH=src .venv/bin/python scripts/run_qwen3_vl_embedding_8b_axq.py --pack mxfp4 all
@@ -93,7 +93,7 @@ def source_dir() -> Path:
     return Path(
         os.environ.get(
             "VL_EMBED_BF16",
-            "/Volumes/Ext12T/axquant/work/qwen3-vl-embedding-8b/src",
+            "/Volumes/Ext16TR0/axquant/work/qwen3-vl-embedding-8b/src",
         )
     )
 

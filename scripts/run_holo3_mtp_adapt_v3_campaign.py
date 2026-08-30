@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Holo3 MTP adapt v3: grow labels + longer stage-1 from best stage-1 init.
 
-Factory path on Ext4T. Measures offline top-1 and online MoE-exact accept.
+Factory path on Ext16TR0. Measures offline top-1 and online MoE-exact accept.
 """
 
 from __future__ import annotations
@@ -47,25 +47,27 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--work",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v3"),
+        default=Path("/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/align-campaign-v3"),
     )
     p.add_argument(
         "--pack",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     p.add_argument(
         "--trunk",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"),
+        default=Path(
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"
+        ),
     )
     p.add_argument(
         "--init-mtp",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/"
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/align-campaign-v2/"
             "mtp-adapted-fc/mtp.safetensors"
         ),
         help="Best stage-1 adapted head (preferred over raw graft)",
@@ -98,7 +100,7 @@ def main(argv: list[str] | None = None) -> int:
     if not init_mtp.is_file():
         init_mtp = pack / "mtp.safetensors"
 
-    datasets_root = Path("/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets")
+    datasets_root = Path("/Volumes/Ext16TR0/axquant/flagship/qwen36-mtp-v2-c1/datasets")
     prompt_sources = [
         datasets_root / "formal-agent-coding" / "dataset.jsonl",
         datasets_root / "development-agent-coding" / "dataset.jsonl",

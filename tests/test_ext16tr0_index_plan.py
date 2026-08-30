@@ -1,4 +1,4 @@
-"""Tests for Ext4T package indexing fingerprints and delete planning safety."""
+"""Tests for Ext16TR0 package indexing fingerprints and delete planning safety."""
 
 from __future__ import annotations
 
@@ -22,8 +22,8 @@ def _load(name: str, filename: str) -> ModuleType:
     return module
 
 
-indexer = _load("axquant_index_ext4t", "index-ext4t-packages.py")
-planner = _load("axquant_plan_ext4t", "plan-ext4t-from-index.py")
+indexer = _load("axquant_index_ext16tr0", "index-ext16tr0-packages.py")
+planner = _load("axquant_plan_ext16tr0", "plan-ext16tr0-from-index.py")
 
 
 def _write_pkg(root: Path, name: str, files: dict[str, bytes]) -> Path:
@@ -126,7 +126,7 @@ def test_planner_deletes_only_content_safe_same_host_dups(tmp_path: Path) -> Non
             "host": "m3",
             "category": "models",
             "name": "Foo-BF16",
-            "path": "/Volumes/Ext4T/models/Foo-BF16",
+            "path": "/Volumes/Ext16TR0/models/Foo-BF16",
             "size_bytes": 1000,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -136,7 +136,7 @@ def test_planner_deletes_only_content_safe_same_host_dups(tmp_path: Path) -> Non
             "host": "m3",
             "category": "axquant/work",
             "name": "Foo-BF16-copy",
-            "path": "/Volumes/Ext4T/axquant/work/Foo-BF16-copy",
+            "path": "/Volumes/Ext16TR0/axquant/work/Foo-BF16-copy",
             "size_bytes": 1000,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -155,8 +155,8 @@ def test_planner_deletes_only_content_safe_same_host_dups(tmp_path: Path) -> Non
     deletes = [m for m in plan["local_moves"] if m["action"] == "delete_duplicate"]
     assert len(deletes) == 1
     assert deletes[0]["host"] == "m3"
-    assert deletes[0]["path"] == "/Volumes/Ext4T/axquant/work/Foo-BF16-copy"
-    assert deletes[0]["keep"] == "/Volumes/Ext4T/models/Foo-BF16"
+    assert deletes[0]["path"] == "/Volumes/Ext16TR0/axquant/work/Foo-BF16-copy"
+    assert deletes[0]["keep"] == "/Volumes/Ext16TR0/models/Foo-BF16"
 
 
 def test_planner_keeps_top_level_models_not_axquant_models_suffix(
@@ -175,7 +175,7 @@ def test_planner_keeps_top_level_models_not_axquant_models_suffix(
             "host": "m3",
             "category": "models",
             "name": "Bar-BF16",
-            "path": "/Volumes/Ext4T/models/Bar-BF16",
+            "path": "/Volumes/Ext16TR0/models/Bar-BF16",
             "size_bytes": 2000,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -185,7 +185,7 @@ def test_planner_keeps_top_level_models_not_axquant_models_suffix(
             "host": "m3",
             "category": "axquant/models",
             "name": "Bar-BF16",
-            "path": "/Volumes/Ext4T/axquant/models/Bar-BF16",
+            "path": "/Volumes/Ext16TR0/axquant/models/Bar-BF16",
             "size_bytes": 2000,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -203,11 +203,11 @@ def test_planner_keeps_top_level_models_not_axquant_models_suffix(
     plan = json.loads(plan_json.read_text(encoding="utf-8"))
     deletes = [m for m in plan["local_moves"] if m["action"] == "delete_duplicate"]
     assert len(deletes) == 1
-    assert deletes[0]["keep"] == "/Volumes/Ext4T/models/Bar-BF16"
-    assert deletes[0]["path"] == "/Volumes/Ext4T/axquant/models/Bar-BF16"
-    assert planner.is_at_final_path("/Volumes/Ext4T/models/Bar-BF16", "models/Bar-BF16")
+    assert deletes[0]["keep"] == "/Volumes/Ext16TR0/models/Bar-BF16"
+    assert deletes[0]["path"] == "/Volumes/Ext16TR0/axquant/models/Bar-BF16"
+    assert planner.is_at_final_path("/Volumes/Ext16TR0/models/Bar-BF16", "models/Bar-BF16")
     assert not planner.is_at_final_path(
-        "/Volumes/Ext4T/axquant/models/Bar-BF16",
+        "/Volumes/Ext16TR0/axquant/models/Bar-BF16",
         "models/Bar-BF16",
     )
 
@@ -216,7 +216,7 @@ def _run_planner(index: Path, out: Path, plan_json: Path) -> None:
     old = sys.argv
     try:
         sys.argv = [
-            "plan-ext4t-from-index.py",
+            "plan-ext16tr0-from-index.py",
             "--index",
             str(index),
             "-o",
@@ -239,7 +239,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "models",
             "name": "Model-A",
-            "path": "/Volumes/Ext4T/models/Model-A",
+            "path": "/Volumes/Ext16TR0/models/Model-A",
             "size_bytes": 2000,
             "file_count": 3,
             "manifest_sha256": weak_fp,
@@ -249,7 +249,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "axquant/work",
             "name": "Model-B",
-            "path": "/Volumes/Ext4T/axquant/work/Model-B",
+            "path": "/Volumes/Ext16TR0/axquant/work/Model-B",
             "size_bytes": 2000,
             "file_count": 3,
             "manifest_sha256": weak_fp,
@@ -260,7 +260,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "models",
             "name": "Broken",
-            "path": "/Volumes/Ext4T/models/Broken",
+            "path": "/Volumes/Ext16TR0/models/Broken",
             "size_bytes": 500,
             "file_count": 1,
             "manifest_sha256": "incomplete:deadbeef",
@@ -270,7 +270,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "axquant/work",
             "name": "Broken-copy",
-            "path": "/Volumes/Ext4T/axquant/work/Broken-copy",
+            "path": "/Volumes/Ext16TR0/axquant/work/Broken-copy",
             "size_bytes": 500,
             "file_count": 1,
             "manifest_sha256": "incomplete:deadbeef",
@@ -281,7 +281,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "huggingface",
             "name": "hub-cache",
-            "path": "/Volumes/Ext4T/huggingface/hub-cache",
+            "path": "/Volumes/Ext16TR0/huggingface/hub-cache",
             "size_bytes": 9_000_000_000,
             "file_count": 100,
             "manifest_sha256": "cheap:9000000000:100",
@@ -291,7 +291,7 @@ def test_planner_never_deletes_on_manifest_or_cheap_or_incomplete(
             "host": "m3",
             "category": "huggingface",
             "name": "hub-cache-2",
-            "path": "/Volumes/Ext4T/huggingface/hub-cache-2",
+            "path": "/Volumes/Ext16TR0/huggingface/hub-cache-2",
             "size_bytes": 9_000_000_000,
             "file_count": 100,
             "manifest_sha256": "cheap:9000000000:100",
@@ -348,7 +348,7 @@ def test_content_identity_key_isolates_weak_modes() -> None:
 
 
 def test_index_root_emits_content_mode(tmp_path: Path) -> None:
-    root = tmp_path / "Ext4T"
+    root = tmp_path / "Ext16TR0"
     models = root / "models"
     _write_pkg(models, "Tiny-Model", {"w.bin": b"hello", "cfg.json": b"{}"})
     recs = indexer.index_root(root, "local", ["models"], skip_hf_deep=True)
@@ -381,7 +381,7 @@ def test_planner_skips_rename_when_name_conflicts(tmp_path: Path) -> None:
             "host": "m3",
             "category": "models",
             "name": "Foo",
-            "path": "/Volumes/Ext4T/models/Foo",
+            "path": "/Volumes/Ext16TR0/models/Foo",
             "size_bytes": 1000,
             "file_count": 1,
             "manifest_sha256": "a" * 64,
@@ -391,7 +391,7 @@ def test_planner_skips_rename_when_name_conflicts(tmp_path: Path) -> None:
             "host": "m3",
             "category": "axquant/work",
             "name": "Foo",
-            "path": "/Volumes/Ext4T/axquant/work/Foo",
+            "path": "/Volumes/Ext16TR0/axquant/work/Foo",
             "size_bytes": 2000,
             "file_count": 1,
             "manifest_sha256": "b" * 64,
@@ -419,7 +419,7 @@ def test_planner_logs_named_smoke_stay_host_local(tmp_path: Path) -> None:
             "host": "m3",
             "category": "axquant/logs",
             "name": "smoke-nightly",
-            "path": "/Volumes/Ext4T/axquant/logs/smoke-nightly",
+            "path": "/Volumes/Ext16TR0/axquant/logs/smoke-nightly",
             "size_bytes": 500,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -429,7 +429,7 @@ def test_planner_logs_named_smoke_stay_host_local(tmp_path: Path) -> None:
             "host": "m3",
             "category": "axquant/logs",
             "name": "smoke-nightly-copy",
-            "path": "/Volumes/Ext4T/axquant/logs/smoke-nightly-copy",
+            "path": "/Volumes/Ext16TR0/axquant/logs/smoke-nightly-copy",
             "size_bytes": 500,
             "file_count": 2,
             "manifest_sha256": content_fp,
@@ -448,7 +448,7 @@ def test_planner_logs_named_smoke_stay_host_local(tmp_path: Path) -> None:
 
 
 def test_package_root_symlink_is_skipped_or_incomplete(tmp_path: Path) -> None:
-    root = tmp_path / "Ext4T"
+    root = tmp_path / "Ext16TR0"
     models = root / "models"
     real = _write_pkg(models, "Real-Model", {"w.bin": b"weights"})
     link = models / "Linked-Model"

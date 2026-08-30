@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Multi-hour factory campaign: prepare labels → stage-1 adapt → measure.
 
-Intended host: df-macstudio-m2 with Ext4T Holo3 6-bit-MTP pack.
+Intended host: df-macstudio-m2 with Ext16TR0 Holo3 6-bit-MTP pack.
 """
 
 from __future__ import annotations
@@ -28,19 +28,21 @@ def main(argv: list[str] | None = None) -> int:
         "--pack",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     p.add_argument(
         "--trunk",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"),
+        default=Path(
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-axq-dev/AX-Holo3-35B-A3B-MLX-AXQ-6bit"
+        ),
         help="Certified non-MTP trunk for compose (main digests preserved)",
     )
     p.add_argument(
         "--work",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/align-campaign-v2"),
+        default=Path("/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/align-campaign-v2"),
     )
     p.add_argument("--prompts", type=Path, default=None)
     p.add_argument("--max-prompts", type=int, default=12)

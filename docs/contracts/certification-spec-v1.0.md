@@ -36,7 +36,7 @@ Results from one host, engine build, prompt profile, or execution policy do not 
 for another scope.
 
 **Factory host:** every new or replacement Tier 1 and Tier 2 certificate must be
-measured on `df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext12T). Do not
+measured on `df-macstudio-m2` (Mac Studio M2 Ultra, 192 GB, Ext16TR0). Do not
 issue either tier on `df-macbookpro-m5` or `df-macbookpro-m3`. Historical
 records keep the host they were measured on.
 

@@ -12,21 +12,21 @@ fi
 
 MODEL_ID="${MINIMAX_M3_MODEL_ID:-MiniMaxAI/MiniMax-M3}"
 REV="${MINIMAX_M3_REV:-}"
-export HF_HOME="${HF_HOME:-/Volumes/Ext12T/huggingface}"
+export HF_HOME="${HF_HOME:-/Volumes/Ext16TR0/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_XET_HIGH_PERFORMANCE="${HF_XET_HIGH_PERFORMANCE:-1}"
 export HF_XET_CACHE="${HF_XET_CACHE:-$HF_HOME/xet}"
 unset HF_HUB_ENABLE_HF_TRANSFER || true
 
-ROOT="${AXQUANT_SSD_STREAM:-/Volumes/Ext12T/axquant-ssd-stream}"
-WORK="${MINIMAX_M3_AXQ2_WORK:-/Volumes/Ext12T/axquant/work/minimax-m3-axq2}"
-OUT="${MINIMAX_M3_AXQ2_OUT:-/Volumes/Ext12T/models/AX-MiniMax-M3-MLX-AXQ-2bit}"
+ROOT="${AXQUANT_SSD_STREAM:-/Volumes/Ext16TR0/axquant-ssd-stream}"
+WORK="${MINIMAX_M3_AXQ2_WORK:-/Volumes/Ext16TR0/axquant/work/minimax-m3-axq2}"
+OUT="${MINIMAX_M3_AXQ2_OUT:-/Volumes/Ext16TR0/models/AX-MiniMax-M3-MLX-AXQ-2bit}"
 PY="${AXQUANT_PYTHON:-/Users/devop/code/axquant/.venv/bin/python}"
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONUNBUFFERED=1
 export AX_ENGINE_2BIT_EXPERIMENTAL=1
-export TMPDIR="${AXQUANT_TMPDIR:-/Volumes/Ext12T/axquant/tmp}"
+export TMPDIR="${AXQUANT_TMPDIR:-/Volumes/Ext16TR0/axquant/tmp}"
 mkdir -p "$WORK" "$(dirname "$OUT")" "$TMPDIR" "$WORK/logs"
 
 echo "[minimax-m3-axq2] host=$host python=$PY root=$ROOT out=$OUT"

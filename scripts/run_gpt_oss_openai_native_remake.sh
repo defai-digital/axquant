@@ -14,9 +14,9 @@ source "${ROOT}/.venv/bin/activate"
 : "${OSS20_REV:?set OSS20_REV to openai/gpt-oss-20b commit sha}"
 : "${OSS120_REV:?set OSS120_REV to openai/gpt-oss-120b commit sha}"
 
-WORK="${WORK:-/Volumes/Ext4T/axquant/work/gpt-oss-openai-native-remake}"
-PUB="${PUB:-/Volumes/Ext4T/axquant/axq-publish}"
-CERT="${CERT:-/Volumes/Ext4T/axquant-certification/gpt-oss-openai-native-remake}"
+WORK="${WORK:-/Volumes/Ext16TR0/axquant/work/gpt-oss-openai-native-remake}"
+PUB="${PUB:-/Volumes/Ext16TR0/axquant/axq-publish}"
+CERT="${CERT:-/Volumes/Ext16TR0/axquant-certification/gpt-oss-openai-native-remake}"
 mkdir -p "$WORK" "$PUB" "$CERT"/{inventories,plans,quality,logs,size}
 
 export AXQUANT_FORCE_CPU="${AXQUANT_FORCE_CPU:-1}"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + checkpoint Tier 1 for Ornith / Holo3 / Glimmer AXQ-MXFP4.
 
-Run on df-macstudio-m2 + Ext12T only:
+Run on df-macstudio-m2 + Ext16TR0 only:
 
   PYTHONPATH=src /Users/devop/code/axquant/.venv/bin/python \\
     scripts/run_family_mxfp4_tier1.py --family ornith all
@@ -117,7 +117,7 @@ def source_dir(spec: dict[str, Any]) -> Path:
     override = os.environ.get("MXFP4_SOURCE")
     if override:
         return Path(override)
-    return Path(f"/Volumes/Ext12T/axquant/work/{spec['work_name']}/{spec['src_name']}")
+    return Path(f"/Volumes/Ext16TR0/axquant/work/{spec['work_name']}/{spec['src_name']}")
 
 
 def pack_dir(spec: dict[str, Any]) -> Path:

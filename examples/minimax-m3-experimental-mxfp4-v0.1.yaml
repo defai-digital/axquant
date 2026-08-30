@@ -1,6 +1,6 @@
 # Experimental MXFP4 Super-class recipe for MiniMax-M3 (BF16 source).
 # Hobby / curiosity pack only. Will not be certified. Stream required.
-# Run after the 2-bit SKU has Hub-published and Ext12T is cleaned.
+# Run after the 2-bit SKU has Hub-published and Ext16TR0 is cleaned.
 schema_version: axquant.manual-recipe.v1
 profile: general
 target_bpw: 16.0

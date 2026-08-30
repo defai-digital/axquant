@@ -3,7 +3,7 @@
 
 Same qwen35-moe-v1 35B-A3B path as Holo3. Quality is mlx-lm vs same-pin BF16.
 
-Run on df-macstudio-m2 + Ext12T only, one pack at a time:
+Run on df-macstudio-m2 + Ext16TR0 only, one pack at a time:
 
   PYTHONPATH=src .venv/bin/python scripts/run_holo31_35b_axq.py --pack mxfp4 all
   PYTHONPATH=src .venv/bin/python scripts/run_holo31_35b_axq.py --pack axq6 all
@@ -98,7 +98,7 @@ def source_dir() -> Path:
     return Path(
         os.environ.get(
             "HOLO31_BF16",
-            "/Volumes/Ext12T/axquant/work/holo31-35b-axq/src-holo31-35b",
+            "/Volumes/Ext16TR0/axquant/work/holo31-35b-axq/src-holo31-35b",
         )
     )
 

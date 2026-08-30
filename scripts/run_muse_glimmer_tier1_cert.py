@@ -2,7 +2,7 @@
 """Factory: checkpoint Tier 1 for Muse-Glimmer-30B AXQ 4/6-bit on Studio.
 
 Quality uses the mlx-vlm backend (muse_glimmer is not an mlx-lm model_type).
-Reference is the pinned BF16 source. Packs already live on Ext12T.
+Reference is the pinned BF16 source. Packs already live on Ext16TR0.
 
   PYTHONPATH=src .venv/bin/python scripts/run_muse_glimmer_tier1_cert.py all
 """
@@ -75,7 +75,7 @@ def source_dir() -> Path:
     return Path(
         os.environ.get(
             "GLIMMER_BF16",
-            "/Volumes/Ext12T/axquant/work/muse-glimmer-30b-mxfp4/src-muse-glimmer-30b",
+            "/Volumes/Ext16TR0/axquant/work/muse-glimmer-30b-mxfp4/src-muse-glimmer-30b",
         )
     )
 

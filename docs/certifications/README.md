@@ -14,7 +14,7 @@ via `tests/test_documentation.py`.
 
 **Host policy:** factory conversion, **all Tier 1**, and **all Tier 2**
 certificates **must** be measured on `df-macstudio-m2` (Mac Studio M2 Ultra,
-192 GB, Ext12T). Do not convert or certify on `df-macbookpro-m5` or
+192 GB, Ext16TR0). Do not convert or certify on `df-macbookpro-m5` or
 `df-macbookpro-m3`. Historical records keep the `host_id` they were measured
 on; do not rewrite those files to the new host. Recertify on
 `df-macstudio-m2` for a current-host claim. The flagship M0–M8 campaign

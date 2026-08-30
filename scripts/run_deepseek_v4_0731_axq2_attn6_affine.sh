@@ -1,9 +1,9 @@
 #!/bin/bash
 # Factory-only: plan + convert Flash-0731 2-bit attn6-affine v0.3, then T1 v-extract.
-# Host: df-macstudio-m2 + Ext12T. Does not publish. Does not claim certification.
+# Host: df-macstudio-m2 + Ext16TR0. Does not publish. Does not claim certification.
 set -euo pipefail
 export PATH="/Users/devop/.local/bin:$PATH"
-export HF_HOME=/Volumes/Ext12T/huggingface
+export HF_HOME=/Volumes/Ext16TR0/huggingface
 export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
 export HF_HUB_CACHE=$HF_HOME/hub
 export HF_XET_HIGH_PERFORMANCE=1
@@ -14,11 +14,11 @@ export AX_ENGINE_2BIT_EXPERIMENTAL=1
 AXQ=/Users/devop/code/axquant/.venv/bin/axquant
 PY=/Users/devop/code/axquant/.venv/bin/python
 ROOT=/Users/devop/code/axquant
-SRC=/Volumes/Ext12T/models/DeepSeek-V4-Flash-0731
+SRC=/Volumes/Ext16TR0/models/DeepSeek-V4-Flash-0731
 REV=7872f01b1d1fe23eabc4c98b48bffcef5a386062
-INV=/Volumes/Ext12T/axquant/work/flash-0731/inventory.json
-WORK=/Volumes/Ext12T/axquant/work/flash-0731-2bit-attn6-affine
-OUT=/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-attn6-affine
+INV=/Volumes/Ext16TR0/axquant/work/flash-0731/inventory.json
+WORK=/Volumes/Ext16TR0/axquant/work/flash-0731-2bit-attn6-affine
+OUT=/Volumes/Ext16TR0/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-attn6-affine
 RECIPE=$ROOT/examples/deepseek-v4-experimental-2bit-attn6-affine-v0.3.yaml
 LOG=$WORK/logs
 mkdir -p "$LOG" "$WORK/plans"

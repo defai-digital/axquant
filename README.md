@@ -233,7 +233,7 @@ certify an output.
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
 **Certification host (from now on):** conversion, **all Tier 1**, and **all Tier 2**
 certifications **must** run on Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`)
-with Ext12T. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
+with Ext16TR0. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
 Existing certificates stay bound to the host recorded in each JSON record
 (`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`) until recertified on
 `df-macstudio-m2`. The frozen M0–M8 flagship campaign schema still names
