@@ -30,12 +30,31 @@ follow each model card's AX Engine Tier 2 status.
 These six checkpoints package an exact-paired drafter under `assistant/`, governed by
 `ax_gemma4_assistant_mtp.json`. AX Engine 7.1.5 validates the pair, enables assistant-MTP by
 default, and caps the default draft depth at two. Set `AX_MLX_GEMMA4_ASSISTANT_MTP=0` to force
-direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at one token. Stock
-MLX-LM does not consume the assistant bundle, and the Qwen oMLX/MTPLX sidecar workflow does not
-apply. The bundle is not an embedded MTP-head layout. An oMLX error that the model has no MTP
-heads in its config is therefore expected; adding synthetic head-count fields would make that
-runtime request embedded weights that the bundle does not contain. Use AX Engine for the paired
-assistant layout. The published checkpoint cards do not claim Tier 2 MTP acceleration.
+direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at one token.
+
+The same bundle can use oMLX's **VLM MTP** path when the target was built with AXQuant's
+`mlx-vlm-gemma4-v1` protected-vision layout. That layout removes the source-only `model.` prefix
+from `vision_tower.*` and `embed_vision.*` tensors and maps every normalized tensor to
+`vision.safetensors` in `model.safetensors.index.json`. Older revisions without that layout marker
+must be rebuilt and recomposed; editing only `config.json` cannot repair their weights or index.
+
+Download the complete repository, register the target and its `assistant/` directory as separate
+local oMLX models, and configure the target as follows:
+
+```yaml
+vlm_mtp_enabled: true
+vlm_mtp_draft_model: /absolute/path/to/checkpoint/assistant
+vlm_mtp_draft_block_size: 2
+```
+
+Do not use **Lightning MTP**, **Import MTP side-car**, or synthetic MTP head-count fields for this
+layout. Those settings describe embedded/native heads, while Gemma 4 uses an external
+`gemma4_assistant` model. oMLX 0.6.4 officially pins MLX 0.32.0 and ABI-matched custom kernels.
+An MLX 0.32.2 diagnostic stack requires MLX-VLM 0.6.17 or newer and rebuilt oMLX native
+extensions; older MLX-VLM releases use an RNG-state mutation that MLX 0.32.2 rejects. Overriding
+the oMLX pin is not an oMLX-supported installation. Load and generation smokes are compatibility
+evidence only. Follow each immutable revision's Tier 2 status for exactness, acceptance, and speed
+claims.
 
 | Hugging Face model | Packaged MTP form |
 | --- | --- |

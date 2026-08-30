@@ -10,6 +10,7 @@ from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
+from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.model_card import (
     prepare_development_model_card,
@@ -556,6 +557,25 @@ def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
     directory = _development_artifact(qwen36_model_dir, tmp_path)
     (directory / "mtp.safetensors").unlink()
     (directory / "axquant_mtp_sidecar_manifest.json").unlink()
+    vision_name = "vision_tower.patch_embed.weight"
+    save_file(
+        {vision_name: np.zeros((1,), dtype=np.float32)},
+        directory / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    write_data(
+        directory / "model.safetensors.index.json",
+        {
+            "metadata": {"total_parameters": 2, "total_size": 8},
+            "weight_map": {
+                "model.layers.0.mlp.down_proj.weight": "model.safetensors",
+                vision_name: "vision.safetensors",
+            },
+        },
+    )
     assistant = directory / "assistant"
     assistant.mkdir()
     (assistant / "config.json").write_text("{}\n", encoding="utf-8")
@@ -567,6 +587,12 @@ def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
         product_class="6bit",
     )
     assert (directory / "README.md") in written
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "## Use the packaged Gemma assistant with oMLX VLM MTP" in readme
+    assert "vlm_mtp_enabled: true" in readme
+    assert "vlm_mtp_draft_block_size: 2" in readme
+    assert "do not enable **Lightning MTP**" in readme
+    assert "## Run with MLX-VLM" in readme
 
 
 def test_development_model_card_rejects_stale_execution_before_mutating(

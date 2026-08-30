@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from axquant.errors import ArtifactError
+from axquant.gemma4_vlm import validate_gemma4_mlx_vlm_vision_layout
 from axquant.serde import file_sha256
 
 COMPOSITE_MANIFEST_NAME = "ax_composite_pack_manifest.json"
@@ -225,6 +226,7 @@ def compose_gemma4_assistant_mtp(
         raise ArtifactError(f"output directory must be empty or new: {output_dir}")
 
     validate_known_gemma4_assistant_pair(request.target_model_id, request.assistant_model_id)
+    validate_gemma4_mlx_vlm_vision_layout(target_dir)
 
     # Digest base before copy so we can prove identity after composition.
     base_weight_digests = {
@@ -469,6 +471,7 @@ def validate_gemma4_assistant_composite(directory: str | Path) -> Mapping[str, A
         raise ArtifactError("target model_type must be 'gemma4'")
     if assistant_config.get("model_type") != "gemma4_assistant":
         raise ArtifactError("assistant model_type must be 'gemma4_assistant'")
+    validate_gemma4_mlx_vlm_vision_layout(root)
     for name in ("tokenizer.json", "tokenizer_config.json"):
         target_tokenizer = root / name
         assistant_tokenizer = assistant_root / name

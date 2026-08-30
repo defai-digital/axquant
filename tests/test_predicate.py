@@ -114,6 +114,20 @@ def test_qwen_checkpoint_paths_map_to_mlx_lm_module_paths() -> None:
     assert "language_model.lm_head" in mlx_module_aliases("lm_head")
 
 
+def test_gemma4_protected_vision_paths_bind_normalized_mlx_vlm_outputs() -> None:
+    for source_name, output_name in (
+        (
+            "model.vision_tower.encoder.layers.0.input_layernorm.weight",
+            "vision_tower.encoder.layers.0.input_layernorm.weight",
+        ),
+        (
+            "model.embed_vision.embedding_projection.weight",
+            "embed_vision.embedding_projection.weight",
+        ),
+    ):
+        assert output_name in mlx_tensor_binding_groups(source_name)[0]
+
+
 def test_qwen_checkpoint_tensor_paths_map_to_mlx_lm_output_paths() -> None:
     assert "language_model.model.layers.0.linear_attn.A_log" in mlx_tensor_aliases(
         "model.language_model.layers.0.linear_attn.A_log"

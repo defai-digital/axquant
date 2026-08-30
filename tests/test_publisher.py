@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant import publisher
 from axquant.errors import PublishingError
@@ -10,6 +12,7 @@ from axquant.gemma4_assistant_compose import (
     Gemma4AssistantComposeRequest,
     compose_gemma4_assistant_mtp,
 )
+from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.publisher import (
     _copy_exact_publication_file,
     _package_release_audit,
@@ -668,6 +671,24 @@ def test_publish_preview_accepts_assistant_mtp_suffix(
     target.mkdir()
     (target / "config.json").write_text('{"model_type":"gemma4"}\n', encoding="utf-8")
     (target / "model.safetensors").write_bytes(b"target")
+    vision_name = "vision_tower.patch_embed.weight"
+    save_file(
+        {vision_name: np.zeros((1,), dtype=np.float32)},
+        target / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    write_data(
+        target / "model.safetensors.index.json",
+        {
+            "weight_map": {
+                "model.layers.0.weight": "model.safetensors",
+                vision_name: "vision.safetensors",
+            }
+        },
+    )
     (target / "tokenizer.json").write_text("{}\n", encoding="utf-8")
     assistant = tmp_path / "assistant"
     assistant.mkdir()

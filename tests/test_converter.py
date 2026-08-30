@@ -19,6 +19,7 @@ from axquant.capture_binding import (
     activation_capture_metadata,
 )
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
+from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.module_paths import fused_expert_module
 from axquant.planner import plan_quantization
@@ -1196,6 +1197,81 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     assert converted_config["vision_config"] == source_config["vision_config"]
 
 
+def test_gemma4_protected_vision_uses_mlx_vlm_names_and_index(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "gemma-source"
+    source.mkdir()
+    source_names = (
+        "model.embed_vision.embedding_projection.weight",
+        "model.vision_tower.encoder.layers.0.input_layernorm.weight",
+    )
+    save_file(
+        {name: np.arange(4, dtype=np.float32).reshape(2, 2) for name in source_names},
+        source / "model.safetensors",
+    )
+
+    template_plan = _plan(qwen36_model_dir)
+    template_vision = next(
+        allocation
+        for allocation in template_plan.assignments
+        if allocation.role == TensorRole.VISION
+    )
+    assignments = [
+        template_vision.model_copy(
+            update={
+                "tensor": name,
+                "module_path": name.removesuffix(".weight"),
+                "parameters": 4,
+            }
+        )
+        for name in source_names
+    ]
+    plan = template_plan.model_copy(
+        update={
+            "architecture_profile": template_plan.architecture_profile.model_copy(
+                update={
+                    "adapter_id": "gemma4-dense-v1",
+                    "config_model_type": "gemma4",
+                }
+            ),
+            "assignments": assignments,
+        }
+    )
+    output = tmp_path / "converted"
+    output.mkdir()
+    (output / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_parameters": 4, "total_size": 16},
+                "weight_map": {"language_model.model.embed_tokens.weight": "model.safetensors"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = converter._extract_protected_vision(source, plan, output)
+
+    assert manifest is not None
+    output_names = tuple(name.removeprefix("model.") for name in source_names)
+    with safe_open(output / "vision.safetensors", framework="numpy") as sidecar:
+        assert tuple(sidecar.keys()) == tuple(sorted(output_names))
+        assert sidecar.metadata() == {
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "source_revision": "source-revision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        }
+        for output_name in output_names:
+            assert sidecar.get_tensor(output_name).tolist() == [[0.0, 1.0], [2.0, 3.0]]
+    index = json.loads((output / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    assert index["metadata"] == {"total_parameters": 12, "total_size": 48}
+    for output_name in output_names:
+        assert index["weight_map"][output_name] == "vision.safetensors"
+    assert manifest.tensor_names_sha256 == stable_sha256(sorted(output_names))
+
+
 def test_restore_protected_vision_config_rejects_conflicting_contract(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -1771,9 +1847,7 @@ def test_converted_tensor_binding_keeps_qwen4_exp_mtp_packed_experts() -> None:
     mtp_gate_up = "mtp.layers.0.mlp.experts.gate_up_proj"
     mtp_down = "mtp.layers.0.mlp.experts.down_proj"
     main_gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
-    ple = (
-        "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
-    )
+    ple = "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
     mtp_gate_up_w = object()
     mtp_down_w = object()
     gate = object()

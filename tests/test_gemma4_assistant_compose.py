@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant.benchmark import (
     GEMMA4_ASSISTANT_EXACT_MTP_PROFILE_ENV,
@@ -21,6 +23,11 @@ from axquant.gemma4_assistant_compose import (
     validate_gemma4_assistant_composite,
     validate_known_gemma4_assistant_pair,
 )
+from axquant.gemma4_vlm import (
+    GEMMA4_MLX_VLM_VISION_LAYOUT,
+    normalize_gemma4_vision_tensor_names,
+    validate_gemma4_mlx_vlm_vision_layout,
+)
 from axquant.schema.artifacts import ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS
 from axquant.serde import file_sha256
 
@@ -31,7 +38,37 @@ def _write_minimal_target(root: Path) -> None:
         json.dumps({"model_type": "gemma4", "architectures": ["Gemma4ForConditionalGeneration"]}),
         encoding="utf-8",
     )
-    (root / "model.safetensors").write_bytes(b"target-weight-bytes-v1")
+    main_name = "language_model.model.embed_tokens.weight"
+    vision_names = (
+        "embed_vision.embedding_projection.weight",
+        "vision_tower.encoder.layers.0.input_layernorm.weight",
+    )
+    save_file(
+        {main_name: np.zeros((2, 2), dtype=np.float32)},
+        root / "model.safetensors",
+        metadata={"format": "mlx"},
+    )
+    save_file(
+        {name: np.zeros((2, 2), dtype=np.float32) for name in vision_names},
+        root / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    (root / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_parameters": 12, "total_size": 48},
+                "weight_map": {
+                    main_name: "model.safetensors",
+                    **{name: "vision.safetensors" for name in vision_names},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     (root / "tokenizer.json").write_text('{"version":"1.0"}', encoding="utf-8")
 
 
@@ -52,6 +89,46 @@ def test_known_pair_validation() -> None:
         validate_known_gemma4_assistant_pair("gemma-4-unknown-it", "gemma-4-unknown-it-assistant")
     with pytest.raises(ArtifactError, match="must be"):
         validate_known_gemma4_assistant_pair("gemma-4-26b-a4b-it", "gemma-4-31b-it-assistant")
+
+
+def test_gemma4_mlx_vlm_layout_rejects_source_prefix(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    _write_minimal_target(target)
+    assert len(validate_gemma4_mlx_vlm_vision_layout(target)) == 2
+
+    save_file(
+        {"model.embed_vision.embedding_projection.weight": np.zeros((2, 2), dtype=np.float32)},
+        target / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    with pytest.raises(ArtifactError, match="source-prefixed"):
+        validate_gemma4_mlx_vlm_vision_layout(target)
+
+
+def test_gemma4_mlx_vlm_layout_rejects_index_drift(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    _write_minimal_target(target)
+    index_path = target / "model.safetensors.index.json"
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index["weight_map"].pop("embed_vision.embedding_projection.weight")
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    with pytest.raises(ArtifactError, match="do not exactly match"):
+        validate_gemma4_mlx_vlm_vision_layout(target)
+
+
+def test_gemma4_vision_name_normalization_rejects_collisions() -> None:
+    with pytest.raises(ArtifactError, match="collision"):
+        normalize_gemma4_vision_tensor_names(
+            (
+                "model.vision_tower.encoder.weight",
+                "vision_tower.encoder.weight",
+            )
+        )
 
 
 def test_compose_preserves_base_digests(tmp_path: Path) -> None:

@@ -33,10 +33,10 @@ dependencies = [
 
 [project.optional-dependencies]
 mlx = [
-    "mlx>=0.29",
+    "mlx>=0.32.2",
     "mlx-audio>=0.4.7",
     "mlx-lm>=0.31",
-    "mlx-vlm>=0.6.10",
+    "mlx-vlm>=0.6.17",
 ]
 dev = [
     "mypy>=1.11",

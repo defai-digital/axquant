@@ -8,6 +8,7 @@ from pathlib import Path
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
+from axquant.gemma4_vlm import validate_gemma4_mlx_vlm_vision_layout
 from axquant.identity import same_model_identity
 from axquant.modality_certification import (
     claim_allows_public_quality,
@@ -413,11 +414,22 @@ def _render_development_model_card(
     density = "dense" if plan.architecture_profile.dense else "mixture of experts (MoE)"
     product_family = plan.architecture_profile.product_family or "unknown"
     source_arch = source.architecture or plan.architecture_profile.config_model_type or "unrecorded"
-    has_mtp = bool(manifest.mtp_present) or mtp_sidecar is not None
+    gemma_assistant_mtp = (directory / "ax_gemma4_assistant_mtp.json").is_file() and (
+        directory / "assistant" / "config.json"
+    ).is_file()
+    gemma_assistant_mtp_compatible = False
+    if gemma_assistant_mtp:
+        try:
+            validate_gemma4_mlx_vlm_vision_layout(directory)
+        except ArtifactError:
+            pass
+        else:
+            gemma_assistant_mtp_compatible = True
+    has_mtp = bool(manifest.mtp_present) or mtp_sidecar is not None or gemma_assistant_mtp
     has_vision = vision_sidecar is not None or bool(plan.architecture_profile.vision_present)
     has_audio = bool(plan.architecture_profile.audio_present)
     is_asr = product_family == "qwen3-asr"
-    is_vlm = product_family == "qwen3-vl"
+    is_vlm = product_family in {"gemma-4", "qwen3-vl"} or gemma_assistant_mtp
     context_length = _context_length(directory)
     group_sizes = sorted(
         {assignment.group_size for assignment in plan.assignments if assignment.group_size}
@@ -520,7 +532,9 @@ def _render_development_model_card(
         )
     )
     sidecar_blurb_parts: list[str] = []
-    if has_mtp:
+    if gemma_assistant_mtp:
+        sidecar_blurb_parts.append("external assistant MTP drafter")
+    elif has_mtp:
         sidecar_blurb_parts.append("multi-token-prediction (MTP) head")
     if has_vision:
         sidecar_blurb_parts.append("vision tower")
@@ -548,8 +562,15 @@ def _render_development_model_card(
         if resolved_edition == 2 and not repo_edition
         else ""
     )
-    mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
-    qwen_mtp_interop = has_mtp and plan.architecture_profile.adapter_id in QWEN_NEXT_MTP_ADAPTER_IDS
+    if gemma_assistant_mtp:
+        mtp_contract_suffix = " and paired assistant-MTP bundle"
+    else:
+        mtp_contract_suffix = " and native MTP sidecar" if has_mtp else ""
+    qwen_mtp_interop = (
+        has_mtp
+        and not gemma_assistant_mtp
+        and plan.architecture_profile.adapter_id in QWEN_NEXT_MTP_ADAPTER_IDS
+    )
     if has_native_manifest:
         ax_engine_runtime_status = (
             "Native manifest included; execution still requires a runtime check"
@@ -609,6 +630,33 @@ mtplx quickstart \\
 strict runtime discovery; it does not extend AXQuant quality, exactness, or speed certification to
 oMLX or MTPLX.
 """
+    elif gemma_assistant_mtp and gemma_assistant_mtp_compatible:
+        mtp_interop_section = f"""## Use the packaged Gemma assistant with oMLX VLM MTP
+
+This repository uses an external `gemma4_assistant` drafter under `assistant/`. It is not an
+embedded-head checkpoint, so do not enable **Lightning MTP** or import it as a Qwen sidecar.
+Download the complete repository, add both `./{name}` and `./{name}/assistant` as local oMLX
+models, then configure the target model with **VLM MTP** enabled and select the assistant model.
+The equivalent model-setting fields are:
+
+```yaml
+vlm_mtp_enabled: true
+vlm_mtp_draft_model: ./{name}/assistant
+vlm_mtp_draft_block_size: 2
+```
+
+The normalized and indexed `vision.safetensors` layout is loadable by MLX-VLM 0.6.17 or newer.
+Runtime discovery does not establish identical-output, acceptance-rate, or speed certification
+for oMLX. Follow the exact checkpoint revision's Tier 2 status.
+"""
+    elif gemma_assistant_mtp:
+        mtp_interop_section = """## Gemma assistant MTP compatibility
+
+This revision contains an external `gemma4_assistant` drafter, but its protected vision sidecar
+does not satisfy the normalized and indexed MLX-VLM layout. Do not enable oMLX VLM MTP for this
+revision. Rebuild the Tier 1 target with a current AXQuant converter, recompose the assistant, and
+publish a new immutable revision before claiming oMLX compatibility.
+"""
     else:
         mtp_interop_section = ""
     public_modalities = _public_modalities_for_repo(repo_id)
@@ -654,6 +702,16 @@ oMLX or MTPLX.
         mtp_limitation = (
             "- MTP requires a sidecar-aware runtime. oMLX/MTPLX discovery compatibility does "
             "not establish exactness or speed certification for those runtimes.\n"
+        )
+    elif gemma_assistant_mtp and gemma_assistant_mtp_compatible:
+        mtp_limitation = (
+            "- Gemma assistant MTP requires an external-drafter runtime. oMLX VLM MTP discovery "
+            "does not establish exactness or speed certification.\n"
+        )
+    elif gemma_assistant_mtp:
+        mtp_limitation = (
+            "- This revision's Gemma vision sidecar is not oMLX/MLX-VLM compatible; rebuild and "
+            "recompose it before enabling VLM MTP.\n"
         )
     elif has_mtp:
         mtp_limitation = (
