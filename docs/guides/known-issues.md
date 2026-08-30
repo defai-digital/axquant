@@ -90,6 +90,12 @@ between published versions.
   repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
   Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
   current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
+- **Gemma 4 MTP is a paired assistant bundle, not embedded MTP heads.** The Gemma repositories
+  contain an exact-paired drafter under `assistant/` and an `ax_gemma4_assistant_mtp.json`
+  binding. Stock MLX-LM does not activate it, and the Qwen oMLX/MTPLX importer does not apply.
+  An oMLX error that the config has no MTP heads is expected for this layout. Do not add synthetic
+  MTP head-count fields: the corresponding embedded weights do not exist. Use AX Engine for the
+  paired assistant path and follow the repository's Tier 2 status.
 - **Some bases do not publish an AXQ-4bit pack.** When protection floors raise both the ~4.8 and
   ~6.0 BPW budgets to the same (or near-identical) artifact, publishing a separate `4bit` sibling
   is misleading. Removed from Hugging Face (use the `6bit` pack only):
@@ -156,7 +162,7 @@ between published versions.
 - **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
   27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
   ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 + scoped Tier 2 on the
-  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit fused `-MTP` Hub heads
+  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit bundled `-MTP` Hub packs
   are **checkpoint Tier 1 certified**; **Tier 2 is not certified** (formal assistant-MTP A/B
   pilots on AX Engine 6.14.0 can clear speed gates while greedy exactness fails when drafts are
   accepted — see any

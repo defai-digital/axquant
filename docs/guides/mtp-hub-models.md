@@ -32,7 +32,10 @@ These six checkpoints package an exact-paired drafter under `assistant/`, govern
 default, and caps the default draft depth at two. Set `AX_MLX_GEMMA4_ASSISTANT_MTP=0` to force
 direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at one token. Stock
 MLX-LM does not consume the assistant bundle, and the Qwen oMLX/MTPLX sidecar workflow does not
-apply. The published checkpoint cards do not claim Tier 2 MTP acceleration.
+apply. The bundle is not an embedded MTP-head layout. An oMLX error that the model has no MTP
+heads in its config is therefore expected; adding synthetic head-count fields would make that
+runtime request embedded weights that the bundle does not contain. Use AX Engine for the paired
+assistant layout. The published checkpoint cards do not claim Tier 2 MTP acceleration.
 
 | Hugging Face model | Packaged MTP form |
 | --- | --- |
