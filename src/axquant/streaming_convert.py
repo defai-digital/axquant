@@ -93,11 +93,6 @@ def _clear_mlx_cache(mx: Any) -> None:
     clearer = getattr(mx, "clear_cache", None)
     if callable(clearer):
         clearer()
-    metal = getattr(mx, "metal", None)
-    if metal is not None:
-        metal_clear = getattr(metal, "clear_cache", None)
-        if callable(metal_clear):
-            metal_clear()
 
 
 def _empty_tree(mx: Any, tree_map: Callable[..., Any], parameters: Any) -> Any:
