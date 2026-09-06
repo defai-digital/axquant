@@ -186,6 +186,24 @@ def _mlx_convert_with_optional_dequant(
                 config_obj.get("quantization") or config_obj.get("quantization_config")
             )
     if not needs_dequant or not quantize:
+        if quantize:
+            from axquant.streaming_convert import (
+                streaming_convert_enabled,
+                streaming_mlx_convert,
+            )
+
+            if streaming_convert_enabled(model_ref):
+                _LOG.info("conversion_streaming_enabled", model=model_ref)
+                streaming_mlx_convert(
+                    model_ref,
+                    mlx_path=mlx_path,
+                    quantize=quantize,
+                    q_group_size=q_group_size,
+                    q_bits=q_bits,
+                    quant_predicate=quant_predicate,
+                    revision=revision,
+                )
+                return
         convert(
             model_ref,
             mlx_path=mlx_path,

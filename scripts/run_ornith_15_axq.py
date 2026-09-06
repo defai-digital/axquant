@@ -172,11 +172,19 @@ def hf_env() -> dict[str, str]:
     return env
 
 
-def run(cmd: list[str], log_path: Path | None = None, *, force_cpu: bool = False) -> None:
+def run(
+    cmd: list[str],
+    log_path: Path | None = None,
+    *,
+    force_cpu: bool = False,
+    streaming_convert: bool = False,
+) -> None:
     log("$ " + " ".join(cmd))
     env = hf_env()
     if force_cpu:
         env["AXQUANT_FORCE_CPU"] = "1"
+    if streaming_convert:
+        env["AXQUANT_STREAMING_CONVERT"] = "1"
     if log_path is None:
         subprocess.run(cmd, check=True, cwd=str(ROOT), env=env)
         return
@@ -319,6 +327,7 @@ def cmd_convert(model: str, pack: str) -> None:
         ],
         work / "logs" / f"convert-{pack}.log",
         force_cpu=True,
+        streaming_convert=model == "397b",
     )
     if not (out / "axquant_manifest.json").is_file():
         raise SystemExit(f"convert produced no manifest in {out}")
