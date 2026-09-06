@@ -6,7 +6,9 @@ Ornith-1.5-397B MXFP4 is ~216 GiB resident — above a 192 GB Studio — so conv
 SIGKILLs while writing shard 2.
 
 This path quantizes one leaf module, ``mx.eval``s it, appends it to the current
-shard, donates the module weights, and flushes the shard at 5 GiB. Peak RAM is
+shard, donates the module weights, and flushes the shard at 5 GiB. After the
+leaf walk it also writes remaining parent-module arrays (Qwen 3.5 GDN
+``A_log`` / ``dt_bias``) that ``leaf_modules()`` does not visit. Peak RAM is
 one expert stack plus the open shard, not the whole pack.
 """
 
@@ -191,6 +193,7 @@ def quantize_and_save_streaming(
     written: list[tuple[Path, list[str], int]] = []
     total_nbytes = 0
     total_params = 0
+    saved_keys: set[str] = set()
 
     def flush_shard() -> None:
         nonlocal shard, shard_size
@@ -211,6 +214,16 @@ def quantize_and_save_streaming(
         shard_size = 0
         gc.collect()
         _clear_mlx_cache(mx)
+
+    def append_tensor(key: str, value: Any) -> None:
+        nonlocal shard_size, total_nbytes
+        nbytes = int(value.nbytes)
+        if shard and shard_size + nbytes > _MAX_SHARD_BYTES:
+            flush_shard()
+        shard[key] = value
+        shard_size += nbytes
+        total_nbytes += nbytes
+        saved_keys.add(key)
 
     for index, (path, module) in enumerate(leaves, start=1):
         if target_dtype is not None:
@@ -242,13 +255,7 @@ def quantize_and_save_streaming(
         total_params += _logical_parameters(working, tree_flatten)
 
         for name, value in parameters:
-            key = f"{path}.{name}" if path else name
-            nbytes = int(value.nbytes)
-            if shard and shard_size + nbytes > _MAX_SHARD_BYTES:
-                flush_shard()
-            shard[key] = value
-            shard_size += nbytes
-            total_nbytes += nbytes
+            append_tensor(f"{path}.{name}" if path else name, value)
 
         module.update(_empty_tree(mx, tree_map, module.parameters()))
         if working is not module:
@@ -267,6 +274,30 @@ def quantize_and_save_streaming(
         if index % 5 == 0:
             gc.collect()
             _clear_mlx_cache(mx)
+
+    leftovers: list[tuple[str, Any]] = []
+    for name, value in tree_flatten(model.parameters()):
+        if name in saved_keys or int(value.size) == 0:
+            continue
+        leftovers.append((name, value))
+    if leftovers:
+        print(
+            f"[INFO] Streaming {len(leftovers)} parent-module parameters",
+            flush=True,
+        )
+        mx.eval(*[value for _, value in leftovers])
+        for name, value in leftovers:
+            if (
+                target_dtype is not None
+                and cast_predicate(name)
+                and mx.issubdtype(value.dtype, mx.floating)
+                and value.dtype != target_dtype
+            ):
+                value = value.astype(target_dtype)
+                mx.eval(value)
+            append_tensor(name, value)
+            total_params += int(value.size)
+        _LOG.info("streaming_convert_parent_parameters", count=len(leftovers))
 
     flush_shard()
     del model

@@ -230,3 +230,70 @@ def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None
         assert mx.array_equal(stream_weights[key], value), key
     stream_cfg = json.loads((stream_dir / "config.json").read_text(encoding="utf-8"))
     assert stream_cfg["quantization"]["experts"]["mode"] == "mxfp4"
+
+
+def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) -> None:
+    mx = pytest.importorskip("mlx.core")
+    nn = pytest.importorskip("mlx.nn")
+    from mlx_lm.utils import quantize_model, save_config, save_model
+
+    from axquant.streaming_convert import quantize_and_save_streaming
+
+    class Gated(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.proj = nn.Linear(32, 32, bias=False)
+            self.A_log = mx.arange(8, dtype=mx.float32)
+            self.dt_bias = mx.ones((8,), dtype=mx.float32)
+
+        def __call__(self, x: object) -> object:
+            return self.proj(x)
+
+    mx.random.seed(2)
+    model = Gated()
+    model.proj.weight = mx.arange(32 * 32, dtype=mx.float32).reshape(32, 32)
+    mx.eval(model.parameters())
+
+    def predicate(path: str, module: object) -> dict[str, int | str]:
+        del path, module
+        return {"group_size": 32, "bits": 4, "mode": "affine"}
+
+    class Tokenizer:
+        def save_pretrained(self, path: str | Path) -> None:
+            Path(path).mkdir(parents=True, exist_ok=True)
+
+    src = tmp_path / "src"
+    src.mkdir()
+    stream_dir = tmp_path / "stream"
+    stock_dir = tmp_path / "stock"
+    config = {"model_type": "tiny-gdn"}
+    quantize_and_save_streaming(
+        model,
+        Tokenizer(),
+        dict(config),
+        stream_dir,
+        src,
+        quant_predicate=predicate,
+        q_group_size=32,
+        q_bits=4,
+        q_mode="affine",
+    )
+
+    mx.random.seed(2)
+    stock = Gated()
+    stock.proj.weight = mx.arange(32 * 32, dtype=mx.float32).reshape(32, 32)
+    mx.eval(stock.parameters())
+    stock, stock_config = quantize_model(
+        stock, dict(config), 32, 4, mode="affine", quant_predicate=predicate
+    )
+    stock_dir.mkdir()
+    save_model(stock_dir, stock, donate_model=True)
+    save_config(stock_config, config_path=stock_dir / "config.json")
+
+    stream_weights = mx.load(str(stream_dir / "model.safetensors"))
+    stock_weights = mx.load(str(stock_dir / "model.safetensors"))
+    assert "A_log" in stream_weights
+    assert "dt_bias" in stream_weights
+    assert set(stream_weights) == set(stock_weights)
+    for key, value in stock_weights.items():
+        assert mx.array_equal(stream_weights[key], value), key
