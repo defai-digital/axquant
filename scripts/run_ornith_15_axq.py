@@ -355,7 +355,7 @@ def cmd_smoke(model: str, pack: str) -> None:
     if proc.returncode != 0:
         if model == "397b":
             log(f"397B smoke failed (likely memory); see {log_path}")
-            log("Continuing without a runtime claim.")
+            log("Continuing without a runtime claim. 192 GB cannot resident-load 397B.")
             return
         raise SystemExit(f"smoke failed: see {log_path}")
     log(f"smoke ok {pack}")

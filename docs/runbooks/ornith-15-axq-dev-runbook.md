@@ -54,7 +54,14 @@ PYTHONPATH=src .venv/bin/python scripts/run_ornith_15_axq.py --model 397b --pack
 
 Disk order-of-magnitude: 9B BF16 ≈ 19 GB; 35B ≈ 72 GB; 397B ≈ 807 GB. MXFP4 is roughly 4.3–5.6 BPW plus BF16 vision; 6-bit is higher.
 
-397B generate smoke on 192 GB unified memory may OOM. Convert can still succeed; skip smoke with `--skip-smoke` if load fails, and do not claim a runtime-checked 397B pack until a host that can load it passes.
+397B convert on the 192 GB factory Studio (`df-macstudio-m2`) is **blocked**.
+`mlx_lm.convert` loads the BF16 checkpoint, prints `Quantized model with 4.292 bits
+per weight`, then SIGKILL (-9) while writing shard 2/46. Estimated MXFP4 resident
+size is ~216 GB, above 192 GB unified memory. Do not retry convert on this host.
+Use a ≥512 GB Mac that can hold the quantized model, or a future streaming convert.
+
+Skip generate smoke with `--skip-smoke` even after a successful convert: 397B MXFP4
+cannot load resident on 192 GB.
 
 ---
 
