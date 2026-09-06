@@ -117,8 +117,14 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         priority=10,
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
-        summary="Secondary dense family with real convert evidence; development claims only.",
-        do=("Keep dense convert path green; promote cert only after Qwen 3.6 cert.",),
+        summary=(
+            "Secondary dense family with real convert evidence; development claims only. "
+            "Includes Ornith-1.5-9B (qwen3_5 dense fine-tune)."
+        ),
+        do=(
+            "Keep dense convert path green; promote cert only after Qwen 3.6 cert.",
+            "Allow Ornith-1.5-9B AXQ MXFP4/6-bit language-path packs; vision stays BF16.",
+        ),
         do_not=("Do not treat architecture-prior quants as certified releases.",),
     ),
     FamilySupportPolicy(
@@ -154,20 +160,22 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
         summary=(
-            "Qwen3.5-class 35B-A3B MoE and fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, "
-            "Holo-3.1-35B-A3B, Qwen3.5-35B-A3B): fused-expert convert via the same MLX "
-            "layout as Qwen 3.6 MoE. Holo3 and Ornith AXQ 4/6-bit direct-decode packs "
-            "are checkpoint Tier 1."
+            "Qwen3.5-class MoE and fine-tunes: 35B-A3B (Ornith-1.0-35B, "
+            "Ornith-1.5-35B-A3B, Holo3-35B-A3B, Holo-3.1-35B-A3B, Qwen3.5-35B-A3B) "
+            "and 397B (Ornith-1.5-397B). Fused-expert convert via the same MLX "
+            "layout as Qwen 3.6 MoE. Holo3 and Ornith-1.0 AXQ 4/6-bit direct-decode "
+            "packs are checkpoint Tier 1."
         ),
         do=(
-            "Allow architecture-prior AXQ 4/6-bit packs for signature-matched "
-            "35B-A3B MoE fine-tunes.",
-            "Bind Holo3 and Ornith public Tier 1 only to the certified Hub revisions. "
-            "Vision stays BF16-protected.",
+            "Allow architecture-prior AXQ MXFP4/4/6-bit packs for signature-matched "
+            "35B-A3B and 397B MoE fine-tunes.",
+            "Bind Holo3 and Ornith-1.0 public Tier 1 only to the certified Hub revisions. "
+            "Vision stays BF16-protected. Ornith 1.5 packs start as development evidence.",
         ),
         do_not=(
             "Do not claim Qwen 3.6 Tier 1/Tier 2 certification for Ornith or other fine-tunes.",
-            "Do not convert non-35B-A3B qwen3_5_moe sizes by association.",
+            "Do not convert qwen3_5_moe sizes other than the validated 35B-A3B and "
+            "397B signatures by association.",
         ),
     ),
     FamilySupportPolicy(

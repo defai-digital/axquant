@@ -119,6 +119,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     secondary_family_additions = {
         "AX-Ornith-1.0-35B-MLX-AXQ-4bit",
         "AX-Ornith-1.0-35B-MLX-AXQ-6bit",
+        "AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP",
+        "AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
         "AX-DeepSeek-OCR-2-MLX-AXQ-4bit",
         "AX-DeepSeek-OCR-2-MLX-AXQ-6bit",
         "AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
@@ -153,8 +155,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | qwen_family_additions
         | flash_0731_additions
     )
-    assert len(readme_repositories) == 60
-    assert len(set(readme_repositories)) == 60
+    assert len(readme_repositories) == 62
+    assert len(set(readme_repositories)) == 62
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25

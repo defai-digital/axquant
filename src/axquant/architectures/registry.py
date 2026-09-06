@@ -55,8 +55,8 @@ def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:
         notes.append("Primary cert track for AX Engine + MTP.")
     elif isinstance(adapter, Qwen35MoeAdapter):
         notes.append(
-            "Development convert for Qwen3.5-class 35B-A3B MoE / fine-tunes (e.g. Ornith); "
-            "not the Qwen 3.6 certification track."
+            "Development convert for Qwen3.5-class 35B-A3B and 397B MoE / fine-tunes "
+            "(e.g. Ornith 1.0/1.5); not the Qwen 3.6 certification track."
         )
     elif isinstance(adapter, Qwen38Adapter):
         notes.append("Thin Super-class path: AX Engine layer-stack expert stream required.")

@@ -325,6 +325,16 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
+        title="Ornith 1.5",
+        description="Ornith 1.5 9B/35B/397B AXQ MXFP4 and 6-bit development packs.",
+        items=(
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
         title="Mistral",
         description=(
             "Ministral 3 and Mistral Small: OptiQ and AXQ. No distinct Ministral-3-8B AXQ-4bit."
@@ -485,6 +495,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Devstral-Small-2505-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
