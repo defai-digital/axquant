@@ -62,8 +62,11 @@ into a 5 GiB shard, and donates the weights. Do not retry stock convert on this
 host. Unset `AXQUANT_STREAMING_CONVERT=0` only on a ≥512 GB Mac that can hold
 the quantized model resident.
 
-Skip generate smoke with `--skip-smoke` even after a successful convert: 397B
-MXFP4 cannot load resident on 192 GB. Publish still copies the pack.
+MXFP4 streaming convert completed on this host: 46 shards, measured main
+4.306 BPW, Hub
+`AutomatosX/AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP`
+(`07415be2d224371246c2016413b21977b8041e6c`). Skip generate smoke: 397B MXFP4
+cannot load resident on 192 GB. Publish still copies the pack.
 
 ---
 
