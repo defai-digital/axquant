@@ -434,7 +434,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | --- | --- | --- |
 | Qwen3.8-27B dense (`qwen38-dense-v1`) | `convertible`; certified dense VLM language-path track | AXQ 4/6-bit ± MTP are checkpoint Tier 1; MTP packs also have scoped Tier 2 on AX Engine 6.16.1. Vision stays BF16; end-to-end VL quality is not certified. Super-class 2.4T is a separate experimental stream. |
 | Qwen 3.6 language paths | `convertible`; formal campaign / primary investment track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
-| Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE + fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, Holo-3.1-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | **Ornith 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Holo3 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 checkpoint Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)) |
+| Qwen 3.5 dense (including **Ornith-1.5-9B**); **Qwen3.5-class 35B-A3B and 397B MoE + fine-tunes (Ornith-1.0-35B, Ornith-1.5-35B-A3B, Ornith-1.5-397B, Holo3-35B-A3B, Holo-3.1-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | **Ornith-1.0 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Ornith-1.5 MXFP4/6-bit development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); **Holo3 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 checkpoint Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)) |
 | **DeepSeek-OCR-2** (`deepseek-ocr2-v1`, MLX-VLM) | `convertible` thin — language MoE quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
 | **Muse-Glimmer-30B** (`muse-glimmer-v1`, MLX-VLM) | `convertible` thin — dense language quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md)) |
 | Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
@@ -486,8 +486,8 @@ release audit. The current tier matrix:
 | **Qwen3.8-27B** dense VLM | `qwen38-dense-v1` | `convertible`; **AXQ 4/6-bit ± MTP checkpoint Tier 1**; MTP packs also **scoped Tier 2** on AX Engine 6.16.1; vision BF16; not the Qwen 3.6 campaign track |
 | Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; formal campaign / primary investment track |
 | **Qwen 3.8 2.4T-A95B text MoE** | `qwen38-moe-v1` | `convertible` thin development path; native layer-stack expert stream required; no cert track |
-| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
-| **Qwen3.5-class 35B-A3B MoE + fine-tunes** (Ornith-1.0-35B, Holo3-35B-A3B, Holo-3.1-35B-A3B) | `qwen35-moe-v1` | `convertible`; **Ornith 4/6-bit Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); not Qwen 3.6 cert track |
+| Qwen 3.5 dense (including Ornith-1.5-9B) | `qwen35-dense-v1` | `convertible`; development claims only |
+| **Qwen3.5-class 35B-A3B and 397B MoE + fine-tunes** (Ornith-1.0-35B, Ornith-1.5-35B-A3B, Ornith-1.5-397B, Holo3-35B-A3B, Holo-3.1-35B-A3B) | `qwen35-moe-v1` | `convertible`; **Ornith-1.0 4/6-bit Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Ornith-1.5 MXFP4/6-bit development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); not Qwen 3.6 cert track |
 | **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
 | **Muse-Glimmer-30B** | `muse-glimmer-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md)) |
 | **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ MXFP4/4/6-bit checkpoint Tier 1 certified** ([MXFP4](docs/certifications/qwen3-coder-next-axq-mxfp4-tier1.md), [4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
@@ -509,7 +509,7 @@ New families start at `inspect-only` until promotion evidence exists. Run
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | **Qwen3.8-27B**; Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE / Ornith / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
+| Conversion targets | **Qwen3.8-27B**; Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B and 397B MoE / Ornith 1.0+1.5 / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -621,6 +621,10 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Kimi-K3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Kimi-K3-MLX-AXQ-2bit) | 4.018 | **Not certified** (hobby / curiosity Super-class stream pack). Official `moonshotai/Kimi-K3@a590ce09`; native MXFP4 experts dequantized to affine 2-bit; `ax_expert_stream.json` required; `vision.safetensors` sidecar; no packaged MTP. 2-bit only. |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | 4.880062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq4-tier1.md)); source `deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | 6.000062 | **Tier 1 certified** ([cert](docs/certifications/ornith-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
+| [`AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP) | 6.550310 | **Development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); source `ornith-ai/Ornith-1.5-9B@489cb97981b8654bcfcf30ce1f94ed1b62e07b53`; adapter `qwen35-dense-v1`; vision BF16; MTP sidecar protected; no acceleration claim |
+| [`AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP) | 8.204636 | **Development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); same source pin; language 6-bit, vision BF16; MTP sidecar protected |
+| [`AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP) | 4.634223 | **Development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); source `ornith-ai/Ornith-1.5-35B-A3B@10fbf86fed7ecee4a061f8b499a618f46001cac1`; adapter `qwen35-moe-v1`; vision BF16; MTP sidecar protected |
+| [`AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP) | 6.789006 | **Development** ([runbook](docs/runbooks/ornith-15-axq-dev-runbook.md)); same source pin; language 6-bit, vision BF16; MTP sidecar protected |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.665439 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq4-tier1.md)); attention-6 / expert-4 recovery recipe; source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
 | [`AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | 7.006493 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
 | [`AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4) | 4.874068 | **Tier 1 certified** ([cert](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); source `Hcompany/Holo-3.1-35B-A3B@2bdb92851a8cd9d72cdd891fdf38cfcc7fefae2c`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
@@ -861,6 +865,23 @@ axquant quantize "$SRC" \
 
 # Optional AX Engine readiness smoke after convert:
 # axquant runtime-check --model ./AX-...-4bit --runtime ax-engine
+```
+
+**Ornith-1.5** (9B dense, 35B-A3B MoE, 397B MoE) converts from the original Hugging Face
+BF16 checkpoints. Use the manual MXFP4 / 6-bit recipes; vision stays BF16. Do not claim
+MTP acceleration. Factory procedure:
+[Ornith-1.5 runbook](docs/runbooks/ornith-15-axq-dev-runbook.md).
+
+```bash
+axquant inspect --model /models/Ornith-1.5-9B \
+  --model-id ornith-ai/Ornith-1.5-9B --revision REVISION_SHA
+
+axquant plan-manual --inventory inventory.json \
+  --recipe examples/ornith-15-9b-axq-mxfp4-v0.1.yaml --output plan.json
+
+axquant convert --model /models/Ornith-1.5-9B --plan plan.json \
+  --output ./AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP \
+  --q-mode mxfp4 --allow-unmeasured --ax-engine-manifest skip
 ```
 
 Defaults on the simple path:

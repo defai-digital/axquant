@@ -33,6 +33,7 @@ KNOWN_SLUGS = {
     "Holo-3.1": "AutomatosX/holo-31-6a819f5921908d636ae8b2a8",
     "Devstral": "AutomatosX/devstral-6a7f53a28f83a5c088373faf",
     "Ornith 1.0": "AutomatosX/ornith-10-6a7f53a328beff762aced1c9",
+    "Ornith 1.5": "AutomatosX/ornith-15-6a9cffbd43ffd36d99d5f166",
     "Mistral": "AutomatosX/mistral-6a7f53a3c81397e9339a5b75",
     "Embeddings": "AutomatosX/embeddings-6a7f53a515672c27b985e679",
     "OCR": "AutomatosX/ocr-6a7f53a89dfa008d21861df4",
@@ -325,6 +326,18 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
+        title="Ornith 1.5",
+        description="Ornith 1.5 9B/35B/397B AXQ MXFP4 and 6-bit development packs.",
+        items=(
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
         title="Mistral",
         description=(
             "Ministral 3 and Mistral Small: OptiQ and AXQ. No distinct Ministral-3-8B AXQ-4bit."
@@ -485,6 +498,12 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Devstral-Small-2505-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
             _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
