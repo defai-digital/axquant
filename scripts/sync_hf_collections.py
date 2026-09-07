@@ -334,6 +334,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -502,6 +503,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
             _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
