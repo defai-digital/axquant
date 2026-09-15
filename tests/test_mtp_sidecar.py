@@ -11,10 +11,13 @@ import pytest
 
 from axquant.errors import ArtifactError
 from axquant.mtp_sidecar import (
+    OMLX_COMPAT_FILENAME,
+    OMLX_COMPAT_SCHEMA,
     QWEN36_MTP_NORM_TENSORS,
     QWEN36_MTP_PROJECTION_TENSORS,
     QWEN36_MTP_TENSORS,
     QWEN_NEXT_MTP_ARCH_ID,
+    annotate_qwen_mtp_omlx_compat,
     prepare_qwen36_mtp_sidecar,
     probe_ax_engine_mtp_capability,
     quantize_qwen36_mtp_sidecar,
@@ -645,3 +648,48 @@ def test_quantize_mtp_sidecar_cli_rejects_failed_probe_and_ambiguous_inputs(
         )
         == 2
     )
+
+
+def test_annotate_omlx_compat_records_sidecar_mtp_tensors_without_index_merge(
+    tmp_path: Path,
+) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    _write_raw_sidecar(pack / "mtp.safetensors")
+    (pack / "mtplx_runtime.json").write_text(
+        json.dumps({"arch_id": "qwen3_5_mtp", "mtp_depth_max": 1}) + "\n",
+        encoding="utf-8",
+    )
+    (pack / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {"model.embed_tokens.weight": "model.safetensors"}})
+        + "\n",
+        encoding="utf-8",
+    )
+    written = annotate_qwen_mtp_omlx_compat(pack)
+    assert written.name == OMLX_COMPAT_FILENAME
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == OMLX_COMPAT_SCHEMA
+    assert payload["arch_id"] == QWEN_NEXT_MTP_ARCH_ID
+    assert payload["sidecar"] == "mtp.safetensors"
+    assert payload["language_index_includes_mtp"] is False
+    assert payload["lightning_mtp_tensor_count"] == len(QWEN36_MTP_TENSORS)
+    assert set(payload["lightning_mtp_tensors"]) == set(QWEN36_MTP_TENSORS)
+    runtime = json.loads((pack / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    assert runtime["arch_id"] == QWEN_NEXT_MTP_ARCH_ID
+    index = json.loads((pack / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    assert "mtp.fc.weight" not in index["weight_map"]
+
+
+def test_annotate_omlx_compat_cli(tmp_path: Path) -> None:
+    from axquant.cli import main
+
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    _write_raw_sidecar(pack / "mtp.safetensors")
+    assert main(["annotate-omlx-mtp", "--directory", str(pack)]) == 0
+    assert (pack / OMLX_COMPAT_FILENAME).is_file()
+
+
+def test_annotate_omlx_compat_rejects_missing_sidecar(tmp_path: Path) -> None:
+    with pytest.raises(ArtifactError, match="no MTP sidecar"):
+        annotate_qwen_mtp_omlx_compat(tmp_path)

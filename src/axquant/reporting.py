@@ -786,7 +786,15 @@ def prepare_publication(
     mtp_companion_files: list[ArtifactFile] = []
     mtp_layout = MtpSidecarLayout.BYTE_PRESERVED
     mtp_provenance_path = directory / "ax_mtp_sidecar_manifest.json"
-    for companion_name in ("ax_mtp_sidecar_manifest.json", "mtplx_runtime.json"):
+    if mtp_sidecar_file is not None:
+        from axquant.mtp_sidecar import annotate_qwen_mtp_omlx_compat
+
+        annotate_qwen_mtp_omlx_compat(directory)
+    for companion_name in (
+        "ax_mtp_sidecar_manifest.json",
+        "mtplx_runtime.json",
+        "axquant_omlx_compat.json",
+    ):
         companion_path = directory / companion_name
         if companion_path.is_file():
             mtp_companion_files.append(
@@ -807,7 +815,7 @@ def prepare_publication(
                 "ax_mtp_sidecar_manifest.json",
                 "mtplx_runtime.json",
             }
-            if {record.path for record in mtp_companion_files} != required_companions:
+            if not required_companions.issubset({record.path for record in mtp_companion_files}):
                 raise ValidationGateError(
                     "prepared MTP reproduction requires provenance and runtime companions"
                 )

@@ -995,6 +995,13 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "annotate-omlx-mtp":
+        from axquant.mtp_sidecar import annotate_qwen_mtp_omlx_compat
+
+        written = annotate_qwen_mtp_omlx_compat(args.directory)
+        log.info("omlx_mtp_compat_written", path=str(written))
+        return 0
+
     if args.command == "quantize-mtp-sidecar":
         import shlex
 

@@ -1198,6 +1198,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     runtime_parser.add_argument("--output", default="runtime_check.json")
 
+    annotate_omlx_parser = subparsers.add_parser(
+        "annotate-omlx-mtp",
+        help="write axquant_omlx_compat.json for an existing Qwen MTP pack "
+        "(does not requantize; does not merge mtp.* into the language index)",
+    )
+    annotate_omlx_parser.add_argument(
+        "--directory",
+        required=True,
+        help="pack directory that already contains mtp.safetensors",
+    )
+
     quantize_mtp_parser = subparsers.add_parser("quantize-mtp-sidecar")
     quantize_mtp_parser.add_argument(
         "--sidecar",

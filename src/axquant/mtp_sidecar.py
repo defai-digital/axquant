@@ -79,6 +79,9 @@ QWEN_NEXT_MTP_ADAPTER_IDS = frozenset(
         "qwen4-exp-v1",
     }
 )
+OMLX_COMPAT_FILENAME = "axquant_omlx_compat.json"
+OMLX_COMPAT_SCHEMA = "axquant.omlx-mtp-compat.v1"
+
 # Older AutomatosX Qwen sidecar bundles used AX Engine packaging labels in the
 # cross-runtime ``arch_id`` field. They describe the same Qwen MTP execution
 # contract, but strict importers such as oMLX accept only the canonical MTPLX
@@ -225,6 +228,33 @@ def _parse_qwen36_layout(path: Path) -> _SafetensorsLayout:
         payload_bytes=payload_bytes,
         tensors=tensors,
     )
+
+
+def _safetensors_tensor_names(path: Path) -> list[str]:
+    """Header-only tensor names. Does not require BF16 or Qwen 3.6 coverage."""
+    try:
+        with path.open("rb") as source:
+            header_size_bytes = source.read(8)
+            if len(header_size_bytes) != 8:
+                raise ArtifactError(f"invalid Safetensors header: {path}")
+            header_size = struct.unpack("<Q", header_size_bytes)[0]
+            if header_size <= 1 or header_size > _MAX_SAFETENSORS_HEADER_BYTES:
+                raise ArtifactError(f"unsafe Safetensors header size in {path}")
+            header_bytes = source.read(header_size)
+            if len(header_bytes) != header_size:
+                raise ArtifactError(f"truncated Safetensors header: {path}")
+    except OSError as exc:
+        raise ArtifactError(f"cannot read MTP sidecar {path}: {exc}") from exc
+    try:
+        header = json.loads(
+            header_bytes,
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise ArtifactError(f"invalid MTP Safetensors header {path}: {exc}") from exc
+    if not isinstance(header, dict):
+        raise ArtifactError(f"MTP Safetensors header is not an object: {path}")
+    return sorted(name for name in header if name != "__metadata__" and isinstance(name, str))
 
 
 def _payload_sha256(path: Path, layout: _SafetensorsLayout, tensor: _TensorSlice) -> str:
@@ -979,6 +1009,73 @@ def annotate_mtp_runtime_sidecar_bits(runtime_path: str | Path, bits: int) -> No
     if not isinstance(payload, dict):
         raise ArtifactError(f"MTP runtime config is not a JSON object: {path}")
     payload["mtp_sidecar_bits"] = bits
+    _atomic_write_json(path, payload)
+
+
+def annotate_qwen_mtp_omlx_compat(directory: str | Path) -> Path:
+    """Write OMLX import metadata without putting ``mtp.*`` in the language index.
+
+    Stock mlx-lm strict-loads ``model.safetensors.index.json`` and must not see
+    Lightning ``mtp.*`` keys (that would reject the pack). OMLX 0.6.3rc2+
+    Lightning sanitize *requires* those names in the loaded dict; they already
+    live in ``mtp.safetensors``. This companion file records the sidecar path,
+    tensor names, and canonical ``qwen3-next-mtp`` arch id so OMLX can import
+    the sidecar before Lightning load.
+
+    Does not rewrite language shards or the weight_map.
+    """
+    pack = Path(directory).expanduser().resolve()
+    existing = [
+        pack / name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (pack / name).is_file()
+    ]
+    if not existing:
+        raise ArtifactError(f"no MTP sidecar in {pack}")
+    sidecar = existing[0]
+    tensor_names = _safetensors_tensor_names(sidecar)
+    mtp_named = [name for name in tensor_names if name.startswith("mtp.")]
+    if not mtp_named:
+        raise ArtifactError(
+            f"{sidecar.name} has no mtp.* tensors; OMLX Lightning cannot import it"
+        )
+    runtime_path = pack / "mtplx_runtime.json"
+    arch_id = QWEN_NEXT_MTP_ARCH_ID
+    if runtime_path.is_file():
+        contract = json.loads(
+            runtime_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+        if not isinstance(contract, dict):
+            raise ArtifactError("mtplx_runtime.json must be a JSON object")
+        raw_arch = contract.get("arch_id")
+        if isinstance(raw_arch, str) and raw_arch.strip():
+            if raw_arch in QWEN_NEXT_MTP_LEGACY_ARCH_IDS:
+                contract["arch_id"] = QWEN_NEXT_MTP_ARCH_ID
+                _atomic_write_json(runtime_path, contract)
+            elif raw_arch != QWEN_NEXT_MTP_ARCH_ID:
+                raise ArtifactError(
+                    f"mtplx_runtime.json arch_id {raw_arch!r} is not {QWEN_NEXT_MTP_ARCH_ID}"
+                )
+            else:
+                arch_id = raw_arch
+    payload = {
+        "schema_version": OMLX_COMPAT_SCHEMA,
+        "arch_id": arch_id,
+        "sidecar": sidecar.name,
+        "lightning_mtp_tensor_count": len(mtp_named),
+        "lightning_mtp_tensors": mtp_named,
+        "language_index_includes_mtp": False,
+        "omlx_import": (
+            "Import mtp.safetensors (or mtp_head.safetensors) into a writable "
+            "snapshot before Lightning load. Do not merge mtp.* into "
+            "model.safetensors.index.json; stock mlx-lm strict-load would fail."
+        ),
+    }
+    output = pack / OMLX_COMPAT_FILENAME
+    _atomic_write_json(output, payload)
+    return output
+
+
+def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
     descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     os.close(descriptor)
     temporary = Path(temporary_name)
