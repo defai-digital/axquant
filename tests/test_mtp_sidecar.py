@@ -686,6 +686,10 @@ def test_annotate_omlx_compat_cli(tmp_path: Path) -> None:
     pack = tmp_path / "pack"
     pack.mkdir()
     _write_raw_sidecar(pack / "mtp.safetensors")
+    (pack / "mtplx_runtime.json").write_text(
+        json.dumps({"arch_id": QWEN_NEXT_MTP_ARCH_ID, "mtp_depth_max": 1}) + "\n",
+        encoding="utf-8",
+    )
     assert main(["annotate-omlx-mtp", "--directory", str(pack)]) == 0
     assert (pack / OMLX_COMPAT_FILENAME).is_file()
 
@@ -693,3 +697,11 @@ def test_annotate_omlx_compat_cli(tmp_path: Path) -> None:
 def test_annotate_omlx_compat_rejects_missing_sidecar(tmp_path: Path) -> None:
     with pytest.raises(ArtifactError, match="no MTP sidecar"):
         annotate_qwen_mtp_omlx_compat(tmp_path)
+
+
+def test_annotate_omlx_compat_rejects_missing_qwen_runtime(tmp_path: Path) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    _write_raw_sidecar(pack / "mtp.safetensors")
+    with pytest.raises(ArtifactError, match="not a Qwen oMLX"):
+        annotate_qwen_mtp_omlx_compat(pack)

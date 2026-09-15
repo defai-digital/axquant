@@ -1038,25 +1038,29 @@ def annotate_qwen_mtp_omlx_compat(directory: str | Path) -> Path:
             f"{sidecar.name} has no mtp.* tensors; OMLX Lightning cannot import it"
         )
     runtime_path = pack / "mtplx_runtime.json"
-    arch_id = QWEN_NEXT_MTP_ARCH_ID
-    if runtime_path.is_file():
-        contract = json.loads(
-            runtime_path.read_text(encoding="utf-8"),
-            object_pairs_hook=_json_object_without_duplicate_keys,
+    if not runtime_path.is_file():
+        raise ArtifactError(
+            "mtplx_runtime.json missing; not a Qwen oMLX/MTPLX sidecar pack"
         )
-        if not isinstance(contract, dict):
-            raise ArtifactError("mtplx_runtime.json must be a JSON object")
-        raw_arch = contract.get("arch_id")
-        if isinstance(raw_arch, str) and raw_arch.strip():
-            if raw_arch in QWEN_NEXT_MTP_LEGACY_ARCH_IDS:
-                contract["arch_id"] = QWEN_NEXT_MTP_ARCH_ID
-                _atomic_write_json(runtime_path, contract)
-            elif raw_arch != QWEN_NEXT_MTP_ARCH_ID:
-                raise ArtifactError(
-                    f"mtplx_runtime.json arch_id {raw_arch!r} is not {QWEN_NEXT_MTP_ARCH_ID}"
-                )
-            else:
-                arch_id = raw_arch
+    contract = json.loads(
+        runtime_path.read_text(encoding="utf-8"),
+        object_pairs_hook=_json_object_without_duplicate_keys,
+    )
+    if not isinstance(contract, dict):
+        raise ArtifactError("mtplx_runtime.json must be a JSON object")
+    raw_arch = contract.get("arch_id")
+    if not isinstance(raw_arch, str) or not raw_arch.strip():
+        raise ArtifactError("mtplx_runtime.json arch_id is missing")
+    if raw_arch in QWEN_NEXT_MTP_LEGACY_ARCH_IDS:
+        contract["arch_id"] = QWEN_NEXT_MTP_ARCH_ID
+        _atomic_write_json(runtime_path, contract)
+        arch_id = QWEN_NEXT_MTP_ARCH_ID
+    elif raw_arch == QWEN_NEXT_MTP_ARCH_ID:
+        arch_id = raw_arch
+    else:
+        raise ArtifactError(
+            f"mtplx_runtime.json arch_id {raw_arch!r} is not {QWEN_NEXT_MTP_ARCH_ID}"
+        )
     payload = {
         "schema_version": OMLX_COMPAT_SCHEMA,
         "arch_id": arch_id,
