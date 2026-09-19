@@ -415,17 +415,24 @@ def _copy_external_mtp_bundle(
         companion = source.parent / companion_name
         if companion.is_file():
             _copy_verified(companion, output_dir / companion_name)
-    _declare_raw_mtp_runtime_contract(output_dir, plan=plan)
+    _declare_raw_mtp_runtime_contract(
+        output_dir,
+        plan=plan,
+        source_dir=source.parent if (source.parent / "config.json").is_file() else None,
+    )
 
 
 def _declare_raw_mtp_runtime_contract(
     output_dir: Path,
     *,
     plan: QuantizationPlan | None = None,
+    source_dir: Path | None = None,
 ) -> None:
     """Declare the byte-preserved sidecar's runtime and norm contracts.
 
-    Byte preservation keeps the raw HF zero-centred norm deltas. AX Engine
+    Byte preservation retains the source norm convention, not necessarily raw
+    HF deltas. Requantized sources must provide an explicit runtime declaration.
+    Original unquantized HF inputs retain the raw-delta default. AX Engine
     reads ``mtp_norm_layout`` from ``mtplx_runtime.json`` and applies the
     ``+1.0`` HF-delta conversion to every norm at load time; without the
     declaration it must guess from tensor statistics. For recognized Qwen MTP
@@ -438,6 +445,35 @@ def _declare_raw_mtp_runtime_contract(
     preserved bytes. Known legacy Qwen identifiers are normalized; an unknown
     explicit identifier fails closed.
     """
+    if source_dir is not None:
+        source_runtime = source_dir / "mtplx_runtime.json"
+        config_path = source_dir / "config.json"
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ArtifactError(
+                "cannot determine preserved MTP source convention from config.json"
+            ) from exc
+        if not isinstance(config, dict):
+            raise ArtifactError("preserved MTP source config.json must be an object")
+        source_contract: dict[str, Any] = {}
+        if source_runtime.is_file():
+            try:
+                value = json.loads(source_runtime.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ArtifactError("source mtplx_runtime.json is unreadable") from exc
+            if not isinstance(value, dict):
+                raise ArtifactError("source mtplx_runtime.json must be a JSON object")
+            source_contract = value
+        if (
+            config.get("quantization") or config.get("quantization_config")
+        ) and not source_contract.get("mtp_norm_layout"):
+            raise ArtifactError(
+                "requantized MTP source requires an explicit mtp_norm_layout in "
+                "mtplx_runtime.json; byte preservation does not establish raw_hf_delta"
+            )
+        if source_contract:
+            _copy_verified(source_runtime, output_dir / "mtplx_runtime.json")
     runtime_path = output_dir / "mtplx_runtime.json"
     contract: dict[str, Any] = {
         "schema_version": "axquant.mtp-runtime.v1",
@@ -452,6 +488,11 @@ def _declare_raw_mtp_runtime_contract(
             raise ArtifactError("copied mtplx_runtime.json must be a JSON object")
         contract = value
     changed = False
+    if "mtp_norm_layout" in contract and contract["mtp_norm_layout"] not in (
+        "raw_hf_delta",
+        "mlx_multiplier",
+    ):
+        raise ArtifactError("unsupported mtp_norm_layout in preserved MTP runtime contract")
     if "mtp_norm_layout" not in contract:
         contract["mtp_norm_layout"] = "raw_hf_delta"
         changed = True
@@ -921,7 +962,7 @@ def _extract_protected_integrated_mtp(
     Families like Qwen 3.5 store the MTP head inside the indexed shards; the
     MLX-LM text-model mapping does not carry those tensors, so without this
     extraction the fail-closed parameter-coverage check aborts conversion.
-    Byte-copying them into ``mtp.safetensors`` preserves the raw HF payloads
+    Byte-copying them into ``mtp.safetensors`` preserves the source payloads
     exactly (the same contract as a byte-preserved external sidecar) and gives
     every converted artifact one MTP layout regardless of how the source
     packaged the head.
@@ -936,7 +977,7 @@ def _extract_protected_integrated_mtp(
         allocations=[allocation for allocation in plan.assignments if allocation.role.is_mtp],
     )
     if manifest is not None:
-        _declare_raw_mtp_runtime_contract(output_dir, plan=plan)
+        _declare_raw_mtp_runtime_contract(output_dir, plan=plan, source_dir=model_dir)
     return manifest
 
 

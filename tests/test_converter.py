@@ -2485,3 +2485,93 @@ def test_failed_conversion_does_not_leave_partial_output(
         )
     assert output.exists() is False
     assert list(tmp_path.glob(".candidate.*")) == []
+
+
+@pytest.mark.parametrize("field", ["quantization", "quantization_config"])
+def test_requantized_integrated_mtp_requires_norm_declaration(tmp_path: Path, field: str) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    (source / "config.json").write_text(json.dumps({field: {"bits": 6}}))
+    with pytest.raises(ArtifactError, match="requires an explicit mtp_norm_layout"):
+        converter._declare_raw_mtp_runtime_contract(output, source_dir=source)
+    assert not (output / "mtplx_runtime.json").exists()
+
+
+@pytest.mark.parametrize("layout", ["mlx_multiplier", "raw_hf_delta"])
+def test_requantized_integrated_mtp_preserves_explicit_source_contract(
+    tmp_path: Path, layout: str
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    (source / "config.json").write_text(json.dumps({"quantization": {"bits": 6}}))
+    contract = {"mtp_norm_layout": layout, "mtp_depth_max": 3}
+    (source / "mtplx_runtime.json").write_text(json.dumps(contract))
+    converter._declare_raw_mtp_runtime_contract(output, source_dir=source)
+    assert json.loads((output / "mtplx_runtime.json").read_text()) == contract
+
+
+def test_original_unquantized_mtp_retains_raw_delta_contract(tmp_path: Path) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    (source / "config.json").write_text(json.dumps({"model_type": "qwen3_5_moe"}))
+    converter._declare_raw_mtp_runtime_contract(output, source_dir=source)
+    assert (
+        json.loads((output / "mtplx_runtime.json").read_text())["mtp_norm_layout"] == "raw_hf_delta"
+    )
+
+
+@pytest.mark.parametrize("layout", [None, "auto", "unknown", 1])
+def test_preserved_mtp_rejects_invalid_explicit_norm_layout(tmp_path: Path, layout: object) -> None:
+    (tmp_path / "mtplx_runtime.json").write_text(json.dumps({"mtp_norm_layout": layout}))
+    with pytest.raises(ArtifactError, match="unsupported mtp_norm_layout"):
+        converter._declare_raw_mtp_runtime_contract(tmp_path)
+
+
+@pytest.mark.parametrize("layout", [None, "mlx_multiplier", "raw_hf_delta"])
+def test_integrated_mtp_extraction_binds_source_norm_contract(
+    qwen36_model_dir: Path, tmp_path: Path, layout: str | None
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    with safe_open(qwen36_model_dir / "mtp.safetensors", framework="numpy") as sidecar:
+        weight_map = {name: "mtp.safetensors" for name in list(sidecar.keys())}
+    (qwen36_model_dir / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": weight_map})
+    )
+    config_path = qwen36_model_dir / "config.json"
+    config = json.loads(config_path.read_text())
+    config["quantization"] = {"bits": 6}
+    config_path.write_text(json.dumps(config))
+    if layout is not None:
+        (qwen36_model_dir / "mtplx_runtime.json").write_text(
+            json.dumps({"mtp_norm_layout": layout, "mtp_depth_max": 3})
+        )
+    output = tmp_path / "extracted"
+    output.mkdir()
+    if layout is None:
+        with pytest.raises(ArtifactError, match="requires an explicit mtp_norm_layout"):
+            converter._extract_protected_integrated_mtp(qwen36_model_dir, plan, output)
+    else:
+        result = converter._extract_protected_integrated_mtp(qwen36_model_dir, plan, output)
+        assert result is not None
+        runtime = json.loads((output / "mtplx_runtime.json").read_text())
+        assert runtime["mtp_norm_layout"] == layout
+        assert runtime["mtp_depth_max"] == 3
+        with (
+            safe_open(qwen36_model_dir / "mtp.safetensors", framework="numpy") as before,
+            safe_open(output / "mtp.safetensors", framework="numpy") as after,
+        ):
+            for name in list(before.keys()):
+                np.testing.assert_array_equal(before.get_tensor(name), after.get_tensor(name))
+
+
+def test_external_quantized_mtp_bundle_does_not_guess_norm_layout(tmp_path: Path) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    (source / "config.json").write_text(json.dumps({"quantization": {"bits": 6}}))
+    (source / "mtp.safetensors").write_bytes(b"preserved")
+    with pytest.raises(ArtifactError, match="requires an explicit mtp_norm_layout"):
+        converter._copy_external_mtp_bundle(source, output)
