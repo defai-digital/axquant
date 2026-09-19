@@ -787,9 +787,12 @@ def prepare_publication(
     mtp_layout = MtpSidecarLayout.BYTE_PRESERVED
     mtp_provenance_path = directory / "ax_mtp_sidecar_manifest.json"
     if mtp_sidecar_file is not None:
-        from axquant.mtp_sidecar import annotate_qwen_mtp_omlx_compat
+        from axquant.mtp_sidecar import is_qwen_next_omlx_runtime
 
-        annotate_qwen_mtp_omlx_compat(directory)
+        if is_qwen_next_omlx_runtime(directory):
+            from axquant.mtp_sidecar import annotate_qwen_mtp_omlx_compat
+
+            annotate_qwen_mtp_omlx_compat(directory)
     for companion_name in (
         "ax_mtp_sidecar_manifest.json",
         "mtplx_runtime.json",

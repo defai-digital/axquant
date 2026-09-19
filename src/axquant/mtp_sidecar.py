@@ -1012,6 +1012,30 @@ def annotate_mtp_runtime_sidecar_bits(runtime_path: str | Path, bits: int) -> No
     _atomic_write_json(path, payload)
 
 
+def is_qwen_next_omlx_runtime(directory: str | Path) -> bool:
+    """True when ``mtplx_runtime.json`` declares a Qwen3-Next MTP arch id.
+
+    Publication uses this to decide whether OMLX compat annotation applies.
+    Other MTP layouts (assistant MTP, grafted sidecars, the qwen36 prepared
+    layout) also ship a ``mtplx_runtime.json``-style companion without the
+    OMLX ``arch_id``, so file presence alone is not an OMLX marker. A missing
+    or foreign arch id means annotate does not apply; malformed OMLX packs
+    with a matching arch id still fail closed inside
+    ``annotate_qwen_mtp_omlx_compat``.
+    """
+    path = Path(directory).expanduser().resolve() / "mtplx_runtime.json"
+    if not path.is_file():
+        return False
+    try:
+        contract = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(contract, dict):
+        return False
+    arch = contract.get("arch_id")
+    return arch == QWEN_NEXT_MTP_ARCH_ID or arch in QWEN_NEXT_MTP_LEGACY_ARCH_IDS
+
+
 def annotate_qwen_mtp_omlx_compat(directory: str | Path) -> Path:
     """Write OMLX import metadata without putting ``mtp.*`` in the language index.
 
@@ -1025,23 +1049,17 @@ def annotate_qwen_mtp_omlx_compat(directory: str | Path) -> Path:
     Does not rewrite language shards or the weight_map.
     """
     pack = Path(directory).expanduser().resolve()
-    existing = [
-        pack / name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (pack / name).is_file()
-    ]
+    existing = [pack / name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (pack / name).is_file()]
     if not existing:
         raise ArtifactError(f"no MTP sidecar in {pack}")
     sidecar = existing[0]
     tensor_names = _safetensors_tensor_names(sidecar)
     mtp_named = [name for name in tensor_names if name.startswith("mtp.")]
     if not mtp_named:
-        raise ArtifactError(
-            f"{sidecar.name} has no mtp.* tensors; OMLX Lightning cannot import it"
-        )
+        raise ArtifactError(f"{sidecar.name} has no mtp.* tensors; OMLX Lightning cannot import it")
     runtime_path = pack / "mtplx_runtime.json"
     if not runtime_path.is_file():
-        raise ArtifactError(
-            "mtplx_runtime.json missing; not a Qwen oMLX/MTPLX sidecar pack"
-        )
+        raise ArtifactError("mtplx_runtime.json missing; not a Qwen oMLX/MTPLX sidecar pack")
     contract = json.loads(
         runtime_path.read_text(encoding="utf-8"),
         object_pairs_hook=_json_object_without_duplicate_keys,

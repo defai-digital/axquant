@@ -25,17 +25,12 @@ from axquant.mtp_sidecar import OMLX_COMPAT_FILENAME, annotate_qwen_mtp_omlx_com
 SIDECAR_NAMES = ("mtp.safetensors", "mtp_head.safetensors")
 RUNTIME_NAME = "mtplx_runtime.json"
 COMMIT_MESSAGE = (
-    "Add axquant_omlx_compat.json for OMLX sidecar import "
-    "(does not change language weights)"
+    "Add axquant_omlx_compat.json for OMLX sidecar import (does not change language weights)"
 )
 
 
 def _list_mtp_repos(api: HfApi, author: str) -> list[str]:
-    return sorted(
-        model.id
-        for model in api.list_models(author=author)
-        if "MTP" in model.id.upper()
-    )
+    return sorted(model.id for model in api.list_models(author=author) if "MTP" in model.id.upper())
 
 
 def _annotate_repo(api: HfApi, repo_id: str, work: Path) -> dict[str, str]:
@@ -141,7 +136,8 @@ def main() -> int:
                 continue
             try:
                 row = _annotate_repo(api, repo_id, work)
-            except Exception as exc:  # noqa: BLE001 — campaign log, keep going
+            # campaign log, keep going on per-repo failures
+            except Exception as exc:
                 row = {"repo": repo_id, "status": "error", "reason": str(exc)}
             results.append(row)
             print(json.dumps(row, ensure_ascii=True), flush=True)
