@@ -275,6 +275,8 @@ The tables are generated from certificate JSON
 | Gemma 4 26B-A4B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
 | Gemma 4 31B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
 | Gemma 4 31B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
+| Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Not Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
+| Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
 | DeepSeek V4 Flash-0731 MLX AXQ MXFP4 | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |

@@ -51,7 +51,18 @@ def test_normalize_host_id_strips_domain() -> None:
 def test_historical_cert_hosts_are_recognized_and_not_rewritten() -> None:
     rows = load_public_cert_rows(_CERTS)
     assert rows, "expected published cert rows"
-    hosts = {row.host_id for row in rows}
+    # New Tiel smoke records use a public hardware label, not a factory host.
+    # This must never license a checkpoint or acceleration certificate there.
+    smoke_rows = [row for row in rows if row.host_id == "macbook-pro-m5-max-128gb"]
+    assert {row.record_id for row in smoke_rows} == {
+        "tiel-coder-35b-axq-mxfp4-mtp",
+        "cyber-tiel-coder-35b-axq-mxfp4-mtp",
+    }
+    assert all(
+        row.tier1_status == "not_certified" and row.tier2_status == "not_certified"
+        for row in smoke_rows
+    )
+    hosts = {row.host_id for row in rows if row not in smoke_rows}
     assert hosts <= {
         "df-macstudio-m2",
         "df-macbookpro-m5",

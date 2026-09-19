@@ -352,6 +352,8 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
         # Not checkpoint-certified (unlisted evaluation record)
         "holo31-35b-axq6",
         "holo31-35b-axq8",
+        "tiel-coder-35b-axq-mxfp4-mtp",
+        "cyber-tiel-coder-35b-axq-mxfp4-mtp",
         "gpt-oss-120b-axq4",
         "muse-glimmer-30b-axq4",
         "muse-glimmer-30b-axq6",

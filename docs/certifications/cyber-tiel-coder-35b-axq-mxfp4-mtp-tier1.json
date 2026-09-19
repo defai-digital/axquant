@@ -1,0 +1,124 @@
+{
+  "artifact": {
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "candidate_manifest_sha256": "ad320320e419eaaeacab5b8e14145bca88a7afe63aa7e16f85347f9074593573",
+    "hub_commit": "fe05e871ec69ad9ae8eac01fd285555514ac7daf",
+    "hub_repo_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "product_class": "MXFP4",
+    "source_model_id": "peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "source_revision": "a443d4e30fd5228942cb7695f916f4b14a88fae9"
+  },
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-09-19T10:36:49.878827+00:00",
+  "evidence_hashes": {
+    "evidence/tiel-mxfp4-mtp-m5-20260919/artifact-integrity.json": "f8d470f9554adb1ac7b3706ef39f40024d6a38ecd5ac34a2212181145745a7e0",
+    "evidence/tiel-mxfp4-mtp-m5-20260919/cyber-axquant-manifest.json": "ad320320e419eaaeacab5b8e14145bca88a7afe63aa7e16f85347f9074593573",
+    "evidence/tiel-mxfp4-mtp-m5-20260919/cyber-bench.json": "72555c7844abb89b6e9541af5b4c0e004ca32463081b929c6c09aa2a84a33c5a",
+    "evidence/tiel-mxfp4-mtp-m5-20260919/cyber-server-response.json": "b5b37eb7702aa4784169d19112d978d27e69fef4fc741fcb2babd3091685a2e2"
+  },
+  "evidence_scope": "Native text-token MTP execution on the named M5 hardware and pinned packs; not checkpoint, speed, safety, image, or default-promotion certification.",
+  "host_id": "macbook-pro-m5-max-128gb",
+  "modalities": {
+    "audio": {
+      "reason": "No audio capability is packaged.",
+      "status": "not-applicable",
+      "supported": false
+    },
+    "policy": "capability-gated-v1",
+    "vision": {
+      "reason": "BF16 sidecar integrity verified; no image-generation or image-quality test.",
+      "status": "present-not-certified",
+      "supported": true
+    }
+  },
+  "mtp_acceleration": {
+    "ax_engine_version": "7.4.0-dev",
+    "engine_binary_sha256": "6bbeb744e681d0ad5aea43c4d18b0f0a65fdafb190b2253dc0ff1cf58cdbc0fb",
+    "prompt_median_speedup_required": 1.1,
+    "reason": "Native drafting and verification executed with no recorded direct fallback. No paired performance workloads or MTP-S safety qualification were run.",
+    "status": "not-certified",
+    "token_weighted_decode_speedup_required": 1.2
+  },
+  "notes": [
+    "Runtime validation was requested on MacBook Pro M5 Max 128 GiB. No formal Tier 1 or Tier 2 certification was performed.",
+    "Both bench and server emitted 32 tokens and reported positive native MTP draft and verify counters with zero direct-fallback steps.",
+    "The sidecar declares one MTP layer; the current throughput policy reports iterative draft depth 3. No speed multiplier is authorized.",
+    "The raw local-directory runs report generic model IDs qwen3 and qwen3.6-mtp; pack identity is bound by the pinned revision and artifact manifest, not those response labels.",
+    "The initial Cyber launch rejected a missing vision sidecar. It was downloaded and verified before the retained successful run."
+  ],
+  "plan": {
+    "adapter_id": "qwen35-moe-v1",
+    "declared_target_class": "8bit",
+    "evidence_kind": "architecture_prior",
+    "measured_main_bpw": 4.634222665908937,
+    "measured_total_bpw": 4.901270323309503,
+    "notes": "Manifest target_class remains 8bit from the allocator; the shipped trunk quantization is MXFP4/group32. These fields are not interchangeable.",
+    "pack_format": "MXFP4/group32 with protected affine and BF16 tensors",
+    "plan_source": "existing-pack"
+  },
+  "public_index": {
+    "display_name": "Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP",
+    "edition_label": "m5-runtime-smoke@7.4.0-dev",
+    "listed": true,
+    "sort_order": 127
+  },
+  "quality": {
+    "reason": "A single synthetic token-ID prompt with a 32-token output cap exercises the runtime route; it is not a quality-retention suite.",
+    "status": "not_assessed"
+  },
+  "runtime": {
+    "ax_engine": {
+      "bench_evidence": "evidence/tiel-mxfp4-mtp-m5-20260919/cyber-bench.json",
+      "mtp_d": "not_assessed",
+      "mtp_p": "not_assessed",
+      "mtp_s": "not_assessed",
+      "policy": "required",
+      "scope": "native MTP execution smoke only",
+      "server_evidence": "evidence/tiel-mxfp4-mtp-m5-20260919/cyber-server-response.json",
+      "source_content_commit": "51137c71a6794964d52c32c95e275c0923ed8d0b",
+      "status": "pass",
+      "version": "7.4.0-dev"
+    },
+    "mlx_lm": {
+      "status": "not_assessed"
+    }
+  },
+  "runtime_default": {
+    "notes": "Publisher enabled_by_default metadata is not AX Engine default promotion.",
+    "promoted": false,
+    "request_policy": "required"
+  },
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "size": {
+    "candidate_weight_bytes": 22026200211,
+    "main_weight_bytes": 20336812283,
+    "mtp_weight_bytes": 1689387928,
+    "pass": null,
+    "uniform_baseline_status": "not_assessed",
+    "vision_weight_bytes": 893179624
+  },
+  "status": "not_certified",
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "notes": "No BF16 or uniform baseline comparison was run; checkpoint thresholds are not satisfied by runtime smoke evidence."
+  },
+  "toolchain": {
+    "ax_engine": "7.4.0-dev",
+    "axquant_pack_producer": "1.9.0",
+    "binary_sha256": {
+      "ax-engine": "5dd50352cf18eca791623636c7e8c3188c557539b571ef521c7af864affcb0e0",
+      "ax-engine-bench": "76508432c92d6f3a496889dd584da1de1a5e59fa822865d35c2a922f76339770",
+      "ax-engine-server": "6bbeb744e681d0ad5aea43c4d18b0f0a65fdafb190b2253dc0ff1cf58cdbc0fb",
+      "libjaccl.dylib": "9cfd72679ff35c593a1d46fd30d995cc4a131eed15733617efb1118001e74084",
+      "libmlx.dylib": "d24c7a9b9d55a76bfd3bbcd1d042251a185cbadcb6340c3244a6ffa3dcb7c7e8",
+      "mlx.metallib": "dc59d1cceb1a5c7e578232e6e41e28e2c73c9463ac6dbc3886c3ee17ffc270ed"
+    },
+    "build_binding_note": "Binaries were built from the working tree subsequently committed as this source-content commit. Local and target binary SHA-256 values match; no release-tag claim.",
+    "engine_build_profile": "dev",
+    "host_hardware": "Apple M5 Max, 128 GiB",
+    "mlx": "0.32.2",
+    "os": "macOS 27.0 (26A428)",
+    "rust": "1.97.1",
+    "source_content_commit": "51137c71a6794964d52c32c95e275c0923ed8d0b"
+  }
+}

@@ -59,6 +59,8 @@ acceleration bound to the host and AX Engine build in its certificate
 | [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | [`AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) | `df-macbookpro-m5` | yes |
 | [Holo-3.1-35B-A3B MLX AXQ 6-bit](holo31-35b-axq6-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit) | main@344d66ed | [Not Certified](holo31-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Holo-3.1-35B-A3B MLX AXQ 8-bit](holo31-35b-axq8-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit) | main@4b128478 | [Not Certified](holo31-35b-axq8-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
+| [Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [`AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP) | m5-runtime-smoke@7.4.0-dev | [Not Certified](tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) | `macbook-pro-m5-max-128gb` | yes |
+| [Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [`AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP) | m5-runtime-smoke@7.4.0-dev | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) | `macbook-pro-m5-max-128gb` | yes |
 | [GPT-OSS 120B MLX AXQ 4-bit](gpt-oss-120b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit) | evaluation@`7e0f77ed` | [Not Certified](gpt-oss-120b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | no |
 | [Muse Glimmer 30B MLX AXQ 4-bit](muse-glimmer-30b-axq4-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | evaluation@`bcfb0b74` | [Not Certified](muse-glimmer-30b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Muse Glimmer 30B MLX AXQ 6-bit](muse-glimmer-30b-axq6-tier1.md) | [`AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | evaluation@`f1cfad2d` | [Not Certified](muse-glimmer-30b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
@@ -76,8 +78,8 @@ acceleration bound to the host and AX Engine build in its certificate
 
 ## Counts
 
-- Total certificate records: **53**
-- In README headline matrix (`listed`): **31**
+- Total certificate records: **55**
+- In README headline matrix (`listed`): **33**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **31**
-- Not checkpoint-certified (evaluation only): **16**
+- Not checkpoint-certified (evaluation only): **18**

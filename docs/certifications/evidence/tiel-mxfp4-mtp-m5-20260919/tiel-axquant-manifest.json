@@ -1,0 +1,233 @@
+{
+  "axquant_version": "1.9.0",
+  "calibration": null,
+  "created_at": "2026-09-19T09:41:21.850998Z",
+  "effective_bpw": 5.602581070850399,
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "a64761fc2a8fbc732d151ab61b4392b698f85acf576f2f654926fefc65a64efd",
+      "size_bytes": 3659
+    },
+    {
+      "path": "ax_expert_stream.json",
+      "sha256": "fa68aec107f88badda526f8ba824ff388147f59c457cbafb508228bd7c21bab7",
+      "size_bytes": 65823
+    },
+    {
+      "path": "axquant_mtp_sidecar_manifest.json",
+      "sha256": "f225dd1506a90c1f3e6abb1a91d580fc58bd8180044fd8f2fb5cb5a621846374",
+      "size_bytes": 906
+    },
+    {
+      "path": "axquant_plan.json",
+      "sha256": "daa1f25017460eabfab7fd28c9efec18cb1558339b5f8cb1670b792b99d07064",
+      "size_bytes": 2562304
+    },
+    {
+      "path": "axquant_quantizer_execution.json",
+      "sha256": "24a2433fd0565c71a7155f5334c78b87b79f6e5924ea8fd373cd103b5ba81401",
+      "size_bytes": 135746
+    },
+    {
+      "path": "axquant_runtime.json",
+      "sha256": "179062150382203ea9ae07bab54f3940a71690c0674de1445d8cbc348e5831c0",
+      "size_bytes": 1764
+    },
+    {
+      "path": "axquant_vision_sidecar_manifest.json",
+      "sha256": "ea03fd785cd9dfb3ef2a5ee8d42193548b7afa0375dfd4296f6e98ab0d5d1d8e",
+      "size_bytes": 922
+    },
+    {
+      "path": "chat_template.jinja",
+      "sha256": "cdff39fb26b60dc90faa292e726655c6b21f62db497846e02e4c4bbab942a84a",
+      "size_bytes": 30411
+    },
+    {
+      "path": "config.json",
+      "sha256": "0d647a1c2b2083419243bb7183baf35ed097fa129f41e7bd3b60437f3b2c8fb4",
+      "size_bytes": 138797
+    },
+    {
+      "path": "generation_config.json",
+      "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e",
+      "size_bytes": 202
+    },
+    {
+      "path": "model-00001-of-00004.safetensors",
+      "sha256": "eea788cc891bca0e39300fcd5f6c5241b329c2b566177516a53c6c2b52619e5e",
+      "size_bytes": 5317366626
+    },
+    {
+      "path": "model-00002-of-00004.safetensors",
+      "sha256": "dc023e4410bc784a7dfc9e1269c40829cc2badf7cf7099f1c5c7f3a4ef0191f6",
+      "size_bytes": 5365849631
+    },
+    {
+      "path": "model-00003-of-00004.safetensors",
+      "sha256": "fa9b75fba7446c072b3999a0bfd0583bb20a2e2d2135c559c4c2f219622ee67c",
+      "size_bytes": 5365849651
+    },
+    {
+      "path": "model-00004-of-00004.safetensors",
+      "sha256": "3af81f4a0dbc2010b6fa3ef3867f2faa26057f36e479ea1d858e01aa416c807c",
+      "size_bytes": 3394566751
+    },
+    {
+      "path": "model.safetensors.index.json",
+      "sha256": "be407f004e2ae4542e569bb7dc7f093752d0f2b6cd68a31e572ed3a99f34b949",
+      "size_bytes": 140457
+    },
+    {
+      "path": "mtp.safetensors",
+      "sha256": "0ced87b0462269a98bd393a808e1c9c02ace7054801c0e2745dd9dd9a4077915",
+      "size_bytes": 1689387928
+    },
+    {
+      "path": "mtplx_runtime.json",
+      "sha256": "119b930ed4b470a08008aa2a51b4a83162907a85b8455f559cffa03e33236ed6",
+      "size_bytes": 108
+    },
+    {
+      "path": "tokenizer.json",
+      "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+      "size_bytes": 12807982
+    },
+    {
+      "path": "tokenizer_config.json",
+      "sha256": "8c1db672bc4454589079d02146be2bf7276fd84969966870e5a6b93cfc02df0b",
+      "size_bytes": 38229
+    },
+    {
+      "path": "vision.safetensors",
+      "sha256": "b6fc71a34d6eeb55216a00fc8aee2bf238a4fce7d4177c6dcc1dbe84e18ae78e",
+      "size_bytes": 893179624
+    }
+  ],
+  "format": "mlx",
+  "logical_parameters": 35951822704,
+  "main_logical_parameters": 35107181936,
+  "main_weight_file_size_bytes": 20336812283,
+  "measured_main_bpw": 4.634222665908937,
+  "measured_total_bpw": 4.901270323309503,
+  "mtp_acceptance_retention": null,
+  "mtp_distribution": {
+    "bf16": {
+      "fraction": 1.0,
+      "parameters": 844640768
+    }
+  },
+  "mtp_measured_speedup": null,
+  "mtp_policy": {
+    "candidate_bits": [
+      8,
+      16
+    ],
+    "min_bits": 8,
+    "mode": "protected",
+    "optimize_for_acceptance": true,
+    "preserve_external_sidecar": true,
+    "protect_norms": true,
+    "protect_output_head": true
+  },
+  "mtp_present": true,
+  "mtp_weight_file_size_bytes": 1689387928,
+  "plan_sha256": "4508772221397fa7f16f0f12d671427ce26e3e955af2136949f5f4b75fea6427",
+  "profile": "agent-coding",
+  "protected_weight_file_size_bytes": 893179624,
+  "quantizer": "axquant",
+  "runtime": {
+    "ax_engine": {
+      "decode_kernel": null,
+      "fused_mtp": null,
+      "kernel_evidence": "unmeasured",
+      "model_manifest": "model-manifest.json",
+      "preferred_group_size": 32
+    },
+    "compatible_runtimes": [
+      {
+        "compatibility_level": "B",
+        "manifest": "config.json",
+        "mtp_support": "runtime-dependent",
+        "name": "mlx-lm",
+        "notes": [
+          "Standard backbone inference is the compatibility target.",
+          "AXQuant MTP metadata may be ignored by MLX-LM."
+        ],
+        "standard_inference": true,
+        "standard_mlx_weights": true,
+        "support_level": "standard-inference"
+      }
+    ],
+    "created_at": "2026-09-19T09:41:11.750786Z",
+    "kv_cache": null,
+    "memory_policy": {
+      "expert_stream": "optional",
+      "expert_stream_manifest": "ax_expert_stream.json",
+      "kv_cache_precision": "runtime-default",
+      "mtp_buffers": "preallocate-when-enabled",
+      "prefix_cache": "runtime-managed",
+      "unified_memory_safety_margin": "benchmark-required"
+    },
+    "mtp": {
+      "acceptance_retention": null,
+      "detected": true,
+      "draft_tokens": 1,
+      "enabled_by_default": true,
+      "head_precision": null,
+      "measured_speedup": null,
+      "optimized": false,
+      "recommended_temperature_max": null,
+      "sidecar_file": "mtp.safetensors",
+      "verification_mode": "runtime-default"
+    },
+    "optimization_scope": "text-path",
+    "primary_runtime": {
+      "compatibility_level": "A",
+      "manifest": "model-manifest.json",
+      "mtp_support": "native",
+      "name": "ax-engine",
+      "notes": [
+        "Runtime claims require a passing AX Engine doctor and benchmark report."
+      ],
+      "standard_inference": true,
+      "standard_mlx_weights": true,
+      "support_level": "optimized"
+    },
+    "schema_version": "axquant.runtime.v1"
+  },
+  "schema_version": "axquant.artifact.v2",
+  "software_versions": {
+    "ax_engine": "7.4.0",
+    "axquant": "1.9.0",
+    "mlx": "0.32.2",
+    "mlx_lm": "0.31.3",
+    "pydantic": "2.13.5",
+    "python": "3.12.13",
+    "safetensors": "0.8.0"
+  },
+  "source_model": {
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "format": "mlx",
+    "local_path": null,
+    "model_id": "peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "revision": "88625754ac91b542280a5602239ce6b2166366f0"
+  },
+  "target_class": "8bit",
+  "weight_distribution": {
+    "4bit": {
+      "fraction": 0.935175915747362,
+      "parameters": 33621278720
+    },
+    "8bit": {
+      "fraction": 0.014731180790482572,
+      "parameters": 529612800
+    },
+    "bf16": {
+      "fraction": 0.05009290346215543,
+      "parameters": 1800931184
+    }
+  },
+  "weight_file_size_bytes": 22026200211
+}
