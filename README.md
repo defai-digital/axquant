@@ -233,7 +233,7 @@ certify an output.
 [certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
 **Certification host (from now on):** conversion, **all Tier 1**, and **all Tier 2**
 certifications **must** run on Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`)
-with Ext12T. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
+with Ext16TR0. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
 Existing certificates stay bound to the host recorded in each JSON record
 (`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`) until recertified on
 `df-macstudio-m2`. The frozen M0–M8 flagship campaign schema still names
@@ -300,12 +300,12 @@ acceleration is opt-in under the formal exact profile. Vision weights are BF16-p
 end-to-end image/video quality is not certified; see the
 [Qwen3.8-27B AXQ VL retention assessment](docs/reports/qwen38-27b-axq-vl-retention.md).
 
-**Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** fused assistant-MTP Hub packs are
-**checkpoint Tier 1 certified** on `df-macbookpro-m5` (size, matched quality, load). **Tier 2
-is not certified** on any Gemma pack: formal assistant-MTP A/B pilots can clear speed gates
-while greedy exactness fails when drafts are accepted. The 12B packs were rebuilt from
-`google/gemma-4-12b-it` after the earlier non-IT base failed quality. Product default remains
-direct fallback until Tier 2 gates pass on a released engine.
+**Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** historical revisions have
+revision-bound checkpoint Tier 1 records on `df-macbookpro-m5` (size, matched quality, load).
+The six Hub heads rebuilt on 2026-08-30 for the corrected Gemma/oMLX layout are new immutable
+revisions and are **not** covered by those records; they remain development artifacts until
+recertified on the current factory host. **Tier 2 is not certified** on any current Gemma head.
+The 12B targets use `google/gemma-4-12b-it` after the earlier non-IT base failed quality.
 
 **Qwen3-Coder-Next** AXQ **MXFP4** is **checkpoint Tier 1 certified** on `df-macstudio-m2`
 (non-MTP direct-decode; Tier 2 N/A). The AXQ 4/6-bit siblings remain certified on
@@ -443,7 +443,7 @@ tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 | Qwen 3.5 dense; **Qwen3.5-class 35B-A3B MoE + fine-tunes (Ornith-1.0-35B, Holo3-35B-A3B, Holo-3.1-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | **Ornith 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/ornith-35b-axq4-tier1.md), [6bit](docs/certifications/ornith-35b-axq6-tier1.md)); **Holo3 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 checkpoint Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)) |
 | **DeepSeek-OCR-2** (`deepseek-ocr2-v1`, MLX-VLM) | `convertible` thin — language MoE quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
 | **Muse-Glimmer-30B** (`muse-glimmer-v1`, MLX-VLM) | `convertible` thin — dense language quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md)) |
-| Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + fused assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
+| Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + bundled assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
 | DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2-bit experimental Tier 1** on `df-macstudio-m2` (3-bit SKUs withdrawn; Hub repos removed); other packs development evidence |
 | GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 4/6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; **120B 4-bit not certified** (agent-coding) and Hub pack removed |
 | Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | **30B Instruct 4/6-bit Tier 1** on `df-macbookpro-m5` / AX Engine 6.15.0; 8B / ASR still development |
@@ -502,7 +502,7 @@ release audit. The current tier matrix:
 | **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
 | **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
 | MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
-| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` prepared at convert time to `gemma4` text path; multimodal sidecars preserved |
+| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` uses a temporary `gemma4` text path; the upstream unified config and normalized multimodal sidecar are restored in the output |
 | **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** until a Nemotron-specific stream convert exists |
 | **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
 | **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
@@ -590,12 +590,12 @@ mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit) | 5.759473 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
 | [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-35b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-35b-axq6-tier2.md)); product default still direct fallback |
 | [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq4-tier1.md)); IT rebuild; assistant-MTP fused; Tier 2 not certified |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq6-tier1.md)); IT rebuild; assistant-MTP fused; Tier 2 not certified |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); assistant-MTP fused; Tier 2 not certified |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); assistant-MTP fused; Tier 2 not certified |
-| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); assistant-MTP fused; Tier 2 not certified |
-| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); assistant-MTP fused; Tier 2 not certified |
+| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq4-tier1.md)); IT rebuild; assistant-MTP bundled; Tier 2 not certified |
+| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq6-tier1.md)); IT rebuild; assistant-MTP bundled; Tier 2 not certified |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
+| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
+| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
+| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
 | [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
 | [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
 | [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |
@@ -1038,7 +1038,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |
 | `benchmark` | Collect AX Engine runtime evidence | Implemented |
 | `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
-| `compose-gemma4-assistant-mtp` | Compose a Tier 2 candidate: byte-identical AXQ Gemma target + `assistant/` drafter + `ax_gemma4_assistant_mtp.json` (does not mutate the Tier 1 pack) | Implemented; product Hub packs ship fused under `…-MLX-AXQ-*-MTP` |
+| `compose-gemma4-assistant-mtp` | Compose a Tier 2 candidate: byte-identical AXQ Gemma target + `assistant/` drafter + `ax_gemma4_assistant_mtp.json` (does not mutate the Tier 1 pack) | Implemented; product Hub packs ship as bundles under `…-MLX-AXQ-*-MTP` |
 | `prepare-grafted-mtp` | Extract and bind a Qwen3.5/3.6 MoE MTP donor head for a Holo3-class trunk | Implemented; graft provenance explicitly records that the donor was not co-trained |
 | `compose-grafted-mtp` | Attach a prepared grafted MTP sidecar without mutating the certified trunk tensors | Implemented |
 | `mtp-align-prepare-data` | Build trunk-greedy self-distillation labels and optional cached features for MTP adaptation | Implemented; development workflow |

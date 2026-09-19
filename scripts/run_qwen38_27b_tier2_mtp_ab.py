@@ -5,7 +5,7 @@ Uses the same dense exact-MTP runtime contract as certified Qwen 3.6 27B
 (``QWEN38_EXACT_MTP_PROFILE_ENV``): AX Engine treats Qwen3.5/3.6/3.8 dense
 linear-attention packs under the shared ``qwen3_5`` family.
 
-Usage (factory host with Ext4T + ax-engine-bench)::
+Usage (factory host with Ext16TR0 + ax-engine-bench)::
 
   export PATH="/opt/homebrew/bin:$PATH"
   .venv/bin/python scripts/run_qwen38_27b_tier2_mtp_ab.py --pack axq6
@@ -220,11 +220,11 @@ def run_pack(
         gen_src = datasets / "development-general" / "dataset.jsonl"
         if not agent_src.is_file():
             agent_src = Path(
-                "/Volumes/Ext4T/axquant-certification/qwen36-27b-axq6-v1/datasets/"
+                "/Volumes/Ext16TR0/axquant-certification/qwen36-27b-axq6-v1/datasets/"
                 "development-agent-coding/dataset.jsonl"
             )
             gen_src = Path(
-                "/Volumes/Ext4T/axquant-certification/qwen36-27b-axq6-v1/datasets/"
+                "/Volumes/Ext16TR0/axquant-certification/qwen36-27b-axq6-v1/datasets/"
                 "development-general/dataset.jsonl"
             )
 

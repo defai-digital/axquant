@@ -22,6 +22,10 @@ from axquant.certification.registry import (
     append_certified_checkpoint,
 )
 from axquant.errors import ArtifactError, AxquantError, PublishingError
+from axquant.gemma4_assistant_compose import (
+    ASSISTANT_CONTRACT_NAME,
+    validate_gemma4_assistant_composite,
+)
 from axquant.lifecycle import require_active_certification
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
@@ -519,6 +523,8 @@ def _require_mtp_suffix_for_publication(directory: Path, repo_id: str) -> None:
                 filenames=files,
                 manifest_mtp_present=present if isinstance(present, bool) else None,
             )
+        if (directory / ASSISTANT_CONTRACT_NAME).is_file():
+            validate_gemma4_assistant_composite(directory)
     except ArtifactError as exc:
         raise PublishingError(str(exc)) from exc
 
@@ -676,6 +682,11 @@ def publish_model(
         # uploading it.
         require_publication_privacy(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
+    if (directory / ASSISTANT_CONTRACT_NAME).is_file():
+        try:
+            validate_gemma4_assistant_composite(directory)
+        except ArtifactError as exc:
+            raise PublishingError(str(exc)) from exc
     if not execute:
         _LOG.info("publication_preview", repo=repo_id, files=len(files), private=private)
         return files

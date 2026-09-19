@@ -323,9 +323,12 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         aliases.add(f"vision_tower.{tensor_path.removeprefix('model.visual.')}")
     if tensor_path.startswith("vision_tower."):
         aliases.add(f"model.visual.{tensor_path.removeprefix('vision_tower.')}")
-    # Muse Glimmer: strip/add the HF ``model.`` prefix on vision modules.
+    # Public VLM sanitizers strip/add the HF ``model.`` prefix on modality modules.
     for vision_prefix in (
         "vision_tower.",
+        "vision_embedder.",
+        "embed_vision.",
+        "embed_audio.",
         "vision_adapter.",
         "vision_projection",
         "perception_emb_norm",
@@ -363,8 +366,11 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
     )
     # deepseek_v4.sanitize renames MoE router bias for e_score correction.
     gate_bias_maps = ((".ffn.gate.bias", ".ffn.gate.e_score_correction_bias"),)
-    muse_vision_prefixes = (
+    vision_module_prefixes = (
         "vision_tower.",
+        "vision_embedder.",
+        "embed_vision.",
+        "embed_audio.",
         "vision_adapter.",
         "vision_projection",
         "perception_emb_norm",
@@ -387,7 +393,7 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
                 expanded.add(f"model.{candidate}")
             if candidate.startswith("model.mtp."):
                 expanded.add(candidate.removeprefix("model."))
-            for prefix in muse_vision_prefixes:
+            for prefix in vision_module_prefixes:
                 bare = prefix.rstrip(".")
                 model_prefix = f"model.{prefix}"
                 if candidate.startswith(model_prefix) or candidate == f"model.{bare}":
@@ -466,14 +472,13 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
     # Flash-Next MTP packed experts stay packed. Do not OR-alias them onto a
     # fictional switch_mlp split; plans use the packed name with or without
     # ``.weight`` while mlx-vlm may emit the other form.
-    if packed_module.startswith("mtp.") or packed_module.startswith("model.mtp."):
-        if packed_module.endswith(
-            (".mlp.experts.gate_up_proj", ".mlp.experts.down_proj")
-        ):
-            aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))
-            aliases.update(_mlx_wrapper_tensor_aliases(packed_module))
-            aliases.update(_mlx_wrapper_tensor_aliases(f"{packed_module}.weight"))
-            return (tuple(sorted(aliases)),)
+    if packed_module.startswith(("mtp.", "model.mtp.")) and packed_module.endswith(
+        (".mlp.experts.gate_up_proj", ".mlp.experts.down_proj")
+    ):
+        mtp_aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))
+        mtp_aliases.update(_mlx_wrapper_tensor_aliases(packed_module))
+        mtp_aliases.update(_mlx_wrapper_tensor_aliases(f"{packed_module}.weight"))
+        return (tuple(sorted(mtp_aliases)),)
     # Multi-module packs (gate_up → gate + up) require every component.
     # Single-output renames expose alternative names as one alias set (OR).
     runtime_modules = packed_expert_runtime_modules(packed_module)

@@ -25,14 +25,14 @@ ROOT = Path(__file__).resolve().parents[1]
 WORK = Path(
     os.environ.get(
         "QWEN38_8BIT_CERT_WORK",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-tier1",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-tier1",
     )
 )
-BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext4T/models/Qwen3.8-27B-bf16"))
+BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext16TR0/models/Qwen3.8-27B-bf16"))
 PACK = Path(
     os.environ.get(
         "QWEN38_8BIT_PACK",
-        "/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-8bit",
+        "/Volumes/Ext16TR0/models/AX-Qwen3.8-27B-MLX-AXQ-8bit",
     )
 )
 DATASETS = Path(

@@ -368,7 +368,7 @@ def test_registry_resolves_qwen3_vl_embedding_8b() -> None:
     for reference in (
         "Qwen/Qwen3-VL-Embedding-8B",
         "Qwen3-VL-Embedding-8B",
-        "/Volumes/Ext12T/models/Qwen3-VL-Embedding-8B",
+        "/Volumes/Ext16TR0/models/Qwen3-VL-Embedding-8B",
     ):
         adapter = adapter_for(reference, config)
         assert adapter is not None
@@ -389,7 +389,7 @@ def test_registry_resolves_qwen3_vl_32b_thinking() -> None:
     for reference in (
         "Qwen/Qwen3-VL-32B-Thinking",
         "Qwen3-VL-32B-Thinking",
-        "/Volumes/Ext12T/models/Qwen3-VL-32B-Thinking",
+        "/Volumes/Ext16TR0/models/Qwen3-VL-32B-Thinking",
     ):
         adapter = adapter_for(reference, config)
         assert adapter is not None
@@ -1077,7 +1077,7 @@ def test_muse_glimmer_30b_is_convertible_via_mlx_vlm() -> None:
     for reference in (
         "meta-models/Muse-Glimmer-30B",
         "Muse-Glimmer-30B",
-        "/Volumes/Ext4T/models/Muse-Glimmer-30B",
+        "/Volumes/Ext16TR0/models/Muse-Glimmer-30B",
     ):
         adapter = adapter_for(reference, config)
         assert adapter is not None

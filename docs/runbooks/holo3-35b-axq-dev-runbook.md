@@ -1,6 +1,6 @@
 # Holo3-35B-A3B — development AXQ 4/6-bit convert + Hugging Face publish
 
-**Host:** `df-macstudio-m2` (factory convert + Ext4T)  
+**Host:** `df-macstudio-m2` (factory convert + Ext16TR0)
 **Adapter:** `qwen35-moe-v1` (Qwen3.5-class 35B-A3B MoE / fine-tunes)  
 **Claims:** **4-bit and 6-bit checkpoint Tier 1 certified** on `df-macstudio-m2`. Not the Qwen 3.6 certificate family.  
 **Goal:** Build AutomatosX AXQ 4-bit and 6-bit MLX packs from Holo3 BF16, publish, and record Tier 1 evidence.

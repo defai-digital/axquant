@@ -11,7 +11,7 @@ Do not use this host for flagship Qwen convert. Factory convert/cert for packs t
 | `--pack` | Hub leaf | Recipe | Notes |
 | --- | --- | --- | --- |
 | `axq2` | `…-2bit-MTP` | `examples/deepseek-v4-experimental-2bit-v0.1.yaml` | Hub pack exists; factory 15+15 viability 0.633 on m2 (AX Engine 7.1.5 native recert, still below 0.90) |
-| `axq4` | `…-4bit-MTP` | `examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml` | Local g128 pack on Ext12T; Hub still a stub |
+| `axq4` | `…-4bit-MTP` | `examples/deepseek-v4-experimental-4bit-g128-v0.1.yaml` | Local g128 pack on Ext16TR0; Hub still a stub |
 | `mxfp4` | `…-MXFP4` | `examples/deepseek-v4-experimental-mxfp4-v0.1.yaml` | Not converted; g32 class ~179 GB |
 | `axq6` | `…-6bit` | `examples/deepseek-v4-experimental-6bit-g128-v0.1.yaml` | Not converted; estimated 200 GB+ |
 

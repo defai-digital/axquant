@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + checkpoint Tier 1 for Qwen3.8-27B AXQ-8bit-MTP.
 
-Run on df-macstudio-m2 with Ext4T:
+Run on df-macstudio-m2 with Ext16TR0:
 
   PYTHONPATH=src /Users/devop/code/axquant-main/.venv/bin/python \\
     scripts/run_qwen38_27b_axq8_mtp.py all
@@ -30,20 +30,20 @@ ROOT = Path(__file__).resolve().parents[1]
 WORK = Path(
     os.environ.get(
         "QWEN38_8BIT_MTP_WORK",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-mtp-tier1",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-mtp-tier1",
     )
 )
-BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext4T/models/Qwen3.8-27B-bf16"))
+BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext16TR0/models/Qwen3.8-27B-bf16"))
 PACK = Path(
     os.environ.get(
         "QWEN38_8BIT_MTP_PACK",
-        "/Volumes/Ext4T/models/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
+        "/Volumes/Ext16TR0/models/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
     )
 )
 DATASETS = Path(
     os.environ.get(
         "QWEN38_CERT_DATASETS",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-tier1/datasets",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-tier1/datasets",
     )
 )
 SOURCE_ID = "Qwen/Qwen3.8-27B"
@@ -86,8 +86,8 @@ def run(cmd: list[str], log_path: Path | None = None, *, force_cpu: bool = False
         "PYTHONPATH": os.pathsep.join([str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]).strip(
             os.pathsep
         ),
-        "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext4T/huggingface"),
-        "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext4T/huggingface/hub"),
+        "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext16TR0/huggingface"),
+        "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext16TR0/huggingface/hub"),
     }
     if force_cpu:
         env["AXQUANT_FORCE_CPU"] = os.environ.get("AXQUANT_FORCE_CPU", "1")
@@ -207,7 +207,7 @@ def cmd_uniforms() -> None:
     (WORK / "logs").mkdir(exist_ok=True)
     source = source_bf16()
     reused = Path(
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-tier1/uniforms/uniform-8bit"
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-tier1/uniforms/uniform-8bit"
     )
     out = WORK / "uniforms" / "uniform-8bit"
     if (out / "config.json").is_file() and any(out.glob("*.safetensors")):

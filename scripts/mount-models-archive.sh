@@ -5,10 +5,10 @@
 #   Data: /Volumes/home/models    (empty archive root today)
 #   Names:
 #     /Volumes/models-archive           preferred (needs one-time sudo ln)
-#     /Volumes/Ext4T/models-archive     always-writable fallback (no sudo)
+#     /Volumes/Ext16TR0/models-archive     always-writable fallback (no sudo)
 #
-# Policy: do not delete factory checkpoints to free Ext4T. Move or rsync
-# them here, then remove only the Ext4T copy after the NAS copy verifies.
+# Policy: do not delete factory checkpoints to free Ext16TR0. Move or rsync
+# them here, then remove only the Ext16TR0 copy after the NAS copy verifies.
 #
 # Usage:
 #   bash scripts/mount-models-archive.sh          # ensure links
@@ -18,7 +18,7 @@ set -euo pipefail
 NAS_HOME="${NAS_HOME:-/Volumes/home}"
 NAS_MODELS="${NAS_MODELS:-$NAS_HOME/models}"
 VOL_LINK="${VOL_LINK:-/Volumes/models-archive}"
-EXT_LINK="${EXT_LINK:-/Volumes/Ext4T/models-archive}"
+EXT_LINK="${EXT_LINK:-/Volumes/Ext16TR0/models-archive}"
 
 log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { log "ERROR: $*"; exit 1; }

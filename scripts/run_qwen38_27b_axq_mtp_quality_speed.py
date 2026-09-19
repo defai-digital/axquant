@@ -41,15 +41,15 @@ MAX_TOKENS_QUALITY = 64
 WORK = Path(
     os.environ.get(
         "QWEN38_QS_WORK",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq-mtp-quality-speed",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq-mtp-quality-speed",
     )
 )
-MODELS = Path(os.environ.get("QWEN38_MODELS", "/Volumes/Ext4T/models"))
-BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext4T/models/Qwen3.8-27B-bf16"))
+MODELS = Path(os.environ.get("QWEN38_MODELS", "/Volumes/Ext16TR0/models"))
+BF16 = Path(os.environ.get("QWEN38_BF16", "/Volumes/Ext16TR0/models/Qwen3.8-27B-bf16"))
 DATASETS = Path(
     os.environ.get(
         "QWEN38_CERT_DATASETS",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-tier1/datasets",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-tier1/datasets",
     )
 )
 SOURCE_ID = "Qwen/Qwen3.8-27B"
@@ -133,7 +133,7 @@ def cmd_quality() -> None:
     (WORK / "logs").mkdir(exist_ok=True)
     # Prefer a completed BF16 ref from the MXFP4-MTP T1 run.
     reused_root = Path(
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq-mxfp4-mtp-tier1/quality/axq-mxfp4"
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq-mxfp4-mtp-tier1/quality/axq-mxfp4"
     )
     for suite, dname in (
         ("agent-coding", "development-agent-coding"),

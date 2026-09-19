@@ -24,10 +24,10 @@ _ROOT = Path(__file__).resolve().parents[1]
 _CERTS = _ROOT / "docs" / "certifications"
 
 
-def test_factory_disk_defaults_are_ext12t() -> None:
-    assert FACTORY_HF_HOME.startswith("/Volumes/Ext12T/")
-    assert FACTORY_MODELS == "/Volumes/Ext12T/models"
-    assert FACTORY_CERT_ROOT == "/Volumes/Ext12T/axquant-certification"
+def test_factory_disk_defaults_are_ext16tr0() -> None:
+    assert FACTORY_HF_HOME.startswith("/Volumes/Ext16TR0/")
+    assert FACTORY_MODELS == "/Volumes/Ext16TR0/models"
+    assert FACTORY_CERT_ROOT == "/Volumes/Ext16TR0/axquant-certification"
     assert FACTORY_DATASETS.startswith(FACTORY_CERT_ROOT)
 
 

@@ -19,6 +19,7 @@ from axquant.capture_binding import (
     activation_capture_metadata,
 )
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
+from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.module_paths import fused_expert_module
 from axquant.planner import plan_quantization
@@ -1196,6 +1197,95 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     assert converted_config["vision_config"] == source_config["vision_config"]
 
 
+@pytest.mark.parametrize(
+    "source_names",
+    [
+        (
+            "model.embed_vision.embedding_projection.weight",
+            "model.vision_tower.encoder.layers.0.input_layernorm.weight",
+        ),
+        (
+            "model.embed_vision.embedding_projection.weight",
+            "model.vision_embedder.patch_dense.weight",
+            "model.embed_audio.embedding_projection.weight",
+        ),
+    ],
+)
+def test_gemma4_protected_vision_uses_mlx_vlm_names_and_index(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    source_names: tuple[str, ...],
+) -> None:
+    source = tmp_path / "gemma-source"
+    source.mkdir()
+    save_file(
+        {name: np.arange(4, dtype=np.float32).reshape(2, 2) for name in source_names},
+        source / "model.safetensors",
+    )
+
+    template_plan = _plan(qwen36_model_dir)
+    template_vision = next(
+        allocation
+        for allocation in template_plan.assignments
+        if allocation.role == TensorRole.VISION
+    )
+    assignments = [
+        template_vision.model_copy(
+            update={
+                "tensor": name,
+                "module_path": name.removesuffix(".weight"),
+                "parameters": 4,
+            }
+        )
+        for name in source_names
+    ]
+    plan = template_plan.model_copy(
+        update={
+            "architecture_profile": template_plan.architecture_profile.model_copy(
+                update={
+                    "adapter_id": "gemma4-dense-v1",
+                    "config_model_type": "gemma4",
+                }
+            ),
+            "assignments": assignments,
+        }
+    )
+    output = tmp_path / "converted"
+    output.mkdir()
+    (output / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_parameters": 4, "total_size": 16},
+                "weight_map": {"language_model.model.embed_tokens.weight": "model.safetensors"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = converter._extract_protected_vision(source, plan, output)
+
+    assert manifest is not None
+    output_names = tuple(name.removeprefix("model.") for name in source_names)
+    with safe_open(output / "vision.safetensors", framework="numpy") as sidecar:
+        assert tuple(sidecar.keys()) == tuple(sorted(output_names))
+        assert sidecar.metadata() == {
+            "format": "mlx",
+            "axquant_role": "protected-vision",
+            "source_revision": "source-revision",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        }
+        for output_name in output_names:
+            assert sidecar.get_tensor(output_name).tolist() == [[0.0, 1.0], [2.0, 3.0]]
+    index = json.loads((output / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    assert index["metadata"] == {
+        "total_parameters": 4 + 4 * len(source_names),
+        "total_size": 16 + 16 * len(source_names),
+    }
+    for output_name in output_names:
+        assert index["weight_map"][output_name] == "vision.safetensors"
+    assert manifest.tensor_names_sha256 == stable_sha256(sorted(output_names))
+
+
 def test_restore_protected_vision_config_rejects_conflicting_contract(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -1248,6 +1338,52 @@ def test_restore_protected_vision_config_mirrors_tie_word_embeddings_into_text_c
     restored = json.loads((output / "config.json").read_text(encoding="utf-8"))
     assert restored["vision_config"] == source_config["vision_config"]
     assert restored["text_config"]["tie_word_embeddings"] is False
+
+
+def test_restore_protected_vision_config_restores_gemma4_unified_contract(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    output = tmp_path / "converted"
+    source.mkdir()
+    output.mkdir()
+    source_config = {
+        "model_type": "gemma4_unified",
+        "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+        "vision_config": {"hidden_size": 1152},
+        "audio_config": {"hidden_size": 768},
+        "text_config": {"hidden_size": 3840, "vocab_size": 262144},
+        "image_token_id": 258880,
+        "audio_token_id": 258881,
+        "boi_token_id": 255999,
+        "eoi_token_id": 258882,
+        "boa_token_id": 256000,
+        "eoa_token_index": 258883,
+    }
+    converted_config = {
+        "model_type": "gemma4",
+        "architectures": ["Gemma4UnifiedForConditionalGeneration"],
+        "text_config": {"hidden_size": 3840, "vocab_size": 262144},
+    }
+    (source / "config.json").write_text(json.dumps(source_config), encoding="utf-8")
+    (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
+
+    converter._restore_protected_vision_config(source, output)
+
+    restored = json.loads((output / "config.json").read_text(encoding="utf-8"))
+    for field in (
+        "model_type",
+        "architectures",
+        "vision_config",
+        "audio_config",
+        "image_token_id",
+        "audio_token_id",
+        "boi_token_id",
+        "eoi_token_id",
+        "boa_token_id",
+        "eoa_token_index",
+    ):
+        assert restored[field] == source_config[field]
 
 
 def test_mtp_sidecar_provenance_rejects_transformed_bundle(tmp_path: Path) -> None:
@@ -1771,9 +1907,7 @@ def test_converted_tensor_binding_keeps_qwen4_exp_mtp_packed_experts() -> None:
     mtp_gate_up = "mtp.layers.0.mlp.experts.gate_up_proj"
     mtp_down = "mtp.layers.0.mlp.experts.down_proj"
     main_gate_up = "model.language_model.layers.0.mlp.experts.gate_up_proj"
-    ple = (
-        "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
-    )
+    ple = "model.language_model.layers.1.ple.ple_embedding.ngram_embedding.shard_0.weight"
     mtp_gate_up_w = object()
     mtp_down_w = object()
     gate = object()

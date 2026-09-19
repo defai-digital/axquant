@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + try Tier 1 for Muse-Glimmer-30B AXQ MXFP4 and 8-bit.
 
-Run on df-macstudio-m2 + Ext12T after the 4/6-bit cert job:
+Run on df-macstudio-m2 + Ext16TR0 after the 4/6-bit cert job:
 
   PYTHONPATH=src .venv/bin/python scripts/run_muse_glimmer_axq_extra.py --pack mxfp4 all
   PYTHONPATH=src .venv/bin/python scripts/run_muse_glimmer_axq_extra.py --pack axq8 all
@@ -83,7 +83,7 @@ def source_dir() -> Path:
     return Path(
         os.environ.get(
             "GLIMMER_BF16",
-            "/Volumes/Ext12T/axquant/work/muse-glimmer-30b-mxfp4/src-muse-glimmer-30b",
+            "/Volumes/Ext16TR0/axquant/work/muse-glimmer-30b-mxfp4/src-muse-glimmer-30b",
         )
     )
 

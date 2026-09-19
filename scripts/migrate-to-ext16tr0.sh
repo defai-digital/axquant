@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
-# Migrate Hugging Face cache + Ext4T2 LLM models onto the new Ext4T volume.
+# Restore the Hugging Face cache and archived models onto Ext16TR0.
 #
 # Safe defaults:
 #   - never deletes sources
-#   - never touches Photos libraries on Ext4T2
+#   - reads model sources from the NAS archive, never a retired local disk
 #   - rsync is restartable (re-run until COMPLETE)
 #   - HF relink is gated until hub sync has completed once
 #
 # Usage:
-#   bash scripts/migrate-to-ext4t.sh              # full pipeline (sync + relink when ready)
-#   bash scripts/migrate-to-ext4t.sh --sync-only  # rsync only
-#   bash scripts/migrate-to-ext4t.sh --relink-only
-#   bash scripts/migrate-to-ext4t.sh --status
-#   bash scripts/migrate-to-ext4t.sh --verify
+#   bash scripts/migrate-to-ext16tr0.sh              # full pipeline (sync + relink when ready)
+#   bash scripts/migrate-to-ext16tr0.sh --sync-only  # rsync only
+#   bash scripts/migrate-to-ext16tr0.sh --sync-hf
+#   bash scripts/migrate-to-ext16tr0.sh --sync-models
+#   bash scripts/migrate-to-ext16tr0.sh --relink-only
+#   bash scripts/migrate-to-ext16tr0.sh --status
+#   bash scripts/migrate-to-ext16tr0.sh --verify
 set -euo pipefail
 
-EXT_ROOT="${EXT_ROOT:-/Volumes/Ext4T}"
-EXT_OLD="${EXT_OLD:-/Volumes/Ext4T2}"
+EXT_ROOT="${EXT_ROOT:-/Volumes/Ext16TR0}"
 NAS_MODELS="${NAS_MODELS:-/Volumes/data-models/models}"
+MODEL_ARCHIVE="${MODEL_ARCHIVE:-/Volumes/home/models}"
 HF_HOME_LOCAL="${HF_HOME_LOCAL:-${HOME}/.cache/huggingface}"
 LOG_DIR="${EXT_ROOT}/logs/migration"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -26,8 +28,8 @@ HF_DST="${EXT_ROOT}/huggingface"
 MODELS_DST="${EXT_ROOT}/models"
 RSYNC_FLAGS=(-aH --partial --progress --stats)
 
-# Ext4T2 top-level entries that are NOT LLM model dirs
-EXCLUDE_OLD_NAMES=(
+# Archive entries that are not model directories.
+EXCLUDE_ARCHIVE_NAMES=(
   "PhotosLibrary.photoslibrary"
   "2nd.photoslibrary"
   "data-models"
@@ -50,7 +52,7 @@ log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
 
 validate_configuration() {
-  for path in "$EXT_ROOT" "$EXT_OLD" "$NAS_MODELS" "$HF_HOME_LOCAL"; do
+  for path in "$EXT_ROOT" "$NAS_MODELS" "$MODEL_ARCHIVE" "$HF_HOME_LOCAL"; do
     [[ "$path" == /* && "$path" != *"//"* && "$path" != */ ]] || {
       die "path must be absolute and canonical: $path"
     }
@@ -59,9 +61,9 @@ validate_configuration() {
     }
   done
   [[ "$EXT_ROOT" != "/" && "$EXT_ROOT" != "/Volumes" ]] || {
-    die "refusing broad Ext4T root: $EXT_ROOT"
+    die "refusing broad Ext16TR0 root: $EXT_ROOT"
   }
-  for path in "$EXT_ROOT" "$EXT_OLD" "$NAS_MODELS"; do
+  for path in "$EXT_ROOT" "$NAS_MODELS" "$MODEL_ARCHIVE"; do
     [[ "$path" =~ ^/[A-Za-z0-9._/-]+$ ]] || die "mount path contains unsafe characters: $path"
   done
   [[ "$HF_HOME_LOCAL" == "$HOME/"* && "$HF_HOME_LOCAL" != "$HOME" ]] || {
@@ -69,7 +71,7 @@ validate_configuration() {
   }
 }
 
-require_ext4t() {
+require_ext16tr0() {
   [[ -d "$EXT_ROOT" && ! -L "$EXT_ROOT" ]] || die "$EXT_ROOT is not a real mounted directory"
   local mounted_at
   mounted_at="$(df -P "$EXT_ROOT" 2>/dev/null | awk 'NR == 2 {print $NF}')"
@@ -137,7 +139,7 @@ ensure_link() {
 }
 
 prepare_layout() {
-  require_ext4t
+  require_ext16tr0
   local path
   for path in \
     "$HF_DST" "$HF_DST/hub" "$HF_DST/xet" "$HF_DST/datasets" \
@@ -148,10 +150,10 @@ prepare_layout() {
   done
 }
 
-is_excluded_old() {
+is_excluded_archive_entry() {
   local name="$1"
   local e
-  for e in "${EXCLUDE_OLD_NAMES[@]}"; do
+  for e in "${EXCLUDE_ARCHIVE_NAMES[@]}"; do
     [[ "$name" == "$e" ]] && return 0
   done
   return 1
@@ -197,19 +199,14 @@ sync_hf_from_nas() {
   log "HF NAS sync complete -> ${LOG_DIR}/hf-sync-complete.txt"
 }
 
-sync_llm_from_ext4t2() {
-  require_dedicated_source "$EXT_OLD" "Ext4T2"
-  local old_mount
-  old_mount="$(df -P "$EXT_OLD" 2>/dev/null | awk 'NR == 2 {print $NF}')"
-  [[ "$old_mount" == "$EXT_OLD" ]] || {
-    die "$EXT_OLD is not an exact mount point (df reports ${old_mount:-unknown})"
-  }
+sync_models_from_archive() {
+  require_dedicated_source "$MODEL_ARCHIVE" "NAS model archive"
   local name src logf
   local count=0
-  for src in "$EXT_OLD"/*; do
+  for src in "$MODEL_ARCHIVE"/*; do
     [[ -e "$src" ]] || continue
     name="$(basename "$src")"
-    is_excluded_old "$name" && continue
+    is_excluded_archive_entry "$name" && continue
     [[ -L "$src" ]] && { log "skip symlink $name"; continue; }
     [[ -d "$src" ]] || continue
     count=$((count + 1))
@@ -223,7 +220,7 @@ sync_llm_from_ext4t2() {
   done
   safe_output_file "${LOG_DIR}/llm-sync-complete.txt"
   date -u +%Y-%m-%dT%H:%M:%SZ >"${LOG_DIR}/llm-sync-complete.txt"
-  log "LLM Ext4T2 sync complete ($count dirs) -> ${LOG_DIR}/llm-sync-complete.txt"
+  log "model archive sync complete ($count dirs) -> ${LOG_DIR}/llm-sync-complete.txt"
 }
 
 relink_hf() {
@@ -236,7 +233,7 @@ relink_hf() {
   local n
   n="$(find "$HF_DST/hub" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')"
   if [[ "${n:-0}" -lt 5 ]]; then
-    die "HF hub on Ext4T looks empty ($n entries). Finish sync before --relink-only."
+    die "HF hub on Ext16TR0 looks empty ($n entries). Finish sync before --relink-only."
   fi
 
   # Ensure tokens exist on destination
@@ -260,7 +257,7 @@ relink_hf() {
       rm "$HF_HOME_LOCAL"
     fi
   elif [[ -d "$HF_HOME_LOCAL" ]]; then
-    backup="${HF_HOME_LOCAL}.pre-ext4t-${STAMP}"
+    backup="${HF_HOME_LOCAL}.pre-ext16tr0-${STAMP}"
     [[ ! -e "$backup" && ! -L "$backup" ]] || die "backup path already exists: $backup"
     log "backing up $HF_HOME_LOCAL -> $backup"
     mv "$HF_HOME_LOCAL" "$backup"
@@ -278,7 +275,7 @@ relink_hf() {
     log "${HOME}/models -> $(readlink "${HOME}/models")"
   fi
 
-  # Ext4T-side convenience links (mirror old Ext4T2 pattern, but local)
+  # Ext16TR0-side convenience links.
   ensure_link "$HF_DST" "${EXT_ROOT}/data-models-hf"
   ensure_link "$MODELS_DST" "${EXT_ROOT}/llm-models"
 
@@ -295,11 +292,11 @@ relink_hf() {
 
 show_status() {
   echo "=== mounts ==="
-  df -h "$EXT_ROOT" 2>/dev/null || echo "Ext4T not mounted"
-  df -h "$EXT_OLD" 2>/dev/null || echo "Ext4T2 not mounted"
+  df -h "$EXT_ROOT" 2>/dev/null || echo "Ext16TR0 not mounted"
+  df -h "$MODEL_ARCHIVE" 2>/dev/null || echo "model archive not mounted"
   df -h /Volumes/data-models 2>/dev/null || echo "data-models not mounted"
   echo
-  echo "=== Ext4T layout ==="
+  echo "=== Ext16TR0 layout ==="
   ls -la "$EXT_ROOT" 2>/dev/null || true
   echo
   echo "=== HF link ==="
@@ -326,7 +323,7 @@ show_status() {
 }
 
 verify_layout() {
-  require_ext4t
+  require_ext16tr0
   local ok=1
   echo "=== verify ==="
   if [[ -L "$HF_HOME_LOCAL" && "$(readlink "$HF_HOME_LOCAL")" == "$HF_DST" ]]; then
@@ -373,15 +370,15 @@ main() {
     --sync-only)
       prepare_layout
       sync_hf_from_nas
-      sync_llm_from_ext4t2
+      sync_models_from_archive
       ;;
     --sync-hf)
       prepare_layout
       sync_hf_from_nas
       ;;
-    --sync-llm)
+    --sync-models|--sync-llm)
       prepare_layout
-      sync_llm_from_ext4t2
+      sync_models_from_archive
       ;;
     --relink-only)
       relink_hf
@@ -390,7 +387,7 @@ main() {
       prepare_layout
       log "starting full migration onto $EXT_ROOT"
       sync_hf_from_nas
-      sync_llm_from_ext4t2
+      sync_models_from_archive
       relink_hf
       verify_layout
       log "done"

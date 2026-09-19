@@ -107,9 +107,7 @@ def test_select_quality_backend_uses_mlx_vlm_for_muse_glimmer(tmp_path: Path) ->
     )
     mm = tmp_path / "minimax"
     mm.mkdir()
-    (mm / "config.json").write_text(
-        json.dumps({"model_type": "minimax_m3_vl"}), encoding="utf-8"
-    )
+    (mm / "config.json").write_text(json.dumps({"model_type": "minimax_m3_vl"}), encoding="utf-8")
     assert isinstance(
         select_quality_backend(
             ModelIdentity(

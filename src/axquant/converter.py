@@ -27,6 +27,10 @@ from axquant.expert_stream import (
     emit_expert_stream_manifest,
     validate_expert_stream_request,
 )
+from axquant.gemma4_vlm import (
+    GEMMA4_MLX_VLM_VISION_LAYOUT,
+    normalize_gemma4_vision_tensor_names,
+)
 from axquant.inspector import inspect_model, resolve_model_dir
 from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
 from axquant.mtp_sidecar import (
@@ -703,14 +707,16 @@ def _source_weight_map(model_dir: Path) -> dict[str, Path]:
 
 
 def _restore_protected_vision_config(model_dir: Path, output_dir: Path) -> None:
-    """Restore upstream vision metadata removed by text-weight MLX conversion.
+    """Restore upstream multimodal metadata removed by text-weight MLX conversion.
 
     MLX-LM converts the language trunk and may omit ``vision_config`` even when
     AXQuant subsequently restores the protected vision tensors into their own
     sidecar.  AX Engine 6.12+ indexes that sidecar and therefore needs the
-    original vision contract to interpret it.  Copy only the immutable
-    architecture/token fields from the revision-pinned source and fail closed
-    if the converted config already contains conflicting values.
+    original multimodal contract to interpret it. Gemma 4 unified preparation
+    also remaps ``model_type`` to the MLX-LM text implementation; restore that
+    deliberate remap after the protected modules are reattached. Copy only the
+    immutable architecture/token fields from the revision-pinned source and
+    fail closed if the converted config already contains conflicting values.
     """
 
     source_path = model_dir / "config.json"
@@ -726,15 +732,36 @@ def _restore_protected_vision_config(model_dir: Path, output_dir: Path) -> None:
     if not isinstance(source_vision, dict) or not source_vision:
         raise ArtifactError("protected vision tensors require a non-empty source vision_config")
 
-    protected_fields = (
+    source_model_type = source.get("model_type")
+    unified = source_model_type == "gemma4_unified"
+    converted_model_type = converted.get("model_type")
+    if unified:
+        if converted_model_type not in {None, "gemma4", "gemma4_unified"}:
+            raise ArtifactError("converted config conflicts with protected source field model_type")
+        converted["model_type"] = "gemma4_unified"
+
+    protected_fields = [
         "vision_config",
         "image_token_id",
         "video_token_id",
         "vision_start_token_id",
         "vision_end_token_id",
         "language_model_only",
-    )
-    changed = False
+    ]
+    if unified:
+        protected_fields.extend(
+            (
+                "architectures",
+                "audio_config",
+                "audio_token_id",
+                "boi_token_id",
+                "eoi_token_id",
+                "boa_token_id",
+                "eoa_token_id",
+                "eoa_token_index",
+            )
+        )
+    changed = unified and converted_model_type != "gemma4_unified"
     for field_name in protected_fields:
         if field_name not in source:
             continue
@@ -803,6 +830,67 @@ def _extract_protected_vision(
             allocation for allocation in plan.assignments if allocation.role == TensorRole.VISION
         ],
     )
+
+
+def _index_gemma4_vision_sidecar(
+    output_dir: Path,
+    *,
+    tensor_names: tuple[str, ...],
+    data_size: int,
+    parameters: int,
+) -> None:
+    """Add a normalized Gemma 4 vision sidecar to an existing MLX shard index."""
+
+    index_path = output_dir / "model.safetensors.index.json"
+    if not index_path.is_file():
+        # Unsharded checkpoints are discovered through the root Safetensors glob.
+        return
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"cannot index protected Gemma 4 vision tensors: {exc}") from exc
+    if not isinstance(index, dict):
+        raise ArtifactError("Gemma 4 Safetensors index must contain a JSON object")
+    weight_map = index.get("weight_map")
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ArtifactError("Gemma 4 Safetensors index has no non-empty weight_map")
+    if any(
+        not isinstance(name, str) or not isinstance(shard, str)
+        for name, shard in weight_map.items()
+    ):
+        raise ArtifactError("Gemma 4 Safetensors index entries must map strings to strings")
+
+    existing_sidecar_names = {
+        name for name, shard in weight_map.items() if shard == "vision.safetensors"
+    }
+    requested_names = set(tensor_names)
+    if existing_sidecar_names:
+        if existing_sidecar_names == requested_names:
+            return
+        raise ArtifactError("Gemma 4 Safetensors index contains partial or stale vision entries")
+    collisions = sorted(name for name in tensor_names if name in weight_map)
+    if collisions:
+        raise ArtifactError(
+            f"Gemma 4 vision tensor names collide with indexed model weights: {collisions[:10]}"
+        )
+    weight_map.update({name: "vision.safetensors" for name in tensor_names})
+
+    metadata = index.get("metadata")
+    if metadata is None:
+        metadata = {}
+        index["metadata"] = metadata
+    if not isinstance(metadata, dict):
+        raise ArtifactError("Gemma 4 Safetensors index metadata must be an object")
+    for field_name, increment in (("total_size", data_size), ("total_parameters", parameters)):
+        current = metadata.get(field_name)
+        if current is None:
+            continue
+        if isinstance(current, bool) or not isinstance(current, int) or current < 0:
+            raise ArtifactError(
+                f"Gemma 4 Safetensors index {field_name} must be a non-negative integer"
+            )
+        metadata[field_name] = current + increment
+    write_data(index_path, index)
 
 
 def _extract_protected_integrated_mtp(
@@ -894,12 +982,23 @@ def _extract_protected_sidecar(
             "source_revision": plan.source_model.revision or "unknown",
         }
     }
+    source_names = [entry[0] for entry in selected]
+    gemma4_vision_layout = (
+        role_label == "vision" and plan.architecture_profile.adapter_id == "gemma4-dense-v1"
+    )
+    if gemma4_vision_layout:
+        output_names = normalize_gemma4_vision_tensor_names(source_names)
+        output_header["__metadata__"]["axquant_layout"] = GEMMA4_MLX_VLM_VISION_LAYOUT
+    else:
+        output_names = tuple(source_names)
     output_offset = 0
-    for tensor_name, _source_file, dtype, shape, _base, start, end in selected:
+    for normalized_name, (_tensor_name, _source_file, dtype, shape, _base, start, end) in zip(
+        output_names, selected, strict=True
+    ):
         length = end - start
         if length <= 0:
-            raise ArtifactError(f"invalid source data offsets for {tensor_name}")
-        output_header[tensor_name] = {
+            raise ArtifactError(f"invalid source data offsets for {normalized_name}")
+        output_header[normalized_name] = {
             "dtype": dtype,
             "shape": list(shape),
             "data_offsets": [output_offset, output_offset + length],
@@ -942,15 +1041,23 @@ def _extract_protected_sidecar(
 
     _, verified_header = _safetensor_header(output_path)
     verified_names = sorted(name for name in verified_header if name != "__metadata__")
-    expected_names = [entry[0] for entry in selected]
+    expected_names = sorted(output_names)
     if verified_names != expected_names:
         raise ArtifactError(f"protected {role_label} sidecar tensor coverage mismatch")
+    parameters = sum(allocation.parameters for allocation in allocations)
+    if gemma4_vision_layout:
+        _index_gemma4_vision_sidecar(
+            output_dir,
+            tensor_names=tuple(expected_names),
+            data_size=output_offset,
+            parameters=parameters,
+        )
     source_files = sorted({entry[1] for entry in selected})
     manifest = ProtectedTensorSidecarManifest(
         source_model=plan.source_model,
         role=role_label,
         tensor_count=len(selected),
-        parameters=sum(allocation.parameters for allocation in allocations),
+        parameters=parameters,
         dtypes=tuple(sorted({entry[2] for entry in selected})),
         tensor_names_sha256=stable_sha256(expected_names),
         source_files=[
@@ -1358,9 +1465,7 @@ def _shape_element_count(shape: tuple[int, ...]) -> int:
 
 # Families whose public sanitizer moveaxis(2, 1) every ``conv1d.weight`` with
 # last dim != 1 (GDN linear_attn and, for qwen4_exp, PLE conv1d).
-_QWEN_HYBRID_CONV1D_TYPES = frozenset(
-    {"qwen3_5", "qwen3_5_moe", "qwen3_next", "qwen4_exp"}
-)
+_QWEN_HYBRID_CONV1D_TYPES = frozenset({"qwen3_5", "qwen3_5_moe", "qwen3_next", "qwen4_exp"})
 # Families that inherit mlx-vlm ``qwen3_vl.VisionModel.sanitize``:
 # PyTorch Conv3d ``(O, I, D, H, W)`` → MLX ``(O, D, H, W, I)``.
 _QWEN_VL_PATCH_EMBED_TYPES = frozenset(
@@ -1406,12 +1511,10 @@ def _protected_shape_matches(
             transform="mlx-lm-deepseek-v4-wo_a-multilinear-reshape",
         )
         return True
-    qwen_hybrid_conv1d = (
-        model_type in _QWEN_HYBRID_CONV1D_TYPES and tensor_name.endswith(".conv1d.weight")
+    qwen_hybrid_conv1d = model_type in _QWEN_HYBRID_CONV1D_TYPES and tensor_name.endswith(
+        ".conv1d.weight"
     )
-    nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(
-        ".mixer.conv1d.weight"
-    )
+    nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(".mixer.conv1d.weight")
     if (
         (qwen_hybrid_conv1d or nemotron_conv1d)
         and len(source_shape) == 3
@@ -1623,11 +1726,9 @@ def _verify_converted_weights(
                 )
             if not shape_matches:
                 hint = ""
-                if (
-                    len(actual_components) == 1
-                    and _shape_element_count(source_shape)
-                    == _shape_element_count(actual_components[0].shape)
-                ):
+                if len(actual_components) == 1 and _shape_element_count(
+                    source_shape
+                ) == _shape_element_count(actual_components[0].shape):
                     hint = (
                         f"; equal element count under {model_type} — missing a "
                         "documented sanitize permute in _protected_shape_matches"

@@ -15,8 +15,9 @@ Usage (factory)::
     export PATH=/Users/devop/code/ax-engine-v6150-bin:$PATH
     export PYTHONPATH=/Users/devop/code/axquant/src  # tree with grafted tooling
     python scripts/run_holo3_35b_mtp_tier2_probe.py \\
-      --model-dir /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP \\
-      --output-root /Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit
+      --model-dir \\
+        /Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP \\
+      --output-root /Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit
 """
 
 from __future__ import annotations
@@ -47,10 +48,10 @@ WEIGHTED_MIN = 1.20
 PROMPT_MEDIAN_MIN = 1.10
 
 DEFAULT_FORMAL_AGENT = Path(
-    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-agent-coding/dataset.jsonl"
+    "/Volumes/Ext16TR0/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-agent-coding/dataset.jsonl"
 )
 DEFAULT_FORMAL_GENERAL = Path(
-    "/Volumes/Ext4T/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-general/dataset.jsonl"
+    "/Volumes/Ext16TR0/axquant/flagship/qwen36-mtp-v2-c1/datasets/formal-general/dataset.jsonl"
 )
 
 
@@ -284,7 +285,7 @@ def main(argv: list[str] | None = None) -> int:
         "--model-dir",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
+            "/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/AX-Holo3-35B-A3B-MLX-AXQ-6bit-MTP"
         ),
     )
     parser.add_argument(
@@ -296,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("/Volumes/Ext4T/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit"),
+        default=Path("/Volumes/Ext16TR0/axquant/work/holo3-35b-mtp-axq/tier2-probe-6bit"),
     )
     parser.add_argument(
         "--executable",

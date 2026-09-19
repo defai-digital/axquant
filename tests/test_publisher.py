@@ -2,10 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from axquant import publisher
 from axquant.errors import PublishingError
+from axquant.gemma4_assistant_compose import (
+    Gemma4AssistantComposeRequest,
+    compose_gemma4_assistant_mtp,
+)
+from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.publisher import (
     _copy_exact_publication_file,
     _package_release_audit,
@@ -660,12 +667,45 @@ def test_publish_preview_accepts_assistant_mtp_suffix(
     class _FlagshipAudit:
         pass
 
-    artifact = tmp_path / "artifact"
-    artifact.mkdir()
-    (artifact / "ax_gemma4_assistant_mtp.json").write_text("{}\n", encoding="utf-8")
-    assistant = artifact / "assistant"
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "config.json").write_text('{"model_type":"gemma4"}\n', encoding="utf-8")
+    (target / "model.safetensors").write_bytes(b"target")
+    vision_name = "vision_tower.patch_embed.weight"
+    save_file(
+        {vision_name: np.zeros((1,), dtype=np.float32)},
+        target / "vision.safetensors",
+        metadata={
+            "format": "mlx",
+            "axquant_layout": GEMMA4_MLX_VLM_VISION_LAYOUT,
+        },
+    )
+    write_data(
+        target / "model.safetensors.index.json",
+        {
+            "weight_map": {
+                "model.layers.0.weight": "model.safetensors",
+                vision_name: "vision.safetensors",
+            }
+        },
+    )
+    (target / "tokenizer.json").write_text("{}\n", encoding="utf-8")
+    assistant = tmp_path / "assistant"
     assistant.mkdir()
+    (assistant / "config.json").write_text('{"model_type":"gemma4_assistant"}\n', encoding="utf-8")
     (assistant / "model.safetensors").write_bytes(b"asst")
+    (assistant / "tokenizer.json").write_text("{}\n", encoding="utf-8")
+    artifact = tmp_path / "artifact"
+    compose_gemma4_assistant_mtp(
+        Gemma4AssistantComposeRequest(
+            target_dir=target,
+            assistant_dir=assistant,
+            output_dir=artifact,
+            target_model_id="gemma-4-12b-it",
+            assistant_model_id="gemma-4-12b-it-assistant",
+            prefer_hardlink=False,
+        )
+    )
     (artifact / "README.md").write_text("# assistant-MTP\n", encoding="utf-8")
     (artifact / "public-claim.json").write_text("{}\n", encoding="utf-8")
     request = tmp_path / "flagship-request.json"

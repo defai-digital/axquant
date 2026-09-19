@@ -12,7 +12,7 @@ fi
 
 REV="${DSV4_PRO_REV:-72e1d3230f6c080a530b0a1d46f8eb4602340597}"
 MODEL_ID="${DSV4_PRO_MODEL_ID:-deepseek-ai/DeepSeek-V4-Pro-0813}"
-export HF_HOME="${HF_HOME:-/Volumes/Ext12T/huggingface}"
+export HF_HOME="${HF_HOME:-/Volumes/Ext16TR0/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"
 export HF_XET_HIGH_PERFORMANCE="${HF_XET_HIGH_PERFORMANCE:-1}"
@@ -20,15 +20,15 @@ export HF_XET_CACHE="${HF_XET_CACHE:-$HF_HOME/xet}"
 unset HF_HUB_ENABLE_HF_TRANSFER || true
 
 SNAP="${DSV4_PRO_SNAP:-$HF_HOME/hub/models--deepseek-ai--DeepSeek-V4-Pro-0813/snapshots/$REV}"
-ROOT="${AXQUANT_SSD_STREAM:-/Volumes/Ext12T/axquant-ssd-stream}"
-WORK="${DSV4_PRO_AXQ2_WORK:-/Volumes/Ext12T/axquant/work/deepseek-v4-pro-0813-axq2}"
-OUT="${DSV4_PRO_AXQ2_OUT:-/Volumes/Ext12T/models/AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP}"
+ROOT="${AXQUANT_SSD_STREAM:-/Volumes/Ext16TR0/axquant-ssd-stream}"
+WORK="${DSV4_PRO_AXQ2_WORK:-/Volumes/Ext16TR0/axquant/work/deepseek-v4-pro-0813-axq2}"
+OUT="${DSV4_PRO_AXQ2_OUT:-/Volumes/Ext16TR0/models/AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP}"
 PY="${AXQUANT_PYTHON:-/Users/devop/code/axquant/.venv/bin/python}"
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
 export AXQUANT_FORCE_CPU="${AXQUANT_FORCE_CPU:-0}"
 export PYTHONUNBUFFERED=1
 export AX_ENGINE_2BIT_EXPERIMENTAL=1
-export TMPDIR="${AXQUANT_TMPDIR:-/Volumes/Ext12T/axquant/tmp}"
+export TMPDIR="${AXQUANT_TMPDIR:-/Volumes/Ext16TR0/axquant/tmp}"
 mkdir -p "$WORK" "$(dirname "$OUT")" "$TMPDIR" "$WORK/logs"
 
 echo "[dsv4-pro-0813] host=$host"

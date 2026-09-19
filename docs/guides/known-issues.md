@@ -90,6 +90,19 @@ between published versions.
   repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
   Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
   current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
+- **Gemma 4 MTP is a paired assistant bundle, not embedded MTP heads.** The Gemma repositories
+  contain an exact-paired drafter under `assistant/` and an `ax_gemma4_assistant_mtp.json`
+  binding. Stock MLX-LM does not activate it, and the Qwen oMLX/MTPLX importer does not apply.
+  In oMLX, enable **VLM MTP**, select the packaged `assistant/` as the external draft model, and
+  use draft block size 2. Do not enable **Lightning MTP** or add synthetic MTP head-count fields:
+  the corresponding embedded weights do not exist. The target must carry the
+  `mlx-vlm-gemma4-v1` vision layout and exact `vision.safetensors` index entries. The 12B unified
+  target must also preserve `gemma4_unified`, `audio_config`, and normalized `vision_embedder` /
+  `embed_audio` modules. Rebuild older revisions that lack this contract; a config-only edit is
+  insufficient. oMLX 0.6.4 officially
+  pins MLX 0.32.0, so an MLX 0.32.2 override requires MLX-VLM 0.6.17 or newer and remains
+  diagnostic until oMLX and its native kernels are rebuilt for that ABI. Runtime compatibility
+  does not imply Tier 2 certification.
 - **Some bases do not publish an AXQ-4bit pack.** When protection floors raise both the ~4.8 and
   ~6.0 BPW budgets to the same (or near-identical) artifact, publishing a separate `4bit` sibling
   is misleading. Removed from Hugging Face (use the `6bit` pack only):
@@ -156,11 +169,11 @@ between published versions.
 - **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
   27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
   ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 + scoped Tier 2 on the
-  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit fused `-MTP` Hub heads
-  are **checkpoint Tier 1 certified**; **Tier 2 is not certified** (formal assistant-MTP A/B
-  pilots on AX Engine 6.14.0 can clear speed gates while greedy exactness fails when drafts are
-  accepted — see any
-  [Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status)). The 12B packs
+  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit historical revisions
+  have revision-bound checkpoint Tier 1 records. The six 2026-08-30 compatibility rebuilds are
+  new immutable Hub heads and are **not covered** by those records. **Tier 2 is not certified**
+  for any current Gemma head; see any
+  [historical Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status). The 12B packs
   were **rebuilt from `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b`
   converts failed quality with multimodal placeholder loops; text-path prep now also strips
   `vision_config` / `audio_config` so MLX convert does not emit empty `vision_embedder` biases.

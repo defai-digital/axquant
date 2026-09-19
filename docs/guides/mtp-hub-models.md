@@ -1,9 +1,19 @@
 # AXQ MTP Hub model runtime matrix
 
-Verified against the `AutomatosX` Hugging Face organization on 2026-08-21. The inventory contains
-20 populated AXQ MTP checkpoints and one explicitly reserved repository. An `-MTP` name means MTP
+Verified against the `AutomatosX` Hugging Face organization on 2026-08-30. The inventory contains
+25 populated AXQ MTP checkpoints and one explicitly reserved repository. An `-MTP` name means MTP
 assets are packaged; it does not by itself mean that speculative decoding is enabled, compatible
 with every runtime, or Tier 2 certified.
+
+Run the architecture-aware, header-only fleet audit with:
+
+```bash
+python scripts/audit_mtp_hub_fleet.py --json-output /path/to/mtp-fleet-audit.json
+```
+
+The audit validates immutable revisions and the distinct Gemma assistant, resident Qwen,
+expert-stream Qwen, and DeepSeek `nextn` packaging contracts without downloading full model
+weights. It is a static publication gate, not runtime or certification evidence.
 
 ## Resident Qwen sidecars
 
@@ -30,9 +40,34 @@ follow each model card's AX Engine Tier 2 status.
 These six checkpoints package an exact-paired drafter under `assistant/`, governed by
 `ax_gemma4_assistant_mtp.json`. AX Engine 7.1.5 validates the pair, enables assistant-MTP by
 default, and caps the default draft depth at two. Set `AX_MLX_GEMMA4_ASSISTANT_MTP=0` to force
-direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at one token. Stock
-MLX-LM does not consume the assistant bundle, and the Qwen oMLX/MTPLX sidecar workflow does not
-apply. The published checkpoint cards do not claim Tier 2 MTP acceleration.
+direct decode or `AX_MLX_GEMMA4_ASSISTANT_MTP_MAX_DEPTH=1` to cap drafting at one token.
+
+The same bundle can use oMLX's **VLM MTP** path when the target was built with AXQuant's
+`mlx-vlm-gemma4-v1` protected-vision layout. That layout removes the source-only `model.` prefix
+from `vision_tower.*` and `embed_vision.*` tensors. For the 12B `gemma4_unified` source it also
+normalizes `vision_embedder.*` and `embed_audio.*`, then restores `model_type=gemma4_unified` and
+the upstream audio contract after text conversion. Every normalized tensor is mapped to
+`vision.safetensors` in `model.safetensors.index.json`. Older revisions without that layout marker,
+exact index coverage, or the restored unified config must be rebuilt and recomposed; editing only
+`config.json` cannot repair their weights or index.
+
+Download the complete repository, register the target and its `assistant/` directory as separate
+local oMLX models, and configure the target as follows:
+
+```yaml
+vlm_mtp_enabled: true
+vlm_mtp_draft_model: /absolute/path/to/checkpoint/assistant
+vlm_mtp_draft_block_size: 2
+```
+
+Do not use **Lightning MTP**, **Import MTP side-car**, or synthetic MTP head-count fields for this
+layout. Those settings describe embedded/native heads, while Gemma 4 uses an external
+`gemma4_assistant` model. oMLX 0.6.4 officially pins MLX 0.32.0 and ABI-matched custom kernels.
+An MLX 0.32.2 diagnostic stack requires MLX-VLM 0.6.17 or newer and rebuilt oMLX native
+extensions; older MLX-VLM releases use an RNG-state mutation that MLX 0.32.2 rejects. Overriding
+the oMLX pin is not an oMLX-supported installation. Load and generation smokes are compatibility
+evidence only. Follow each immutable revision's Tier 2 status for exactness, acceptance, and speed
+claims.
 
 | Hugging Face model | Packaged MTP form |
 | --- | --- |
@@ -58,6 +93,20 @@ not be assigned `qwen3-next-mtp` or sent through the oMLX/MTPLX Qwen importer.
 | [AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP) | Populated; MTP Tier 2 not certified |
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP) | Populated; checkpoint and MTP Tier 2 not certified |
 | [AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | Reserved name; no weights or MTP sidecar uploaded |
+
+## Qwen 3.8 Flash Next preview sidecars
+
+These four preview checkpoints carry `mtp.safetensors` together with `ax_expert_stream.json`.
+They use the MLX-VLM `qwen4_exp` text/vision path; AX Engine MTP acceleration is not claimed.
+Their sidecars pass the expert-stream packaging audit but are not resident
+`qwen3-next-mtp` oMLX/MTPLX import targets.
+
+| Hugging Face model | Status |
+| --- | --- |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-4bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-4bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
+| [AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
 
 ## Super-class expert-stream packs
 

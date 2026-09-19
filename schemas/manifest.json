@@ -1,5 +1,5 @@
 {
-  "count": 116,
+  "count": 118,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -59,6 +59,14 @@
     },
     {
       "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-config.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkConfigV2",
+      "schema_version": "axquant.benchmark-config.v2",
+      "sha256": "c959e6391d31866c7aa1fbbf6660c58e388caf3f9e604c68f7d95536faef0526"
+    },
+    {
+      "compatibility_class": "evidence",
       "filename": "axquant.benchmark-evidence-index.v1.schema.json",
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.artifacts.BenchmarkEvidenceIndex",
@@ -80,6 +88,14 @@
       "model": "axquant.schema.artifacts.BenchmarkResult",
       "schema_version": "axquant.benchmark-result.v1",
       "sha256": "3ed118d522435042ba4fc2be3c603fabebec0bf839be9c84328e06b400c764a8"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.benchmark-result.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.BenchmarkResultV2",
+      "schema_version": "axquant.benchmark-result.v2",
+      "sha256": "4474999070237b5457b4a17d5d8fa03db9386bffbfb0fa9a1bd2ee4f5da5d3f4"
     },
     {
       "compatibility_class": "evidence",

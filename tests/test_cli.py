@@ -59,6 +59,22 @@ def test_benchmark_ab_defaults_to_release_speedup_gate() -> None:
     assert args.record_failed_speedup is False
     assert args.direct_baseline_kind == "axquant-mtp-off"
     assert args.mtp_baseline_kind == "axquant-mtp-on"
+    assert args.prompt_format is None
+
+
+def test_benchmark_ab_accepts_chat_template_prompt_format() -> None:
+    args = _build_parser().parse_args(
+        [
+            "benchmark-ab",
+            "--model",
+            "/model",
+            "--prompts",
+            "/prompts.jsonl",
+            "--prompt-format",
+            "chat-template",
+        ]
+    )
+    assert args.prompt_format == "chat-template"
 
 
 def test_benchmark_ab_accepts_reference_baseline_kinds() -> None:

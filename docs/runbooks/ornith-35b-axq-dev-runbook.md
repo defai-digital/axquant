@@ -1,6 +1,6 @@
 # Ornith-1.0-35B — development AXQ 4/6-bit convert + Hugging Face publish
 
-**Host:** `df-macstudio-m2` (factory convert + Ext4T)  
+**Host:** `df-macstudio-m2` (factory convert + Ext16TR0)
 **Adapter:** `qwen35-moe-v1` (Qwen3.5-class 35B-A3B MoE / fine-tunes)  
 **Claims:** **4-bit and 6-bit checkpoint Tier 1 certified** on `df-macstudio-m2`. Not the Qwen 3.6 certificate family.  
 **Goal:** Build AutomatosX AXQ 4-bit and 6-bit MLX packs from Ornith BF16, publish, and record Tier 1 evidence.
@@ -36,7 +36,7 @@ Do **not** rename the source path to include `Qwen3.6` to force `qwen36-v1`. Tha
 
 ```bash
 export PYTHONPATH=/path/to/axquant/src   # tree with qwen35-moe-v1 + expert pack prep
-# Ext4T + Xet high performance (factory policy)
+# Ext16TR0 + Xet high performance (factory policy)
 export HF_HOME=/path/to/huggingface-cache
 export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
 export HF_HUB_CACHE=$HF_HOME/hub
@@ -182,7 +182,7 @@ hf upload AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit \
 | `parameters not in model` / experts.* | Source is unpacked; run expert pack prep first |
 | `declares MTP but … no MTP tensor allocations` | Config-only MTP; inspect should clear `mtp_declared` when weights are missing |
 | `executable not found: mlx_lm.generate` | Use the Python `mlx_lm.load` / `generate` smoke above |
-| OOM / disk full | Convert only on Ext4T; archive other packs to NAS first |
+| OOM / disk full | Convert only on Ext16TR0; archive other packs to NAS first |
 
 ---
 
@@ -191,4 +191,4 @@ hf upload AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit \
 - Support policy: `qwen35-moe-v1` in `src/axquant/support_policy.py`
 - Expert pack prep: `prepare_qwen_moe_packed_experts_source` in `src/axquant/source_prep.py`
 - Primary MoE cert track (different product): Qwen 3.6 35B-A3B packs under `qwen36-v1`
-- Factory Ext4T / Xet: `AGENTS.md` and `scripts/setup-ext4t-hf.sh`
+- Factory Ext16TR0 / Xet: `AGENTS.md` and `scripts/setup-ext16tr0-hf.sh`

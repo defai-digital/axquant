@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Run on macstudio-m2u (or: ssh macstudio-m2u 'bash -s' < this file)
-# Completes Ext4T factory layout after any interrupted smoke migration.
+# Completes Ext16TR0 factory layout after any interrupted smoke migration.
 set -euo pipefail
 
-EXT_ROOT="/Volumes/Ext4T"
+EXT_ROOT="/Volumes/Ext16TR0"
 AXQ="${EXT_ROOT}/axquant"
 ART="${HOME}/axquant-artifacts"
 MODELS="${HOME}/models"
@@ -68,7 +68,7 @@ for path in models axq-publish logs work smokes; do
   ensure_real_dir "$AXQ/$path"
 done
 
-# HF cache must stay on Ext4T before this script can claim the layout is complete.
+# HF cache must stay on Ext16TR0 before this script can claim the layout is complete.
 [[ -d "$EXT_ROOT/huggingface" && ! -L "$EXT_ROOT/huggingface" ]] || {
   die "$EXT_ROOT/huggingface must be a real directory"
 }
@@ -124,7 +124,7 @@ else
   ln -s "$AXQ/logs" "$ART/logs"
 fi
 
-# Models: real dirs -> Ext4T + symlink. A symlinked ~/models is commonly the HF
+# Models: real dirs -> Ext16TR0 + symlink. A symlinked ~/models is commonly the HF
 # hub convenience link and must never be traversed as a migration source.
 if [[ -L "$MODELS" ]]; then
   echo "skip model migration: $MODELS is a symlink -> $(readlink "$MODELS")"

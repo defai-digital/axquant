@@ -7,7 +7,7 @@ For each certified ``*-MTP`` pack:
   3. Rewrite ``axquant_manifest.json`` / plan MTP flags and rebind the card.
   4. Upload to ``AutomatosX/AX-…-AXQ-{4,6}bit`` (no ``-MTP`` suffix).
 
-Usage (factory host with Ext4T + HF token):
+Usage (factory host with Ext16TR0 + HF token):
   .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py
   .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py --skip-upload
 """
@@ -25,10 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_WORK = Path(
     os.environ.get(
         "QWEN36_NO_MTP_WORK",
-        "/Volumes/Ext4T/axquant/work/qwen36-no-mtp-siblings",
+        "/Volumes/Ext16TR0/axquant/work/qwen36-no-mtp-siblings",
     )
 )
-DEFAULT_OUT = Path(os.environ.get("QWEN36_NO_MTP_OUT", "/Volumes/Ext4T/models"))
+DEFAULT_OUT = Path(os.environ.get("QWEN36_NO_MTP_OUT", "/Volumes/Ext16TR0/models"))
 
 # Certified MTP sources → no-MTP Hub product names.
 PACKS: list[dict[str, str]] = [

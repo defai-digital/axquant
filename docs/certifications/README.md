@@ -14,7 +14,7 @@ via `tests/test_documentation.py`.
 
 **Host policy:** factory conversion, **all Tier 1**, and **all Tier 2**
 certificates **must** be measured on `df-macstudio-m2` (Mac Studio M2 Ultra,
-192 GB, Ext12T). Do not convert or certify on `df-macbookpro-m5` or
+192 GB, Ext16TR0). Do not convert or certify on `df-macbookpro-m5` or
 `df-macbookpro-m3`. Historical records keep the `host_id` they were measured
 on; do not rewrite those files to the new host. Recertify on
 `df-macstudio-m2` for a current-host claim. The flagship M0–M8 campaign
@@ -69,9 +69,11 @@ The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the c
 A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
-**Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP
-Hub packs (12B / 26B-A4B / 31B). **Tier 2 (MTP acceleration) is not certified** on any Gemma pack
-while formal assistant-MTP exactness remains open on a released engine.
+**Gemma 4:** the table preserves revision-bound checkpoint **Tier 1** records for historical AXQ
+4-bit and 6-bit fused assistant-MTP revisions (12B / 26B-A4B / 31B). The six Hub heads rebuilt on
+2026-08-30 for corrected Gemma/oMLX layout compatibility have different immutable revisions and
+are not covered by those records. **Tier 2 (MTP acceleration) is not certified** on any current
+Gemma head.
 
 **Qwen3-Coder-Next:** hybrid MoE coding checkpoint with **no declared MTP**. Public certificates
 are non-MTP direct-decode checkpoint Tier 1 only (size, matched uniform quality, MLX-LM load).

@@ -408,8 +408,10 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "(N/A when the pack has no MTP). It is not the AX Engine MTP ship gate",
         "(MTP-S) and not AX Engine default promotion (MTP-D).",
         "",
-        "| Pack family | Hub repository | Edition | Tier 1 (quality) | "
-        "Tier 2 (MTP -- Scoped) | Host | In headline matrix |",
+        (
+            "| Pack family | Hub repository | Edition | Tier 1 (quality) | "
+            "Tier 2 (MTP -- Scoped) | Host | In headline matrix |"
+        ),
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in catalog:

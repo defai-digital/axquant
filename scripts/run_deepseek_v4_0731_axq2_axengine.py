@@ -47,11 +47,11 @@ from axquant.deepseek_v4_qa import (  # noqa: E402
 )
 
 FACTORY_HOST_ID = "df-macstudio-m2"
-FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
+FACTORY_DATASETS = "/Volumes/Ext16TR0/axquant-certification/datasets"
 PACK = Path(
     os.environ.get(
         "DSV4_AXQ2",
-        "/Volumes/Ext12T/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
+        "/Volumes/Ext16TR0/models/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-v1.9.0",
     )
 )
 ENGINE_BIN = Path(
@@ -89,7 +89,7 @@ def work_dir() -> Path:
     return Path(
         os.environ.get(
             "DSV4_AXENGINE_WORK",
-            "/Volumes/Ext12T/axquant-certification/"
+            "/Volumes/Ext16TR0/axquant-certification/"
             f"deepseek-v4-0731-axq2-axengine-{ENGINE_VERSION}-{QA_PROTOCOL}",
         )
     )

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: convert + checkpoint Tier 1 for Qwen3-Coder-Next AXQ-MXFP4.
 
-Run on df-macstudio-m2 + Ext12T only:
+Run on df-macstudio-m2 + Ext16TR0 only:
 
   PYTHONPATH=src /Users/devop/code/axquant/.venv/bin/python \\
     scripts/run_qwen3_coder_next_axq_mxfp4.py all
@@ -74,7 +74,7 @@ def source_dir() -> Path:
     override = os.environ.get("CODER_NEXT_SOURCE")
     if override:
         return Path(override)
-    return Path("/Volumes/Ext12T/axquant/work/qwen3-coder-next-mxfp4/src-qwen3-coder-next")
+    return Path("/Volumes/Ext16TR0/axquant/work/qwen3-coder-next-mxfp4/src-qwen3-coder-next")
 
 
 def pack_dir() -> Path:

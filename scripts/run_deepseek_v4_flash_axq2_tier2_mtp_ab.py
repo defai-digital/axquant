@@ -17,8 +17,8 @@ Usage (on formal host)::
     export PYTHONPATH=/Users/devop/code/axquant-tier2-src/src:$PYTHONPATH
     export DYLD_FALLBACK_LIBRARY_PATH=.../mlx/lib
     python scripts/run_deepseek_v4_flash_axq2_tier2_mtp_ab.py \\
-      --model-dir /Volumes/Ext4T/models/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit \\
-      --output-root /Volumes/Ext4T/axquant-certification/.../tier2-mtp-2bit \\
+      --model-dir /Volumes/Ext16TR0/models/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit \\
+      --output-root /Volumes/Ext16TR0/axquant-certification/.../tier2-mtp-2bit \\
       --executable /Users/devop/code/ax-engine-v6150-bin/ax-engine-bench
 """
 
@@ -206,13 +206,13 @@ def main() -> int:
     parser.add_argument(
         "--model-dir",
         type=Path,
-        default=Path("/Volumes/Ext4T/models/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit"),
+        default=Path("/Volumes/Ext16TR0/models/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit"),
     )
     parser.add_argument(
         "--output-root",
         type=Path,
         default=Path(
-            "/Volumes/Ext4T/axquant-certification/"
+            "/Volumes/Ext16TR0/axquant-certification/"
             "deepseek-v4-flash-axq-axengine-v6150/tier2-mtp-2bit"
         ),
     )

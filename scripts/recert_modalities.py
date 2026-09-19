@@ -63,8 +63,8 @@ REUSED_SMOKES = {
     },
 }
 LOCAL_PACK_ROOTS = (
-    Path("/Volumes/Ext4T/models"),
-    Path("/Volumes/Ext4T/axquant/axq-publish"),
+    Path("/Volumes/Ext16TR0/models"),
+    Path("/Volumes/Ext16TR0/axquant/axq-publish"),
 )
 HF_HUB = Path.home() / ".cache" / "huggingface" / "hub"
 NOTE_TAG = "Modality recert (capability-gated redo)"

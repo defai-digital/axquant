@@ -4,10 +4,10 @@ from __future__ import annotations
 
 FACTORY_HOST_ID = "df-macstudio-m2"
 FACTORY_HOST_ALIASES = frozenset({"df-macstudio-m2", "devopsmacstudio"})
-FACTORY_HF_HOME = "/Volumes/Ext12T/huggingface"
-FACTORY_MODELS = "/Volumes/Ext12T/models"
-FACTORY_CERT_ROOT = "/Volumes/Ext12T/axquant-certification"
-FACTORY_DATASETS = "/Volumes/Ext12T/axquant-certification/datasets"
+FACTORY_HF_HOME = "/Volumes/Ext16TR0/huggingface"
+FACTORY_MODELS = "/Volumes/Ext16TR0/models"
+FACTORY_CERT_ROOT = "/Volumes/Ext16TR0/axquant-certification"
+FACTORY_DATASETS = "/Volumes/Ext16TR0/axquant-certification/datasets"
 # 512 GB Studio: DeepSeek Flash-0731 packs that cannot generate on 192 GB.
 LARGE_MEMORY_CERT_HOST_ID = "tn-macstudio-m3"
 LARGE_MEMORY_CERT_HOST_ALIASES = frozenset(

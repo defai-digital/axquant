@@ -1,6 +1,6 @@
 # DeepSeek-OCR-2 — development AXQ 4/6-bit convert + Hugging Face publish
 
-**Host:** `df-macstudio-m2` (factory convert + Ext4T)  
+**Host:** `df-macstudio-m2` (factory convert + Ext16TR0)
 **Adapter:** `deepseek-ocr2-v1` (MLX-VLM `deepseekocr_2`)  
 **Claims:** **development evidence only** — no certified OCR accuracy claims  
 

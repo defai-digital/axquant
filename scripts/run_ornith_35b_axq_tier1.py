@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Factory: checkpoint Tier 1 for Ornith-1.0-35B AXQ 4-bit and 6-bit.
 
-Run on df-macstudio-m2 with Ext4T. Reuses the published development packs.
+Run on df-macstudio-m2 with Ext16TR0. Reuses the published development packs.
 
   PYTHONPATH=src /Users/devop/code/axquant-main/.venv/bin/python \\
     scripts/run_ornith_35b_axq_tier1.py all
@@ -29,20 +29,20 @@ ROOT = Path(__file__).resolve().parents[1]
 WORK = Path(
     os.environ.get(
         "ORNITH_CERT_WORK",
-        "/Volumes/Ext4T/axquant-certification/ornith-35b-axq-tier1",
+        "/Volumes/Ext16TR0/axquant-certification/ornith-35b-axq-tier1",
     )
 )
 DEV = Path(
     os.environ.get(
         "ORNITH_DEV_WORK",
-        "/Volumes/Ext4T/axquant/work/ornith-35b-axq-dev",
+        "/Volumes/Ext16TR0/axquant/work/ornith-35b-axq-dev",
     )
 )
 SOURCE = Path(os.environ.get("ORNITH_BF16_PACKED", str(DEV / "src-ornith-35b-packed")))
 DATASETS = Path(
     os.environ.get(
         "ORNITH_CERT_DATASETS",
-        "/Volumes/Ext4T/axquant-certification/qwen38-27b-axq8-tier1/datasets",
+        "/Volumes/Ext16TR0/axquant-certification/qwen38-27b-axq8-tier1/datasets",
     )
 )
 SOURCE_ID = "deepreinforce-ai/Ornith-1.0-35B"
@@ -135,8 +135,8 @@ def run(cmd: list[str], log_path: Path | None = None, *, force_cpu: bool = False
         "PYTHONPATH": os.pathsep.join([str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]).strip(
             os.pathsep
         ),
-        "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext4T/huggingface"),
-        "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext4T/huggingface/hub"),
+        "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext16TR0/huggingface"),
+        "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext16TR0/huggingface/hub"),
     }
     if force_cpu:
         env["AXQUANT_FORCE_CPU"] = os.environ.get("AXQUANT_FORCE_CPU", "1")

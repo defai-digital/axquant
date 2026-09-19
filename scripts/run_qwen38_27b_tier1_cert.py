@@ -5,7 +5,7 @@ Non-flagship path (Holo3/GPT-OSS style): size vs matched uniform, dual-suite
 quality retention ≥0.98, MLX-LM + AX Engine runtime, then hand-bound
 docs/certifications/*-tier1.json.
 
-Usage (factory host with Ext4T):
+Usage (factory host with Ext16TR0):
   .venv/bin/python scripts/run_qwen38_27b_tier1_cert.py uniforms
   .venv/bin/python scripts/run_qwen38_27b_tier1_cert.py size
   .venv/bin/python scripts/run_qwen38_27b_tier1_cert.py quality --pack axq6

@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Development recipe + factory runbook; **not** a certification |
-| Target host | `df-macstudio-m2` (Apple M2 Ultra, 192 GB) + Ext12T |
+| Target host | `df-macstudio-m2` (Apple M2 Ultra, 192 GB) + Ext16TR0 |
 | Date | 2026-08-20 |
 | Protocol | Factory `v-extract` (same as AXQ T1): seed `20260728`, coding 384 / general 64, suite system prompts, DSV4 non-thinking, greedy |
 

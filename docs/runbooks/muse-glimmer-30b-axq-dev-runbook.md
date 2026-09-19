@@ -1,6 +1,6 @@
 # Muse-Glimmer-30B — development AXQ 4/6-bit convert + Hugging Face publish
 
-**Host:** `df-macstudio-m2` (factory convert + Ext4T)  
+**Host:** `df-macstudio-m2` (factory convert + Ext16TR0)
 **Adapter:** `muse-glimmer-v1` (MLX-VLM `muse_glimmer`)  
 **Claims:** **development evidence only** — no certified agentic/coding-bench scores  
 

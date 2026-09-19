@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Standard Ext4T + Hugging Face layout for axquant factory Macs (M3, M5, …).
+# Standard Ext16TR0 + Hugging Face layout for axquant factory Macs (M3, M5, …).
 #
 # Canonical layout (identical on every machine):
 #
-#   /Volumes/Ext4T/
+#   /Volumes/Ext16TR0/
 #     huggingface/          # real HF cache (hub, xet, datasets, tokens)
 #     models/               # local LLM factory checkpoints (hot)
 #     models-archive -> /Volumes/home/models   # DF-NAS01 archive (do not delete)
@@ -13,30 +13,30 @@
 #   /Volumes/models-archive -> /Volumes/home/models   # preferred; needs sudo ln
 #   /Volumes/home            # SMB //devop@DF-NAS01/home
 #
-#   ~/.cache/huggingface  ->  /Volumes/Ext4T/huggingface
+#   ~/.cache/huggingface  ->  /Volumes/Ext16TR0/huggingface
 #   ~/models              ->  ~/.cache/huggingface/hub   (optional convenience)
 #
 #   # optional but recommended in ~/.zshrc:
-#   export HF_HOME=/Volumes/Ext4T/huggingface
+#   export HF_HOME=/Volumes/Ext16TR0/huggingface
 #   export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
 #   export HF_XET_HIGH_PERFORMANCE=1
 #   export HF_XET_CACHE=$HF_HOME/xet
 #   unset HF_HUB_ENABLE_HF_TRANSFER   # deprecated; use Xet HP instead
 #
 # Usage:
-#   bash scripts/setup-ext4t-hf.sh --layout          # create dirs only
-#   bash scripts/setup-ext4t-hf.sh --relink           # point HF home at Ext4T
-#   bash scripts/setup-ext4t-hf.sh --shell-env        # append HF_HOME to ~/.zshrc
-#   bash scripts/setup-ext4t-hf.sh --sync-from-nas    # rsync hub/xet from NAS
-#   bash scripts/setup-ext4t-hf.sh --sync-from-host HOST  # rsync hub/xet via ssh HOST
-#   bash scripts/setup-ext4t-hf.sh --status
-#   bash scripts/setup-ext4t-hf.sh --verify
-#   bash scripts/setup-ext4t-hf.sh --all              # layout + shell-env + relink
+#   bash scripts/setup-ext16tr0-hf.sh --layout          # create dirs only
+#   bash scripts/setup-ext16tr0-hf.sh --relink           # point HF home at Ext16TR0
+#   bash scripts/setup-ext16tr0-hf.sh --shell-env        # append HF_HOME to ~/.zshrc
+#   bash scripts/setup-ext16tr0-hf.sh --sync-from-nas    # rsync hub/xet from NAS
+#   bash scripts/setup-ext16tr0-hf.sh --sync-from-host HOST  # rsync hub/xet via ssh HOST
+#   bash scripts/setup-ext16tr0-hf.sh --status
+#   bash scripts/setup-ext16tr0-hf.sh --verify
+#   bash scripts/setup-ext16tr0-hf.sh --all              # layout + shell-env + relink
 #
 # Safe: never deletes source data. Relink backs up existing ~/.cache/huggingface.
 set -euo pipefail
 
-EXT_ROOT="${EXT_ROOT:-/Volumes/Ext4T}"
+EXT_ROOT="${EXT_ROOT:-/Volumes/Ext16TR0}"
 HF_DST="${EXT_ROOT}/huggingface"
 MODELS_DST="${EXT_ROOT}/models"
 AXQ_DST="${EXT_ROOT}/axquant"
@@ -45,8 +45,8 @@ NAS_MODELS="${NAS_MODELS:-/Volumes/data-models/models}"
 HF_HOME_LOCAL="${HF_HOME_LOCAL:-${HOME}/.cache/huggingface}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 ZSHRC="${ZSHRC:-${HOME}/.zshrc}"
-MARKER_BEGIN="# >>> axquant-ext4t-hf >>>"
-MARKER_END="# <<< axquant-ext4t-hf <<<"
+MARKER_BEGIN="# >>> axquant-ext16tr0-hf >>>"
+MARKER_END="# <<< axquant-ext16tr0-hf <<<"
 
 log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -61,7 +61,7 @@ validate_configuration() {
     }
   done
   [[ "$EXT_ROOT" =~ ^/[A-Za-z0-9._/-]+$ && "$EXT_ROOT" != "/" && "$EXT_ROOT" != "/Volumes" ]] || {
-    die "unsafe Ext4T root: $EXT_ROOT"
+    die "unsafe Ext16TR0 root: $EXT_ROOT"
   }
   for path in "$HF_HOME_LOCAL" "$ZSHRC"; do
     [[ "$path" == "$HOME/"* && "$path" != "$HOME" ]] || {
@@ -70,9 +70,9 @@ validate_configuration() {
   done
 }
 
-require_ext4t() {
+require_ext16tr0() {
   [[ -d "$EXT_ROOT" && ! -L "$EXT_ROOT" ]] || {
-    die "$EXT_ROOT is not a real mounted directory — plug in / mount Ext4T first"
+    die "$EXT_ROOT is not a real mounted directory — plug in / mount Ext16TR0 first"
   }
   local mounted_at
   mounted_at="$(df -P "$EXT_ROOT" 2>/dev/null | awk 'NR == 2 {print $NF}')"
@@ -126,7 +126,7 @@ ensure_convenience_link() {
 }
 
 layout() {
-  require_ext4t
+  require_ext16tr0
   local path
   for path in \
     "$HF_DST" "$HF_DST/hub" "$HF_DST/xet" "$HF_DST/datasets" "$MODELS_DST" \
@@ -139,22 +139,22 @@ layout() {
   safe_output_file "${EXT_ROOT}/README-LAYOUT.txt"
   if [[ ! -e "${EXT_ROOT}/README-LAYOUT.txt" ]]; then
     cat >"${EXT_ROOT}/README-LAYOUT.txt" <<'EOF'
-Ext4T primary layout (shared standard: M3 / M5 / studio)
+Ext16TR0 primary layout (shared standard: M3 / M5 / studio)
 ========================================================
 
-/Volumes/Ext4T/
+/Volumes/Ext16TR0/
   huggingface/   Hugging Face cache — linked from ~/.cache/huggingface
   models/        Local LLM factory checkpoints
   axquant/       AXQuant factory work (publish, smokes, logs)
   logs/          setup + migration logs
 
 Shell (optional):
-  export HF_HOME=/Volumes/Ext4T/huggingface
+  export HF_HOME=/Volumes/Ext16TR0/huggingface
   export HUGGINGFACE_HUB_CACHE=$HF_HOME/hub
   export HF_XET_HIGH_PERFORMANCE=1
   export HF_XET_CACHE=$HF_HOME/xet
 
-Each machine keeps its own local copy on its Ext4T volume.
+Each machine keeps its own local copy on its Ext16TR0 volume.
 EOF
   fi
 
@@ -188,15 +188,15 @@ copy_hf_meta() {
 }
 
 relink() {
-  require_ext4t
+  require_ext16tr0
   layout
   copy_hf_meta
   ensure_home_dir "$(dirname "$HF_HOME_LOCAL")"
 
   local n
   n="$(find "$HF_DST/hub" -mindepth 1 -maxdepth 1 2>/dev/null | wc -l | tr -d ' ')"
-  # Allow empty hub for brand-new machines (downloads will land on Ext4T)
-  log "hub entries on Ext4T: ${n:-0}"
+  # Allow empty hub for brand-new machines (downloads will land on Ext16TR0)
+  log "hub entries on Ext16TR0: ${n:-0}"
 
   if [[ -L "$HF_HOME_LOCAL" ]]; then
     local cur
@@ -209,7 +209,7 @@ relink() {
       ln -s "$HF_DST" "$HF_HOME_LOCAL"
     fi
   elif [[ -d "$HF_HOME_LOCAL" ]]; then
-    local backup="${HF_HOME_LOCAL}.pre-ext4t-${STAMP}"
+    local backup="${HF_HOME_LOCAL}.pre-ext16tr0-${STAMP}"
     [[ ! -e "$backup" && ! -L "$backup" ]] || die "backup path already exists: $backup"
     log "backing up $HF_HOME_LOCAL -> $backup"
     mv "$HF_HOME_LOCAL" "$backup"
@@ -252,7 +252,7 @@ shell_env() {
   local block
   block=$(cat <<EOF
 ${MARKER_BEGIN}
-# Local Ext4T Hugging Face cache (shared standard: M3 / M5)
+# Local Ext16TR0 Hugging Face cache (shared standard: M3 / M5)
 export HF_HOME="${EXT_ROOT}/huggingface"
 export HUGGINGFACE_HUB_CACHE="\$HF_HOME/hub"
 export HF_HUB_CACHE="\$HF_HOME/hub"
@@ -305,7 +305,7 @@ rsync_open() {
 }
 
 sync_from_nas() {
-  require_ext4t
+  require_ext16tr0
   layout
   [[ -d "$NAS_MODELS/hub" ]] || die "NAS hub missing: $NAS_MODELS/hub (mount data-models first)"
   local nas_mount
@@ -336,20 +336,20 @@ sync_from_host() {
   [[ "$host" != -* && "$host" =~ ^([A-Za-z0-9._-]+@)?[A-Za-z0-9._-]+$ ]] || {
     die "invalid sync host: $host"
   }
-  require_ext4t
+  require_ext16tr0
   layout
   local logf="${LOG_DIR}/rsync-hf-hub-from-${host}-${STAMP}.log"
   safe_output_file "$logf"
-  log "sync HF hub from ${host}:/Volumes/Ext4T/huggingface/hub/ -> $HF_DST/hub/"
+  log "sync HF hub from ${host}:/Volumes/Ext16TR0/huggingface/hub/ -> $HF_DST/hub/"
   # Pull via remote rsync over ssh (openrsync on both sides)
   rsync -aH --partial --progress --stats --exclude '.DS_Store' \
     -e "ssh -o BatchMode=yes -o ConnectTimeout=15" \
-    "${host}:/Volumes/Ext4T/huggingface/hub/" "$HF_DST/hub/" | tee -a "$logf"
+    "${host}:/Volumes/Ext16TR0/huggingface/hub/" "$HF_DST/hub/" | tee -a "$logf"
   logf="${LOG_DIR}/rsync-hf-xet-from-${host}-${STAMP}.log"
   safe_output_file "$logf"
   rsync -aH --partial --progress --stats --exclude '.DS_Store' \
     -e "ssh -o BatchMode=yes -o ConnectTimeout=15" \
-    "${host}:/Volumes/Ext4T/huggingface/xet/" "$HF_DST/xet/" | tee -a "$logf"
+    "${host}:/Volumes/Ext16TR0/huggingface/xet/" "$HF_DST/xet/" | tee -a "$logf"
   safe_output_file "${LOG_DIR}/hf-sync-complete.txt"
   date -u +%Y-%m-%dT%H:%M:%SZ >"${LOG_DIR}/hf-sync-complete.txt"
   log "host HF sync complete from $host"
@@ -361,7 +361,7 @@ show_status() {
   hostname
   sysctl -n machdep.cpu.brand_string 2>/dev/null || true
   echo
-  echo "=== Ext4T ==="
+  echo "=== Ext16TR0 ==="
   df -h "$EXT_ROOT" 2>/dev/null || echo "not mounted"
   ls -la "$EXT_ROOT" 2>/dev/null || true
   echo
@@ -397,7 +397,7 @@ show_status() {
 
 verify() {
   local ok=1
-  require_ext4t
+  require_ext16tr0
   if [[ -L "$HF_HOME_LOCAL" && "$(readlink "$HF_HOME_LOCAL")" == "$HF_DST" ]]; then
     echo "OK HF symlink"
   else

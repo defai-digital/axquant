@@ -26,9 +26,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_REV = "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
 DEFAULT_MODEL_ID = "Qwen/Qwen3.8-27B"
-DEFAULT_BF16 = Path("/Volumes/Ext4T/models/Qwen3.8-27B-bf16")
-DEFAULT_WORK = Path("/Volumes/Ext4T/axquant/work/qwen38-27b-axq")
-DEFAULT_OUT = Path("/Volumes/Ext4T/models")
+DEFAULT_BF16 = Path("/Volumes/Ext16TR0/models/Qwen3.8-27B-bf16")
+DEFAULT_WORK = Path("/Volumes/Ext16TR0/axquant/work/qwen38-27b-axq")
+DEFAULT_OUT = Path("/Volumes/Ext16TR0/models")
 
 SHARD_COUNT = 18
 EXPECTED_MTP_KEYS = 15
@@ -242,8 +242,8 @@ def run_cmd(cmd: list[str], log_path: Path) -> None:
         # matches GPT-OSS / other 27B+ factory converts (AXQUANT_FORCE_CPU=1).
         env = {
             **os.environ,
-            "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext4T/huggingface"),
-            "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext4T/huggingface/hub"),
+            "HF_HOME": os.environ.get("HF_HOME", "/Volumes/Ext16TR0/huggingface"),
+            "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", "/Volumes/Ext16TR0/huggingface/hub"),
             "AXQUANT_FORCE_CPU": os.environ.get("AXQUANT_FORCE_CPU", "1"),
         }
         proc = subprocess.run(

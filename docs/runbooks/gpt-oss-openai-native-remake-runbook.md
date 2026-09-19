@@ -43,7 +43,7 @@ huggingface-cli whoami
 #   OpenAI 20B source  ~15–25 GB
 #   OpenAI 120B source ~60–80 GB
 #   Outputs: 20B×2 ~30 GB; 120B 4-bit ~70 GB; 120B 6-bit ~96 GB
-#   Plus working space for dequant peaks — prefer ≥400 GB free on Ext4T
+#   Plus working space for dequant peaks — prefer ≥400 GB free on Ext16TR0
 df -h /path/to/ext-storage
 ```
 
@@ -84,7 +84,7 @@ export AXQUANT_FORCE_CPU=1
 
 ## 1. Materialize pinned OpenAI sources
 
-Prefer local Hub cache under Ext4T (see `scripts/setup-ext4t-hf.sh` if HF home is not already pointed at the volume).
+Prefer local Hub cache under Ext16TR0 (see `scripts/setup-ext16tr0-hf.sh` if HF home is not already pointed at the volume).
 
 ```bash
 # Download / ensure cache (immutable revision)
