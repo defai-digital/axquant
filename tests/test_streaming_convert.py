@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -18,9 +20,7 @@ def test_streaming_env_on_forces_enable(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert streaming_convert_enabled(tmp_path) is True
 
 
-def test_streaming_env_off_forces_disable(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_streaming_env_off_forces_disable(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv(STREAMING_CONVERT_ENV, "0")
     (tmp_path / "model-00001-of-00001.safetensors").write_bytes(b"x" * 100)
     monkeypatch.setattr(
@@ -75,6 +75,7 @@ def test_mlx_convert_hook_uses_streaming_when_env_set(
         raise AssertionError("stock mlx_lm.convert should not run")
 
     monkeypatch.setenv(STREAMING_CONVERT_ENV, "1")
+    monkeypatch.setitem(sys.modules, "mlx_lm.utils", ModuleType("mlx_lm.utils"))
     monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, lambda *a, **k: None))
     monkeypatch.setattr(
         "axquant.streaming_convert.streaming_mlx_convert",

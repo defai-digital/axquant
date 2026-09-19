@@ -661,8 +661,7 @@ def test_annotate_omlx_compat_records_sidecar_mtp_tensors_without_index_merge(
         encoding="utf-8",
     )
     (pack / "model.safetensors.index.json").write_text(
-        json.dumps({"weight_map": {"model.embed_tokens.weight": "model.safetensors"}})
-        + "\n",
+        json.dumps({"weight_map": {"model.embed_tokens.weight": "model.safetensors"}}) + "\n",
         encoding="utf-8",
     )
     written = annotate_qwen_mtp_omlx_compat(pack)

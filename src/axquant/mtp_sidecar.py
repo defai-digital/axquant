@@ -811,7 +811,8 @@ def quantize_qwen36_mtp_sidecar(
                 continue
             as_uint16 = np.frombuffer(raw, dtype=np.uint16).astype(np.uint32)
             weight_f32 = (as_uint16 << 16).view(np.float32).reshape(tensor.shape)
-            weight_mx = mx.array(np.ascontiguousarray(weight_f32)).astype(mx.bfloat16)
+            # MLX accepts NumPy arrays, but its DLPack protocol stub is narrower.
+            weight_mx = mx.array(cast(Any, np.ascontiguousarray(weight_f32))).astype(mx.bfloat16)
             try:
                 packed, scales, biases = mx.quantize(weight_mx, group_size=group_size, bits=bits)
                 reconstructed = mx.dequantize(
