@@ -46,6 +46,14 @@ _MOE_35B_A3B_SIGNATURE = {
     "num_experts": 256,
     "num_experts_per_tok": 8,
 }
+_MOE_397B_SIGNATURE = {
+    "num_hidden_layers": 60,
+    "hidden_size": 4096,
+    "moe_intermediate_size": 1024,
+    "shared_expert_intermediate_size": 1024,
+    "num_experts": 512,
+    "num_experts_per_tok": 10,
+}
 
 
 def _text_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -55,6 +63,10 @@ def _text_config(config: dict[str, Any]) -> dict[str, Any]:
 
 def _signature_is_35b_a3b(text_config: dict[str, Any]) -> bool:
     return all(text_config.get(key) == value for key, value in _MOE_35B_A3B_SIGNATURE.items())
+
+
+def _signature_is_397b(text_config: dict[str, Any]) -> bool:
+    return all(text_config.get(key) == value for key, value in _MOE_397B_SIGNATURE.items())
 
 
 def _references_include_qwen36(model_reference: str, config: dict[str, Any]) -> bool:
@@ -152,13 +164,13 @@ class Qwen36Adapter:
 
 
 class Qwen35MoeAdapter:
-    """Development convert for Qwen3.5-class 35B-A3B MoE and fine-tunes (e.g. Ornith).
+    """Development convert for Qwen3.5-class MoE and fine-tunes (e.g. Ornith).
 
     Official Qwen 3.6 catalog MoE stays on ``qwen36-v1``. This adapter covers the
     same fused-expert MLX layout when the checkpoint is *not* named as Qwen 3.6
-    but still matches the validated 35B-A3B signature (Ornith-1.0-35B,
-    Qwen3.5-35B-A3B, and compatible fine-tunes). Artifacts are development
-    evidence only — not the Qwen 3.6 certification track.
+    but still matches a validated signature: 35B-A3B (Ornith-1.0-35B,
+    Ornith-1.5-35B-A3B, Qwen3.5-35B-A3B, Holo3) or 397B (Ornith-1.5-397B).
+    Artifacts are development evidence only — not the Qwen 3.6 certification track.
     """
 
     adapter_id = "qwen35-moe-v1"
@@ -176,17 +188,23 @@ class Qwen35MoeAdapter:
         dense = not any(text_config.get(key) for key in _MOE_CONFIG_KEYS)
         layer_count = valid_layer_count(text_config.get("num_hidden_layers"))
         signature_is_35b_a3b = _signature_is_35b_a3b(text_config)
+        signature_is_397b = _signature_is_397b(text_config)
         model_type = config.get("model_type")
         supported = (
-            not dense and model_type == "qwen3_5_moe" and signature_is_35b_a3b and layer_count == 40
+            not dense
+            and model_type == "qwen3_5_moe"
+            and (
+                (signature_is_35b_a3b and layer_count == 40)
+                or (signature_is_397b and layer_count == 60)
+            )
         )
         vision_present = isinstance(config.get("vision_config"), dict)
         notes = [
-            "AXQuant optimizes the Qwen3.5-class 35B-A3B MoE language path only "
+            "AXQuant optimizes the Qwen3.5-class MoE language path only "
             "(development convert; not the Qwen 3.6 certification track).",
             "Vision tensors are preserved at BF16 and VLM quality is not claimed.",
-            "Fine-tunes such as Ornith-1.0-35B, Holo3-35B-A3B, and Holo-3.1-35B-A3B "
-            "are eligible when the text_config matches the 35B-A3B MoE signature.",
+            "Validated sizes: 35B-A3B (Ornith-1.0-35B, Ornith-1.5-35B-A3B, "
+            "Holo3-35B-A3B, Holo-3.1-35B-A3B) and 397B (Ornith-1.5-397B).",
         ]
         if supported:
             notes.append(
@@ -195,8 +213,8 @@ class Qwen35MoeAdapter:
             )
         else:
             notes.append(
-                "This qwen3_5_moe checkpoint is inventory-only until it matches the "
-                "validated 35B-A3B MoE signature."
+                "This qwen3_5_moe checkpoint is inventory-only until it matches a "
+                "validated 35B-A3B or 397B MoE signature."
             )
         return ArchitectureProfile(
             adapter_id=self.adapter_id,

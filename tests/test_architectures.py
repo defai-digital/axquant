@@ -1170,6 +1170,7 @@ def test_ornith_and_qwen35_moe_35b_a3b_are_convertible() -> None:
     for reference in (
         "deepreinforce-ai/Ornith-1.0-35B",
         "ornith-ai/Ornith-1.0-35B",
+        "ornith-ai/Ornith-1.5-35B-A3B",
         "Qwen/Qwen3.5-35B-A3B",
         "Hcompany/Holo3-35B-A3B",
         "Hcompany/Holo-3.1-35B-A3B",
@@ -1200,3 +1201,75 @@ def test_ornith_and_qwen35_moe_35b_a3b_are_convertible() -> None:
         Qwen35MoeAdapter().profile("deepreinforce-ai/Ornith-1.0-35B", bad).support_tier
         is SupportTier.INSPECT_ONLY
     )
+
+
+def _moe_397b_config(*, name_or_path: str) -> dict:
+    return {
+        "model_type": "qwen3_5_moe",
+        "architectures": ["Qwen3_5MoeForConditionalGeneration"],
+        "_name_or_path": name_or_path,
+        "text_config": {
+            "num_hidden_layers": 60,
+            "hidden_size": 4096,
+            "moe_intermediate_size": 1024,
+            "shared_expert_intermediate_size": 1024,
+            "num_experts": 512,
+            "num_experts_per_tok": 10,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {"model_type": "qwen3_5_moe_vision", "depth": 27},
+    }
+
+
+def test_ornith_15_397b_is_convertible() -> None:
+    """Ornith-1.5-397B matches the validated 397B qwen3_5_moe signature."""
+    for reference in (
+        "ornith-ai/Ornith-1.5-397B",
+        "Qwen/Qwen3.5-397B-A17B",
+    ):
+        config = _moe_397b_config(name_or_path=reference)
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "qwen35-moe-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.dense is False
+        assert profile.text_layer_count == 60
+        assert profile.vision_present is True
+
+    wrong = _moe_397b_config(name_or_path="ornith-ai/Ornith-1.5-397B")
+    wrong["text_config"] = {**wrong["text_config"], "num_experts": 256}
+    assert (
+        Qwen35MoeAdapter().profile("ornith-ai/Ornith-1.5-397B", wrong).support_tier
+        is SupportTier.INSPECT_ONLY
+    )
+
+
+def test_ornith_15_9b_dense_is_convertible() -> None:
+    """Ornith-1.5-9B is qwen3_5 dense even when the Hub id has no Qwen3.5 token."""
+    config = {
+        "model_type": "qwen3_5",
+        "architectures": ["Qwen3_5ForConditionalGeneration"],
+        "_name_or_path": "ornith-ai/Ornith-1.5-9B",
+        "text_config": {
+            "num_hidden_layers": 32,
+            "hidden_size": 4096,
+            "intermediate_size": 12288,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {"model_type": "qwen3_5_vision", "depth": 27},
+    }
+    for reference in (
+        "ornith-ai/Ornith-1.5-9B",
+        "ornith-ai/Ornith-1.5-9B-MLX",
+        "/Volumes/Ext16TR0/axquant/work/ornith-15-9b/src",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "qwen35-dense-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.dense is True
+        assert profile.text_layer_count == 32
+        assert profile.vision_present is True
+        assert profile.mtp_declared is True

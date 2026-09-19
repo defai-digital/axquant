@@ -426,7 +426,8 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         adapter_id="qwen35-dense-v1",
         product_family="qwen3.5",
         model_types=("qwen3_5",),
-        reference_pattern=r"qwen[._-]?3[._-]?5",
+        # Official Qwen 3.5 names plus Ornith 1.5 9B (same qwen3_5 dense shell).
+        reference_pattern=r"(qwen[._-]?3[._-]?5|ornith)",
         exclude_reference_pattern=_QWEN36_REFERENCE,
         # AXQ-017 promotion (2026-08-01): real-checkpoint evidence on
         # Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a — full 775-tensor classification
@@ -435,7 +436,10 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # smokes. Recorded in the expansion implementation plan's E5 log.
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
-        notes=("Qwen 3.5 dense checkpoints share the Qwen 3.6 tensor conventions.",),
+        notes=(
+            "Qwen 3.5 dense checkpoints share the Qwen 3.6 tensor conventions.",
+            "Ornith-1.5-9B is eligible as a qwen3_5 dense fine-tune (vision BF16-protected).",
+        ),
     ),
     DenseFamilySpec(
         adapter_id="qwen38-dense-v1",
