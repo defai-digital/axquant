@@ -60,6 +60,9 @@ class PublicCertRow:
     certified_at: str | None
     mtp_acceleration_status: str
     mtp_acceleration_reason: str | None
+    mtp_bound_engine: str | None
+    """AX Engine build the certified Tier 2 record was measured against."""
+
     tier1_path: Path
     tier2_path: Path | None
 
@@ -191,6 +194,12 @@ def load_public_cert_rows(
         stamp = cert.event_timestamp
         certified_at = stamp.isoformat()
 
+        bound_engine: str | None = None
+        if tier2 is not None and tier2.status == "certified":
+            recorded = tier2.mtp_acceleration.get("ax_engine_version")
+            if isinstance(recorded, str) and recorded:
+                bound_engine = recorded
+
         rows.append(
             PublicCertRow(
                 record_id=record_id,
@@ -208,6 +217,7 @@ def load_public_cert_rows(
                 certified_at=certified_at,
                 mtp_acceleration_status=cert.mtp_acceleration.status,
                 mtp_acceleration_reason=cert.mtp_acceleration.reason,
+                mtp_bound_engine=bound_engine,
                 tier1_path=path,
                 tier2_path=tier2_path if tier2_path.is_file() else None,
             )
@@ -225,10 +235,10 @@ def load_public_cert_rows(
 def _matrix_completeness_rank(row: PublicCertRow) -> int:
     """Sort rank for public matrices (lower sorts first).
 
-    Only packs that pass **both** checkpoint Tier 1 and scoped MTP Tier 2 are
-    treated as the fully certified front of the catalog. Everything else keeps
-    a secondary rank so dual-certified flagship packs are not buried under
-    no-MTP siblings or T1-only rows.
+    Only packs that pass **both** checkpoint Tier 1 and scoped MTP acceleration
+    certification are treated as the fully certified front of the catalog.
+    Everything else keeps a secondary rank so dual-certified flagship packs are
+    not buried under no-MTP siblings or T1-only rows.
     """
 
     if row.tier1_status == "certified" and row.tier2_status == "certified":
@@ -250,8 +260,51 @@ def _tier2_cell(row: PublicCertRow, *, link_prefix: str) -> str:
     if row.tier2_status == "certified":
         stem = row.tier2_stem
         assert stem is not None
-        return f"[Certified]({link_prefix}{stem}.md)"
+        cell = f"[Certified]({link_prefix}{stem}.md)"
+        if row.mtp_bound_engine:
+            cell = f"{cell} (AX Engine {row.mtp_bound_engine})"
+        return cell
     return f"[Not Certified]({link_prefix}{row.tier1_stem}.md#tier-2-status)"
+
+
+_MTP_GATE_MAPPING_DOC = "adr033-mapping.md"
+
+
+def _tier2_scope_note(rows: list[PublicCertRow], *, link_prefix: str) -> list[str]:
+    """Scope and engine-binding disclosure rendered under a Tier 2 matrix.
+
+    Keeps two things apart: what an AXQuant Tier 2 certificate does evidence
+    (scoped decode speedup bound to a host and an AX Engine build) and the AX
+    Engine gates it is not evidence for (MTP-S in-path safety, MTP-D default
+    promotion).
+    """
+
+    engines = sorted({row.mtp_bound_engine for row in rows if row.mtp_bound_engine})
+    if engines:
+        binding = (
+            f"The certified rows here are bound to AX Engine {', '.join(engines)}. Per the "
+            "certificate's own integrity rule such a result does not transfer to another "
+            "host or engine build."
+        )
+    else:
+        binding = "No certified Tier 2 row is present, so no engine binding applies."
+
+    return [
+        "",
+        "**Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted "
+        "decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named "
+        "authorizing workloads, measured on the host and AX Engine build recorded in that "
+        "certificate.",
+        "",
+        f"{binding} Certified records are historical and are not re-certified for later AX "
+        "Engine releases.",
+        "",
+        "A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine "
+        "MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), "
+        "and not a claim for hosts, engines, or workloads outside its recorded binding. See "
+        f"[MTP gate mapping]({link_prefix}{_MTP_GATE_MAPPING_DOC}) for what a Tier 2 record is "
+        "and is not evidence for.",
+    ]
 
 
 def render_readme_matrix(rows: list[PublicCertRow] | None = None) -> str:
@@ -268,6 +321,7 @@ def render_readme_matrix(rows: list[PublicCertRow] | None = None) -> str:
             f"| {row.display_name} | {_tier1_cell(row, link_prefix=prefix)} | "
             f"{_tier2_cell(row, link_prefix=prefix)} |"
         )
+    lines.extend(_tier2_scope_note(catalog, link_prefix=prefix))
     return "\n".join(lines) + "\n"
 
 
@@ -276,7 +330,7 @@ def render_index_matrix(rows: list[PublicCertRow] | None = None) -> str:
 
     catalog = rows if rows is not None else load_public_cert_rows()
     lines = [
-        "| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP) |",
+        "| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP -- Scoped) |",
         "| --- | --- | --- | --- |",
     ]
     for row in catalog:
@@ -286,6 +340,7 @@ def render_index_matrix(rows: list[PublicCertRow] | None = None) -> str:
             f"{_tier1_cell(row, link_prefix='')} | "
             f"{_tier2_cell(row, link_prefix='')} |"
         )
+    lines.extend(_tier2_scope_note(catalog, link_prefix=""))
     return "\n".join(lines) + "\n"
 
 
@@ -306,7 +361,7 @@ def render_release_matrix(rows: list[PublicCertRow] | None = None) -> str:
         "unlisted no-MTP siblings and evaluation archives, see",
         "[full certification list](../certifications/full-list.md).",
         "",
-        "| Pack family | Hub repository | Tier 1 (quality) | Tier 2 (MTP) | Host |",
+        "| Pack family | Hub repository | Tier 1 (quality) | Tier 2 (MTP -- Scoped) | Host |",
         "| --- | --- | --- | --- | --- |",
     ]
     prefix = "../certifications/"
@@ -318,6 +373,7 @@ def render_release_matrix(rows: list[PublicCertRow] | None = None) -> str:
             f"{_tier2_cell(row, link_prefix=prefix)} | "
             f"`{row.host_id}` |"
         )
+    lines.extend(_tier2_scope_note(catalog, link_prefix=prefix))
     lines.append("")
     return "\n".join(lines)
 
@@ -348,9 +404,12 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "records. Within each group, `public_index.sort_order` applies.",
         "",
         "**Tier 1** is checkpoint **quality**. **Tier 2** is scoped **MTP**",
-        "acceleration (N/A when the pack has no MTP).",
+        "acceleration bound to the host and AX Engine build in its certificate",
+        "(N/A when the pack has no MTP). It is not the AX Engine MTP ship gate",
+        "(MTP-S) and not AX Engine default promotion (MTP-D).",
         "",
-        "| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP) | Host | In headline matrix |",
+        "| Pack family | Hub repository | Edition | Tier 1 (quality) | "
+        "Tier 2 (MTP -- Scoped) | Host | In headline matrix |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in catalog:
@@ -396,12 +455,19 @@ def render_model_card_certification_section(row: PublicCertRow) -> str:
         )
 
     mtp = _claim_mtp_status(row)
+    binding = (
+        f"AX Engine {row.mtp_bound_engine}"
+        if row.mtp_bound_engine
+        else "its recorded AX Engine build"
+    )
+    scoped_mtp_text = (
+        "certified for the certificate's authorizing profiles only, bound to "
+        f"{binding}; it is a scoped acceleration claim, not the AX Engine MTP ship "
+        "gate (MTP-S) and not AX Engine default promotion (MTP-D)"
+    )
     mtp_text = {
-        "certified": "certified on the certification host; see the certificate for its exact scope",
-        "certified-scoped": (
-            "certified for the certificate's authorizing profiles only; outside that scope "
-            "there is no speedup claim"
-        ),
+        "certified": scoped_mtp_text,
+        "certified-scoped": scoped_mtp_text,
         "not-certified": "**not certified**; no MTP speedup claim for this checkpoint",
     }[mtp]
     if row.mtp_acceleration_reason and mtp == "not-certified":

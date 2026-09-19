@@ -1459,6 +1459,10 @@ def compare_mtp_ab_results(
         issues.append(
             "prompt-median speedup is unavailable or below the configured non-regression floor"
         )
+    # Scope note: this measures MTP-off/on token identity across the A/B dataset.
+    # It is not the AX Engine in-path safety invariant (MTP-S), which is a runtime
+    # acceptance property the engine owns, and it says nothing about default
+    # promotion (MTP-D).
     exactness_pass = divergent == 0 and not any(
         issue.startswith("one or more trials failed")
         or issue.startswith("measured trial sets differ")

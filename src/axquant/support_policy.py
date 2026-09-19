@@ -131,7 +131,8 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         summary=(
             "Qwen3.8 dense VLM (27B hybrid GDN+attention, model_type=qwen3_5): checkpoint "
             "Tier 1 on AXQ 4-bit (recovery lm_head-8) and 6-bit language-path packs, with "
-            "scoped MTP Tier 2 on AX Engine 6.16.1; vision BF16-protected. Separate from "
+            "scoped MTP acceleration certification (MTP-P evidence) on AX Engine 6.16.1; "
+            "vision BF16-protected. Separate from "
             "the Qwen 3.6 campaign track."
         ),
         do=(
@@ -363,7 +364,8 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Keep experimental labels on 2/3-bit product classes.",
         ),
         do_not=(
-            "Do not claim BF16 retention or MTP Tier 2 speedup without matching evidence.",
+            "Do not claim BF16 retention or scoped MTP acceleration without matching "
+            "evidence bound to the host and AX Engine build.",
             "Do not treat V4-Pro (1.6T) as a default factory target on laptop hosts.",
             "Do not drop experimental labels for 2/3-bit packs.",
             "Do not promote sibling DeepSeek revisions by association.",

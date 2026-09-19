@@ -28,14 +28,14 @@ or `quality-certified` only with bound evidence. Spec:
 [certification-spec-v1.0 §8](../contracts/certification-spec-v1.0.md).
 
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
-| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP) |
+| Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- | --- |
-| [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) |
-| [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) |
-| [Qwen 3.6 27B MLX AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) |
-| [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) |
-| [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) |
-| [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) |
+| [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) (AX Engine 6.16.1) |
+| [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) (AX Engine 6.16.1) |
+| [Qwen 3.6 27B MLX AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) (AX Engine 6.14.0) |
+| [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) (AX Engine 6.14.0) |
+| [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) (AX Engine 6.14.1) |
+| [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) (AX Engine 6.14.1) |
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | [Holo3-35B-A3B MLX AXQ 4-bit](holo3-35b-axq4-tier1.md) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) |
@@ -61,6 +61,12 @@ or `quality-certified` only with bound evidence. Spec:
 | [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
 | [MiniMax-M3 MLX AXQ 2-bit (exp.)](minimax-m3-axq2-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq2-tier1.md) | N/A (no MTP) |
 | [MiniMax-M3 MLX AXQ MXFP4 (exp.)](minimax-m3-axq-mxfp4-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
+
+**Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named authorizing workloads, measured on the host and AX Engine build recorded in that certificate.
+
+The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the certificate's own integrity rule such a result does not transfer to another host or engine build. Certified records are historical and are not re-certified for later AX Engine releases.
+
+A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 **Gemma 4:** checkpoint **Tier 1** is certified for the AXQ 4-bit and 6-bit fused assistant-MTP

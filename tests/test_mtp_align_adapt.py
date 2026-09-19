@@ -126,7 +126,7 @@ def test_adapt_fc_from_features_writes_provenance_and_sidecar(tmp_path: Path) ->
     graft = json.loads(Path(result["graft_record"]).read_text(encoding="utf-8"))
     assert graft["graft_kind"] == ADAPTED_GRAFT_KIND
     assert "not full co-training" in graft["notes"][0].lower()
-    assert "Acceleration claims still require Tier 2" in graft["notes"][1]
+    assert "Acceleration claims still require scoped MTP acceleration evidence" in graft["notes"][1]
 
 
 def test_compose_adapted_does_not_mutate_main_weights(tmp_path: Path) -> None:

@@ -995,7 +995,8 @@ def _build_parser() -> argparse.ArgumentParser:
     scoreboard_parser.add_argument(
         "--require-mtp-acceleration",
         action="store_true",
-        help="Require second-tier MTP exactness and speed gates in addition to checkpoint gates",
+        help="Require scoped MTP acceleration gates (off/on exactness observation plus "
+        "weighted/median speed) in addition to checkpoint gates",
     )
     scoreboard_parser.add_argument("--require-complete", action="store_true")
     scoreboard_parser.add_argument("--output", default="scoreboard.json")
@@ -1063,7 +1064,8 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("--candidate-evaluation", required=True)
     validate_parser.add_argument(
         "--mtp-ab",
-        help="checksum-bound MTP off/on comparison for weighted speed and exactness gates",
+        help="checksum-bound MTP off/on comparison for the scoped acceleration gates "
+        "(weighted/median speed and off/on exactness observation)",
     )
     validate_parser.add_argument("--calibration-manifest")
     validate_parser.add_argument("--size-reference")

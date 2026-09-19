@@ -26,10 +26,11 @@ class AlignRecommendation(StrEnum):
     """Accept viable; optimize for >=1.20x under MoE exact profile."""
 
     READY_FOR_FORMAL_TIER2 = "ready_for_formal_tier2"
-    """Medium probe looks strong enough for authorizing scoreboard."""
+    """Medium probe looks strong enough for the authorizing scoreboard."""
 
     CERTIFIED_PATH = "certified_path"
-    """Meets formal Tier 2 numeric gates (still requires formal host binding)."""
+    """Meets the scoped MTP acceleration numeric gates (still requires formal host binding).
+    Maps to AX Engine MTP-P; it is not evidence for MTP-S or MTP-D."""
 
 
 @dataclass(frozen=True, slots=True)

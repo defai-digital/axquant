@@ -14,16 +14,18 @@ then Tier 1 with Tier 2 not certified, then non-certified evaluation
 records. Within each group, `public_index.sort_order` applies.
 
 **Tier 1** is checkpoint **quality**. **Tier 2** is scoped **MTP**
-acceleration (N/A when the pack has no MTP).
+acceleration bound to the host and AX Engine build in its certificate
+(N/A when the pack has no MTP). It is not the AX Engine MTP ship gate
+(MTP-S) and not AX Engine default promotion (MTP-D).
 
-| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP) | Host | In headline matrix |
+| Pack family | Hub repository | Edition | Tier 1 (quality) | Tier 2 (MTP -- Scoped) | Host | In headline matrix |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) | `df-macbookpro-m3` | yes |
-| [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) | `df-macbookpro-m3` | yes |
-| [Qwen 3.6 27B MLX AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) | `df-macbookpro-m5` | yes |
-| [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) | `df-macbookpro-m5` | yes |
-| [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) | `df-macbookpro-m5` | yes |
-| [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) | `df-macbookpro-m5` | yes |
+| [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) (AX Engine 6.16.1) | `df-macbookpro-m3` | yes |
+| [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) (AX Engine 6.16.1) | `df-macbookpro-m3` | yes |
+| [Qwen 3.6 27B MLX AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) (AX Engine 6.14.0) | `df-macbookpro-m5` | yes |
+| [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) (AX Engine 6.14.0) | `df-macbookpro-m5` | yes |
+| [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) (AX Engine 6.14.1) | `df-macbookpro-m5` | yes |
+| [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) (AX Engine 6.14.1) | `df-macbookpro-m5` | yes |
 | [Qwen3.8-27B MLX AXQ MXFP4](qwen38-27b-axq-mxfp4-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4) | main@`10652695` | [Certified](qwen38-27b-axq-mxfp4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Qwen3.8-27B MLX AXQ 4-bit](qwen38-27b-axq4-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | main@`a8c56f94` | [Certified](qwen38-27b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m3` | no |
 | [Qwen3.8-27B MLX AXQ 6-bit](qwen38-27b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | main@`edfedb5c` | [Certified](qwen38-27b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m3` | no |

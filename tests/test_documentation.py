@@ -402,7 +402,7 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert "qwen3-coder-next-axq-mxfp4-tier1.md" in full
     assert "In headline matrix" in full
     assert "Tier 1 (quality)" in full
-    assert "Tier 2 (MTP)" in full
+    assert "Tier 2 (MTP -- Scoped)" in full
     assert "checkpoint **quality**" in full
 
     # Display names and Tier 1 verdicts agree across every generated surface.
@@ -462,6 +462,41 @@ def test_model_card_certification_section_matches_public_records() -> None:
     failed_section = render_model_card_certification_section(failed)
     assert "Not certified" in failed_section
     assert claim_from_public_row(failed) is None
+
+
+def test_tier2_cells_disclose_engine_binding_and_scope() -> None:
+    """A certified Tier 2 cell names its AX Engine binding and the matrix states its scope.
+
+    ADR-033 splits AX Engine's "MTP Tier 2" into MTP-S / MTP-P / MTP-D. An AXQuant
+    Tier 2 certificate is scoped acceleration evidence bound to one engine build; the
+    rendered matrix must say so, and must not read as an MTP-S or MTP-D claim.
+    """
+
+    rows = load_public_cert_rows()
+    release = render_release_matrix(rows)
+    readme_body = _extract_marked_matrix(_read("README.md"))
+
+    certified = [row for row in rows if row.tier2_status == "certified"]
+    assert certified, "expected at least one certified Tier 2 row"
+    for row in certified:
+        assert row.mtp_bound_engine, f"{row.record_id}: certified Tier 2 must record a bound engine"
+        assert f"(AX Engine {row.mtp_bound_engine})" in release
+
+    engines = sorted({row.mtp_bound_engine for row in certified})
+    assert f"bound to AX Engine {', '.join(engines)}" in release
+    for matrix in (release, readme_body):
+        assert "Tier 2 (MTP -- Scoped)" in matrix
+        assert "MTP-S" in matrix
+        assert "MTP-D" in matrix
+        assert "adr033-mapping.md" in matrix
+
+    # The disclosure only belongs where a Tier 2 binding exists.
+    unbound = [row for row in rows if row.tier2_status != "certified"]
+    assert unbound
+    assert all(row.mtp_bound_engine is None for row in unbound)
+
+    # The link target of the disclosure must exist.
+    assert (_ROOT / "docs" / "certifications" / "adr033-mapping.md").is_file()
 
 
 def test_schema_catalog_matches_registry_generator() -> None:

@@ -41,7 +41,9 @@ def write_adapted_graft_record(
             "train": train_summary,
             "notes": [
                 "MTP head adapted on Holo3 trunk labels; not full co-training of the trunk.",
-                "Acceleration claims still require Tier 2 exactness/speedup evidence.",
+                "Acceleration claims still require scoped MTP acceleration evidence "
+                "(MTP-P: exactness observation plus weighted/median speedup on the "
+                "certificate's authorizing profiles).",
             ],
             "created_at": utc_now().isoformat(),
         },

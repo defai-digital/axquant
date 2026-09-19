@@ -250,12 +250,12 @@ The tables are generated from certificate JSON
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- |
-| Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) |
-| Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) |
-| Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) |
-| Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) |
-| Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) |
-| Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) |
+| Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) (AX Engine 6.16.1) |
+| Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) (AX Engine 6.16.1) |
+| Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) (AX Engine 6.14.0) |
+| Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) (AX Engine 6.14.0) |
+| Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) (AX Engine 6.14.1) |
+| Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) (AX Engine 6.14.1) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
 | Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
 | Holo3-35B-A3B MLX AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
@@ -281,6 +281,12 @@ The tables are generated from certificate JSON
 | DeepSeek V4 Flash-0731 MLX AXQ 6-bit | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
 | MiniMax-M3 MLX AXQ 2-bit (exp.) | [Not Certified](docs/certifications/minimax-m3-axq2-tier1.md) | N/A (no MTP) |
 | MiniMax-M3 MLX AXQ MXFP4 (exp.) | [Not Certified](docs/certifications/minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
+
+**Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named authorizing workloads, measured on the host and AX Engine build recorded in that certificate.
+
+The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the certificate's own integrity rule such a result does not transfer to another host or engine build. Certified records are historical and are not re-certified for later AX Engine releases.
+
+A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](docs/certifications/adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
@@ -1042,6 +1048,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `mtp-align-evaluate` | Score MTP probe or engine A/B evidence against the alignment ladder | Implemented; decision support |
 | `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
 | `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
+| `annotate-omlx-mtp` | Write `axquant_omlx_compat.json` for an existing Qwen MTP pack (`--directory`); does not requantize or merge `mtp.*` into the language index | Implemented |
 | `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |
 | `mtp-diagnose` | Run the MTP kill-switch diagnostic matrix | Implemented; diagnostic evidence only |
 | `benchmark-index` | Bind every required baseline or record why it is unavailable | Implemented |
