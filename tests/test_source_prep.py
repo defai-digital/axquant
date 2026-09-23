@@ -29,6 +29,175 @@ class _NumpyMlx:
         save_file({name: np.asarray(value) for name, value in tensors.items()}, path)
 
 
+@pytest.mark.parametrize("quantized,mlx_layout", [(True, True), (False, True), (True, False)])
+def test_quantized_qwen_mtp_text_view(tmp_path: Path, quantized: bool, mlx_layout: bool) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    config = {"model_type": "qwen3_5_moe"}
+    if quantized:
+        config["quantization"] = {"bits": 6, "group_size": 64}  # type: ignore[assignment]
+    (source / "config.json").write_text(json.dumps(config))
+    conv = "language_model.model.layers.0.linear_attn.conv1d.weight"
+    norm = "language_model.model.layers.0.input_layernorm.weight"
+    mtp = "language_model.mtp.norm.weight"
+    save_file(
+        {
+            conv: np.ones((4, 4, 1) if mlx_layout else (4, 1, 4), dtype=np.float32),
+            norm: np.ones(4, dtype=np.float32),
+        },
+        source / "model-00001.safetensors",
+    )
+    save_file({mtp: np.ones((4, 4), dtype=np.float32)}, source / "model-mtp.safetensors")
+    index = {
+        "weight_map": {
+            conv: "model-00001.safetensors",
+            norm: "model-00001.safetensors",
+            mtp: "model-mtp.safetensors",
+        }
+    }
+    (source / "model.safetensors.index.json").write_text(json.dumps(index))
+    before = {p.name: p.read_bytes() for p in source.iterdir()}
+    prepared = prepare_conversion_source(source, work_dir=tmp_path / "work")
+    if quantized and mlx_layout:
+        assert needs_conversion_prep(source)
+        assert prepared is not None
+        assert not (prepared / "model-mtp.safetensors").exists()
+        assert (prepared / "model-00001.safetensors").read_bytes() == before[
+            "model-00001.safetensors"
+        ]
+        assert (
+            mtp
+            not in json.loads((prepared / "model.safetensors.index.json").read_text())["weight_map"]
+        )
+    else:
+        assert prepared is None
+        view = source_prep._quantized_qwen_mtp_view(source, config)
+        assert view is None or not view[1]
+    assert {p.name: p.read_bytes() for p in source.iterdir()} == before
+
+
+def _write_quantized_qwen_mtp_fixture(root: Path, conv_shape: tuple[int, ...]) -> dict[str, str]:
+    root.mkdir(exist_ok=True)
+    (root / "config.json").write_text(
+        json.dumps({"model_type": "qwen3_5_moe", "quantization": {"bits": 6, "group_size": 64}})
+    )
+    conv = "language_model.model.layers.0.linear_attn.conv1d.weight"
+    norm = "language_model.model.norm.weight"
+    save_file(
+        {conv: np.ones(conv_shape, dtype=np.float32), norm: np.ones(4, dtype=np.float32)},
+        root / "model-00001.safetensors",
+    )
+    mtp = "language_model.mtp.weight"
+    save_file({mtp: np.ones((4, 4), dtype=np.float32)}, root / "model-mtp.safetensors")
+    (root / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    conv: "model-00001.safetensors",
+                    norm: "model-00001.safetensors",
+                    mtp: "model-mtp.safetensors",
+                }
+            }
+        )
+    )
+    return {"conv": conv, "norm": norm, "mtp": mtp}
+
+
+def test_quantized_qwen_mtp_mixed_shard_fails_closed(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    keys = _write_quantized_qwen_mtp_fixture(source, (4, 4, 1))
+    index_text = (source / "model.safetensors.index.json").read_text()
+    index = json.loads(index_text)
+    for key in keys.values():
+        index["weight_map"][key] = "model-00001.safetensors"
+    (source / "model.safetensors.index.json").write_text(json.dumps(index))
+    with pytest.raises(ArtifactError, match="isolated MTP shards"):
+        needs_conversion_prep(source)
+    with pytest.raises(ArtifactError, match="isolated MTP shards"):
+        prepare_conversion_source(source, work_dir=tmp_path / "work")
+
+
+def test_quantized_qwen_mtp_hf_layout_mixed_shard_stays_unprepped(tmp_path: Path) -> None:
+    """HF-layout sources keep MTP keys visible so MLX-LM applies its norm shift."""
+    source = tmp_path / "source"
+    keys = _write_quantized_qwen_mtp_fixture(source, (4, 1, 4))
+    index_text = (source / "model.safetensors.index.json").read_text()
+    index = json.loads(index_text)
+    index["weight_map"][keys["mtp"]] = "model-00001.safetensors"
+    (source / "model.safetensors.index.json").write_text(json.dumps(index))
+    assert not needs_conversion_prep(source)
+    assert prepare_conversion_source(source, work_dir=tmp_path / "work") is None
+
+
+def test_quantized_qwen_mtp_own_conv_layout_does_not_block_isolation(tmp_path: Path) -> None:
+    """Only trunk convolutions gate the layout check, not MTP convolutions."""
+    source = tmp_path / "source"
+    keys = _write_quantized_qwen_mtp_fixture(source, (4, 4, 1))
+    mtp_conv = "language_model.mtp.layers.0.linear_attn.conv1d.weight"
+    mtp_shard = source / "model-mtp.safetensors"
+    save_file(
+        {**load_file(mtp_shard), mtp_conv: np.ones((4, 1, 4), dtype=np.float32)},
+        mtp_shard,
+    )
+    index = json.loads((source / "model.safetensors.index.json").read_text())
+    index["weight_map"][mtp_conv] = "model-mtp.safetensors"
+    (source / "model.safetensors.index.json").write_text(json.dumps(index))
+    assert needs_conversion_prep(source)
+    prepared = prepare_conversion_source(source, work_dir=tmp_path / "work")
+    assert prepared is not None
+    weight_map = json.loads((prepared / "model.safetensors.index.json").read_text())["weight_map"]
+    assert keys["mtp"] not in weight_map and mtp_conv not in weight_map
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"metadata": {}},
+        ["not", "an", "object"],
+        {"weight_map": []},
+        {"weight_map": {"language_model.model.norm.weight": 7}},
+        {"weight_map": {"language_model.model.norm.weight": ""}},
+        '{"weight_map": ',
+        '{"weight_map": {}, "weight_map": {}}',
+    ],
+)
+def test_quantized_qwen_mtp_malformed_index_fails_closed(tmp_path: Path, payload: object) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps({"model_type": "qwen3_5_moe", "quantization": {"bits": 6}})
+    )
+    text = payload if isinstance(payload, str) else json.dumps(payload)
+    (source / "model.safetensors.index.json").write_text(text)
+    with pytest.raises(ArtifactError):
+        needs_conversion_prep(source)
+    with pytest.raises(ArtifactError):
+        prepare_conversion_source(source, work_dir=tmp_path / "work")
+
+
+def test_quantized_qwen_mtp_reserved_shard_name_fails_closed(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    keys = _write_quantized_qwen_mtp_fixture(source, (4, 4, 1))
+    index = json.loads((source / "model.safetensors.index.json").read_text())
+    index["weight_map"][keys["norm"]] = "model.safetensors.index.json"
+    modified_text = json.dumps(index)
+    (source / "model.safetensors.index.json").write_text(modified_text)
+    with pytest.raises(ArtifactError, match="plain Safetensors file"):
+        prepare_conversion_source(source, work_dir=tmp_path / "work")
+    assert (source / "model.safetensors.index.json").read_text() == modified_text
+
+
+@pytest.mark.parametrize("missing", ["model-00001-of-00002.safetensors", "sub\\shard.safetensors"])
+def test_quantized_qwen_mtp_missing_conv_shard_fails_closed(tmp_path: Path, missing: str) -> None:
+    source = tmp_path / "source"
+    keys = _write_quantized_qwen_mtp_fixture(source, (4, 4, 1))
+    index = json.loads((source / "model.safetensors.index.json").read_text())
+    index["weight_map"][keys["conv"]] = missing
+    (source / "model.safetensors.index.json").write_text(json.dumps(index))
+    with pytest.raises(ArtifactError, match="missing"):
+        needs_conversion_prep(source)
+
+
 def _write_gemma4_unified_fixture(root: Path) -> Path:
     model_dir = root / "gemma4-unified"
     model_dir.mkdir()

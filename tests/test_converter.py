@@ -43,6 +43,52 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 
+def test_qwen_requantization_preserves_exact_tokenizer_assets(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    config = {"model_type": "qwen3_5_moe", "quantization": {"bits": 6}}
+    (source / "config.json").write_text(json.dumps(config))
+    assets = ("tokenizer.json", "tokenizer_config.json", "chat_template.jinja")
+    for filename in assets:
+        (source / filename).write_text("original exact custom tokenizer\n")
+
+    def save(*args):
+        for filename in assets:
+            (output / filename).write_text("rewritten tokenizer")
+
+    fake_utils = SimpleNamespace(
+        dequantize_model=lambda model: model,
+        quantize_model=lambda model, config, *args, **kwargs: (model, config),
+        save=save,
+    )
+    monkeypatch.setattr(
+        converter,
+        "_mlx_api",
+        lambda: (None, lambda *args, **kwargs: (object(), object(), dict(config))),
+    )
+    monkeypatch.setattr(converter, "_dequantize_quantized_multilinear", lambda model: model)
+    original_import = converter.importlib.import_module
+    monkeypatch.setattr(
+        converter.importlib,
+        "import_module",
+        lambda name: fake_utils if name == "mlx_lm.utils" else original_import(name),
+    )
+    converter._mlx_convert_with_optional_dequant(
+        str(source),
+        mlx_path=str(output),
+        quantize=True,
+        q_group_size=64,
+        q_bits=4,
+        quant_predicate=None,
+        revision=None,
+    )
+    for filename in assets:
+        assert (output / filename).read_bytes() == (source / filename).read_bytes()
+
+
 def _plan(model_dir: Path) -> QuantizationPlan:
     inventory = inspect_model(
         model_dir,
@@ -1988,6 +2034,23 @@ def test_deepseek_v4_legacy_fused_gate_proj_still_binds_w3() -> None:
     bound = converter._bind_converted_tensors(expected, actual)
     assert bound["layers.0.ffn.experts.0.w1.weight"] == (gate,)
     assert bound["layers.0.ffn.experts.0.w3.weight"] == (gate,)
+
+
+@pytest.mark.parametrize(
+    "prefix", ["mtp", "model.mtp", "language_model.mtp", "language_model.model.mtp"]
+)
+def test_converted_tensor_binding_preserves_wrapped_mtp_experts(prefix: str) -> None:
+    names = [f"{prefix}.layers.0.mlp.experts.{index}.gate_proj.weight" for index in range(2)]
+    actual = {name: object() for name in names}
+    expected = dict.fromkeys(names, object())
+    assert converter._fused_expected_groups(expected) == {}
+    assert converter._bind_converted_tensors(expected, actual) == {
+        name: (actual[name],) for name in names
+    }
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(expected, {names[0]: actual[names[0]]})
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors(expected, {**actual, "unrelated.weight": object()})
 
 
 def test_converted_tensor_binding_proves_indexed_expert_stack() -> None:

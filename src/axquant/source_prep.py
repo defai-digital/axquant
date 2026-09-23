@@ -19,6 +19,7 @@ from typing import Any
 import structlog
 
 from axquant.errors import ArtifactError
+from axquant.module_paths import _is_mtp_path
 from axquant.serde import file_sha256
 
 log = structlog.get_logger()
@@ -179,12 +180,117 @@ def needs_conversion_prep(model_dir: str | Path) -> bool:
         config = _read_config(directory)
     except ArtifactError:
         return False
+    view = _quantized_qwen_mtp_view(directory, config)
     return (
-        needs_gemma4_unified_prep(config)
+        bool(view and view[1])
+        or needs_gemma4_unified_prep(config)
         or needs_ministral3_model_prefix_prep(directory, config)
         or needs_qwen_moe_unpacked_expert_prep(directory, config)
         or needs_deepseek_ocr2_prep(directory, config)
     )
+
+
+def _read_weight_index(source: Path) -> tuple[dict[str, Any], dict[str, str]]:
+    """Read a checkpoint weight index with the same fail-closed guards as other readers."""
+    index_path = source / "model.safetensors.index.json"
+    try:
+        index = json.loads(
+            index_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_json_object_without_duplicate_keys,
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"invalid {index_path}: {exc}") from exc
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
+    if not isinstance(weight_map, dict) or not weight_map:
+        raise ArtifactError("model.safetensors.index.json has no weight_map")
+    for tensor_name, shard_name in weight_map.items():
+        if not isinstance(tensor_name, str) or not isinstance(shard_name, str) or not shard_name:
+            raise ArtifactError("model.safetensors.index.json weight_map entries must be strings")
+    return index, weight_map
+
+
+def _quantized_qwen_mtp_view(
+    source: Path, config: dict[str, Any]
+) -> tuple[dict[str, str], set[str]] | None:
+    """Return the validated weight map and its isolated MTP shards when a text view is needed.
+
+    MLX-LM treats any MTP key as evidence that norms still need a +1 shift.
+    That heuristic is incorrect for an already-converted trunk with a grafted
+    MTP shard. Only isolate shards when every trunk convolution is MLX-layout;
+    HF-layout sources keep MTP keys visible so MLX-LM applies its norm shift.
+    """
+    if config.get("model_type") not in {"qwen3_5", "qwen3_5_moe"} or not (
+        config.get("quantization") or config.get("quantization_config")
+    ):
+        return None
+    if not (source / "model.safetensors.index.json").is_file():
+        return None
+    _, weight_map = _read_weight_index(source)
+    return weight_map, _mtp_shards_after_layout_gate(source, weight_map)
+
+
+def _mtp_shards_after_layout_gate(source: Path, weight_map: dict[str, str]) -> set[str]:
+    """Gate MTP shard isolation on the trunk convolutions being MLX-layout.
+
+    The layout gate runs before the isolated-shard requirement: HF-layout
+    quantized sources mix MTP tensors into trunk shards, and blocking them
+    would abort conversions that still need the MLX-LM norm shift.
+    """
+    shards = {shard for key, shard in weight_map.items() if _is_mtp_path(key)}
+    if not shards:
+        return set()
+    from safetensors import safe_open
+
+    convolutions = [
+        key for key in weight_map if not _is_mtp_path(key) and key.endswith("conv1d.weight")
+    ]
+    if not convolutions:
+        return set()
+    for key in convolutions:
+        shard_path = (source / weight_map[key]).resolve()
+        if not shard_path.is_relative_to(source):
+            raise ArtifactError("Qwen weight shard escapes source checkpoint")
+        if not shard_path.is_file():
+            raise ArtifactError(f"Qwen weight shard is missing: {shard_path.name}")
+        try:
+            with safe_open(shard_path, framework="numpy") as handle:
+                mlx_layout = handle.get_slice(key).get_shape()[-1] == 1
+        except ModuleNotFoundError as exc:
+            raise ArtifactError("safetensors is required for Qwen MTP preparation") from exc
+        except (OSError, KeyError, IndexError) as exc:
+            raise ArtifactError(
+                f"cannot inspect Qwen weight shard {shard_path.name}: {exc}"
+            ) from exc
+        if not mlx_layout:
+            return set()
+    if any(not _is_mtp_path(key) and shard in shards for key, shard in weight_map.items()):
+        raise ArtifactError("quantized Qwen MTP preparation requires isolated MTP shards")
+    return shards
+
+
+def _prepare_quantized_qwen_text(
+    source: Path, work_dir: str | Path, weight_map: dict[str, str], shards: set[str]
+) -> Path:
+    prepared = _prepared_directory(source, work_dir, "qwen-quantized-text")
+    _copy_non_weight_files(source, prepared)
+    index, _ = _read_weight_index(source)
+    index["weight_map"] = {key: shard for key, shard in weight_map.items() if shard not in shards}
+    if any(_is_mtp_path(key) for key in index["weight_map"]):
+        raise ArtifactError("quantized Qwen MTP preparation left MTP keys in the text view")
+    index.pop("metadata", None)
+    for shard in set(index["weight_map"].values()):
+        if not shard.endswith(".safetensors") or Path(shard).name != shard:
+            raise ArtifactError(f"Qwen weight shard is not a plain Safetensors file: {shard}")
+        original = (source / shard).resolve()
+        if not original.is_relative_to(source):
+            raise ArtifactError("Qwen weight shard escapes source checkpoint")
+        if not original.is_file():
+            raise ArtifactError(f"Qwen weight shard is missing: {shard}")
+        (prepared / shard).symlink_to(original)
+    (prepared / "model.safetensors.index.json").write_text(
+        json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return prepared
 
 
 def _prepared_directory(source: Path, work_dir: str | Path, name: str) -> Path:
@@ -652,6 +758,11 @@ def prepare_conversion_source(
     if not source.is_dir():
         return None
     config = _read_config(source)
+    view = _quantized_qwen_mtp_view(source, config)
+    if view is not None:
+        weight_map, mtp_shards = view
+        if mtp_shards:
+            return _prepare_quantized_qwen_text(source, work_dir, weight_map, mtp_shards)
     if needs_gemma4_unified_prep(config):
         return prepare_gemma4_unified_source(source, work_dir=work_dir)
     if needs_ministral3_model_prefix_prep(source, config):

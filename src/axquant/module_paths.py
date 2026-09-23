@@ -55,6 +55,13 @@ def _is_hc_learnable_scale_path(path: str) -> bool:
     )
 
 
+def _is_mtp_path(path: str) -> bool:
+    """Recognize preserved MTP heads through MLX language/model wrappers."""
+    while path.startswith(("model.", "language_model.")):
+        path = path.partition(".")[2]
+    return path.startswith("mtp.")
+
+
 def fused_expert_module(module_path: str) -> str | None:
     """Map a per-expert checkpoint module to its fused MLX-LM switch module.
 
@@ -72,7 +79,7 @@ def fused_expert_module(module_path: str) -> str | None:
     Returns ``None`` for non-expert paths.
     """
     # deepseek_v4.sanitize drops ``mtp.*``; keep module and tensor fusion rules aligned.
-    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+    if _is_mtp_path(module_path):
         return None
     match = _EXPERT_MEMBER.match(module_path)
     if match is not None:
@@ -103,7 +110,7 @@ def fused_expert_tensor_target(tensor_path: str) -> tuple[str, int] | None:
     if not tensor_path.endswith(".weight"):
         return None
     # deepseek_v4.sanitize drops ``mtp.*``; axquant re-emits them unfused.
-    if tensor_path.startswith("mtp.") or tensor_path.startswith("model.mtp."):
+    if _is_mtp_path(tensor_path):
         return None
     module_path = tensor_path.removesuffix(".weight")
     match = _EXPERT_MEMBER.match(module_path)
@@ -144,7 +151,7 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     the packed name as both missing and extra. DeepSeek unfused
     ``mtp.*.ffn.experts.<i>.w*`` never matches these packed forms.
     """
-    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+    if _is_mtp_path(module_path):
         return ()
     if module_path.endswith(".mlp.experts.gate_up_proj"):
         prefix = module_path.removesuffix(".experts.gate_up_proj")
@@ -231,7 +238,7 @@ def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
     missing and extra. DeepSeek unfused ``mtp.*.ffn.experts.<i>.w*`` is
     unchanged (it never matches this packed form).
     """
-    if module_path.startswith("mtp.") or module_path.startswith("model.mtp."):
+    if _is_mtp_path(module_path):
         return ()
     if module_path.endswith(".mlp.experts.gate_up_proj"):
         prefix = module_path.removesuffix(".experts.gate_up_proj")
@@ -472,7 +479,7 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
     # Flash-Next MTP packed experts stay packed. Do not OR-alias them onto a
     # fictional switch_mlp split; plans use the packed name with or without
     # ``.weight`` while mlx-vlm may emit the other form.
-    if packed_module.startswith(("mtp.", "model.mtp.")) and packed_module.endswith(
+    if _is_mtp_path(packed_module) and packed_module.endswith(
         (".mlp.experts.gate_up_proj", ".mlp.experts.down_proj")
     ):
         mtp_aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))

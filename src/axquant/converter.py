@@ -238,6 +238,16 @@ def _mlx_convert_with_optional_dequant(
         quant_predicate=quant_predicate,
     )
     utils.save(mlx_path, model_ref, model, tokenizer, config)
+    if config.get("model_type") in {"qwen3_5", "qwen3_5_moe"}:
+        # Requantization must not rewrite custom tokenizer rules or token IDs.
+        for filename in ("tokenizer.json", "tokenizer_config.json", "chat_template.jinja"):
+            source_asset = Path(model_ref) / filename
+            if source_asset.is_file():
+                destination = Path(mlx_path) / filename
+                expected_sha256 = file_sha256(source_asset)
+                shutil.copy2(source_asset, destination)
+                if file_sha256(destination) != expected_sha256:
+                    raise ArtifactError(f"{filename} checksum changed during tokenizer copy")
     _LOG.info("conversion_dequant_requant_completed", model=model_ref)
 
 

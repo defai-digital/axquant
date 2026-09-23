@@ -203,6 +203,24 @@ def test_deepseek_mtp_experts_are_not_fused_for_sidecar_binding() -> None:
     assert not any("switch_mlp" in name for name in mtp_groups[0])
 
 
+@pytest.mark.parametrize(
+    "prefix", ["language_model.mtp", "language_model.model.mtp", "model.language_model.mtp"]
+)
+def test_wrapped_mtp_experts_keep_identity_bindings(prefix: str) -> None:
+    from axquant.module_paths import packed_expert_runtime_modules
+
+    indexed = f"{prefix}.layers.0.mlp.experts.0.gate_proj"
+    assert fused_expert_module(indexed) is None
+    assert fused_expert_tensor_target(f"{indexed}.weight") is None
+    for suffix in ("gate_up_proj", "down_proj"):
+        packed = f"{prefix}.layers.0.mlp.experts.{suffix}"
+        assert packed_expert_runtime_modules(packed) == ()
+        groups = mlx_tensor_binding_groups(packed)
+        assert len(groups) == 1
+        assert packed in groups[0] and f"{packed}.weight" in groups[0]
+        assert not any("switch_mlp" in alias for alias in groups[0])
+
+
 def test_hc_learnable_scale_does_not_alias_to_quant_scales() -> None:
     """HC scale vectors must not invent ``.scales`` aliases (ambiguous binding risk)."""
 
