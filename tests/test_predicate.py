@@ -272,6 +272,56 @@ def test_dwq_refinement_executes_before_affine_packing(
     assert predicate.dwq_metadata[plan.assignments[0].module_path]["sample_count"] == 64
 
 
+def test_fused_group_refinement_metadata_fans_out_to_every_member(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    plan = _mlp_plan(method=QuantMethod.DWQ)
+    members = [
+        plan.assignments[0].model_copy(
+            update={
+                "tensor": f"model.layers.0.mlp.experts.{index}.gate_proj.weight",
+                "module_path": f"model.layers.0.mlp.experts.{index}.gate_proj.weight",
+                "role": TensorRole.EXPERT,
+            }
+        )
+        for index in (0, 1)
+    ]
+    fused_plan = plan.model_copy(update={"assignments": members})
+    monkeypatch.setattr(
+        predicate_module,
+        "_apply_dwq_clip",
+        lambda module: {"sample_count": 64, "clip_lower": -1.0, "clip_upper": 1.0},
+    )
+    predicate = build_quant_predicate(fused_plan)
+    predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
+    for member in members:
+        assert predicate.dwq_metadata[member.module_path]["sample_count"] == 64
+
+
+def test_packed_dwq_visits_preserve_both_clip_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+    plan = _mlp_plan(method=QuantMethod.DWQ)
+    packed = plan.assignments[0].model_copy(
+        update={
+            "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "module_path": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "role": TensorRole.EXPERT,
+        }
+    )
+    packed_plan = plan.model_copy(update={"assignments": [packed]})
+    gate_module, up_module = object(), object()
+    by_module = {
+        gate_module: {"sample_count": 64, "clip_lower": -1.0},
+        up_module: {"sample_count": 32, "clip_lower": -2.0},
+    }
+    monkeypatch.setattr(predicate_module, "_apply_dwq_clip", by_module.__getitem__)
+    predicate = build_quant_predicate(packed_plan)
+    predicate("model.layers.0.mlp.switch_mlp.gate_proj", gate_module)
+    predicate("model.layers.0.mlp.switch_mlp.up_proj", up_module)
+    metadata = predicate.dwq_metadata[packed.module_path]
+    assert metadata["clip_lower"] == [-1.0, -2.0]
+    assert metadata["sample_count"] == [64, 32]
+
+
 def test_awq_plan_is_admitted_by_predicate_allowlist() -> None:
     plan = _mlp_plan(method=QuantMethod.AWQ)
     # Preflight / coverage path must not reject solely because the method is AWQ.

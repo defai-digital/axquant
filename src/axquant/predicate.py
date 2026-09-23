@@ -67,6 +67,21 @@ def _without_weight_suffix(path: str) -> str:
     return path[: -len(".weight")] if path.endswith(".weight") else path
 
 
+def _merge_visit_metadata(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
+    """Zip the metadata of two runtime-module visits of one packed allocation.
+
+    A packed gate/up tensor clips two separate SwitchLinear modules; both
+    visits' stats belong in the execution evidence.
+    """
+    merged: dict[str, Any] = {}
+    for key in previous.keys() | current.keys():
+        if key in previous and key in current:
+            merged[key] = [previous[key], current[key]]
+        else:
+            merged[key] = previous.get(key, current.get(key))
+    return merged
+
+
 class PlanPredicate:
     def __init__(
         self,
@@ -142,8 +157,33 @@ class PlanPredicate:
         self.matched: set[str] = set()
         self._execute_refinement = execute_refinement
         self._calibration_activations = dict(calibration_activations or {})
-        self.dwq_metadata: dict[str, dict[str, float | int | tuple[int, ...]]] = {}
+        self.dwq_metadata: dict[str, dict[str, Any]] = {}
         self.method_metadata: dict[str, dict[str, Any]] = {}
+
+    def _record_refinement_metadata(
+        self,
+        store: dict[str, dict[str, Any]],
+        allocation: Allocation,
+        metadata: dict[str, Any],
+    ) -> None:
+        """Record refinement metadata for an allocation and its fused siblings.
+
+        The fused switch module quantizes every member expert in one visit, but
+        the execution manifest reads metadata back per allocation; without
+        fan-out, sibling members would report success with empty metadata. A
+        packed allocation clips several runtime modules across separate visits;
+        keep every visit's stats instead of letting the last write win.
+        """
+        paths = {allocation.module_path}
+        fused = fused_expert_module(_without_weight_suffix(allocation.module_path))
+        if fused is not None:
+            paths.update(member.module_path for member in self._fused_members.get(fused, ()))
+        for path in paths:
+            previous = store.get(path)
+            if previous is None:
+                store[path] = dict(metadata)
+            elif path == allocation.module_path:
+                store[path] = _merge_visit_metadata(previous, metadata)
 
     def lookup(self, path: str) -> Allocation | None:
         normalized = _without_weight_suffix(path)
@@ -230,7 +270,7 @@ class PlanPredicate:
         if allocation.bits == 16:
             return False
         if allocation.method.value == "dwq" and self._execute_refinement:
-            self.dwq_metadata[allocation.module_path] = _apply_dwq_clip(module)
+            self._record_refinement_metadata(self.dwq_metadata, allocation, _apply_dwq_clip(module))
         if allocation.method.value == "awq" and self._execute_refinement:
             group_size = allocation.group_size
             if group_size is None:
@@ -238,11 +278,15 @@ class PlanPredicate:
                     f"AWQ allocation is missing group_size: {allocation.module_path}"
                 )
             calibration = self._resolve_calibration(allocation)
-            self.method_metadata[allocation.module_path] = _apply_awq_scale(
-                module,
-                activations=calibration,
-                bits=allocation.bits,
-                group_size=group_size,
+            self._record_refinement_metadata(
+                self.method_metadata,
+                allocation,
+                _apply_awq_scale(
+                    module,
+                    activations=calibration,
+                    bits=allocation.bits,
+                    group_size=group_size,
+                ),
             )
         if allocation.method.value in ("gptq", "gptq-act") and self._execute_refinement:
             group_size = allocation.group_size
@@ -251,12 +295,16 @@ class PlanPredicate:
                     f"GPTQ allocation is missing group_size: {allocation.module_path}"
                 )
             calibration = self._resolve_calibration(allocation)
-            self.method_metadata[allocation.module_path] = _apply_gptq_refine(
-                module,
-                activations=calibration,
-                bits=allocation.bits,
-                group_size=group_size,
-                act_order=allocation.method.value == "gptq-act",
+            self._record_refinement_metadata(
+                self.method_metadata,
+                allocation,
+                _apply_gptq_refine(
+                    module,
+                    activations=calibration,
+                    bits=allocation.bits,
+                    group_size=group_size,
+                    act_order=allocation.method.value == "gptq-act",
+                ),
             )
         return allocation_quant_params(allocation, self._q_mode)
 
