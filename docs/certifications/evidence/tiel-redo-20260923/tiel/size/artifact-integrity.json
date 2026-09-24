@@ -1,0 +1,151 @@
+{
+  "all_match": true,
+  "files": [
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "README.md",
+      "sha256": "d05c22795a89402eeaf54fcc9b2bb183527de9b2b2d0b13ee1bc4eaf365fb4f7",
+      "size_bytes": 4842
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "ax_expert_stream.json",
+      "sha256": "fa68aec107f88badda526f8ba824ff388147f59c457cbafb508228bd7c21bab7",
+      "size_bytes": 65823
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "axquant_mtp_sidecar_manifest.json",
+      "sha256": "2a4e695690f110943ad8aeba8867c044985ba530e22771c8de2a8661437e79c8",
+      "size_bytes": 906
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "axquant_plan.json",
+      "sha256": "b52a507cb5135f77bb9b5634b9b7b4fd2cd146c8d8ec4e01d6c9948b0aa4740f",
+      "size_bytes": 2562305
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "axquant_quantizer_execution.json",
+      "sha256": "d3a2dc3a7c99c586596015609ef9e392a15c238dd4a936d4cf0289de00b79734",
+      "size_bytes": 135746
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "axquant_runtime.json",
+      "sha256": "6b3f6dd7cef13292ed99ecf1c7324d785a19574155782cb534fef2c927775e2d",
+      "size_bytes": 1764
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "axquant_vision_sidecar_manifest.json",
+      "sha256": "1505fb6df8e7f73c2082c698deebc568607ef5cd4cd2e5030872ca77cfce8cab",
+      "size_bytes": 922
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "chat_template.jinja",
+      "sha256": "cdff39fb26b60dc90faa292e726655c6b21f62db497846e02e4c4bbab942a84a",
+      "size_bytes": 30411
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "config.json",
+      "sha256": "0d647a1c2b2083419243bb7183baf35ed097fa129f41e7bd3b60437f3b2c8fb4",
+      "size_bytes": 138797
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "generation_config.json",
+      "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e",
+      "size_bytes": 202
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "model-00001-of-00004.safetensors",
+      "sha256": "6d282c52068ab5ec3a7fa50da50e506cfabaf674c66af609802bcc8319e899db",
+      "size_bytes": 5317366626
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "model-00002-of-00004.safetensors",
+      "sha256": "0aa5a8f22e9d9e7f70fa6ecf27ade198740d7de8288a6d79e482daae991c56f3",
+      "size_bytes": 5365849631
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "model-00003-of-00004.safetensors",
+      "sha256": "17ffbb80b29bc0fa4ffe953207effe4c28281e51d57097fe9c0f471df174bb5b",
+      "size_bytes": 5365849651
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "model-00004-of-00004.safetensors",
+      "sha256": "79794b09cb4961172ad6093f1f27b8e971ca200b2240fa46f30bca1e71201c52",
+      "size_bytes": 3394566751
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "model.safetensors.index.json",
+      "sha256": "be407f004e2ae4542e569bb7dc7f093752d0f2b6cd68a31e572ed3a99f34b949",
+      "size_bytes": 140457
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "mtp.safetensors",
+      "sha256": "0ced87b0462269a98bd393a808e1c9c02ace7054801c0e2745dd9dd9a4077915",
+      "size_bytes": 1689387928
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "mtplx_runtime.json",
+      "sha256": "119b930ed4b470a08008aa2a51b4a83162907a85b8455f559cffa03e33236ed6",
+      "size_bytes": 108
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "tokenizer.json",
+      "sha256": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+      "size_bytes": 12807982
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "tokenizer_config.json",
+      "sha256": "8c1db672bc4454589079d02146be2bf7276fd84969966870e5a6b93cfc02df0b",
+      "size_bytes": 38229
+    },
+    {
+      "manifest_sha256_match": true,
+      "manifest_size_match": true,
+      "path": "vision.safetensors",
+      "sha256": "b6fc71a34d6eeb55216a00fc8aee2bf238a4fce7d4177c6dcc1dbe84e18ae78e",
+      "size_bytes": 893179624
+    }
+  ],
+  "manifest_sha256": "add9add76cf8191dcecb11c42ddc9a7d922e5b4e69e526b27b597b444f3f3481",
+  "measured_main_bpw": 4.634222665908937,
+  "measured_total_bpw": 4.901270323309503,
+  "pack_dir": "/Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+  "plan_sha256": "b52a507cb5135f77bb9b5634b9b7b4fd2cd146c8d8ec4e01d6c9948b0aa4740f",
+  "weight_file_size_bytes": 22026200211
+}

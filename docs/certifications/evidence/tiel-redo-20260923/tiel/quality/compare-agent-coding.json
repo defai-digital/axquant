@@ -1,0 +1,166 @@
+{
+  "aggregate": {
+    "candidate": 0.8666666666666667,
+    "delta": 0.0,
+    "reference": 0.8666666666666667,
+    "retention": 1.0
+  },
+  "candidate_errors": 0,
+  "candidate_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+    "model_id": "AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "bc73f6f8e98819807ad88cd55c2b292b966b02e0"
+  },
+  "categories": {
+    "coding": {
+      "candidate": 0.8666666666666667,
+      "delta": 0.0,
+      "reference": 0.8666666666666667,
+      "retention": 1.0
+    }
+  },
+  "created_at": "2026-09-24T01:25:23.914954Z",
+  "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+  "json_validity": null,
+  "perplexity_ratio": 1.35492209925284,
+  "random_seed": 20260728,
+  "reference_errors": 0,
+  "reference_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/views/source-prep/qwen-quantized-text",
+    "model_id": "peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "revision": "88625754ac91b542280a5602239ce6b2166366f0"
+  },
+  "schema_version": "axquant.quality-comparison.v1",
+  "syntax_validity": {
+    "candidate": 0.7333333333333333,
+    "delta": 0.0,
+    "reference": 0.7333333333333333,
+    "retention": 1.0
+  },
+  "tasks": [
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-001"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-002"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-003"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-004"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-005"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-006"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-007"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-008"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-009"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-010"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-011"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-012"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-013"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-014"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-015"
+    }
+  ]
+}

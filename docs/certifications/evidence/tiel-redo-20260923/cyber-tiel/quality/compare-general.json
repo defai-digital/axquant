@@ -1,0 +1,161 @@
+{
+  "aggregate": {
+    "candidate": 1.0,
+    "delta": 0.0,
+    "reference": 1.0,
+    "retention": 1.0
+  },
+  "candidate_errors": 0,
+  "candidate_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+    "model_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "7f3c9048d2b9dc78af90b0f9621417c7591ac89a"
+  },
+  "categories": {
+    "instruction": {
+      "candidate": 1.0,
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0
+    }
+  },
+  "created_at": "2026-09-24T01:27:52.751310Z",
+  "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+  "json_validity": null,
+  "perplexity_ratio": 1.7526187730254907,
+  "random_seed": 20260728,
+  "reference_errors": 0,
+  "reference_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/views/source-prep/qwen-quantized-text",
+    "model_id": "peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "revision": "a443d4e30fd5228942cb7695f916f4b14a88fae9"
+  },
+  "schema_version": "axquant.quality-comparison.v1",
+  "syntax_validity": null,
+  "tasks": [
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-001"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-002"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-003"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-004"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-005"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-006"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-007"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-008"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-009"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-010"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-011"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-012"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-013"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-014"
+    },
+    {
+      "candidate": 1.0,
+      "category": "instruction",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "instruction-015"
+    }
+  ]
+}

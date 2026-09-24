@@ -1,0 +1,166 @@
+{
+  "aggregate": {
+    "candidate": 0.8333333333333334,
+    "delta": -0.033333333333333326,
+    "reference": 0.8666666666666667,
+    "retention": 0.9615384615384616
+  },
+  "candidate_errors": 0,
+  "candidate_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+    "model_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "7f3c9048d2b9dc78af90b0f9621417c7591ac89a"
+  },
+  "categories": {
+    "coding": {
+      "candidate": 0.8333333333333334,
+      "delta": -0.033333333333333326,
+      "reference": 0.8666666666666667,
+      "retention": 0.9615384615384616
+    }
+  },
+  "created_at": "2026-09-24T01:27:31.061004Z",
+  "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+  "json_validity": null,
+  "perplexity_ratio": 1.4833805990012248,
+  "random_seed": 20260728,
+  "reference_errors": 0,
+  "reference_model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/views/source-prep/qwen-quantized-text",
+    "model_id": "peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "revision": "a443d4e30fd5228942cb7695f916f4b14a88fae9"
+  },
+  "schema_version": "axquant.quality-comparison.v1",
+  "syntax_validity": {
+    "candidate": 0.6666666666666666,
+    "delta": -0.06666666666666665,
+    "reference": 0.7333333333333333,
+    "retention": 0.9090909090909091
+  },
+  "tasks": [
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-001"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-002"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-003"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-004"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": -0.5,
+      "reference": 1.0,
+      "retention": 0.5,
+      "task_id": "coding-005"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-006"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-007"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-008"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-009"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-010"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-011"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-012"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-013"
+    },
+    {
+      "candidate": 1.0,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 1.0,
+      "retention": 1.0,
+      "task_id": "coding-014"
+    },
+    {
+      "candidate": 0.5,
+      "category": "coding",
+      "delta": 0.0,
+      "reference": 0.5,
+      "retention": 1.0,
+      "task_id": "coding-015"
+    }
+  ]
+}

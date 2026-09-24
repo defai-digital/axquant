@@ -1,0 +1,155 @@
+{
+  "artifact": {
+    "architecture": "Qwen3_5MoeForConditionalGeneration",
+    "candidate_manifest_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433",
+    "hub_commit": "90b785d81d68d022945289a2bb16febe500fd314",
+    "hub_repo_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "product_class": "MXFP4",
+    "source_model_id": "peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "source_revision": "a443d4e30fd5228942cb7695f916f4b14a88fae9"
+  },
+  "certification_tier": "checkpoint",
+  "evaluated_at": "2026-09-24T01:51:39.741056+00:00",
+  "evidence_hashes": {
+    "evidence/tiel-redo-20260923/classfix-publication.json": "e812fc3addbdfdf713cc4617182b5f1af53673aecf20380536f5560958853b9a",
+    "evidence/tiel-redo-20260923/classfix-report.json": "df698a61cfc25fbee9c0f5c50b4d199355c09e9f54e333b9d1a90a8586108ff0",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/cand-agent-coding.json": "7d72989f3eb67de2a0c4c62548671e0be1fdad75284c9df89852e9a28b8bb4bb",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/cand-general.json": "0466674cc6eddd76b8744d2961c52bce865257b2795dcf5bcfa651b54d33caef",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/compare-agent-coding.json": "ddcc0491aaecf0e67b8e0108ee9bce019cb4e45d988754c487ab18c194d159de",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/compare-general.json": "633ce555b9083c9444ce23f439018caa20ea502cd9fc47f5349ab104efbac9f4",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/ref-agent-coding.json": "13c4399b2e945f1b3e220fd2b7763eee790158b34365ecb477d739f67616423a",
+    "evidence/tiel-redo-20260923/cyber-tiel/quality/ref-general.json": "4b555678deecaa1b787ce8fae8073355002e718f36ba706485bcf18c17a0bfd7",
+    "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-bench.json": "750091c94fdde0259c89001d23309a888725c910debf09ef29fdfe8448fd4e24",
+    "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-doctor.json": "624c1d9f632e7e374d3605361759318db1e50e58fc6d327ca93c4b3981a65acb",
+    "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-server-response.json": "3f4d111a61b79ac378e00238552d38e0af76e68e98c56c09e27901dc3a958443",
+    "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-server-summary.json": "a7a8b4f39389fc1199429f249395080178db8fa4b4efa227b1d4b17242896ec7",
+    "evidence/tiel-redo-20260923/cyber-tiel/runtime/mlx-lm-text-smoke.json": "33a676762d178817c457a5c33d5893210897e1043ee91dc329e97274c7569d5b",
+    "evidence/tiel-redo-20260923/cyber-tiel/size/artifact-integrity.json": "16dc1be1fc4853fd86e48d3aa3aff5fd5eed8ceddd13c0606e2d2f2e33a376ef",
+    "evidence/tiel-redo-20260923/cyber-tiel/size/ratios.json": "f6dfc263f784bae328e80bc118d173012c5e9e346f874514f002f85610b369a8",
+    "evidence/tiel-redo-20260923/cyber-tiel/views/views.json": "2c9f82e7285e944a1d140602310d3772715e841f72086078f849bfb625fad901"
+  },
+  "evidence_scope": "Checkpoint Tier 1 on df-macstudio-m2 for the 2026-09-23 re-conversion edition: dual-suite quality vs the pinned quantized source, size/integrity, and runtime smoke. Not a speed claim; MTP acceleration, vision quality, and contexts beyond the suite scope are not certified.",
+  "host_id": "df-macstudio-m2",
+  "modalities": {
+    "audio": {
+      "reason": "audio not supported on this pack",
+      "status": "not-applicable",
+      "supported": false
+    },
+    "policy": "capability-gated-v1",
+    "vision": {
+      "reason": "vision sidecar present and byte-preserved (333 tensors); no image-generation or image-quality test; VLM quality not claimed",
+      "status": "present-not-certified",
+      "supported": true
+    }
+  },
+  "mtp_acceleration": {
+    "ax_engine_version": "7.5.4",
+    "engine_binary_sha256": "7b6f69054b64518a8eb43b84b9f15a81bc3613142d53e25759c12cfd564fb60c",
+    "prompt_median_speedup_required": 1.1,
+    "reason": "Native qwen-linear MTP drafting/verification executed with no direct fallback on this host (AX Engine 7.5.4). No paired performance workloads or MTP-S safety qualification were run; no speed claim.",
+    "status": "not-certified",
+    "token_weighted_decode_speedup_required": 1.2
+  },
+  "notes": [
+    "Checkpoint Tier 1 on host id df-macstudio-m2 for the redo edition main@90b785d8 (2026-09-23 metadata correction revision; weights byte-identical to the first redo revision).",
+    "Both suites evaluate the pack against the pinned already-quantized oQ6e source through the MLX-LM text route (source loaded via the layout-gated MTP-isolated prepared view); there is no BF16 reference for this repack.",
+    "Lossy requantization of an oQ6e source is disclosed on the Hub page; quality retention is measured against that source, not against a BF16 baseline.",
+    "MTP assets are packaged and executed natively; no Tier 2 acceleration claim.",
+    "Vision weights are BF16-protected and hash-verified; no VLM quality claim.",
+    "The published artifact keeps certificate product class, manifest target_class, plan target_class, and repository leaf in MXFP4 agreement (Spec 1.0 section 2).",
+    "Supersedes nothing: the m5-runtime-smoke@7.4.0-dev record for the previous commit remains published as historical runtime-smoke evidence."
+  ],
+  "plan": {
+    "adapter_id": "qwen35-moe-v1",
+    "declared_target_class": "8bit",
+    "evidence_kind": "architecture_prior",
+    "measured_main_bpw": 4.634222665908937,
+    "measured_total_bpw": 4.901270323309503,
+    "notes": "The 2026-09-19 campaign plan (2,795 assignments; 430 MXFP4 + 81 affine) was reused unchanged. Its allocator-inherited target_class 8bit was corrected to the actual product class MXFP4 in a follow-up metadata-only revision (weights byte-identical). Architecture-prior plan evidence, measured quality below.",
+    "pack_format": "MXFP4/group32 with protected affine and BF16 tensors",
+    "plan_source": "existing-pack"
+  },
+  "public_index": {
+    "display_name": "Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP",
+    "edition_label": "main@90b785d8",
+    "listed": true,
+    "sort_order": 129
+  },
+  "quality": {
+    "agent-coding": {
+      "candidate_score": 0.8333333333333334,
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "pass": false,
+      "perplexity_ratio": 1.4833805990012248,
+      "reference_kind": "quantized-source-same-pin",
+      "reference_score": 0.8666666666666667,
+      "retention": 0.9615384615384616,
+      "samples": 15
+    },
+    "general": {
+      "candidate_score": 1.0,
+      "dataset_sha256": "f02e68877bba8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "pass": true,
+      "perplexity_ratio": 1.7526187730254907,
+      "reference_kind": "quantized-source-same-pin",
+      "reference_score": 1.0,
+      "retention": 1.0,
+      "samples": 15
+    },
+    "reason": "agent-coding retention 0.9615 is below the 0.98 checkpoint threshold (15-sample suite, one task class difference against the quantized source); recorded as measured evidence, not certified."
+  },
+  "runtime": {
+    "ax_engine": {
+      "bench_evidence": "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-bench.json",
+      "doctor_evidence": "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-doctor.json",
+      "policy": "required",
+      "scope": "native MTP execution smoke only",
+      "server_evidence": "evidence/tiel-redo-20260923/cyber-tiel/runtime/ax-engine-server-response.json",
+      "status": "pass",
+      "version": "7.5.4"
+    },
+    "mlx_lm": {
+      "evidence": "evidence/tiel-redo-20260923/cyber-tiel/runtime/mlx-lm-text-smoke.json",
+      "notes": "greedy text smoke on the pack main weight index returned correct arithmetic (2+2=4); the pack index does not reference the MTP sidecar, so MLX-LM text loads are not norm-shifted",
+      "status": "pass",
+      "version": "0.31.3"
+    }
+  },
+  "runtime_default": {
+    "notes": "Publisher enabled_by_default metadata is not AX Engine default promotion.",
+    "promoted": false,
+    "request_policy": "required"
+  },
+  "schema_version": "axquant.public-checkpoint-certification.v1",
+  "size": {
+    "candidate_measured_bpw": 4.901270323309503,
+    "candidate_weight_bytes": 22026200211,
+    "compare_mode": "total",
+    "max_size_ratio_applied": 1.2,
+    "notes": "Repack of an already-quantized oQ6e source; no matched uniform or BF16 size reference exists for this product class.",
+    "pass": true,
+    "reference_kind": "none",
+    "size_ratio_vs_uniform": null
+  },
+  "status": "not_certified",
+  "thresholds": {
+    "minimum_quality_retention": 0.98,
+    "notes": "Dual 15-sample suite vs the pinned quantized source through the MLX-LM text route; no BF16 reference exists for this repack."
+  },
+  "toolchain": {
+    "ax_engine": "7.5.4",
+    "axquant": "1.9.0",
+    "axquant_commit": "723eaeb1fb5b24c4243fd243c1959555def70542",
+    "binary_sha256": {
+      "ax-engine": "1684e2dfa88048d1b1a9f255e56abc72cc20efffa92b9449117952e40f4dfc04",
+      "ax-engine-bench": "eeb404133ea7cec4fc1da7b0dee7aebcd4d8006b3b2f0eda96c2112908cacac9",
+      "ax-engine-server": "7b6f69054b64518a8eb43b84b9f15a81bc3613142d53e25759c12cfd564fb60c"
+    },
+    "host": "df-macstudio-m2",
+    "host_hardware": "Apple M2 Ultra, 192 GiB",
+    "mlx": "0.32.1",
+    "mlx_lm": "0.31.3",
+    "os": "macOS 27.0"
+  }
+}

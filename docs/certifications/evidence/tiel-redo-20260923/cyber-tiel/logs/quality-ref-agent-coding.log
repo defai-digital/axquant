@@ -1,0 +1,17 @@
+2026-09-24T01:26:51.058147Z [info     ] quality_task_completed         category=coding error=None score=0.5 task=1 task_id=coding-001 tasks=15
+2026-09-24T01:26:52.302354Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=2 task_id=coding-002 tasks=15
+2026-09-24T01:26:53.092516Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=3 task_id=coding-003 tasks=15
+2026-09-24T01:26:54.353983Z [info     ] quality_task_completed         category=coding error=None score=0.5 task=4 task_id=coding-004 tasks=15
+2026-09-24T01:26:55.693736Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=5 task_id=coding-005 tasks=15
+2026-09-24T01:26:56.950629Z [info     ] quality_task_completed         category=coding error=None score=0.5 task=6 task_id=coding-006 tasks=15
+2026-09-24T01:26:57.685770Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=7 task_id=coding-007 tasks=15
+2026-09-24T01:26:58.527065Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=8 task_id=coding-008 tasks=15
+2026-09-24T01:26:59.314760Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=9 task_id=coding-009 tasks=15
+2026-09-24T01:27:00.565347Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=10 task_id=coding-010 tasks=15
+2026-09-24T01:27:01.783683Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=11 task_id=coding-011 tasks=15
+2026-09-24T01:27:02.650206Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=12 task_id=coding-012 tasks=15
+2026-09-24T01:27:03.665850Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=13 task_id=coding-013 tasks=15
+2026-09-24T01:27:04.501500Z [info     ] quality_task_completed         category=coding error=None score=1.0 task=14 task_id=coding-014 tasks=15
+2026-09-24T01:27:05.744981Z [info     ] quality_task_completed         category=coding error=None score=0.5 task=15 task_id=coding-015 tasks=15
+2026-09-24T01:27:05.745105Z [info     ] quality_evaluation_completed   model=peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP perplexity=3.9670364257138533 samples=15 tokens=414
+2026-09-24T01:27:05.768059Z [info     ] quality_evaluation_written     output=/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/ref-agent-coding.json perplexity=3.9670364257138533 samples=15

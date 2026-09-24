@@ -1,0 +1,14 @@
+{
+  "agent-coding": {
+    "candidate": 0.8666666666666667,
+    "delta": 0.0,
+    "reference": 0.8666666666666667,
+    "retention": 1.0
+  },
+  "general": {
+    "candidate": 1.0,
+    "delta": 0.0,
+    "reference": 1.0,
+    "retention": 1.0
+  }
+}

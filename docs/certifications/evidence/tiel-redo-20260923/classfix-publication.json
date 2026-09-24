@@ -1,0 +1,52 @@
+{
+  "cyber-tiel": {
+    "files": [
+      {
+        "file": "README.md",
+        "local_sha256": "bfd4e7783bf4846e246d6a181a7c72e771da7b452aec98afe45b3c2703ff2752",
+        "match": true,
+        "remote_sha256": "bfd4e7783bf4846e246d6a181a7c72e771da7b452aec98afe45b3c2703ff2752"
+      },
+      {
+        "file": "axquant_manifest.json",
+        "local_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433",
+        "match": true,
+        "remote_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433"
+      },
+      {
+        "file": "axquant_plan.json",
+        "local_sha256": "9c27bcbeed31d324b4e14c79892462a43e88d311eab213c9825932a2326c4bed",
+        "match": true,
+        "remote_sha256": "9c27bcbeed31d324b4e14c79892462a43e88d311eab213c9825932a2326c4bed"
+      }
+    ],
+    "note": "Non-LFS files verified by unauthenticated download at the revision (LFS sha256 unavailable via siblings metadata).",
+    "repo_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "90b785d81d68d022945289a2bb16febe500fd314"
+  },
+  "tiel": {
+    "files": [
+      {
+        "file": "README.md",
+        "local_sha256": "d05c22795a89402eeaf54fcc9b2bb183527de9b2b2d0b13ee1bc4eaf365fb4f7",
+        "match": true,
+        "remote_sha256": "d05c22795a89402eeaf54fcc9b2bb183527de9b2b2d0b13ee1bc4eaf365fb4f7"
+      },
+      {
+        "file": "axquant_manifest.json",
+        "local_sha256": "add9add76cf8191dcecb11c42ddc9a7d922e5b4e69e526b27b597b444f3f3481",
+        "match": true,
+        "remote_sha256": "add9add76cf8191dcecb11c42ddc9a7d922e5b4e69e526b27b597b444f3f3481"
+      },
+      {
+        "file": "axquant_plan.json",
+        "local_sha256": "b52a507cb5135f77bb9b5634b9b7b4fd2cd146c8d8ec4e01d6c9948b0aa4740f",
+        "match": true,
+        "remote_sha256": "b52a507cb5135f77bb9b5634b9b7b4fd2cd146c8d8ec4e01d6c9948b0aa4740f"
+      }
+    ],
+    "note": "Non-LFS files verified by unauthenticated download at the revision (LFS sha256 unavailable via siblings metadata).",
+    "repo_id": "AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "607a7ba019a0b7478f49505d62d69fa1f4164ff5"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "cyber-tiel": {
+    "manifest_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433",
+    "plan_file_sha256": "9c27bcbeed31d324b4e14c79892462a43e88d311eab213c9825932a2326c4bed",
+    "plan_stable_sha256": "766a140a25eb76604e6939a4174ca5ebfb56ac9fde8e315b4ab9e6fed984e136",
+    "readme_sha256": "bfd4e7783bf4846e246d6a181a7c72e771da7b452aec98afe45b3c2703ff2752",
+    "repo_leaf": "AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "target_class": "MXFP4"
+  },
+  "tiel": {
+    "manifest_sha256": "add9add76cf8191dcecb11c42ddc9a7d922e5b4e69e526b27b597b444f3f3481",
+    "plan_file_sha256": "b52a507cb5135f77bb9b5634b9b7b4fd2cd146c8d8ec4e01d6c9948b0aa4740f",
+    "plan_stable_sha256": "4a6fcd73caf99abec2a901ac578994bb4d7925c395b2f310989628a9ea2ec8e1",
+    "readme_sha256": "d05c22795a89402eeaf54fcc9b2bb183527de9b2b2d0b13ee1bc4eaf365fb4f7",
+    "repo_leaf": "AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "target_class": "MXFP4"
+  }
+}

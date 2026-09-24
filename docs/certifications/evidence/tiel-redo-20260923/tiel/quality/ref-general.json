@@ -1,0 +1,192 @@
+{
+  "created_at": "2026-09-24T01:25:45.303529Z",
+  "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+  "evaluated_tokens": 270,
+  "generation": {
+    "chat_template_sha256": "cdff39fb26b60dc90faa292e726655c6b21f62db497846e02e4c4bbab942a84a",
+    "max_generation_tokens": 64,
+    "max_sequence_length": 2048,
+    "prompt_format": "chat-template",
+    "thinking_enabled": false
+  },
+  "metrics": {
+    "json_valid_rate": null,
+    "perplexity": 13.149567770089947,
+    "syntax_valid_rate": null,
+    "task_scores": {
+      "instruction": 1.0
+    }
+  },
+  "model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/views/source-prep/qwen-quantized-text",
+    "model_id": "peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+    "revision": "88625754ac91b542280a5602239ce6b2166366f0"
+  },
+  "random_seed": 20260728,
+  "samples": 15,
+  "schema_version": "axquant.quality-evaluation.v2",
+  "software_versions": {
+    "ax_engine": "7.5.4",
+    "axquant": "1.9.0",
+    "mlx": "0.32.1",
+    "mlx_lm": "0.31.3",
+    "pydantic": "2.13.4",
+    "python": "3.12.13",
+    "safetensors": "0.8.0"
+  },
+  "task_results": [
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "A quick brown fox leapt over a lazy dog, which remained unresponsive, before fleeing into the forest.",
+      "score": 1.0,
+      "task_id": "instruction-001"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "Bonjour",
+      "score": 1.0,
+      "task_id": "instruction-002"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "regex:0": 1.0
+      },
+      "error": null,
+      "output": "- Red\n- Green\n- Blue",
+      "score": 1.0,
+      "task_id": "instruction-003"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "THE SUN RISES IN THE EAST",
+      "score": 1.0,
+      "task_id": "instruction-004"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "apple,banana,cherry",
+      "score": 1.0,
+      "task_id": "instruction-005"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "Thanks or thank you.",
+      "score": 1.0,
+      "task_id": "instruction-006"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "exact:0": 1.0
+      },
+      "error": null,
+      "output": "Cold",
+      "score": 1.0,
+      "task_id": "instruction-007"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "exact:0": 1.0
+      },
+      "error": null,
+      "output": "hello hello hello",
+      "score": 1.0,
+      "task_id": "instruction-008"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "apple, banana, cherry",
+      "score": 1.0,
+      "task_id": "instruction-009"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0,
+        "contains:1": 1.0
+      },
+      "error": null,
+      "output": "The mountain river tumbled over mossy rocks, its cold water carving a path through the valley below.",
+      "score": 1.0,
+      "task_id": "instruction-010"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "exact:0": 1.0
+      },
+      "error": null,
+      "output": "Five",
+      "score": 1.0,
+      "task_id": "instruction-011"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "exact:0": 1.0
+      },
+      "error": null,
+      "output": "[important]",
+      "score": 1.0,
+      "task_id": "instruction-012"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "A, B, C",
+      "score": 1.0,
+      "task_id": "instruction-013"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "contains:0": 1.0
+      },
+      "error": null,
+      "output": "three two one",
+      "score": 1.0,
+      "task_id": "instruction-014"
+    },
+    {
+      "category": "instruction",
+      "check_scores": {
+        "token-f1:0": 1.0
+      },
+      "error": null,
+      "output": "Copy this line verbatim.",
+      "score": 1.0,
+      "task_id": "instruction-015"
+    }
+  ]
+}

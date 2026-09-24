@@ -1,0 +1,9 @@
+{
+  "candidate_bytes": 22026200211,
+  "compare_mode": "total",
+  "max_size_ratio": 1.2,
+  "notes": "Repack of an already-quantized oQ6e source; no matched uniform or BF16 size reference exists for this product class.",
+  "pass": true,
+  "reference_bytes": null,
+  "size_ratio_vs_uniform": null
+}

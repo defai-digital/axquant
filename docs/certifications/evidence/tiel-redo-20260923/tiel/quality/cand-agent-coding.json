@@ -1,0 +1,206 @@
+{
+  "created_at": "2026-09-24T01:25:23.292861Z",
+  "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+  "evaluated_tokens": 414,
+  "generation": {
+    "chat_template_sha256": "cdff39fb26b60dc90faa292e726655c6b21f62db497846e02e4c4bbab942a84a",
+    "max_generation_tokens": 64,
+    "max_sequence_length": 2048,
+    "prompt_format": "chat-template",
+    "thinking_enabled": false
+  },
+  "metrics": {
+    "json_valid_rate": null,
+    "perplexity": 5.362057836308758,
+    "syntax_valid_rate": 0.7333333333333333,
+    "task_scores": {
+      "coding": 0.8666666666666667
+    }
+  },
+  "model": {
+    "architecture": null,
+    "format": "mlx",
+    "local_path": "/Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+    "model_id": "AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+    "revision": "bc73f6f8e98819807ad88cd55c2b292b966b02e0"
+  },
+  "random_seed": 20260728,
+  "samples": 15,
+  "schema_version": "axquant.quality-evaluation.v2",
+  "software_versions": {
+    "ax_engine": "7.5.4",
+    "axquant": "1.9.0",
+    "mlx": "0.32.1",
+    "mlx_lm": "0.31.3",
+    "pydantic": "2.13.4",
+    "python": "3.12.13",
+    "safetensors": "0.8.0"
+  },
+  "task_results": [
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 0.0
+      },
+      "error": null,
+      "output": "```python\ndef fizzbuzz(n):\n    if n % 3 == 0 and n % 5 == 0:\n        return 'fizzbuzz'\n    if n % 3 == 0:\n        return 'fizz'\n    if n % 5 == 0:",
+      "score": 0.5,
+      "task_id": "coding-001"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef fibonacci(n):\n    if n < 0:\n        raise ValueError(\"n must be non-negative\")\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n```\n\nThis",
+      "score": 1.0,
+      "task_id": "coding-002"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef is_palindrome(s):\n    s = s.lower()\n    return s == s[::-1]\n```",
+      "score": 1.0,
+      "task_id": "coding-003"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 0.0
+      },
+      "error": null,
+      "output": "```python\ndef binary_search(sorted_list, target):\n    low, high = 0, len(sorted_list) - 1\n    while low <= high:\n        mid = (low + high) // 2\n        if sorted_list[mid] == target:\n            return mid\n        elif sorted",
+      "score": 0.5,
+      "task_id": "coding-004"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef find_max(numbers):\n    best = numbers[0]\n    for value in numbers[1:]:\n        if value > best:\n            best = value\n    return best\n```\n\nThe bug: initializing `best = 0` fails for lists where all values are negative (",
+      "score": 1.0,
+      "task_id": "coding-005"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 0.0
+      },
+      "error": null,
+      "output": "```python\nclass BankAccount:\n    def __init__(self, balance=0.0):\n        self.balance = balance\n\n    def deposit(self, amount):\n        if amount <= 0:\n            raise ValueError(\"Deposit amount must be positive\")\n        self.balance += amount\n\n    def withdraw",
+      "score": 0.5,
+      "task_id": "coding-006"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef reverse_string(s: str) -> str:\n    return s[::-1]\n```\n\nThis uses Python's slice notation with a step of `-1` to reverse the string. It handles empty strings, `None` will raise a `TypeError` (not a string), and works with Unicode",
+      "score": 1.0,
+      "task_id": "coding-007"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef count_vowels(s):\n    return sum(1 for char in s.lower() if char in 'aeiou')\n```",
+      "score": 1.0,
+      "task_id": "coding-008"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef flatten(list_of_lists):\n    return [item for sublist in list_of_lists for item in sublist]\n```",
+      "score": 1.0,
+      "task_id": "coding-009"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef remove_duplicates(lst):\n    seen = set()\n    result = []\n    for item in lst:\n        if item not in seen:\n            seen.add(item)\n            result.append(item)\n    return result\n```\n\nThis works for lists of unhashable items (like",
+      "score": 1.0,
+      "task_id": "coding-010"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n```\n\nThis assumes `n` is a non-negative integer. It recurses down to the base case (`0` returns `1`), then multiplies",
+      "score": 1.0,
+      "task_id": "coding-011"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef celsius_to_fahrenheit(celsius):\n    return celsius * 9 / 5 + 32\n```",
+      "score": 1.0,
+      "task_id": "coding-012"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\nclass Rectangle:\n    def __init__(self, width, height):\n        self.width = width\n        self.height = height\n\n    def area(self):\n        return self.width * self.height\n```",
+      "score": 1.0,
+      "task_id": "coding-013"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 1.0
+      },
+      "error": null,
+      "output": "```python\ndef gcd(a, b):\n    while b:\n        a, b = b, a % b\n    return a\n```\n\nThis uses the Euclidean algorithm: repeatedly replace `(a, b)` with `(b, a % b)` until `b` is 0; the remaining",
+      "score": 1.0,
+      "task_id": "coding-014"
+    },
+    {
+      "category": "coding",
+      "check_scores": {
+        "contains:1": 1.0,
+        "python-syntax:0": 0.0
+      },
+      "error": null,
+      "output": "```python\ndef is_prime(n):\n    if n <= 1:\n        return False\n    if n <= 3:\n        return True\n    if n % 2 == 0 or n % 3 == 0:\n        return False\n    i = 5\n    while",
+      "score": 0.5,
+      "task_id": "coding-015"
+    }
+  ]
+}

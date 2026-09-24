@@ -1,0 +1,39 @@
+21:24:24 === phase quality (tiel) ===
+21:24:24 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/views/source-prep/qwen-quantized-text --model-id peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP --revision 88625754ac91b542280a5602239ce6b2166366f0 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-agent-coding/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/ref-agent-coding.json
+21:24:57 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923 --model-id AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP --revision bc73f6f8e98819807ad88cd55c2b292b966b02e0 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-agent-coding/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/cand-agent-coding.json
+21:25:23 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant compare-quality --reference /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/ref-agent-coding.json --candidate /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/cand-agent-coding.json --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/compare-agent-coding.json
+21:25:23 quality agent-coding: aggregate={"candidate": 0.8666666666666667, "delta": 0.0, "reference": 0.8666666666666667, "retention": 1.0}
+21:25:23 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/views/source-prep/qwen-quantized-text --model-id peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP --revision 88625754ac91b542280a5602239ce6b2166366f0 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-general/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/ref-general.json
+21:25:45 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923 --model-id AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP --revision bc73f6f8e98819807ad88cd55c2b292b966b02e0 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-general/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/cand-general.json
+21:25:55 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant compare-quality --reference /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/ref-general.json --candidate /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/cand-general.json --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/tiel/quality/compare-general.json
+21:25:55 quality general: aggregate={"candidate": 1.0, "delta": 0.0, "reference": 1.0, "retention": 1.0}
+21:25:55 done tiel quality
+21:25:56 === phase runtime (tiel) ===
+21:25:59 mlx-lm smoke: rc=0 out='The user is asking a simple math question'
+21:26:00 ax-engine doctor done
+21:26:12 ax-engine bench done
+21:26:25 ax-engine server: finished=True mtp={"ax_mlx_deepseek_v4_mtp_certification_candidate": 0, "ax_mlx_deepseek_v4_mtp_direct_fallback": 0, "ax_mlx_flash_next_mtp_accepted_steps": 0, "ax_mlx_flash_next_mtp_attach_failed": 0, "ax_mlx_flash_next_mtp_bonus_wall_us": 0, "ax_mlx_flash_
+21:26:25 done tiel runtime
+21:26:25 === phase size (tiel) ===
+21:26:35 size: files=20 all_match=True
+21:26:35 done tiel size
+21:26:35 === phase quality (cyber-tiel) ===
+21:26:35 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/views/source-prep/qwen-quantized-text --model-id peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP --revision a443d4e30fd5228942cb7695f916f4b14a88fae9 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-agent-coding/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/ref-agent-coding.json
+21:27:06 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923 --model-id AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP --revision 7f3c9048d2b9dc78af90b0f9621417c7591ac89a --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-agent-coding/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/cand-agent-coding.json
+21:27:30 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant compare-quality --reference /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/ref-agent-coding.json --candidate /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/cand-agent-coding.json --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/compare-agent-coding.json
+21:27:31 quality agent-coding: aggregate={"candidate": 0.8333333333333334, "delta": -0.033333333333333326, "reference": 0.8666666666666667, "retention": 0.9615384615384616}
+21:27:31 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/views/source-prep/qwen-quantized-text --model-id peculiar-ragdoll/Cyber-Tiel-Coder-35B-A3B-MLX-oQ6e-MTP --revision a443d4e30fd5228942cb7695f916f4b14a88fae9 --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-general/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/ref-general.json
+21:27:42 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant evaluate-quality --model /Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923 --model-id AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP --revision 7f3c9048d2b9dc78af90b0f9621417c7591ac89a --dataset /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/datasets/development-general/dataset.jsonl --seed 20260728 --max-tokens 64 --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/cand-general.json
+21:27:52 run: /Users/akiralam/code/axquant/.venv/bin/python -m axquant compare-quality --reference /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/ref-general.json --candidate /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/cand-general.json --output /Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/compare-general.json
+21:27:52 quality general: aggregate={"candidate": 1.0, "delta": 0.0, "reference": 1.0, "retention": 1.0}
+21:27:52 done cyber-tiel quality
+21:27:53 === phase runtime (cyber-tiel) ===
+21:27:55 mlx-lm smoke: rc=0 out='The user asks 2+2 and'
+21:27:56 ax-engine doctor done
+21:28:06 ax-engine bench done
+21:28:19 ax-engine server: finished=True mtp={"ax_mlx_deepseek_v4_mtp_certification_candidate": 0, "ax_mlx_deepseek_v4_mtp_direct_fallback": 0, "ax_mlx_flash_next_mtp_accepted_steps": 0, "ax_mlx_flash_next_mtp_attach_failed": 0, "ax_mlx_flash_next_mtp_bonus_wall_us": 0, "ax_mlx_flash_
+21:28:19 done cyber-tiel runtime
+21:28:19 === phase size (cyber-tiel) ===
+21:28:29 size: files=20 all_match=True
+21:28:29 done cyber-tiel size
+CHAIN_DONE

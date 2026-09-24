@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "max_tokens": 64,
+  "model_dir": "/Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+  "output": "The user asks 2+2 and wants just the number.\n</think>\n\n4",
+  "passed": true,
+  "prompt": "What is 2+2? Reply with just the number.",
+  "runtime": "mlx-lm",
+  "scope": "text generation on the pack main index (MTP sidecar is not referenced by the pack weight index, so MLX-LM text loads are not norm-shifted); correct arithmetic confirms trunk norm correctness"
+}

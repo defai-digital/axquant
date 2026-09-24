@@ -1,0 +1,17 @@
+2026-09-24T01:27:45.336983Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=1 task_id=instruction-001 tasks=15
+2026-09-24T01:27:45.754059Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=2 task_id=instruction-002 tasks=15
+2026-09-24T01:27:46.267717Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=3 task_id=instruction-003 tasks=15
+2026-09-24T01:27:46.792204Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=4 task_id=instruction-004 tasks=15
+2026-09-24T01:27:47.272355Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=5 task_id=instruction-005 tasks=15
+2026-09-24T01:27:47.866459Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=6 task_id=instruction-006 tasks=15
+2026-09-24T01:27:48.299518Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=7 task_id=instruction-007 tasks=15
+2026-09-24T01:27:48.761071Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=8 task_id=instruction-008 tasks=15
+2026-09-24T01:27:49.244635Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=9 task_id=instruction-009 tasks=15
+2026-09-24T01:27:49.829930Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=10 task_id=instruction-010 tasks=15
+2026-09-24T01:27:50.262912Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=11 task_id=instruction-011 tasks=15
+2026-09-24T01:27:50.719724Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=12 task_id=instruction-012 tasks=15
+2026-09-24T01:27:51.191122Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=13 task_id=instruction-013 tasks=15
+2026-09-24T01:27:51.643990Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=14 task_id=instruction-014 tasks=15
+2026-09-24T01:27:52.141141Z [info     ] quality_task_completed         category=instruction error=None score=1.0 task=15 task_id=instruction-015 tasks=15
+2026-09-24T01:27:52.141261Z [info     ] quality_evaluation_completed   model=AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP perplexity=23.29288963567326 samples=15 tokens=270
+2026-09-24T01:27:52.163978Z [info     ] quality_evaluation_written     output=/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cert/cyber-tiel/quality/cand-general.json perplexity=23.29288963567326 samples=15

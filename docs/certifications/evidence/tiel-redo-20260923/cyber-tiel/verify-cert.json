@@ -1,0 +1,140 @@
+{
+  "artifact_path": "/Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+  "certificate_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.json",
+  "certificate_schema_version": "axquant.public-checkpoint-certification.v1",
+  "certificate_sha256": "9efafc4e6ec80c90a250e8d88e8c0460a05a5e184fba8b223c959a9b9e403139",
+  "certificate_status": "not_certified",
+  "checks": [
+    {
+      "check_id": "certificate.schema",
+      "message": "supported checkpoint certificate schema: axquant.public-checkpoint-certification.v1",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.envelope",
+      "message": "certificate envelope is valid",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.class-repository",
+      "message": "certificate product class agrees with the class-SKU repository",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.immutable-commit",
+      "message": "certificate binds a full immutable Hub commit",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.edition-tag",
+      "message": "certificate edition and immutable tag binding is consistent",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.tier-boundary",
+      "message": "Tier 1 does not make an unbound Tier 2 acceleration claim",
+      "passed": true
+    },
+    {
+      "check_id": "certificate.evidence-kind",
+      "message": "legacy v1 certificate records architecture-prior planning evidence",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.required-files",
+      "message": "artifact contains axquant_manifest.json and axquant_plan.json",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.manifest-envelope",
+      "message": "artifact manifest is valid",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.plan-envelope",
+      "message": "quantization plan is valid",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.class-agreement",
+      "message": "class-SKU agreement holds (certificate artifact='MXFP4', manifest='MXFP4', plan='MXFP4')",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.evidence-kind",
+      "message": "certificate and packaged plan evidence kinds agree",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.manifest-digest",
+      "message": "artifact manifest digest matches the certificate",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.main-bpw",
+      "message": "manifest measured main BPW exactly matches recomputed byte accounting",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.certificate-main-bpw",
+      "message": "certificate measured BPW matches artifact accounting",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.plan-binding",
+      "message": "manifest semantic plan digest matches axquant_plan.json",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.model-identity",
+      "message": "manifest and plan source model identities agree",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.manifest-files",
+      "message": "all manifest-bound artifact files match size and SHA-256",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.certificate-weight-files",
+      "message": "all certificate-bound weight files match SHA-256",
+      "passed": true
+    },
+    {
+      "check_id": "artifact.certificate-weight-bytes",
+      "message": "certificate candidate weight bytes match the manifest",
+      "passed": true
+    }
+  ],
+  "created_at": "2026-09-24T01:52:01.701557Z",
+  "hub_repo_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+  "issues": [],
+  "manifest_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433",
+  "passed": true,
+  "plan_sha256": "766a140a25eb76604e6939a4174ca5ebfb56ac9fde8e315b4ab9e6fed984e136",
+  "product_class": "MXFP4",
+  "recomputed_main_bpw": 4.634222665908937,
+  "schema_version": "axquant.certification-verification.v1",
+  "verified_files": [
+    "README.md",
+    "ax_expert_stream.json",
+    "axquant_mtp_sidecar_manifest.json",
+    "axquant_plan.json",
+    "axquant_quantizer_execution.json",
+    "axquant_runtime.json",
+    "axquant_vision_sidecar_manifest.json",
+    "chat_template.jinja",
+    "config.json",
+    "generation_config.json",
+    "model-00001-of-00004.safetensors",
+    "model-00002-of-00004.safetensors",
+    "model-00003-of-00004.safetensors",
+    "model-00004-of-00004.safetensors",
+    "model.safetensors.index.json",
+    "mtp.safetensors",
+    "mtplx_runtime.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "vision.safetensors"
+  ]
+}

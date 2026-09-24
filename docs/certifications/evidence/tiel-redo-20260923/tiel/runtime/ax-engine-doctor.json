@@ -1,0 +1,176 @@
+{
+  "schema_version": "ax.engine_bench.doctor.v1",
+  "mlx_target": "apple_m2_or_newer_macos_aarch64",
+  "status": "ready",
+  "mlx_runtime_ready": true,
+  "bringup_allowed": true,
+  "install": {
+    "version": "7.5.4",
+    "mode": "ax-engine-bench"
+  },
+  "workflow": {
+    "mode": "installed_tools",
+    "cwd": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923",
+    "doctor": {
+      "argv": [
+        "ax-engine-bench",
+        "doctor",
+        "--json"
+      ]
+    },
+    "server": {
+      "argv": [
+        "ax-engine-server"
+      ]
+    },
+    "generate_manifest": {
+      "argv": [
+        "ax-engine-bench",
+        "generate-manifest",
+        "<model-dir>",
+        "--json"
+      ]
+    },
+    "benchmark": {
+      "argv": [
+        "ax-engine-bench",
+        "scenario",
+        "--manifest",
+        "<manifest>",
+        "--output-root",
+        "<output-root>",
+        "--json"
+      ]
+    }
+  },
+  "runtime_assets": {
+    "status": "ready",
+    "path": "/opt/homebrew/Cellar/ax-engine/7.5.4/libexec",
+    "source": "bundled_mlx_runtime"
+  },
+  "model_artifacts": {
+    "selected": true,
+    "status": "not_ready",
+    "path": "/Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+    "exists": true,
+    "is_dir": true,
+    "config_present": true,
+    "manifest_present": false,
+    "safetensors_present": true,
+    "model_type": "qwen3_5_moe",
+    "quantization": {
+      "mode": "affine",
+      "group_size": 32,
+      "bits": 4
+    },
+    "axquant": {
+      "metadata_valid": true,
+      "lineage_valid": true,
+      "release_quality_evidence": false,
+      "provenance_complete": true,
+      "manifest_schema_version": "axquant.artifact.v2",
+      "evidence_kind": "architecture_prior",
+      "source_model_id": "peculiar-ragdoll/Tiel-Coder-35B-A3B-MLX-oQ6e-MTP",
+      "source_revision": "88625754ac91b542280a5602239ce6b2166366f0",
+      "plan_sha256": "4508772221397fa7f16f0f12d671427ce26e3e955af2136949f5f4b75fea6427",
+      "plan_present": true,
+      "quantizer_execution_present": true,
+      "runtime_metadata_present": true,
+      "target_bpw": 8.0,
+      "effective_bpw": 5.602581070850399,
+      "measured_total_bpw": 4.901270323309503,
+      "measured_main_bpw": 4.634222665908937,
+      "precision_bits": [
+        4,
+        8,
+        16
+      ],
+      "mixed_precision": true,
+      "quantized_module_count": 511,
+      "failed_module_count": 0,
+      "fallback_module_count": 0,
+      "issues": [],
+      "warnings": []
+    },
+    "expert_stream": {
+      "enabled": false,
+      "required": false,
+      "resident_bytes": 4913119968,
+      "max_layer_bytes": 427819008,
+      "cached_layers": 0,
+      "mode": "auto",
+      "source": "ax_expert_stream.json",
+      "decision_reason": "full_weights_plus_headroom_fits_capacity",
+      "full_resident_bytes": 22025880288,
+      "unified_memory_bytes": 206158430208,
+      "auto_headroom_bytes": 51539607552,
+      "resident_estimate": {
+        "assumed_kv_pool_tokens": 16384,
+        "assumed_prefill_chunk": 2048,
+        "kv_pool_bytes": null,
+        "full_resident_footprint_bytes": 25584421692
+      }
+    },
+    "issues": [
+      "missing model-manifest.json"
+    ]
+  },
+  "host": {
+    "os": "macos",
+    "arch": "aarch64",
+    "detected_soc": "Apple M2 Ultra",
+    "supported_mlx_runtime": true,
+    "unsupported_host_override_active": false
+  },
+  "metal_toolchain": {
+    "fully_available": true,
+    "metal": {
+      "available": true,
+      "version": "Apple metal version 32023.921 (metalfe-32023.921.6)\nTarget: air64-apple-darwin27.0.0\nThread model: posix\nInstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.WQgh0u/Metal.xctoolchain/usr/metal/current/bin"
+    },
+    "metallib": {
+      "available": true,
+      "version": "AIR-LLD 32023.921 (metalfe-32023.921.6) (compatible with legacy metallib linker)"
+    },
+    "metal_ar": {
+      "available": true,
+      "version": "Apple LLVM version 32023.921.6\n  Optimized build.\n  Default target: x86_64-apple-darwin27.0.0\n  Host CPU: apple-m1"
+    }
+  },
+  "issues": [],
+  "notes": [
+    "llama.cpp backends do not widen supported host scope"
+  ],
+  "performance_advice": [
+    {
+      "id": "ngram_acceleration_default_on",
+      "severity": "info",
+      "summary": "N-gram acceleration is enabled by default for the repo-owned MLX runtime.",
+      "detail": "Use --disable-ngram-acceleration only for direct A/B comparison rows; do not add a separate --ngram-accel enable flag."
+    },
+    {
+      "id": "mlx_throughput_harness",
+      "severity": "info",
+      "summary": "Use the MLX inference-stack harness for throughput claims.",
+      "detail": "Run scripts/bench_mlx_inference_stack.py with --ax-compare-policies so AX rows are paired with matching mlx_lm baseline rows."
+    },
+    {
+      "id": "single_request_benchmark_shape",
+      "severity": "info",
+      "summary": "Treat batch=1 as the supported MLX performance shape today.",
+      "detail": "The repo-owned MLX runner is optimized for single-request execution; multi-item batching remains a separate scheduler/runtime milestone."
+    },
+    {
+      "id": "swiftlm_is_baseline_only",
+      "severity": "warning",
+      "summary": "Do not treat mlx-swift-lm as an AX prefill/decode hybrid path.",
+      "detail": "mlx-swift-lm is admitted as a named benchmark baseline adapter, not as a supported runtime path that can prefill before AX decode."
+    },
+    {
+      "id": "model_artifacts_unreadable",
+      "severity": "warning",
+      "summary": "Model-specific performance advice is unavailable.",
+      "detail": "model artifacts path is missing model-manifest.json: /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923; run `cargo run -p ax-engine-core --bin generate-manifest -- /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923` before using this snapshot as AX MLX artifacts"
+    }
+  ]
+}
