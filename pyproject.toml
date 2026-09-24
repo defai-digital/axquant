@@ -70,6 +70,7 @@ exclude = ["/.internal", "/credentials.json", "/runtime_check.json"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "integration: real-hardware end-to-end pipeline tests (Apple Silicon + MLX)",
 ]
