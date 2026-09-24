@@ -4,7 +4,6 @@
 # the records remain as unlisted historical evidence of the factory
 # measurement and must not render in the public index.
 
-
 from __future__ import annotations
 
 from pathlib import Path
