@@ -956,6 +956,14 @@ The complete, family-specific Hub inventory is maintained in the
 assistant bundles, DeepSeek `nextn` sidecars, and the Qwen expert-stream artifact; these contracts
 are not interchangeable.
 
+MTPLX `2.5.2` cannot load the Qwen 3.8 Flash-Next preview packs as-is: their n-gram PLE table
+ships as sharded keys inside `model.safetensors.index.json` instead of the standalone
+`ngram-table.safetensors` MTPLX expects. `axquant relayout-ngram-table --directory <pack>
+--output <variant>` builds a byte-preserving MTPLX-targeted variant in a new directory
+(tensor payloads are hash-verified; the source pack is untouched; `--dry-run` previews the
+plan). This is layout compatibility only — the MTPLX Forge exactness baseline stays unverified,
+and no MTP acceleration claim is implied.
+
 The explicit development path:
 
 ```bash

@@ -101,6 +101,13 @@ They use the MLX-VLM `qwen4_exp` text/vision path; AX Engine MTP acceleration is
 Their sidecars pass the expert-stream packaging audit but are not resident
 `qwen3-next-mtp` oMLX/MTPLX import targets.
 
+MTPLX additionally rejects the language-model load itself: these packs keep the hashed n-gram
+PLE table as `ngram_embedding.shards.*` keys inside `model.safetensors.index.json`, while MTPLX
+expects a standalone `ngram-table.safetensors`. Build a byte-preserving MTPLX variant with
+`axquant relayout-ngram-table --directory <pack> --output <variant>` (`--dry-run` previews the
+plan; tensor payloads are hash-verified, the source pack stays untouched). Layout compatibility
+is not exactness: the MTPLX Forge baseline of any relaid-out variant remains unverified.
+
 | Hugging Face model | Status |
 | --- | --- |
 | [AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP](https://huggingface.co/AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-2bit-MTP) | Preview; packaged MTP sidecar; AX Engine MTP not claimed |
