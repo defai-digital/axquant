@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any
+
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.hub_mtp_audit import (
     MtpHubPackKind,
     MtpHubRepositorySnapshot,
     SafetensorsHeader,
     audit_mtp_hub_snapshot,
+    discover_axq_mtp_artifact_repositories,
 )
 
 
@@ -415,6 +419,36 @@ def test_expert_stream_audit_flags_residual_ngram_keys_beside_table() -> None:
 
     assert not result.passed
     assert any("still carries" in issue for issue in result.issues)
+
+
+def test_artifact_discovery_selects_sidecar_by_manifest_not_name() -> None:
+    class _FakeApi:
+        def __init__(self, files_by_repo: dict[str, list[str]]) -> None:
+            self._files = files_by_repo
+
+        def list_models(self, author: str, limit: int | None = None) -> list[Any]:
+            return [SimpleNamespace(id=repo) for repo in self._files]
+
+        def list_repo_files(self, repo_id: str) -> list[str]:
+            return self._files[repo_id]
+
+    fake = _FakeApi(
+        {
+            "AutomatosX/AX-Some-Pack-MLX-AXQ-MXFP4": [
+                "config.json",
+                "mtp.safetensors",
+            ],
+            "AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4": [
+                "config.json",
+                "ax_expert_stream.json",
+            ],
+            "AutomatosX/AX-Embedding-MLX-8bit": ["config.json"],
+        }
+    )
+
+    discovered = discover_axq_mtp_artifact_repositories(fake, "AutomatosX")  # type: ignore[arg-type]
+
+    assert discovered == ("AutomatosX/AX-Some-Pack-MLX-AXQ-MXFP4",)
 
 
 def test_resident_qwen_audit_without_index_stays_passing() -> None:

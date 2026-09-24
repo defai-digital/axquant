@@ -14,6 +14,7 @@ from axquant.hub_mtp_audit import (
     MtpHubAuditResult,
     MtpHubPackKind,
     audit_mtp_hub_snapshot,
+    discover_axq_mtp_artifact_repositories,
     discover_axq_mtp_repositories,
     load_mtp_hub_snapshot,
 )
@@ -37,7 +38,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     api = HfApi()
-    repo_ids = tuple(args.repo) or discover_axq_mtp_repositories(api, args.author)
+    if args.repo:
+        repo_ids = tuple(args.repo)
+    else:
+        # Union name-based and manifest-based discovery so a sidecar-bearing
+        # pack whose name lacks the -mtp suffix is still audited.
+        discovered = dict.fromkeys(
+            (
+                *discover_axq_mtp_repositories(api, args.author),
+                *discover_axq_mtp_artifact_repositories(api, args.author),
+            )
+        )
+        repo_ids = tuple(discovered)
     results: list[MtpHubAuditResult] = []
     for repo_id in repo_ids:
         try:

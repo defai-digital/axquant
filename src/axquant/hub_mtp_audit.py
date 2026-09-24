@@ -453,6 +453,28 @@ def discover_axq_mtp_repositories(api: HfApi, author: str) -> tuple[str, ...]:
     return tuple(sorted(repos, key=str.casefold))
 
 
+MTP_SIDECAR_FILENAMES = ("mtp.safetensors", "mtp_head.safetensors")
+
+
+def discover_axq_mtp_artifact_repositories(api: HfApi, author: str) -> tuple[str, ...]:
+    """Discover AXQ repositories that package an MTP sidecar artifact.
+
+    Unlike the name-based discovery above, this walks the whole org catalog
+    and selects repositories by manifest content, so a sidecar-bearing pack
+    whose name does not end in ``-mtp`` cannot escape the fleet audit.
+    Stream-only packs (``ax_expert_stream.json`` without a sidecar) have no
+    packaged MTP mode and stay outside this audit.
+    """
+
+    repos: set[str] = set()
+    for model in api.list_models(author=author, limit=1000):
+        repo_id = model.id
+        files = api.list_repo_files(repo_id)
+        if any(name in files for name in MTP_SIDECAR_FILENAMES):
+            repos.add(repo_id)
+    return tuple(sorted(repos, key=str.casefold))
+
+
 def audit_mtp_hub_repositories(
     api: HfApi,
     repo_ids: Sequence[str],
