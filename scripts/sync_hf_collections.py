@@ -2,9 +2,9 @@
 """Create and keep AutomatosX Hugging Face collections family-first.
 
 The previous single dump mixed uniform MLX, QAT, OptiQ, and AXQ across every
-family. This script rebuilds the org collections the way users browse: a
-certified starting list, one collection per model family, plus a complete
-index that preserves the original catalog URL.
+family. This script keeps the org collections the way users browse: a
+certified starting list, one collection per live model family, plus a
+complete index of every public AutomatosX model.
 """
 
 from __future__ import annotations
@@ -18,29 +18,22 @@ from huggingface_hub import HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
 NAMESPACE = "AutomatosX"
-COMPLETE_SLUG = "AutomatosX/automatosx-mlx-model-catalog-6a604acfe036cdf7e0993092"
-KNOWN_SLUGS = {
-    "Certified AXQ": "AutomatosX/certified-axq-6a7f53947a289f25b70b8290",
-    "Qwen3.8": "AutomatosX/qwen38-6a7f539725d8d5b6f524c9a0",
-    "Qwen3.6": "AutomatosX/qwen36-6a7f539837353d885ac950e5",
-    "Gemma 4": "AutomatosX/gemma-4-6a7f539ab25fa2c2c40a3bc9",
-    "Qwen3.5": "AutomatosX/qwen35-6a7f539d7b63c4177df8db8b",
-    "Qwen3-Coder-Next": "AutomatosX/qwen3-coder-next-6a7f539ea514d4eed9308e2d",
-    "Qwen3-VL": "AutomatosX/qwen3-vl-6a7f539fef1f1bbc02191224",
-    "DeepSeek": "AutomatosX/deepseek-6a7f539f6dbb163f53e10230",
-    "GPT-OSS": "AutomatosX/gpt-oss-6a7f53a1b91ffbc9d632a263",
-    "Holo3": "AutomatosX/holo3-6a7f53a1cf47102943335f3e",
-    "Holo-3.1": "AutomatosX/holo-31-6a819f5921908d636ae8b2a8",
-    "Devstral": "AutomatosX/devstral-6a7f53a28f83a5c088373faf",
-    "Ornith 1.0": "AutomatosX/ornith-10-6a7f53a328beff762aced1c9",
-    "Ornith 1.5": "AutomatosX/ornith-15-6a9cffbd43ffd36d99d5f166",
-    "Mistral": "AutomatosX/mistral-6a7f53a3c81397e9339a5b75",
-    "Embeddings": "AutomatosX/embeddings-6a7f53a515672c27b985e679",
-    "OCR": "AutomatosX/ocr-6a7f53a89dfa008d21861df4",
-    "Muse-Glimmer": "AutomatosX/muse-glimmer-6a7f53a96446b0696dabdbaa",
-    "Nemotron": "AutomatosX/nemotron-6a7f53a98c678e2ffa59ea33",
-    "Speech": "AutomatosX/speech-6a7f53aa5ff26cff62787cf6",
-    "AutomatosX MLX Model Catalog": COMPLETE_SLUG,
+CATALOG_TITLE = "AutomatosX MLX Model Catalog"
+# Pinned after the 2026-09-23 recreate. A slug that 404s is recreated.
+KNOWN_SLUGS: dict[str, str] = {
+    "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
+    "Qwen": "AutomatosX/qwen-6ab4341bed3654678bbc5f72",
+    "Qwen3.8": "AutomatosX/qwen38-6ab432f1b777c7d225848389",
+    "Tiel Coder": "AutomatosX/tiel-coder-6ab432f2fdec85ba0ecd515d",
+    "Qwen3-Coder-Next": "AutomatosX/qwen3-coder-next-6ab432f22c57fc39ac996cad",
+    "Qwen3-VL": "AutomatosX/qwen3-vl-6ab432f3eea990c8f27e5146",
+    "DeepSeek": "AutomatosX/deepseek-6ab432f39494bc2b71d237aa",
+    "Holo-3.1": "AutomatosX/holo-31-6ab432f4ef1022cb381c36ad",
+    "MiniMax": "AutomatosX/minimax-6ab432f4c988a1b1cba0b1fb",
+    "Embeddings": "AutomatosX/embeddings-6ab432f5816b838cc48d89cc",
+    "Nemotron": "AutomatosX/nemotron-6ab433e82ce4ed9ed06735ea",
+    "OCR": "AutomatosX/ocr-6ab432f8bed2124120a3b782",
+    CATALOG_TITLE: "AutomatosX/automatosx-mlx-model-catalog-6ab432f9724c4d8a1037df1c",
 }
 
 NOTE_T1 = "Checkpoint Tier 1 certified. See the certificate for the bound host."
@@ -122,235 +115,79 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="Certified AXQ",
         description="Measured AXQ packs with a public Tier 1 certificate. Start here.",
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-gemma-4-31b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-31b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-12b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-12b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
+        ),
+    ),
+    Spec(
+        title="Qwen",
+        description="All public Qwen packs: Qwen3.8, Coder-Next, VL, and Qwen3-Embedding.",
+        items=(
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-4B-MLX-4bit-DWQ", NOTE_DWQ),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-8bit", NOTE_UNIFORM),
         ),
     ),
     Spec(
         title="Qwen3.8",
-        description=(
-            "Qwen3.8 MLX: certified 27B AXQ ± MTP, plus experimental 2.4T 2-bit MTP "
-            "(sidecar packaged; not certified)."
-        ),
+        description="Qwen3.8 MLX: 27B MXFP4 with packaged MTP, and Flash-Next MXFP4 MTP.",
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP", NOTE_24T),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
-        title="Qwen3.6",
-        description=(
-            "Qwen3.6 27B and 35B-A3B: uniform, OptiQ, certified AXQ 4/6-bit MTP, "
-            "and no-MTP siblings."
-        ),
+        title="Tiel Coder",
+        description="Tiel Coder 35B-A3B MXFP4 with packaged MTP, including the Cyber variant.",
         items=(
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.6-27B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.6-27B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-27B-MLX-4bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-4bit-MTP", NOTE_UNIFORM),
-        ),
-    ),
-    Spec(
-        title="Gemma 4",
-        description=(
-            "Gemma 4 12B/26B/31B plus DiffusionGemma: uniform, QAT, OptiQ, and certified AXQ."
-        ),
-        items=(
-            _ax("AX-gemma-4-31b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-31b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-31B-IT-MLX-OptiQ-4bit-Assistant-MTP", NOTE_OPTIQ),
-            _ax("AX-Gemma-4-31B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-31B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-OptiQ-4bit-Assistant-MTP", NOTE_OPTIQ),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-gemma-4-12b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-12b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-12B-IT-MLX-QAT-OptiQ-4bit-Assistant-MTP", NOTE_QAT_OPTIQ),
-            _ax("AX-Gemma-4-12B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-12B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-DiffusionGemma-26B-A4B-IT-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-DiffusionGemma-26B-A4B-IT-MLX-4bit", NOTE_UNIFORM),
-        ),
-    ),
-    Spec(
-        title="Qwen3.5",
-        description=(
-            "Qwen3.5 9B MTP: uniform, OptiQ, and AXQ. No distinct AXQ-4bit (floor-collapsed)."
-        ),
-        items=(
-            _ax("AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3.5-9B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.5-9B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.5-9B-MLX-4bit-MTP", NOTE_UNIFORM),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
         title="Qwen3-Coder-Next",
-        description="Qwen3-Coder-Next: uniform, OptiQ, and certified AXQ MXFP4/4/6-bit.",
-        items=(
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Qwen3-Coder-Next-MLX-6bit", NOTE_UNIFORM),
-            _ax("AX-Qwen3-Coder-Next-MLX-4bit", NOTE_UNIFORM),
-        ),
+        description="Qwen3-Coder-Next AXQ MXFP4. Tier 1 certified. No MTP.",
+        items=(_ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),),
     ),
     Spec(
         title="Qwen3-VL",
-        description="Qwen3-VL Instruct AXQ: certified 30B-A3B plus 8B and 32B-Thinking packs.",
-        items=(
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
+        description=(
+            "Qwen3-VL 32B Thinking AXQ MXFP4 with a protected BF16 vision tower. Not certified."
         ),
+        items=(_ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),),
     ),
     Spec(
         title="DeepSeek",
-        description=(
-            "DeepSeek V4 Flash AXQ 2/4/6-bit MTP, Flash-0731 2/4-bit MTP plus "
-            "MXFP4/6-bit stubs, Pro-0813 hobby 2-bit MTP, and DeepSeek-OCR-2. "
-            "3-bit withdrawn."
-        ),
+        description="DeepSeek V4 Flash-0731 MXFP4 plus DeepSeek-OCR-2 AXQ 4-bit and 6-bit.",
         items=(
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP", NOTE_PRO_0813),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
-        title="GPT-OSS",
-        description="OpenAI gpt-oss 20B and 120B certified AXQ packs.",
-        items=(
-            _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-4bit", NOTE_T1),
-        ),
-    ),
-    Spec(
-        title="Holo3",
-        description="Holo3-35B-A3B certified AXQ 4/6-bit.",
-        items=(
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
-        ),
-    ),
-    Spec(
         title="Holo-3.1",
-        description="Holo-3.1-35B-A3B AXQ MXFP4 (Tier 1) plus 6/8-bit eval packs.",
-        items=(
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-        ),
+        description="Holo-3.1-35B-A3B AXQ MXFP4. Tier 1 certified. Vision BF16, no MTP.",
+        items=(_ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),),
     ),
     Spec(
-        title="Devstral",
-        description="Devstral Small coding models: OptiQ 2512 and AXQ 2505.",
-        items=(
-            _ax("AX-Devstral-Small-2-24B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Devstral-Small-2505-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Devstral-Small-2505-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-        ),
-    ),
-    Spec(
-        title="Ornith 1.0",
-        description="Ornith 1.0 35B AXQ 4/6-bit coding packs.",
-        items=(
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
-        ),
-    ),
-    Spec(
-        title="Ornith 1.5",
-        description="Ornith 1.5 9B/35B/397B AXQ MXFP4 and 6-bit development packs.",
-        items=(
-            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-        ),
-    ),
-    Spec(
-        title="Mistral",
+        title="MiniMax",
         description=(
-            "Ministral 3 and Mistral Small: OptiQ and AXQ. No distinct Ministral-3-8B AXQ-4bit."
+            "MiniMax-M3 AXQ MXFP4. Experimental stream pack with a BF16 vision sidecar. "
+            "Not certified."
         ),
-        items=(
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-        ),
+        items=(_ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),),
     ),
     Spec(
         title="Embeddings",
@@ -375,6 +212,16 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
+        title="Nemotron",
+        description="Nemotron-3-Embed 1B and 8B AXQ 4-bit and 6-bit.",
+        items=(
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
         title="OCR",
         description="Unlimited-OCR (MLX MXFP8 and CUDA AWQ) plus DeepSeek-OCR-2 AXQ.",
         items=(
@@ -385,132 +232,22 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
-        title="Muse-Glimmer",
-        description="Muse-Glimmer 30B AXQ 4/6-bit image-text packs.",
-        items=(
-            _ax("AX-Muse-Glimmer-30B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Muse-Glimmer-30B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+        title=CATALOG_TITLE,
+        description=(
+            "Complete index of every public AutomatosX model. Prefer the family collections above."
         ),
-    ),
-    Spec(
-        title="Nemotron",
-        description="Nemotron-3-Nano and Qwen3-Nemotron GenRM AXQ packs.",
         items=(
-            _ax("AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Nemotron-32B-GenRM-Principle-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Nemotron-32B-GenRM-Principle-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-        ),
-    ),
-    Spec(
-        title="Speech",
-        description="Qwen3-ASR 1.7B AXQ 4/6-bit with a protected BF16 audio tower.",
-        items=(
-            _ax("AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit", NOTE_AXQ_ASR),
-            _ax("AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit", NOTE_AXQ_ASR),
-        ),
-    ),
-    Spec(
-        title="AutomatosX MLX Model Catalog",
-        description="Complete index of every Hub pack. Prefer the family collections above.",
-        existing_slug=COMPLETE_SLUG,
-        items=(
-            # Family order, then leftover small models.
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP", NOTE_24T),
-            _ax("AX-MiniMax-M3-MLX-AXQ-2bit", NOTE_MINIMAX_M3),
-            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
-            _ax("AX-Kimi-K3-MLX-AXQ-2bit", NOTE_KIMI_K3),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-27B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP", NOTE_T1_T2),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit", NOTE_T1_NOMTP),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.6-27B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.6-27B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-27B-MLX-4bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.6-35B-A3B-MLX-4bit-MTP", NOTE_UNIFORM),
-            _ax("AX-gemma-4-31b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-31b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-31B-IT-MLX-OptiQ-4bit-Assistant-MTP", NOTE_OPTIQ),
-            _ax("AX-Gemma-4-31B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-31B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-OptiQ-4bit-Assistant-MTP", NOTE_OPTIQ),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-26B-A4B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-gemma-4-12b-MLX-AXQ-6bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-gemma-4-12b-MLX-AXQ-4bit-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Gemma-4-12B-IT-MLX-QAT-OptiQ-4bit-Assistant-MTP", NOTE_QAT_OPTIQ),
-            _ax("AX-Gemma-4-12B-IT-MLX-QAT-4bit-Assistant-MTP", NOTE_QAT),
-            _ax("AX-Gemma-4-12B-IT-MLX-6bit-Assistant-MTP", NOTE_UNIFORM),
-            _ax("AX-DiffusionGemma-26B-A4B-IT-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-DiffusionGemma-26B-A4B-IT-MLX-4bit", NOTE_UNIFORM),
-            _ax("AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3.5-9B-MLX-OptiQ-4bit-MTP", NOTE_OPTIQ),
-            _ax("AX-Qwen3.5-9B-MLX-6bit-MTP", NOTE_UNIFORM),
-            _ax("AX-Qwen3.5-9B-MLX-4bit-MTP", NOTE_UNIFORM),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3-Coder-Next-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Qwen3-Coder-Next-MLX-6bit", NOTE_UNIFORM),
-            _ax("AX-Qwen3-Coder-Next-MLX-4bit", NOTE_UNIFORM),
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit", NOTE_AXQ_VL),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-4bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP", NOTE_T1_EXP),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP", NOTE_0731),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP", NOTE_0731_RESERVED),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP", NOTE_PRO_0813),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-gpt-oss-120b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-gpt-oss-20b-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Holo3-35B-A3B-MLX-AXQ-4bit", NOTE_T1),
             _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Devstral-Small-2-24B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Devstral-Small-2505-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Devstral-Small-2505-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-6bit", NOTE_T1),
-            _ax("AX-Ornith-1.0-35B-MLX-AXQ-4bit", NOTE_T1),
-            _ax("AX-Ornith-1.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Ministral-3-8B-Instruct-2512-MLX-OptiQ-4bit", NOTE_OPTIQ),
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
@@ -527,21 +264,14 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-EmbeddingGemma-300M-MLX-8bit", NOTE_UNIFORM),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AWQ-W4A16", NOTE_CUDA),
-            _ax("AX-Muse-Glimmer-30B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Muse-Glimmer-30B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Nemotron-32B-GenRM-Principle-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Nemotron-32B-GenRM-Principle-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit", NOTE_AXQ_ASR),
-            _ax("AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit", NOTE_AXQ_ASR),
-            _ax("AX-MiniCPM5-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
         ),
     ),
 )
 
 
 def _validate() -> None:
+    if not COLLECTIONS or COLLECTIONS[-1].title != CATALOG_TITLE:
+        raise SystemExit("complete catalog must be the last collection")
     for spec in COLLECTIONS:
         if len(spec.description) > 150:
             raise SystemExit(f"description too long ({len(spec.description)}): {spec.title!r}")
@@ -556,6 +286,14 @@ def _validate() -> None:
                 raise SystemExit(
                     f"Certified AXQ has a non-certificate note for {item.repo}: {item.note!r}"
                 )
+    catalog = {item.repo for item in COLLECTIONS[-1].items}
+    family = {item.repo for spec in COLLECTIONS[:-1] for item in spec.items}
+    missing_from_catalog = sorted(family - catalog)
+    if missing_from_catalog:
+        raise SystemExit(f"complete catalog missing: {missing_from_catalog}")
+    only_in_catalog = sorted(catalog - family)
+    if only_in_catalog:
+        raise SystemExit(f"models missing a family collection: {only_in_catalog}")
 
 
 def _retry(fn, *, retries: int = 6):
@@ -580,8 +318,22 @@ def _find_existing(api: HfApi, title: str) -> str | None:
     return None
 
 
+def _collection_exists(api: HfApi, slug: str) -> bool:
+    try:
+        _retry(lambda: api.get_collection(slug))
+    except HfHubHTTPError as exc:
+        status = exc.response.status_code if exc.response is not None else None
+        if status in {401, 404}:
+            return False
+        raise
+    return True
+
+
 def _ensure_collection(api: HfApi, spec: Spec) -> str:
     slug = spec.existing_slug or KNOWN_SLUGS.get(spec.title) or _find_existing(api, spec.title)
+    if slug is not None and not _collection_exists(api, slug):
+        print(f"missing pinned slug for {spec.title}: {slug}")
+        slug = _find_existing(api, spec.title)
     if slug is None:
         created = _retry(
             lambda: api.create_collection(
@@ -656,13 +408,7 @@ def _sync_items(api: HfApi, slug: str, spec: Spec) -> None:
 
 def sync(*, apply: bool) -> int:
     _validate()
-    all_family_repos = {
-        item.repo for spec in COLLECTIONS if spec.existing_slug is None for item in spec.items
-    }
     complete_repos = {item.repo for item in COLLECTIONS[-1].items}
-    missing_from_complete = sorted(all_family_repos - complete_repos)
-    if missing_from_complete:
-        raise SystemExit(f"complete catalog missing: {missing_from_complete}")
 
     print(f"{len(COLLECTIONS)} collections, {len(complete_repos)} complete-index models")
     for spec in COLLECTIONS:
@@ -674,6 +420,15 @@ def sync(*, apply: bool) -> int:
     api = HfApi()
     me = api.whoami()
     print(f"authenticated as {me['name']}")
+    orgs = {org.get("name") for org in me.get("orgs") or []}
+    if me.get("name") != NAMESPACE and NAMESPACE not in orgs:
+        raise SystemExit(f"token cannot write {NAMESPACE} collections")
+    live = {model.id for model in api.list_models(author=NAMESPACE, limit=None)}
+    if live != complete_repos:
+        raise SystemExit(
+            "catalog drifted from the live org: "
+            f"missing={sorted(live - complete_repos)} extra={sorted(complete_repos - live)}"
+        )
     slugs: list[str] = []
     for spec in COLLECTIONS:
         slug = _ensure_collection(api, spec)
