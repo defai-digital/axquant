@@ -224,7 +224,11 @@ def test_expert_stream_audit_accepts_relaid_out_ngram_variant() -> None:
         },
         documents={
             "config.json": {"model_type": "qwen4_exp"},
-            "mtplx_runtime.json": {"mtp_depth_max": 1, "mtp_norm_layout": "native"},
+            "mtplx_runtime.json": {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "ngram_layout": "standalone-table",
+            },
             "ax_expert_stream.json": {"schema_version": "test"},
             "model.safetensors.index.json": {
                 "weight_map": {
@@ -242,6 +246,142 @@ def test_expert_stream_audit_accepts_relaid_out_ngram_variant() -> None:
     result = audit_mtp_hub_snapshot(snapshot)
 
     assert result.passed
+    assert not any("ngram" in issue.lower() for issue in result.issues)
+
+
+def test_expert_stream_audit_fails_closed_on_unknown_explicit_ngram_layout() -> None:
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "ngram-table.safetensors",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "ngram_layout": "bogus-layout",
+            },
+            "ax_expert_stream.json": {"schema_version": "test"},
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert not result.passed
+    assert any("unknown explicit value 'bogus-layout'" in issue for issue in result.issues)
+
+
+def test_expert_stream_audit_fails_closed_on_non_string_ngram_layout() -> None:
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "ngram-table.safetensors",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "ngram_layout": 3,
+            },
+            "ax_expert_stream.json": {"schema_version": "test"},
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert not result.passed
+    assert any("ngram_layout must be a string" in issue for issue in result.issues)
+
+
+def test_expert_stream_audit_flags_standalone_declaration_without_table() -> None:
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "ngram_layout": "standalone-table",
+            },
+            "ax_expert_stream.json": {"schema_version": "test"},
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert not result.passed
+    assert any(
+        "standalone-table without ngram-table.safetensors" in issue for issue in result.issues
+    )
+
+
+def test_expert_stream_audit_report_incomplete_relayout_with_layout_aware_message() -> None:
+    index_name = "model.language_model.layers.0.ple.ple_embedding.ngram_embedding.shards.0.weight"
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "model.safetensors.index.json",
+            "ngram-table.safetensors",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "ngram_layout": "standalone-table",
+            },
+            "ax_expert_stream.json": {"schema_version": "test"},
+            "model.safetensors.index.json": {
+                "weight_map": {index_name: "model.safetensors"},
+            },
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert not result.passed
+    assert any("relayout incomplete" in issue for issue in result.issues)
+    assert not any("still carries" in issue and "declares" not in issue for issue in result.issues)
 
 
 def test_expert_stream_audit_flags_residual_ngram_keys_beside_table() -> None:
