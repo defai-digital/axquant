@@ -60,10 +60,14 @@ Evidence:
 
 ## Tier 2 status
 
-Native drafting and verification executed with no recorded direct fallback. This
-does not establish the Tier 2 weighted 1.20x / median 1.10x acceleration
-thresholds: no paired direct baseline or authorizing workloads were measured.
-MTP-S, MTP-P and MTP-D remain unassessed; `auto` is not promoted.
+Measured Tier 2 A/B on `df-macstudio-m2` (AX Engine 7.5.4, Qwen 3.6 MoE exact
+profile): **not certified** — greedy exactness between MTP and direct decode
+failed on both authorizing profiles and no profile clears both speed floors.
+See the scoped Tier 2 evaluation:
+[tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md](tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md).
+A `df-macbookpro-m5` comparison run of the same engine build confirms the
+inexactness is a pack property, not a host defect. Product default remains
+direct fallback; `auto` is not promoted.
 
 Vision weights are present and hash-verified (byte-preserved sidecar), not
 modality-certified. Audio is not supported. This pack is a lossy requantization

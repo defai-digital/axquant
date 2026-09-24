@@ -1,0 +1,29 @@
+WARNING: non-factory comparison host df-macbookpro-m5 (df-macbookpro-m5); development evidence only, not certification authority
+engine=/Users/akiralam/code/ax-engine/target/release/ax-engine-bench host=df-macbookpro-m5 hostname=df-macbookpro-m5
+manifest already exists: /Users/akiralam/tiel-tier2/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+validated /Users/akiralam/tiel-tier2/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+=== tiel agent-coding mtp-off ===
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+2026-09-24 12:55:34 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/tiel/agent-coding/mtp-off/benchmark_raw_log.json
+=== tiel agent-coding mtp-on ===
+2026-09-24 12:55:43 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/tiel/agent-coding/mtp-on/benchmark_raw_log.json
+tiel agent-coding: exact=False weighted=1.0017 prompt_med=1.0017 release_ready=False pass=False
+=== tiel general-long mtp-off ===
+2026-09-24 12:55:53 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/tiel/general-long/mtp-off/benchmark_raw_log.json
+=== tiel general-long mtp-on ===
+2026-09-24 12:56:02 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/tiel/general-long/mtp-on/benchmark_raw_log.json
+tiel general-long: exact=False weighted=1.0005 prompt_med=1.0005 release_ready=False pass=False
+tiel technical_tier2_pass=False
+manifest already exists: /Users/akiralam/tiel-tier2/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+validated /Users/akiralam/tiel-tier2/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+=== cyber-tiel agent-coding mtp-off ===
+2026-09-24 12:56:13 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/cyber-tiel/agent-coding/mtp-off/benchmark_raw_log.json
+=== cyber-tiel agent-coding mtp-on ===
+2026-09-24 12:56:22 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/cyber-tiel/agent-coding/mtp-on/benchmark_raw_log.json
+cyber-tiel agent-coding: exact=False weighted=1.0014 prompt_med=1.0014 release_ready=False pass=False
+=== cyber-tiel general-long mtp-off ===
+2026-09-24 12:56:31 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/cyber-tiel/general-long/mtp-off/benchmark_raw_log.json
+=== cyber-tiel general-long mtp-on ===
+2026-09-24 12:56:40 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work/cyber-tiel/general-long/mtp-on/benchmark_raw_log.json
+cyber-tiel general-long: exact=False weighted=0.9980 prompt_med=0.9980 release_ready=False pass=False
+cyber-tiel technical_tier2_pass=False

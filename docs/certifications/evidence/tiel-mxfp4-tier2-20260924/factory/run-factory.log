@@ -1,0 +1,28 @@
+engine=/opt/homebrew/bin/ax-engine-bench host=df-macstudio-m2 hostname=df-macstudio-m2.local
+manifest already exists: /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+validated /Volumes/Ext16TR0/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+=== tiel agent-coding mtp-off ===
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+2026-09-24 05:19:53 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/tiel/agent-coding/mtp-off/benchmark_raw_log.json
+=== tiel agent-coding mtp-on ===
+2026-09-24 05:20:28 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/tiel/agent-coding/mtp-on/benchmark_raw_log.json
+tiel agent-coding: exact=False weighted=0.6677 prompt_med=0.6669 release_ready=False pass=False
+=== tiel general-long mtp-off ===
+2026-09-24 05:21:42 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/tiel/general-long/mtp-off/benchmark_raw_log.json
+=== tiel general-long mtp-on ===
+2026-09-24 05:23:30 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/tiel/general-long/mtp-on/benchmark_raw_log.json
+tiel general-long: exact=False weighted=1.0145 prompt_med=1.0153 release_ready=False pass=False
+tiel technical_tier2_pass=False
+manifest already exists: /Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+validated /Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923/model-manifest.json
+=== cyber-tiel agent-coding mtp-off ===
+2026-09-24 05:25:30 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/cyber-tiel/agent-coding/mtp-off/benchmark_raw_log.json
+=== cyber-tiel agent-coding mtp-on ===
+2026-09-24 05:26:08 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/cyber-tiel/agent-coding/mtp-on/benchmark_raw_log.json
+cyber-tiel agent-coding: exact=True weighted=1.2088 prompt_med=1.2088 release_ready=True pass=True
+=== cyber-tiel general-long mtp-off ===
+2026-09-24 05:26:38 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/cyber-tiel/general-long/mtp-off/benchmark_raw_log.json
+=== cyber-tiel general-long mtp-on ===
+2026-09-24 05:27:08 [info     ] benchmark_log_saved            path=/Volumes/Ext16TR0/axquant/work/tiel-mxfp4-tier2-20260924/cyber-tiel/general-long/mtp-on/benchmark_raw_log.json
+cyber-tiel general-long: exact=False weighted=1.0889 prompt_med=1.0898 release_ready=False pass=False
+cyber-tiel technical_tier2_pass=False

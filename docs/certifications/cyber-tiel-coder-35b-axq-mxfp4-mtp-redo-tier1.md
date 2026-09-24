@@ -61,10 +61,15 @@ Evidence:
 
 ## Tier 2 status
 
-Native drafting and verification executed with no recorded direct fallback. This
-does not establish the Tier 2 weighted 1.20x / median 1.10x acceleration
-thresholds: no paired direct baseline or authorizing workloads were measured.
-MTP-S, MTP-P and MTP-D remain unassessed; `auto` is not promoted.
+Measured Tier 2 A/B on `df-macstudio-m2` (AX Engine 7.5.4, Qwen 3.6 MoE exact
+profile): **not certified** — agent-coding clears all three gates (exact, 1.2088x
+weighted, 1.2088x prompt-median), but general-long is inexact (2 of 2 divergent
+measured trials) and below both speed floors (1.0889x / 1.0898x). Tier 2 requires
+every authorizing profile to pass. See the scoped Tier 2 evaluation:
+[cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md).
+A `df-macbookpro-m5` comparison run of the same engine build shows the same
+pattern (1.3778x agent-coding, inexact general-long). Product default remains
+direct fallback; `auto` is not promoted.
 
 Vision weights are present and hash-verified (byte-preserved sidecar), not
 modality-certified. Audio is not supported. This pack is a lossy requantization

@@ -1,0 +1,108 @@
+{
+  "created_at": "2026-09-24T00:00:00+00:00",
+  "engine_dev_build_finding": "The in-tree AX Engine dev build on df-macbookpro-m5 (v7.5.4-40-g875da6b5, Aug 19 2026) never activates MTP for these packs (ax_mtp_requested=1, ax_mtp_available=0, qwen_linear_mtp_exact_eligible=0, mtp_model_gate_default_present=0 on every trial). The 7.5.4 release binary enables MTP on the same host/packs. Recorded as an engine-side regression candidate for the >=7.5.5 development line; not an AXQuant pack property.",
+  "packs": {
+    "cyber-tiel": {
+      "comparison_df-macbookpro-m5_engine-7.5.4_same_binary": {
+        "agent-coding": {
+          "comparison_sha256": "97a0ceb0eeb48c7bcbbdaa3d6373aa8469da6c714f0212c1bdd9dbeac8bf8b9a",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 1,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.377835749561394,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.3778223996957597
+        },
+        "general-long": {
+          "comparison_sha256": "629d680ce99312fdde621594077a7bc8488c3b6be785283f54b2edb44d1ddd16",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 2,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.0894070920002425,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.084908525058841
+        }
+      },
+      "factory_df-macstudio-m2_engine-7.5.4": {
+        "agent-coding": {
+          "comparison_sha256": "586f78feaafda45c7321fa63f019112f25ab425f4e1f12a7630996beb7be440a",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 0,
+          "exactness_pass": true,
+          "gate_pass": true,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.2088354387137477,
+          "release_ready": true,
+          "token_weighted_decode_speedup": 1.2088174973323245
+        },
+        "general-long": {
+          "comparison_sha256": "422c4269a90f44b8c7e2258d9c566d34d36bd1abc87dd040488e6ad6d80e4346",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 2,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.08975953216878,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.0888877603351472
+        }
+      }
+    },
+    "tiel": {
+      "comparison_df-macbookpro-m5_engine-7.5.4_same_binary": {
+        "agent-coding": {
+          "comparison_sha256": "a424270e368d2a2dc07bb2c81a5dad10bb1dc552f0e5a6e93d80c7c8e1ea6f54",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 1,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.3729525996821585,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.3729312683957045
+        },
+        "general-long": {
+          "comparison_sha256": "7da32cb2e498a053057afa2c7ee34ce099a91f96a62f37308d1ecd945dbad9b5",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 2,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.2016928880978894,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.1986143890570906
+        }
+      },
+      "factory_df-macstudio-m2_engine-7.5.4": {
+        "agent-coding": {
+          "comparison_sha256": "1452726db7f3ff0cc36838d04bbefb6888c1d7883c6910faf6e9ec9c5d0834ce",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 1,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 0.6668729088440066,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 0.6677268517740639
+        },
+        "general-long": {
+          "comparison_sha256": "44623f42e27dc784f397daa421884172ca54f5e8032a436873e0dbe11ad26262",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 2,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.015294053300591,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.0145183374197062
+        }
+      }
+    }
+  },
+  "schema_version": "axquant.tiel-tier2-host-comparison.v1",
+  "summary": "Same AX Engine 7.5.4 release binary (sha256 eeb40413...) and same packs, datasets, seed, and runtime profile on both hosts. MTP engages on both (ax_mtp_available=1). Greedy exactness between MTP and direct decode fails on both hosts on both packs except cyber-tiel agent-coding on the factory host; divergent trials and first-divergence positions differ by host, which is the signature of numeric (not logical) divergence in the multi-token verify path on these MXFP4 MoE packs. M5 Max decode is ~1.5x faster than M2 Ultra; agent-coding speedups clear 1.20x on M5 Max but general-long stays under the 1.20x floor on both hosts."
+}

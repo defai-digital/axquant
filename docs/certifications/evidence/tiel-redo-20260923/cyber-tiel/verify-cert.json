@@ -1,8 +1,8 @@
 {
   "artifact_path": "/Volumes/Ext16TR0/models/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
-  "certificate_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.json",
+  "certificate_path": "/Volumes/Ext16TR0/axquant/work/tiel-redo-20260923/repo/docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.json",
   "certificate_schema_version": "axquant.public-checkpoint-certification.v1",
-  "certificate_sha256": "9efafc4e6ec80c90a250e8d88e8c0460a05a5e184fba8b223c959a9b9e403139",
+  "certificate_sha256": "56429c9491fefc687c106bb02e04a12a041ad16d2daaae5ad600388b6687e103",
   "certificate_status": "not_certified",
   "checks": [
     {
@@ -106,7 +106,7 @@
       "passed": true
     }
   ],
-  "created_at": "2026-09-24T01:52:01.701557Z",
+  "created_at": "2026-09-24T17:27:27.792007Z",
   "hub_repo_id": "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
   "issues": [],
   "manifest_sha256": "904c7042b7610b578c3da4b04f9f32ece05ffcc9ce2147fd802d9a2e81050433",
