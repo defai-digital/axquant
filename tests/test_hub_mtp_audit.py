@@ -173,3 +173,131 @@ def test_qwen_expert_stream_and_deepseek_use_distinct_contracts() -> None:
     assert qwen_result.passed
     assert deepseek_result.kind == MtpHubPackKind.DEEPSEEK_NEXTN
     assert deepseek_result.passed
+
+
+def test_expert_stream_audit_flags_sharded_ngram_without_standalone_table() -> None:
+    index_name = "model.language_model.layers.0.ple.ple_embedding.ngram_embedding.shards.0.weight"
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "model.safetensors.index.json",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {"mtp_depth_max": 1, "mtp_norm_layout": "native"},
+            "ax_expert_stream.json": {"schema_version": "test"},
+            "model.safetensors.index.json": {
+                "weight_map": {
+                    index_name: "model.safetensors",
+                    "model.layers.0.mlp.down_proj.weight": "model.safetensors",
+                }
+            },
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert result.kind == MtpHubPackKind.QWEN_EXPERT_STREAM
+    assert not result.passed
+    assert any("relayout-ngram-table" in issue for issue in result.issues)
+
+
+def test_expert_stream_audit_accepts_relaid_out_ngram_variant() -> None:
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "model.safetensors.index.json",
+            "ngram-table.safetensors",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {"mtp_depth_max": 1, "mtp_norm_layout": "native"},
+            "ax_expert_stream.json": {"schema_version": "test"},
+            "model.safetensors.index.json": {
+                "weight_map": {
+                    "model.layers.0.mlp.down_proj.weight": "model.safetensors",
+                }
+            },
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert result.passed
+
+
+def test_expert_stream_audit_flags_residual_ngram_keys_beside_table() -> None:
+    index_name = "model.language_model.layers.0.ple.ple_embedding.ngram_embedding.shards.0.weight"
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+        files={
+            "config.json",
+            "mtplx_runtime.json",
+            "mtp.safetensors",
+            "ax_expert_stream.json",
+            "model.safetensors.index.json",
+            "ngram-table.safetensors",
+        },
+        documents={
+            "config.json": {"model_type": "qwen4_exp"},
+            "mtplx_runtime.json": {"mtp_depth_max": 1, "mtp_norm_layout": "native"},
+            "ax_expert_stream.json": {"schema_version": "test"},
+            "model.safetensors.index.json": {
+                "weight_map": {index_name: "model.safetensors"},
+            },
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.layer",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert not result.passed
+    assert any("still carries" in issue for issue in result.issues)
+
+
+def test_resident_qwen_audit_without_index_stays_passing() -> None:
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
+        files={"config.json", "mtplx_runtime.json", "mtp.safetensors"},
+        documents={
+            "config.json": {"model_type": "qwen3_5"},
+            "mtplx_runtime.json": {
+                "arch_id": "qwen3-next-mtp",
+                "mtp_depth_max": 1,
+                "mtp_norm_layout": "native",
+                "mtp_tensor_count": 1,
+            },
+        },
+        headers={
+            "mtp.safetensors": SafetensorsHeader(
+                tensor_names=("mtp.fc",), metadata={"format": "mlx"}
+            )
+        },
+    )
+
+    result = audit_mtp_hub_snapshot(snapshot)
+
+    assert result.passed
+    assert not any("n-gram" in issue for issue in result.issues)

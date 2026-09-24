@@ -1002,6 +1002,24 @@ def _run(args: argparse.Namespace) -> int:
         log.info("omlx_mtp_compat_written", path=str(written))
         return 0
 
+    if args.command == "relayout-ngram-table":
+        from axquant.ngram_layout import relayout_ngram_table
+
+        ngram_report = relayout_ngram_table(args.directory, args.output, dry_run=args.dry_run)
+        log.info(
+            "ngram_relayout_planned" if ngram_report.dry_run else "ngram_relayout_written",
+            source=str(ngram_report.source),
+            output=str(ngram_report.output),
+            moved_tensor_count=ngram_report.moved_tensor_count,
+            moved_bytes=ngram_report.moved_bytes,
+            rebuilt_shard_files=list(ngram_report.rebuilt_shard_files),
+            removed_shard_files=list(ngram_report.removed_shard_files),
+            copied_file_count=ngram_report.copied_file_count,
+            total_size_before=ngram_report.total_size_before,
+            total_size_after=ngram_report.total_size_after,
+        )
+        return 0
+
     if args.command == "quantize-mtp-sidecar":
         import shlex
 

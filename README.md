@@ -1049,6 +1049,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
 | `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
 | `annotate-omlx-mtp` | Write `axquant_omlx_compat.json` for an existing Qwen MTP pack (`--directory`); does not requantize or merge `mtp.*` into the language index | Implemented |
+| `relayout-ngram-table` | Build an MTPLX-compatible variant pack (`--directory` → `--output`) that moves sharded n-gram keys into a standalone `ngram-table.safetensors`; byte-preserving, new directory, `--dry-run` supported | Implemented |
 | `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |
 | `mtp-diagnose` | Run the MTP kill-switch diagnostic matrix | Implemented; diagnostic evidence only |
 | `benchmark-index` | Bind every required baseline or record why it is unavailable | Implemented |

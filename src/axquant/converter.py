@@ -79,7 +79,7 @@ _ACTIVATION_REFINEMENT_METHODS = frozenset(
     {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
 )
 _CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
-_MTPLX_RUNTIME_COMPATIBILITY_VERSION = "2.5.2"
+MTPLX_RUNTIME_COMPATIBILITY_VERSION = "2.5.2"
 
 
 def _maybe_force_mlx_cpu() -> None:
@@ -553,7 +553,7 @@ def _declare_raw_mtp_runtime_contract(
             },
             "mtp_depth_max": 1,
             "mtp_tensor_count": tensor_count,
-            "mtplx_version": _MTPLX_RUNTIME_COMPATIBILITY_VERSION,
+            "mtplx_version": MTPLX_RUNTIME_COMPATIBILITY_VERSION,
             "recommended_draft_sampler": {
                 "temperature": 0.7,
                 "top_k": 20,

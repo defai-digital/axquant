@@ -90,6 +90,13 @@ between published versions.
   repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
   Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
   current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
+- **MTPLX rejects sharded n-gram tables in the language index.** Qwen 3.8 Flash-Next packs carry
+  the hashed n-gram PLE table as `ngram_embedding.shards.*` keys inside
+  `model.safetensors.index.json`; MTPLX expects a standalone `ngram-table.safetensors` and treats
+  the in-index keys as extraneous parameters. Run
+  `axquant relayout-ngram-table --directory <pack> --output <variant>` to build a byte-preserving
+  variant pack for MTPLX (`--dry-run` previews the plan). The variant is layout compatibility
+  only: the MTPLX Forge exactness baseline stays unverified, and the source pack is unchanged.
 - **Gemma 4 MTP is a paired assistant bundle, not embedded MTP heads.** The Gemma repositories
   contain an exact-paired drafter under `assistant/` and an `ax_gemma4_assistant_mtp.json`
   binding. Stock MLX-LM does not activate it, and the Qwen oMLX/MTPLX importer does not apply.

@@ -19,7 +19,9 @@ from axquant.gemma4_vlm import (
     GEMMA4_MLX_VLM_VISION_LAYOUT,
     normalize_gemma4_vision_tensor_names,
 )
+from axquant.module_paths import is_ngram_shard_key
 from axquant.mtp_sidecar import QWEN_NEXT_MTP_ARCH_ID
+from axquant.ngram_layout import INDEX_FILENAME, NGRAM_TABLE_FILENAME
 
 _IMMUTABLE_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _MAX_SAFETENSORS_HEADER_BYTES = 64 * 1024 * 1024
@@ -173,6 +175,39 @@ def _audit_gemma(
     return MtpHubPackKind.GEMMA_ASSISTANT
 
 
+def _audit_qwen_ngram_index(
+    snapshot: MtpHubRepositorySnapshot,
+    issues: list[str],
+) -> None:
+    """Flag packs MTPLX cannot load: sharded n-gram keys without the standalone table.
+
+    A missing language index is not reported here (some Qwen snapshots are
+    audited header-only); only a present index with sharded n-gram keys counts.
+    """
+
+    index = snapshot.documents.get(INDEX_FILENAME)
+    if not isinstance(index, Mapping):
+        return
+    weight_map = index.get("weight_map")
+    indexed: set[str] = set()
+    if isinstance(weight_map, dict):
+        indexed = {
+            name for name in weight_map if isinstance(name, str) and is_ngram_shard_key(name)
+        }
+    has_table = NGRAM_TABLE_FILENAME in snapshot.files
+    if indexed and not has_table:
+        issues.append(
+            f"index carries {len(indexed)} sharded n-gram keys without "
+            f"{NGRAM_TABLE_FILENAME}; MTPLX treats them as extraneous parameters; "
+            "run relayout-ngram-table"
+        )
+    if has_table and indexed:
+        issues.append(
+            f"{NGRAM_TABLE_FILENAME} is present but {INDEX_FILENAME} still carries "
+            f"{len(indexed)} sharded n-gram keys"
+        )
+
+
 def _audit_qwen(
     snapshot: MtpHubRepositorySnapshot,
     issues: list[str],
@@ -192,6 +227,7 @@ def _audit_qwen(
         issues.append("mtplx_runtime.json mtp_depth_max must be a positive integer")
     if not isinstance(runtime.get("mtp_norm_layout"), str):
         issues.append("mtplx_runtime.json mtp_norm_layout must be a string")
+    _audit_qwen_ngram_index(snapshot, issues)
 
     if expert_stream:
         _document(snapshot, "ax_expert_stream.json", issues)

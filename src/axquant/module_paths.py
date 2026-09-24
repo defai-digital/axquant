@@ -45,6 +45,12 @@ def _ngram_embedding_aliases(path: str) -> set[str]:
     return aliases
 
 
+def is_ngram_shard_key(path: str) -> bool:
+    """True for either n-gram PLE shard naming (HF ``shard_N`` or MLX ``shards.N``)."""
+
+    return bool(_NGRAM_SHARD.search(path) or _NGRAM_SHARDS.search(path))
+
+
 def _is_hc_learnable_scale_path(path: str) -> bool:
     """HyperConnection/HyperHead scale vectors are real params, not quant sidecars."""
 

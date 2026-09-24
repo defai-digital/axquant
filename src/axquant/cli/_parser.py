@@ -1211,6 +1211,28 @@ def _build_parser() -> argparse.ArgumentParser:
         help="pack directory that already contains mtp.safetensors",
     )
 
+    relayout_parser = subparsers.add_parser(
+        "relayout-ngram-table",
+        help="build an MTPLX-compatible variant pack with a standalone "
+        "ngram-table.safetensors (byte-preserving; writes to a new directory)",
+    )
+    relayout_parser.add_argument(
+        "--directory",
+        required=True,
+        help="source pack directory whose model.safetensors.index.json carries "
+        "sharded n-gram keys (ngram_embedding.shards.*)",
+    )
+    relayout_parser.add_argument(
+        "--output",
+        required=True,
+        help="new variant pack directory (must not exist; source stays untouched)",
+    )
+    relayout_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate and report the relayout plan without writing anything",
+    )
+
     quantize_mtp_parser = subparsers.add_parser("quantize-mtp-sidecar")
     quantize_mtp_parser.add_argument(
         "--sidecar",
