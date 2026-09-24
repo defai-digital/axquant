@@ -41,8 +41,8 @@ acceleration bound to the host and AX Engine build in its certificate
 | [Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | [`AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [Holo3-35B-A3B MLX AXQ 4-bit](holo3-35b-axq4-tier1.md) | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [Holo3-35B-A3B MLX AXQ 6-bit](holo3-35b-axq6-tier1.md) | [`AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
-| [Ornith-1.0-35B MLX AXQ 4-bit](ornith-35b-axq4-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | main@`d7416c66` | [Certified](ornith-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
-| [Ornith-1.0-35B MLX AXQ 6-bit](ornith-35b-axq6-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | main@`37361076` | [Certified](ornith-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
+| [Ornith-1.0-35B MLX AXQ 4-bit](ornith-35b-axq4-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit) | main@`d7416c66` | [Certified](ornith-35b-axq4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
+| [Ornith-1.0-35B MLX AXQ 6-bit](ornith-35b-axq6-tier1.md) | [`AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit) | main@`37361076` | [Certified](ornith-35b-axq6-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | no |
 | [Holo-3.1-35B-A3B MLX AXQ MXFP4](holo31-35b-axq-mxfp4-tier1.md) | [`AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4) | main@23aa374f | [Certified](holo31-35b-axq-mxfp4-tier1.md) | N/A (no MTP) | `df-macstudio-m2` | yes |
 | [GPT-OSS 20B MLX AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
 | [GPT-OSS 20B MLX AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | [`AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) | `df-macbookpro-m5` | yes |
@@ -81,7 +81,7 @@ acceleration bound to the host and AX Engine build in its certificate
 ## Counts
 
 - Total certificate records: **57**
-- In README headline matrix (`listed`): **35**
+- In README headline matrix (`listed`): **33**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **32**
 - Not checkpoint-certified (evaluation only): **19**

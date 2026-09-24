@@ -1,5 +1,12 @@
 # Ornith-1.0-35B AXQ 6bit — checkpoint Tier 1 certification
 
+> **Withdrawn (2026-09-19).** The Hub repository
+> `AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-6bit` was deleted in the AutomatosX
+> catalog cleanup when Ornith support ended. This page and the JSON record are
+> retained as historical evidence of the factory measurement only; the
+> certification is no longer publicly verifiable and is removed from the public
+> index (`public_index.listed = false`). Do not cite it as a live product claim.
+
 **Verdict:** certified for AXQuant checkpoint Tier 1 on `df-macstudio-m2`.
 **MTP acceleration Tier 2 is not applicable** (no MTP weights).
 

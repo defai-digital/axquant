@@ -8,7 +8,7 @@ published here.
 | [`contracts/`](contracts/axq-pack-interchange-v1.md) | Published freeze contracts (pack interchange, certification spec) |
 | [`guides/`](guides/known-issues.md) | How to operate the toolkit (known issues, compatibility, CI, experimental 1.9) |
 | [`migrations/`](migrations/migration-v1.8.md) | Toolkit version upgrades |
-| [`runbooks/`](runbooks/ornith-35b-axq-dev-runbook.md) | Family convert / cert procedures |
+| [`runbooks/`](runbooks/holo3-35b-axq-dev-runbook.md) | Family convert / cert procedures |
 | [`reports/`](reports/ax-engine-72h-endurance.md) | Evidence write-ups. Not certificates. |
 | [`certifications/`](certifications/README.md) | Public checkpoint certificates (JSON + markdown) |
 | [`hub-cards/`](hub-cards/) | Hub model-card drafts |

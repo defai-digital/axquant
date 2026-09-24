@@ -117,10 +117,6 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     }
     # Secondary development/cert packs published after the historical migration table.
     secondary_family_additions = {
-        "AX-Ornith-1.0-35B-MLX-AXQ-4bit",
-        "AX-Ornith-1.0-35B-MLX-AXQ-6bit",
-        "AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP",
-        "AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
         "AX-DeepSeek-OCR-2-MLX-AXQ-4bit",
         "AX-DeepSeek-OCR-2-MLX-AXQ-6bit",
         "AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
@@ -129,6 +125,14 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
         "AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit",
         "AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit",
+    }
+    # Ornith support ended: the 1.0 4/6-bit and 1.5 6-bit Hub repos were deleted in the
+    # 2026-09-19 catalog cleanup (MXFP4 Ornith repos never entered the 4/6/8-bit count).
+    ornith_removed = {
+        "AX-Ornith-1.0-35B-MLX-AXQ-4bit",
+        "AX-Ornith-1.0-35B-MLX-AXQ-6bit",
+        "AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP",
+        "AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
     }
     # Qwen 3.6 no-MTP siblings + Qwen3.8-27B 4/6 ± MTP and 8-bit MTP (no-MTP MXFP4/8-bit unlisted).
     qwen_family_additions = {
@@ -155,8 +159,8 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
         | qwen_family_additions
         | flash_0731_additions
     )
-    assert len(readme_repositories) == 62
-    assert len(set(readme_repositories)) == 62
+    assert len(readme_repositories) == 58
+    assert len(set(readme_repositories)) == 58
     # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
     # links cover the original 28 minus those three 4bit packs (unique = 25).
     assert len(set(completion_repositories)) == 25
@@ -164,6 +168,7 @@ def test_public_stable_catalog_preserves_migration_and_lists_multimodal_addition
     assert set(readme_repositories) - set(completion_repositories) == post_migration_additions
     assert floor_collapsed_4bit.isdisjoint(set(readme_repositories))
     assert gpt_oss_removed_uncertified.isdisjoint(set(readme_repositories))
+    assert ornith_removed.isdisjoint(set(readme_repositories))
     assert floor_collapsed_6bit < set(readme_repositories)
     catalog_lower = readme_catalog.lower()
     assert "no distinct AXQ-4bit pack" in catalog_lower or "no 4bit sibling" in readme_catalog
@@ -275,6 +280,8 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "deepseek-v4-flash-0731-axq4" not in unlisted_ids
     assert "deepseek-v4-flash-0731-axq-mxfp4" not in unlisted_ids
     assert "deepseek-v4-flash-0731-axq6" not in unlisted_ids
+    assert "ornith-35b-axq4" in unlisted_ids  # Hub repo deleted 2026-09-19; record retained
+    assert "ornith-35b-axq6" in unlisted_ids  # Hub repo deleted 2026-09-19; record retained
     assert "qwen3-vl-32b-thinking-axq6" in unlisted_ids
     assert "qwen3-vl-32b-thinking-axq-mxfp4" in unlisted_ids
     assert "holo31-35b-axq6" in unlisted_ids
@@ -283,8 +290,6 @@ def test_public_certification_json_is_loadable_ssot() -> None:
     assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
     assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
-    assert "ornith-35b-axq4" not in unlisted_ids
-    assert "ornith-35b-axq6" not in unlisted_ids
     # No-MTP Qwen / Coder-Next siblings stay certified on disk but off the matrix.
     for rid in (
         "qwen38-27b-axq-mxfp4",
@@ -381,8 +386,6 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
     unlisted_ids = {row.record_id for row in rows if not row.listed}
     assert "holo3-35b-axq4" not in unlisted_ids
     assert "holo3-35b-axq6" not in unlisted_ids
-    assert "ornith-35b-axq4" not in unlisted_ids
-    assert "ornith-35b-axq6" not in unlisted_ids
 
 
 def test_certification_docs_match_certificate_json_exactly() -> None:

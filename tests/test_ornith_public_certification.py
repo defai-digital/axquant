@@ -1,4 +1,9 @@
-"""Ornith-1.0-35B public checkpoint records bind measured gates honestly."""
+"""Ornith-1.0-35B records stay honest after the 2026-09-19 repo withdrawal."""
+
+# The Hub repositories were deleted in the AutomatosX catalog cleanup;
+# the records remain as unlisted historical evidence of the factory
+# measurement and must not render in the public index.
+
 
 from __future__ import annotations
 
@@ -18,7 +23,7 @@ def test_ornith_6bit_is_certified_with_passing_gates() -> None:
     assert cert.artifact.source_model_id == "deepreinforce-ai/Ornith-1.0-35B"
     assert cert.artifact.source_revision == "5df2ed3f675c7beaa490328cc70bb573b65fb660"
     assert cert.mtp_acceleration.status == "not-applicable"
-    assert cert.public_index.listed is True
+    assert cert.public_index.listed is False
 
     size = cert.size
     assert float(size["size_ratio_vs_uniform"]) <= float(size["max_size_ratio_applied"])
@@ -36,7 +41,7 @@ def test_ornith_6bit_is_certified_with_passing_gates() -> None:
 def test_ornith_4bit_is_certified_architecture_prior() -> None:
     cert = load_public_checkpoint_certification(_CERT_DIR / "ornith-35b-axq4-tier1.json")
     assert cert.status == "certified"
-    assert cert.public_index.listed is True
+    assert cert.public_index.listed is False
     assert cert.mtp_acceleration.status == "not-applicable"
     assert cert.artifact.hub_repo_id == "AutomatosX/AX-Ornith-1.0-35B-MLX-AXQ-4bit"
     assert cert.plan.get("recipe") is None
