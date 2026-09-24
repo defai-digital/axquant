@@ -123,6 +123,9 @@ def test_m5_comparison_evidence_present_and_labeled_development() -> None:
     assert comparison["schema_version"] == "axquant.tiel-tier2-host-comparison.v1"
     assert "same packs" in comparison["summary"]
     assert "engine_dev_build_finding" in comparison
+    assert "control_ab_summary" in comparison
+    assert "determinism_probe_summary" in comparison
+    assert "regression vs 6.14.1" in comparison["revised_root_cause"]
 
     for pack in ("tiel", "cyber-tiel"):
         summary = json.loads(
@@ -152,3 +155,58 @@ def test_m5_comparison_evidence_present_and_labeled_development() -> None:
     assert mtp["requested"] is True
     assert mtp["available"] is False
     assert mtp["active"] is False
+
+
+def test_control_ab_and_determinism_probe_evidence() -> None:
+    # Control: certified AXQ packs also fail greedy exactness on engine 7.5.4,
+    # isolating an engine-wide verify-path regression from the MXFP4 format.
+    control = json.loads(
+        (
+            EVIDENCE
+            / "comparison-df-macbookpro-m5"
+            / "control-ab"
+            / "qwen36-axq6-mtp"
+            / "TIER2_TECHNICAL_SUMMARY.json"
+        ).read_text()
+    )
+    assert control["host_id"] == "df-macbookpro-m5"
+    assert (
+        control["engine_binary_sha256"]
+        == "eeb404133ea7cec4fc1da7b0dee7aebcd4d8006b3b2f0eda96c2112908cacac9"
+    )
+    assert control["profiles"]["agent-coding"]["exactness_pass"] is True
+    assert control["profiles"]["general-long"]["exactness_pass"] is False
+    control4 = json.loads(
+        (
+            EVIDENCE
+            / "comparison-df-macbookpro-m5"
+            / "control-ab"
+            / "qwen36-axq4-mtp"
+            / "TIER2_TECHNICAL_SUMMARY.json"
+        ).read_text()
+    )
+    assert control4["profiles"]["agent-coding"]["exactness_pass"] is False
+
+    # Probe: every arm internally deterministic; no decode-jitter verdicts.
+    probe = json.loads(
+        (
+            EVIDENCE / "comparison-df-macbookpro-m5" / "determinism-probe" / "probe_report.json"
+        ).read_text()
+    )
+    assert probe["schema_version"] == "axquant.mtp-determinism-probe.v1"
+    results = probe["results"]
+    assert len(results) == 16
+    assert {r["pack"] for r in results} == {
+        "tiel",
+        "cyber-tiel",
+        "qwen36-axq4-mtp",
+        "qwen36-axq6-mtp",
+    }
+    assert all(r["verdict"] != "decode-nondeterministic" for r in results)
+    assert all(
+        r["direct"]["all_repeats_identical"] and r["mtp"]["all_repeats_identical"] for r in results
+    )
+    # Cross-arm divergence is fixed per (pack, prompt): all 8 pairs agree.
+    for r in results:
+        first = r["cross_arm_first_diff"][0]
+        assert all(d == first for d in r["cross_arm_first_diff"])

@@ -1,0 +1,2521 @@
+{
+  "created_at": "2026-09-24T18:52:32.719723+00:00",
+  "engine_executable": "/Users/akiralam/tiel-tier2/engine-754/bin/ax-engine-bench",
+  "host_id": "df-macbookpro-m5",
+  "hostname": "df-macbookpro-m5",
+  "max_tokens": 64,
+  "repeats": 8,
+  "results": [
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "eda1c59356ac98e4300796d2621ad56bcf197a689ceb307add666f3da4374cc1",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.85994999471777,
+          141.7032733456143,
+          140.9691629955947,
+          141.53593022278642,
+          141.63553635607175,
+          141.58759515681933,
+          141.6336556974351,
+          141.2862791154596
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ],
+          [
+            30,
+            33
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad",
+          "cd0501d403b82cc2daf29b37c5e66f62dafcdfede9cf8eee8663c1175b81e7ad"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          182.66404087107912,
+          182.65361454379408,
+          182.79916940627402,
+          182.56191416167,
+          182.29411446361382,
+          182.44897842825907,
+          182.322157554832,
+          182.37099389342126
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "cyber-tiel",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21,
+        21
+      ],
+      "dataset_sha256": "904fb88eb67ddad51019328d9475d995303d62718de7dae4941ff7372e769a7c",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af",
+          "656ee48493bfcab709f1a2a183974a3c8a8195c44033db9789fad6ef4ac869af"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.8401112636879,
+          141.46553877371483,
+          141.12894334113952,
+          141.41896251513626,
+          141.68570568336787,
+          140.8717318858763,
+          141.64368645399458,
+          141.4249000634202
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d",
+          "9eeff4f0d34729fb7aa2ac20e2444e7968d449ec1ead68a1b4fc9ab3d045c63d"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          176.84345485794498,
+          177.39440874997922,
+          176.2002956861212,
+          177.04941615188628,
+          177.88549732893807,
+          177.97701315639452,
+          178.04583567482155,
+          177.99037739522208
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "cyber-tiel",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        62,
+        62,
+        62,
+        62,
+        62,
+        62,
+        62,
+        62
+      ],
+      "dataset_sha256": "f5cba62344d17726f54b63239ffd1de2a3b906700ef4b8115c8384db9d282469",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6",
+          "0b05de9ab4676f85e6250ad9c7990e1856a98ebc38075cec663eb56dd78dbcb6"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          141.69982221100432,
+          141.0474536526883,
+          141.49368694963928,
+          141.3031239029689,
+          141.49556389298513,
+          141.84145671176043,
+          141.66626085185695,
+          141.54751241305334
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409",
+          "ccc731d046f3e01b4468048849692bae8706d4e953c22e93eaed1c18f2b9f409"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          177.90725472427155,
+          178.36390137591027,
+          178.52958569978017,
+          178.75147679442742,
+          178.85038327078226,
+          178.3032771585144,
+          178.74448754793283,
+          178.39323443658398
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "cyber-tiel",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28,
+        28
+      ],
+      "dataset_sha256": "3081b43765a5a7318010cc65962f833643d37614b9f547e7cdafc3eeb19488d8",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e",
+          "bb2f3ded02307497c191ab9cd9b9df7228ab80eaea7f461744cd92d04a60586e"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          141.88799716224005,
+          141.4327133866063,
+          140.80881463179594,
+          141.74815339807975,
+          141.4327133866063,
+          141.74156084035027,
+          141.77578602489493,
+          141.70233211041267
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ],
+          [
+            28,
+            34
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6",
+          "78534568b979059a1ad74e61a97c6077888b0e3cfb4f6dbb25537cd77180f2f6"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          177.66624285864987,
+          178.07060499488045,
+          178.46436986740653,
+          178.06465972956428,
+          177.82371557096695,
+          178.43053615588138,
+          177.94138499564878,
+          178.0711004515772
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "cyber-tiel",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "eda1c59356ac98e4300796d2621ad56bcf197a689ceb307add666f3da4374cc1",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.7150081350864,
+          139.8216400204489,
+          140.58580346983337,
+          140.24753690263313,
+          140.60557061695087,
+          140.43279632417156,
+          140.59136241817143,
+          140.3490304952128
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          188.7382259786372,
+          189.15995247356193,
+          188.2485822528649,
+          188.53028856917294,
+          188.63475595378446,
+          188.4819837728792,
+          188.8156244929268,
+          188.6948215064923
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq4-mtp",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "904fb88eb67ddad51019328d9475d995303d62718de7dae4941ff7372e769a7c",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.1664476565922,
+          140.60958649796447,
+          140.6352317624671,
+          140.2380101979328,
+          140.57005550320784,
+          140.68624110544215,
+          140.04315079583895,
+          139.980359005877
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ],
+          [
+            31,
+            32
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          185.06577063989383,
+          185.44113258171723,
+          184.99408886075437,
+          184.85943461897293,
+          185.30421740817306,
+          185.26827714976335,
+          185.45402913366888,
+          185.56103218324154
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq4-mtp",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "dataset_sha256": "f5cba62344d17726f54b63239ffd1de2a3b906700ef4b8115c8384db9d282469",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c",
+          "92b151c313bf23587e019603dba0317655f8940bbd64d5b5fea8bc5c42eb816c"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.71748326781176,
+          140.4374186724714,
+          140.28135178617615,
+          140.06031347248907,
+          140.76452733911054,
+          140.5796273761252,
+          140.68747815497164,
+          140.40568467515828
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ],
+          [
+            29,
+            33
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          179.51609193467857,
+          179.61483843083985,
+          179.39985143449803,
+          178.89787726487506,
+          179.2782370226367,
+          179.3551062959247,
+          179.3350033905524,
+          179.54127204991246
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq4-mtp",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        55,
+        55,
+        55,
+        55,
+        55,
+        55,
+        55,
+        55
+      ],
+      "dataset_sha256": "3081b43765a5a7318010cc65962f833643d37614b9f547e7cdafc3eeb19488d8",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6",
+          "ce52d67402f9c05dec26a5a3c729e785a3db1051caf25d3a21082533d8d900d6"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.17811381586728,
+          139.762709125413,
+          140.65655844170115,
+          140.95643344984265,
+          140.92167177140743,
+          140.26167568870676,
+          140.88289549570968,
+          140.698921894511
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4",
+          "eeb685573679e12c46083768b3489c15414c04d4978ef3ec2650677d59f4cdb4"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          183.6241672357103,
+          183.4531033672244,
+          183.8964203412428,
+          183.55254478395292,
+          183.4704583894734,
+          183.80769120307878,
+          183.7718013656542,
+          183.95826446874864
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq4-mtp",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "eda1c59356ac98e4300796d2621ad56bcf197a689ceb307add666f3da4374cc1",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          122.06798423797153,
+          122.48921042306624,
+          122.10175273250368,
+          121.73062913812814,
+          121.868549535757,
+          122.10571302104796,
+          122.25779584476318,
+          121.90801278510285
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          163.34739652325274,
+          163.34697961225513,
+          163.11301183079064,
+          163.43624709517607,
+          163.39285258390478,
+          163.60294587554418,
+          163.19203622863202,
+          163.2565602352935
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq6-mtp",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "dataset_sha256": "904fb88eb67ddad51019328d9475d995303d62718de7dae4941ff7372e769a7c",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc",
+          "b8d4e95c59786ed9e77ebb0c50ad578cc14882a56ecf419137b43b0f63a71adc"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          121.99864276509925,
+          122.00748058365329,
+          122.40019125029883,
+          121.86901366075475,
+          122.23444566678889,
+          121.93472300812962,
+          122.07310653167417,
+          122.03469980417243
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a",
+          "fec6242823a68614190d2b614bfcbc207d364dc74d1f3e92060cae34fe687f1a"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          164.85200668680952,
+          164.85455449344576,
+          164.80743281521995,
+          164.74719028815315,
+          164.60100972431903,
+          165.1629952309185,
+          164.43227188876156,
+          165.0858833513466
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq6-mtp",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "verify-differs-from-direct"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "f5cba62344d17726f54b63239ffd1de2a3b906700ef4b8115c8384db9d282469",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          122.0032940889404,
+          122.17284403109299,
+          121.82725656439523,
+          121.97957604473602,
+          122.39199862309002,
+          122.12388705066996,
+          122.31948320018347,
+          121.85857170329723
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b",
+          "01eb46301623c661eb2c3fcc4b86563cfc4d243a33f78a989d6515f4dad0527b"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          159.9440195931424,
+          160.24196536770523,
+          160.15214453731045,
+          160.27326591839085,
+          159.856528765433,
+          159.92563457992034,
+          160.0652265798313,
+          159.9392230952238
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq6-mtp",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "3081b43765a5a7318010cc65962f833643d37614b9f547e7cdafc3eeb19488d8",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          122.46436573982828,
+          122.25756229882423,
+          121.98259841994414,
+          122.21110440647412,
+          122.53728771372225,
+          122.09406584685588,
+          122.34520464147121,
+          122.37234079167257
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ],
+          [
+            30,
+            32
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a",
+          "f5ba6f6c209780c76573b23a912a79789fdfb43e92ef11f735ca71136221f20a"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          159.5031476949303,
+          159.38398091376828,
+          159.58269126234896,
+          159.72606979030962,
+          159.9640080981779,
+          159.771526716795,
+          159.75078876951954,
+          159.7771109302523
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "qwen36-axq6-mtp",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "eda1c59356ac98e4300796d2621ad56bcf197a689ceb307add666f3da4374cc1",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.91887916646482,
+          141.3805367600441,
+          140.9955608428891,
+          141.54876465527346,
+          141.45803448481647,
+          141.74438614714396,
+          141.06890554775512,
+          141.28284826222097
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ],
+          [
+            31,
+            31
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded",
+          "c55e39aba906cfa0e5f0e4dbf449ae954eb1e383db6f9e9a39e6257b9f1c8ded"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          192.31693831434202,
+          193.07115878896116,
+          193.1935497503577,
+          192.79140873284834,
+          193.68642772621214,
+          192.91693418819648,
+          193.60439965998228,
+          192.91984180572973
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "tiel",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "904fb88eb67ddad51019328d9475d995303d62718de7dae4941ff7372e769a7c",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          140.80107008813266,
+          141.39428015951043,
+          141.35149700069792,
+          141.0633087721541,
+          141.32590194632266,
+          141.38272303124558,
+          141.2370155735878,
+          141.49337413058953
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ],
+          [
+            29,
+            34
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f",
+          "113a7ef1a41dca4b48e53b3709ef1d8cb80be20a7f90d4860699417227d9953f"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          177.7412420780173,
+          177.64257204238996,
+          177.70768196988965,
+          177.87017145016995,
+          178.07803713483568,
+          178.0879476198824,
+          178.33159645788868,
+          177.8998368324934
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "tiel",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "agent-coding",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "dataset_sha256": "f5cba62344d17726f54b63239ffd1de2a3b906700ef4b8115c8384db9d282469",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          141.19183558210744,
+          141.48430297979206,
+          141.7148829412924,
+          141.09285232428428,
+          141.22018654304017,
+          141.66281151984276,
+          141.3802244411063,
+          141.37835055645635
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ],
+          [
+            27,
+            34
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700",
+          "99daa2f8d5a2b081a5bd67c804ace1000a3372ac299f95aa0557466d9e143700"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          170.41899106631695,
+          171.2846617261747,
+          171.25257882301312,
+          170.34052134845817,
+          170.94701977910438,
+          171.05210407451457,
+          170.681231465085,
+          170.89726404161348
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "tiel",
+      "prompt_index": 0,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "exact-and-deterministic"
+    },
+    {
+      "cross_arm_first_diff": [
+        48,
+        48,
+        48,
+        48,
+        48,
+        48,
+        48,
+        48
+      ],
+      "dataset_sha256": "3081b43765a5a7318010cc65962f833643d37614b9f547e7cdafc3eeb19488d8",
+      "direct": {
+        "accepted_over_proposed": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            0
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "output_shas": [
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9",
+          "e520355503674aabb6665f972d84f4af3580bec98ef76550009386936e9185f9"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          141.42990049080595,
+          141.35711666821277,
+          141.6593623557952,
+          141.9276435132414,
+          141.92197839237878,
+          141.80217267516446,
+          141.707665941891,
+          140.4565276073889
+        ],
+        "unique_outputs": 1
+      },
+      "mtp": {
+        "accepted_over_proposed": [
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ],
+          [
+            26,
+            36
+          ]
+        ],
+        "all_repeats_identical": true,
+        "mtp_active": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "output_shas": [
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524",
+          "9fe5f298e9df64f76ebbdfe5d4411fe6a2fe67bdf1d446579bee2103466e0524"
+        ],
+        "successful_repeats": 8,
+        "tokens_per_second": [
+          168.33776973497322,
+          168.03016141397381,
+          168.15863665385334,
+          167.99619908599567,
+          167.8503614028094,
+          168.0292791018835,
+          167.5980579575034,
+          168.270052400346
+        ],
+        "unique_outputs": 1
+      },
+      "pack": "tiel",
+      "prompt_index": 1,
+      "repeats": 8,
+      "suite": "general-long",
+      "verdict": "verify-differs-from-direct"
+    }
+  ],
+  "runtime_env": {
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
+    "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+    "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+  },
+  "schema_version": "axquant.mtp-determinism-probe.v1",
+  "seed": 20260728
+}

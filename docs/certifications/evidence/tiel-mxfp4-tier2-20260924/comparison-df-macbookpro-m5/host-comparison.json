@@ -1,5 +1,7 @@
 {
+  "control_ab_summary": "Certified Qwen 3.6 35B-A3B AXQ-6bit/4bit-MTP packs (Tier 2 certified on engine 6.14.1, formal suites) re-run on the same 7.5.4 binary, same dev suites, same profile: AXQ6 agent-coding passes exact (1.3279x) but general-long is inexact (1.0447x/1.0883x); AXQ4 fails exactness on both profiles (1.3336x/0.9436x). The 7.5.4 verify path is therefore not row-exact against direct decode engine-wide, independent of pack format: an engine regression from the 6.14.1 generation is the primary root-cause candidate, with pack/format modulation on top.",
   "created_at": "2026-09-24T00:00:00+00:00",
+  "determinism_probe_summary": "Same prompt repeated 8x per arm, all four packs: every direct arm and every MTP arm is internally bit-deterministic (256/256 generations), so decode itself is not jittery. Cross-arm first-divergence is identical across all 8 pairs per prompt (e.g. cyber-tiel agent-coding prompt 1 always at token 21) but varies prompt to prompt and pack to pack (9 exact / 7 verify-differs / 0 nondeterministic). The verify path computes deterministically different logits than the direct path on specific prompts; this is a row-exactness defect, not run-to-run noise.",
   "engine_dev_build_finding": "The in-tree AX Engine dev build on df-macbookpro-m5 (v7.5.4-40-g875da6b5, Aug 19 2026) never activates MTP for these packs (ax_mtp_requested=1, ax_mtp_available=0, qwen_linear_mtp_exact_eligible=0, mtp_model_gate_default_present=0 on every trial). The 7.5.4 release binary enables MTP on the same host/packs. Recorded as an engine-side regression candidate for the >=7.5.5 development line; not an AXQuant pack property.",
   "packs": {
     "cyber-tiel": {
@@ -103,6 +105,7 @@
       }
     }
   },
+  "revised_root_cause": "Primary: AX Engine 7.5.4 verify-path row-exactness regression vs 6.14.1 (control packs fail too). Secondary: pack/format modulation (MXFP4 MoE packs fail more profiles than AXQ controls in the same runs). Host ruled out as the cause (same binary, both hosts, deterministic per host).",
   "schema_version": "axquant.tiel-tier2-host-comparison.v1",
   "summary": "Same AX Engine 7.5.4 release binary (sha256 eeb40413...) and same packs, datasets, seed, and runtime profile on both hosts. MTP engages on both (ax_mtp_available=1). Greedy exactness between MTP and direct decode fails on both hosts on both packs except cyber-tiel agent-coding on the factory host; divergent trials and first-divergence positions differ by host, which is the signature of numeric (not logical) divergence in the multi-token verify path on these MXFP4 MoE packs. M5 Max decode is ~1.5x faster than M2 Ultra; agent-coding speedups clear 1.20x on M5 Max but general-long stays under the 1.20x floor on both hosts."
 }

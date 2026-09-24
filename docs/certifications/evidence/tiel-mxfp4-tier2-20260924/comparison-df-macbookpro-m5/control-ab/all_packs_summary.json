@@ -1,0 +1,142 @@
+{
+  "results": [
+    {
+      "ax_engine_executable": "/Users/akiralam/tiel-tier2/engine-754/bin/ax-engine-bench",
+      "created_at": "2026-09-24T18:17:19.244306+00:00",
+      "engine_binary_sha256": "eeb404133ea7cec4fc1da7b0dee7aebcd4d8006b3b2f0eda96c2112908cacac9",
+      "formal_route": "qwen36-moe-exact-profile-certification-candidate",
+      "harness": {
+        "draft_depth": 1,
+        "ignore_eos": true,
+        "max_tokens": 64,
+        "measured_trials": 2,
+        "prompt_count_agent_coding": 15,
+        "prompt_count_general_long": 15,
+        "seed": 20260728,
+        "speedup_metric": "token-weighted-decode-tps",
+        "temperature": 0.0,
+        "warmup_trials": 1
+      },
+      "host_id": "df-macbookpro-m5",
+      "hostname": "df-macbookpro-m5",
+      "hub_commit": "952031cbfbb9cf31414a57eeb681c34dc08ec1e9",
+      "hub_repo_id": "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP",
+      "local_path": "/Volumes/huggingface/hub/models--AutomatosX--AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP/snapshots/952031cbfbb9cf31414a57eeb681c34dc08ec1e9",
+      "pack_key": "qwen36-axq4-mtp",
+      "product_class": "4bit",
+      "profiles": {
+        "agent-coding": {
+          "comparison_sha256": "2a8310a1fbba4a9a10115e6dcc2e3a749c686cf5305c27a4967452dd109e2eaa",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 1,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.3338457313923726,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.333567328251882
+        },
+        "general-long": {
+          "comparison_sha256": "1287c725fa573fce8b4c19d687e9d0aa325165d254b6ba1dd1e8ef375d8b42de",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 2,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 0.9457410238276239,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 0.943560712569998
+        }
+      },
+      "runtime_env": {
+        "AX_MLX_MTP_ASYNC_DRAFT": "1",
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+        "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+        "AX_MLX_PIPELINE_GRANULARITY": "layer",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+      },
+      "schema_version": "axquant.tiel-moe-mtp-tier2-ab.v1",
+      "technical_tier2_pass": false,
+      "thresholds": {
+        "exactness_required": 1.0,
+        "prompt_median_speedup_min": 1.1,
+        "token_weighted_decode_speedup_min": 1.2
+      }
+    },
+    {
+      "ax_engine_executable": "/Users/akiralam/tiel-tier2/engine-754/bin/ax-engine-bench",
+      "created_at": "2026-09-24T18:19:13.849891+00:00",
+      "engine_binary_sha256": "eeb404133ea7cec4fc1da7b0dee7aebcd4d8006b3b2f0eda96c2112908cacac9",
+      "formal_route": "qwen36-moe-exact-profile-certification-candidate",
+      "harness": {
+        "draft_depth": 1,
+        "ignore_eos": true,
+        "max_tokens": 64,
+        "measured_trials": 2,
+        "prompt_count_agent_coding": 15,
+        "prompt_count_general_long": 15,
+        "seed": 20260728,
+        "speedup_metric": "token-weighted-decode-tps",
+        "temperature": 0.0,
+        "warmup_trials": 1
+      },
+      "host_id": "df-macbookpro-m5",
+      "hostname": "df-macbookpro-m5",
+      "hub_commit": "6a4c220734f81112555ee8783d91e0065c54301c",
+      "hub_repo_id": "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP",
+      "local_path": "/Volumes/huggingface/hub/models--AutomatosX--AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP/snapshots/6a4c220734f81112555ee8783d91e0065c54301c",
+      "pack_key": "qwen36-axq6-mtp",
+      "product_class": "6bit",
+      "profiles": {
+        "agent-coding": {
+          "comparison_sha256": "fabc1025d18cafcfdfbfa5263050bc62c78b06f37a30ee6bd672e73db3cf60f8",
+          "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+          "divergent_trial_count": 0,
+          "exactness_pass": true,
+          "gate_pass": true,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.3281846593503956,
+          "release_ready": true,
+          "token_weighted_decode_speedup": 1.3279036431905826
+        },
+        "general-long": {
+          "comparison_sha256": "478525368757c22e5e1fbc1e4622f8cdab7d846725675d1a098a2eaeb5e681fa",
+          "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+          "divergent_trial_count": 1,
+          "exactness_pass": false,
+          "gate_pass": false,
+          "measured_trial_count": 2,
+          "prompt_median_speedup": 1.088302017393988,
+          "release_ready": false,
+          "token_weighted_decode_speedup": 1.04465308631626
+        }
+      },
+      "runtime_env": {
+        "AX_MLX_MTP_ASYNC_DRAFT": "1",
+        "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+        "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+        "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+        "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+        "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+        "AX_MLX_PIPELINE_GRANULARITY": "layer",
+        "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+        "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+        "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+        "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+      },
+      "schema_version": "axquant.tiel-moe-mtp-tier2-ab.v1",
+      "technical_tier2_pass": false,
+      "thresholds": {
+        "exactness_required": 1.0,
+        "prompt_median_speedup_min": 1.1,
+        "token_weighted_decode_speedup_min": 1.2
+      }
+    }
+  ]
+}

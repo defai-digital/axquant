@@ -26,7 +26,7 @@
       "seed": 20260728,
       "speedup_metric": "token-weighted-decode-tps",
       "temperature": 0.0,
-      "trials_note": "The benchmark harness executes warmup_trials + measured_trials generations, rotating through the suite prompts; with 1+2 trials the first three prompts of each 15-prompt suite are exercised (2 measured prompts per profile), matching the certified Qwen 3.6 / 3.8 Tier 2 records' harness semantics.",
+      "trials_note": "The benchmark harness executes warmup_trials + measured_trials generations, rotating through the seed-deterministically-shuffled suite prompts; with 1+2 trials two measured prompts per profile are exercised, matching the certified Qwen 3.6 / 3.8 Tier 2 records' harness semantics.",
       "warmup_trials": 1
     },
     "product_default_route": "direct-fallback",
@@ -56,7 +56,7 @@
         "token_weighted_decode_speedup": 1.0145183374197062
       }
     },
-    "reason": "Greedy exactness failed on both authorizing profiles (1 of 2 divergent measured trials on agent-coding, 2 of 2 on general-long; the agent-coding MTP arm also lost one trial to a transient Metal GPU out-of-memory on this host), and no profile clears both speed floors (0.6677x/0.6669x and 1.0145x/1.0153x). A df-macbookpro-m5 comparison run of the same engine build reaches 1.3729x on agent-coding but still fails exactness, so the inexactness is a pack property, not a host defect. Product default remains direct fallback.",
+    "reason": "Greedy exactness failed on both authorizing profiles (1 of 2 divergent measured trials on agent-coding, 2 of 2 on general-long; the agent-coding MTP arm also lost one trial to a transient Metal GPU out-of-memory on this host), and no profile clears both speed floors (0.6677x/0.6669x and 1.0145x/1.0153x). Root cause is not this host: a df-macbookpro-m5 run of the same engine binary reproduces the failures, a determinism probe shows both arms repeat bit-identically while deterministically disagreeing per prompt, and certified Qwen 3.6 35B-A3B AXQ control packs also fail greedy exactness on the same 7.5.4 binary (see evidence host-comparison.json) \u2014 the 7.5.4 verify path is not row-exact against direct decode engine-wide, a regression from the 6.14.1 generation, with additional pack-level modulation on these MXFP4 repacks. Product default remains direct fallback.",
     "runtime_env_highlights": {
       "AX_MLX_MTP_ASYNC_DRAFT": "1",
       "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",

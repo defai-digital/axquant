@@ -26,30 +26,44 @@ packs on both hosts. This directory holds the measured evidence.
     (`qwen_linear_mtp_exact_eligible=0`, `mtp_model_gate_default_present=0`):
     that engine build never activates MTP for these packs. Recorded as an
     engine-side regression candidate for the >=7.5.5 development line.
+  - `control-ab/` — **control experiment**: the Tier-2-certified Qwen 3.6
+    35B-A3B AXQ-6bit/4bit-MTP packs re-run through the identical harness on
+    the same 7.5.4 binary. On 7.5.4 the certified packs also fail greedy
+    exactness (AXQ6 general-long; AXQ4 both profiles), isolating an
+    engine-version regression from the MXFP4 pack format.
+  - `determinism-probe/` — `scripts/probe_mtp_determinism.py`: same prompt
+    repeated 8x per arm for all four packs. All 256 generations are internally
+    bit-deterministic; cross-arm divergence is fixed per prompt (e.g. always
+    token 21 for cyber-tiel agent-coding prompt 1): 9 exact / 7
+    verify-differs / 0 nondeterministic.
   - `host-comparison.json` — per-pack, per-profile gate results for both hosts
-    plus the written findings.
+    plus the written findings and revised root-cause statement.
 
 ## Key findings
 
-1. **Exactness is the blocker, and it is pack-inherent.** On the factory host,
-   MTP-vs-direct greedy outputs diverge (tiel: 1/2 and 2/2 divergent measured
-   trials; cyber-tiel general-long: 2/2). On m5 with the identical engine binary
-   the divergent trials and first-divergence token positions differ, which is
-   the signature of numeric (reduction-order) divergence in the MXFP4
-   multi-token verify path, not a deterministic logic bug and not a host
-   defect. The grafted oQ6e-source MTP head on a requantized MXFP4 trunk does
-   not meet the 1.0 greedy-exactness contract.
-2. **Speed floors are secondary.** Only cyber-tiel agent-coding clears 1.20x
-   weighted / 1.10x median (1.2088x/1.2088x factory; 1.3778x/1.3778x m5).
-   General-long stays under 1.20x on both hosts (1.01x–1.20x).
-3. **Transient factory OOM.** One tiel agent-coding MTP trial on the factory
+1. **The primary root cause is an engine regression, not the host and not
+   purely the pack.** On the same 7.5.4 binary: the certified Qwen 3.6
+   35B-A3B AXQ control packs fail greedy exactness (AXQ6 general-long; AXQ4
+   both profiles) — those packs passed full Tier 2 on engine 6.14.1. The MXFP4
+   Tiel/Cyber-Tiel packs fail more profiles, so pack/format modulation exists
+   on top, but the verify-path row-exactness defect is engine-wide on 7.5.4.
+2. **The failure is deterministic, not run-to-run noise.** The determinism
+   probe repeats each prompt 8x per arm on all four packs: every generation is
+   internally bit-identical, and cross-arm divergence occurs at a fixed token
+   position for a given (pack, prompt) — the verify path computes
+   deterministically different logits than the direct path on specific
+   prompts (near-tie flips). Different hosts/chips shift which prompts flip.
+3. **Speed floors are secondary.** Only cyber-tiel agent-coding clears 1.20x
+   weighted / 1.10x median on the factory host (1.2088x/1.2088x; 1.3778x on
+   m5). General-long stays under 1.20x on both hosts (1.01x–1.20x).
+4. **Transient factory OOM.** One tiel agent-coding MTP trial on the factory
    host died with `[METAL] … Insufficient Memory` despite ~160 GB free unified
    memory; recorded in the comparison artifact (`failed_trial_count: 1`). It
    does not change the verdict (exactness already fails).
-4. **Harness semantics** (shared with all published Tier 2 records): the
+5. **Harness semantics** (shared with all published Tier 2 records): the
    benchmark harness runs `warmup_trials + measured_trials` generations,
-   rotating through suite prompts — 1+2 trials exercises the first three
-   prompts of each 15-prompt suite (2 measured prompts per profile).
+   rotating through the seed-deterministically-shuffled suite prompts — 1+2
+   trials exercises two measured prompts per profile.
 
 ## Reproduce
 

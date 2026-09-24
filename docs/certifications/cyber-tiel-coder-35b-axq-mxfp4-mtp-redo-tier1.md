@@ -68,8 +68,10 @@ measured trials) and below both speed floors (1.0889x / 1.0898x). Tier 2 require
 every authorizing profile to pass. See the scoped Tier 2 evaluation:
 [cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.md).
 A `df-macbookpro-m5` comparison run of the same engine build shows the same
-pattern (1.3778x agent-coding, inexact general-long). Product default remains
-direct fallback; `auto` is not promoted.
+pattern (1.3778x agent-coding, inexact general-long), ruling out a host defect;
+control runs show the 7.5.4 verify path is not row-exact engine-wide (certified
+AXQ control packs fail too). Product default remains direct fallback; `auto`
+is not promoted.
 
 Vision weights are present and hash-verified (byte-preserved sidecar), not
 modality-certified. Audio is not supported. This pack is a lossy requantization

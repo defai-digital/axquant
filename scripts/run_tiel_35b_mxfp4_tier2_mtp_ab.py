@@ -177,12 +177,13 @@ def base_config(
 def run_pack(
     *,
     pack_key: str,
+    packs: dict[str, dict[str, object]],
     models_root: Path,
     datasets: Path,
     work: Path,
     executable: Path,
 ) -> dict[str, object]:
-    meta = PACKS[pack_key]
+    meta = packs[pack_key]
     model_dir = models_root / str(meta["local_dir_name"])
     if not (model_dir / "axquant_manifest.json").is_file():
         raise SystemExit(f"missing pack {model_dir}")
@@ -345,13 +346,31 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--pack",
-        choices=["tiel", "cyber-tiel", "both"],
+        choices=["tiel", "cyber-tiel", "both", "all-json"],
         default="both",
+    )
+    parser.add_argument(
+        "--packs-json",
+        type=Path,
+        default=None,
+        help="JSON object mapping pack key to a PACKS-style entry; overrides --pack",
     )
     parser.add_argument("--models-root", type=Path, default=DEFAULT_MODELS)
     parser.add_argument("--datasets", type=Path, default=DEFAULT_DATASETS)
     parser.add_argument("--work", type=Path, default=DEFAULT_WORK)
     args = parser.parse_args()
+
+    packs: dict[str, dict[str, object]] = PACKS
+    if args.packs_json is not None:
+        packs = json.loads(args.packs_json.read_text(encoding="utf-8"))
+        missing = {
+            key
+            for key, entry in packs.items()
+            for field in ("local_dir_name", "hub_repo", "fallback_hub_commit")
+            if field not in entry
+        }
+        if missing:
+            raise SystemExit(f"packs-json entries missing fields: {sorted(missing)}")
 
     if HOST_OVERRIDE:
         log(
@@ -362,12 +381,16 @@ def main() -> int:
         require_factory_host(socket.gethostname())
     executable = engine_binary()
     log(f"engine={executable} host={HOST_ID} hostname={socket.gethostname()}")
-    keys = ["tiel", "cyber-tiel"] if args.pack == "both" else [args.pack]
+    if args.packs_json is not None:
+        keys = sorted(packs)
+    else:
+        keys = ["tiel", "cyber-tiel"] if args.pack == "both" else [args.pack]
     results = []
     for key in keys:
         results.append(
             run_pack(
                 pack_key=key,
+                packs=packs,
                 models_root=args.models_root,
                 datasets=args.datasets,
                 work=args.work,

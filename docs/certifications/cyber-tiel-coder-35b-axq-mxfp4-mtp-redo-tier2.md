@@ -15,10 +15,16 @@ both speed floors. Tier 2 requires every authorizing profile to pass.
 
 A `df-macbookpro-m5` comparison run of the **same engine binary** shows the same
 pattern with a larger agent-coding speedup (1.3778×) and the same general-long
-inexactness — the general-long gap is a pack property (the MXFP4 multi-token
-verify path is not row-exact against direct decode for this pack), not a
-factory-host defect. Tier 1 checkpoint certification on this host is unchanged.
-Product default remains direct fallback.
+inexactness, ruling out a factory-host defect. Follow-up control evidence goes
+further: the **certified** Qwen 3.6 35B-A3B AXQ-6bit/4bit-MTP packs also fail
+greedy exactness on this 7.5.4 binary, and a determinism probe shows both arms
+repeat bit-identically while deterministically disagreeing per prompt — the
+7.5.4 verify path is not row-exact against direct decode engine-wide (a
+regression from the 6.14.1 generation that certified those control packs),
+with additional pack-level modulation on this MXFP4 repack. See
+[host-comparison.json](evidence/tiel-mxfp4-tier2-20260924/comparison-df-macbookpro-m5/host-comparison.json).
+Tier 1 checkpoint certification on this host is unchanged. Product default
+remains direct fallback.
 
 Machine-readable: [cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.json](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier2.json).
 Evidence: [evidence/tiel-mxfp4-tier2-20260924](evidence/tiel-mxfp4-tier2-20260924).
