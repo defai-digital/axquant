@@ -146,6 +146,9 @@ def test_relayout_moves_ngram_keys_to_standalone_table(tmp_path: Path) -> None:
 
     manifest = json.loads((output / NGRAM_RELAYOUT_MANIFEST_FILENAME).read_text(encoding="utf-8"))
     assert manifest["schema_version"] == NGRAM_RELAYOUT_SCHEMA
+    assert manifest["variant_output"] == "pack-mtplx"
+    assert "/" not in manifest["variant_output"] and "\\" not in manifest["variant_output"]
+    assert manifest["source"]["directory"] == "pack"
     assert manifest["accounting"]["moved"] == 3
     assert manifest["accounting"]["lost"] == 0
     assert manifest["accounting"]["duplicated"] == 0

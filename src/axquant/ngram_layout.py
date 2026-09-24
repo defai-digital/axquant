@@ -575,7 +575,9 @@ def _write_manifest(plan: _RelayoutPlan, staging: Path, output: Path) -> dict[st
                 file_sha256(source_manifest) if source_manifest.is_file() else None
             ),
         },
-        "variant_output": str(output),
+        # Directory name only: the manifest ships inside the pack and must not
+        # carry absolute private paths.
+        "variant_output": output.name,
         "mtplx_target_version": MTPLX_RUNTIME_COMPATIBILITY_VERSION,
         "ngram_layout": {
             "source": NGRAM_LAYOUT_SHARDED,
