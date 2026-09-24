@@ -210,3 +210,39 @@ def test_control_ab_and_determinism_probe_evidence() -> None:
     for r in results:
         first = r["cross_arm_first_diff"][0]
         assert all(d == first for d in r["cross_arm_first_diff"])
+
+
+def test_engine_version_bisect_evidence() -> None:
+    """The v7.1.1-v7.5.0 source-build bisect maps activation vs exactness.
+
+    Engines <= v7.4.0 never load these packs' MTP head (raw_hf_delta metadata
+    vs already-converted norms; only the 7.5.x hash-bound shim loads it).
+    v7.5.0 loads it with strong speedups but this pack is inexact on both
+    profiles, while the certified AXQ control pack stays exact on
+    agent-coding — establishing the pack-specific inexactness on top of the
+    engine-wide general-long regression.
+    """
+    comparison = json.loads(
+        (EVIDENCE / "comparison-df-macbookpro-m5" / "host-comparison.json").read_text()
+    )
+    bisect = comparison["engine_version_bisect"]
+    matrix = bisect["matrix"]
+    # These packs' MTP head never loads on engines <= v7.4.0.
+    for version in ("v7.1.1", "v7.3.0", "v7.4.0"):
+        assert matrix[version]["tiel_mtp_loads"] is False
+    # v7.5.0 loads it; pack inexact there, control exact on agent-coding.
+    assert matrix["v7.5.0"]["tiel_mtp_loads"] is True
+    tiel_exact = matrix["v7.5.0"]["tiel_exact"]
+    assert tiel_exact.startswith("neither profile")
+    assert "cyber-tiel 1.3075x/1.2317x" in tiel_exact
+    assert matrix["v7.5.0"]["control_axq6_exact"] == "agent-coding only (1.2713x exact)"
+    assert "raw_hf_delta" in bisect["layout_finding"]
+
+    # The bisect artifacts resolve on disk.
+    root = EVIDENCE / "comparison-df-macbookpro-m5" / "engine-version-bisect"
+    summary = json.loads((root / "work-v750" / "tiel-summary.json").read_text())
+    assert summary["host_id"] == "df-macbookpro-m5"
+    assert summary["profiles"]["agent-coding"]["token_weighted_decode_speedup"] > 1.2
+    assert summary["profiles"]["agent-coding"]["exactness_pass"] is False
+    control = json.loads((root / "work-v750-control6" / "qwen36-axq6-mtp-summary.json").read_text())
+    assert control["profiles"]["agent-coding"]["exactness_pass"] is True

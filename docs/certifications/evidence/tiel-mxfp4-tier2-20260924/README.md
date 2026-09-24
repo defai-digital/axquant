@@ -36,8 +36,18 @@ packs on both hosts. This directory holds the measured evidence.
     bit-deterministic; cross-arm divergence is fixed per prompt (e.g. always
     token 21 for cyber-tiel agent-coding prompt 1): 9 exact / 7
     verify-differs / 0 nondeterministic.
+  - `engine-version-bisect/` — `ax-engine-bench` built from source worktrees
+    at release tags (v7.1.1, v7.3.0, v7.4.0, v7.5.0; control pack also run on
+    v7.3.0/v7.4.0/v7.5.0). Key results: engines <= v7.4.0 never load these
+    packs' MTP head (`raw_hf_delta` metadata vs already-converted norms; only
+    the 7.5.x hash-bound compatibility shim loads it); v7.5.0 loads it with
+    strong speedups (tiel 1.30x/1.14x, cyber-tiel 1.31x/1.23x) but this pack
+    is inexact on both profiles, while the certified AXQ control pack stays
+    exact on agent-coding there. The general-long regression is engine-wide
+    across 7.3.0-7.5.4.
   - `host-comparison.json` — per-pack, per-profile gate results for both hosts
-    plus the written findings and revised root-cause statement.
+    plus the written findings, revised root-cause statement, and the full
+    engine-version bisect matrix.
 
 ## Key findings
 

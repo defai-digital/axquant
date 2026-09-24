@@ -3,6 +3,48 @@
   "created_at": "2026-09-24T00:00:00+00:00",
   "determinism_probe_summary": "Same prompt repeated 8x per arm, all four packs: every direct arm and every MTP arm is internally bit-deterministic (256/256 generations), so decode itself is not jittery. Cross-arm first-divergence is identical across all 8 pairs per prompt (e.g. cyber-tiel agent-coding prompt 1 always at token 21) but varies prompt to prompt and pack to pack (9 exact / 7 verify-differs / 0 nondeterministic). The verify path computes deterministically different logits than the direct path on specific prompts; this is a row-exactness defect, not run-to-run noise.",
   "engine_dev_build_finding": "The in-tree AX Engine dev build on df-macbookpro-m5 (v7.5.4-40-g875da6b5, Aug 19 2026) never activates MTP for these packs (ax_mtp_requested=1, ax_mtp_available=0, qwen_linear_mtp_exact_eligible=0, mtp_model_gate_default_present=0 on every trial). The 7.5.4 release binary enables MTP on the same host/packs. Recorded as an engine-side regression candidate for the >=7.5.5 development line; not an AXQuant pack property.",
+  "engine_version_bisect": {
+    "certification_conclusion": "Tiel: not certifiable on any available engine build (inexact wherever its MTP head loads). Cyber-Tiel: the agent-coding profile passes all Tier 2 gates on the factory host under 7.5.4 (exact 2/2, 1.2088x/1.2088x), but a certified Tier 2 requires a certified Tier 1 (publication governance in public_cert_index), and Cyber-Tiel's Tier 1 is not_certified on the checkpoint quality gate (retention 0.9615 < 0.98 vs the pinned quantized source). The scoped pass is therefore recorded here as measured evidence but is NOT issued as a certificate. Paths: raise checkpoint quality above the Tier 1 gate (source/convert decision), or accept no Tier 2 for this edition.",
+    "layout_finding": "The packs' mtplx_runtime.json declares mtp_norm_layout raw_hf_delta, but all MTP norms are already converted (original+1) \u2014 the September 19 Tiel exports failure mode documented in docs/guides/preserved-mtp-norm-layout.md. AX Engine's compatibility correction binds to the complete hashes of those two audited sidecars; it exists only on the 7.5.x line (present v7.5.0/v7.5.4, absent v7.4.0 and earlier, broken again by v7.5.4+40). Engines without the shim never load the MTP head (policy None, ax_mtp_available=0), so the packs' exactness is only testable on 7.5.x \u2014 where this pack is inexact on both profiles even though the certified AXQ control pack stays exact on agent-coding. A metadata-corrected revision (mlx_multiplier, byte-identical weights) would load natively but still faces the engine-wide general-long row-exactness regression on every engine that supports MXFP4.",
+    "matrix": {
+      "v6.14.1": {
+        "control_axq6_exact": "both profiles (certified record, formal suites)",
+        "note": "predates MXFP4 exact-MTP verify support (landed after v6.14.0)",
+        "tiel_exact": null,
+        "tiel_mtp_loads": false
+      },
+      "v7.1.1": {
+        "tiel_exact": null,
+        "tiel_mtp_loads": false
+      },
+      "v7.3.0": {
+        "control_axq6_exact": "neither profile",
+        "tiel_exact": null,
+        "tiel_mtp_loads": false
+      },
+      "v7.4.0": {
+        "control_axq6_exact": "agent-coding only",
+        "tiel_exact": null,
+        "tiel_mtp_loads": false
+      },
+      "v7.5.0": {
+        "control_axq6_exact": "agent-coding only (1.2713x exact)",
+        "tiel_exact": "neither profile (agent-coding 1.3021x, general-long 1.1374x; cyber-tiel 1.3075x/1.2317x)",
+        "tiel_mtp_loads": true
+      },
+      "v7.5.4": {
+        "control_axq6_exact": "agent-coding only",
+        "tiel_exact": "neither profile",
+        "tiel_mtp_loads": true
+      },
+      "v7.5.4+40 (dev)": {
+        "note": "gate regression candidate on the >=7.5.5 line",
+        "tiel_exact": null,
+        "tiel_mtp_loads": false
+      }
+    },
+    "method": "Built ax-engine-bench from source worktrees at release tags on df-macbookpro-m5 (v7.1.1/v7.3.0 against mlx 0.32.0, v7.3.0+ against mlx 0.32.2 per each tree's mlx.version pin) and ran the same Tier 2 A/B harness, dev suites, seed, and exact profile. Activation = ax_mtp_available on MTP-on trials; exactness = greedy MTP-vs-direct token match on the measured prompts."
+  },
   "packs": {
     "cyber-tiel": {
       "comparison_df-macbookpro-m5_engine-7.5.4_same_binary": {

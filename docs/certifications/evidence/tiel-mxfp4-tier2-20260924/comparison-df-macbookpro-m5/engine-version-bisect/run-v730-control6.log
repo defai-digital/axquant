@@ -1,0 +1,16 @@
+WARNING: non-factory comparison host df-macbookpro-m5 (df-macbookpro-m5); development evidence only, not certification authority
+engine=/Users/akiralam/code/ax-engine-v730/target/release/ax-engine-bench host=df-macbookpro-m5 hostname=df-macbookpro-m5
+manifest already exists: /Volumes/huggingface/hub/models--AutomatosX--AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP/snapshots/6a4c220734f81112555ee8783d91e0065c54301c/model-manifest.json
+validated /Volumes/huggingface/hub/models--AutomatosX--AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP/snapshots/6a4c220734f81112555ee8783d91e0065c54301c/model-manifest.json
+=== qwen36-axq6-mtp agent-coding mtp-off ===
+[transformers] PyTorch was not found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+2026-09-24 16:20:39 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work-v730-control6/qwen36-axq6-mtp/agent-coding/mtp-off/benchmark_raw_log.json
+=== qwen36-axq6-mtp agent-coding mtp-on ===
+2026-09-24 16:20:50 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work-v730-control6/qwen36-axq6-mtp/agent-coding/mtp-on/benchmark_raw_log.json
+qwen36-axq6-mtp agent-coding: exact=False weighted=1.1118 prompt_med=1.1118 release_ready=False pass=False
+=== qwen36-axq6-mtp general-long mtp-off ===
+2026-09-24 16:21:02 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work-v730-control6/qwen36-axq6-mtp/general-long/mtp-off/benchmark_raw_log.json
+=== qwen36-axq6-mtp general-long mtp-on ===
+2026-09-24 16:21:13 [info     ] benchmark_log_saved            path=/Users/akiralam/tiel-tier2/work-v730-control6/qwen36-axq6-mtp/general-long/mtp-on/benchmark_raw_log.json
+qwen36-axq6-mtp general-long: exact=False weighted=0.9206 prompt_med=0.9344 release_ready=False pass=False
+qwen36-axq6-mtp technical_tier2_pass=False

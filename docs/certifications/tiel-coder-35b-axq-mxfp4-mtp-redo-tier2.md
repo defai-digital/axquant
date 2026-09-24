@@ -15,15 +15,17 @@ no profile clears both speed floors.
 
 A `df-macbookpro-m5` comparison run of the **same engine binary** reaches
 1.3729× (agent-coding) / 1.1986× (general-long) but still fails greedy
-exactness on both profiles, ruling out a factory-host defect. Follow-up control
-evidence goes further: the **certified** Qwen 3.6 35B-A3B AXQ-6bit/4bit-MTP
-packs also fail greedy exactness on this 7.5.4 binary, and a determinism probe
-shows both arms repeat bit-identically while deterministically disagreeing per
-prompt — the 7.5.4 verify path is not row-exact against direct decode
-engine-wide (a regression from the 6.14.1 generation that certified those
-control packs), with additional pack-level modulation on this MXFP4 repack.
-See
-[host-comparison.json](evidence/tiel-mxfp4-tier2-20260924/comparison-df-macbookpro-m5/host-comparison.json).
+exactness on both profiles, ruling out a factory-host defect. An
+engine-version bisect (`v7.1.1`–`v7.5.4`, evidence
+`comparison-df-macbookpro-m5/engine-version-bisect/`) shows why: engines
+≤ v7.4.0 never load this pack's MTP head (its sidecar declares
+`raw_hf_delta` while the norms are already converted; only the 7.5.x
+hash-bound compatibility shim loads it), and every 7.5.x build that loads it
+is inexact for this pack on both profiles — including agent-coding, where the
+certified AXQ control pack stays exact. The inexactness is pack-specific on
+top of the engine-wide general-long regression. The documented path to
+certification is a metadata-corrected revision (`mtp_norm_layout
+mlx_multiplier`, byte-identical weights) plus an engine row-exactness fix.
 Tier 1 checkpoint certification on this host is unchanged. Product default
 remains direct fallback.
 

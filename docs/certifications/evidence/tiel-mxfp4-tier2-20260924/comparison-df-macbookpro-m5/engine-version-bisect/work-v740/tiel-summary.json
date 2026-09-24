@@ -1,0 +1,69 @@
+{
+  "ax_engine_executable": "/Users/akiralam/code/ax-engine-v740/target/release/ax-engine-bench",
+  "created_at": "2026-09-24T20:25:22.257397+00:00",
+  "engine_binary_sha256": "5a1a5ccd61122ab0c7e03442e7b9fd0e386a7843e9bdf6e3935959e728331a5d",
+  "formal_route": "qwen36-moe-exact-profile-certification-candidate",
+  "harness": {
+    "draft_depth": 1,
+    "ignore_eos": true,
+    "max_tokens": 64,
+    "measured_trials": 2,
+    "prompt_count_agent_coding": 15,
+    "prompt_count_general_long": 15,
+    "seed": 20260728,
+    "speedup_metric": "token-weighted-decode-tps",
+    "temperature": 0.0,
+    "warmup_trials": 1
+  },
+  "host_id": "df-macbookpro-m5",
+  "hostname": "df-macbookpro-m5",
+  "hub_commit": "607a7ba019a0b7478f49505d62d69fa1f4164ff5",
+  "hub_repo_id": "AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP",
+  "local_path": "/Users/akiralam/tiel-tier2/models/AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP-redo-20260923",
+  "pack_key": "tiel",
+  "product_class": "MXFP4",
+  "profiles": {
+    "agent-coding": {
+      "comparison_sha256": "803bc6c7d0c5f8fd91198bcdc8fe7a9651125910b165f4d398e2009527aa3911",
+      "dataset_sha256": "92e9803670152665b81814461460ee8cd33fe3dbd841c8b9eb10a913ffdfcfef",
+      "divergent_trial_count": 0,
+      "exactness_pass": false,
+      "gate_pass": false,
+      "measured_trial_count": 2,
+      "prompt_median_speedup": 1.0017690007352855,
+      "release_ready": false,
+      "token_weighted_decode_speedup": 1.0017676496891965
+    },
+    "general-long": {
+      "comparison_sha256": "86813a1be1d80d65a96d5a06acc24aa0fede66060f810dcb4607e4e834c374cc",
+      "dataset_sha256": "f02e68877bbae8c100d7359b9bb286a9687e388c8912c0f8cb730d615b768925",
+      "divergent_trial_count": 0,
+      "exactness_pass": false,
+      "gate_pass": false,
+      "measured_trial_count": 2,
+      "prompt_median_speedup": 0.9978950552188033,
+      "release_ready": false,
+      "token_weighted_decode_speedup": 0.9978941579723845
+    }
+  },
+  "runtime_env": {
+    "AX_MLX_MTP_ASYNC_DRAFT": "1",
+    "AX_MLX_MTP_BYPASS_MIN_SAMPLES": "1000",
+    "AX_MLX_MTP_DRAFT_MIN_CONFIDENCE": "0",
+    "AX_MLX_MTP_LINEAR_EXACT_REPLAY": "0",
+    "AX_MLX_MTP_MIN_REMAINING_TOKENS": "0",
+    "AX_MLX_MTP_VERIFY_SUBMIT_LAYERS": "8",
+    "AX_MLX_PIPELINE_GRANULARITY": "layer",
+    "AX_MLX_QWEN_DENSE_FFN_GATE_UP_MATVEC_METAL": "0",
+    "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS": "0",
+    "AX_MLX_QWEN_LINEAR_MTP_CERTIFICATION_CANDIDATE": "1",
+    "AX_MLX_QWEN_LINEAR_MTP_EXACT": "1"
+  },
+  "schema_version": "axquant.tiel-moe-mtp-tier2-ab.v1",
+  "technical_tier2_pass": false,
+  "thresholds": {
+    "exactness_required": 1.0,
+    "prompt_median_speedup_min": 1.1,
+    "token_weighted_decode_speedup_min": 1.2
+  }
+}
