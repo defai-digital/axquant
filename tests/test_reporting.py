@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
@@ -62,7 +63,8 @@ from axquant.schema import (
     ValidationIssue,
     ValidationReport,
 )
-from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.schema.loading import load_reproduction_recipe
+from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
 
 _SOURCE_REVISION = "a" * 40
 _BASELINE_REVISION = "b" * 40
@@ -1080,7 +1082,7 @@ def test_prepared_mtp_reproduction_binds_required_companions(
 
     recipe_path = candidate / "reproduction_recipe.yaml"
     recipe = load_model(recipe_path, ReproductionRecipe)
-    assert recipe.schema_version == "axquant.reproduction.v3"
+    assert recipe.schema_version == "axquant.reproduction.v4"
     assert {record.path for record in recipe.mtp_companion_files} == {
         "ax_mtp_sidecar_manifest.json",
         "mtplx_runtime.json",
@@ -1093,6 +1095,19 @@ def test_prepared_mtp_reproduction_binds_required_companions(
     verification = verify_reproduction(recipe_path=recipe_path, artifact_dir=candidate)
     assert verification.passed is False
     assert any("MTP companion checksum" in issue for issue in verification.issues)
+
+    # F075: a recipe persisted under the frozen v3 envelope still loads through
+    # the version-dispatching loader, while the strict current-version loader
+    # keeps failing closed on it.
+    frozen_path = candidate / "reproduction_recipe_v3.yaml"
+    frozen_payload = read_data(recipe_path)
+    frozen_payload["schema_version"] = "axquant.reproduction.v3"
+    write_data(frozen_path, frozen_payload)
+    frozen = load_reproduction_recipe(frozen_path)
+    assert frozen.schema_version == "axquant.reproduction.v3"
+    assert frozen.mtp_companion_files == recipe.mtp_companion_files
+    with pytest.raises(ValidationError):
+        load_model(frozen_path, ReproductionRecipe)
 
 
 def test_publication_packages_a_governed_size_exception(

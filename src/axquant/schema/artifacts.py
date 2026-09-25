@@ -508,7 +508,7 @@ class ReproductionCommand(StrictModel):
 
 
 class ReproductionRecipe(StrictModel):
-    schema_version: Literal["axquant.reproduction.v3"] = "axquant.reproduction.v3"
+    schema_version: Literal["axquant.reproduction.v4"] = "axquant.reproduction.v4"
     source_model: ModelIdentity
     calibration: CalibrationEvidence
     axquant_version: str
@@ -2141,7 +2141,7 @@ class ScoreboardMetricRow(StrictModel):
 
 
 class ScoreboardReport(StrictModel):
-    schema_version: Literal["axquant.scoreboard.v1"] = "axquant.scoreboard.v1"
+    schema_version: Literal["axquant.scoreboard.v2"] = "axquant.scoreboard.v2"
     certification_tier: Literal["checkpoint", "mtp-acceleration"] = "checkpoint"
     title: str
     plan_profile: ProfileName | None = None

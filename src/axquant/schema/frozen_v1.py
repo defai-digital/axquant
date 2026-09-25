@@ -1,4 +1,4 @@
-"""Frozen pre-MXFP4 schema envelopes (AXQ-042 freeze / AXQ-046 MH5).
+"""Frozen pre-MXFP4 schema envelopes (AXQ-042 freeze / AXQ-046 MH5, F075).
 
 Adding ``QuantMethod.MXFP4`` widens the shared ``$defs/QuantMethod`` rendered
 into 12 frozen contracts. Under the freeze rule each bumped version keeps its
@@ -6,6 +6,13 @@ original envelope: the legacy classes below pin the pre-MXFP4 ``QuantMethod``
 enum and the method-bearing nested models, so the old snapshots keep rendering
 byte-identically and old artifacts keep loading with their original meaning
 (a v1 artifact can never smuggle an ``mxfp4`` value past its own envelope).
+
+The same rule covers the snapshots published before the name-scoped noise-key
+fix (F075): ``scoreboard.v1`` and ``reproduction.v3`` were rendered with the
+annotation drop applied to property names, so a field named ``title`` /
+``description`` lost its property schema. Those classes carry
+``_legacy_noise_key_drop`` so their published bytes stay reproducible; their
+live successors (scoreboard v2, reproduction v4) describe the fields again.
 
 Every legacy class subclasses its current-version counterpart (defined in the
 home schema modules), so an old-version instance remains a valid instance of
@@ -24,7 +31,7 @@ envelope on purpose — do not "fix" them into the live enum types.
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
@@ -170,3 +177,18 @@ class RefinementResultV2(artifacts.RefinementResult):
     schema_version: Literal["axquant.refinement.v2"] = "axquant.refinement.v2"  # type: ignore[assignment]
     candidate_plans: dict[str, QuantizationPlan]  # type: ignore[assignment]
     selected_plan: QuantizationPlan
+
+
+# Published before the name-scoped noise-key fix (F075), so their snapshots keep
+# the legacy rendering: ``title`` / ``description`` were dropped as property
+# names as well as annotations. The live contracts (scoreboard v2, reproduction
+# v4) describe those fields again. Do not remove the marker — it is what keeps
+# the frozen bytes byte-identical.
+class ScoreboardReportV1(artifacts.ScoreboardReport):
+    schema_version: Literal["axquant.scoreboard.v1"] = "axquant.scoreboard.v1"  # type: ignore[assignment]
+    _legacy_noise_key_drop: ClassVar[bool] = True
+
+
+class ReproductionRecipeV3(artifacts.ReproductionRecipe):
+    schema_version: Literal["axquant.reproduction.v3"] = "axquant.reproduction.v3"  # type: ignore[assignment]
+    _legacy_noise_key_drop: ClassVar[bool] = True

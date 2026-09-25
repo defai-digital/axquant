@@ -76,6 +76,7 @@ from axquant.schema.loading import (
     load_hardware_profile_registry,
     load_quantization_plan,
     load_refinement_result,
+    load_reproduction_recipe,
     load_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
@@ -1000,7 +1001,7 @@ def _packaged_release_issues(
         if packaged_plan != plan:
             issues.append("packaged quantization plan differs from the audited plan")
 
-        packaged_recipe = load_model(artifact / "reproduction_recipe.yaml", ReproductionRecipe)
+        packaged_recipe = load_reproduction_recipe(artifact / "reproduction_recipe.yaml")
         if packaged_recipe != recipe:
             issues.append("packaged reproduction recipe differs from the audited recipe")
 
@@ -1494,7 +1495,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         paths["compatibility_request"],
         CompatibilityMatrixRequest,
     )
-    recipe = load_model(paths["recipe"], ReproductionRecipe)
+    recipe = load_reproduction_recipe(paths["recipe"])
     reproduction = load_model(paths["reproduction"], ReproductionVerification)
     ax_engine = load_model(paths["ax_engine"], RuntimeCheck)
     mlx_lm = load_model(paths["mlx_lm"], RuntimeCheck)

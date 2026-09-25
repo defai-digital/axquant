@@ -13,6 +13,7 @@ from axquant.schema import (
 )
 from axquant.schema.loading import (
     load_quantization_plan,
+    load_reproduction_recipe,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
@@ -107,7 +108,7 @@ def verify_reproduction(
     except ValueError as exc:
         raise ArtifactError(f"reproduced artifact tree is unsafe: {exc}") from exc
 
-    recipe = load_model(recipe_source, ReproductionRecipe)
+    recipe = load_reproduction_recipe(recipe_source)
     issues: list[str] = []
     recipe_root = recipe_source.parent
 

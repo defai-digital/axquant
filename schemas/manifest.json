@@ -1,5 +1,5 @@
 {
-  "count": 132,
+  "count": 134,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -957,9 +957,17 @@
       "compatibility_class": "evidence",
       "filename": "axquant.reproduction.v3.schema.json",
       "freeze_policy": "immutable-envelope",
-      "model": "axquant.schema.artifacts.ReproductionRecipe",
+      "model": "axquant.schema.frozen_v1.ReproductionRecipeV3",
       "schema_version": "axquant.reproduction.v3",
       "sha256": "591386a4228e08a32a40ab6bf657fba819f3cf72d8fea21f006355eae056ae9e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.reproduction.v4.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ReproductionRecipe",
+      "schema_version": "axquant.reproduction.v4",
+      "sha256": "3e7abe9596444f6317ab25aedea0b8800999d17e841a3aa069e0109c0e1d9dde"
     },
     {
       "compatibility_class": "evidence",
@@ -981,9 +989,17 @@
       "compatibility_class": "evidence",
       "filename": "axquant.scoreboard.v1.schema.json",
       "freeze_policy": "immutable-envelope",
-      "model": "axquant.schema.artifacts.ScoreboardReport",
+      "model": "axquant.schema.frozen_v1.ScoreboardReportV1",
       "schema_version": "axquant.scoreboard.v1",
       "sha256": "b45c7a80374cdf3141fa7fba455124f71b69e2b65366078a69db51bd67dfe88f"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.scoreboard.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ScoreboardReport",
+      "schema_version": "axquant.scoreboard.v2",
+      "sha256": "a94a9c38195351772a722b2dcddab1b65377af120c65272ff91be4b714184017"
     },
     {
       "compatibility_class": "evidence",

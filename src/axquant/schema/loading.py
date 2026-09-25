@@ -114,3 +114,11 @@ def load_hardware_profile_registry(path: str | Path) -> artifacts.HardwareProfil
         artifacts.HardwareProfileRegistry,
         frozen_v1.HardwareProfileRegistryV3,
     )
+
+
+def load_reproduction_recipe(path: str | Path) -> artifacts.ReproductionRecipe:
+    return load_versioned(
+        path,
+        artifacts.ReproductionRecipe,
+        frozen_v1.ReproductionRecipeV3,
+    )

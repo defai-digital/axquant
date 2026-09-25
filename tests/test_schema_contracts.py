@@ -4,15 +4,28 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Literal
 
-from axquant.schema import BenchmarkConfig, BenchmarkConfigV1, BenchmarkResult, BenchmarkResultV1
+from pydantic import Field
+
+from axquant.schema import (
+    BenchmarkConfig,
+    BenchmarkConfigV1,
+    BenchmarkResult,
+    BenchmarkResultV1,
+    StrictModel,
+    artifacts,
+    frozen_v1,
+)
 from axquant.schema.public_certification import (
     CHECKPOINT_SCHEMA_VERSION,
     MTP_SCHEMA_VERSION,
     PublicCheckpointCertification,
 )
 from axquant.schema_contracts import (
+    _undescribed_required_paths,
     build_schema_registry,
+    canonical_json_schema,
     check_base_ref_immutability,
     check_schema_contracts,
     discover_versioned_models,
@@ -119,3 +132,77 @@ def test_base_ref_check_is_callable() -> None:
     # On a clean tree matching origin, either no base manifest yet or digests match.
     messages = check_base_ref_immutability(root=_ROOT)
     assert isinstance(messages, list)
+
+
+def test_noise_key_drop_preserves_model_field_names() -> None:
+    """F075: a field named like an annotation keyword keeps its property schema."""
+
+    class _AnnotationNamedFields(StrictModel):
+        schema_version: Literal["test.noise-keys.v1"] = "test.noise-keys.v1"
+        title: str = Field(min_length=1)
+        description: str = Field(min_length=1)
+
+    schema = canonical_json_schema(_AnnotationNamedFields)
+    properties = schema["properties"]
+    assert set(properties) >= {"title", "description"}
+    # The constraint survives, which is exactly what the drop used to delete.
+    assert properties["title"]["minLength"] == 1
+    assert properties["description"]["minLength"] == 1
+
+
+def test_coherence_guard_flags_an_undescribed_required_field() -> None:
+    """The render-time guard must not be a no-op (F075 defense in depth)."""
+
+    assert _undescribed_required_paths({"required": ["title"], "properties": {}}) == ["$.title"]
+    assert _undescribed_required_paths(
+        {"$defs": {"Inner": {"required": ["description"], "properties": {}}}}
+    ) == ["$.$defs.Inner.description"]
+    assert _undescribed_required_paths({"required": ["a"], "properties": {"a": {}}}) == []
+
+
+def test_pre_fix_envelopes_keep_their_published_bytes() -> None:
+    """F075: the snapshots published before the fix stay byte-reproducible.
+
+    Both versions are immutable (docs/guides/schema-governance.md), so their
+    frozen models opt back into the legacy rendering. Without the marker the
+    restored property would change the digest of an already-published contract.
+    """
+
+    owned = discover_versioned_models()
+    assert owned["axquant.scoreboard.v1"] is frozen_v1.ScoreboardReportV1
+    assert owned["axquant.scoreboard.v2"] is artifacts.ScoreboardReport
+    assert owned["axquant.reproduction.v3"] is frozen_v1.ReproductionRecipeV3
+    assert owned["axquant.reproduction.v4"] is artifacts.ReproductionRecipe
+    assert issubclass(frozen_v1.ScoreboardReportV1, artifacts.ScoreboardReport)
+    assert issubclass(frozen_v1.ReproductionRecipeV3, artifacts.ReproductionRecipe)
+
+    for version, model in (
+        ("axquant.scoreboard.v1", frozen_v1.ScoreboardReportV1),
+        ("axquant.reproduction.v3", frozen_v1.ReproductionRecipeV3),
+    ):
+        path = _ROOT / "schemas" / schema_filename(version)
+        assert schema_snapshot_text(model) == path.read_text(encoding="utf-8")
+        # They also stay unsatisfiable by construction: `required` demands a
+        # field that `additionalProperties: false` then forbids, so no artifact
+        # of that version can validate. That is why the live contracts were
+        # bumped instead of editing the published bytes.
+        schema = canonical_json_schema(model)
+        assert schema["additionalProperties"] is False
+        assert _undescribed_required_paths(schema)
+
+
+def test_bumped_contracts_describe_the_restored_fields() -> None:
+    """F075: the live successors render the constraint the drop had removed."""
+
+    owned = discover_versioned_models()
+    scoreboard = canonical_json_schema(owned["axquant.scoreboard.v2"])
+    assert "title" in scoreboard["properties"]
+    assert _undescribed_required_paths(scoreboard) == []
+
+    recipe = canonical_json_schema(owned["axquant.reproduction.v4"])
+    assert _undescribed_required_paths(recipe) == []
+    # ReproductionCommand required `description` while the drop deleted its
+    # property schema; the bumped contract describes it again.
+    command = recipe["$defs"]["ReproductionCommand"]
+    assert "description" in command["required"]
+    assert "description" in command["properties"]

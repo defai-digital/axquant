@@ -50,6 +50,25 @@ _NOISE_KEYS: Final[frozenset[str]] = frozenset(
     }
 )
 
+# JSON Schema keywords whose *values* map names to schemas. A noise key that
+# appears inside one of these maps is a model field name, not an annotation, so
+# dropping it would delete a real property (F075).
+_NAME_SCOPED_KEYS: Final[frozenset[str]] = frozenset(
+    {"properties", "patternProperties", "$defs", "definitions"}
+)
+
+# Envelopes published before the name-scoped fix were rendered with the noise
+# drop applied at every depth, so a field literally named ``title`` or
+# ``description`` lost its property schema while staying in ``required``. Those
+# snapshots are immutable (docs/guides/schema-governance.md), so their frozen
+# models opt back into the legacy rendering and are exempt from the coherence
+# guard below.
+_LEGACY_RENDER_ATTR: Final[str] = "_legacy_noise_key_drop"
+
+
+def renders_legacy_noise_drop(model: type[BaseModel]) -> bool:
+    return bool(getattr(model, _LEGACY_RENDER_ATTR, False))
+
 
 def _version_from_model(model: type[StrictModel]) -> str | None:
     field = model.model_fields.get("schema_version")
@@ -169,30 +188,77 @@ def build_schema_registry() -> tuple[SchemaRegistryEntry, ...]:
     return tuple(entries)
 
 
-def _clean_schema(node: Any) -> Any:
+def _clean_schema(node: Any, *, name_scope: bool = False, legacy_drop: bool = False) -> Any:
+    """Strip annotation noise without deleting model field names.
+
+    ``name_scope`` marks a mapping whose keys are model names (``properties``
+    and friends) rather than annotation keywords, so those keys survive.
+    ``legacy_drop`` restores the pre-F075 behaviour for frozen envelopes that
+    were published with the drop applied at every depth.
+    """
+
     if isinstance(node, dict):
         cleaned: dict[str, Any] = {}
         for key, value in node.items():
+            if name_scope and not legacy_drop:
+                # Every key here is a field/definition name.
+                cleaned[key] = _clean_schema(value, legacy_drop=legacy_drop)
+                continue
             if key in _NOISE_KEYS:
                 continue
-            cleaned[key] = _clean_schema(value)
+            cleaned[key] = _clean_schema(
+                value,
+                name_scope=key in _NAME_SCOPED_KEYS,
+                legacy_drop=legacy_drop,
+            )
         return cleaned
     if isinstance(node, list):
-        return [_clean_schema(item) for item in node]
+        return [_clean_schema(item, legacy_drop=legacy_drop) for item in node]
     return node
 
 
 def canonical_json_schema(model: type[BaseModel]) -> dict[str, Any]:
     raw = model.model_json_schema(mode="validation")
-    cleaned = _clean_schema(raw)
+    cleaned = _clean_schema(raw, legacy_drop=renders_legacy_noise_drop(model))
     if not isinstance(cleaned, dict):
         raise TypeError("JSON Schema root must be an object")
     return cleaned
 
 
+def _undescribed_required_paths(node: Any, path: str = "$") -> list[str]:
+    """Paths where ``required`` names a field the snapshot never describes."""
+
+    if isinstance(node, dict):
+        found: list[str] = []
+        required = node.get("required")
+        properties = node.get("properties")
+        if isinstance(required, list) and isinstance(properties, dict):
+            found.extend(f"{path}.{name}" for name in required if name not in properties)
+        for key, value in node.items():
+            found.extend(_undescribed_required_paths(value, f"{path}.{key}"))
+        return found
+    if isinstance(node, list):
+        return [
+            issue
+            for index, item in enumerate(node)
+            for issue in _undescribed_required_paths(item, f"{path}[{index}]")
+        ]
+    return []
+
+
 def schema_snapshot_text(model: type[BaseModel]) -> str:
+    schema = canonical_json_schema(model)
+    if not renders_legacy_noise_drop(model):
+        undescribed = _undescribed_required_paths(schema)
+        if undescribed:
+            # Fail closed at render time: a snapshot that requires a field it
+            # does not describe cannot validate what it claims to (F075).
+            raise ValueError(
+                f"{model.__module__}.{model.__name__}: snapshot declares required "
+                f"fields with no property schema: {undescribed[:5]}"
+            )
     payload = json.dumps(
-        canonical_json_schema(model),
+        schema,
         indent=2,
         sort_keys=True,
         ensure_ascii=False,
