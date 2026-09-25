@@ -28,6 +28,11 @@ from axquant.schema import (
     TensorSpec,
 )
 from axquant.serde import load_model, write_data
+from axquant.source_binding import (
+    binding_path_beside,
+    load_source_plan_binding,
+    source_binding_issues,
+)
 
 
 def _inventory(model_dir: Path):
@@ -680,3 +685,85 @@ def test_manual_plan_allow_mtp_unmeasured_warns(qwen36_model_dir: Path) -> None:
         allow_mtp_unmeasured=True,
     )
     assert MTP_UNMEASURED_WARNING in plan.warnings
+
+
+def test_plan_manual_cli_writes_a_source_binding(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """AXQ-048: a locally planned manual plan carries its source fingerprint.
+
+    The plan is built from the inventory, so the inventory's checkpoint is the
+    directory the binding must describe — never a directory a later convert is
+    handed, which would only compare against itself.
+    """
+
+    inventory_path = tmp_path / "inventory.json"
+    recipe_path = tmp_path / "recipe.yaml"
+    plan_path = tmp_path / "plan.json"
+    inventory = _inventory(qwen36_model_dir)
+    write_data(inventory_path, inventory)
+    write_data(recipe_path, _recipe())
+
+    assert (
+        main(
+            [
+                "plan-manual",
+                "--inventory",
+                str(inventory_path),
+                "--recipe",
+                str(recipe_path),
+                "--output",
+                str(plan_path),
+            ]
+        )
+        == 0
+    )
+
+    plan = load_model(plan_path, QuantizationPlan)
+    binding = load_source_plan_binding(binding_path_beside(plan_path))
+    assert binding.source_model.local_path is None
+    assert (
+        source_binding_issues(
+            binding=binding,
+            plan=plan,
+            source_dir=qwen36_model_dir,
+        )
+        == []
+    )
+
+
+def test_plan_manual_cli_writes_no_binding_without_a_local_source(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """A plan whose source is not present locally gets no binding.
+
+    Converting it from a local directory stays fail-closed rather than comparing
+    a fingerprint the consumer minted from the directory it is about to convert.
+    """
+
+    inventory_path = tmp_path / "inventory.json"
+    recipe_path = tmp_path / "recipe.yaml"
+    plan_path = tmp_path / "plan.json"
+    inventory = _inventory(qwen36_model_dir)
+    inventory.model = inventory.model.model_copy(update={"local_path": None})
+    write_data(inventory_path, inventory)
+    write_data(recipe_path, _recipe())
+
+    assert (
+        main(
+            [
+                "plan-manual",
+                "--inventory",
+                str(inventory_path),
+                "--recipe",
+                str(recipe_path),
+                "--output",
+                str(plan_path),
+            ]
+        )
+        == 0
+    )
+
+    assert not binding_path_beside(plan_path).exists()

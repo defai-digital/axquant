@@ -184,3 +184,29 @@ def test_plan_replay_cli_writes_checksum_bound_plan(tmp_path: Path) -> None:
     replayed = load_model(output_path, QuantizationPlan)
     assert replayed.analysis_sha256 == stable_sha256(report)
     assert any(file_sha256(source_path) in warning for warning in replayed.warnings)
+
+
+def test_replay_accepts_a_path_neutral_plan_against_a_local_report() -> None:
+    """AXQ-048: identity is the model and revision, not the producer's path.
+
+    A published plan need not record where it was planned; the sensitivity report
+    being replayed may still carry the local checkpoint path it was measured
+    from. Comparing the two identities exactly would reject that pairing.
+    """
+
+    report, plan = _report_and_plan()
+    local_report = report.model_copy(
+        update={
+            "model": report.model.model_copy(update={"local_path": "/Volumes/Ext16TR0/Qwen3.6-27B"})
+        }
+    )
+    payload = _legacy_payload(
+        plan.model_copy(
+            update={"source_model": plan.source_model.model_copy(update={"local_path": None})}
+        )
+    )
+
+    replayed = replay_measured_plan(local_report, payload, source_file_sha256="d" * 64)
+
+    assert replayed.source_model.local_path is None
+    assert replayed.source_model.model_id == local_report.model.model_id

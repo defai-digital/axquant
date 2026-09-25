@@ -10,7 +10,7 @@ import structlog
 from pydantic import ValidationError
 
 if TYPE_CHECKING:
-    from axquant.schema import QuantizationPlan, SensitivityReport
+    from axquant.schema import QuantizationPlan
 
 from axquant.analyzer import architecture_prior_report
 from axquant.architectures.registry import adapter_for, support_matrix
@@ -117,15 +117,18 @@ def _output_json(path: str | Path, default_name: str) -> Path:
 def _write_source_binding_beside(
     plan_path: Path,
     plan: QuantizationPlan,
-    report: SensitivityReport,
+    source_dir: str | None,
 ) -> Path | None:
-    """Write the plan's source binding beside it, when a local source exists.
+    """Write the plan's source binding beside it, when a source directory exists.
 
-    The plan is path-neutral, so conversion proves it opened the same checkpoint
-    by re-deriving this structural fingerprint from the directory it is given.
+    ``source_dir`` must be the directory the plan was actually built from — the
+    inventory or sensitivity evidence the planner saw — never the directory a
+    later ``convert`` is handed, which would only prove that directory equals
+    itself. A plan whose source is not present locally (a declared recipe or a
+    cross-host report) gets no binding, and converting it from a local directory
+    stays fail-closed.
     """
 
-    source_dir = report.model.local_path
     if not source_dir:
         return None
     target = binding_path_beside(plan_path)
@@ -745,7 +748,9 @@ def _run(args: argparse.Namespace) -> int:
             log.info("unified_sensitivity_bound", output=str(args.unified_binding_output))
         output = _output_json(args.output, "plan-01.json")
         write_data(output, plan)
-        binding_output = _write_source_binding_beside(output, plan, analysis_report)
+        binding_output = _write_source_binding_beside(
+            output, plan, analysis_report.model.local_path
+        )
         log.info(
             "plan_created",
             output=str(output),
@@ -761,6 +766,7 @@ def _run(args: argparse.Namespace) -> int:
         recipe = load_manual_plan_recipe(args.recipe)
         plan = manual_quantization_plan(inventory, recipe)
         write_data(args.output, plan)
+        _write_source_binding_beside(args.output, plan, inventory.model.local_path)
         if args.markdown_output:
             write_text(args.markdown_output, plan_markdown(plan))
         log.warning(
@@ -788,6 +794,7 @@ def _run(args: argparse.Namespace) -> int:
             allow_mtp_unmeasured=args.allow_mtp_unmeasured,
         )
         write_data(args.output, plan)
+        _write_source_binding_beside(args.output, plan, analysis_report.model.local_path)
         if args.markdown_output:
             write_text(args.markdown_output, plan_markdown(plan))
         log.warning(
@@ -808,6 +815,10 @@ def _run(args: argparse.Namespace) -> int:
             ax_engine_executable=args.ax_engine_bench,
         )
         write_data(args.output, plan)
+        # Replaying re-derives the plan, so the binding is recomputed for the new
+        # plan digest; its fingerprint still comes from the evidence directory the
+        # replayed sensitivity was measured from, never from a later --model.
+        _write_source_binding_beside(args.output, plan, analysis_report.model.local_path)
         log.info(
             "measured_plan_replayed",
             output=str(args.output),

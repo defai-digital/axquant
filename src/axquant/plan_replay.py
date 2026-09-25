@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from axquant.errors import PlanningError
+from axquant.identity import same_model_identity
 from axquant.naming import target_class_for_bpw
 from axquant.planner import _current_policy_profile, storage_bpw, strategy_for_measurement
 from axquant.profiles import objective_for
@@ -138,7 +139,7 @@ def replay_measured_plan(
         )
     if report.architecture_profile.support_level is not ArchitectureSupportLevel.SUPPORTED:
         raise PlanningError("measured plan replay requires a supported architecture adapter")
-    if source.source_model != report.model:
+    if not same_model_identity(source.source_model, report.model):
         raise PlanningError("measured plan replay source model differs from sensitivity evidence")
     if source.architecture_profile != report.architecture_profile:
         raise PlanningError(
