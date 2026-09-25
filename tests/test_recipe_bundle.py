@@ -463,3 +463,59 @@ def test_export_rejects_a_binding_from_another_plan(
             output_dir=tmp_path / "bundle",
             bundle_id="qwen36-27b-prior-r1",
         )
+
+
+def test_bundle_with_a_path_neutral_payload_is_not_rebound(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """AXQ-048: the carried binding verifies the consumer's copy.
+
+    Rebinding a path-neutral payload would put the consumer's path back into
+    evidence and reduce the check to comparing that path against itself.
+    """
+
+    inventory = _inventory(qwen36_model_dir)
+    plan = _plan(inventory)
+    neutral = plan.model_copy(
+        update={"source_model": plan.source_model.model_copy(update={"local_path": None})}
+    )
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, neutral)
+    write_source_plan_binding(tmp_path, neutral, qwen36_model_dir)
+    bundle_path = export_recipe_bundle(
+        plan=plan_path,
+        output_dir=tmp_path / "bundle",
+        bundle_id="qwen36-27b-neutral-r1",
+    )
+
+    resolved = resolve_recipe_plan(bundle_path, inventory=inventory)
+
+    assert resolved.plan.source_model.local_path is None
+    assert resolved.source_binding is not None
+    assert (
+        source_binding_issues(
+            binding=resolved.source_binding,
+            plan=resolved.plan,
+            source_dir=qwen36_model_dir,
+        )
+        == []
+    )
+
+    # A consumer copy that differs is caught by the carried fingerprint, which is
+    # the only thing that can say anything about the producer's checkpoint.
+    other = tmp_path / "other"
+    other.mkdir()
+    for name in ("config.json", "mtp.safetensors", "model.safetensors"):
+        (other / name).write_bytes((qwen36_model_dir / name).read_bytes())
+    (other / "config.json").write_text('{"model_type": "qwen3_5"}', encoding="utf-8")
+    issues = source_binding_issues(
+        binding=resolved.source_binding,
+        plan=resolved.plan,
+        source_dir=other,
+    )
+    assert any("config differs" in issue for issue in issues)
+
+    # Neither the resolved plan nor its binding carries the producer's path.
+    assert str(qwen36_model_dir) not in resolved.plan.model_dump_json()
+    assert str(qwen36_model_dir) not in resolved.source_binding.model_dump_json()

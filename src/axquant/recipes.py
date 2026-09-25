@@ -234,17 +234,23 @@ def resolve_recipe_plan(
                     f"recipe bundle {record.bundle_id} source binding does not match its "
                     "plan: " + "; ".join(binding_issues)
                 )
-        # A published plan records the producer's local checkpoint path, but that
-        # path is not portable to another machine.  Identity has already been
-        # pinned and checked above, so bind the executable copy to the target
-        # inventory without altering the checksummed bundle payload.
-        plan = plan.model_copy(
-            update={
-                "source_model": plan.source_model.model_copy(
-                    update={"local_path": target.local_path}
-                )
-            }
-        )
+        if plan.source_model.local_path is not None:
+            # Legacy path-bearing payload: the producer's checkpoint path is not
+            # portable to another machine, and this payload carries no binding to
+            # verify instead, so rebind the executable copy to the target
+            # inventory without altering the checksummed bundle payload.
+            plan = plan.model_copy(
+                update={
+                    "source_model": plan.source_model.model_copy(
+                        update={"local_path": target.local_path}
+                    )
+                }
+            )
+        # A path-neutral payload stays path-neutral: its carried binding is what
+        # verifies the consumer's checkpoint, and rebinding it would put the
+        # consumer's path back into evidence — and would make the check compare
+        # the consumer's directory against itself. Without a binding it can still
+        # convert by hub id; convert fails closed for a local directory.
     else:
         recipe = load_manual_plan_recipe(payload)
         plan = manual_quantization_plan(inventory, recipe)
