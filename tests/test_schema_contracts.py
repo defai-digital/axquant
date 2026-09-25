@@ -6,7 +6,8 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+import pytest
+from pydantic import Field, ValidationError
 
 from axquant.schema import (
     BenchmarkConfig,
@@ -206,3 +207,93 @@ def test_bumped_contracts_describe_the_restored_fields() -> None:
     command = recipe["$defs"]["ReproductionCommand"]
     assert "description" in command["required"]
     assert "description" in command["properties"]
+
+
+def test_durable_uri_must_be_scheme_qualified_and_host_independent() -> None:
+    """AXQ-048: a published archive locator may not name a host path."""
+
+    from axquant.schema import EvidenceArchiveRecord
+
+    def record(uri: str) -> EvidenceArchiveRecord:
+        return EvidenceArchiveRecord(
+            logical_name="evidence",
+            path="raw/x.json",
+            sha256="a" * 64,
+            size_bytes=1,
+            durable_uri=uri,
+        )
+
+    for accepted in (
+        "nas://models-archive/axquant/000/x.json",
+        "s3://bucket/axquant/000/x.json",
+        "https://huggingface.co/org/repo/resolve/" + "a" * 40 + "/x.json",
+    ):
+        assert record(accepted).durable_uri == accepted
+
+    for rejected in (
+        "/Volumes/home/models/x.json",  # a host path with no scheme
+        "file:///private/var/folders/x.json",  # a scheme that still names a filesystem
+        "nas:///x.json",  # no location after the scheme
+        "raw/x.json",  # relative; archived_path already carries that role
+        "nas://archive/../x.json",
+        "nas://archive\\x.json",
+        "nas://archive/~/x.json",
+    ):
+        with pytest.raises(ValidationError, match="durable archive URIs"):
+            record(rejected)
+
+
+def test_pre_constraint_archive_index_still_loads(tmp_path: Path) -> None:
+    """The v1 envelope is restated, not subclassed, so old host paths load."""
+
+    from axquant.schema import EvidenceArchiveIndex, frozen_v1
+    from axquant.schema.loading import load_evidence_archive_index
+
+    owned = discover_versioned_models()
+    assert owned["axquant.evidence-archive-index.v1"] is frozen_v1.EvidenceArchiveIndexV1
+    assert owned["axquant.evidence-archive-index.v2"] is EvidenceArchiveIndex
+
+    legacy = frozen_v1.EvidenceArchiveIndexV1(
+        records=[
+            frozen_v1.EvidenceArchiveRecord(
+                logical_name="evidence",
+                path="raw/x.json",
+                sha256="a" * 64,
+                size_bytes=1,
+                durable_uri="/Volumes/home/models/x.json",
+            )
+        ],
+        complete=True,
+    )
+    assert legacy.schema_version == "axquant.evidence-archive-index.v1"
+    with pytest.raises(ValidationError):
+        EvidenceArchiveIndex.model_validate(legacy.model_dump(mode="json"))
+
+    # The dispatching loader returns the envelope the file declares, so evidence
+    # written before the constraint keeps loading.
+    from axquant.serde import write_data
+
+    legacy_path = tmp_path / "archive-v1.json"
+    write_data(legacy_path, legacy)
+    loaded = load_evidence_archive_index(legacy_path)
+    assert loaded.schema_version == "axquant.evidence-archive-index.v1"
+
+    current_path = tmp_path / "archive-v2.json"
+    write_data(
+        current_path,
+        EvidenceArchiveIndex(
+            records=[
+                {
+                    "logical_name": "evidence",
+                    "path": "raw/x.json",
+                    "sha256": "a" * 64,
+                    "size_bytes": 1,
+                    "durable_uri": "nas://models-archive/axquant/000/x.json",
+                }
+            ],
+            complete=True,
+        ),
+    )
+    assert load_evidence_archive_index(current_path).schema_version == (
+        "axquant.evidence-archive-index.v2"
+    )

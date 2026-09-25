@@ -646,7 +646,7 @@ def test_formal_cycle_consumes_holdout_on_pass_or_failure(tmp_path: Path) -> Non
                     path="raw/task.json",
                     sha256=file_sha256(raw_record_path),
                     size_bytes=raw_record_path.stat().st_size,
-                    durable_uri=f"file://{raw_record_path}",
+                    durable_uri="nas://models-archive/formal/raw/task.json",
                 )
             ],
             complete=True,

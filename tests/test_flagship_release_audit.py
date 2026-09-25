@@ -447,7 +447,7 @@ def _flagship_fixture(
                     path="raw/task.json",
                     sha256=file_sha256(formal_raw_path),
                     size_bytes=formal_raw_path.stat().st_size,
-                    durable_uri=f"file://{formal_raw_path}",
+                    durable_uri=(f"nas://models-archive/formal/raw/{formal_raw_path.name}"),
                 )
             ],
             complete=True,
@@ -590,7 +590,7 @@ def _flagship_fixture(
                     path=path.resolve().relative_to(durable.resolve()).as_posix(),
                     sha256=file_sha256(path),
                     size_bytes=path.stat().st_size,
-                    durable_uri=f"file://{path.resolve()}",
+                    durable_uri=f"nas://models-archive/{path.name}",
                 )
                 for name, path in archive_records
             ],

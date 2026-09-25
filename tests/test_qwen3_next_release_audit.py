@@ -1217,7 +1217,7 @@ def _build_inputs(tmp_path: Path) -> Path:
                 path=path.relative_to(tmp_path).as_posix(),
                 sha256=file_sha256(path),
                 size_bytes=path.stat().st_size,
-                durable_uri=f"/Volumes/axquant-evidence/{index:03d}/{path.name}",
+                durable_uri=f"nas://models-archive/axquant/{index:03d}/{path.name}",
             )
             for index, path in enumerate(evidence_paths)
         ],

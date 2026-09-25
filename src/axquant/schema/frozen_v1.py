@@ -30,12 +30,20 @@ envelope on purpose — do not "fix" them into the live enum types.
 
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
 from typing import ClassVar, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from axquant.schema import artifacts, inventory, kernel_latency, planning, sensitivity
+from axquant.schema import (
+    artifacts,
+    inventory,
+    kernel_latency,
+    planning,
+    sensitivity,
+)
+from axquant.schema._base import StrictModel, utc_now
 
 
 class QuantMethod(StrEnum):
@@ -192,3 +200,32 @@ class ScoreboardReportV1(artifacts.ScoreboardReport):
 class ReproductionRecipeV3(artifacts.ReproductionRecipe):
     schema_version: Literal["axquant.reproduction.v3"] = "axquant.reproduction.v3"  # type: ignore[assignment]
     _legacy_noise_key_drop: ClassVar[bool] = True
+
+
+# Rendered before durable archive URIs were constrained to a scheme-qualified,
+# host-independent form (AXQ-048). The envelope is restated rather than
+# subclassed because a subclass would inherit the new validator, and old evidence
+# is exactly what carried a host path; the class names are reused because the
+# frozen snapshot keys ``$defs`` by ``__name__``.
+class EvidenceArchiveRecord(StrictModel):
+    logical_name: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    size_bytes: int = Field(ge=0)
+    durable_uri: str = Field(min_length=1)
+
+
+class EvidenceArchiveIndexV1(StrictModel):
+    schema_version: Literal["axquant.evidence-archive-index.v1"] = (
+        "axquant.evidence-archive-index.v1"
+    )
+    records: list[EvidenceArchiveRecord] = Field(min_length=1)
+    complete: bool
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def records_are_unique(self) -> EvidenceArchiveIndexV1:
+        names = [record.logical_name for record in self.records]
+        if len(names) != len(set(names)):
+            raise ValueError("evidence archive logical names must be unique")
+        return self

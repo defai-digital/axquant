@@ -20,7 +20,6 @@ from axquant.schema import (
     CampaignOverlapReport,
     CampaignPreflight,
     CampaignState,
-    EvidenceArchiveIndex,
     FlagshipCampaign,
     FlagshipFrontierIndex,
     FlagshipFrontierRequest,
@@ -37,6 +36,7 @@ from axquant.schema import (
     SourceCheckpointManifest,
     utc_now,
 )
+from axquant.schema.loading import load_evidence_archive_index
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 FLAGSHIP_SOURCE_MODEL_ID = "Qwen/Qwen3.6-27B"
@@ -170,7 +170,7 @@ def formal_completion_evidence_issues(
     if not raw_index_path.is_file():
         return issues
     try:
-        raw_index = load_model(raw_index_path, EvidenceArchiveIndex)
+        raw_index = load_evidence_archive_index(raw_index_path)
     except (ArtifactError, OSError, ValueError) as exc:
         issues.append(f"formal raw evidence index is invalid: {exc}")
         return issues
@@ -860,7 +860,7 @@ def record_campaign_publication(
         audit = load_model(audit_path, FlagshipReleaseAudit)
         claim = load_model(claim_path, PublicClaimManifest)
         lifecycle = load_model(lifecycle_path, ArtifactLifecycleRegistry)
-        inventory = load_model(inventory_path, EvidenceArchiveIndex)
+        inventory = load_evidence_archive_index(inventory_path)
         runtime = load_model(runtime_path, PostPublicationRuntimeVerification)
         if not audit.release_ready or audit.candidate != campaign.candidate:
             issues.append("downloaded flagship release audit is not ready for this candidate")

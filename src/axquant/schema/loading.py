@@ -13,12 +13,20 @@ digests recorded when the artifact was produced.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal, TypeVar, get_args, get_origin
+from typing import Any, Literal, TypeVar, cast, get_args, get_origin
 
 from pydantic import BaseModel
 
 from axquant.errors import ArtifactError
-from axquant.schema import artifacts, frozen_v1, inventory, kernel_latency, planning, sensitivity
+from axquant.schema import (
+    artifacts,
+    certification,
+    frozen_v1,
+    inventory,
+    kernel_latency,
+    planning,
+    sensitivity,
+)
 from axquant.serde import read_data
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -121,4 +129,19 @@ def load_reproduction_recipe(path: str | Path) -> artifacts.ReproductionRecipe:
         path,
         artifacts.ReproductionRecipe,
         frozen_v1.ReproductionRecipeV3,
+    )
+
+
+def load_evidence_archive_index(path: str | Path) -> certification.EvidenceArchiveIndex:
+    # The v1 envelope is restated rather than subclassed — a subclass would
+    # inherit the scheme-qualified durable-URI validator, and old evidence is
+    # exactly what carried a host path — so the two types are unrelated and the
+    # dispatched model needs an explicit cast.
+    return cast(
+        certification.EvidenceArchiveIndex,
+        load_versioned(
+            path,
+            certification.EvidenceArchiveIndex,
+            frozen_v1.EvidenceArchiveIndexV1,
+        ),
     )

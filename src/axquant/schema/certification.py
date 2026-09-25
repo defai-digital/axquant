@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal
@@ -15,6 +16,39 @@ from axquant.schema.inventory import ModelIdentity
 
 _SHA256 = r"^[0-9a-f]{64}$"
 _IDENTIFIER = r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+
+
+_DURABLE_URI_SCHEME = re.compile(r"^[a-z][a-z0-9+.\-]*://")
+_DURABLE_URI_FORBIDDEN = ("\\", "..", "~/")
+_HOST_PATH_PREFIXES = ("/Users/", "/Volumes/", "/private/var/", "/tmp/", "/home/")
+
+
+def _durable_uri(value: str) -> str:
+    """A published archive locator: scheme-qualified and host-independent.
+
+    The durable URI says where evidence is archived, and it is published, so it
+    may not name a host path. ``file://`` is refused for the same reason: it
+    carries a local filesystem path behind a scheme. The in-tree relative
+    location is ``EvidenceArchiveRecord.path``, which is separately validated.
+    """
+
+    match = _DURABLE_URI_SCHEME.match(value)
+    if match is None:
+        raise ValueError(
+            "durable archive URIs must be scheme-qualified, e.g. nas://archive/000/x.json"
+        )
+    if value.split("://", 1)[0].lower() == "file":
+        raise ValueError("durable archive URIs must not use file:, which names a local filesystem")
+    for token in _DURABLE_URI_FORBIDDEN:
+        if token in value:
+            raise ValueError(f"durable archive URIs must not contain {token!r}")
+    for prefix in _HOST_PATH_PREFIXES:
+        if prefix in value:
+            raise ValueError(f"durable archive URIs must not contain the host path {prefix!r}")
+    remainder = value[match.end() :]
+    if not remainder or remainder.startswith("/"):
+        raise ValueError("durable archive URIs must name a location after the scheme")
+    return value
 
 
 def _relative_artifact_path(value: str) -> str:
@@ -780,6 +814,11 @@ class EvidenceArchiveRecord(StrictModel):
     size_bytes: int = Field(ge=0)
     durable_uri: str = Field(min_length=1)
 
+    @field_validator("durable_uri")
+    @classmethod
+    def durable_uri_is_scheme_qualified(cls, value: str) -> str:
+        return _durable_uri(value)
+
     @field_validator("path")
     @classmethod
     def archived_path_is_relative(cls, value: str) -> str:
@@ -787,8 +826,8 @@ class EvidenceArchiveRecord(StrictModel):
 
 
 class EvidenceArchiveIndex(StrictModel):
-    schema_version: Literal["axquant.evidence-archive-index.v1"] = (
-        "axquant.evidence-archive-index.v1"
+    schema_version: Literal["axquant.evidence-archive-index.v2"] = (
+        "axquant.evidence-archive-index.v2"
     )
     records: list[EvidenceArchiveRecord] = Field(min_length=1)
     complete: bool
