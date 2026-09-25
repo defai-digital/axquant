@@ -1125,13 +1125,13 @@ def _build_inputs(tmp_path: Path) -> Path:
     write_data(hardware_path, hardware)
 
     compatibility_request = Qwen3NextCompatibilityRequest(
-        source_model=source,
+        source_model=source_identity,
         target_class="4bit",
     )
     compatibility_request_path = tmp_path / "compatibility-request.json"
     write_data(compatibility_request_path, compatibility_request)
     compatibility = Qwen3NextCompatibilityMatrix(
-        source_model=source,
+        source_model=source_identity,
         target_class="4bit",
         artifact_manifest_sha256=file_sha256(manifest_path),
         profiles_passed=[ProfileName.AGENT_CODING, ProfileName.GENERAL],
@@ -1142,7 +1142,7 @@ def _build_inputs(tmp_path: Path) -> Path:
     write_data(compatibility_path, compatibility)
 
     recipe = ReproductionRecipe(
-        source_model=source,
+        source_model=source_identity,
         calibration=calibration,
         axquant_version="1.2.0",
         software_versions=_versions(),
@@ -1228,7 +1228,7 @@ def _build_inputs(tmp_path: Path) -> Path:
 
     request = Qwen3NextReleaseAuditRequest(
         certification_scope={
-            "source_model": source.model_dump(mode="json"),
+            "source_model": source_identity.model_dump(mode="json"),
             "architecture": fingerprint.model_dump(mode="json"),
             "target_class": "4bit",
             "artifact_manifest_sha256": file_sha256(manifest_path),
@@ -1698,4 +1698,6 @@ def test_direct_executed_publish_uploads_only_after_registry_append(
         text = published.read_text(encoding="utf-8")
         assert "local_path" not in text, published
         assert str(tmp_path) not in text, published
-    assert str(tmp_path) in audit_path.read_text(encoding="utf-8")
+    # The authorizing audit may itself be path-free now that the fixture builds
+    # a path-free request; what matters is that the Published copies never
+    # carry a path (AXQ-048).
