@@ -12,6 +12,7 @@ from __future__ import annotations
 import posixpath
 import re
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
@@ -24,15 +25,26 @@ from axquant.schema import (
     Inventory,
     QuantizationPlan,
     RecipeBundle,
+    SourcePlanBinding,
 )
 from axquant.schema.loading import (
     load_manual_plan_recipe,
     load_quantization_plan,
 )
 from axquant.serde import file_sha256, load_model, write_data
+from axquant.source_binding import (
+    BINDING_NAME,
+    binding_path_beside,
+    load_source_plan_binding,
+    source_binding_plan_issues,
+)
 
 RECIPE_BUNDLE_FILE = "axquant_recipe_bundle.json"
 REMOTE_SCHEME = "hf://"
+# Records the bundle's producer-origin source binding in the bundle lineage map,
+# so the binding file is tamper-evident and discoverable without changing the
+# immutable recipe-bundle envelope.
+SOURCE_BINDING_LINEAGE_KEY = "source_binding_sha256"
 _LINEAGE_NAME = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 
 
@@ -141,13 +153,55 @@ def load_recipe_bundle(bundle: str | Path) -> tuple[RecipeBundle, Path]:
     return record, payload
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedRecipePlan:
+    """A recipe bundle resolved against a target inventory (AXQ-048).
+
+    ``source_binding`` is the *producer's* binding, carried by the bundle. It is
+    never minted here: a binding built from the consumer's own directory could
+    not say anything about the checkpoint the producer planned from.
+    """
+
+    record: RecipeBundle
+    plan: QuantizationPlan
+    source_binding: SourcePlanBinding | None
+
+
+def _bundle_source_binding(
+    bundle: str | Path,
+    record: RecipeBundle,
+) -> SourcePlanBinding | None:
+    """Load the binding a bundle carries, if its lineage declares one."""
+
+    expected = record.lineage.get(SOURCE_BINDING_LINEAGE_KEY)
+    if expected is None:
+        return None
+    if isinstance(bundle, str) and bundle.startswith(REMOTE_SCHEME):
+        repo_id, revision, record_name = _parse_remote_reference(bundle)
+        name = posixpath.normpath(posixpath.join(posixpath.dirname(record_name), BINDING_NAME))
+        path = _download_remote_file(repo_id, revision, name, bundle)
+    else:
+        bundle_path = Path(bundle).expanduser().resolve()
+        root = bundle_path if bundle_path.is_dir() else bundle_path.parent
+        path = root / BINDING_NAME
+        if not path.is_file():
+            raise ArtifactError(
+                f"recipe bundle {record.bundle_id} declares "
+                f"{SOURCE_BINDING_LINEAGE_KEY} but carries no {BINDING_NAME}"
+            )
+    if file_sha256(path) != expected:
+        raise ArtifactError(f"recipe bundle {record.bundle_id} source binding checksum mismatch")
+    return load_source_plan_binding(path)
+
+
 def resolve_recipe_plan(
     bundle: str | Path,
     *,
     inventory: Inventory,
-) -> tuple[RecipeBundle, QuantizationPlan]:
+) -> ResolvedRecipePlan:
     """Verify a bundle against the target inventory and produce its plan."""
     record, payload = load_recipe_bundle(bundle)
+    source_binding = _bundle_source_binding(bundle, record)
     target = inventory.model
     if not is_immutable_revision(target.revision):
         raise ArtifactError(
@@ -173,6 +227,13 @@ def resolve_recipe_plan(
                 f"recipe bundle {record.bundle_id} plan source identity does not match "
                 "the bundle record"
             )
+        if source_binding is not None:
+            binding_issues = source_binding_plan_issues(binding=source_binding, plan=plan)
+            if binding_issues:
+                raise ArtifactError(
+                    f"recipe bundle {record.bundle_id} source binding does not match its "
+                    "plan: " + "; ".join(binding_issues)
+                )
         # A published plan records the producer's local checkpoint path, but that
         # path is not portable to another machine.  Identity has already been
         # pinned and checked above, so bind the executable copy to the target
@@ -187,12 +248,17 @@ def resolve_recipe_plan(
     else:
         recipe = load_manual_plan_recipe(payload)
         plan = manual_quantization_plan(inventory, recipe)
+        if source_binding is not None:
+            raise ArtifactError(
+                f"recipe bundle {record.bundle_id} carries a plan source binding but its "
+                "payload is a manual recipe"
+            )
     if plan.evidence_kind != record.evidence_kind:
         raise ArtifactError(
             f"recipe bundle {record.bundle_id} declares {record.evidence_kind.value} evidence "
             f"but its payload produces {plan.evidence_kind.value}"
         )
-    return record, plan
+    return ResolvedRecipePlan(record=record, plan=plan, source_binding=source_binding)
 
 
 def export_recipe_bundle(
@@ -233,5 +299,27 @@ def export_recipe_bundle(
     )
     directory.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(plan_path, destination)
+    # Carry the producer's source binding so a consumer on another machine can
+    # verify the checkpoint it converts against the one the producer planned
+    # from — a binding minted by the consumer could not say that (AXQ-048).
+    binding_source = binding_path_beside(plan_path)
+    if binding_source.is_file():
+        binding = load_source_plan_binding(binding_source)
+        binding_issues = source_binding_plan_issues(binding=binding, plan=loaded)
+        if binding_issues:
+            raise ArtifactError(
+                f"source binding beside {plan_path.name} does not match its plan: "
+                + "; ".join(binding_issues)
+            )
+        binding_target = directory / BINDING_NAME
+        shutil.copyfile(binding_source, binding_target)
+        record = record.model_copy(
+            update={
+                "lineage": {
+                    **record.lineage,
+                    SOURCE_BINDING_LINEAGE_KEY: file_sha256(binding_target),
+                }
+            }
+        )
     write_data(bundle_path, record)
     return bundle_path

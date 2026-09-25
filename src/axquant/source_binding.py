@@ -97,6 +97,25 @@ def binding_path_beside(path: str | Path) -> Path:
     return (resolved if resolved.is_dir() else resolved.parent) / BINDING_NAME
 
 
+def source_binding_plan_issues(
+    *,
+    binding: SourcePlanBinding,
+    plan: QuantizationPlan,
+) -> list[str]:
+    """Binding issues that need only the plan, not the source directory.
+
+    A bundle carries the producer's binding and the consumer holds a different
+    copy of the same revision, so the plan half must be checkable on its own.
+    """
+
+    issues: list[str] = []
+    if binding.plan_sha256 != semantic_plan_sha256(plan):
+        issues.append("source binding belongs to another plan")
+    if binding.source_model != semantic_model_identity(plan.source_model):
+        issues.append("source binding identifies another source model")
+    return issues
+
+
 def source_binding_issues(
     *,
     binding: SourcePlanBinding,
@@ -105,11 +124,7 @@ def source_binding_issues(
 ) -> list[str]:
     """Differences between a binding and the checkpoint actually supplied."""
 
-    issues: list[str] = []
-    if binding.plan_sha256 != semantic_plan_sha256(plan):
-        issues.append("source binding belongs to another plan")
-    if binding.source_model != semantic_model_identity(plan.source_model):
-        issues.append("source binding identifies another source model")
+    issues = source_binding_plan_issues(binding=binding, plan=plan)
     try:
         config_sha256, index_sha256, members = source_binding_fingerprint(source_dir)
     except ArtifactError as exc:

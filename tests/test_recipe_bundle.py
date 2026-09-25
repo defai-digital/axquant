@@ -9,7 +9,12 @@ from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
-from axquant.recipes import export_recipe_bundle, load_recipe_bundle, resolve_recipe_plan
+from axquant.recipes import (
+    SOURCE_BINDING_LINEAGE_KEY,
+    export_recipe_bundle,
+    load_recipe_bundle,
+    resolve_recipe_plan,
+)
 from axquant.schema import (
     EvidenceKind,
     Inventory,
@@ -20,6 +25,11 @@ from axquant.schema import (
     RecipeBundle,
 )
 from axquant.serde import file_sha256, load_model, write_data
+from axquant.source_binding import (
+    BINDING_NAME,
+    source_binding_issues,
+    write_source_plan_binding,
+)
 
 _SOURCE_REVISION = "a" * 40
 _OTHER_REVISION = "b" * 40
@@ -65,15 +75,16 @@ def test_bundle_round_trips_to_identical_plan(qwen36_model_dir: Path, tmp_path: 
     record, payload = load_recipe_bundle(bundle_path)
     assert record.bundle_id == "qwen36-27b-prior-r1"
     assert record.lineage == {"sensitivity": "a" * 64}
-    resolved_record, resolved_plan = resolve_recipe_plan(bundle_path, inventory=inventory)
-    assert resolved_record == record
+    resolved = resolve_recipe_plan(bundle_path, inventory=inventory)
+    assert resolved.record == record
+    resolved_plan = resolved.plan
     assert resolved_plan == load_model(payload, QuantizationPlan)
     assert resolved_plan.evidence_kind == record.evidence_kind
 
 
 def test_bundle_directory_resolution(qwen36_model_dir: Path, tmp_path: Path) -> None:
     inventory, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
-    _, resolved_plan = resolve_recipe_plan(bundle_path.parent, inventory=inventory)
+    resolved_plan = resolve_recipe_plan(bundle_path.parent, inventory=inventory).plan
     assert resolved_plan.source_model.model_id == "Qwen/Qwen3.6-27B"
 
 
@@ -87,7 +98,7 @@ def test_bundle_rebinds_plan_to_equivalent_local_checkpoint(
     shutil.copytree(qwen36_model_dir, copied_model)
     copied_inventory = _inventory(copied_model)
 
-    _, resolved_plan = resolve_recipe_plan(bundle_path, inventory=copied_inventory)
+    resolved_plan = resolve_recipe_plan(bundle_path, inventory=copied_inventory).plan
 
     assert original_plan.source_model.local_path == str(qwen36_model_dir.resolve())
     assert resolved_plan.source_model.local_path == str(copied_model.resolve())
@@ -332,8 +343,9 @@ def test_remote_bundle_resolves_and_verifies(
         "hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit"
         f"@{_REMOTE_REVISION}/recipe/axquant_recipe_bundle.json"
     )
-    record, resolved_plan = resolve_recipe_plan(reference, inventory=inventory)
-    assert record.bundle_id == "qwen36-27b-remote-r1"
+    resolved = resolve_recipe_plan(reference, inventory=inventory)
+    resolved_plan = resolved.plan
+    assert resolved.record.bundle_id == "qwen36-27b-remote-r1"
     assert resolved_plan.source_model.model_id == "Qwen/Qwen3.6-27B"
 
 
@@ -351,4 +363,103 @@ def test_remote_bundle_download_failure_is_artifact_error(
     with pytest.raises(ArtifactError, match="download failed"):
         recipes.load_recipe_bundle(
             f"hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQuant-4bit@{_REMOTE_REVISION}"
+        )
+
+
+def _exported_bundle_with_binding(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> tuple[Inventory, Path]:
+    """Export a bundle the way ``axquant plan`` leaves its output on disk."""
+
+    inventory = _inventory(qwen36_model_dir)
+    plan = _plan(inventory)
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, plan)
+    write_source_plan_binding(tmp_path, plan, qwen36_model_dir)
+    bundle_path = export_recipe_bundle(
+        plan=plan_path,
+        output_dir=tmp_path / "bundle",
+        bundle_id="qwen36-27b-prior-r1",
+        lineage={"sensitivity": "a" * 64},
+    )
+    return inventory, bundle_path
+
+
+def test_bundle_carries_the_producer_source_binding(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """AXQ-048: the consumer verifies against the producer's fingerprint."""
+
+    inventory, bundle_path = _exported_bundle_with_binding(qwen36_model_dir, tmp_path)
+    record, _payload = load_recipe_bundle(bundle_path)
+    binding_path = bundle_path.parent / BINDING_NAME
+
+    assert binding_path.is_file()
+    assert record.lineage[SOURCE_BINDING_LINEAGE_KEY] == file_sha256(binding_path)
+
+    resolved = resolve_recipe_plan(bundle_path, inventory=inventory)
+    assert resolved.source_binding is not None
+    assert resolved.source_binding.source_model.local_path is None
+    # The producer's fingerprint is what convert checks the local copy against.
+    assert (
+        source_binding_issues(
+            binding=resolved.source_binding,
+            plan=resolved.plan,
+            source_dir=qwen36_model_dir,
+        )
+        == []
+    )
+
+
+def test_bundle_without_a_binding_resolves_without_one(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+
+    resolved = resolve_recipe_plan(bundle_path, inventory=inventory)
+
+    assert resolved.source_binding is None
+
+
+def test_bundle_rejects_a_tampered_or_missing_binding(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory, bundle_path = _exported_bundle_with_binding(qwen36_model_dir, tmp_path)
+    binding_path = bundle_path.parent / BINDING_NAME
+    binding_path.write_text(
+        '{"schema_version":"axquant.source-plan-binding.v1"}\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ArtifactError, match="source binding checksum mismatch"):
+        resolve_recipe_plan(bundle_path, inventory=inventory)
+
+    binding_path.unlink()
+    with pytest.raises(ArtifactError, match="carries no"):
+        resolve_recipe_plan(bundle_path, inventory=inventory)
+
+
+def test_export_rejects_a_binding_from_another_plan(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    plan = _plan(inventory)
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, plan)
+    write_source_plan_binding(
+        tmp_path,
+        plan.model_copy(update={"target_bpw": 5.0}),
+        qwen36_model_dir,
+    )
+
+    with pytest.raises(ArtifactError, match="does not match its plan"):
+        export_recipe_bundle(
+            plan=plan_path,
+            output_dir=tmp_path / "bundle",
+            bundle_id="qwen36-27b-prior-r1",
         )

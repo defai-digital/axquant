@@ -39,6 +39,7 @@ from axquant.schema import (
     QuantMethod,
     QuickConversionSummary,
     RuntimeCheck,
+    SourcePlanBinding,
     SupportTier,
     TensorRole,
 )
@@ -221,10 +222,13 @@ def quick_convert(
             "use the staged analyze → plan → convert pipeline (or a measured recipe bundle)"
         )
     bundle_id: str | None = None
+    resolved_binding: SourcePlanBinding | None = None
     ladder_name = resolved_ladder.name.value
     if recipe is not None:
-        bundle, plan = resolve_recipe_plan(recipe, inventory=inventory)
-        bundle_id = bundle.bundle_id
+        resolved = resolve_recipe_plan(recipe, inventory=inventory)
+        plan = resolved.plan
+        resolved_binding = resolved.source_binding
+        bundle_id = resolved.record.bundle_id
         plan_source: Literal["architecture-prior", "recipe-bundle"] = "recipe-bundle"
         effective_target = target_bpw if target_bpw is not None else plan.target_bpw
     else:
@@ -289,11 +293,14 @@ def quick_convert(
                 break
     # Convert from the resolved local directory when inventory recorded one.
     convert_source = inventory.model.local_path or model
-    # The plan is path-neutral, so bind the conversion source structurally while
-    # the planning step still knows which directory produced it.
-    source_binding = (
-        build_source_plan_binding(plan, convert_source) if Path(convert_source).is_dir() else None
-    )
+    # A recipe bundle carries the producer's binding; use it, never a minted
+    # substitute, so the check still says something about the producer's
+    # checkpoint. Only a plan this run just produced is bound in-process: that
+    # binding is a path-free provenance record for this one job, kept beside the
+    # artifact so drift after the fact is detectable — not an origin proof.
+    source_binding = resolved_binding
+    if source_binding is None and plan_source != "recipe-bundle" and Path(convert_source).is_dir():
+        source_binding = build_source_plan_binding(plan, convert_source)
     manifest = convert_model(
         model=convert_source,
         plan=plan,
