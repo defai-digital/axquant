@@ -424,7 +424,7 @@ class CampaignRoles(StrictModel):
             "unknown",
             "unassigned",
         }
-        if normalized.casefold() in disallowed:
+        if not normalized or normalized.casefold() in disallowed:
             raise ValueError("campaign roles require named accountable identities")
         return normalized
 

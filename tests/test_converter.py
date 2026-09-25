@@ -2638,3 +2638,24 @@ def test_external_quantized_mtp_bundle_does_not_guess_norm_layout(tmp_path: Path
     (source / "mtp.safetensors").write_bytes(b"preserved")
     with pytest.raises(ArtifactError, match="requires an explicit mtp_norm_layout"):
         converter._copy_external_mtp_bundle(source, output)
+
+
+def test_tie_word_embeddings_honours_explicit_top_level_with_text_config() -> None:
+    """Regression: a nested ``text_config`` must not hide an explicit top-level tie.
+
+    The third branch used to be gated on ``source`` having no ``text_config`` dict,
+    so a top-level ``tie_word_embeddings: true`` alongside a ``text_config`` object
+    that omitted the key was overwritten with the untied default.
+    """
+    source = {"text_config": {}, "tie_word_embeddings": True}
+    converted: dict = {"text_config": {}}
+    assert converter._ensure_text_config_tie_word_embeddings(source, converted) is True
+    assert converted["text_config"]["tie_word_embeddings"] is True
+
+
+def test_tie_word_embeddings_prefers_nested_over_top_level() -> None:
+    """The nested ``text_config`` value still wins over the top-level value."""
+    source = {"text_config": {"tie_word_embeddings": False}, "tie_word_embeddings": True}
+    converted: dict = {"text_config": {}}
+    assert converter._ensure_text_config_tie_word_embeddings(source, converted) is True
+    assert converted["text_config"]["tie_word_embeddings"] is False

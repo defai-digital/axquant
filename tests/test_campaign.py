@@ -1024,3 +1024,19 @@ def test_publication_record_requires_downloaded_audit_claim_runtime_and_bytes(
             verification_path=verification_path,
             output_path=tmp_path / "campaign.published-tampered.json",
         )
+
+
+def test_roles_reject_whitespace_only_identity() -> None:
+    """Regression: a whitespace-only value must not strip down to an empty role.
+
+    ``Field(min_length=1)`` passes ``" "`` before the validator runs, so the
+    validator itself must reject the empty result of ``strip()``.
+    """
+    for blank in (" ", "   ", "\t"):
+        with pytest.raises(ValueError, match="named accountable identities"):
+            CampaignRoles.named_accountable_role(blank)
+    with pytest.raises(ValueError, match="named accountable identities"):
+        CampaignRoles.named_accountable_role("")
+    assert CampaignRoles.named_accountable_role(" Alice ") == "Alice"
+    with pytest.raises(ValueError, match="named accountable identities"):
+        CampaignRoles.named_accountable_role("TBD")

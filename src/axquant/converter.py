@@ -877,7 +877,7 @@ def _ensure_text_config_tie_word_embeddings(
     if "tie_word_embeddings" in converted:
         text_config["tie_word_embeddings"] = bool(converted["tie_word_embeddings"])
         return True
-    if isinstance(source_text, dict) is False and "tie_word_embeddings" in source:
+    if "tie_word_embeddings" in source:
         text_config["tie_word_embeddings"] = bool(source["tie_word_embeddings"])
         return True
     # Fail-open default matching HF Qwen3-VL MoE Instruct (untied).

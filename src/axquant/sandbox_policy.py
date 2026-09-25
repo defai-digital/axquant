@@ -24,7 +24,7 @@ _COMPILE_PROCESS_RULES = (
 
 SANDBOX_POLICY_CONTRACT = {
     "id": "axquant-macos-seatbelt-v3",
-    "renderer": "render_sandbox_profile-v2",
+    "renderer": "render_sandbox_profile-v3",
     "base_rules": list(_BASE_RULES),
     "default": "deny",
     "system_runtime": 'import "system.sb"',
@@ -82,8 +82,11 @@ def render_sandbox_profile(
     if allow_subprocesses:
         rules.extend(_COMPILE_PROCESS_RULES)
     else:
-        selectors = " ".join(f'(literal "{_seatbelt_string(str(path))}")' for path in entrypoints)
-        rules.append(f"(allow process-exec {selectors})")
+        # One allow rule per entrypoint literal. Multiple filters inside a single
+        # SBPL rule are ANDed, so joining several literals into one rule would
+        # never match when the invocation path differs from its resolved target.
+        for path in entrypoints:
+            rules.append(f'(allow process-exec (literal "{_seatbelt_string(str(path))}"))')
     rules.extend(
         [
             f'(allow file-read* file-test-existence (subpath "{_seatbelt_string(str(source))}"))',
