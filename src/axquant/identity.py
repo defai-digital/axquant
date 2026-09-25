@@ -34,6 +34,24 @@ def semantic_model_identity(identity: ModelIdentity) -> ModelIdentity:
     return identity.model_copy(update={"local_path": None})
 
 
+def without_local_paths(node: Any) -> Any:
+    """Return ``node`` with every ``local_path`` key removed, at any depth.
+
+    Publication boundaries must not record where an artifact was built
+    (AGENTS.md: no private paths in published evidence). Removing the key
+    rather than nulling it keeps the published payload honest about not
+    recording it, and the field is optional everywhere it appears.
+    """
+
+    if isinstance(node, dict):
+        return {
+            key: without_local_paths(value) for key, value in node.items() if key != "local_path"
+        }
+    if isinstance(node, list):
+        return [without_local_paths(item) for item in node]
+    return node
+
+
 def same_model_identity(left: ModelIdentity, right: ModelIdentity) -> bool:
     return semantic_model_identity(left) == semantic_model_identity(right)
 

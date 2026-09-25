@@ -1686,3 +1686,11 @@ def test_direct_executed_publish_uploads_only_after_registry_append(
     assert calls == ["create", "upload"]
     assert registry_path.is_file()
     assert (tmp_path / "artifact" / "certification" / "audit.json").is_file()
+    # F050: the files the publisher itself adds to the tree record no local
+    # path, while the authorizing audit keeps the one resolution needs.
+    published_audit = tmp_path / "artifact" / "certification" / "audit.json"
+    for published in (published_audit, registry_path):
+        text = published.read_text(encoding="utf-8")
+        assert "local_path" not in text, published
+        assert str(tmp_path) not in text, published
+    assert str(tmp_path) in audit_path.read_text(encoding="utf-8")

@@ -8,12 +8,14 @@ from safetensors.numpy import save_file
 
 from axquant import publisher
 from axquant.artifact_evidence_binding import write_artifact_evidence_binding
+from axquant.certification.dispatch import load_certification_audit
 from axquant.errors import PublishingError
 from axquant.gemma4_assistant_compose import (
     Gemma4AssistantComposeRequest,
     compose_gemma4_assistant_mtp,
 )
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
+from axquant.identity import without_local_paths
 from axquant.publisher import (
     _copy_exact_publication_file,
     _package_release_audit,
@@ -47,11 +49,24 @@ from axquant.schema import (
     RuntimeSupportLevel,
     SoftwareVersions,
 )
-from axquant.serde import file_sha256, load_model, write_data
+from axquant.serde import file_sha256, load_model, read_data, write_data
 
 _SOURCE_REVISION = "a" * 40
 _REFERENCE_REVISION = "b" * 40
 _CANDIDATE_REVISION = "c" * 40
+
+
+def _local_path_values(node: object) -> list[str]:
+    """Every non-null ``local_path`` value in a payload, at any depth."""
+
+    if isinstance(node, dict):
+        found = [node["local_path"]] if node.get("local_path") else []
+        for value in node.values():
+            found.extend(_local_path_values(value))
+        return [value for value in found if isinstance(value, str)]
+    if isinstance(node, list):
+        return [value for item in node for value in _local_path_values(item)]
+    return []
 
 
 def _write_minimal_manifest(artifact: Path) -> None:
@@ -276,14 +291,26 @@ def test_executed_publication_rechecks_audit_after_preparation(
         )
 
 
-def test_authorizing_release_audit_is_packaged_without_overwrite(tmp_path: Path) -> None:
+def test_authorizing_release_audit_is_packaged_without_local_paths(tmp_path: Path) -> None:
+    """The published audit drops operator paths and nothing else (F050)."""
+
     audit_path, _paths = _release_audit(tmp_path)
     artifact = tmp_path / "artifact"
+    source_payload = read_data(audit_path)
 
     packaged = _package_release_audit(audit_path, artifact)
 
     assert packaged == artifact / "release_audit.json"
-    assert file_sha256(packaged) == file_sha256(audit_path)
+    # The authorizing audit keeps the path it needs for publication resolution.
+    assert _local_path_values(source_payload)
+    # The published copy is byte-faithful except that no local path survives,
+    # and it still re-loads as the same envelope.
+    published = read_data(packaged)
+    assert published == without_local_paths(source_payload)
+    assert _local_path_values(published) == []
+    assert "local_path" not in packaged.read_text(encoding="utf-8")
+    assert type(load_certification_audit(packaged)) is type(load_certification_audit(audit_path))
+    assert file_sha256(packaged) != file_sha256(audit_path)
 
     packaged.write_text('{"fixture":"different"}\n', encoding="utf-8")
     with pytest.raises(PublishingError, match="differs from the authorizing source"):

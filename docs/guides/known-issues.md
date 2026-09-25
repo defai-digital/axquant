@@ -146,6 +146,15 @@ between published versions.
   ([4bit](certifications/qwen3-coder-next-axq4-tier1.md),
   [6bit](certifications/qwen3-coder-next-axq6-tier1.md)). Prefer those commits; ignore
   `legacy-pre-v2` / pre-fix expert-BF16 revisions.
+- **The final publication privacy scan runs on the flagship track only.** `publish` re-scans the
+  exact tree it is about to upload only for a flagship request. The direct (Qwen3Next) and legacy
+  tracks upload without that last scan, and their trees are not path-clean: the certification
+  request, its copied evidence, and `certification/exact_checkpoint_scope.json` bind the candidate
+  by an absolute local path, which `publish` needs in order to resolve the artifact directory.
+  The files `publish` itself adds — the packaged release audit and the certified-checkpoint
+  registry copy — are written without any `local_path`. Enabling the scan for every track requires
+  binding the candidate to the artifact by digest instead of by filesystem path; until then, treat
+  a direct/legacy upload as unverified for operator paths.
 
 ## Overlap and multilingual text
 

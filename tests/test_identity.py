@@ -9,6 +9,7 @@ from axquant.identity import (
     same_model_identity,
     semantic_artifact_manifest_sha256,
     semantic_model_identity,
+    without_local_paths,
 )
 from axquant.schema import (
     ArtifactFile,
@@ -165,3 +166,28 @@ def test_artifact_semantic_digest_ignores_non_checkpoint_records() -> None:
     manifest.files[1] = ArtifactFile(path="README.md", size_bytes=21, sha256="f" * 64)
     second = semantic_artifact_manifest_sha256(manifest, plan_sha256="e" * 64)  # type: ignore[arg-type]
     assert first == second
+
+
+def test_without_local_paths_drops_the_key_at_every_depth() -> None:
+    """Published evidence must not record where an artifact was built (F050)."""
+
+    payload = {
+        "source_model": {"model_id": "Qwen/Qwen3.6-27B", "local_path": "/Volumes/Ext16TR0/model"},
+        "entries": [
+            {"candidate_model": {"model_id": "x", "local_path": "/Users/operator/x"}},
+            {"candidate_model": {"model_id": "y"}},
+        ],
+        "measured_bpw": 4.8,
+    }
+
+    cleaned = without_local_paths(payload)
+
+    assert "local_path" not in cleaned["source_model"]
+    assert [entry["candidate_model"].get("local_path") for entry in cleaned["entries"]] == [
+        None,
+        None,
+    ]
+    # Nothing else changes, and the input is not mutated in place.
+    assert cleaned["source_model"]["model_id"] == "Qwen/Qwen3.6-27B"
+    assert cleaned["measured_bpw"] == 4.8
+    assert payload["source_model"]["local_path"] == "/Volumes/Ext16TR0/model"

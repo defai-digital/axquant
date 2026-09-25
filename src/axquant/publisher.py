@@ -27,6 +27,7 @@ from axquant.gemma4_assistant_compose import (
     ASSISTANT_CONTRACT_NAME,
     validate_gemma4_assistant_composite,
 )
+from axquant.identity import without_local_paths
 from axquant.lifecycle import require_active_certification
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
@@ -51,7 +52,7 @@ from axquant.schema import (
     ReleaseAuditRequest,
     ReleaseValidationIndex,
 )
-from axquant.serde import file_sha256, load_model, read_data, stable_sha256
+from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -365,7 +366,19 @@ def _package_release_audit(audit_path: str | Path, model_dir: Path) -> Path:
             else model_dir / "release_audit.json"
         )
     )
-    return _copy_exact_publication_file(source, target, label="release audit")
+    # The authorizing audit binds its candidate to the local artifact directory
+    # so publishing can resolve it. Published evidence must never record where
+    # it was built (AGENTS.md: no private paths), so the packaged copy drops
+    # every local_path — resolution already happened, and nothing else changes.
+    payload = without_local_paths(audit.model_dump(mode="json"))
+    if target.exists():
+        if not target.is_file():
+            raise PublishingError(f"release audit target is not a regular file: {target}")
+        if read_data(target) != payload:
+            raise PublishingError("packaged release audit differs from the authorizing source")
+        return target
+    write_data(target, payload)
+    return target
 
 
 def _rerun_release_audit(
@@ -695,9 +708,18 @@ def publish_model(
         repo_id=repo_id,
     )
     if flagship_request:
-        # Audit packaging can add public text artifacts after the request-level
+        # Audit packaging adds public text artifacts after the request-level
         # scan. Re-scan the exact final tree immediately before previewing or
         # uploading it.
+        #
+        # Deliberately flagship-only for now: the direct and legacy tracks bind
+        # their candidate to the artifact by absolute local path (the packaged
+        # request/audit and the evidence copied beside them), so their trees are
+        # not path-clean by construction and this scan would fail closed on
+        # every publication. The publisher-created files are already clean
+        # (_package_release_audit, append_certified_checkpoint). Enabling this
+        # for all tracks needs the candidate bound by artifact digest instead;
+        # see docs/guides/known-issues.md (Evidence and state).
         require_publication_privacy(directory)
     _require_artifact_evidence_binding(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]

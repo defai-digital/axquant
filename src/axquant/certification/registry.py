@@ -4,8 +4,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
+from pydantic import BaseModel
+
 from axquant.certification.policy import direct_policy_sha256
 from axquant.errors import ArtifactError, PublishingError
+from axquant.identity import without_local_paths
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactManifest,
@@ -40,6 +43,14 @@ def load_checkpoint_registry(path: str | Path) -> CertifiedCheckpointRegistry:
     if issues:
         raise ArtifactError("certification registry trust validation failed: " + "; ".join(issues))
     return registry
+
+
+def _comparable(value: object) -> object:
+    """Payload form of a field for path-insensitive registry comparisons."""
+
+    if isinstance(value, BaseModel):
+        return without_local_paths(value.model_dump(mode="json"))
+    return value
 
 
 def append_certified_checkpoint(
@@ -104,7 +115,14 @@ def append_certified_checkpoint(
                 "hardware_scope_ids": audit.certification_scope.hardware_scope_ids,
                 "supersedes_entry_id": supersedes_entry_id,
             }
-            if any(getattr(existing, field) != value for field, value in expected.items()):
+            # Compared without local paths: a stored entry predating the
+            # publication boundary scrub must still match an identical append.
+            mismatched = [
+                field
+                for field, value in expected.items()
+                if _comparable(getattr(existing, field)) != _comparable(value)
+            ]
+            if mismatched:
                 raise PublishingError("existing registry entry differs from the requested append")
             return registry
 
@@ -123,5 +141,10 @@ def append_certified_checkpoint(
         supersedes_entry_id=supersedes_entry_id,
     )
     updated = CertifiedCheckpointRegistry(entries=[*registry.entries, entry])
-    write_data(registry_source, updated)
+    # The registry file is published verbatim into the artifact tree, so it is
+    # written without any local path. Entry identity is unaffected: entry_id
+    # comes from the candidate id, target class, and authorizing audit digest.
+    # Write the scrubbed payload rather than a re-validated model, which would
+    # default the field back to null.
+    write_data(registry_source, without_local_paths(updated.model_dump(mode="json")))
     return updated
