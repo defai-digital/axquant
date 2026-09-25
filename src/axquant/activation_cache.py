@@ -18,6 +18,7 @@ from typing import Any
 import structlog
 
 from axquant.errors import ArtifactError, BackendUnavailableError, CacheError
+from axquant.identity import same_model_identity
 from axquant.schema import (
     ModelIdentity,
     ProfileName,
@@ -346,7 +347,7 @@ def tokenize_calibration(
         )
     if existing_manifest is not None and (
         existing_manifest.dataset_sha256 != dataset_sha
-        or existing_manifest.model != model
+        or not same_model_identity(existing_manifest.model, model)
         or existing_manifest.profile != profile
         or existing_manifest.sequence_length != sequence_length
     ):

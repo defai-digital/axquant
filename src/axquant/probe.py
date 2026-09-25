@@ -36,6 +36,7 @@ from axquant.capture_binding import LoadedActivationCapture, activation_capture_
 from axquant.dwq import apply_mlx_dwq_clip
 from axquant.errors import BackendUnavailableError, PlanningError, ProbeError
 from axquant.gptq import apply_mlx_gptq_refine
+from axquant.identity import same_model_identity
 from axquant.module_paths import mlx_module_aliases
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.revisions import is_immutable_revision
@@ -1429,7 +1430,9 @@ def _validated_base_entries(
         if config.target_tensors:
             raise ProbeError("targeted probing requires a base sensitivity report")
         return {}
-    if base_report.model != inventory.model or base_report.profile != config.profile:
+    if not same_model_identity(base_report.model, inventory.model) or (
+        base_report.profile != config.profile
+    ):
         raise ProbeError("base sensitivity report does not match the probe inventory/profile")
     # AXQ-017: the support tier is current registry policy, not recorded
     # measurement evidence — a base report probed before a tier promotion is

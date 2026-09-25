@@ -528,6 +528,29 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         base_report=report,
         allow_legacy_4bit=True,
     )
+
+    # AXQ-048: the base report may record the checkpoint path it was measured
+    # from while the inventory carries none (or another host's). The path is not
+    # part of the identity, so resuming must still be accepted.
+    path_only_report = report.model_copy(
+        update={
+            "model": report.model.model_copy(update={"local_path": "/Volumes/Ext16TR0/src"}),
+        }
+    )
+    probe_tensor_sensitivity(
+        inventory,
+        config=config.model_copy(
+            update={
+                "candidate_bits": (4,),
+                "candidate_methods": (QuantMethod.DWQ,),
+                "target_tensors": (target_tensor,),
+            }
+        ),
+        backend=_MeasuredFakeBackend(),
+        state_path=tmp_path / "path-only-progress.json",
+        base_report=path_only_report,
+        allow_legacy_4bit=True,
+    )
     refined_entry = next(entry for entry in refined.entries if entry.tensor.name == target_tensor)
     dwq = next(
         candidate

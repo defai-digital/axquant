@@ -765,6 +765,8 @@ def load_capture_activations(
         raise CaptureError(f"activation capture is incomplete (no completion marker): {root}")
     manifest = load_model(root / CAPTURE_MANIFEST_NAME, ActivationCaptureManifest)
     _verify_completion_marker(root, manifest)
+    # ActivationCaptureManifest.model is the model-id string, so this is
+    # already a path-insensitive comparison.
     if manifest.model != model:
         raise CaptureError(
             f"activation capture model {manifest.model!r} does not match requested {model!r}"
