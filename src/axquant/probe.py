@@ -13,6 +13,10 @@ supported-layout limits of the MLX implementation.
 
 from __future__ import annotations
 
+import importlib
+import json
+import re
+import struct
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -63,6 +67,13 @@ log = structlog.get_logger()
 
 _MXFP4_CANDIDATE_BITS = 4
 _MXFP4_CANDIDATE_GROUP_SIZE = 32
+
+# MH6 (AXQ-046): Qwen3.5/Qwen3Next-native MTP checkpoints store every MTP
+# RMSNorm weight in the shifted (gamma - 1) convention (the same storage form
+# MLX-LM's qwen3_5 sanitize compensates when it sees mtp.* keys at load). All
+# 1-D tensors in the validated MTP sidecar layout are norm weights, so the
+# 1.0 is added back unconditionally there.
+_MTP_NORM_SHIFT = 1.0
 
 _MIN_RELEASE_CALIBRATION_SAMPLES = 128
 _MIN_RELEASE_CALIBRATION_TOKENS = 8192
@@ -195,24 +206,188 @@ def _candidate_bits_for_tensor(tensor: TensorSpec, config: ProbeConfig) -> tuple
     return candidates or (16,)
 
 
+class _MtpRopeOffsetCache:
+    """Minimal KV-cache duck-type for a standalone MTP block pass (MH6).
+
+    Teacher-forced MTP drafts run on the trailing metric window whose true
+    absolute positions start at ``offset``; full attention layers in MLX-LM
+    derive rope phases from ``cache.offset``. This shim supplies the offset
+    without prefix keys: ``update_and_fetch`` returns only the new keys and
+    SDPA ignores the object otherwise.
+    """
+
+    def __init__(self, offset: int) -> None:
+        self.offset = offset
+        self.keys = None
+        self.values = None
+
+    def update_and_fetch(self, keys: Any, values: Any) -> tuple[Any, Any]:
+        return keys, values
+
+    def make_mask(self, *args: Any, **kwargs: Any) -> str:
+        return "causal"
+
+
+@dataclass(frozen=True)
+class _MtpTensorRef:
+    """On-disk location of one integrated-MTP tensor."""
+
+    path: Path
+    name: str
+    shape: tuple[int, ...]
+    dtype: str
+    data_offsets: tuple[int, int]
+
+
+def _safetensors_header(path: Path) -> dict[str, Any]:
+    """Parse a safetensors header without reading tensor data."""
+    with path.open("rb") as handle:
+        raw_len = handle.read(8)
+        if len(raw_len) != 8:
+            raise ProbeError(f"truncated safetensors file: {path}")
+        (header_len,) = struct.unpack("<Q", raw_len)
+        try:
+            header = json.loads(handle.read(header_len))
+        except ValueError as exc:
+            raise ProbeError(f"invalid safetensors header in {path}: {exc}") from exc
+    return {name: meta for name, meta in header.items() if name != "__metadata__"}
+
+
+def _canonical_mtp_entries(model_dir: Path) -> dict[str, _MtpTensorRef]:
+    """Collect integrated-MTP weights on disk, canonicalized past the ``mtp.`` segment.
+
+    MLX-LM sanitizers drop every ``mtp.`` tensor at load, so the loaded model
+    tree never shows them; the weights remain on disk either in a dedicated
+    ``mtp.safetensors`` sidecar or as ``mtp.`` keys inside the indexed shards
+    (HF-native export). The canonical layout is what remains after the
+    ``mtp.`` prefix, e.g. ``fc.weight``, ``layers.0.self_attn.q_proj.weight``.
+    """
+    try:
+        files = sorted(model_dir.glob("*.safetensors"))
+    except OSError:
+        return {}
+    if not files:
+        return {}
+    indexed_files: set[str] = set()
+    for index_path in sorted(model_dir.glob("*.index.json")):
+        try:
+            weight_map = json.loads(index_path.read_text(encoding="utf-8")).get("weight_map", {})
+            indexed_files |= {str(name) for name in weight_map.values()}
+        except (OSError, ValueError):
+            continue  # a broken index must not hide a dedicated sidecar file
+    entries: dict[str, _MtpTensorRef] = {}
+    for path in [p for p in files if p.name not in indexed_files] + [
+        p for p in files if p.name in indexed_files
+    ]:
+        try:
+            header = _safetensors_header(path)
+        except (OSError, ProbeError) as exc:
+            log.info("mtp_sidecar_header_unreadable", file=str(path), error=str(exc))
+            continue
+        for name, meta in header.items():
+            parts = name.split(".")
+            if "mtp" not in parts:
+                continue
+            canonical = ".".join(parts[parts.index("mtp") + 1 :])
+            shape = meta.get("shape")
+            offsets = meta.get("data_offsets")
+            if not canonical or not shape or not isinstance(offsets, list) or len(offsets) != 2:
+                continue
+            entries.setdefault(
+                canonical,
+                _MtpTensorRef(
+                    path=path,
+                    name=name,
+                    shape=tuple(int(dim) for dim in shape),
+                    dtype=str(meta.get("dtype", "")),
+                    data_offsets=(int(offsets[0]), int(offsets[1])),
+                ),
+            )
+    return entries
+
+
+def _read_safetensors_tensor(ref: _MtpTensorRef) -> Any:
+    """Load one tensor without pulling its whole shard into memory.
+
+    Applies the shifted-norm storage convention (``_MTP_NORM_SHIFT`` on 1-D
+    weights). Unsupported dtypes fail closed instead of guessing a cast.
+    """
+    mlx = importlib.import_module("mlx.core")
+    try:
+        import numpy as np
+    except ImportError:
+        raise BackendUnavailableError("MLX probing requires numpy") from None
+    with ref.path.open("rb") as handle:
+        raw_len = handle.read(8)
+        if len(raw_len) != 8:
+            raise ProbeError(f"truncated safetensors file: {ref.path}")
+        (header_len,) = struct.unpack("<Q", raw_len)
+        header = json.loads(handle.read(header_len))
+        meta = header.get(ref.name)
+        if meta is None:
+            raise ProbeError(f"tensor {ref.name} vanished from {ref.path}")
+        start, end = (int(value) for value in meta["data_offsets"])
+        handle.seek(8 + header_len + start)
+        nbytes = end - start
+        dtype = str(meta.get("dtype", ""))
+        if dtype == "BF16":
+            raw = np.fromfile(handle, dtype="<u2", count=nbytes // 2)
+            array = mlx.array(raw).reshape(ref.shape).view(mlx.bfloat16)
+        elif dtype == "F16":
+            raw = np.fromfile(handle, dtype="<f2", count=nbytes // 2)
+            array = mlx.array(raw).reshape(ref.shape)
+        elif dtype == "F32":
+            raw = np.fromfile(handle, dtype="<f4", count=nbytes // 4)
+            array = mlx.array(raw).reshape(ref.shape)
+        else:
+            raise ProbeError(f"unsupported MTP weight dtype {dtype} for {ref.name}")
+    if len(ref.shape) == 1:
+        shifted = array.astype(mlx.float32) + _MTP_NORM_SHIFT
+        array = shifted.astype(array.dtype)
+    return array
+
+
+def _module_param_paths(root_name: str, module: Any) -> set[str]:
+    """Dotted paths of every submodule under ``root_name`` that carries a weight."""
+    paths: set[str] = set()
+    named = getattr(module, "named_modules", None)
+    if not callable(named):
+        return paths
+    for name, sub in named():
+        path = f"{root_name}.{name}" if name else root_name
+        weight = getattr(sub, "weight", None)
+        if weight is not None and not callable(weight):
+            paths.add(path)
+    return paths
+
+
 class MlxProbeBackend:
     """MLX-based probe backend with lazy imports.
 
     MH6 (AXQ-046): optionally supports a teacher-forced MTP forward used to
     measure MTP acceptance proxy losses. Public MLX-LM has no stable
     cross-architecture MTP entry point, so capability is duck-typed after
-    load: the model must expose MTP-block modules (a named module with an
-    ``mtp`` path segment) plus a resolvable token embedding and draft output
-    head. ``forward_mtp`` additionally fails closed: any runtime uncertainty
+    load. Two layouts are recognized, both fail-closed:
+
+    1. The loaded model exposes MTP-block modules directly (a named module
+       with an ``mtp`` path segment) plus a resolvable token embedding.
+    2. The checkpoint integrates MTP weights that the MLX-LM sanitizer
+       stripped at load (Qwen3.5 / Qwen3-Next native MTP, in a dedicated
+       ``mtp.safetensors`` or as ``mtp.`` keys inside the indexed shards).
+       The block is then rebuilt from the model's own full-attention decoder
+       layer class; see ``_build_sidecar_mtp_capability`` for the exact
+       structural requirements.
+
+    ``forward_mtp`` additionally fails closed: any runtime uncertainty
     (missing modules, block signature mismatch, shape mismatch) raises
     ProbeError and the probe records the honest 0.0 unmeasured marker.
-    Checkpoints whose MTP block does not accept a bare hidden-state argument
-    (e.g. architectures requiring explicit masks/caches) therefore keep the
-    unmeasured marker instead of producing guessed acceptance evidence.
+    Checkpoints whose MTP block cannot be reconstructed keep the unmeasured
+    marker instead of producing guessed acceptance evidence.
     """
 
     def __init__(self, *, calibration_activations: Mapping[str, Any] | None = None) -> None:
         self._model: Any = None
+        self._model_dir: Path | None = None
         self._original_modules: dict[str, tuple[Any, str, Any]] = {}
         self._mlx: Any = None
         self._mlx_lm: Any = None
@@ -221,13 +396,13 @@ class MlxProbeBackend:
         self.supports_mtp_forward = False
         self._mtp_blocks: list[Any] = []
         self._embed_tokens_module: Any = None
+        self._mtp_sidecar: dict[str, Any] | None = None
+        self._mtp_sidecar_paths: set[str] = set()
 
     def _ensure_mlx(self) -> None:
         if self._mlx is not None:
             return
         try:
-            import importlib
-
             self._mlx = importlib.import_module("mlx.core")
             self._mlx_lm = importlib.import_module("mlx_lm")
         except ImportError as exc:
@@ -237,7 +412,8 @@ class MlxProbeBackend:
 
     def load_model(self, model_dir: Path) -> None:
         self._ensure_mlx()
-        loaded = self._mlx_lm.load(str(model_dir), lazy=False)
+        self._model_dir = Path(model_dir).expanduser().resolve()
+        loaded = self._mlx_lm.load(str(self._model_dir), lazy=False)
         self._model = loaded[0]
         self._mlx.eval(self._model.parameters())
         self._detect_mtp_forward_capability()
@@ -257,11 +433,14 @@ class MlxProbeBackend:
         self.supports_mtp_forward = False
         self._mtp_blocks = []
         self._embed_tokens_module = None
+        self._mtp_sidecar = None
+        self._mtp_sidecar_paths = set()
         if self._model is None:
             return
         named = {str(name): module for name, module in self._model.named_modules() if name}
         mtp_names = [name for name in named if any(part == "mtp" for part in name.split("."))]
-        if not mtp_names:
+        embedding = self._resolve_embedding_module(named)
+        if embedding is None:
             return
         # Keep only the outermost MTP containers; nested projections must not
         # be invoked as standalone blocks.
@@ -270,14 +449,14 @@ class MlxProbeBackend:
             for name in sorted(mtp_names)
             if not any(other != name and other.startswith(f"{name}.") for other in mtp_names)
         ]
-        if not blocks or any(not callable(block) for block in blocks):
+        if blocks and all(callable(block) for block in blocks):
+            self._mtp_blocks = blocks
+            self._embed_tokens_module = embedding
+            self.supports_mtp_forward = True
             return
-        embedding = self._resolve_embedding_module(named)
-        if embedding is None:
-            return
-        self._mtp_blocks = blocks
-        self._embed_tokens_module = embedding
-        self.supports_mtp_forward = True
+        # MLX-LM sanitizers strip integrated mtp.* weights at load; rebuild
+        # the block from the checkpoint directory when possible.
+        self._build_sidecar_mtp_capability(embedding)
 
     def _resolve_embedding_module(self, named: Mapping[str, Any]) -> Any | None:
         candidates = set()
@@ -289,6 +468,180 @@ class MlxProbeBackend:
             if module is not None and callable(module):
                 return module
         return None
+
+    def _build_sidecar_mtp_capability(self, embedding: Any) -> bool:
+        """Rebuild an integrated MTP block that the MLX-LM sanitizer stripped (MH6).
+
+        Qwen3.5 / Qwen3-Next native MTP checkpoints keep the draft block in
+        ``mtp.*`` tensors that ``mlx_lm.load`` drops, so the loaded model
+        exposes no MTP modules. When the checkpoint directory still holds
+        them (a dedicated ``mtp.safetensors`` or ``mtp.`` keys inside the
+        indexed shards), the block is reconstructed with the model's own
+        full-attention decoder layer class:
+
+        ``fc(cat([pre_fc_norm_embedding(embed(t+1)),
+        pre_fc_norm_hidden(hidden_t)]))`` -> MTP decoder layer(s) -> ``norm``
+        -> draft head. Norm weights are stored shifted (gamma - 1) and get
+        ``_MTP_NORM_SHIFT`` added back.
+
+        Every structural deviation leaves the capability off (fail closed).
+        """
+        self._ensure_mlx()
+        if self._model_dir is None or self._model is None:
+            return False
+        try:
+            entries = _canonical_mtp_entries(self._model_dir)
+        except OSError as exc:
+            log.info("mtp_sidecar_scan_failed", error=str(exc))
+            return False
+        if not entries:
+            return False
+        language_model = getattr(self._model, "language_model", None)
+        backbone = getattr(language_model, "model", None) if language_model is not None else None
+        layers = getattr(backbone, "layers", None) if backbone is not None else None
+        if not layers:
+            return False
+        trunk_index = next(
+            (i for i, layer in enumerate(layers) if hasattr(layer, "self_attn")), None
+        )
+        if trunk_index is None:
+            return False
+        args = getattr(language_model, "args", None) or getattr(self._model, "args", None)
+        eps = float(getattr(args, "rms_norm_eps", None) or 1e-6)
+        fc_ref = entries.get("fc.weight")
+        scalar_refs = [
+            entries.get(name)
+            for name in ("pre_fc_norm_embedding.weight", "pre_fc_norm_hidden.weight", "norm.weight")
+        ]
+        if fc_ref is None or any(ref is None for ref in scalar_refs):
+            log.info("mtp_sidecar_layout_incomplete", keys=sorted(entries)[:8])
+            return False
+        norm_emb_ref, norm_hidden_ref, final_norm_ref = scalar_refs
+        if norm_emb_ref is None or norm_hidden_ref is None or final_norm_ref is None:
+            return False
+        if (
+            len(fc_ref.shape) != 2
+            or fc_ref.shape[1] % 2 != 0
+            or fc_ref.shape[0] != (fc_ref.shape[1] // 2)
+        ):
+            log.info("mtp_sidecar_fc_shape_unexpected", shape=fc_ref.shape)
+            return False
+        if any(ref is not None and len(ref.shape) != 1 for ref in scalar_refs):
+            log.info("mtp_sidecar_norm_shape_unexpected")
+            return False
+        hidden = fc_ref.shape[0]
+        layer_indices = sorted(
+            {
+                int(match.group(1))
+                for key in entries
+                if (match := re.match(r"layers\.(\d+)\.", key)) is not None
+            }
+        )
+        if not layer_indices or layer_indices != list(range(len(layer_indices))):
+            log.info("mtp_sidecar_layers_not_contiguous", layers=layer_indices)
+            return False
+        nn = importlib.import_module("mlx.nn")
+        try:
+            mtp_layers = []
+            for index in layer_indices:
+                prefix = f"layers.{index}."
+                mapping = {
+                    key[len(prefix) :]: ref
+                    for key, ref in entries.items()
+                    if key.startswith(prefix)
+                }
+                mtp_layers.append(
+                    self._instantiate_sidecar_layer(
+                        type(layers[trunk_index]), args, trunk_index, mapping
+                    )
+                )
+            fc = nn.Linear(2 * hidden, hidden, bias=False)
+            fc.weight = _read_safetensors_tensor(fc_ref)
+            norm_emb = nn.RMSNorm(hidden, eps=eps)
+            norm_emb.weight = _read_safetensors_tensor(norm_emb_ref)
+            norm_hidden = nn.RMSNorm(hidden, eps=eps)
+            norm_hidden.weight = _read_safetensors_tensor(norm_hidden_ref)
+            final_norm = nn.RMSNorm(hidden, eps=eps)
+            final_norm.weight = _read_safetensors_tensor(final_norm_ref)
+            for module in [fc, norm_emb, norm_hidden, final_norm, *mtp_layers]:
+                self._mlx.eval(module.parameters())
+        except (ProbeError, TypeError, ValueError, RuntimeError, OSError) as exc:
+            log.info("mtp_sidecar_reconstruction_failed", error=str(exc))
+            self._mtp_sidecar = None
+            self._mtp_sidecar_paths = set()
+            return False
+        # Single tree shared by forward_mtp and quantize/restore so module
+        # replacement and restore mutate exactly what the forward reads.
+        self._mtp_sidecar = {
+            "fc": fc,
+            "pre_fc_norm_embedding": norm_emb,
+            "pre_fc_norm_hidden": norm_hidden,
+            "norm": final_norm,
+            "layers": {
+                index: layer for index, layer in zip(layer_indices, mtp_layers, strict=True)
+            },
+        }
+        self._embed_tokens_module = embedding
+        self._mtp_sidecar_paths = set()
+        for name, module in self._mtp_sidecar.items():
+            if name == "layers":
+                for index, layer in module.items():
+                    self._mtp_sidecar_paths |= _module_param_paths(f"layers.{index}", layer)
+            else:
+                self._mtp_sidecar_paths |= _module_param_paths(name, module)
+        log.info(
+            "mtp_sidecar_reconstructed",
+            layers=len(mtp_layers),
+            tensors=len(entries),
+            quantizable_paths=sorted(self._mtp_sidecar_paths),
+        )
+        self.supports_mtp_forward = True
+        return True
+
+    def _instantiate_sidecar_layer(
+        self,
+        layer_class: Any,
+        args: Any,
+        trunk_index: int,
+        mapping: Mapping[str, _MtpTensorRef],
+    ) -> Any:
+        """Construct an MTP decoder layer and overwrite every parameter from disk.
+
+        Fail closed unless the mapping covers exactly the layer's parameter
+        leaves with matching shapes: any leftover destination keeps random
+        init weights, and any unconsumed sidecar weight signals a layout the
+        forward cannot trust.
+        """
+        try:
+            layer = layer_class(args, trunk_index)
+        except (TypeError, ValueError) as exc:
+            raise ProbeError(f"cannot construct MTP layer from trunk class: {exc}") from exc
+        tree = layer.parameters()
+        consumed: set[str] = set()
+
+        def assign(node: dict[str, Any], prefix: str) -> None:
+            for key, value in node.items():
+                path = f"{prefix}.{key}" if prefix else str(key)
+                if isinstance(value, dict):
+                    assign(value, path)
+                    continue
+                ref = mapping.get(path)
+                if ref is None:
+                    raise ProbeError(f"MTP sidecar has no weight for layer leaf {path!r}")
+                if tuple(ref.shape) != tuple(value.shape):
+                    raise ProbeError(
+                        f"MTP sidecar shape mismatch for {path!r}: "
+                        f"{ref.shape} vs module {tuple(value.shape)}"
+                    )
+                node[key] = _read_safetensors_tensor(ref)
+                consumed.add(path)
+
+        assign(tree, "")
+        extra = sorted(set(mapping) - consumed)
+        if extra:
+            raise ProbeError(f"MTP sidecar weights have no module destination: {extra[:5]}")
+        layer.update(tree)
+        return layer
 
     def forward_mtp(self, input_ids: Any, hidden_states: Any) -> MtpForwardResult:
         """Teacher-force the loaded model's MTP blocks and return draft logits.
@@ -327,15 +680,18 @@ class MlxProbeBackend:
                     "MTP forward shape mismatch: embedding has fewer positions "
                     f"({int(embedded.shape[1])}) than trunk hidden states ({positions})"
                 )
-            # Trunk hidden states cover tokens[:-1] at the metric positions;
-            # the draft input at those positions pairs them with the trailing
-            # token embeddings (token t+1 fused with hidden state t).
-            mtp_input = self._mlx.concatenate([embedded[:, -positions:], hidden], axis=-1)
-            block_out: Any = mtp_input
-            for block in self._mtp_blocks:
-                block_out = block(block_out)
-                if isinstance(block_out, (tuple, list)):
-                    block_out = block_out[0]
+            if self._mtp_sidecar is not None:
+                block_out = self._forward_sidecar_mtp_fusion(embedded, hidden, tokens)
+            else:
+                # Trunk hidden states cover tokens[:-1] at the metric positions;
+                # the draft input at those positions pairs them with the trailing
+                # token embeddings (token t+1 fused with hidden state t).
+                mtp_input = self._mlx.concatenate([embedded[:, -positions:], hidden], axis=-1)
+                block_out = mtp_input
+                for block in self._mtp_blocks:
+                    block_out = block(block_out)
+                    if isinstance(block_out, (tuple, list)):
+                        block_out = block_out[0]
             language_model = getattr(self._model, "language_model", None)
             tied = bool(
                 getattr(getattr(language_model, "args", None), "tie_word_embeddings", False)
@@ -355,6 +711,40 @@ class MlxProbeBackend:
         draft_logits = draft_logits.astype(self._mlx.float32)
         self._mlx.eval(draft_logits)
         return MtpForwardResult(draft_logits=np.asarray(draft_logits))
+
+    def _forward_sidecar_mtp_fusion(self, embedded: Any, hidden: Any, tokens: Any) -> Any:
+        """Run the reconstructed Qwen3.5/Qwen3Next MTP block (MH6).
+
+        ``embedded`` covers the full token sequence; its trailing ``positions``
+        embeddings are token t+1 relative to the trunk hidden states, so the
+        fusion needs the full sequence behind the window (``positions + 1``
+        embeddings). Attention runs with a rope-offset shim so the trailing
+        window keeps its true absolute positions.
+        """
+        sidecar = self._mtp_sidecar
+        if sidecar is None:
+            raise ProbeError("MTP sidecar block not reconstructed")
+        positions = int(hidden.shape[1])
+        if int(embedded.shape[1]) < positions + 1:
+            raise ProbeError(
+                "MTP forward shape mismatch: sidecar fusion needs the full "
+                f"trailing token window ({positions + 1} embeddings), "
+                f"got {int(embedded.shape[1])}"
+            )
+        hidden = hidden.astype(embedded.dtype)
+        fused = self._mlx.concatenate(
+            [
+                sidecar["pre_fc_norm_embedding"](embedded[:, -positions:]),
+                sidecar["pre_fc_norm_hidden"](hidden),
+            ],
+            axis=-1,
+        )
+        block_out = sidecar["fc"](fused)
+        cache = _MtpRopeOffsetCache(int(tokens.shape[1]) - positions)
+        mask = "causal" if positions > 1 else None
+        for layer in sidecar["layers"].values():
+            block_out = layer(block_out, mask=mask, cache=cache)
+        return sidecar["norm"](block_out)
 
     def quantize_module(
         self,
@@ -496,12 +886,41 @@ class MlxProbeBackend:
             for name in names
             if any(name.endswith(f".{alias}") or alias.endswith(f".{name}") for alias in aliases)
         ]
-        if len(suffix_matches) != 1:
-            raise ProbeError(
-                f"cannot uniquely resolve module path {module_path!r}; "
-                f"found {len(suffix_matches)} matches"
-            )
-        return str(suffix_matches[0])
+        if len(suffix_matches) == 1:
+            return str(suffix_matches[0])
+        sidecar_match = self._resolve_sidecar_module_path(aliases)
+        if sidecar_match is not None:
+            return sidecar_match
+        raise ProbeError(
+            f"cannot uniquely resolve module path {module_path!r}; "
+            f"found {len(suffix_matches)} matches"
+        )
+
+    def _resolve_sidecar_module_path(self, aliases: tuple[str, ...]) -> str | None:
+        """Match an inventory module path against the reconstructed MTP block.
+
+        Integrated-MTP tensors are named ``...mtp.<canonical>`` in the source
+        checkpoint while the reconstructed block lives outside the loaded
+        model tree, so named-module resolution can never see it.
+        """
+        if not self._mtp_sidecar_paths:
+            return None
+        candidates = set()
+        for alias in aliases:
+            parts = alias.split(".")
+            if "mtp" not in parts:
+                continue
+            remainder = ".".join(parts[parts.index("mtp") + 1 :])
+            if remainder in self._mtp_sidecar_paths:
+                candidates.add(f"mtp.{remainder}")
+        if len(candidates) == 1:
+            return candidates.pop()
+        return None
+
+    def _is_sidecar_module_path(self, module_path: str) -> bool:
+        return self._mtp_sidecar is not None and (
+            module_path == "mtp" or module_path.startswith("mtp.")
+        )
 
     def _calibration_for(self, module_path: str, resolved_path: str, method: QuantMethod) -> Any:
         """Resolve captured calibration activations for an inventory module path."""
@@ -523,7 +942,13 @@ class MlxProbeBackend:
 
     def _get_parent_and_module(self, module_path: str) -> tuple[Any, str, Any]:
         parts = module_path.split(".")
-        current = self._model
+        if self._is_sidecar_module_path(module_path):
+            # Reconstructed MTP block: walk the sidecar tree instead of the
+            # loaded model tree (dict parents resolve via key access).
+            parts = parts[1:]
+            current: Any = self._mtp_sidecar
+        else:
+            current = self._model
         for part in parts[:-1]:
             current = self._get_child(current, part)
         child_name = parts[-1]
@@ -531,6 +956,8 @@ class MlxProbeBackend:
 
     @staticmethod
     def _get_child(parent: Any, child_name: str) -> Any:
+        if isinstance(parent, Mapping) and child_name in parent:
+            return parent[child_name]
         if hasattr(parent, child_name):
             return getattr(parent, child_name)
         try:
@@ -543,6 +970,9 @@ class MlxProbeBackend:
 
     @staticmethod
     def _set_child(parent: Any, child_name: str, module: Any) -> None:
+        if isinstance(parent, dict) and child_name in parent:
+            parent[child_name] = module
+            return
         if hasattr(parent, child_name):
             setattr(parent, child_name, module)
             return

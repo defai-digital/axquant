@@ -25,6 +25,7 @@ from axquant.probe import (
     ForwardResult,
     MlxProbeBackend,
     MtpForwardResult,
+    _canonical_mtp_entries,
     _mtp_forward_capability,
     probe_tensor_sensitivity,
 )
@@ -428,3 +429,272 @@ def test_mlx_backend_forward_mtp_fails_closed() -> None:
     backend._model = object()
     with pytest.raises(ProbeError, match="no usable MTP modules"):
         backend.forward_mtp(None, None)
+
+
+# --- Qwen3.5/Qwen3Next sidecar reconstruction (real-checkpoint convention) ---
+#
+# MLX-LM sanitizers strip integrated ``mtp.*`` weights at load, so on these
+# architectures the loaded model tree exposes no MTP modules. The probe
+# rebuilds the block from the checkpoint directory: dedicated mtp.safetensors
+# or mtp.* keys inside the indexed shards. The layout below mirrors the real
+# AutomatosX AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP pack (Qwen3_5 arch, 1 MTP
+# layer) validated on hardware on 2026-09-24: norm weights are stored shifted
+# (gamma - 1, +1.0 added back at reconstruction), and the fusion order is
+# fc(cat([pre_fc_norm_embedding(embed(t+1)), pre_fc_norm_hidden(hidden_t)])).
+
+_SIDE_HIDDEN = 128
+
+
+def _sidecar_tensor_names() -> list[str]:
+    names = [
+        "mtp.fc.weight",
+        "mtp.pre_fc_norm_embedding.weight",
+        "mtp.pre_fc_norm_hidden.weight",
+        "mtp.norm.weight",
+    ]
+    for projection in ("q_proj", "k_proj", "v_proj", "o_proj"):
+        names.append(f"mtp.layers.0.self_attn.{projection}.weight")
+    for norm in ("q_norm", "k_norm"):
+        names.append(f"mtp.layers.0.self_attn.{norm}.weight")
+    for part in ("input_layernorm", "post_attention_layernorm"):
+        names.append(f"mtp.layers.0.{part}.weight")
+    for projection in ("gate_proj", "up_proj", "down_proj"):
+        names.append(f"mtp.layers.0.mlp.{projection}.weight")
+    return names
+
+
+def _write_synthetic_sidecar(
+    model_dir: Path,
+    *,
+    hidden: int = _SIDE_HIDDEN,
+    omit: tuple[str, ...] = (),
+    rename: dict[str, str] | None = None,
+) -> dict[str, np.ndarray]:
+    """Write a synthetic mtp.safetensors with the real Qwen3.5 key layout."""
+    from safetensors.numpy import save_file
+
+    rng = np.random.default_rng(7)
+    arrays: dict[str, np.ndarray] = {}
+    for name in _sidecar_tensor_names():
+        if name in omit:
+            continue
+        key = (rename or {}).get(name, name)
+        if name == "mtp.fc.weight":
+            arrays[key] = (rng.standard_normal((hidden, 2 * hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("mlp.gate_proj.weight") or name.endswith("mlp.up_proj.weight"):
+            arrays[key] = (rng.standard_normal((2 * hidden, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("mlp.down_proj.weight"):
+            arrays[key] = (rng.standard_normal((hidden, 2 * hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("self_attn.q_proj.weight"):
+            arrays[key] = (rng.standard_normal((2 * hidden, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith(("self_attn.k_proj.weight", "self_attn.v_proj.weight")):
+            arrays[key] = (rng.standard_normal((hidden, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("self_attn.o_proj.weight"):
+            arrays[key] = (rng.standard_normal((hidden, 2 * hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("q_norm.weight"):
+            arrays[key] = (0.5 + rng.standard_normal((2 * hidden,)) * 0.01).astype(np.float16)
+        elif name.endswith("k_norm.weight"):
+            arrays[key] = (0.5 + rng.standard_normal((hidden,)) * 0.01).astype(np.float16)
+        else:  # 1-D RMSNorm weights, stored in the shifted (gamma - 1) convention
+            arrays[key] = (0.5 + rng.standard_normal((hidden,)) * 0.01).astype(np.float16)
+    save_file(arrays, str(model_dir / "mtp.safetensors"))
+    return arrays
+
+
+def test_sidecar_entries_canonicalize_real_qwen35_layout(tmp_path: Path) -> None:
+    arrays = _write_synthetic_sidecar(tmp_path)
+    entries = _canonical_mtp_entries(tmp_path)
+    assert set(entries) == {name.removeprefix("mtp.") for name in arrays}
+    assert entries["fc.weight"].shape == (_SIDE_HIDDEN, 2 * _SIDE_HIDDEN)
+    assert entries["pre_fc_norm_embedding.weight"].shape == (_SIDE_HIDDEN,)
+    assert entries["layers.0.self_attn.q_proj.weight"].shape == (2 * _SIDE_HIDDEN, _SIDE_HIDDEN)
+
+
+def test_sidecar_entries_find_mtp_keys_inside_indexed_shards(tmp_path: Path) -> None:
+    """HF-native exports keep mtp.* keys in the indexed main shards."""
+    from safetensors.numpy import save_file
+
+    shard = {
+        "model.language_model.model.layers.0.mlp.gate_proj.weight": np.zeros(
+            (8, 8), dtype=np.float16
+        ),
+        "model.language_model.mtp.fc.weight": np.zeros((8, 16), dtype=np.float16),
+        "model.language_model.mtp.layers.0.mlp.down_proj.weight": np.zeros(
+            (8, 16), dtype=np.float16
+        ),
+    }
+    save_file(shard, str(tmp_path / "model-00001-of-00001.safetensors"))
+    (tmp_path / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": {name: "model-00001-of-00001.safetensors" for name in shard}}),
+        encoding="utf-8",
+    )
+    entries = _canonical_mtp_entries(tmp_path)
+    assert set(entries) == {"fc.weight", "layers.0.mlp.down_proj.weight"}
+    assert all(ref.path.name == "model-00001-of-00001.safetensors" for ref in entries.values())
+
+
+def test_sidecar_entries_ignore_checkpoints_without_mtp(tmp_path: Path) -> None:
+    from safetensors.numpy import save_file
+
+    save_file(
+        {"model.language_model.model.layers.0.mlp.gate_proj.weight": np.zeros((8, 8), np.float16)},
+        str(tmp_path / "model.safetensors"),
+    )
+    assert _canonical_mtp_entries(tmp_path) == {}
+
+
+def _fake_sidecar_model(vocab: int = 64, hidden: int = _SIDE_HIDDEN) -> Any:
+    """Tiny Qwen3.5-shaped nn.Module tree for reconstruction tests (needs mlx)."""
+    mlx = pytest.importorskip("mlx.core")
+    nn = pytest.importorskip("mlx.nn")
+
+    class _Args:
+        def __init__(self) -> None:
+            self.hidden_size = hidden
+            self.rms_norm_eps = 1e-6
+            self.tie_word_embeddings = False
+
+    offsets_seen: list[Any] = []
+
+    class _Attn(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.q_proj = nn.Linear(dim, 2 * dim, bias=False)
+            self.k_proj = nn.Linear(dim, dim, bias=False)
+            self.v_proj = nn.Linear(dim, dim, bias=False)
+            self.o_proj = nn.Linear(2 * dim, dim, bias=False)
+            self.q_norm = nn.RMSNorm(2 * dim, eps=args.rms_norm_eps)
+            self.k_norm = nn.RMSNorm(dim, eps=args.rms_norm_eps)
+
+        def __call__(self, x: Any, mask: Any = None, cache: Any = None) -> Any:
+            del mask
+            offsets_seen.append(getattr(cache, "offset", None))
+            queries = mlx.tanh(self.q_norm(self.q_proj(x)))
+            gate = mlx.concatenate([self.k_norm(self.k_proj(x)), self.v_proj(x)], axis=-1)
+            return self.o_proj(queries * mlx.sigmoid(gate))
+
+    class _Mlp(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.gate_proj = nn.Linear(dim, 2 * dim, bias=False)
+            self.up_proj = nn.Linear(dim, 2 * dim, bias=False)
+            self.down_proj = nn.Linear(2 * dim, dim, bias=False)
+
+        def __call__(self, x: Any) -> Any:
+            return self.down_proj(nn.silu(self.gate_proj(x)) * self.up_proj(x))
+
+    class _Layer(nn.Module):
+        def __init__(self, args: _Args, layer_idx: int) -> None:
+            del layer_idx
+            self.self_attn = _Attn(args)
+            self.input_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+            self.post_attention_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+            self.mlp = _Mlp(args)
+
+        def __call__(self, x: Any, mask: Any = None, cache: Any = None) -> Any:
+            hidden = x + self.self_attn(self.input_layernorm(x), mask=mask, cache=cache)
+            return hidden + self.mlp(self.post_attention_layernorm(hidden))
+
+    class _Backbone(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            self.embed_tokens = nn.Embedding(vocab, args.hidden_size)
+            self.layers = [_Layer(args, 0), _Layer(args, 1)]
+            self.norm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+
+        def __call__(self, tokens: Any) -> Any:
+            hidden = self.embed_tokens(tokens)
+            for layer in self.layers:
+                hidden = layer(hidden)
+            return self.norm(hidden)
+
+    class _TextModel(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            self.args = args
+            self.model = _Backbone(args)
+            self.lm_head = nn.Linear(args.hidden_size, vocab, bias=False)
+
+    class _Model(nn.Module):
+        def __init__(self) -> None:
+            self.language_model = _TextModel(_Args())
+
+    return _Model(), offsets_seen
+
+
+def _detect_on_fake_model(tmp_path: Path, model: Any) -> MlxProbeBackend:
+    backend = MlxProbeBackend()
+    backend._model = model
+    backend._model_dir = tmp_path
+    backend._detect_mtp_forward_capability()
+    return backend
+
+
+def test_sidecar_capability_reconstructs_and_teacher_forces(tmp_path: Path) -> None:
+    mlx = pytest.importorskip("mlx.core")
+    stored = _write_synthetic_sidecar(tmp_path)
+    model, offsets_seen = _fake_sidecar_model()
+    backend = _detect_on_fake_model(tmp_path, model)
+
+    assert backend.supports_mtp_forward
+    # Every reconstructed 1-D norm weight must carry the +1.0 storage shift.
+    norm_weight = np.asarray(
+        backend._mtp_sidecar["pre_fc_norm_embedding"].weight.astype(mlx.float32)
+    )
+    expected = stored["mtp.pre_fc_norm_embedding.weight"].astype(np.float32) + 1.0
+    assert np.allclose(norm_weight, expected, atol=1e-3)
+    fc_weight = backend._mtp_sidecar["fc"].weight
+    assert fc_weight.shape == (_SIDE_HIDDEN, 2 * _SIDE_HIDDEN)
+
+    rng = np.random.default_rng(3)
+    tokens = rng.integers(0, 64, size=(1, 10)).astype(np.int32)
+    hidden = rng.standard_normal((1, 4, _SIDE_HIDDEN)).astype(np.float32)
+    result = backend.forward_mtp(tokens, hidden)
+    assert result.draft_logits.shape == (1, 4, 64)
+    assert np.isfinite(result.draft_logits).all()
+    # The rope-offset shim must hand the trailing window its true position.
+    assert offsets_seen and all(offset == 6 for offset in offsets_seen)
+
+
+def test_sidecar_capability_fails_closed_on_incomplete_layout(tmp_path: Path) -> None:
+    _write_synthetic_sidecar(tmp_path, omit=("mtp.norm.weight",))
+    model, _ = _fake_sidecar_model()
+    backend = _detect_on_fake_model(tmp_path, model)
+    assert not backend.supports_mtp_forward
+    assert backend._mtp_sidecar is None
+
+
+def test_sidecar_capability_fails_closed_on_unexpected_extra_weight(tmp_path: Path) -> None:
+    _write_synthetic_sidecar(
+        tmp_path,
+        rename={"mtp.layers.0.self_attn.o_proj.weight": "mtp.layers.0.linear_attn.out_proj.weight"},
+    )
+    model, _ = _fake_sidecar_model()
+    backend = _detect_on_fake_model(tmp_path, model)
+    assert not backend.supports_mtp_forward
+
+
+def test_sidecar_module_quantize_and_restore_roundtrip(tmp_path: Path) -> None:
+    _write_synthetic_sidecar(tmp_path)
+    model, _ = _fake_sidecar_model()
+    backend = _detect_on_fake_model(tmp_path, model)
+    assert backend.supports_mtp_forward
+
+    tokens = np.random.default_rng(3).integers(0, 64, size=(1, 10)).astype(np.int32)
+    hidden = np.random.default_rng(4).standard_normal((1, 4, _SIDE_HIDDEN)).astype(np.float32)
+    reference = np.asarray(backend.forward_mtp(tokens, hidden).draft_logits)
+
+    # HF-style checkpoint naming resolves into the reconstructed block.
+    resolved = backend._resolve_module_path("model.language_model.mtp.layers.0.mlp.gate_proj")
+    assert resolved == "mtp.layers.0.mlp.gate_proj"
+
+    backend.quantize_module("mtp.layers.0.mlp.gate_proj", 4, 64)
+    quantized = np.asarray(backend.forward_mtp(tokens, hidden).draft_logits)
+    assert quantized.shape == reference.shape
+    backend.restore_module("mtp.layers.0.mlp.gate_proj")
+    restored = np.asarray(backend.forward_mtp(tokens, hidden).draft_logits)
+    assert np.allclose(restored, reference, atol=1e-4)
+    # A second mutation must be allowed after the restore.
+    backend.quantize_module("mtp.layers.0.self_attn.q_proj", 4, 64)
+    backend.restore_module("mtp.layers.0.self_attn.q_proj")
+    assert np.allclose(
+        np.asarray(backend.forward_mtp(tokens, hidden).draft_logits), reference, atol=1e-4
+    )
