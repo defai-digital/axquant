@@ -106,19 +106,18 @@ def _check_runtime(
         issues.append(f"{runtime.value} runtime check does not target the candidate artifact")
     if check.model.model_id != expected_model_id or check.model.revision != expected_revision:
         issues.append(f"{runtime.value} runtime check identifies a different candidate model")
-    check_local_path = check.model.local_path
-    if check_local_path is None or Path(check_local_path).expanduser().resolve() != artifact:
-        issues.append(f"{runtime.value} runtime check model path differs from the artifact")
+    # The executed command is what proves the check ran against this artifact
+    # (AXQ-048): the recorded model path is operator state, and requiring it
+    # would force published evidence to record where the run happened.
+    targets_artifact = _runtime_targets_artifact(check, artifact)
     return (
         check.runtime == runtime
         and check.check_kind == expected_kind
         and check.available
         and check.passed
-        and _runtime_targets_artifact(check, artifact)
+        and targets_artifact
         and check.model.model_id == expected_model_id
         and check.model.revision == expected_revision
-        and check_local_path is not None
-        and Path(check_local_path).expanduser().resolve() == artifact
     )
 
 
@@ -184,12 +183,9 @@ def _candidate_entry(
         issues=issues,
     )
 
-    candidate_local_path = validation.candidate_model.local_path
-    if (
-        candidate_local_path is None
-        or Path(candidate_local_path).expanduser().resolve() != artifact
-    ):
-        issues.append("validation report does not identify the candidate artifact directory")
+    # Identity plus the index's checksum bindings identify the artifact; the
+    # local path it was written from is operator state and must not be required
+    # in published evidence (AXQ-048).
     if not is_immutable_revision(validation.candidate_model.revision):
         issues.append("validated candidate revision is not immutable")
     if not validation.passed:

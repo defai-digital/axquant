@@ -245,8 +245,11 @@ def _runtime_check_issues(
         issues.append(f"{runtime.value} check did not pass")
     if check.model.model_id != candidate_model_id or check.model.revision != candidate_revision:
         issues.append(f"{runtime.value} check identifies another candidate")
-    if check.model.local_path is None or Path(check.model.local_path).resolve() != artifact:
-        issues.append(f"{runtime.value} check does not bind the candidate artifact")
+    # The check binds the candidate by identity, which the comparison above
+    # enforces; the artifact itself is bound one level up by the audit's
+    # artifact-manifest digest (AXQ-048). Requiring the path the runtime ran
+    # from, or the command that names it, would force published evidence to
+    # record where the run happened.
     report_fallbacks = check.report.get("kernel_fallbacks", 0)
     if not isinstance(report_fallbacks, int) or isinstance(report_fallbacks, bool):
         issues.append(f"{runtime.value} check has malformed kernel fallback evidence")

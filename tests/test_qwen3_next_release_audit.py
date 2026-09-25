@@ -30,6 +30,7 @@ from axquant.certification.registry import (
 )
 from axquant.coding_suite import NEAR_DUPLICATE_THRESHOLD, SANDBOX_PROFILE_SHA256
 from axquant.errors import ArtifactError, PublishingError
+from axquant.identity import semantic_model_identity
 from axquant.publisher import (
     _package_release_audit,
     _require_release_audit,
@@ -544,6 +545,11 @@ def _build_inputs(tmp_path: Path) -> Path:
         architecture="Qwen3NextForCausalLM",
         local_path=str(source_dir),
     )
+    # Published evidence records the source identity, not the local directory
+    # the fixture built it in (AXQ-048). The inventory and sensitivity report
+    # keep the path: they are inputs, and the source-checkpoint builder checks
+    # that it matches the checkpoint it hashes.
+    source_identity = semantic_model_identity(source)
     write_data(
         source_dir / "axquant_source.json",
         SourceConversionProvenance(
@@ -578,7 +584,7 @@ def _build_inputs(tmp_path: Path) -> Path:
     write_data(artifact / "model-manifest.json", {"schema": "fixture"})
 
     calibration_manifest = CalibrationManifest(
-        model=source,
+        model=source_identity,
         profile=ProfileName.AGENT_CODING,
         dataset_id="clean-room-calibration-v1",
         dataset_sha256="a" * 64,
@@ -635,7 +641,7 @@ def _build_inputs(tmp_path: Path) -> Path:
         "bf16": PrecisionShare(parameters=20, fraction=0.02),
     }
     plan = QuantizationPlan(
-        source_model=source,
+        source_model=source_identity,
         architecture_profile=_profile(),
         profile=ProfileName.AGENT_CODING,
         target_class="mixed-4.8bpw",
@@ -674,7 +680,7 @@ def _build_inputs(tmp_path: Path) -> Path:
     runtime = build_runtime_metadata(plan, artifact)
     manifest = ArtifactManifest(
         axquant_version="1.2.0",
-        source_model=source,
+        source_model=source_identity,
         plan_sha256=stable_sha256(plan),
         calibration=calibration,
         profile=plan.profile,
@@ -729,7 +735,6 @@ def _build_inputs(tmp_path: Path) -> Path:
         model_id=_CANDIDATE_ID,
         revision=_CANDIDATE_REVISION,
         architecture="Qwen3NextForCausalLM",
-        local_path=str(artifact),
     )
     runtime_paths: dict[str, Path] = {}
     for name, runtime_name, check_kind in (
@@ -820,7 +825,7 @@ def _build_inputs(tmp_path: Path) -> Path:
     coding_tasks = {task.task_id: task for task in tasks}
     oracle_evaluation = _quality_evaluation(
         profile=ProfileName.AGENT_CODING,
-        model=source,
+        model=source_identity,
         model_artifact_sha256=file_sha256(source_manifest_path),
         evaluation_manifest_sha256=file_sha256(coding_path),
         dataset_sha256=coding.dataset_sha256,
@@ -832,7 +837,7 @@ def _build_inputs(tmp_path: Path) -> Path:
     )
     mutant_evaluation = _quality_evaluation(
         profile=ProfileName.AGENT_CODING,
-        model=source,
+        model=source_identity,
         model_artifact_sha256=file_sha256(source_manifest_path),
         evaluation_manifest_sha256=file_sha256(coding_path),
         dataset_sha256=coding.dataset_sha256,
@@ -929,7 +934,7 @@ def _build_inputs(tmp_path: Path) -> Path:
         candidate_log_prefix = f"{profile.value}-candidate-logs"
         reference = _quality_evaluation(
             profile=profile,
-            model=source,
+            model=source_identity,
             model_artifact_sha256=file_sha256(source_manifest_path),
             evaluation_manifest_sha256=file_sha256(evaluation_manifest_path),
             dataset_sha256=dataset,
