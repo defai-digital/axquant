@@ -12,6 +12,7 @@ from axquant.experimental_bits import (
     annotate_experimental_low_bit_plan,
     robust_trunk_role,
 )
+from axquant.identity import semantic_model_identity
 from axquant.kernel_latency import decode_latency_provider
 from axquant.module_paths import (
     fused_expert_module,
@@ -1221,7 +1222,10 @@ def plan_quantization(
         )
     )
     plan = QuantizationPlan(
-        source_model=report.model,
+        # Path-neutral: the conversion source is bound by the source-plan
+        # binding sidecar, so published evidence never records where the
+        # checkpoint that produced this plan lived.
+        source_model=semantic_model_identity(report.model),
         architecture_profile=_current_policy_profile(report.architecture_profile),
         profile=request.profile,
         target_class=target_class,

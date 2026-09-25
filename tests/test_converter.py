@@ -41,6 +41,7 @@ from axquant.schema import (
     TensorSpec,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.source_binding import build_source_plan_binding
 
 
 def test_qwen_requantization_preserves_exact_tokenizer_assets(
@@ -916,6 +917,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
 
     output = tmp_path / "awq-candidate"
     manifest = converter.convert_model(
+        source_binding=_source_binding(plan, qwen36_model_dir),
         model=str(qwen36_model_dir),
         plan=plan,
         output=output,
@@ -939,6 +941,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
 
     with pytest.raises(PlanningError, match="unbound activation mapping"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "awq-unbound-activations",
@@ -950,6 +953,7 @@ def test_awq_convert_preflight_and_predicate_are_executable(
 
     with pytest.raises(PlanningError, match="requires calibration activations"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "awq-missing-activations",
@@ -1055,6 +1059,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
 
     output = tmp_path / "gptq-candidate"
     manifest = converter.convert_model(
+        source_binding=_source_binding(plan, qwen36_model_dir),
         model=str(qwen36_model_dir),
         plan=plan,
         output=output,
@@ -1078,6 +1083,7 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
 
     with pytest.raises(PlanningError, match="requires calibration activations"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "gptq-missing-activations",
@@ -1096,6 +1102,7 @@ def test_measured_conversion_requires_bound_calibration_manifest(
     assert converter._validated_calibration_source(plan, calibration_path) == calibration_path
     with pytest.raises(PlanningError, match="requires --calibration-manifest"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "candidate",
@@ -1199,6 +1206,7 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     )
     output = tmp_path / "candidate"
     manifest = converter.convert_model(
+        source_binding=_source_binding(plan, qwen36_model_dir),
         model=str(qwen36_model_dir),
         plan=plan,
         output=output,
@@ -1873,6 +1881,7 @@ def test_conversion_rejects_plan_without_quantized_assignments(
         allocation.group_size = None
     with pytest.raises(PlanningError, match="no quantized assignments"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "candidate",
@@ -1893,7 +1902,13 @@ def test_converted_weight_verification_rejects_missing_mtp_parameters(
         (qwen36_model_dir / "model.safetensors").read_bytes()
     )
     with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
-        converter._verify_converted_weights(staging, plan)
+        # convert_model always passes source_tensors; a path-neutral plan records
+        # no directory to load them from (AXQ-048), so the test supplies them.
+        converter._verify_converted_weights(
+            staging,
+            plan,
+            source_tensors=converter._validated_plan_source_tensors(qwen36_model_dir, plan),
+        )
 
 
 def test_converted_tensor_binding_accepts_only_one_to_one_mlx_wrapper_aliases() -> None:
@@ -2374,6 +2389,7 @@ def test_conversion_requires_declared_mtp_sidecar(
 ) -> None:
     with pytest.raises(PlanningError, match="requires --mtp-sidecar"):
         converter.convert_model(
+            source_binding=_source_binding(_plan(qwen36_model_dir), qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=_plan(qwen36_model_dir),
             output=tmp_path / "candidate",
@@ -2388,6 +2404,7 @@ def test_conversion_rejects_revision_that_differs_from_plan(
 ) -> None:
     with pytest.raises(PlanningError, match="revision does not match"):
         converter.convert_model(
+            source_binding=_source_binding(_plan(qwen36_model_dir), qwen36_model_dir),
             model=str(qwen36_model_dir),
             revision="different-revision",
             plan=_plan(qwen36_model_dir),
@@ -2403,8 +2420,11 @@ def test_conversion_rejects_local_source_that_differs_from_plan(
     tiny_model_dir: Path,
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(PlanningError, match="does not match the plan source path"):
+    # A path-neutral plan has no producer path to compare, so the mismatch is
+    # detected by the carried binding instead (AXQ-048).
+    with pytest.raises(PlanningError, match="does not match the plan binding"):
         converter.convert_model(
+            source_binding=_source_binding(_plan(qwen36_model_dir), qwen36_model_dir),
             model=str(tiny_model_dir),
             plan=_plan(qwen36_model_dir),
             output=tmp_path / "candidate",
@@ -2437,6 +2457,7 @@ def test_conversion_rejects_declared_mtp_without_plan_allocations(
 
     with pytest.raises(PlanningError, match="contains no MTP tensor allocations"):
         converter.convert_model(
+            source_binding=_source_binding(plan, source),
             model=str(source),
             plan=plan,
             output=tmp_path / "candidate",
@@ -2497,6 +2518,7 @@ def test_conversion_rejects_backend_that_does_not_pack_planned_weights(
 
     with pytest.raises(ArtifactError, match="packing does not match the plan"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=tmp_path / "candidate",
@@ -2539,6 +2561,7 @@ def test_failed_conversion_does_not_leave_partial_output(
     output = tmp_path / "candidate"
     with pytest.raises(ArtifactError, match="conversion interrupted"):
         converter.convert_model(
+            source_binding=_source_binding(plan, qwen36_model_dir),
             model=str(qwen36_model_dir),
             plan=plan,
             output=output,
@@ -2659,3 +2682,9 @@ def test_tie_word_embeddings_prefers_nested_over_top_level() -> None:
     converted: dict = {"text_config": {}}
     assert converter._ensure_text_config_tie_word_embeddings(source, converted) is True
     assert converted["text_config"]["tie_word_embeddings"] is False
+
+
+def _source_binding(plan: QuantizationPlan, source_dir: Path) -> object:
+    """The binding production writes beside the plan (AXQ-048)."""
+
+    return build_source_plan_binding(plan, source_dir)

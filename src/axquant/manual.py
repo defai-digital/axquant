@@ -4,6 +4,7 @@ from fnmatch import fnmatchcase
 
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
+from axquant.identity import semantic_model_identity
 from axquant.module_paths import (
     fused_expert_module,
     packed_expert_runtime_modules,
@@ -350,7 +351,8 @@ def manual_quantization_plan(
         warnings.append(f"Unmatched manual rules were allowed: {unmatched}")
     warnings.extend(mtp_warnings)
     plan = QuantizationPlan(
-        source_model=inventory.model,
+        # Path-neutral, like the measured planner (AXQ-048).
+        source_model=semantic_model_identity(inventory.model),
         architecture_profile=inventory.architecture_profile,
         profile=recipe.profile,
         target_class=target_class,

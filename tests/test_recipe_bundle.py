@@ -88,11 +88,34 @@ def test_bundle_directory_resolution(qwen36_model_dir: Path, tmp_path: Path) -> 
     assert resolved_plan.source_model.model_id == "Qwen/Qwen3.6-27B"
 
 
-def test_bundle_rebinds_plan_to_equivalent_local_checkpoint(
+def test_bundle_rebinds_a_legacy_path_bearing_plan_to_the_local_checkpoint(
     qwen36_model_dir: Path,
     tmp_path: Path,
 ) -> None:
-    _, bundle_path = _exported_bundle(qwen36_model_dir, tmp_path)
+    """Legacy compatibility: a payload that records a path but carries no binding.
+
+    Plans written by the current planner are path-neutral and are verified by
+    their carried binding instead (see
+    ``test_bundle_with_a_path_neutral_payload_is_not_rebound``); this pins the
+    older shape, which must keep working unchanged.
+    """
+
+    inventory = _inventory(qwen36_model_dir)
+    plan = _plan(inventory)
+    legacy = plan.model_copy(
+        update={
+            "source_model": plan.source_model.model_copy(
+                update={"local_path": str(qwen36_model_dir)}
+            )
+        }
+    )
+    plan_path = tmp_path / "plan.json"
+    write_data(plan_path, legacy)
+    bundle_path = export_recipe_bundle(
+        plan=plan_path,
+        output_dir=tmp_path / "bundle",
+        bundle_id="qwen36-27b-legacy-r1",
+    )
     original_plan = load_model(bundle_path.parent / "plan.json", QuantizationPlan)
     copied_model = tmp_path / "copied-model"
     shutil.copytree(qwen36_model_dir, copied_model)

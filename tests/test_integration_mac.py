@@ -49,6 +49,7 @@ from axquant.schema import (
 )
 from axquant.schema.sensitivity import SensitivityReport
 from axquant.serde import load_model, write_data
+from axquant.source_binding import build_source_plan_binding
 
 pytestmark = [
     pytest.mark.integration,
@@ -228,6 +229,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
     # --- convert: real mlx_lm.convert with GPTQ refinement from the capture ---
     output_dir = tmp_path / "converted"
     artifact = convert_model(
+        source_binding=_source_binding(plan, model_dir),
         model=str(model_dir),
         plan=plan,
         output=output_dir,
@@ -268,6 +270,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
     # build_quant_predicate rejects the plan before any conversion work.
     with pytest.raises(PlanningError, match="calibration activations"):
         convert_model(
+            source_binding=_source_binding(plan, model_dir),
             model=str(model_dir),
             plan=plan,
             output=tmp_path / "converted-no-calibration",
@@ -341,3 +344,9 @@ def test_capture_resume_matches_uninterrupted(
     assert set(resumed_rows) == set(control_rows)
     for name in resumed_rows:
         np.testing.assert_array_equal(resumed_rows[name], control_rows[name])
+
+
+def _source_binding(plan: QuantizationPlan, source_dir: Path) -> object:
+    """The binding production writes beside the plan (AXQ-048)."""
+
+    return build_source_plan_binding(plan, source_dir)

@@ -1659,8 +1659,13 @@ def _verify_converted_weights(
 ) -> tuple[int, int, int, int, int, int, float, float]:
     if source_tensors is None:
         if not plan.source_model.local_path:
+            # A path-neutral plan (AXQ-048) records no source directory, and the
+            # source binding is a fingerprint, not a way to open the tensors.
+            # convert_model always passes source_tensors; this path is for
+            # callers that verify a staging directory on their own.
             raise ArtifactError(
-                "converted weight verification requires the plan-bound local source path"
+                "converted weight verification requires source_tensors: the plan records "
+                "no local source directory"
             )
         source_tensors = _validated_plan_source_tensors(
             Path(plan.source_model.local_path).expanduser().resolve(),

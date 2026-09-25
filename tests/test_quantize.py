@@ -254,6 +254,7 @@ def test_quick_convert_binds_recipe_bundle(
     from axquant.recipes import export_recipe_bundle
     from axquant.schema import PlanRequest, ProfileName
     from axquant.serde import write_data
+    from axquant.source_binding import write_source_plan_binding
 
     source_revision = "a" * 40
     inventory = inspect_model(
@@ -272,6 +273,9 @@ def test_quick_convert_binds_recipe_bundle(
     )
     plan_path = tmp_path / "bundle-plan.json"
     write_data(plan_path, plan)
+    # axquant plan writes the source binding beside its plan; a bundle
+    # exported without it cannot verify a local conversion (AXQ-048).
+    write_source_plan_binding(plan_path.parent, plan, qwen36_model_dir)
     bundle_path = export_recipe_bundle(
         plan=plan_path,
         output_dir=tmp_path / "bundle",

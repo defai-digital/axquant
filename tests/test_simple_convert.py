@@ -33,6 +33,7 @@ from axquant.simple_convert import (
     simple_convert_help_markdown,
     target_class_for_bpw,
 )
+from axquant.source_binding import write_source_plan_binding
 
 _install_fake_mlx = _tq._install_fake_mlx
 
@@ -193,6 +194,9 @@ def test_simple_convert_recipe_uses_its_target_and_rejects_override(
     )
     plan_path = tmp_path / "plan.json"
     write_data(plan_path, plan)
+    # axquant plan writes the source binding beside its plan; a bundle
+    # exported without it cannot verify a local conversion (AXQ-048).
+    write_source_plan_binding(plan_path.parent, plan, qwen36_model_dir)
     bundle_path = export_recipe_bundle(
         plan=plan_path,
         output_dir=tmp_path / "bundle",
