@@ -254,6 +254,31 @@ def _require_direct_request_inputs(
     return request
 
 
+def _require_artifact_manifest_binding(
+    *,
+    model_dir: Path,
+    audit_label: str,
+    artifact_manifest_sha256: str | None,
+) -> None:
+    """Bind the publication artifact by manifest digest, not by local path.
+
+    The audit travels with the artifact it authorizes, so the candidate must be
+    identified by content. The directory it was converted in is operator state:
+    requiring it would force published evidence to record a private path, which
+    is exactly what the publication privacy scan rejects.
+    """
+
+    manifest_path = model_dir / "axquant_manifest.json"
+    if not manifest_path.is_file():
+        raise PublishingError(f"{audit_label} candidate artifact has no axquant_manifest.json")
+    if not artifact_manifest_sha256:
+        raise PublishingError(f"{audit_label} does not bind an artifact manifest digest")
+    if file_sha256(manifest_path) != artifact_manifest_sha256:
+        raise PublishingError(
+            f"{audit_label} candidate artifact manifest does not match the publication artifact"
+        )
+
+
 def _require_release_audit(
     *,
     audit_path: str | Path | None,
@@ -278,11 +303,14 @@ def _require_release_audit(
             audit.candidate_model.revision
         ):
             raise PublishingError("flagship audit candidate identity does not match repository")
-        candidate_path = audit.candidate_model.local_path
-        if candidate_path is None or Path(candidate_path).expanduser().resolve() != model_dir:
-            raise PublishingError(
-                "flagship audit candidate path does not match the publication artifact"
-            )
+        flagship_checks: dict[str, ReleaseAuditCheck] = {
+            check.gate_id: check for check in audit.checks
+        }
+        _require_artifact_manifest_binding(
+            model_dir=model_dir,
+            audit_label="flagship audit",
+            artifact_manifest_sha256=flagship_checks["M1"].evidence_sha256.get("artifact_manifest"),
+        )
         return audit
     if isinstance(audit, Qwen3NextReleaseAudit):
         if not audit.release_ready:
@@ -291,11 +319,6 @@ def _require_release_audit(
             audit.candidate_model.revision
         ):
             raise PublishingError("release audit candidate identity does not match the repository")
-        candidate_path = audit.candidate_model.local_path
-        if candidate_path is None or Path(candidate_path).expanduser().resolve() != model_dir:
-            raise PublishingError(
-                "release audit candidate path does not match the publication artifact"
-            )
         direct_checks: dict[str, Qwen3NextReleaseAuditCheck] = {
             check.gate_id.value: check for check in audit.checks
         }
@@ -326,11 +349,6 @@ def _require_release_audit(
         audit.candidate_model.revision
     ):
         raise PublishingError("release audit candidate identity does not match the repository")
-    candidate_path = audit.candidate_model.local_path
-    if candidate_path is None or Path(candidate_path).expanduser().resolve() != model_dir:
-        raise PublishingError(
-            "release audit candidate path does not match the publication artifact"
-        )
 
     mtp_checks: dict[str, ReleaseAuditCheck] = {check.gate_id: check for check in audit.checks}
     expected_bindings = {

@@ -19,6 +19,7 @@ from axquant.identity import without_local_paths
 from axquant.publisher import (
     _copy_exact_publication_file,
     _package_release_audit,
+    _require_artifact_manifest_binding,
     _require_release_audit,
     _require_release_validation,
     _rerun_release_audit,
@@ -226,6 +227,76 @@ def test_release_audit_gate_rejects_stale_evidence(tmp_path: Path) -> None:
             validation_index_path=paths["release_validation_index"],
             hardware_registry_path=paths["hardware_registry"],
             pareto_report_path=paths["pareto_report"],
+        )
+
+
+def test_release_audit_gate_binds_the_artifact_by_digest_not_local_path(tmp_path: Path) -> None:
+    """The candidate is identified by content, so publication needs no path.
+
+    Requiring ``candidate_model.local_path`` forced published evidence to record
+    an operator path; the artifact manifest digest identifies the same artifact
+    without it.
+    """
+
+    audit_path, paths = _release_audit(tmp_path)
+    payload = read_data(audit_path)
+    payload["candidate_model"].pop("local_path")
+    write_data(audit_path, payload)
+
+    audit = _require_release_audit(
+        audit_path=audit_path,
+        model_dir=tmp_path / "artifact",
+        repo_id="AutomatosX/AXQuant-test",
+        validation_index_path=paths["release_validation_index"],
+        hardware_registry_path=paths["hardware_registry"],
+        pareto_report_path=paths["pareto_report"],
+    )
+    assert audit.candidate_model.local_path is None
+
+    # The digest binding still binds: another artifact's manifest is rejected.
+    paths["artifact_manifest"].write_text('{"fixture":"another"}\n', encoding="utf-8")
+    with pytest.raises(PublishingError, match="M1 evidence is stale or mismatched"):
+        _require_release_audit(
+            audit_path=audit_path,
+            model_dir=tmp_path / "artifact",
+            repo_id="AutomatosX/AXQuant-test",
+            validation_index_path=paths["release_validation_index"],
+            hardware_registry_path=paths["hardware_registry"],
+            pareto_report_path=paths["pareto_report"],
+        )
+
+
+def test_artifact_manifest_binding_requires_a_matching_digest(tmp_path: Path) -> None:
+    """The flagship path binds by the same digest rule (M1 artifact_manifest)."""
+
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    _write_minimal_manifest(artifact)
+    digest = file_sha256(artifact / "axquant_manifest.json")
+
+    _require_artifact_manifest_binding(
+        model_dir=artifact,
+        audit_label="flagship audit",
+        artifact_manifest_sha256=digest,
+    )
+
+    with pytest.raises(PublishingError, match="does not bind an artifact manifest digest"):
+        _require_artifact_manifest_binding(
+            model_dir=artifact,
+            audit_label="flagship audit",
+            artifact_manifest_sha256=None,
+        )
+    with pytest.raises(PublishingError, match="manifest does not match"):
+        _require_artifact_manifest_binding(
+            model_dir=artifact,
+            audit_label="flagship audit",
+            artifact_manifest_sha256="0" * 64,
+        )
+    with pytest.raises(PublishingError, match=r"has no axquant_manifest\.json"):
+        _require_artifact_manifest_binding(
+            model_dir=tmp_path,
+            audit_label="flagship audit",
+            artifact_manifest_sha256=digest,
         )
 
 
