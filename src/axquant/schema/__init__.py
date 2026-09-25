@@ -350,6 +350,7 @@ from axquant.schema.sensitivity import (
     TensorSensitivity,
     TokenizedCacheManifest,
 )
+from axquant.schema.source_binding import SourcePlanBinding, SourcePlanBindingMember
 
 __all__ = [
     "ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS",
@@ -640,6 +641,8 @@ __all__ = [
     "SourceCheckpointFile",
     "SourceCheckpointManifest",
     "SourceConversionProvenance",
+    "SourcePlanBinding",
+    "SourcePlanBindingMember",
     "StrictModel",
     "SupportMatrix",
     "SupportMatrixEntry",

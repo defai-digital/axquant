@@ -68,12 +68,14 @@ from axquant.schema import (
     QuantizerExecutionManifest,
     QuantizerExecutionRecord,
     QuantMethod,
+    SourcePlanBinding,
     TensorRole,
 )
 from axquant.schema.loading import (
     load_kv_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.source_binding import BINDING_NAME, source_binding_issues
 from axquant.source_prep import prepare_conversion_source
 
 _LOG = structlog.get_logger()
@@ -338,10 +340,36 @@ def _source_has_external_mtp_sidecar(model: str | Path) -> bool:
     return any((root / name).is_file() for name in EXTERNAL_MTP_SIDECAR_FILENAMES)
 
 
+def _require_bound_source(
+    plan: QuantizationPlan,
+    binding: SourcePlanBinding | None,
+    source_dir: Path,
+) -> None:
+    """Fail closed unless the supplied checkpoint is the plan's bound source.
+
+    A path-neutral plan carries a structural fingerprint of the source instead of
+    a local path, so conversion can prove it opens the same checkpoint without
+    recording where that checkpoint lives.
+    """
+
+    if binding is None:
+        raise PlanningError(
+            "a local conversion source requires a plan-bound source binding: "
+            f"re-plan with {BINDING_NAME} beside the plan (axquant plan writes it), "
+            "or convert the source by hub id"
+        )
+    issues = source_binding_issues(binding=binding, plan=plan, source_dir=source_dir)
+    if issues:
+        raise PlanningError(
+            "conversion source does not match the plan binding: " + "; ".join(issues)
+        )
+
+
 def _resolve_bound_conversion_source(
     model: str,
     plan: QuantizationPlan,
     revision: str | None,
+    binding: SourcePlanBinding | None = None,
 ) -> Path:
     """Resolve the exact checkpoint identity carried by ``plan``.
 
@@ -366,15 +394,16 @@ def _resolve_bound_conversion_source(
     supplied_path = Path(model).expanduser()
     if supplied_path.is_dir():
         resolved = supplied_path.resolve()
-        if expected_path is None:
-            raise PlanningError(
-                "a local conversion source requires a plan-bound source_model.local_path"
-            )
-        if resolved != expected_path:
-            raise PlanningError(
-                "local conversion source does not match the plan source path: "
-                f"{resolved} != {expected_path}"
-            )
+        if expected_path is not None:
+            # Plans written before the source binding existed still record the
+            # path they were built from; keep honoring it.
+            if resolved != expected_path:
+                raise PlanningError(
+                    "local conversion source does not match the plan source path: "
+                    f"{resolved} != {expected_path}"
+                )
+            return resolved
+        _require_bound_source(plan, binding, resolved)
         return resolved
 
     if model != plan.source_model.model_id:
@@ -396,6 +425,8 @@ def _resolve_bound_conversion_source(
         raise PlanningError(
             "resolved conversion checkpoint does not match the plan-bound local source"
         )
+    if expected_path is None and binding is not None:
+        _require_bound_source(plan, binding, resolved)
     return resolved
 
 
@@ -1899,6 +1930,7 @@ def convert_model(
     q_mode: Literal["affine", "mxfp4"] = "affine",
     expert_stream: ExpertStreamSetting = "auto",
     allow_legacy_4bit: bool = False,
+    source_binding: SourcePlanBinding | None = None,
 ) -> ArtifactManifest:
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
@@ -1927,7 +1959,7 @@ def convert_model(
         raise ArtifactError(f"conversion output already exists: {output_dir}")
     # Resolve the physical source early so architecture prep (e.g. gemma4_unified
     # → gemma4 text path) can stage beside the output rather than on /tmp.
-    original_source_dir = _resolve_bound_conversion_source(model, plan, revision)
+    original_source_dir = _resolve_bound_conversion_source(model, plan, revision, source_binding)
     source_tensors = _validated_plan_source_tensors(original_source_dir, plan)
     if (
         plan.mtp.preserve_external_sidecar
@@ -2111,6 +2143,10 @@ def convert_model(
         if kv_sensitivity_source is not None:
             _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
+        if source_binding is not None:
+            # Publish the binding with the plan: it records what the conversion
+            # was bound to without recording where it happened.
+            write_data(staging_dir / BINDING_NAME, source_binding)
         from axquant.deepseek_v4_chat import maybe_write_deepseek_v4_chat_template
 
         maybe_write_deepseek_v4_chat_template(staging_dir, plan)

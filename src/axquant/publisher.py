@@ -53,6 +53,7 @@ from axquant.schema import (
     ReleaseValidationIndex,
 )
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
+from axquant.source_binding import artifact_identity_issues
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -603,6 +604,13 @@ def publish_model(
     if not _REPO_ID.fullmatch(repo_id):
         raise PublishingError("Hub repository must use the owner/name form")
     _require_mtp_suffix_for_publication(directory, repo_id)
+    identity_issues = artifact_identity_issues(directory)
+    if identity_issues:
+        # Published artifacts must identify the checkpoint by name, not by where
+        # it happened to live; a path here would be uploaded verbatim (AXQ-048).
+        raise PublishingError(
+            "publication identity is not publishable: " + "; ".join(identity_issues)
+        )
     request_schema: str | None = None
     if release_audit_request_path is not None:
         payload = read_data(release_audit_request_path)

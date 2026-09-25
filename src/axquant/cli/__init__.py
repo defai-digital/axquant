@@ -4,9 +4,13 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import structlog
 from pydantic import ValidationError
+
+if TYPE_CHECKING:
+    from axquant.schema import QuantizationPlan, SensitivityReport
 
 from axquant.analyzer import architecture_prior_report
 from axquant.architectures.registry import adapter_for, support_matrix
@@ -85,6 +89,11 @@ from axquant.schema.loading import (
     load_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
+from axquant.source_binding import (
+    binding_path_beside,
+    build_source_plan_binding,
+    load_source_plan_binding,
+)
 from axquant.validator import validate_evaluations
 
 
@@ -103,6 +112,25 @@ def _load_matching_quality_evaluation(
 def _output_json(path: str | Path, default_name: str) -> Path:
     output = Path(path).expanduser()
     return output if output.suffix.lower() == ".json" else output / default_name
+
+
+def _write_source_binding_beside(
+    plan_path: Path,
+    plan: QuantizationPlan,
+    report: SensitivityReport,
+) -> Path | None:
+    """Write the plan's source binding beside it, when a local source exists.
+
+    The plan is path-neutral, so conversion proves it opened the same checkpoint
+    by re-deriving this structural fingerprint from the directory it is given.
+    """
+
+    source_dir = report.model.local_path
+    if not source_dir:
+        return None
+    target = binding_path_beside(plan_path)
+    write_data(target, build_source_plan_binding(plan, source_dir))
+    return target
 
 
 def _named_paths(values: list[str]) -> dict[str, Path]:
@@ -717,9 +745,11 @@ def _run(args: argparse.Namespace) -> int:
             log.info("unified_sensitivity_bound", output=str(args.unified_binding_output))
         output = _output_json(args.output, "plan-01.json")
         write_data(output, plan)
+        binding_output = _write_source_binding_beside(output, plan, analysis_report)
         log.info(
             "plan_created",
             output=str(output),
+            source_binding=str(binding_output) if binding_output else None,
             effective_bpw=round(plan.effective_bpw, 6),
             evidence=plan.evidence_kind.value,
             kv_cache=(plan.kv_cache.allocation_basis if plan.kv_cache else "off"),
@@ -886,6 +916,10 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "convert":
         plan = load_quantization_plan(args.plan)
+        source_binding = None
+        binding_path = binding_path_beside(args.plan)
+        if binding_path.is_file():
+            source_binding = load_source_plan_binding(binding_path)
         calibration_activations = None
         if args.calibration_activations:
             from axquant.capture import load_capture_activations
@@ -911,6 +945,7 @@ def _run(args: argparse.Namespace) -> int:
             q_mode=args.q_mode,
             expert_stream=args.expert_stream,
             allow_legacy_4bit=args.allow_legacy_4bit,
+            source_binding=source_binding,
         )
         return 0
 

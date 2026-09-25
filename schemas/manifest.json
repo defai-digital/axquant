@@ -1,5 +1,5 @@
 {
-  "count": 134,
+  "count": 135,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -1040,6 +1040,14 @@
       "model": "axquant.schema.inventory.SourceConversionProvenance",
       "schema_version": "axquant.source-conversion.v1",
       "sha256": "0464403743e58d72bf4b2680c1b0b87306d5336f1149924daa3d6b7b3763515c"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.source-plan-binding.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.source_binding.SourcePlanBinding",
+      "schema_version": "axquant.source-plan-binding.v1",
+      "sha256": "06eb90a30c42bbf4b65fec982307508184b3328b7623ec7c5932bc5ea172b2d3"
     },
     {
       "compatibility_class": "evidence",

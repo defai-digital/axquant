@@ -42,6 +42,7 @@ from axquant.schema import (
     SupportTier,
     TensorRole,
 )
+from axquant.source_binding import build_source_plan_binding
 
 _POLICY_MIN_BPW = re.compile(
     r"target (?P<requested>[0-9.]+) BPW is infeasible; policy minimum is (?P<minimum>[0-9.]+) BPW"
@@ -288,6 +289,11 @@ def quick_convert(
                 break
     # Convert from the resolved local directory when inventory recorded one.
     convert_source = inventory.model.local_path or model
+    # The plan is path-neutral, so bind the conversion source structurally while
+    # the planning step still knows which directory produced it.
+    source_binding = (
+        build_source_plan_binding(plan, convert_source) if Path(convert_source).is_dir() else None
+    )
     manifest = convert_model(
         model=convert_source,
         plan=plan,
@@ -300,6 +306,7 @@ def quick_convert(
         ax_engine_manifest=ax_engine_manifest,
         expert_stream=expert_stream,
         allow_legacy_4bit=allow_legacy_4bit,
+        source_binding=source_binding,
     )
     output_dir = Path(output).expanduser().resolve()
     smoke_result = _runtime_smoke_check(
