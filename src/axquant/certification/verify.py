@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
+from axquant.factory import FACTORY_HOST_ID, LARGE_MEMORY_CERT_HOST_ID
 from axquant.identity import same_model_identity
 from axquant.model_card import _AXQ_NAME
 from axquant.revisions import is_immutable_revision
@@ -18,6 +19,7 @@ from axquant.schema import (
     CertificationVerificationReport,
     PublicCheckpointCertification,
     PublicMtpAccelerationCertification,
+    PublicTier2Recertification,
     QuantizationPlan,
 )
 from axquant.schema.public_certification import CHECKPOINT_SCHEMA_VERSION
@@ -38,6 +40,10 @@ _CERTIFICATE_WEIGHT_BYTE_KEYS = (
     "candidate_bytes",
     "weight_bytes",
 )
+# Certification spec v1.0 factory-host rule: new or replacement Tier 2 evidence
+# must be measured on df-macstudio-m2; tn-macstudio-m3 is the documented
+# exception for Flash-0731 packs that cannot generate on 192 GB.
+_RECERT_CERT_HOSTS = frozenset({FACTORY_HOST_ID, LARGE_MEMORY_CERT_HOST_ID})
 
 
 def _mapping(value: Any) -> dict[str, Any] | None:
@@ -191,6 +197,103 @@ def _certificate_weight_file_issues(
             continue
         verified.append(relative_name)
     return issues, verified
+
+
+def verify_tier2_recertification(
+    *,
+    recertification: PublicTier2Recertification,
+    original_cert: PublicMtpAccelerationCertification,
+    original_sha256: str,
+) -> list[str]:
+    """Verify a Tier 2 recertification record against its certified original.
+
+    A recertification is exactness + scoped speed only, bound to a certified
+    Tier 2 certificate: the artifact identity must be identical, the AX Engine
+    build must differ, and recorded speedups must meet the original
+    certificate's thresholds. Returns human-readable issues (empty = valid),
+    mirroring the issue style of :func:`verify_certificate`.
+    """
+
+    issues: list[str] = []
+
+    if original_cert.status != "certified":
+        issues.append("recertification original Tier 2 certificate is not certified")
+    if original_sha256 != recertification.original_tier2_sha256:
+        issues.append("original_tier2_sha256 does not match the original certificate byte hash")
+
+    if recertification.hub_commit != original_cert.artifact.hub_commit:
+        issues.append("recertification hub_commit differs from the original certificate")
+    if (
+        recertification.candidate_manifest_sha256
+        != original_cert.artifact.candidate_manifest_sha256
+    ):
+        issues.append(
+            "recertification candidate_manifest_sha256 differs from the original certificate"
+        )
+    if recertification.artifact != original_cert.artifact:
+        issues.append("recertification artifact identity differs from the original certificate")
+
+    original_engine = original_cert.mtp_acceleration.get("ax_engine_version")
+    if not isinstance(original_engine, str) or not original_engine:
+        original_engine = original_cert.toolchain.get("ax_engine")
+    if (
+        isinstance(original_engine, str)
+        and original_engine
+        and recertification.ax_engine_version == original_engine
+    ):
+        issues.append("recertification ax_engine_version must differ from the original certificate")
+
+    if not recertification.exactness_pass:
+        issues.append("recertification exactness_pass is false")
+
+    thresholds = original_cert.thresholds
+    prompt_floor = thresholds.get("prompt_median_speedup_min")
+    decode_floor = thresholds.get("token_weighted_decode_speedup_min")
+    floors: list[tuple[str, Any]] = [
+        ("prompt_median_speedup", prompt_floor),
+        ("token_weighted_decode_speedup", decode_floor),
+    ]
+    if not all(
+        isinstance(floor, (int, float)) and not isinstance(floor, bool) for _key, floor in floors
+    ):
+        issues.append("original certificate thresholds do not record numeric speed floors")
+    else:
+        original_profiles = original_cert.mtp_acceleration.get("profiles")
+        if not isinstance(original_profiles, dict) or not original_profiles:
+            issues.append("original certificate does not record authorizing MTP profiles")
+        else:
+            recert_profiles = recertification.mtp_acceleration.get("profiles")
+            if not isinstance(recert_profiles, dict):
+                recert_profiles = {}
+            for profile_name in sorted(original_profiles):
+                recorded = recert_profiles.get(profile_name)
+                if not isinstance(recorded, dict):
+                    issues.append(
+                        f"recertification does not record speedups for authorizing "
+                        f"profile {profile_name}"
+                    )
+                    continue
+                if recorded.get("exactness_pass") is False:
+                    issues.append(f"recertification profile {profile_name} exactness_pass is false")
+                for key, floor in floors:
+                    value = recorded.get(key)
+                    if (
+                        not isinstance(value, (int, float))
+                        or isinstance(value, bool)
+                        or value < floor
+                    ):
+                        issues.append(
+                            f"recertification profile {profile_name} {key} does not meet "
+                            f"the original threshold {floor}"
+                        )
+
+    if recertification.host_id not in _RECERT_CERT_HOSTS:
+        issues.append(
+            "recertification host_id is not an authorized certificate host "
+            f"(factory host {FACTORY_HOST_ID} or documented exception {LARGE_MEMORY_CERT_HOST_ID})"
+        )
+
+    return issues
 
 
 def verify_certificate(

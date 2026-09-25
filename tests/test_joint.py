@@ -776,3 +776,93 @@ def test_plan_joint_cli_writes_convert_ready_plan(
     assert selection.certification_eligible is False
     assert selection.selection_basis == "independent"
     assert selection.plan_sha256 == stable_sha256(plan)
+
+
+def _measured_sensitivity_with_zero_mtp_signal(model_dir: Path, path: Path) -> Path:
+    """Measured weight sensitivity bound to the inventory, MTP marker zeroed."""
+    from axquant.analyzer import architecture_prior_report
+    from axquant.schema import SensitivityReport
+
+    inventory = inspect_model(model_dir)
+    prior = architecture_prior_report(inventory, profile=ProfileName.GENERAL)
+    for entry in prior.entries:
+        if not entry.tensor.role.is_mtp:
+            continue
+        for candidate in entry.candidates:
+            candidate.metrics = candidate.metrics.model_copy(update={"mtp_acceptance_loss": 0.0})
+    report = SensitivityReport(
+        model=prior.model,
+        architecture_profile=prior.architecture_profile,
+        profile=prior.profile,
+        evidence_kind=EvidenceKind.MEASURED,
+        inventory_sha256=prior.inventory_sha256,
+        entries=prior.entries,
+        calibration=CalibrationEvidence(
+            dataset_id="mh1-joint",
+            dataset_sha256="f" * 64,
+            samples=4,
+            domains=["general"],
+            sequence_length=32,
+            backend="test",
+            reference="unit",
+        ),
+        warnings=[],
+    )
+    write_data(path, report)
+    return path
+
+
+def test_diagnose_joint_fail_closed_on_zero_mtp_signal(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    _enable_kv_accounting(tiny_model_dir)
+    sensitivity = _measured_sensitivity_with_zero_mtp_signal(
+        tiny_model_dir,
+        tmp_path / "sensitivity.json",
+    )
+    with pytest.raises(PlanningError, match="--allow-mtp-unmeasured"):
+        diagnose_joint_interaction(
+            model_dir=tiny_model_dir,
+            max_memory_bytes=2_000_000_000,
+            contexts=(8,),
+            weight_bpws=(16.0,),
+            kv_bits=(16,),
+            profile=ProfileName.GENERAL,
+            output_dir=tmp_path / "joint-gate",
+            sensitivity_path=sensitivity,
+            allow_unmeasured=True,
+            reserve_bytes=0,
+        )
+
+
+def test_diagnose_joint_allow_mtp_unmeasured_warns_on_plans(
+    tiny_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.planner import MTP_UNMEASURED_WARNING
+
+    _enable_kv_accounting(tiny_model_dir)
+    sensitivity = _measured_sensitivity_with_zero_mtp_signal(
+        tiny_model_dir,
+        tmp_path / "sensitivity.json",
+    )
+    report = diagnose_joint_interaction(
+        model_dir=tiny_model_dir,
+        max_memory_bytes=2_000_000_000,
+        contexts=(8,),
+        weight_bpws=(16.0,),
+        kv_bits=(16,),
+        profile=ProfileName.GENERAL,
+        output_dir=tmp_path / "joint-gate",
+        sensitivity_path=sensitivity,
+        allow_unmeasured=True,
+        allow_mtp_unmeasured=True,
+        reserve_bytes=0,
+    )
+    assert report.evidence_kind == EvidenceKind.MEASURED_DEVELOPMENT.value
+    plan = load_model(
+        tmp_path / "joint-gate" / "weight-plan-16.000.json",
+        QuantizationPlan,
+    )
+    assert MTP_UNMEASURED_WARNING in plan.warnings

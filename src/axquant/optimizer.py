@@ -262,6 +262,7 @@ def optimize_deployment(
     reserve_bytes: int = 1_000_000_000,
     batch_size: int = 1,
     latency_table_path: str | Path | None = None,
+    allow_mtp_unmeasured: bool = False,
 ) -> DeploymentPlan:
     """Orchestrate existing weight/KV planning under one explicit memory budget."""
 
@@ -296,6 +297,7 @@ def optimize_deployment(
         request,
         kernel_latency=latency_table,
         objective_weights=objective,
+        allow_mtp_unmeasured=allow_mtp_unmeasured,
     )
     _attach_kv_plan(
         plan,

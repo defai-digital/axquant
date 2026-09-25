@@ -10,6 +10,7 @@ from email.parser import Parser
 from math import isfinite
 from pathlib import Path, PurePosixPath
 
+from axquant.artifact_evidence_binding import artifact_evidence_binding_issues
 from axquant.artifact_paths import (
     artifact_member_path,
     artifact_tree_files,
@@ -208,6 +209,7 @@ def _artifact_issues(directory: Path, manifest: ArtifactManifest) -> list[str]:
     )
     if recorded_weight_bytes != manifest.weight_file_size_bytes:
         issues.append("artifact manifest Safetensors bytes do not match measured weight bytes")
+    issues.extend(artifact_evidence_binding_issues(directory, manifest))
     return issues
 
 

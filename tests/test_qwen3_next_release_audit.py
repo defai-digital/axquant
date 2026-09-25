@@ -11,6 +11,7 @@ import pytest
 
 from axquant import publisher
 from axquant.architectures.registry import support_matrix
+from axquant.artifact_evidence_binding import write_artifact_evidence_binding
 from axquant.calibration import calibration_manifest_sha256
 from axquant.certification.common import (
     architecture_fingerprint,
@@ -703,6 +704,13 @@ def _build_inputs(tmp_path: Path) -> Path:
     )
     manifest_path = artifact / "axquant_manifest.json"
     write_data(manifest_path, manifest)
+    tier1_certificate = tmp_path / "tier1-certificate.json"
+    tier1_certificate.write_text('{"fixture": "tier1-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=artifact,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier1_certificate_path=tier1_certificate,
+    )
 
     feasibility = FeasibilityReport(
         status="ready-for-conversion",

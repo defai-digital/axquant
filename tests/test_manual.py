@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from axquant.analyzer import architecture_prior_report
 from axquant.cli import main
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
@@ -12,6 +13,7 @@ from axquant.manual import manual_quantization_plan
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
+    CalibrationEvidence,
     EvidenceKind,
     Inventory,
     ManualPlanRecipe,
@@ -21,6 +23,7 @@ from axquant.schema import (
     ProfileName,
     QuantizationPlan,
     QuantMethod,
+    SensitivityReport,
     TensorRole,
     TensorSpec,
 )
@@ -627,3 +630,53 @@ def test_manual_rejects_mixed_precisions_within_fused_expert_group(
     )
     with pytest.raises(PlanningError, match="fused expert module"):
         manual_quantization_plan(inventory, _recipe(rules=[rule]))
+
+
+def _measured_sensitivity(model_dir: Path) -> SensitivityReport:
+    """Measured report whose MTP entries carry only the probe's zero marker."""
+    inventory = _inventory(model_dir)
+    prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    for entry in prior.entries:
+        if not entry.tensor.role.is_mtp:
+            continue
+        for candidate in entry.candidates:
+            candidate.metrics = candidate.metrics.model_copy(update={"mtp_acceptance_loss": 0.0})
+    return SensitivityReport(
+        model=prior.model,
+        architecture_profile=prior.architecture_profile,
+        profile=prior.profile,
+        evidence_kind=EvidenceKind.MEASURED,
+        inventory_sha256=prior.inventory_sha256,
+        entries=prior.entries,
+        calibration=CalibrationEvidence(
+            dataset_id="mh1-test",
+            dataset_sha256="d" * 64,
+            samples=4,
+            domains=["coding"],
+            sequence_length=32,
+            backend="test",
+            reference="unit",
+        ),
+        warnings=[],
+    )
+
+
+def test_manual_plan_fail_closed_on_zero_mtp_signal(qwen36_model_dir: Path) -> None:
+    with pytest.raises(PlanningError, match="--allow-mtp-unmeasured"):
+        manual_quantization_plan(
+            _inventory(qwen36_model_dir),
+            _recipe(),
+            sensitivity=_measured_sensitivity(qwen36_model_dir),
+        )
+
+
+def test_manual_plan_allow_mtp_unmeasured_warns(qwen36_model_dir: Path) -> None:
+    from axquant.planner import MTP_UNMEASURED_WARNING
+
+    plan = manual_quantization_plan(
+        _inventory(qwen36_model_dir),
+        _recipe(),
+        sensitivity=_measured_sensitivity(qwen36_model_dir),
+        allow_mtp_unmeasured=True,
+    )
+    assert MTP_UNMEASURED_WARNING in plan.warnings

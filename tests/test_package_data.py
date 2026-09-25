@@ -21,6 +21,21 @@ def test_load_package_yaml_profiles_matches_objective_api() -> None:
     assert thresholds_for(ProfileName.AGENT_CODING).min_effective_speedup == 1.20
 
 
+def test_profiles_yaml_mtp_speed_floors_table_is_consistent() -> None:
+    raw = load_package_yaml("profiles.yaml")
+    floors = raw["mtp_speed_floors"]
+    implemented = {profile.value for profile in implemented_profiles()}
+    assert set(floors) <= implemented
+    for profile, classes in floors.items():
+        assert "default" in classes, f"{profile} must define a default class entry"
+        for arch_class, entry in classes.items():
+            assert set(entry) == {"min_effective_speedup", "min_prompt_median_speedup"}, (
+                f"mtp_speed_floors.{profile}.{arch_class} has unexpected keys"
+            )
+            assert entry["min_effective_speedup"] >= 0.0
+            assert entry["min_prompt_median_speedup"] >= 0.0
+
+
 def test_load_package_yaml_rejects_invalid_names() -> None:
     with pytest.raises(ArtifactError, match="invalid package data name"):
         load_package_yaml("../secrets.yaml")

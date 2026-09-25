@@ -8,6 +8,10 @@ import pytest
 from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
+from axquant.artifact_evidence_binding import (
+    load_artifact_evidence_binding,
+    write_artifact_evidence_binding,
+)
 from axquant.benchmark_evidence import build_benchmark_evidence_index
 from axquant.calibration import calibration_manifest_sha256
 from axquant.cli import main
@@ -708,6 +712,13 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
         reference="calibration-manifest.json",
     )
     _write_candidate(candidate, plan)
+    tier2_certificate = tmp_path / "tier2-certificate.json"
+    tier2_certificate.write_text('{"fixture": "tier2-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=candidate,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier2_certificate_path=tier2_certificate,
+    )
     validation = tmp_path / "validation.json"
     write_data(validation, _validation("AutomatosX/candidate", candidate))
     validation_index = _release_validation_index(
@@ -735,6 +746,11 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
     assert manifest.mtp_acceptance_retention == 0.97
     assert manifest.mtp_measured_speedup == 1.25
     assert manifest.runtime.mtp.optimized is True
+    binding = load_artifact_evidence_binding(candidate)
+    assert binding is not None
+    assert binding.tier2_certificate_sha256 == file_sha256(tier2_certificate)
+    assert binding.artifact_manifest_sha256 == stable_sha256(manifest)
+    assert not any(record.path == "axquant_evidence_binding.json" for record in manifest.files)
     assert any(record.path == "benchmark_report.json" for record in manifest.files)
     packaged_index = load_model(
         candidate / "benchmark_evidence_index.json",
@@ -870,6 +886,13 @@ def test_publication_snapshots_hardware_manifest_before_runtime_updates(
         reference="calibration-manifest.json",
     )
     _write_candidate(candidate, plan)
+    tier2_certificate = tmp_path / "tier2-certificate.json"
+    tier2_certificate.write_text('{"fixture": "tier2-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=candidate,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier2_certificate_path=tier2_certificate,
+    )
     measured_manifest = candidate / "axquant_manifest.json"
     measured_manifest_sha256 = file_sha256(measured_manifest)
     validation = tmp_path / "validation.json"
@@ -902,6 +925,51 @@ def test_publication_snapshots_hardware_manifest_before_runtime_updates(
     assert packaged_entry.artifact_manifest_sha256 == measured_manifest_sha256
     assert file_sha256(packaged_manifest) == measured_manifest_sha256
     assert file_sha256(candidate / "axquant_manifest.json") != measured_manifest_sha256
+
+
+def test_publication_leaves_mtp_manifest_fields_none_without_a_bound_tier2_certificate(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "candidate"
+    plan = _plan(qwen36_model_dir)
+    plan.evidence_kind = EvidenceKind.MEASURED
+    plan.calibration = CalibrationEvidence(
+        dataset_id="internal/agent-coding-calibration",
+        dataset_sha256="a" * 64,
+        samples=128,
+        domains=["coding", "tool-use"],
+        sequence_length=2048,
+        backend="mlx",
+        reference="calibration-manifest.json",
+    )
+    _write_candidate(candidate, plan)
+    validation = tmp_path / "validation.json"
+    write_data(validation, _validation("AutomatosX/candidate", candidate))
+    hardware_registry, pareto = _m7_evidence(
+        tmp_path,
+        candidate_id="AutomatosX/candidate",
+        plan=plan,
+    )
+
+    prepare_publication(
+        model_dir=candidate,
+        repo_id="AutomatosX/candidate",
+        validation_index_path=_release_validation_index(
+            tmp_path,
+            candidate_id="AutomatosX/candidate",
+            primary_validation=validation,
+        ),
+        hardware_registry_path=hardware_registry,
+        pareto_report_path=pareto,
+    )
+
+    manifest = load_model(candidate / "axquant_manifest.json", ArtifactManifest)
+    assert manifest.mtp_acceptance_retention is None
+    assert manifest.mtp_measured_speedup is None
+    assert manifest.runtime.mtp.acceptance_retention is None
+    assert manifest.runtime.mtp.measured_speedup is None
+    assert load_artifact_evidence_binding(candidate) is None
 
 
 def test_prepared_mtp_reproduction_binds_required_companions(

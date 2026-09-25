@@ -18,11 +18,14 @@ from axquant.schema.certification import CheckpointCertificationClaim
 from axquant.schema.public_certification import (
     CHECKPOINT_SCHEMA_VERSION,
     MTP_SCHEMA_VERSION,
+    TIER2_RECERT_SCHEMA_VERSION,
     PublicCheckpointCertification,
     PublicMtpAccelerationCertification,
     load_public_checkpoint_certification,
     load_public_mtp_acceleration_certification,
+    load_public_tier2_recertification,
 )
+from axquant.serde import file_sha256
 
 BEGIN_MARKER = "<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->"
 END_MARKER = "<!-- END:AXQUANT_CERTIFICATION_MATRIX -->"
@@ -37,6 +40,19 @@ _GITHUB_CERT_BASE = "https://github.com/defai-digital/axquant/blob/main/docs/cer
 
 Tier1Label = Literal["Certified", "Not Certified"]
 Tier2Label = Literal["Certified", "Not Certified", "N/A (no MTP)"]
+
+_RECERT_NAME = re.compile(r"^(?P<record_id>.+)-tier2-recert(-.+)?\.json$")
+
+
+@dataclass(frozen=True, slots=True)
+class Tier2RecertSummary:
+    """One verified Tier 2 recertification record bound to a checkpoint row."""
+
+    path: Path
+    ax_engine_version: str
+    host_id: str
+    created_at: str
+    original_tier2_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +81,8 @@ class PublicCertRow:
 
     tier1_path: Path
     tier2_path: Path | None
+    tier2_recerts: tuple[Tier2RecertSummary, ...] = ()
+    """Verified Tier 2 recertification records bound to this checkpoint."""
 
     @property
     def tier1_stem(self) -> str:
@@ -127,6 +145,66 @@ def _claim_mtp_status(
     return "not-certified"
 
 
+def load_tier2_recertifications(
+    cert_dir: Path | None = None,
+) -> dict[str, list[Tier2RecertSummary]]:
+    """Load and verify ``*-tier2-recert.json`` records against their original Tier 2 cert.
+
+    Keyed by record id (the tier file stem shared with the Tier 1 record). Each
+    recertification record is bound to the byte hash of a certified Tier 2
+    certificate and checked with
+    :func:`axquant.certification.verify.verify_tier2_recertification`; any
+    issue raises ``ValueError`` so the index fails closed, mirroring the Tier 2
+    companion rules in :func:`load_public_cert_rows`.
+    """
+
+    directory = cert_dir or _DEFAULT_CERT_DIR
+    if not directory.is_dir():
+        raise FileNotFoundError(f"certifications directory not found: {directory}")
+
+    # Function-level import: axquant.model_card imports this module, so a
+    # module-level import of certification.verify would be circular.
+    from axquant.certification.verify import verify_tier2_recertification
+
+    grouped: dict[str, list[Tier2RecertSummary]] = {}
+    for path in sorted(directory.glob("*-tier2-recert*.json")):
+        match = _RECERT_NAME.match(path.name)
+        if match is None:
+            continue
+        record_id = match.group("record_id")
+        recert = load_public_tier2_recertification(path)
+        if recert.schema_version != TIER2_RECERT_SCHEMA_VERSION:
+            raise ValueError(
+                f"{path.name}: expected schema {TIER2_RECERT_SCHEMA_VERSION!r}, "
+                f"got {recert.schema_version!r}"
+            )
+        original_path = directory / f"{record_id}-tier2.json"
+        if not original_path.is_file():
+            raise ValueError(
+                f"{path.name}: missing original Tier 2 certificate {original_path.name}"
+            )
+        original = load_public_mtp_acceleration_certification(original_path)
+        issues = verify_tier2_recertification(
+            recertification=recert,
+            original_cert=original,
+            original_sha256=file_sha256(original_path),
+        )
+        if issues:
+            raise ValueError(
+                f"{path.name}: recertification verification failed: {'; '.join(issues)}"
+            )
+        grouped.setdefault(record_id, []).append(
+            Tier2RecertSummary(
+                path=path,
+                ax_engine_version=recert.ax_engine_version,
+                host_id=recert.host_id,
+                created_at=recert.created_at.isoformat(),
+                original_tier2_sha256=recert.original_tier2_sha256,
+            )
+        )
+    return grouped
+
+
 def load_public_cert_rows(
     cert_dir: Path | None = None,
     *,
@@ -141,6 +219,8 @@ def load_public_cert_rows(
     directory = cert_dir or _DEFAULT_CERT_DIR
     if not directory.is_dir():
         raise FileNotFoundError(f"certifications directory not found: {directory}")
+
+    recertifications = load_tier2_recertifications(directory)
 
     rows: list[PublicCertRow] = []
     for path in sorted(directory.glob("*-tier1.json")):
@@ -220,6 +300,7 @@ def load_public_cert_rows(
                 mtp_bound_engine=bound_engine,
                 tier1_path=path,
                 tier2_path=tier2_path if tier2_path.is_file() else None,
+                tier2_recerts=tuple(recertifications.get(record_id, [])),
             )
         )
 

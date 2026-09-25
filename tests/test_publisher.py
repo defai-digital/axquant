@@ -7,6 +7,7 @@ import pytest
 from safetensors.numpy import save_file
 
 from axquant import publisher
+from axquant.artifact_evidence_binding import write_artifact_evidence_binding
 from axquant.errors import PublishingError
 from axquant.gemma4_assistant_compose import (
     Gemma4AssistantComposeRequest,
@@ -22,17 +23,28 @@ from axquant.publisher import (
     publish_model,
 )
 from axquant.schema import (
+    ArtifactManifest,
+    AxEngineOptimizationMetadata,
     DirectQualityEvaluation,
     DirectQualityTaskOutcome,
     DirectReleaseValidationIndex,
     DirectValidationEntry,
+    EvidenceKind,
     ModelIdentity,
+    MtpPolicy,
+    MtpRuntimeMetadata,
+    OptimizationScope,
+    PrecisionShare,
     ProfileName,
     QualityGenerationConfig,
     ReleaseAudit,
     ReleaseAuditCheck,
     ReleaseValidationEntry,
     ReleaseValidationIndex,
+    RuntimeMetadata,
+    RuntimeName,
+    RuntimeProfile,
+    RuntimeSupportLevel,
     SoftwareVersions,
 )
 from axquant.serde import file_sha256, load_model, write_data
@@ -40,6 +52,64 @@ from axquant.serde import file_sha256, load_model, write_data
 _SOURCE_REVISION = "a" * 40
 _REFERENCE_REVISION = "b" * 40
 _CANDIDATE_REVISION = "c" * 40
+
+
+def _write_minimal_manifest(artifact: Path) -> None:
+    manifest = ArtifactManifest(
+        axquant_version="1.0.0",
+        source_model=ModelIdentity(
+            model_id="Qwen/Qwen3.6-test",
+            revision=_SOURCE_REVISION,
+        ),
+        plan_sha256="a" * 64,
+        profile=ProfileName.AGENT_CODING,
+        target_class="mixed-4.8bpw",
+        effective_bpw=4.8,
+        logical_parameters=8,
+        main_logical_parameters=8,
+        weight_file_size_bytes=8,
+        main_weight_file_size_bytes=8,
+        mtp_weight_file_size_bytes=0,
+        protected_weight_file_size_bytes=0,
+        measured_total_bpw=8.0,
+        measured_main_bpw=8.0,
+        weight_distribution={"4bit": PrecisionShare(parameters=8, fraction=1.0)},
+        mtp_distribution={},
+        mtp_present=False,
+        mtp_policy=MtpPolicy(mode="disabled", candidate_bits=(16,), min_bits=16),
+        runtime=RuntimeMetadata(
+            primary_runtime=RuntimeProfile(
+                name=RuntimeName.AX_ENGINE,
+                compatibility_level="A",
+                support_level=RuntimeSupportLevel.OPTIMIZED,
+                standard_inference=True,
+                mtp_support="none",
+            ),
+            compatible_runtimes=[],
+            optimization_scope=OptimizationScope.TEXT_PATH,
+            mtp=MtpRuntimeMetadata(detected=False),
+            ax_engine=AxEngineOptimizationMetadata(),
+        ),
+        software_versions=SoftwareVersions(
+            axquant="1.0.0",
+            python="3.13",
+            safetensors="0.6",
+            pydantic="2",
+        ),
+        files=[],
+    )
+    write_data(artifact / "axquant_manifest.json", manifest)
+
+
+def _write_minimal_binding(artifact: Path) -> None:
+    certificate = artifact.parent / "tier1-certificate.json"
+    if not certificate.is_file():
+        certificate.write_text('{"fixture": "tier1-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=artifact,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier1_certificate_path=certificate,
+    )
 
 
 def _release_audit(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
@@ -54,6 +124,8 @@ def _release_audit(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     }
     for name, path in paths.items():
         path.write_text(f'{{"fixture":"{name}"}}\n', encoding="utf-8")
+    _write_minimal_manifest(artifact)
+    _write_minimal_binding(artifact)
     evidence = {
         "M1": {
             "artifact_manifest": file_sha256(paths["artifact_manifest"]),
@@ -448,6 +520,8 @@ def test_dry_run_publication_never_touches_the_hub(
     artifact = tmp_path / "artifact"
     artifact.mkdir()
     repo_id = "AutomatosX/AXQuant-test"
+    _write_minimal_manifest(artifact)
+    _write_minimal_binding(artifact)
     validation_index_path = tmp_path / "validation-index.json"
     write_data(validation_index_path, _release_ready_validation_index(repo_id))
     monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: [])
@@ -462,7 +536,60 @@ def test_dry_run_publication_never_touches_the_hub(
     )
 
     assert calls == []
-    assert files == []
+    assert set(files) == {"axquant_manifest.json", "axquant_evidence_binding.json"}
+
+
+def test_publish_rejects_an_artifact_without_evidence_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    repo_id = "AutomatosX/AXQuant-test"
+    _write_minimal_manifest(artifact)
+    validation_index_path = tmp_path / "validation-index.json"
+    write_data(validation_index_path, _release_ready_validation_index(repo_id))
+    monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: [])
+
+    with pytest.raises(PublishingError, match="artifact evidence binding sidecar is missing"):
+        publish_model(
+            model_dir=artifact,
+            repo_id=repo_id,
+            validation_index_path=validation_index_path,
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+            execute=False,
+        )
+
+
+def test_publish_rejects_a_stale_evidence_binding_digest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    repo_id = "AutomatosX/AXQuant-test"
+    _write_minimal_manifest(artifact)
+    _write_minimal_binding(artifact)
+    manifest = load_model(artifact / "axquant_manifest.json", ArtifactManifest)
+    manifest.target_class = "mixed-5.0bpw"
+    write_data(artifact / "axquant_manifest.json", manifest)
+    validation_index_path = tmp_path / "validation-index.json"
+    write_data(validation_index_path, _release_ready_validation_index(repo_id))
+    monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: [])
+
+    with pytest.raises(
+        PublishingError,
+        match="artifact evidence binding manifest digest does not match",
+    ):
+        publish_model(
+            model_dir=artifact,
+            repo_id=repo_id,
+            validation_index_path=validation_index_path,
+            hardware_registry_path=tmp_path / "hardware.json",
+            pareto_report_path=tmp_path / "pareto.json",
+            execute=False,
+        )
 
 
 def test_publication_rejects_symlinks_before_preparation_or_upload(
@@ -603,6 +730,8 @@ def test_flagship_preview_publication_preserves_certified_model_card(
     )
     certified_card = readme.read_bytes()
     (artifact / "public-claim.json").write_text("{}\n", encoding="utf-8")
+    _write_minimal_manifest(artifact)
+    _write_minimal_binding(artifact)
     request = tmp_path / "flagship-request.json"
     write_data(
         request,
@@ -708,6 +837,8 @@ def test_publish_preview_accepts_assistant_mtp_suffix(
     )
     (artifact / "README.md").write_text("# assistant-MTP\n", encoding="utf-8")
     (artifact / "public-claim.json").write_text("{}\n", encoding="utf-8")
+    _write_minimal_manifest(artifact)
+    _write_minimal_binding(artifact)
     request = tmp_path / "flagship-request.json"
     write_data(
         request,

@@ -1,5 +1,5 @@
 {
-  "count": 118,
+  "count": 120,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -16,6 +16,14 @@
       "model": "axquant.schema.sensitivity.ActivationCaptureManifest",
       "schema_version": "axquant.activation-capture.v1",
       "sha256": "8edbe145a9ce2b976e82e9d13915c9862f816dc47215efcef9b66c29e440c829"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.artifact-evidence-binding.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.evidence_binding.ArtifactEvidenceBinding",
+      "schema_version": "axquant.artifact-evidence-binding.v1",
+      "sha256": "4e84f17b5093b974470f578e30c3da40c2d6b7cb07186c305d5e8994a5dcb202"
     },
     {
       "compatibility_class": "release",
@@ -672,6 +680,14 @@
       "model": "axquant.schema.public_certification.PublicMtpAccelerationCertification",
       "schema_version": "axquant.public-mtp-acceleration-certification.v1",
       "sha256": "ea395a06744d7f4bf621f134418ee545de5e1c62bd0866a58bb9581d8184a2a2"
+    },
+    {
+      "compatibility_class": "public-certification",
+      "filename": "axquant.public-tier2-recert.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.public_certification.PublicTier2Recertification",
+      "schema_version": "axquant.public-tier2-recert.v1",
+      "sha256": "604b4754ce46805be38aa0069343394bb533a8c9a51358985dec024325b87971"
     },
     {
       "compatibility_class": "evidence",

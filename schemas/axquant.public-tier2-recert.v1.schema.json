@@ -1,0 +1,188 @@
+{
+  "$defs": {
+    "PublicCertArtifact": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "artifact_edition": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "candidate_manifest_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "hub_commit": {
+          "minLength": 8,
+          "type": "string"
+        },
+        "hub_repo_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "type": "string"
+        },
+        "hub_tag": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "marketing_name": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "product_class": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_model_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "upstream_model_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "hub_repo_id",
+        "hub_commit",
+        "product_class"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact": {
+      "$ref": "#/$defs/PublicCertArtifact"
+    },
+    "ax_engine_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "candidate_manifest_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "exactness_pass": {
+      "type": "boolean"
+    },
+    "host_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "hub_commit": {
+      "minLength": 8,
+      "type": "string"
+    },
+    "mtp_acceleration": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "original_tier2_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.public-tier2-recert.v1",
+      "default": "axquant.public-tier2-recert.v1",
+      "type": "string"
+    },
+    "toolchain": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "required": [
+    "original_tier2_sha256",
+    "hub_commit",
+    "host_id",
+    "artifact",
+    "ax_engine_version",
+    "exactness_pass",
+    "mtp_acceleration",
+    "toolchain",
+    "created_at"
+  ],
+  "type": "object"
+}

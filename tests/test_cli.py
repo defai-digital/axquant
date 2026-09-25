@@ -53,13 +53,33 @@ def test_benchmark_ab_defaults_to_release_speedup_gate() -> None:
     args = _build_parser().parse_args(
         ["benchmark-ab", "--model", "/model", "--prompts", "/prompts.jsonl"]
     )
-    assert args.minimum_speedup == 1.20
+    # Unset floors resolve at run time from the profiles mtp_speed_floors table
+    # keyed by the model architecture class (AXQ-045 MH2).
+    assert args.minimum_speedup is None
     assert args.speedup_metric == "token-weighted-decode-tps"
-    assert args.minimum_prompt_median_speedup == 1.10
+    assert args.minimum_prompt_median_speedup is None
     assert args.record_failed_speedup is False
     assert args.direct_baseline_kind == "axquant-mtp-off"
     assert args.mtp_baseline_kind == "axquant-mtp-on"
     assert args.prompt_format is None
+
+
+def test_benchmark_ab_accepts_explicit_speedup_floors() -> None:
+    args = _build_parser().parse_args(
+        [
+            "benchmark-ab",
+            "--model",
+            "/model",
+            "--prompts",
+            "/prompts.jsonl",
+            "--minimum-speedup",
+            "1.35",
+            "--minimum-prompt-median-speedup",
+            "1.05",
+        ]
+    )
+    assert args.minimum_speedup == 1.35
+    assert args.minimum_prompt_median_speedup == 1.05
 
 
 def test_benchmark_ab_accepts_chat_template_prompt_format() -> None:

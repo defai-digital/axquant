@@ -80,6 +80,24 @@ objectives:
     prefill_latency_cost: 0.03
     decode_latency_cost: 0.03
 
+# Per-architecture-class MTP speed floors (AXQ-045 MH2), keyed by profile and
+# then by architecture class. Callers resolve via
+# profiles.mtp_speed_floors_for(profile, arch_class); unknown classes fall back
+# to the profile's `default` entry and profiles without a table fall back to
+# the package constants (1.20 / 1.10). Values intentionally match each
+# profile's current thresholds: this table is mechanism-only (ADR AXQ-045);
+# numeric changes are deferred pending factory measurements.
+mtp_speed_floors:
+  general:
+    default: {min_effective_speedup: 1.20, min_prompt_median_speedup: 1.10}
+    moe: {min_effective_speedup: 1.20, min_prompt_median_speedup: 1.10}
+  agent-coding:
+    default: {min_effective_speedup: 1.20, min_prompt_median_speedup: 1.10}
+    moe: {min_effective_speedup: 1.20, min_prompt_median_speedup: 1.10}
+  agent:
+    default: {min_effective_speedup: 1.02, min_prompt_median_speedup: 1.10}
+    moe: {min_effective_speedup: 1.02, min_prompt_median_speedup: 1.10}
+
 thresholds:
   general:
     min_effective_speedup: 1.20

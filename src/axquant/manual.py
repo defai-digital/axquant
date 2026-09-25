@@ -11,7 +11,11 @@ from axquant.module_paths import (
 )
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
-from axquant.planner import storage_bpw, strategy_for_measurement
+from axquant.planner import (
+    enforce_mtp_acceptance_measured,
+    storage_bpw,
+    strategy_for_measurement,
+)
 from axquant.predicate import fused_stack_method_allowed
 from axquant.profiles import objective_for
 from axquant.revisions import is_immutable_revision
@@ -31,6 +35,7 @@ from axquant.schema import (
     PrecisionShare,
     QuantizationPlan,
     QuantMethod,
+    SensitivityReport,
     TensorRole,
     TensorSpec,
 )
@@ -238,6 +243,9 @@ def _distribution(
 def manual_quantization_plan(
     inventory: Inventory,
     recipe: ManualPlanRecipe,
+    *,
+    sensitivity: SensitivityReport | None = None,
+    allow_mtp_unmeasured: bool = False,
 ) -> QuantizationPlan:
     # Mixed-precision exports (e.g. DeepSeek V4 Flash FP4+FP8) may still be
     # re-packed when inventory was produced with --allow-quantized and the
@@ -252,6 +260,21 @@ def manual_quantization_plan(
     profile = inventory.architecture_profile
     if profile.support_level != ArchitectureSupportLevel.SUPPORTED:
         raise PlanningError("manual planning requires a supported architecture adapter")
+    objective = objective_for(recipe.profile)
+    # MH1 (AXQ-045): when a measured report flows into a manual plan, the MTP
+    # zero-signal gate applies with the recipe profile's objective weights.
+    mtp_warnings: list[str] = []
+    if sensitivity is not None:
+        if sensitivity.profile != recipe.profile:
+            raise PlanningError(
+                f"sensitivity report profile {sensitivity.profile} "
+                f"does not match recipe profile {recipe.profile}"
+            )
+        mtp_warnings = enforce_mtp_acceptance_measured(
+            sensitivity,
+            objective,
+            allow_mtp_unmeasured=allow_mtp_unmeasured,
+        )
     matched_rules: set[str] = set()
     allocations: list[Allocation] = []
     # Collapse MXFP4 scale sidecars that share module_path with quantizable blocks.
@@ -315,7 +338,6 @@ def manual_quantization_plan(
     candidate_bits = tuple(sorted({allocation.bits for allocation in allocations}))
     quantized_bits = [bits for bits in candidate_bits if bits < 16]
     target_class = target_class_for_bpw(recipe.target_bpw) if quantized_bits else "bf16"
-    objective = objective_for(recipe.profile)
     fingerprint = {
         "inventory": inventory.model_dump(mode="json", exclude={"created_at"}),
         "recipe": recipe.model_dump(mode="json"),
@@ -326,6 +348,7 @@ def manual_quantization_plan(
     ]
     if unmatched:
         warnings.append(f"Unmatched manual rules were allowed: {unmatched}")
+    warnings.extend(mtp_warnings)
     plan = QuantizationPlan(
         source_model=inventory.model,
         architecture_profile=inventory.architecture_profile,

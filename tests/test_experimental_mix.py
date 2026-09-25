@@ -254,7 +254,123 @@ def test_plan_experimental_mix_ignores_awq_on_fused_experts() -> None:
     assert len({item.bits for item in experts}) == 1
 
 
-def test_plan_experimental_mix_accepts_measured_evidence_without_unmeasured_flag() -> None:
+def _mix_tensors_with_mtp() -> list[TensorSpec]:
+    return [
+        _tensor("layers.0.ffn.experts.0.w1.weight", 1_000, TensorRole.EXPERT),
+        _tensor("layers.0.ffn.experts.1.w1.weight", 1_000, TensorRole.EXPERT),
+        _tensor("layers.0.attn.q_proj.weight", 1_000, TensorRole.ATTENTION),
+        _tensor("lm_head.weight", 100, TensorRole.LM_HEAD),
+        _tensor("mtp.projection.weight", 100, TensorRole.MTP_PROJECTION),
+    ]
+
+
+def _measured_report_with_zero_mtp_signal(
+    inventory: Inventory,
+) -> SensitivityReport:
+    """Measured mix report whose MTP entry keeps the probe's zero marker."""
+    prior = architecture_prior_report(
+        inventory,
+        profile=ProfileName.GENERAL,
+        candidate_bits=(2, 3, 4, 8, 16),
+        group_size=32,
+    )
+    kl = {
+        "layers.0.ffn.experts.0.w1.weight": (0.8, 0.3, 0.2),
+        "layers.0.ffn.experts.1.w1.weight": (0.8, 0.3, 0.2),
+    }
+    for entry in prior.entries:
+        if entry.tensor.role.is_mtp:
+            for candidate in entry.candidates:
+                candidate.metrics = candidate.metrics.model_copy(
+                    update={"mtp_acceptance_loss": 0.0}
+                )
+        elif entry.tensor.role not in {TensorRole.LM_HEAD, TensorRole.ATTENTION}:
+            kl2, kl3, kl4 = kl[entry.tensor.name]
+            entry.candidates = _affine_ladder((2, kl2), (3, kl3), (4, kl4), (8, kl4 * 0.5))
+        elif entry.tensor.role == TensorRole.ATTENTION:
+            entry.candidates = _affine_ladder((4, 0.05), (8, 0.02))
+        else:
+            entry.candidates = [
+                CandidateMeasurement(
+                    bits=16,
+                    method=QuantMethod.BF16,
+                    group_size=None,
+                    metrics=MetricVector(),
+                )
+            ]
+    return SensitivityReport(
+        model=prior.model,
+        architecture_profile=prior.architecture_profile,
+        profile=prior.profile,
+        evidence_kind=EvidenceKind.MEASURED,
+        inventory_sha256=prior.inventory_sha256,
+        entries=prior.entries,
+        calibration=CalibrationEvidence(
+            dataset_id="mh1-mix",
+            dataset_sha256="e" * 64,
+            samples=4,
+            domains=["general"],
+            sequence_length=32,
+            backend="test",
+            reference="unit",
+        ),
+        warnings=[],
+    )
+
+
+def test_plan_experimental_mix_fail_closed_on_zero_mtp_signal() -> None:
+    from axquant.planner import MTP_UNMEASURED_WARNING
+
+    report = _measured_report_with_zero_mtp_signal(_inventory(_mix_tensors_with_mtp()))
+    with pytest.raises(PlanningError, match="--allow-mtp-unmeasured"):
+        plan_experimental_mix(report, _request(allow_unmeasured=False, target_bpw=16.0))
+    plan = plan_experimental_mix(
+        report,
+        _request(allow_unmeasured=False, target_bpw=16.0),
+        allow_mtp_unmeasured=True,
+    )
+    assert MTP_UNMEASURED_WARNING in plan.warnings
+
+
+def test_plan_experimental_mix_prior_report_with_mtp_never_triggers() -> None:
+    from axquant.planner import MTP_UNMEASURED_WARNING
+
+    inventory = _inventory(_mix_tensors_with_mtp())
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.GENERAL,
+        candidate_bits=(2, 3, 4, 8, 16),
+        group_size=32,
+    )
+    plan = plan_experimental_mix(report, _request(target_bpw=16.0))
+    assert MTP_UNMEASURED_WARNING not in plan.warnings
+
+
+def test_plan_experimental_mix_cli_allow_mtp_unmeasured(tmp_path: Path) -> None:
+    from axquant.planner import MTP_UNMEASURED_WARNING
+
+    report = _measured_report_with_zero_mtp_signal(_inventory(_mix_tensors_with_mtp()))
+    sensitivity_path = tmp_path / "sensitivity.json"
+    plan_path = tmp_path / "mix-plan.json"
+    write_data(sensitivity_path, report)
+    exit_code = main(
+        [
+            "plan-experimental-mix",
+            "--sensitivity",
+            str(sensitivity_path),
+            "--target-bpw",
+            "16",
+            "--allow-mtp-unmeasured",
+            "--output",
+            str(plan_path),
+        ]
+    )
+    assert exit_code == 0
+    plan = load_model(plan_path, QuantizationPlan)
+    assert MTP_UNMEASURED_WARNING in plan.warnings
+
+
+def test_plan_experimental_mix_accepts_measured_evidence_without_unmeasured_fact() -> None:
     inventory = _inventory(_deepseek_mix_tensors())
     prior = architecture_prior_report(
         inventory,

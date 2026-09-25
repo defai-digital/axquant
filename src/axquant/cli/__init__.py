@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import structlog
 from pydantic import ValidationError
 
 from axquant.analyzer import architecture_prior_report
-from axquant.architectures.registry import support_matrix
+from axquant.architectures.registry import adapter_for, support_matrix
 from axquant.benchmark import (
     parse_runtime_env_items,
     result_to_evaluation_bundle,
@@ -36,7 +37,13 @@ from axquant.manual import manual_quantization_plan
 from axquant.naming import model_name
 from axquant.optimizer import optimize_deployment
 from axquant.planner import allocate_kv_cache, allocate_kv_cache_measured, plan_quantization
-from axquant.profiles import thresholds_for
+from axquant.profiles import (
+    DEFAULT_SPEED_CLASS,
+    architecture_speed_class,
+    has_mtp_speed_floors,
+    mtp_speed_floors_for,
+    thresholds_for,
+)
 from axquant.publisher import publish_model
 from axquant.quantize import DEVELOPMENT_NOTE
 from axquant.recipes import export_recipe_bundle
@@ -109,6 +116,35 @@ def _named_paths(values: list[str]) -> dict[str, Path]:
             raise ValueError(f"duplicate exception evidence name: {name}")
         result[name] = Path(raw_path).expanduser().resolve()
     return result
+
+
+def _mtp_arch_class_for_model(model_path: Path) -> str:
+    """Architecture speed class for a local model directory.
+
+    Reads config.json through the architecture adapter registry; unknown or
+    unreadable layouts fall back to the ``default`` class.
+    """
+
+    try:
+        config = json.loads((model_path / "config.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return DEFAULT_SPEED_CLASS
+    if not isinstance(config, dict):
+        return DEFAULT_SPEED_CLASS
+    adapter = adapter_for(model_path.name, config)
+    if adapter is None:
+        return DEFAULT_SPEED_CLASS
+    return architecture_speed_class(adapter.profile(model_path.name, config).dense)
+
+
+def _mtp_speed_floors_for_model(profile: ProfileName, model_path: Path) -> tuple[float, float]:
+    """Resolve MTP speed floors from the profiles table + model architecture class.
+
+    Benchmark commands are profile-agnostic; they resolve against the general
+    profile table, which carries the canonical release floors.
+    """
+
+    return mtp_speed_floors_for(profile, _mtp_arch_class_for_model(model_path))
 
 
 def _toolchain_overrides(values: list[str]) -> dict[str, str]:
@@ -628,7 +664,12 @@ def _run(args: argparse.Namespace) -> int:
         kernel_latency_table = (
             load_model(args.latency_table, KernelLatencyTable) if args.latency_table else None
         )
-        plan = plan_quantization(analysis_report, request, kernel_latency=kernel_latency_table)
+        plan = plan_quantization(
+            analysis_report,
+            request,
+            kernel_latency=kernel_latency_table,
+            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
+        )
         if args.ladder is not None:
             plan.warnings.append(f"convert ladder: {args.ladder.value}")
         if args.kv_cache == "prior":
@@ -697,7 +738,11 @@ def _run(args: argparse.Namespace) -> int:
             target_mode=args.mode,
             random_seed=args.seed,
         )
-        plan = plan_experimental_mix(analysis_report, request)
+        plan = plan_experimental_mix(
+            analysis_report,
+            request,
+            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
+        )
         write_data(args.output, plan)
         if args.markdown_output:
             write_text(args.markdown_output, plan_markdown(plan))
@@ -747,6 +792,7 @@ def _run(args: argparse.Namespace) -> int:
             reserve_bytes=args.reserve_memory,
             batch_size=args.batch_size,
             latency_table_path=args.latency_table,
+            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
         )
         log.info(
             "deployment_optimized",
@@ -777,6 +823,7 @@ def _run(args: argparse.Namespace) -> int:
             quality_weight_only_path=args.quality_weight_only,
             quality_kv_only_path=args.quality_kv_only,
             quality_joint_path=args.quality_joint,
+            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
         )
         log.info(
             "joint_interaction_diagnosed",
@@ -811,6 +858,7 @@ def _run(args: argparse.Namespace) -> int:
             quality_weight_only_path=args.quality_weight_only,
             quality_kv_only_path=args.quality_kv_only,
             quality_joint_path=args.quality_joint,
+            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
         )
         log.info(
             "joint_plan_selected",
@@ -1343,12 +1391,34 @@ def _run(args: argparse.Namespace) -> int:
         candidate_size = (
             load_model(args.candidate_size, ArtifactSizeEvidence) if args.candidate_size else None
         )
+        bound_plan = load_model(args.plan, QuantizationPlan) if args.plan else None
+        thresholds = thresholds_for(args.profile)
+        # AXQ-045 MH2: profiles that define an explicit mtp_speed_floors table
+        # resolve MTP speed floors by the candidate's architecture class (from
+        # the bound plan when available, else the default class) and inject
+        # them into the validation thresholds. Profiles without a table keep
+        # their authoritative thresholds untouched.
+        if has_mtp_speed_floors(args.profile):
+            arch_class = (
+                architecture_speed_class(bound_plan.architecture_profile.dense)
+                if bound_plan is not None
+                else DEFAULT_SPEED_CLASS
+            )
+            min_effective_speedup, min_prompt_median_speedup = mtp_speed_floors_for(
+                args.profile, arch_class
+            )
+            thresholds = thresholds.model_copy(
+                update={
+                    "min_effective_speedup": min_effective_speedup,
+                    "min_prompt_median_speedup": min_prompt_median_speedup,
+                }
+            )
         validation_report = validate_evaluations(
             reference,
             candidate_direct,
             candidate,
             profile=args.profile,
-            thresholds=thresholds_for(args.profile),
+            thresholds=thresholds,
             target_class=args.target_class,
             calibration=calibration,
             size_reference=size_reference,
@@ -1356,7 +1426,7 @@ def _run(args: argparse.Namespace) -> int:
             mtp_ab=mtp_ab,
         )
         if args.release_exception:
-            if not args.plan or size_reference is None or candidate_size is None:
+            if bound_plan is None or size_reference is None or candidate_size is None:
                 raise ValueError(
                     "--release-exception requires --plan, --size-reference, and --candidate-size"
                 )
@@ -1376,7 +1446,7 @@ def _run(args: argparse.Namespace) -> int:
             validation_report = apply_release_exception(
                 validation_report,
                 exception,
-                plan=load_model(args.plan, QuantizationPlan),
+                plan=bound_plan,
                 evidence_files={**reserved_evidence, **exception_evidence},
             )
         elif args.exception_evidence:
@@ -1631,6 +1701,25 @@ def _run(args: argparse.Namespace) -> int:
             "publication_finished" if args.yes else "publication_previewed",
             repo=args.repo,
             files=len(published_files),
+        )
+        return 0
+
+    if args.command == "bind-artifact-evidence":
+        from axquant.artifact_evidence_binding import write_artifact_evidence_binding
+        from axquant.schema import EvidenceKind
+
+        evidence_binding = write_artifact_evidence_binding(
+            artifact_directory=args.model,
+            evidence_kind=EvidenceKind(args.evidence_kind),
+            tier1_certificate_path=args.tier1_certificate,
+            tier2_certificate_path=args.tier2_certificate,
+        )
+        log.info(
+            "artifact_evidence_binding_written",
+            model=args.model,
+            artifact_manifest_sha256=evidence_binding.artifact_manifest_sha256,
+            tier1_certificate_sha256=evidence_binding.tier1_certificate_sha256,
+            tier2_certificate_sha256=evidence_binding.tier2_certificate_sha256,
         )
         return 0
 
@@ -1898,6 +1987,18 @@ def _run(args: argparse.Namespace) -> int:
             args.quality_evaluation,
             model_identity,
         )
+        # AXQ-045 MH2: when the speed floors are not given explicitly, resolve
+        # them from the profiles table keyed by the model architecture class.
+        minimum_speedup = args.minimum_speedup
+        minimum_prompt_median_speedup = args.minimum_prompt_median_speedup
+        if minimum_speedup is None or minimum_prompt_median_speedup is None:
+            resolved_effective, resolved_prompt = _mtp_speed_floors_for_model(
+                ProfileName.GENERAL, Path(args.model).expanduser()
+            )
+            if minimum_speedup is None:
+                minimum_speedup = resolved_effective
+            if minimum_prompt_median_speedup is None:
+                minimum_prompt_median_speedup = resolved_prompt
         output_dir = Path(args.output_dir).expanduser().resolve()
         direct_bundle, mtp_bundle = run_mtp_ab(
             config_direct,
@@ -1906,9 +2007,9 @@ def _run(args: argparse.Namespace) -> int:
             executable=args.ax_engine,
             output_dir=output_dir,
             enforce_speedup=not args.record_failed_speedup,
-            minimum_speedup=args.minimum_speedup,
+            minimum_speedup=minimum_speedup,
             speedup_metric=args.speedup_metric,
-            minimum_prompt_median_speedup=args.minimum_prompt_median_speedup,
+            minimum_prompt_median_speedup=minimum_prompt_median_speedup,
         )
         if quality_result is not None:
             direct_bundle.quality = quality_result.metrics
@@ -1972,13 +2073,20 @@ def _run(args: argparse.Namespace) -> int:
             runtime_env=runtime_env,
         )
         output_dir = Path(args.output_dir).expanduser().resolve()
+        # AXQ-045 MH2: resolve the speed floor from the profiles table keyed by
+        # the model architecture class when not given explicitly.
+        minimum_speedup = args.minimum_mtp_speedup
+        if minimum_speedup is None:
+            minimum_speedup, _ = _mtp_speed_floors_for_model(
+                ProfileName.GENERAL, model_path.expanduser()
+            )
         diagnostic = run_mtp_diagnostics(
             base_config,
             dataset_path=dataset_path,
             executable=args.ax_engine,
             output_dir=output_dir,
             profiles=args.profiles or None,
-            minimum_speedup=args.minimum_mtp_speedup,
+            minimum_speedup=minimum_speedup,
         )
         report_path = Path(args.output).expanduser()
         if not report_path.is_absolute():

@@ -15,6 +15,7 @@ from axquant.schema import (
     ModelIdentity,
     MtpAbComparison,
     MtpMetrics,
+    MtpPhaseTimingSummary,
     ProfileName,
     QualityMetrics,
     RuntimeName,
@@ -586,3 +587,214 @@ def test_validation_requires_matched_reference_seed_runtime_and_baseline_kinds()
         "candidate_direct.baseline_kind",
         "candidate.baseline_kind",
     }.issubset(issue_metrics)
+
+
+def _phase_timing(
+    *, host_side_us: int, mtp_generation_wall_us: int = 1_000_000
+) -> MtpPhaseTimingSummary:
+    return MtpPhaseTimingSummary(
+        direct_output_tokens=500,
+        mtp_output_tokens=500,
+        direct_generation_wall_us=900_000,
+        mtp_generation_wall_us=mtp_generation_wall_us,
+        direct_generation_us_per_output_token=1_800.0,
+        mtp_generation_us_per_output_token=2_000.0,
+        target_mtp_us_per_output_token=1_500.0,
+        required_savings_us_per_output_token=500.0,
+        draft_wall_us=200_000,
+        verify_forward_wall_us=300_000,
+        verify_eval_wall_us=host_side_us,
+        rollback_wall_us=0,
+        cache_clone_wall_us=0,
+        accept_wall_us=0,
+        tail_sample_wall_us=0,
+        phase_accounted_us_per_output_token=1_000.0,
+        mtp_decode_steps=250,
+        direct_fallback_steps=0,
+        mtp_emitted_tokens=500,
+        proposed_tokens=600,
+        accepted_tokens=500,
+        correctness_mode_conflicts=0,
+    )
+
+
+def _failing_speed_mtp_ab(
+    candidate: EvaluationBundle, *, phase_timing: MtpPhaseTimingSummary | None
+) -> MtpAbComparison:
+    return MtpAbComparison(
+        profile_name="benchmark-ab",
+        model=candidate.model,
+        runtime=RuntimeName.AX_ENGINE,
+        workload=candidate.workload,
+        dataset_sha256=candidate.dataset_sha256,
+        random_seed=candidate.random_seed,
+        generation_controls={
+            key: candidate.benchmark_metadata[key]
+            for key in (
+                "prompt_count",
+                "warmup_trials",
+                "measured_trials",
+                "temperature",
+                "top_p",
+                "top_k",
+                "max_tokens",
+                "draft_depth",
+                "power_mode",
+                "quantizer",
+                "quantizer_version",
+            )
+        },
+        runtime_env={},
+        draft_depth=3,
+        exactness_pass=True,
+        divergent_trial_count=0,
+        measured_trial_count=5,
+        failed_trial_count=0,
+        direct_tokens_per_second_p50=100.0,
+        mtp_tokens_per_second_p50=105.0,
+        direct_token_weighted_decode_tps=100.0,
+        mtp_token_weighted_decode_tps=105.0,
+        prompt_median_speedup=1.12,
+        token_weighted_decode_speedup=1.05,
+        speedup_metric="token-weighted-decode-tps",
+        speedup=1.05,
+        minimum_speedup=1.20,
+        minimum_prompt_median_speedup=1.10,
+        prompt_median_speedup_pass=True,
+        speedup_pass=False,
+        release_ready=False,
+        ax_engine_version="6.11.1",
+        runtime_chip="M4 Max",
+        software_versions=_versions(),
+        phase_timing=phase_timing,
+    )
+
+
+def test_speed_failure_classified_engine_limited_with_phase_timing_evidence() -> None:
+    candidate = _evaluation(mode="mtp")
+    # Host-side phases are 50% of MTP generation wall time, above the 0.40
+    # structural criterion.
+    mtp_ab = _failing_speed_mtp_ab(candidate, phase_timing=_phase_timing(host_side_us=500_000))
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+        mtp_ab=mtp_ab,
+    )
+    assert report.passed is False
+    assert report.comparisons["hardware.speed_failure_class"] == "engine-limited"
+    speed_issue = next(
+        issue for issue in report.issues if issue.metric == "hardware.token_weighted_decode_speedup"
+    )
+    # Classification changes attribution, not the verdict.
+    assert speed_issue.severity == "error"
+
+
+def test_speed_failure_not_classified_without_phase_timing_evidence() -> None:
+    candidate = _evaluation(mode="mtp")
+    mtp_ab = _failing_speed_mtp_ab(candidate, phase_timing=None)
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+        mtp_ab=mtp_ab,
+    )
+    assert report.passed is False
+    assert "hardware.speed_failure_class" not in report.comparisons
+
+
+def test_speed_failure_not_classified_below_host_share_criterion() -> None:
+    candidate = _evaluation(mode="mtp")
+    # Host-side phases are 10% of MTP generation wall time: a genuine speed
+    # failure, but not the structural engine-side bottleneck.
+    mtp_ab = _failing_speed_mtp_ab(candidate, phase_timing=_phase_timing(host_side_us=100_000))
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+        mtp_ab=mtp_ab,
+    )
+    assert report.passed is False
+    assert "hardware.speed_failure_class" not in report.comparisons
+
+
+def test_speed_failure_not_classified_when_floor_passes() -> None:
+    candidate = _evaluation(mode="mtp")
+    mtp_ab = _failing_speed_mtp_ab(candidate, phase_timing=_phase_timing(host_side_us=500_000))
+    mtp_ab = mtp_ab.model_copy(
+        update={
+            "token_weighted_decode_speedup": 1.25,
+            "mtp_token_weighted_decode_tps": 125.0,
+            "speedup": 1.25,
+            "speedup_pass": True,
+        }
+    )
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds_for(ProfileName.AGENT_CODING),
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+        mtp_ab=mtp_ab,
+    )
+    assert "hardware.speed_failure_class" not in report.comparisons
+
+
+def test_tier1_validation_without_mtp_bundle_skips_mtp_checks() -> None:
+    candidate = _evaluation(mode="mtp").model_copy(update={"mtp": None})
+    # Tier 1 discipline: without require_complete_metrics, missing MTP
+    # measurements on the candidate degrade to a warning (skip, not fail).
+    thresholds = thresholds_for(ProfileName.AGENT_CODING).model_copy(
+        update={"require_complete_metrics": False}
+    )
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds,
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+    assert report.passed is True
+    mtp_issues = [issue for issue in report.issues if issue.metric == "mtp"]
+    assert len(mtp_issues) == 1
+    assert mtp_issues[0].severity == "warning"
+
+
+def test_tier1_skip_becomes_error_only_under_require_complete_metrics() -> None:
+    candidate = _evaluation(mode="mtp").model_copy(update={"mtp": None})
+    thresholds = thresholds_for(ProfileName.AGENT_CODING).model_copy(
+        update={"require_complete_metrics": True}
+    )
+    report = validate_evaluations(
+        _evaluation(mode="reference"),
+        _evaluation(mode="direct"),
+        candidate,
+        profile=ProfileName.AGENT_CODING,
+        thresholds=thresholds,
+        calibration=_calibration(),
+        size_reference=_size("uniform-4bit", 1000),
+        candidate_size=_size("candidate", 1050),
+    )
+    assert report.passed is False
+    assert any(issue.metric == "mtp" and issue.severity == "error" for issue in report.issues)

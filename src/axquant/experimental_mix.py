@@ -45,6 +45,8 @@ def experimental_mix_request(request: PlanRequest) -> PlanRequest:
 def plan_experimental_mix(
     report: SensitivityReport,
     request: PlanRequest,
+    *,
+    allow_mtp_unmeasured: bool = False,
 ) -> QuantizationPlan:
     """Allocate a convert-ready experimental 2/3/4 mix from a sensitivity report.
 
@@ -54,7 +56,12 @@ def plan_experimental_mix(
     """
 
     mix_request = experimental_mix_request(request)
-    plan = plan_quantization(report, mix_request, allocation_units="fused-module")
+    plan = plan_quantization(
+        report,
+        mix_request,
+        allocation_units="fused-module",
+        allow_mtp_unmeasured=allow_mtp_unmeasured,
+    )
     warnings = list(plan.warnings)
     if EXPERIMENTAL_MIX_WARNING not in warnings:
         warnings.insert(0, EXPERIMENTAL_MIX_WARNING)

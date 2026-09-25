@@ -12,6 +12,7 @@ import numpy as np
 from _capture_helpers import load_test_activation_capture
 from safetensors.numpy import save_file
 
+from axquant.artifact_evidence_binding import write_artifact_evidence_binding
 from axquant.calibration import calibration_manifest_sha256
 from axquant.capture_binding import activation_capture_metadata
 from axquant.cli import main
@@ -524,6 +525,13 @@ def _inputs(
     )
     write_data(artifact / "axquant_manifest.json", manifest)
     write_data(artifact / "axquant_conversion_manifest.json", manifest)
+    tier2_certificate = tmp_path / "tier2-certificate.json"
+    tier2_certificate.write_text('{"fixture": "tier2-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=artifact,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier2_certificate_path=tier2_certificate,
+    )
 
     candidate = ModelIdentity(
         model_id=candidate_model_id,
@@ -1661,6 +1669,49 @@ def test_artifact_audit_rejects_symlinks_and_underreported_weight_bytes(tmp_path
     issues = _artifact_issues(artifact, manifest)
 
     assert "artifact manifest Safetensors bytes do not match measured weight bytes" in issues
+
+
+def test_artifact_audit_rejects_a_missing_evidence_binding(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    artifact = Path(request.artifact_directory)
+    manifest = load_model(artifact / "axquant_manifest.json", ArtifactManifest)
+    (artifact / "axquant_evidence_binding.json").unlink()
+
+    issues = _artifact_issues(artifact, manifest)
+
+    assert issues == ["artifact evidence binding sidecar is missing: axquant_evidence_binding.json"]
+
+
+def test_artifact_audit_rejects_a_stale_evidence_binding_digest(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    artifact = Path(request.artifact_directory)
+    manifest = load_model(artifact / "axquant_manifest.json", ArtifactManifest)
+    manifest.mtp_acceptance_retention = 0.99
+    write_data(artifact / "axquant_manifest.json", manifest)
+
+    issues = _artifact_issues(artifact, manifest)
+
+    assert issues == [
+        "artifact evidence binding manifest digest does not match axquant_manifest.json"
+    ]
+
+
+def test_release_audit_rejects_an_artifact_without_evidence_binding(tmp_path: Path) -> None:
+    request_path = _inputs(tmp_path)
+    request = load_model(request_path, ReleaseAuditRequest)
+    artifact = Path(request.artifact_directory)
+    (artifact / "axquant_evidence_binding.json").unlink()
+
+    audit = build_release_audit(request_path)
+
+    m1 = next(check for check in audit.checks if check.gate_id == "M1")
+    assert not m1.passed
+    assert m1.issues == [
+        "artifact evidence binding sidecar is missing: axquant_evidence_binding.json"
+    ]
+    assert not audit.release_ready
 
 
 def test_release_audit_requires_measured_parent_for_refinement_gain(tmp_path: Path) -> None:

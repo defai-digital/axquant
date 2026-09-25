@@ -541,6 +541,69 @@ def allocate_kv_cache_measured(
     )
 
 
+# MH1 (AXQ-045): the probe records mtp_acceptance_loss=0.0 as the honest
+# unmeasured marker for every candidate; planning under a profile that weights
+# MTP acceptance must not silently treat that zero as measured signal.
+MTP_UNMEASURED_WARNING = (
+    "MTP acceptance sensitivity not measured; mtp_acceptance_loss profile "
+    "weight applied to zero signal"
+)
+
+
+def mtp_zero_signal_warnings(
+    report: SensitivityReport,
+    weights: ObjectiveWeights,
+) -> list[str]:
+    """Return the MH1 warning when every MTP-scoped measured loss is the probe's
+    zero unmeasured marker while the active profile weights MTP acceptance.
+
+    Architecture-prior reports (non-zero synthetic losses from analyzer.py) and
+    MTP-free scopes never trigger.
+    """
+
+    if report.evidence_kind is EvidenceKind.ARCHITECTURE_PRIOR:
+        return []
+    if weights.mtp_acceptance_loss <= 0:
+        return []
+    mtp_entries = [entry for entry in report.entries if entry.tensor.role.is_mtp]
+    if not mtp_entries:
+        return []
+    measured = [
+        candidate.metrics.mtp_acceptance_loss
+        for entry in mtp_entries
+        for candidate in entry.candidates
+    ]
+    if not measured or any(value != 0.0 for value in measured):
+        return []
+    return [MTP_UNMEASURED_WARNING]
+
+
+def enforce_mtp_acceptance_measured(
+    report: SensitivityReport,
+    weights: ObjectiveWeights,
+    *,
+    allow_mtp_unmeasured: bool = False,
+) -> list[str]:
+    """Fail closed on the MH1 zero-signal trigger unless explicitly escaped.
+
+    Returns the warnings to append to the plan when the escape flag is set;
+    raises PlanningError otherwise. Callers that never pass the flag keep
+    working for every non-triggering input.
+    """
+
+    warnings = mtp_zero_signal_warnings(report, weights)
+    if not warnings:
+        return []
+    if allow_mtp_unmeasured:
+        return warnings
+    raise PlanningError(
+        "MTP-scoped modules carry only the probe's zero mtp_acceptance_loss "
+        "marker (MTP acceptance sensitivity is not measured) while the active "
+        f"profile weights mtp_acceptance_loss={weights.mtp_acceptance_loss} > 0; "
+        "pass --allow-mtp-unmeasured only for development dry runs"
+    )
+
+
 def _loss(metrics: MetricVector, weights: dict[str, float]) -> float:
     values = metrics.model_dump()
     return sum(float(values[key]) * weight for key, weight in weights.items())
@@ -806,6 +869,7 @@ def plan_quantization(
     kernel_latency: KernelLatencyTable | None = None,
     objective_weights: ObjectiveWeights | None = None,
     allocation_units: Literal["tensor", "fused-module"] = "tensor",
+    allow_mtp_unmeasured: bool = False,
 ) -> QuantizationPlan:
     if allocation_units not in {"tensor", "fused-module"}:
         raise PlanningError(
@@ -837,6 +901,11 @@ def plan_quantization(
         objective_for(request.profile)
         if objective_weights is None
         else objective_weights.model_copy(deep=True)
+    )
+    mtp_warnings = enforce_mtp_acceptance_measured(
+        report,
+        weights_model,
+        allow_mtp_unmeasured=allow_mtp_unmeasured,
     )
     weights = weights_model.normalized()
     latency_lookup = decode_latency_provider(kernel_latency) if kernel_latency is not None else None
@@ -1077,7 +1146,7 @@ def plan_quantization(
     effective_bpw = current_storage_bits() / total_parameters
     quantized_bits = [bits for bits in request.candidate_bits if bits < 16]
     target_class = target_class_for_bpw(request.target_bpw) if quantized_bits else "bf16"
-    warnings = list(report.warnings)
+    warnings = [*report.warnings, *mtp_warnings]
     if not report.evidence_kind.release_quality:
         warnings.append(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "

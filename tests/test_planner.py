@@ -10,16 +10,22 @@ from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
 from axquant.planner import plan_quantization, storage_bpw
 from axquant.schema import (
+    ArchitectureProfile,
+    ArchitectureSupportLevel,
+    CalibrationEvidence,
     CandidateMeasurement,
+    EvidenceKind,
     HardwareProfile,
     Inventory,
     MetricVector,
     ModelIdentity,
     MtpPolicy,
+    OptimizationScope,
     PlanRequest,
     ProfileName,
     QuantizationPlan,
     QuantMethod,
+    SensitivityReport,
     TensorRole,
     TensorSpec,
 )
@@ -811,3 +817,106 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
     # The freed budget funds the previously discarded ungrouped upgrade.
     assert by_tensor["model.layers.0.mlp.up_proj.weight"].bits == 8
     assert plan.effective_bpw == pytest.approx((4.5 + 4.5 + 8.5) / 3)
+
+
+def _measured_report(
+    inventory: Inventory,
+    *,
+    zero_mtp_losses: bool = True,
+) -> SensitivityReport:
+    """Flip a prior report to measured, forcing the probe's zero MTP marker."""
+    inventory = inventory.model_copy(
+        update={
+            "architecture_profile": ArchitectureProfile(
+                support_level=ArchitectureSupportLevel.SUPPORTED,
+                product_family="qwen3.6",
+                optimization_scope=OptimizationScope.TEXT_PATH,
+                adapter_id="generic",
+            )
+        }
+    )
+    prior = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    for entry in prior.entries:
+        if not entry.tensor.role.is_mtp:
+            continue
+        for candidate in entry.candidates:
+            candidate.metrics = candidate.metrics.model_copy(
+                update={"mtp_acceptance_loss": 0.0 if zero_mtp_losses else 0.5}
+            )
+    return SensitivityReport(
+        model=prior.model,
+        architecture_profile=prior.architecture_profile,
+        profile=prior.profile,
+        evidence_kind=EvidenceKind.MEASURED,
+        inventory_sha256=prior.inventory_sha256,
+        entries=prior.entries,
+        calibration=CalibrationEvidence(
+            dataset_id="mh1-test",
+            dataset_sha256="d" * 64,
+            samples=4,
+            domains=["coding"],
+            sequence_length=32,
+            backend="test",
+            reference="unit",
+        ),
+        warnings=[],
+    )
+
+
+def test_measured_zero_mtp_signal_fails_closed_under_mtp_weighted_profile() -> None:
+    report = _measured_report(_inventory())
+    with pytest.raises(PlanningError, match="--allow-mtp-unmeasured"):
+        plan_quantization(report, _request(allow_unmeasured=False))
+
+
+def test_allow_mtp_unmeasured_appends_warning_and_plans() -> None:
+    report = _measured_report(_inventory())
+    plan = plan_quantization(
+        report,
+        _request(allow_unmeasured=False),
+        allow_mtp_unmeasured=True,
+    )
+    assert planner_module.MTP_UNMEASURED_WARNING in plan.warnings
+
+
+def test_prior_report_with_nonzero_synthetic_mtp_losses_never_triggers() -> None:
+    report = architecture_prior_report(_inventory(), profile=ProfileName.AGENT_CODING)
+    assert any(
+        candidate.metrics.mtp_acceptance_loss > 0
+        for entry in report.entries
+        if entry.tensor.role.is_mtp
+        for candidate in entry.candidates
+    )
+    plan = plan_quantization(report, _request())
+    assert planner_module.MTP_UNMEASURED_WARNING not in plan.warnings
+
+
+def test_measured_mtp_free_scope_never_triggers() -> None:
+    inventory = _inventory()
+    inventory.mtp_present = False
+    inventory.tensors = [tensor for tensor in inventory.tensors if not tensor.role.is_mtp]
+    report = _measured_report(inventory)
+    plan = plan_quantization(report, _request(allow_unmeasured=False))
+    assert planner_module.MTP_UNMEASURED_WARNING not in plan.warnings
+
+
+def test_measured_nonzero_mtp_loss_never_triggers() -> None:
+    report = _measured_report(_inventory(), zero_mtp_losses=False)
+    plan = plan_quantization(report, _request(allow_unmeasured=False))
+    assert planner_module.MTP_UNMEASURED_WARNING not in plan.warnings
+
+
+def test_zero_mtp_weight_objective_never_triggers() -> None:
+    from axquant.schema import ObjectiveWeights
+
+    report = _measured_report(_inventory())
+    base = planner_module.objective_for(ProfileName.AGENT_CODING)
+    zero_mtp_weight = ObjectiveWeights.model_validate(
+        {**base.model_dump(), "mtp_acceptance_loss": 0.0}
+    )
+    plan = plan_quantization(
+        report,
+        _request(allow_unmeasured=False),
+        objective_weights=zero_mtp_weight,
+    )
+    assert planner_module.MTP_UNMEASURED_WARNING not in plan.warnings

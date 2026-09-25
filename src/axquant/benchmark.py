@@ -1657,6 +1657,7 @@ def run_mtp_diagnostics(
     output_dir: str | Path | None = None,
     profiles: Sequence[str] | None = None,
     minimum_speedup: float = 1.20,
+    minimum_prompt_median_speedup: float = 1.10,
 ) -> MtpDiagnosticReport:
     """Run the documented M2 kill-switch matrix and emit a diagnostic report.
 
@@ -1708,6 +1709,7 @@ def run_mtp_diagnostics(
             mtp_result,
             profile_name=profile_name,
             minimum_speedup=minimum_speedup,
+            minimum_prompt_median_speedup=minimum_prompt_median_speedup,
         )
         comparisons.append(comparison)
         if profile_dir is not None:

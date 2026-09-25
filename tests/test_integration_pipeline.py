@@ -187,6 +187,9 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
             allow_unmeasured=True,
             mtp=MtpPolicy(mode="protected"),
         ),
+        # The fake backend leaves mtp_acceptance_loss at the probe's zero
+        # unmeasured marker (MH1); this test plans quality, not MTP evidence.
+        allow_mtp_unmeasured=True,
     )
 
     assert plan.effective_bpw <= 15.5

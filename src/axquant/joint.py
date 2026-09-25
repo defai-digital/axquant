@@ -17,7 +17,12 @@ from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model
 from axquant.memory_budget import evaluate_budget
 from axquant.optimizer import estimate_kv_bytes, optimize_deployment
-from axquant.planner import allocate_kv_cache, plan_quantization
+from axquant.planner import (
+    allocate_kv_cache,
+    enforce_mtp_acceptance_measured,
+    plan_quantization,
+)
+from axquant.profiles import objective_for
 from axquant.schema import (
     CandidateMeasurement,
     EvidenceKind,
@@ -423,6 +428,7 @@ def diagnose_joint_interaction(
     quality_weight_only_path: str | Path | None = None,
     quality_kv_only_path: str | Path | None = None,
     quality_joint_path: str | Path | None = None,
+    allow_mtp_unmeasured: bool = False,
 ) -> JointInteractionReport:
     """Enumerate a small deployment grid and optionally compute I(W, KV)."""
 
@@ -501,6 +507,13 @@ def diagnose_joint_interaction(
 
     plans: dict[float, QuantizationPlan] = {}
     skipped_bpws: list[str] = []
+    # MH1 (AXQ-045): fail fast with the gate's own message instead of letting
+    # every grid cell skip and surface a misleading BPW-floor error.
+    enforce_mtp_acceptance_measured(
+        report,
+        objective_for(profile),
+        allow_mtp_unmeasured=allow_mtp_unmeasured,
+    )
     for target_bpw in weight_bpws:
         request = PlanRequest(
             profile=profile,
@@ -511,7 +524,11 @@ def diagnose_joint_interaction(
             minimum_quality_retention=0.98,
         )
         try:
-            plans[target_bpw] = plan_quantization(report, request)
+            plans[target_bpw] = plan_quantization(
+                report,
+                request,
+                allow_mtp_unmeasured=allow_mtp_unmeasured,
+            )
         except PlanningError as exc:
             skipped_bpws.append(f"{target_bpw:.3f} BPW ({exc})")
     if not plans:
@@ -810,6 +827,7 @@ def plan_joint_allocation(
     quality_weight_only_path: str | Path | None = None,
     quality_kv_only_path: str | Path | None = None,
     quality_joint_path: str | Path | None = None,
+    allow_mtp_unmeasured: bool = False,
 ) -> JointSelectionReport:
     """Emit a convert-ready plan: 1.8 independent if I is small, else coupled search."""
 
@@ -839,6 +857,7 @@ def plan_joint_allocation(
         quality_weight_only_path=quality_weight_only_path,
         quality_kv_only_path=quality_kv_only_path,
         quality_joint_path=quality_joint_path,
+        allow_mtp_unmeasured=allow_mtp_unmeasured,
     )
     if diagnostic.interaction is None:
         raise PlanningError(
@@ -872,6 +891,7 @@ def plan_joint_allocation(
             kv_default_bits=independent_kv_bits,
             reserve_bytes=reserve_bytes,
             batch_size=batch_size,
+            allow_mtp_unmeasured=allow_mtp_unmeasured,
         )
         independent_plan = load_model(
             output / "independent" / "axquant_plan.json", QuantizationPlan
@@ -931,7 +951,7 @@ def plan_joint_allocation(
         primary_runtime=RuntimeName.AX_ENGINE,
         minimum_quality_retention=0.98,
     )
-    plan = plan_quantization(sensitivity, request)
+    plan = plan_quantization(sensitivity, request, allow_mtp_unmeasured=allow_mtp_unmeasured)
     layer_count = text_layer_count(inventory, plan)
     plan.kv_cache = allocate_kv_cache(
         layer_count,

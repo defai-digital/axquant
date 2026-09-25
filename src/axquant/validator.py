@@ -10,12 +10,46 @@ from axquant.schema import (
     CalibrationManifest,
     EvaluationBundle,
     MtpAbComparison,
+    MtpPhaseTimingSummary,
     ProfileName,
     RuntimeName,
     ValidationIssue,
     ValidationReport,
     ValidationThresholds,
 )
+
+# Host-side (non-weight) MTP phases: verify logit eval, rollback, cache clone,
+# accept, and tail sampling are orchestrated on the host around the weight-bound
+# forwards (draft / verify_forward).
+_ENGINE_LIMITED_HOST_PHASES = (
+    "verify_eval_wall_us",
+    "rollback_wall_us",
+    "cache_clone_wall_us",
+    "accept_wall_us",
+    "tail_sample_wall_us",
+)
+
+# Structural criterion for the engine-limited classification: host-side phases
+# must account for more than this share of MTP generation wall time. Matches the
+# documented MoE verify-graph host cost (~40-45% of a decode step vs ~15% on
+# dense; docs/guides/known-issues.md).
+_ENGINE_LIMITED_HOST_PHASE_SHARE = 0.40
+
+
+def _speed_failure_class(phase_timing: MtpPhaseTimingSummary | None) -> str | None:
+    """Classify a speed-floor failure from measured MTP phase timing.
+
+    Returns ``"engine-limited"`` only when measured host-side phase timing shows
+    the structural verify-graph bottleneck above the criterion share. Without
+    measured phase timing evidence the classification never fires.
+    """
+
+    if phase_timing is None or phase_timing.mtp_generation_wall_us <= 0:
+        return None
+    host_side_us = sum(getattr(phase_timing, name) for name in _ENGINE_LIMITED_HOST_PHASES)
+    if host_side_us / phase_timing.mtp_generation_wall_us > _ENGINE_LIMITED_HOST_PHASE_SHARE:
+        return "engine-limited"
+    return None
 
 
 def _metadata_value_missing(metadata: Mapping[str, object], name: str) -> bool:
@@ -618,6 +652,11 @@ def validate_evaluations(
 
         require_pair(metric, reference_value, candidate_value, check_structured)
 
+    # Tier 1-style validation (candidate carries no MTP bundle) skips the MTP
+    # metric checks rather than failing them: missing measurements degrade to a
+    # warning here and only become an error under require_complete_metrics
+    # (Tier 2 discipline). MTP speed checks likewise only run when MTP evidence
+    # is present (mtp_ab below, or measured MTP speed on the candidate).
     if reference.mtp is None or candidate.mtp is None:
         severity = "error" if thresholds.require_complete_metrics else "warning"
         issue("mtp", "reference and candidate MTP measurements are required", severity)
@@ -719,9 +758,11 @@ def validate_evaluations(
         comparisons["hardware.token_weighted_decode_speedup"] = weighted_speedup
         comparisons["hardware.prompt_median_speedup"] = prompt_median_speedup
         comparisons["hardware.effective_speedup"] = weighted_speedup
+        speed_floor_failed = False
         if weighted_speedup is None:
             issue("hardware.token_weighted_decode_speedup", "weighted speedup is required")
         elif weighted_speedup < thresholds.min_effective_speedup:
+            speed_floor_failed = True
             issue(
                 "hardware.token_weighted_decode_speedup",
                 f"speedup {weighted_speedup:.4f} is below {thresholds.min_effective_speedup:.4f}",
@@ -729,11 +770,20 @@ def validate_evaluations(
         if prompt_median_speedup is None:
             issue("hardware.prompt_median_speedup", "prompt-median speedup is required")
         elif prompt_median_speedup < thresholds.min_prompt_median_speedup:
+            speed_floor_failed = True
             issue(
                 "hardware.prompt_median_speedup",
                 f"speedup {prompt_median_speedup:.4f} is below "
                 f"{thresholds.min_prompt_median_speedup:.4f}",
             )
+        if speed_floor_failed:
+            # Evidence-bound attribution (AXQ-045 MH2): a failed speed floor is
+            # classified engine-limited only when the bundle carries measured
+            # phase timing showing the host-side bottleneck. Severity stays
+            # error; the classification changes attribution, not the verdict.
+            speed_failure_class = _speed_failure_class(mtp_ab.phase_timing)
+            if speed_failure_class is not None:
+                comparisons["hardware.speed_failure_class"] = speed_failure_class
     else:
         reference_speed = candidate_direct.hardware.decode_tokens_per_second
         candidate_speed = (

@@ -8,6 +8,7 @@ import structlog
 from huggingface_hub import HfApi
 from pydantic import ValidationError
 
+from axquant.artifact_evidence_binding import artifact_evidence_binding_issues
 from axquant.artifact_paths import artifact_tree_files
 from axquant.certification.common import bound_file
 from axquant.certification.dispatch import (
@@ -510,6 +511,23 @@ def prepare_flagship_publication(
     return _publication_files(directory)
 
 
+def _require_artifact_evidence_binding(directory: Path) -> None:
+    """Reject artifact directories without a valid evidence-binding sidecar."""
+
+    manifest_path = directory / "axquant_manifest.json"
+    if not manifest_path.is_file():
+        raise PublishingError(
+            "artifact evidence binding requires axquant_manifest.json in the artifact directory"
+        )
+    try:
+        manifest = load_model(manifest_path, ArtifactManifest)
+    except (AxquantError, ValidationError, OSError, ValueError) as exc:
+        raise PublishingError(f"artifact manifest is invalid: {exc}") from exc
+    issues = artifact_evidence_binding_issues(directory, manifest)
+    if issues:
+        raise PublishingError("artifact evidence binding check failed: " + "; ".join(issues))
+
+
 def _require_mtp_suffix_for_publication(directory: Path, repo_id: str) -> None:
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
     leaf = repo_id.split("/", 1)[1]
@@ -681,6 +699,7 @@ def publish_model(
         # scan. Re-scan the exact final tree immediately before previewing or
         # uploading it.
         require_publication_privacy(directory)
+    _require_artifact_evidence_binding(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
     if (directory / ASSISTANT_CONTRACT_NAME).is_file():
         try:

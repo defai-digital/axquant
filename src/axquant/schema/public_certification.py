@@ -4,6 +4,7 @@ These models own:
 
 * ``axquant.public-checkpoint-certification.v1``
 * ``axquant.public-mtp-acceleration-certification.v1``
+* ``axquant.public-tier2-recert.v1``
 
 Campaign evidence blobs (quality / size / plan details) remain free-form maps so
 historical shape variants load without rewriting evidence. The **envelope**
@@ -30,6 +31,9 @@ CHECKPOINT_SCHEMA_VERSION: Literal["axquant.public-checkpoint-certification.v1"]
 )
 MTP_SCHEMA_VERSION: Literal["axquant.public-mtp-acceleration-certification.v1"] = (
     "axquant.public-mtp-acceleration-certification.v1"
+)
+TIER2_RECERT_SCHEMA_VERSION: Literal["axquant.public-tier2-recert.v1"] = (
+    "axquant.public-tier2-recert.v1"
 )
 
 PublicCheckpointStatus = Literal["certified", "not_certified"]
@@ -193,6 +197,42 @@ class PublicMtpAccelerationCertification(StrictModel):
         if not isinstance(status, str) or not status:
             raise ValueError("mtp_acceleration.status is required")
         return value
+
+
+class PublicTier2Recertification(StrictModel):
+    """Tier 2 recertification record (``*-tier2-recert.json``).
+
+    A recertification re-runs the scoped MTP exactness + speed gates for the
+    exact artifact a certified Tier 2 certificate binds, on a newer AX Engine
+    build. It never reopens quality gates: ``hub_commit``,
+    ``candidate_manifest_sha256``, and ``artifact`` must be identical to the
+    original certificate (enforced by ``certification.verify``), and the
+    original certificate byte hash anchors the record.
+    """
+
+    schema_version: Literal["axquant.public-tier2-recert.v1"] = TIER2_RECERT_SCHEMA_VERSION
+    original_tier2_sha256: str = Field(pattern=_SHA256)
+    hub_commit: str = Field(min_length=8)
+    candidate_manifest_sha256: str | None = Field(default=None, pattern=_SHA256)
+    host_id: str = Field(min_length=1)
+    artifact: PublicCertArtifact
+    ax_engine_version: str = Field(min_length=1)
+    exactness_pass: bool
+    mtp_acceleration: dict[str, Any]
+    toolchain: dict[str, Any]
+    created_at: datetime
+
+    @field_validator("mtp_acceleration")
+    @classmethod
+    def recert_profiles_present(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(value.get("profiles"), dict) or not value["profiles"]:
+            raise ValueError("mtp_acceleration.profiles is required")
+        return value
+
+
+def load_public_tier2_recertification(path: str | Path) -> PublicTier2Recertification:
+    payload = Path(path).read_text(encoding="utf-8")
+    return PublicTier2Recertification.model_validate_json(payload)
 
 
 def load_public_checkpoint_certification(

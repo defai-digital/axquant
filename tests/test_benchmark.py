@@ -1061,6 +1061,31 @@ class TestMtpDiagnostics:
         with pytest.raises(ValueError, match="missing environment bindings"):
             MtpAbComparison.model_validate(mutable)
 
+    def test_compare_passed_floors_override_defaults(self, base_config: BenchmarkConfig) -> None:
+        mtp_config = base_config.model_copy(
+            update={"mtp_enabled": True, "baseline_kind": "axquant-mtp-on"}
+        )
+        tokens = {0: [1, 2, 3], 1: [4, 5, 6]}
+        direct = self._result_with_tokens(base_config, tokens, tps=10.0)
+        mtp = self._result_with_tokens(mtp_config, tokens, tps=12.0, mtp_active=True)
+
+        default_comparison = compare_mtp_ab_results(direct, mtp)
+        assert default_comparison.minimum_speedup == 1.20
+        assert default_comparison.minimum_prompt_median_speedup == 1.10
+        assert default_comparison.speedup_pass is True
+
+        raised = compare_mtp_ab_results(
+            direct,
+            mtp,
+            minimum_speedup=1.30,
+            minimum_prompt_median_speedup=1.25,
+        )
+        assert raised.minimum_speedup == 1.30
+        assert raised.minimum_prompt_median_speedup == 1.25
+        assert raised.speedup == pytest.approx(1.2)
+        assert raised.speedup_pass is False
+        assert raised.release_ready is False
+
     def test_token_weighted_speedup_uses_all_decode_tokens(
         self,
         base_config: BenchmarkConfig,
@@ -1319,6 +1344,48 @@ class TestMtpDiagnostics:
         assert (out / "baseline" / "mtp_ab_comparison.json").is_file()
         assert report.recommended_next_step
         assert set(MTP_DIAGNOSTIC_PROFILES) >= {"baseline", "disable-la-decode-metal"}
+
+    def test_run_mtp_diagnostics_matrix_fail_closed_with_custom_floors(
+        self, base_config: BenchmarkConfig, prompt_dataset: Path, tmp_path: Path
+    ) -> None:
+        """Passed floors override the defaults and keep the matrix fail-closed."""
+
+        out = tmp_path / "diag-custom"
+        report = run_mtp_diagnostics(
+            base_config,
+            dataset_path=prompt_dataset,
+            executable=_TEST_EXECUTABLE,
+            runner=_fake_runner,
+            output_dir=out,
+            profiles=["baseline"],
+            minimum_speedup=99.0,
+            minimum_prompt_median_speedup=99.0,
+        )
+        assert report.minimum_speedup == 99.0
+        assert len(report.profiles) == 1
+        comparison = report.profiles[0]
+        assert comparison.minimum_speedup == 99.0
+        assert comparison.minimum_prompt_median_speedup == 99.0
+        assert comparison.speedup_pass is False
+        assert comparison.release_ready is False
+        assert report.any_release_ready is False
+        assert "99.00x" in report.recommended_next_step
+
+    def test_run_mtp_diagnostics_default_floors_are_release_values(
+        self, base_config: BenchmarkConfig, prompt_dataset: Path, tmp_path: Path
+    ) -> None:
+        report = run_mtp_diagnostics(
+            base_config,
+            dataset_path=prompt_dataset,
+            executable=_TEST_EXECUTABLE,
+            runner=_fake_runner,
+            output_dir=tmp_path / "diag-default",
+            profiles=["baseline"],
+        )
+        comparison = report.profiles[0]
+        assert report.minimum_speedup == 1.20
+        assert comparison.minimum_speedup == 1.20
+        assert comparison.minimum_prompt_median_speedup == 1.10
 
     def test_mismatched_runtime_env_rejected(self, base_config: BenchmarkConfig) -> None:
         mtp_config = base_config.model_copy(

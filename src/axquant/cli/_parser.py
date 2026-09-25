@@ -528,6 +528,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
     plan_parser.add_argument(
+        "--allow-mtp-unmeasured",
+        action="store_true",
+        help="MH1 (AXQ-045): allow planning when every MTP-scoped measured "
+        "mtp_acceptance_loss is the probe's zero unmeasured marker while the "
+        "profile weights MTP acceptance; the plan records a warning instead "
+        "of raising. Development dry runs only.",
+    )
+    plan_parser.add_argument(
         "--latency-table",
         help="optional axquant.kernel-latency.v1 table (ADR-0003): re-ranks "
         "candidates by measured kernel speed inside the quality near-tie "
@@ -584,6 +592,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--latency-table",
         help="optional measured kernel-latency table; absent preserves abstract-BPW ranking",
     )
+    optimize_parser.add_argument(
+        "--allow-mtp-unmeasured",
+        action="store_true",
+        help="MH1 (AXQ-045): proceed when MTP acceptance sensitivity is the "
+        "probe's zero marker under an MTP-weighted profile; records a warning",
+    )
     optimize_parser.add_argument("--output", required=True)
 
     diagnose_joint_parser = subparsers.add_parser(
@@ -633,6 +647,12 @@ def _build_parser() -> argparse.ArgumentParser:
     diagnose_joint_parser.add_argument("--sensitivity")
     diagnose_joint_parser.add_argument("--kv-analysis")
     diagnose_joint_parser.add_argument("--allow-unmeasured", action="store_true")
+    diagnose_joint_parser.add_argument(
+        "--allow-mtp-unmeasured",
+        action="store_true",
+        help="MH1 (AXQ-045): proceed when MTP acceptance sensitivity is the "
+        "probe's zero marker under an MTP-weighted profile; records a warning",
+    )
     diagnose_joint_parser.add_argument(
         "--reserve-memory",
         type=parse_memory_bytes,
@@ -703,6 +723,12 @@ def _build_parser() -> argparse.ArgumentParser:
     plan_joint_parser.add_argument("--kv-analysis", required=True)
     plan_joint_parser.add_argument("--allow-unmeasured", action="store_true")
     plan_joint_parser.add_argument(
+        "--allow-mtp-unmeasured",
+        action="store_true",
+        help="MH1 (AXQ-045): proceed when MTP acceptance sensitivity is the "
+        "probe's zero marker under an MTP-weighted profile; records a warning",
+    )
+    plan_joint_parser.add_argument(
         "--reserve-memory",
         type=parse_memory_bytes,
         default=1_000_000_000,
@@ -760,6 +786,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     experimental_mix_parser.add_argument("--group-size", type=int, default=32)
     experimental_mix_parser.add_argument("--allow-unmeasured", action="store_true")
+    experimental_mix_parser.add_argument(
+        "--allow-mtp-unmeasured",
+        action="store_true",
+        help="MH1 (AXQ-045): proceed when MTP acceptance sensitivity is the "
+        "probe's zero marker under an MTP-weighted profile; records a warning",
+    )
     experimental_mix_parser.add_argument(
         "--mode",
         choices=["balanced", "quality", "low-memory", "speed"],
@@ -1153,6 +1185,19 @@ def _build_parser() -> argparse.ArgumentParser:
     publish_parser.add_argument("--private", action="store_true")
     publish_parser.add_argument("--yes", action="store_true")
 
+    bind_evidence_parser = subparsers.add_parser(
+        "bind-artifact-evidence",
+        help="Write the artifact evidence-binding sidecar for a release candidate",
+    )
+    bind_evidence_parser.add_argument("--model", required=True)
+    bind_evidence_parser.add_argument("--tier1-certificate")
+    bind_evidence_parser.add_argument("--tier2-certificate")
+    bind_evidence_parser.add_argument(
+        "--evidence-kind",
+        default="measured",
+        choices=["measured", "measured_development", "imported", "architecture_prior"],
+    )
+
     reproduction_parser = subparsers.add_parser("verify-reproduction")
     reproduction_parser.add_argument("--recipe", required=True)
     reproduction_parser.add_argument("--artifact", required=True)
@@ -1413,8 +1458,11 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_ab_parser.add_argument(
         "--minimum-speedup",
         type=float,
-        default=1.20,
-        help="Fail closed unless the selected MTP speed metric reaches this multiple of direct",
+        default=None,
+        help=(
+            "Fail closed unless the selected MTP speed metric reaches this multiple of direct; "
+            "default resolves from the profiles mtp_speed_floors table by architecture class"
+        ),
     )
     benchmark_ab_parser.add_argument(
         "--speedup-metric",
@@ -1425,8 +1473,11 @@ def _build_parser() -> argparse.ArgumentParser:
     benchmark_ab_parser.add_argument(
         "--minimum-prompt-median-speedup",
         type=float,
-        default=1.10,
-        help="Typical-prompt guardrail for prompt-median throughput (default: 1.10)",
+        default=None,
+        help=(
+            "Typical-prompt guardrail for prompt-median throughput; "
+            "default resolves from the profiles mtp_speed_floors table (1.10 class floors)"
+        ),
     )
     benchmark_ab_parser.add_argument(
         "--record-failed-speedup",
@@ -1748,8 +1799,11 @@ def _build_parser() -> argparse.ArgumentParser:
     mtp_diagnose_parser.add_argument(
         "--minimum-mtp-speedup",
         type=float,
-        default=1.20,
-        help="Release speedup floor used for release_ready scoring (default 1.20)",
+        default=None,
+        help=(
+            "Release speedup floor used for release_ready scoring; "
+            "default resolves from the profiles mtp_speed_floors table by architecture class"
+        ),
     )
     mtp_diagnose_parser.add_argument("--output-dir", default="mtp-diagnose")
     mtp_diagnose_parser.add_argument("--output", default="mtp_diagnostic_report.json")

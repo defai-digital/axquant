@@ -229,6 +229,7 @@ from axquant.schema.enums import (
     SupportTier,
     TensorRole,
 )
+from axquant.schema.evidence_binding import ArtifactEvidenceBinding
 from axquant.schema.expert_stream import (
     ExpertStreamManifest,
     ExpertStreamProjection,
@@ -300,6 +301,7 @@ from axquant.schema.planning import (
 from axquant.schema.public_certification import (
     CHECKPOINT_SCHEMA_VERSION,
     MTP_SCHEMA_VERSION,
+    TIER2_RECERT_SCHEMA_VERSION,
     ModalityClaimStatus,
     PublicCertArtifact,
     PublicCheckpointCertification,
@@ -308,8 +310,10 @@ from axquant.schema.public_certification import (
     PublicModalityClaim,
     PublicMtpAccelerationBlock,
     PublicMtpAccelerationCertification,
+    PublicTier2Recertification,
     load_public_checkpoint_certification,
     load_public_mtp_acceleration_certification,
+    load_public_tier2_recertification,
 )
 from axquant.schema.registry import (
     SchemaRegistryEntry,
@@ -341,6 +345,7 @@ __all__ = [
     "CHECKPOINT_SCHEMA_VERSION",
     "MTP_SCHEMA_VERSION",
     "PROTECTED_MIN_BITS",
+    "TIER2_RECERT_SCHEMA_VERSION",
     "ActivationCaptureEntry",
     "ActivationCaptureManifest",
     "ActivationCaptureSentinel",
@@ -348,6 +353,7 @@ __all__ = [
     "ArchitectureFingerprint",
     "ArchitectureProfile",
     "ArchitectureSupportLevel",
+    "ArtifactEvidenceBinding",
     "ArtifactFile",
     "ArtifactIntegrity",
     "ArtifactLifecycleEvent",
@@ -547,6 +553,7 @@ __all__ = [
     "PublicModalityClaim",
     "PublicMtpAccelerationBlock",
     "PublicMtpAccelerationCertification",
+    "PublicTier2Recertification",
     "QualityCheck",
     "QualityComparisonReport",
     "QualityEvaluationResult",
@@ -623,6 +630,7 @@ __all__ = [
     "WeightBytesBasis",
     "load_public_checkpoint_certification",
     "load_public_mtp_acceleration_certification",
+    "load_public_tier2_recertification",
     "protected_floor_bits",
     "public_certification_schema_versions",
     "schema_entry",

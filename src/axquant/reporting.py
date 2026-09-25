@@ -3,6 +3,11 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from axquant.artifact_evidence_binding import (
+    ARTIFACT_EVIDENCE_BINDING_FILENAME,
+    load_artifact_evidence_binding,
+    refresh_artifact_evidence_binding,
+)
 from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import activation_capture_evidence_issues
@@ -131,7 +136,7 @@ def _artifact_files(directory: Path) -> list[ArtifactFile]:
             sha256=file_sha256(path),
         )
         for path in files
-        if path.name != "axquant_manifest.json"
+        if path.name not in {"axquant_manifest.json", ARTIFACT_EVIDENCE_BINDING_FILENAME}
     ]
 
 
@@ -707,12 +712,17 @@ def prepare_publication(
         ),
     )
 
+    # MTP evidence fields are release claims: they are written into the
+    # artifact manifest only when the evidence-binding sidecar carries a
+    # bound Tier 2 certificate for this exact artifact state (AXQ-045 MH3).
+    binding = load_artifact_evidence_binding(directory)
+    bound_tier2_certificate = binding is not None and binding.tier2_certificate_sha256 is not None
     acceptance = validation.comparisons.get("mtp.acceptance_retention")
     speedup = validation.comparisons.get("hardware.effective_speedup")
-    if isinstance(acceptance, (int, float)):
+    if bound_tier2_certificate and isinstance(acceptance, (int, float)):
         manifest.mtp_acceptance_retention = float(acceptance)
         manifest.runtime.mtp.acceptance_retention = float(acceptance)
-    if isinstance(speedup, (int, float)):
+    if bound_tier2_certificate and isinstance(speedup, (int, float)):
         manifest.mtp_measured_speedup = float(speedup)
         manifest.runtime.mtp.measured_speedup = float(speedup)
     manifest.runtime.mtp.optimized = manifest.mtp_present and validation.passed
@@ -1015,6 +1025,10 @@ benchmark reports and evidence indexes, and `reproduction_recipe.yaml` for audit
     )
     manifest.files = _artifact_files(directory)
     write_data(directory / "axquant_manifest.json", manifest)
+    # Publish-prepare mutates the live manifest above (MTP evidence fields and
+    # the packaged-file inventory), so rebind the sidecar manifest digest to
+    # the final state. Certificate bindings are never invented here.
+    refresh_artifact_evidence_binding(artifact_directory=directory, manifest=manifest)
     prepared = [
         benchmark_json,
         benchmark_markdown,
