@@ -5,6 +5,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from axquant.errors import ArtifactError
+from axquant.identity import semantic_model_identity
 from axquant.schema import CalibrationManifest, ModelIdentity, ProfileName
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
@@ -95,7 +96,7 @@ def prepare_calibration(
     if not dataset_path.is_file():
         raise ArtifactError(f"calibration dataset does not exist: {dataset_path}")
     manifest = CalibrationManifest(
-        model=model,
+        model=semantic_model_identity(model),
         profile=profile,
         dataset_id=str(dataset_path),
         dataset_sha256=file_sha256(dataset_path),

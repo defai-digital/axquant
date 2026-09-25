@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -13,8 +14,8 @@ from axquant.calibration import (
     resolve_calibration_dataset,
 )
 from axquant.errors import ArtifactError
-from axquant.schema import ModelIdentity, ProfileName
-from axquant.serde import file_sha256
+from axquant.schema import CalibrationManifest, ModelIdentity, ProfileName
+from axquant.serde import file_sha256, load_model
 
 
 def test_calibration_manifest_is_reusable_for_identical_inputs(tmp_path: Path) -> None:
@@ -142,3 +143,32 @@ def test_calibrate_cli_defaults_to_reference_mix(tmp_path: Path) -> None:
     reference = reference_calibration_path()
     assert manifest.dataset_sha256 == file_sha256(reference)
     assert manifest.samples >= 128
+
+
+def test_calibration_manifest_records_a_path_neutral_identity(tmp_path: Path) -> None:
+    """AXQ-048: published evidence identifies the checkpoint, not its location."""
+
+    dataset = tmp_path / "calibration.jsonl"
+    dataset.write_text(
+        json.dumps({"text": "repair this function"}) + "\n",
+        encoding="utf-8",
+    )
+    manifest = prepare_calibration(
+        model=ModelIdentity(
+            model_id="org/model",
+            revision="abc",
+            local_path=str(tmp_path / "org-model"),
+        ),
+        dataset=dataset,
+        output_dir=tmp_path / "out",
+        profile=ProfileName.AGENT_CODING,
+        domains=["code"],
+        sequence_length=8,
+        random_seed=7,
+        separation_attested=True,
+    )
+
+    assert manifest.model.local_path is None
+    assert manifest.model.model_id == "org/model"
+    written = load_model(tmp_path / "out" / "calibration_manifest.json", CalibrationManifest)
+    assert written.model.local_path is None

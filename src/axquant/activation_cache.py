@@ -18,7 +18,7 @@ from typing import Any
 import structlog
 
 from axquant.errors import ArtifactError, BackendUnavailableError, CacheError
-from axquant.identity import same_model_identity
+from axquant.identity import same_model_identity, semantic_model_identity
 from axquant.schema import (
     ModelIdentity,
     ProfileName,
@@ -457,7 +457,7 @@ def tokenize_calibration(
 
     manifest = TokenizedCacheManifest(
         cache_key_sha256=cache_key,
-        model=model,
+        model=semantic_model_identity(model),
         dataset_sha256=dataset_sha,
         profile=profile,
         domains=requested_domains,
