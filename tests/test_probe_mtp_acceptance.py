@@ -381,6 +381,8 @@ def test_preserved_mtp_tensor_records_epsilon_when_capable(
 
 
 def test_mlx_backend_mtp_capability_detection() -> None:
+    pytest.importorskip("mlx.core")
+
     class _Block:
         def __call__(self, hidden: object) -> object:
             return hidden
@@ -421,6 +423,8 @@ def test_mlx_backend_mtp_capability_detection() -> None:
 
 
 def test_mlx_backend_forward_mtp_fails_closed() -> None:
+    pytest.importorskip("mlx.core")
+
     backend = MlxProbeBackend()
     with pytest.raises(ProbeError, match="model not loaded"):
         backend.forward_mtp(None, None)
