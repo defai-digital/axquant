@@ -23,6 +23,7 @@ from axquant.serde import file_sha256, read_data, write_data
 
 BINDING_NAME = "axquant_source_binding.json"
 _INDEX_NAME = "model.safetensors.index.json"
+CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 
 
 def source_binding_fingerprint(
@@ -204,8 +205,8 @@ def tree_identity_issues(directory: str | Path) -> dict[str, list[str]]:
         if path.suffix.casefold() not in {".json", ".yaml", ".yml"}:
             continue
         relative = path.relative_to(root).as_posix()
-        if relative in {"axquant_plan.json", "axquant_manifest.json"}:
-            continue
+        if relative in {"axquant_plan.json", "axquant_manifest.json", CAPTURE_MANIFEST_NAME}:
+            continue  # denied outright by artifact_identity_issues
         try:
             payload = read_data(path)
         except ArtifactError:
@@ -225,16 +226,24 @@ def artifact_identity_issues(directory: str | Path) -> list[str]:
 
     root = Path(directory).expanduser()
     issues: list[str] = []
-    for name in ("axquant_plan.json", "axquant_manifest.json"):
+    for name, location in (
+        ("axquant_plan.json", "source_model.model_id"),
+        ("axquant_manifest.json", "source_model.model_id"),
+        # convert copies the capture manifest into the artifact; it inherits its
+        # model id from the tokenized cache, so a local run without --model-id
+        # publishes that path here instead.
+        (CAPTURE_MANIFEST_NAME, "model"),
+    ):
         path = root / name
         if not path.is_file():
             continue
         payload = read_data(path)
-        source_model = payload.get("source_model") if isinstance(payload, dict) else None
-        value = source_model.get("model_id") if isinstance(source_model, dict) else None
-        if isinstance(value, str) and path_shaped_model_id(value):
+        node: object = payload
+        for part in location.split("."):
+            node = node.get(part) if isinstance(node, dict) else None
+        if isinstance(node, str) and path_shaped_model_id(node):
             issues.append(
-                f"{name}: source_model.model_id is a filesystem path ({value!r}); "
+                f"{name}: {location} is a filesystem path ({node!r}); "
                 "re-run the pipeline with an explicit --model-id so the published "
                 "artifact records a name instead of a location"
             )

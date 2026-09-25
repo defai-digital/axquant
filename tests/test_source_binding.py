@@ -164,6 +164,15 @@ def test_publication_rejects_a_path_shaped_source_identity(tmp_path: Path) -> No
     )
     assert artifact_identity_issues(artifact) == []
 
+    # The packaged capture manifest is published too, and inherits its model id
+    # from the tokenized cache, so a path there is denied for the same reason.
+    write_data(
+        artifact / "activation_capture_manifest.json",
+        {"schema_version": "axquant.activation-capture.v1", "model": "/Users/operator/x"},
+    )
+    capture_issues = artifact_identity_issues(artifact)
+    assert capture_issues and "activation_capture_manifest.json" in capture_issues[0]
+
 
 def test_binding_path_sits_beside_the_plan(tmp_path: Path) -> None:
     plan_path = tmp_path / "plans" / "plan-01.json"
@@ -179,8 +188,8 @@ def test_tree_identity_issues_lists_path_shaped_identities(tmp_path: Path) -> No
     artifact = tmp_path / "artifact"
     artifact.mkdir()
     write_data(
-        artifact / "activation_capture_manifest.json",
-        {"schema_version": "axquant.activation-capture.v1", "model": "/Volumes/Ext16TR0/src"},
+        artifact / "axquant_runtime.json",
+        {"model": "/Volumes/Ext16TR0/runtime-src"},
     )
     write_data(
         artifact / "certification" / "nested.json",
@@ -191,8 +200,8 @@ def test_tree_identity_issues_lists_path_shaped_identities(tmp_path: Path) -> No
 
     reported = tree_identity_issues(artifact)
 
-    assert set(reported) == {"activation_capture_manifest.json", "certification/nested.json"}
-    assert "model is a filesystem path" in reported["activation_capture_manifest.json"][0]
+    assert set(reported) == {"axquant_runtime.json", "certification/nested.json"}
+    assert "model is a filesystem path" in reported["axquant_runtime.json"][0]
     assert "model_id is a filesystem path" in reported["certification/nested.json"][0]
     # The plan and manifest are denied by artifact_identity_issues, not reported here.
     assert artifact_identity_issues(artifact) == []
