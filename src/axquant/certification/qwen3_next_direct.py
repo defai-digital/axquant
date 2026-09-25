@@ -27,7 +27,7 @@ from axquant.errors import ArtifactError
 from axquant.identity import same_model_identity
 from axquant.quality import load_quality_tasks
 from axquant.release_audit import _artifact_issues, _wheel_identity
-from axquant.reproduction import verify_reproduction
+from axquant.reproduction import resolve_artifact_reference, verify_reproduction
 from axquant.schema import (
     ActivationCaptureManifest,
     ArtifactManifest,
@@ -1758,7 +1758,8 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
     if not recipe_weight_records.issubset(manifest_file_records):
         n7_issues.append("reproduction recipe weight files differ from the release artifact")
     rerun_reproduction = verify_reproduction(
-        recipe_path=paths["recipe"], artifact_dir=reproduction.artifact_path
+        recipe_path=paths["recipe"],
+        artifact_dir=resolve_artifact_reference(paths["recipe"], reproduction.artifact_path),
     )
     if rerun_reproduction != reproduction:
         n7_issues.append("reproduction verification cannot be reproduced")

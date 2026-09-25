@@ -111,6 +111,10 @@ def verify_reproduction(
     recipe = load_reproduction_recipe(recipe_source)
     issues: list[str] = []
     recipe_root = recipe_source.parent
+    try:
+        artifact_reference = artifact.relative_to(recipe_root).as_posix()
+    except ValueError:
+        artifact_reference = artifact.name
 
     plan_path = _check_bound_file(
         root=recipe_root,
@@ -277,7 +281,10 @@ def verify_reproduction(
 
     return ReproductionVerification(
         recipe_sha256=stable_sha256(recipe),
-        artifact_path=str(artifact),
+        # Published evidence records the artifact relative to the recipe, so a
+        # verification is never tied to the directory the run happened in
+        # (AXQ-048). resolve_artifact_reference turns it back into a path.
+        artifact_path=artifact_reference,
         passed=not issues,
         issues=issues,
         verified_weight_files=sorted(verified_weight_files),
@@ -286,3 +293,17 @@ def verify_reproduction(
         expected_weight_file_size_bytes=recipe.expected_weight_file_size_bytes,
         actual_weight_file_size_bytes=actual_weight_bytes,
     )
+
+
+def resolve_artifact_reference(recipe_path: str | Path, reference: str) -> Path:
+    """Resolve a published artifact reference against the recipe that names it.
+
+    ``ReproductionVerification.artifact_path`` is stored relative to the recipe so
+    published evidence does not record where the run happened (AXQ-048). Absolute
+    values, as older evidence recorded, resolve to themselves.
+    """
+
+    path = Path(reference).expanduser()
+    if path.is_absolute():
+        return path
+    return (Path(recipe_path).expanduser().resolve().parent / path).resolve()

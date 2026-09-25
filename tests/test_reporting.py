@@ -22,7 +22,7 @@ from axquant.planner import plan_quantization
 from axquant.profiles import thresholds_for
 from axquant.release_validation import build_release_validation_index
 from axquant.reporting import _validate_manifest_files, prepare_publication
-from axquant.reproduction import verify_reproduction
+from axquant.reproduction import resolve_artifact_reference, verify_reproduction
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
     ArtifactFile,
@@ -1089,7 +1089,15 @@ def test_prepared_mtp_reproduction_binds_required_companions(
     }
     convert = next(command for command in recipe.commands if command.step_id == "convert")
     assert convert.argv[convert.argv.index("--mtp-layout") + 1] == "ax-engine-qwen36-v1"
-    assert verify_reproduction(recipe_path=recipe_path, artifact_dir=candidate).passed
+    verification = verify_reproduction(recipe_path=recipe_path, artifact_dir=candidate)
+    assert verification.passed
+    # AXQ-048: published evidence records the artifact relative to the recipe,
+    # so it is not tied to the directory the run happened in, and readers
+    # resolve the reference back against that recipe.
+    assert not Path(verification.artifact_path).is_absolute()
+    assert (
+        resolve_artifact_reference(recipe_path, verification.artifact_path) == candidate.resolve()
+    )
 
     write_data(runtime_path, {"layout": "tampered"})
     verification = verify_reproduction(recipe_path=recipe_path, artifact_dir=candidate)

@@ -35,7 +35,7 @@ from axquant.release_exceptions import (
     release_exception_allows_size,
     verify_release_exception,
 )
-from axquant.reproduction import verify_reproduction
+from axquant.reproduction import resolve_artifact_reference, verify_reproduction
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     PROTECTED_MIN_BITS,
@@ -2076,7 +2076,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
         m8_issues.append("reproduction verification does not bind the supplied recipe")
     rerun_reproduction = verify_reproduction(
         recipe_path=paths["recipe"],
-        artifact_dir=reproduction.artifact_path,
+        artifact_dir=resolve_artifact_reference(paths["recipe"], reproduction.artifact_path),
     )
     if rerun_reproduction != reproduction:
         m8_issues.append("reproduction verification cannot be reproduced from current files")
