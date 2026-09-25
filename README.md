@@ -95,9 +95,9 @@ python -m pip install -U mlx-lm
 mlx_lm.generate --model ./AXQuant-output --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
-Skip convert and use a ready-made pack from
-[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
-([certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
+Skip convert and use a ready-made pack. The current public catalog lives on
+[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — review the live packs,
+model cards, and certification status there; this README no longer mirrors the pack list.
 `axquant quantize --help` lists every flag. Family-specific notes (ASR normalization, VL
 image smoke, recipes) are under
 [Simple development conversion](#simple-development-conversion).
@@ -117,7 +117,7 @@ is a separate, evidence-gated path — see [Current status](#current-status).
 
 **Product status and packs**
 
-- [Current status](#current-status) (tiers, Hub catalog, known gaps, [72 h endurance](docs/reports/ax-engine-72h-endurance.md))
+- [Current status](#current-status) (certification records, known gaps, [72 h endurance](docs/reports/ax-engine-72h-endurance.md))
 
 **Operators**
 
@@ -240,7 +240,8 @@ Existing certificates stay bound to the host recorded in each JSON record
 `df-macbookpro-m5` until that contract is versioned separately.
 AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
 ([report](docs/reports/ax-engine-72h-endurance.md)).
-Headline matrix below lists **public catalog** packs only (dual Tier 1+2 first).
+Headline matrix below lists **public certificate records** only (dual Tier 1+2 first);
+it is historical evidence and does not imply the pack repo is still published.
 **Full list of every AXQ certificate record** (including unlisted no-MTP siblings and
 evaluation archives): [docs/certifications/full-list.md](docs/certifications/full-list.md).
 Listed-pack index with Hub commits: [docs/certifications/](docs/certifications/README.md).
@@ -325,36 +326,33 @@ certificates are in progress
 catalog entries remain development artifacts unless their own exact revision
 has a certificate.
 
-**Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** is on the Hub at
-[`AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-2.4T-A95B-MLX-AXQ-2bit-MTP)
-(layer-stack expert stream, ~1.13 TiB, measured 4.074 BPW, native MTP sidecar
-packaged; acceleration not claimed). **This revision will not be certified**
-— SSD paging is too slow for practical serving; it stays as a hobby /
-curiosity pack. **No AXQ 4-bit pack will be released** for this base. Technical report:
+**Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** (layer-stack expert stream, ~1.13 TiB,
+measured 4.074 BPW, native MTP sidecar packaged; acceleration not claimed) was withdrawn
+from the public Hub catalog in the 2026-09-19 cleanup and is no longer distributed.
+**This revision will not be certified** — SSD paging is too slow for practical
+serving; it stays a hobby / curiosity pack in the archive. **No AXQ 4-bit pack will be
+released** for this base. Technical report:
 [docs/reports/qwen38-axq-2bit.md](docs/reports/qwen38-axq-2bit.md). Separate OptiQ 2/4-bit
 repos are not AX Engine artifacts
 ([docs/reports/qwen38-optiq-experimental.md](docs/reports/qwen38-optiq-experimental.md)).
 
 **DeepSeek-V4-Pro-0813** experimental **AXQ 2-bit MTP** is the same Super-class
-hobby path at
-[`AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP)
-(layer-stack expert stream of the official mixed FP4+FP8 snapshot; DSpark
-sidecar packaged; acceleration not claimed). **This revision will not be
-certified** — SSD paging is too slow for practical serving. **No AXQ 4-bit
-pack will be released** for this base. Technical report:
+hobby path (layer-stack expert stream of the official mixed FP4+FP8 snapshot; DSpark
+sidecar packaged; acceleration not claimed), also withdrawn from the public Hub catalog
+in the 2026-09-19 cleanup. **This revision will not be certified** — SSD paging is too
+slow for practical serving. **No AXQ 4-bit pack will be released** for this base. Technical report:
 [docs/reports/deepseek-v4-pro-0813-axq-2bit.md](docs/reports/deepseek-v4-pro-0813-axq-2bit.md).
 
-**MiniMax-M3** experimental **AXQ 2-bit** is at
-[`AX-MiniMax-M3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit)
-(BF16 source, layer-stack expert stream required, vision BF16 in-shard).
-Config `num_mtp_modules` is not packaged MTP, so the leaf has no `-MTP`.
-**This revision will not be certified.** MXFP4 sibling:
-[`AX-MiniMax-M3-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4).
+**MiniMax-M3** experimental **AXQ 2-bit** (BF16 source, layer-stack expert stream
+required, vision BF16 in-shard) was withdrawn from the public Hub catalog in the
+2026-09-19 cleanup. Config `num_mtp_modules` is not packaged MTP, so the leaf has no
+`-MTP`. **This revision will not be certified.** The MXFP4 sibling remains live on the
+org page (`AX-MiniMax-M3-MLX-AXQ-MXFP4`).
 
-**Kimi-K3** experimental **AXQ 2-bit** is at
-[`AX-Kimi-K3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Kimi-K3-MLX-AXQ-2bit)
-(native MXFP4 source dequantized to affine 2-bit, stream required, MoonViT-V2 BF16 sidecar).
-No packaged MTP. **This revision will not be certified.** No AXQ MXFP4 sibling.
+**Kimi-K3** experimental **AXQ 2-bit** (native MXFP4 source dequantized to affine
+2-bit, stream required, MoonViT-V2 BF16 sidecar) was withdrawn from the public Hub
+catalog in the 2026-09-19 cleanup. No packaged MTP. **This revision will not be
+certified.** No AXQ MXFP4 sibling.
 
 ### v1.8.x at a glance
 
@@ -436,24 +434,19 @@ for the complete change list and download verification instructions. Past tags k
 notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
 tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
 
-### Support snapshot
+### Model support
 
-| Scope | Use today | Public certification status |
-| --- | --- | --- |
-| Qwen3.8-27B dense (`qwen38-dense-v1`) | `convertible`; certified dense VLM language-path track | AXQ 4/6-bit ± MTP are checkpoint Tier 1; MTP packs also have scoped Tier 2 on AX Engine 6.16.1. Vision stays BF16; end-to-end VL quality is not certified. Super-class 2.4T is a separate experimental stream. |
-| Qwen 3.6 language paths | `convertible`; formal campaign / primary investment track | 27B dense + 35B-A3B MoE AXQ 4/6-bit are Tier 1 + scoped Tier 2 MTP certified; other revisions remain development evidence |
-| Qwen 3.5 dense; **Qwen3.5-class 35B-A3B and 397B MoE + fine-tunes (Holo3-35B-A3B, Holo-3.1-35B-A3B)** via `qwen35-moe-v1`; Qwen3 dense/Embedding/Next; MiniCPM5; Mistral/Devstral/Ministral | `convertible` through their promoted MLX text paths | **Holo3 4/6-bit checkpoint Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 checkpoint Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)) |
-| **DeepSeek-OCR-2** (`deepseek-ocr2-v1`, MLX-VLM) | `convertible` thin — language MoE quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
-| **Muse-Glimmer-30B** (`muse-glimmer-v1`, MLX-VLM) | `convertible` thin — dense language quantized, vision BF16-protected | Development evidence only ([runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md)) |
-| Gemma-4 12B / 26B-A4B / 31B AXQ 4/6-bit | `convertible` + bundled assistant-MTP Hub packs | **Checkpoint Tier 1 certified**; Tier 2 not certified; 12B from `google/gemma-4-12b-it` |
-| DeepSeek V4 Flash | `convertible` thin path (FP4+FP8 re-pack; needs `mlx-lm` with `deepseek_v4`) | **2-bit experimental Tier 1** on `df-macstudio-m2` (3-bit SKUs withdrawn; Hub repos removed); other packs development evidence |
-| GPT-OSS 20B / 120B | `convertible` thin path (MXFP4 re-pack; needs `mlx-lm` with `gpt_oss`) | **20B 4/6-bit + 120B 6-bit Tier 1** on `df-macbookpro-m5`; **120B 4-bit not certified** (agent-coding) and Hub pack removed |
-| Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct (MoE)** | `convertible` with protected modality towers (MLX-Audio / MLX-VLM convert); 30B MoE: **AX Engine primary + MLX-VLM compatible** | **30B Instruct 4/6-bit Tier 1** on `df-macbookpro-m5` / AX Engine 6.15.0; 8B / ASR still development |
-| Nemotron 3 Nano | `convertible` thin path | Development evidence only |
-| Other or unmatched checkpoints | `inspect-only` | Not eligible for conversion or certification |
+The README no longer mirrors the supported-family tables or the Hub pack list — both
+drift too easily. Use these live sources instead:
 
-The detailed registry-derived matrix below is authoritative. Run `axquant support-matrix` for the
-exact tier of a checkpoint before beginning work.
+- `axquant support-matrix` and `axquant support-policy` — the registry-derived support tier
+  (`certified` / `convertible` / `inspect-only`) and investment posture for every
+  recognized family, recorded in every inventory and plan. Run them for the exact tier of
+  a checkpoint before beginning work.
+- [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — the current public
+  pack catalog, model cards, and certifications. After the 2026-09-19 catalog cleanup the
+  public catalog carries MXFP4, embedding, and OCR packs; review the org page for what is
+  live rather than relying on any mirrored list.
 
 Further reading: [AXQ model fleet v2 migration and audit](docs/guides/model-fleet-v2.md),
 [migration guide (v1.1.x → v1.2.0)](docs/migrations/migration-v1.2.md),
@@ -487,37 +480,14 @@ separately certified; a certificate never promotes a family by association.
 AXQuant records an evidence-backed **support tier** for every recognized model family
 (`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
 tier; tier promotion requires recorded promotion evidence, and certification requires the full
-release audit. The current tier matrix:
-
-| Family | Adapter | Tier |
-| --- | --- | --- |
-| **Qwen3.8-27B** dense VLM | `qwen38-dense-v1` | `convertible`; **AXQ 4/6-bit ± MTP checkpoint Tier 1**; MTP packs also **scoped Tier 2** on AX Engine 6.16.1; vision BF16; not the Qwen 3.6 campaign track |
-| Qwen 3.6 (27B dense + 35B-A3B MoE language paths) | `qwen36-v1` | `convertible`; formal campaign / primary investment track |
-| **Qwen 3.8 2.4T-A95B text MoE** | `qwen38-moe-v1` | `convertible` thin development path; native layer-stack expert stream required; no cert track |
-| Qwen 3.5 dense | `qwen35-dense-v1` | `convertible`; development claims only |
-| **Qwen3.5-class 35B-A3B and 397B MoE + fine-tunes** (Holo3-35B-A3B, Holo-3.1-35B-A3B) | `qwen35-moe-v1` | `convertible`; **Holo3 4/6-bit Tier 1** ([4bit](docs/certifications/holo3-35b-axq4-tier1.md), [6bit](docs/certifications/holo3-35b-axq6-tier1.md)); **Holo-3.1 MXFP4 Tier 1** ([MXFP4](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); not Qwen 3.6 cert track |
-| **DeepSeek-OCR-2** | `deepseek-ocr2-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)) |
-| **Muse-Glimmer-30B** | `muse-glimmer-v1` | `convertible` thin via MLX-VLM; development only ([runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md)) |
-| **Qwen3-Next / Coder-Next** (hybrid MoE) | `qwen3-next-v1` | `convertible`; **Coder-Next AXQ MXFP4/4/6-bit checkpoint Tier 1 certified** ([MXFP4](docs/certifications/qwen3-coder-next-axq-mxfp4-tier1.md), [4bit](docs/certifications/qwen3-coder-next-axq4-tier1.md), [6bit](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP / Tier 2 N/A; other Next checkpoints remain development |
-| **Qwen3 dense + Embeddings** (`model_type=qwen3`) | `qwen3-dense-v1` | `convertible`; includes Qwen3-Embedding-0.6B/4B/8B |
-| **Qwen3-ASR 1.7B** | `qwen3-asr-v1` | `convertible` after pinned MLX-Audio BF16 normalization; audio tower protected |
-| **Qwen3-VL 8B Instruct** | `qwen3-vl-v1` | `convertible` through MLX-VLM; vision tower protected |
-| **Qwen3-VL 30B-A3B Instruct (MoE)** | `qwen3-vl-moe-v1` | `convertible` thin — exact Instruct only; MLX-VLM convert; **AX Engine primary + MLX-VLM compatible**; vision BF16; no MTP; **4/6-bit Tier 1 certified** on `df-macbookpro-m5` |
-| MiniCPM5 dense | `minicpm5-dense-v1` | `convertible`; development claims only |
-| Gemma-4 dense / unified | `gemma4-dense-v1` | `convertible` — `gemma4_unified` uses a temporary `gemma4` text path; the upstream unified config and normalized multimodal sidecar are restored in the output |
-| **Nemotron 3** (thin) | `nemotron3-v1` | **`convertible` only for Nano-30B-A3B** hybrid MoE; Super/Ultra **inspect-only** until a Nemotron-specific stream convert exists |
-| **Mistral / Devstral dense** | `mistral-devstral-dense-v1` | **`convertible`** — `model_type=mistral` (MLX remaps to llama) or llama exports named Mistral/Devstral/Ministral |
-| **Mistral 3 / Ministral-3 shell** | `mistral3-dense-v1` | **`convertible`** — language path via nested `text_config`; vision stripped by MLX sanitize |
-| **GPT-OSS** (MoE) | `gpt-oss-v1` | **`convertible`** thin — MXFP4 re-pack via `--allow-quantized`; **20B 4/6-bit + 120B 6-bit Tier 1** ([20B-4](docs/certifications/gpt-oss-20b-axq4-tier1.md), [20B-6](docs/certifications/gpt-oss-20b-axq6-tier1.md), [120B-6](docs/certifications/gpt-oss-120b-axq6-tier1.md)); **120B 4-bit not certified** ([record](docs/certifications/gpt-oss-120b-axq4-tier1.md)); no MTP |
-
-New families start at `inspect-only` until promotion evidence exists. Run
-`axquant support-matrix` and `axquant support-policy` for the registry-derived source of truth.
+release audit. New families start at `inspect-only`. Run
+`axquant support-matrix` and `axquant support-policy` for the registry-derived source of
+truth — the README intentionally does not mirror the per-family matrix.
 
 | Area | Current support |
 | --- | --- |
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Conversion targets | **Qwen3.8-27B**; Qwen 3.6 27B/35B-A3B; Qwen 3.5 dense; **Qwen3.5-class 35B-A3B and 397B MoE / Holo3**; Qwen3 dense + Embeddings; Qwen3-Next/Coder-Next MoE; Qwen3-ASR 1.7B; Qwen3-VL 8B Instruct; **Qwen3-VL 30B-A3B Instruct MoE**; **DeepSeek-OCR-2**; **Muse-Glimmer-30B**; MiniCPM5; Gemma-4; Nemotron Nano only (thin); Mistral/Devstral/Ministral and Mistral3 shells; GPT-OSS MoE (thin MXFP4 re-pack) |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
 | Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
@@ -540,118 +510,34 @@ or above the floor when the budget must be fixed.
 
 ### AutomatosX Hub catalog (AXQ)
 
-Public packs on [AutomatosX](https://huggingface.co/AutomatosX) are development evidence unless an
-exact immutable revision is linked to a certificate. As of **v1.7.0** the public catalog includes
-multiple certified families — Qwen3.8-27B, Qwen 3.6 27B/35B-A3B, Qwen3-VL 30B-A3B Instruct,
-Holo3-35B-A3B, Gemma 4, Qwen3-Coder-Next, GPT-OSS, and experimental DeepSeek V4 Flash 2-bit
-(3-bit SKUs withdrawn; Hub repos removed) —
-each bound to its own certificate. The headline matrix under [Current status](#current-status) lists the
-listed public packs; the [full list](docs/certifications/full-list.md) includes unlisted
-no-MTP siblings and evaluation archives.
+Ready-made packs live on [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX).
+**Review the current catalog on the org page** — the repos, model cards, and
+[collections](https://huggingface.co/AutomatosX/collections) (including
+[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq) and the
+[complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog))
+are authoritative for what is published today, each pack's measured BPW, and its evidence
+limits. This README deliberately does not mirror the pack table: pack membership changes,
+and a mirrored list goes stale and accumulates dead links.
 
-The stable repository names remain the canonical model identifiers. The certified Qwen 3.6 27B
-AXQ 6-bit repository serves v3 on `main` with the preceding audited artifact pinned at `v2`.
-The original v2 fleet rebuild (see [model-fleet-v2.md](docs/guides/model-fleet-v2.md)) still serves
-those packs on `main` tagged `v2`, with artifacts predating v2 recoverable at `legacy-pre-v2`.
-Later certified families (Qwen3.8, Holo3, Qwen3-VL 30B, GPT-OSS, Gemma 4 IT rebuilds, and
-others) are not that v2 migration; pin the Hub commit from the certificate. Temporary
-edition-suffixed migration repositories are not part of the public catalog.
+Public packs are development evidence unless an exact immutable revision is linked to a
+certificate. As of **2026-09-19** the public catalog carries **MXFP4, embedding, and OCR
+packs only**; the older AXQ 4/6/8-bit and experimental 2-bit repos were removed in the
+catalog cleanup. Historical certificate records (including withdrawn and deleted repos)
+stay in [docs/certifications/](docs/certifications/README.md) and the
+[full list](docs/certifications/full-list.md) — a certificate describes evidence for one
+exact immutable revision; it does not imply the repo is still published.
 
-Each repo ships a full model card (`README.md`) plus public AXQuant provenance
-(`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when
-present). Cards are multi-family aware and state evidence limits explicitly.
-
-The table below lists the current public packs under their stable names; the
-[AutomatosX collections](https://huggingface.co/AutomatosX/collections)
-group them by family (Qwen, Gemma, coding, vision, embeddings, and more), with a
-[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)
-starting list and a
-[complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog).
-The BPW values are rounded from each current public manifest's
-`measured_main_bpw`; the linked model card and manifest remain authoritative.
-
-**No distinct AXQ-4bit pack** is published when protection floors collapse the low-memory budget
-onto the same (or near-identical) artifact as the 6bit budget — publishing both would only
-mislead. Affected bases today: **Qwen3.5-9B**, **MiniCPM5-1B**, and **Ministral-3-8B** (use the
-`6bit` pack only).
-
-| Pack | Main-model BPW | Notes |
-| --- | --- | --- |
-| [`AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP) | 4.8441 | **Tier 1** MXFP4 trunk + packaged MTP ([cert](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md)); MTP BF16; scoped Tier 2 **not certified** on Studio ([eval](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier2.md)) |
-| [`AX-Qwen3.8-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit) | 5.0667 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq4-tier1.md)); dense hybrid `qwen3_5` |
-| [`AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP) | 5.0667 | **Tier 1 + scoped Tier 2 MTP** on `df-macbookpro-m3` ([Tier 1](docs/certifications/qwen38-27b-axq4-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq4-mtp-tier2.md)); Studio recert **not certified** ([eval](docs/certifications/qwen38-27b-axq4-mtp-studio-tier1.md)) |
-| [`AX-Qwen3.8-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit) | 5.8448 | **Tier 1** no-MTP ([cert](docs/certifications/qwen38-27b-axq6-tier1.md)) |
-| [`AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP) | 5.8448 | **Tier 1 + scoped Tier 2 MTP** on `df-macbookpro-m3` ([Tier 1](docs/certifications/qwen38-27b-axq6-mtp-tier1.md), [Tier 2](docs/certifications/qwen38-27b-axq6-mtp-tier2.md)); Studio recert **not certified** ([eval](docs/certifications/qwen38-27b-axq6-mtp-studio-tier1.md)) |
-| [`AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP) | 8.6271 | **Tier 1** 8-bit affine + packaged MTP ([cert](docs/certifications/qwen38-27b-axq8-mtp-tier1.md)); MTP BF16; scoped Tier 2 **not certified** (short Studio probe passed; not `--full`) ([eval](docs/certifications/qwen38-27b-axq8-mtp-tier2.md)) |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit) | 5.418315 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
-| [`AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP) | 5.418315 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-27b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq4-tier2.md)); product class `5p6bpw` |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit) | 5.805849 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-27b-axq6-nomtp-tier1.md)); language path matches v3 MTP sibling without `mtp.safetensors` |
-| [`AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP) | 5.805849 | **v3 Tier 1 + scoped Tier 2 MTP certified** ([Tier 1](docs/certifications/qwen36-27b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-27b-axq6-tier2.md)); default route still direct fallback |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit) | 4.878782 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-35b-axq4-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP) | 4.878782 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-35b-axq4-tier1.md), [Tier 2](docs/certifications/qwen36-35b-axq4-tier2.md)); product default still direct fallback |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit) | 5.759473 | **Tier 1** no-MTP ([cert](docs/certifications/qwen36-35b-axq6-nomtp-tier1.md)); language path matches MTP sibling without `mtp.safetensors` |
-| [`AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP) | 5.759473 | **Tier 1 + scoped Tier 2 MTP** ([Tier 1](docs/certifications/qwen36-35b-axq6-tier1.md), [Tier 2](docs/certifications/qwen36-35b-axq6-tier2.md)); product default still direct fallback |
-| [`AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP) | 6.736665 | secondary; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-gemma-4-12b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq4-tier1.md)); IT rebuild; assistant-MTP bundled; Tier 2 not certified |
-| [`AX-gemma-4-12b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-12b-axq6-tier1.md)); IT rebuild; assistant-MTP bundled; Tier 2 not certified |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq4-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
-| [`AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-26b-a4b-axq6-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
-| [`AX-gemma-4-31b-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-4bit-MTP) | ~4.90 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq4-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
-| [`AX-gemma-4-31b-MLX-AXQ-6bit-MTP`](https://huggingface.co/AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP) | ~6.00 | **Tier 1 certified** ([cert](docs/certifications/gemma4-31b-axq6-tier1.md)); assistant-MTP bundled; Tier 2 not certified |
-| [`AX-Devstral-Small-2505-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-4bit) | 4.949963 | secondary coding/agent |
-| [`AX-Devstral-Small-2505-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Devstral-Small-2505-MLX-AXQ-6bit) | 5.999989 | secondary coding/agent |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-4bit) | 5.150021 | secondary; vision sidecar preserved |
-| [`AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Mistral-Small-3.1-24B-Instruct-2503-MLX-AXQ-6bit) | 5.999949 | secondary; vision sidecar preserved |
-| [`AX-MiniCPM5-1B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-MiniCPM5-1B-MLX-AXQ-6bit) | 7.380428 | secondary fixture; only published budget (floor-collapsed; no 4bit sibling) |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-4bit) | 4.799310 | thin Nano support |
-| [`AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Nemotron-3-Nano-30B-A3B-MLX-AXQ-6bit) | 5.990219 | thin Nano support |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit) | 5.550330 | embedding; `feature-extraction` card |
-| [`AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit) | 8.000275 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-4bit) | 4.890183 | embedding |
-| [`AX-Qwen3-Embedding-4B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-8bit) | 7.999979 | embedding |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-4bit) | 4.830057 | embedding |
-| [`AX-Qwen3-Embedding-8B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-8bit) | 7.999911 | embedding |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4) | 4.315400 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq-mxfp4-tier1.md)); no MTP; factory host `df-macstudio-m2` |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-4bit) | 4.797752 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq4-tier1.md)); no MTP; corrected indexed-expert packing |
-| [`AX-Qwen3-Coder-Next-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit) | 5.998996 | **Tier 1 certified** ([cert](docs/certifications/qwen3-coder-next-axq6-tier1.md)); no MTP; corrected indexed-expert packing |
-| [`AX-gpt-oss-20b-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-4bit) | 5.055321 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq4-tier1.md)); no MTP; manual attention-8 / expert-4 recipe |
-| [`AX-gpt-oss-20b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-20b-MLX-AXQ-6bit) | 6.000037 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-20b-axq6-tier1.md)); no MTP; MXFP4 re-pack |
-| [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit) | 6.576880 | **Tier 1 certified** ([cert](docs/certifications/gpt-oss-120b-axq6-tier1.md)); no MTP; manual no-4-bit agent-coding recipe |
-| *(120B 4-bit not listed)* | — | **Not certified** — agent-coding retention 0.952 &lt; 0.98; further recert skipped; [evaluation record](docs/certifications/gpt-oss-120b-axq4-tier1.md) |
-| [`AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-MLX-AXQ-2bit-MTP) | 3.132899 | **Tier 1 certified (exp.)** ([cert](docs/certifications/deepseek-v4-flash-axq2-tier1.md)) on `df-macstudio-m2`; older `DeepSeek-V4-Flash` source; product class `2bit-experimental`; MTP assets packaged |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-2bit-MTP) | 3.133 | **Not certified** ([eval](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md)); uniform 2-bit v0.1 + MTP; factory `v-extract` combined 0.887 &lt; 0.90 on `df-macstudio-m2`; MTP assets packaged |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP) | — | **Reserved / not uploaded.** `-MTP` is kept because the 2-bit sibling ships `mtp.safetensors`. Hub tree has no weights yet. [Eval record](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) is not a shipped-pack claim. |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4) | — | **Stub / not uploaded.** No `-MTP` until a sidecar ships. [Eval](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md); convert `--q-mode mxfp4`; 192 GB may block generate |
-| [`AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit) | — | **Stub / not uploaded.** No `-MTP` until a sidecar ships. [Eval](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md); 192 GB factory host cannot run dual-suite generate |
-| [`AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP`](https://huggingface.co/AutomatosX/AX-DeepSeek-V4-Pro-0813-MLX-AXQ-2bit-MTP) | 4.097 | **Not certified** (hobby / curiosity Super-class stream pack). Official `deepseek-ai/DeepSeek-V4-Pro-0813@72e1d323`; `ax_expert_stream.json` required; DSpark sidecar packaged, acceleration not claimed. [Report](docs/reports/deepseek-v4-pro-0813-axq-2bit.md). **No 4-bit sibling.** |
-| [`AX-MiniMax-M3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-2bit) | 4.143 | **Not certified** (hobby / curiosity Super-class stream pack). Official `MiniMaxAI/MiniMax-M3@f0e1c1e0`; `ax_expert_stream.json` required; config MTP flags are not packaged MTP (no `-MTP`). Vision BF16. |
-| [`AX-MiniMax-M3-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-MiniMax-M3-MLX-AXQ-MXFP4) | 4.366 | **Not certified** (hobby / curiosity Super-class stream pack). Same MiniMax-M3 BF16 pin; `--q-mode mxfp4`; `vision.safetensors` sidecar; no packaged MTP. |
-| [`AX-Kimi-K3-MLX-AXQ-2bit`](https://huggingface.co/AutomatosX/AX-Kimi-K3-MLX-AXQ-2bit) | 4.018 | **Not certified** (hobby / curiosity Super-class stream pack). Official `moonshotai/Kimi-K3@a590ce09`; native MXFP4 experts dequantized to affine 2-bit; `ax_expert_stream.json` required; `vision.safetensors` sidecar; no packaged MTP. 2-bit only. |
-| [`AX-Holo3-35B-A3B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-4bit) | 5.665439 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq4-tier1.md)); attention-6 / expert-4 recovery recipe; source `Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
-| [`AX-Holo3-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo3-35B-A3B-MLX-AXQ-6bit) | 7.006493 | **Tier 1 certified** ([cert](docs/certifications/holo3-35b-axq6-tier1.md)); same source pin; vision BF16; no MTP / not Qwen 3.6 cert track |
-| [`AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4) | 4.874068 | **Tier 1 certified** ([cert](docs/certifications/holo31-35b-axq-mxfp4-tier1.md)); source `Hcompany/Holo-3.1-35B-A3B@2bdb92851a8cd9d72cdd891fdf38cfcc7fefae2c`; adapter `qwen35-moe-v1`; vision BF16; no MTP / not Qwen 3.6 cert |
-| [`AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit) | 7.507688 | **Not certified** ([eval](docs/certifications/holo31-35b-axq6-tier1.md)); same source pin; general retention 0.929 < 0.98 |
-| [`AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit`](https://huggingface.co/AutomatosX/AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit) | 9.423039 | **Not certified** ([eval](docs/certifications/holo31-35b-axq8-tier1.md)); same source pin; general retention 0.929 < 0.98 |
-| [`AX-DeepSeek-OCR-2-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-4bit) | ~6.80 total | **Development only** ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)); language trunk 4-bit, vision BF16; official `deepseek-ai/DeepSeek-OCR-2@aaa02f3811945a91062062994c5c4a3f4c0af2b0` |
-| [`AX-DeepSeek-OCR-2-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit) | ~8.40 total | **Development only** ([runbook](docs/runbooks/deepseek-ocr2-axq-dev-runbook.md)); language trunk 6-bit (experts), attention 8-bit, vision BF16 |
-| [`AX-Muse-Glimmer-30B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-4bit) | ~5.95 total | **Not certified** ([eval](docs/certifications/muse-glimmer-30b-axq4-tier1.md)); mlx-vlm generate smoked on Studio; mlx-lm cannot score `muse_glimmer`; vision BF16; [runbook](docs/runbooks/muse-glimmer-30b-axq-dev-runbook.md) |
-| [`AX-Muse-Glimmer-30B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit) | ~7.69 total | **Not certified** ([eval](docs/certifications/muse-glimmer-30b-axq6-tier1.md)); same Studio backend gap; language 6-bit, vision BF16 |
-| [`AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit) | 6.910001 | MLX-Audio; protected BF16 audio tower |
-| [`AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit) | 8.350084 | MLX-Audio; protected BF16 audio tower |
-| [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit) | 6.359976 | MLX-VLM; protected BF16 vision tower |
-| [`AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit) | 7.999975 | MLX-VLM; protected BF16 vision tower |
-| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit) | 4.860055 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
-| [`AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit) | 6.000054 | MoE VL; AX Engine primary + MLX-VLM; BF16 vision; no MTP; **Tier 1 certified** |
-| [`AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit) | 6.937967 | **Not certified** ([eval](docs/certifications/qwen3-vl-32b-thinking-axq6-tier1.md)); dense `qwen3_vl` Thinking; language 6-bit, vision BF16; agent-coding 0/0 at 64 tokens (think-trace) |
-| [`AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4) | 4.833093 | **Not certified** ([eval](docs/certifications/qwen3-vl-32b-thinking-axq-mxfp4-tier1.md)); same pin; language MXFP4, vision BF16 |
-| [`AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit) | 5.999992 | Mistral3 language path; only published budget (near floor-collapse; no 4bit sibling) |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-4bit) | 5.610033 | Mistral3 language path |
-| [`AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-Ministral-3-14B-Instruct-2512-MLX-AXQ-6bit) | 5.999912 | Mistral3 language path |
+Each published repo ships a full model card (`README.md`) plus public AXQuant provenance
+(`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when present).
+Cards are multi-family aware and state evidence limits explicitly. Stable repository
+names remain the canonical model identifiers; edition history is recorded in the model
+card and immutable Hub tags rather than by renaming the repository.
 
 **Development naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (MLX-style bit labels,
 not GGUF `q4`). Artifact editions are recorded in the model card and immutable Hub tags instead
 of changing the repository identifier. The class is a planning budget, not a claim that every
-tensor uses that width. Not every base publishes every class — see the floor-collapse note above.
+tensor uses that width. Not every base publishes every class — when protection floors collapse
+the low-memory budget onto the same artifact as the next class up, only one pack is published.
 
 **Certified naming:** a checkpoint Tier 1 certificate may retain the stable product-class
 repository name when it pins the exact Hub tag/commit, artifact edition, hashes, and measured BPW.
@@ -663,7 +549,8 @@ half-up rules (for example `MP-5p30bpw-MTP`). `target_class` remains metadata.
 
 ```bash
 python -m pip install -U mlx-lm
-mlx_lm.generate --model AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
+# --model accepts a local pack directory or an AutomatosX repo id from the org page
+mlx_lm.generate --model ./AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
   --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
@@ -1087,6 +974,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `release-exception` | Record an approved, expiring, evidence-bound size exception | Implemented |
 | `report` | Render plan and validation reports | Implemented |
 | `publish-prepare` | Assemble a release only after validation | Implemented |
+| `bind-artifact-evidence` | Write the artifact evidence-binding sidecar that authorizes release claims | Implemented |
 | `publish` | Preview or execute a guarded Hugging Face upload | Implemented |
 | `verify-reproduction` | Verify regenerated weight bytes and bound provenance | Implemented |
 | `verify-cert` | Offline-check a public certificate and optional artifact bundle with a machine-readable verdict | Implemented; exits nonzero on any inconsistent binding |

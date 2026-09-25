@@ -59,124 +59,20 @@ def test_public_docs_do_not_reference_local_only_material() -> None:
     assert not offenders
 
 
-def test_public_stable_catalog_preserves_migration_and_lists_multimodal_additions() -> None:
-    readme_catalog = (
-        _read("README.md")
-        .split(
-            "### AutomatosX Hub catalog (AXQ)",
-            1,
-        )[1]
-        .split("**Development naming:**", 1)[0]
-    )
-    completion = _read("docs/guides/model-fleet-v2.md").split("## Completed migration", 1)[1]
-    repository_link = re.compile(
-        r"https://huggingface\.co/AutomatosX/"
-        r"(AX-[A-Za-z0-9._-]+-MLX-AXQ-(?:4bit|6bit|8bit)(?:-MTP)?)"
-    )
-    readme_repositories = repository_link.findall(readme_catalog)
-    completion_repositories = repository_link.findall(completion)
-    multimodal_additions = {
-        "AX-Qwen3-ASR-1.7B-MLX-AXQ-4bit",
-        "AX-Qwen3-ASR-1.7B-MLX-AXQ-6bit",
-        "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-4bit",
-        "AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
-        "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit",
-        "AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit",
-        "AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit",
-    }
-    # Post-v2 fleet growth: Gemma-4 26B-A4B / 31B Tier 1 packs published after the
-    # historical completed-migration table (which still covers the original 12b pair).
-    gemma_tier1_additions = {
-        "AX-gemma-4-26b-a4b-MLX-AXQ-4bit-MTP",
-        "AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP",
-        "AX-gemma-4-31b-MLX-AXQ-4bit-MTP",
-        "AX-gemma-4-31b-MLX-AXQ-6bit-MTP",
-    }
-    post_migration_additions = multimodal_additions | gemma_tier1_additions
-    # Protection floors collapsed these AXQ-4bit siblings onto their 6bit packs; the
-    # 4bit Hub repos were deleted so the public catalog must not list them.
-    floor_collapsed_4bit = {
-        "AX-Qwen3.5-9B-MLX-AXQ-4bit-MTP",
-        "AX-MiniCPM5-1B-MLX-AXQ-4bit",
-        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-4bit",
-    }
-    floor_collapsed_6bit = {
-        "AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP",
-        "AX-MiniCPM5-1B-MLX-AXQ-6bit",
-        "AX-Ministral-3-8B-Instruct-2512-MLX-AXQ-6bit",
-    }
+def test_readme_points_to_hub_org_instead_of_mirroring_pack_catalog() -> None:
+    """The README directs readers to the AutomatosX org page for the live catalog.
 
-    gpt_oss_additions = {
-        "AX-gpt-oss-20b-MLX-AXQ-4bit",
-        "AX-gpt-oss-20b-MLX-AXQ-6bit",
-        "AX-gpt-oss-120b-MLX-AXQ-6bit",
-    }
-    # 120B 4-bit failed agent-coding Tier 1; Hub pack deleted (evaluation record only).
-    gpt_oss_removed_uncertified = {
-        "AX-gpt-oss-120b-MLX-AXQ-4bit",
-    }
-    # Secondary development/cert packs published after the historical migration table.
-    secondary_family_additions = {
-        "AX-DeepSeek-OCR-2-MLX-AXQ-4bit",
-        "AX-DeepSeek-OCR-2-MLX-AXQ-6bit",
-        "AX-Muse-Glimmer-30B-MLX-AXQ-4bit",
-        "AX-Muse-Glimmer-30B-MLX-AXQ-6bit",
-        "AX-Holo3-35B-A3B-MLX-AXQ-4bit",
-        "AX-Holo3-35B-A3B-MLX-AXQ-6bit",
-        "AX-Holo-3.1-35B-A3B-MLX-AXQ-6bit",
-        "AX-Holo-3.1-35B-A3B-MLX-AXQ-8bit",
-    }
-    # Ornith support ended: the 1.0 4/6-bit and 1.5 6-bit Hub repos were deleted in the
-    # 2026-09-19 catalog cleanup (MXFP4 Ornith repos never entered the 4/6/8-bit count).
-    ornith_removed = {
-        "AX-Ornith-1.0-35B-MLX-AXQ-4bit",
-        "AX-Ornith-1.0-35B-MLX-AXQ-6bit",
-        "AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP",
-        "AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
-    }
-    # Qwen 3.6 no-MTP siblings + Qwen3.8-27B 4/6 ± MTP and 8-bit MTP (no-MTP MXFP4/8-bit unlisted).
-    qwen_family_additions = {
-        "AX-Qwen3.6-27B-MLX-AXQ-4bit",
-        "AX-Qwen3.6-27B-MLX-AXQ-6bit",
-        "AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit",
-        "AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit",
-        "AX-Qwen3.8-27B-MLX-AXQ-4bit",
-        "AX-Qwen3.8-27B-MLX-AXQ-4bit-MTP",
-        "AX-Qwen3.8-27B-MLX-AXQ-6bit",
-        "AX-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
-        "AX-Qwen3.8-27B-MLX-AXQ-8bit-MTP",
-    }
-    # Flash-0731 4/6-bit listed after the historical migration table. 2-bit and
-    # MXFP4 Hub IDs are excluded by the catalog regex (4/6/8-bit only).
-    flash_0731_additions = {
-        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP",
-        "AX-DeepSeek-V4-Flash-0731-MLX-AXQ-6bit",
-    }
-    post_migration_additions = (
-        post_migration_additions
-        | gpt_oss_additions
-        | secondary_family_additions
-        | qwen_family_additions
-        | flash_0731_additions
-    )
-    assert len(readme_repositories) == 58
-    assert len(set(readme_repositories)) == 58
-    # Historical completion table keeps non-link rows for deleted 4bit IDs; live Hub
-    # links cover the original 28 minus those three 4bit packs (unique = 25).
-    assert len(set(completion_repositories)) == 25
-    assert set(completion_repositories) < set(readme_repositories)
-    assert set(readme_repositories) - set(completion_repositories) == post_migration_additions
-    assert floor_collapsed_4bit.isdisjoint(set(readme_repositories))
-    assert gpt_oss_removed_uncertified.isdisjoint(set(readme_repositories))
-    assert ornith_removed.isdisjoint(set(readme_repositories))
-    assert floor_collapsed_6bit < set(readme_repositories)
-    catalog_lower = readme_catalog.lower()
-    assert "no distinct AXQ-4bit pack" in catalog_lower or "no 4bit sibling" in readme_catalog
-    assert "legacy-pre-v2" in readme_catalog
-    assert "tagged `v2`" in readme_catalog
-    assert not re.search(r"https://huggingface\.co/AutomatosX/[^)\s]+-v2(?:-MTP)?", readme_catalog)
-    assert "(factory)" not in readme_catalog
-    assert "regeneration required" not in readme_catalog
+    The 2026-09-19 Hub catalog cleanup removed every AXQ 4/6/8-bit and experimental
+    2-bit repo (public catalog is MXFP4 / embedding / OCR packs only). A README-mirrored
+    pack table goes stale and accumulates dead repo links, so the README must reference
+    the org page and must not link individual pack repos.
+    """
+    readme = _read("README.md")
+    assert "https://huggingface.co/AutomatosX" in readme
+    pack_links = re.findall(r"https://huggingface\.co/AutomatosX/AX-", readme)
+    assert not pack_links, f"README links deleted pack repos: {sorted(set(pack_links))}"
+    assert "support-matrix" in readme
+    assert "docs/certifications/" in readme
 
 
 def test_internal_tree_is_not_tracked() -> None:
