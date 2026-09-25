@@ -15,7 +15,7 @@ from axquant.module_paths import (
     mlx_tensor_binding_groups,
 )
 from axquant.planner import plan_quantization
-from axquant.predicate import build_quant_predicate
+from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.schema import (
     Allocation,
     Inventory,
@@ -56,6 +56,9 @@ def _mlp_plan(*, shape: tuple[int, int] = (64, 64), method: QuantMethod = QuantM
     plan = plan_quantization(
         architecture_prior_report(inventory, profile=ProfileName.GENERAL),
         PlanRequest(profile=ProfileName.GENERAL, target_bpw=4.5, allow_unmeasured=True),
+        # These fixtures intentionally exercise affine-family mechanics at
+        # 4 bits; the retired product line needs the explicit opt-in (AXQ-047).
+        allow_legacy_4bit=True,
     )
     plan.assignments[0].method = method
     if method not in plan.hardware.supported_methods:
@@ -68,6 +71,12 @@ def _mlp_plan(*, shape: tuple[int, int] = (64, 64), method: QuantMethod = QuantM
             }
         )
     return plan
+
+
+def _legacy_predicate(plan: QuantizationPlan, **kwargs: object) -> PlanPredicate:
+    """build_quant_predicate with the retired-4bit opt-in for legacy fixtures."""
+    kwargs.setdefault("allow_legacy_4bit", True)
+    return build_quant_predicate(plan, **kwargs)
 
 
 def test_predicate_maps_plan_to_mlx_quantization_config() -> None:
@@ -97,14 +106,46 @@ def test_predicate_maps_plan_to_mlx_quantization_config() -> None:
         report,
         PlanRequest(
             profile=ProfileName.GENERAL,
-            target_bpw=4.5,
+            target_bpw=5.0,
             allow_unmeasured=True,
         ),
     )
     predicate = build_quant_predicate(plan)
+    # AXQ-047: the default 4-bit rung is MXFP4 (group 32), not affine.
+    assert plan.assignments[0].method == QuantMethod.MXFP4
     config = predicate("layers.0.mlp.down_proj", object())
-    assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
+    assert config == {"group_size": 32, "bits": 4, "mode": "mxfp4"}
     assert predicate.unmatched_quantized_modules() == set()
+
+
+def test_retired_4bit_affine_plan_rejected_without_opt_in() -> None:
+    plan = _mlp_plan()
+    with pytest.raises(PlanningError, match="retired product line"):
+        build_quant_predicate(plan)
+
+
+def test_retired_4bit_affine_plan_accepted_with_opt_in() -> None:
+    plan = _mlp_plan()
+    predicate = build_quant_predicate(plan, allow_legacy_4bit=True)
+    assert predicate("layers.0.mlp.down_proj", object()) == {
+        "group_size": 64,
+        "bits": 4,
+        "mode": "affine",
+    }
+
+
+def test_mxfp4_4bit_plan_accepted_without_opt_in() -> None:
+    report_plan = _mlp_plan()
+    allocation = report_plan.assignments[0].model_copy(
+        update={"method": QuantMethod.MXFP4, "group_size": 32}
+    )
+    plan = report_plan.model_copy(update={"assignments": [allocation]})
+    predicate = build_quant_predicate(plan)
+    assert predicate("layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }
 
 
 def test_qwen_checkpoint_paths_map_to_mlx_lm_module_paths() -> None:
@@ -266,7 +307,7 @@ def test_dwq_refinement_executes_before_affine_packing(
         "_apply_dwq_clip",
         lambda module: {"sample_count": 64, "clip_lower": -1.0, "clip_upper": 1.0},
     )
-    predicate = build_quant_predicate(plan)
+    predicate = _legacy_predicate(plan)
     config = predicate("layers.0.mlp.down_proj", object())
     assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
     assert predicate.dwq_metadata[plan.assignments[0].module_path]["sample_count"] == 64
@@ -292,7 +333,7 @@ def test_fused_group_refinement_metadata_fans_out_to_every_member(
         "_apply_dwq_clip",
         lambda module: {"sample_count": 64, "clip_lower": -1.0, "clip_upper": 1.0},
     )
-    predicate = build_quant_predicate(fused_plan)
+    predicate = _legacy_predicate(fused_plan)
     predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
     for member in members:
         assert predicate.dwq_metadata[member.module_path]["sample_count"] == 64
@@ -314,7 +355,7 @@ def test_packed_dwq_visits_preserve_both_clip_stats(monkeypatch: pytest.MonkeyPa
         up_module: {"sample_count": 32, "clip_lower": -2.0},
     }
     monkeypatch.setattr(predicate_module, "_apply_dwq_clip", by_module.__getitem__)
-    predicate = build_quant_predicate(packed_plan)
+    predicate = _legacy_predicate(packed_plan)
     predicate("model.layers.0.mlp.switch_mlp.gate_proj", gate_module)
     predicate("model.layers.0.mlp.switch_mlp.up_proj", up_module)
     metadata = predicate.dwq_metadata[packed.module_path]
@@ -325,7 +366,7 @@ def test_packed_dwq_visits_preserve_both_clip_stats(monkeypatch: pytest.MonkeyPa
 def test_awq_plan_is_admitted_by_predicate_allowlist() -> None:
     plan = _mlp_plan(method=QuantMethod.AWQ)
     # Preflight / coverage path must not reject solely because the method is AWQ.
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = _legacy_predicate(plan, execute_refinement=False)
     config = predicate("layers.0.mlp.down_proj", object())
     assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
     assert predicate.unmatched_quantized_modules() == set()
@@ -335,7 +376,7 @@ def test_awq_plan_is_admitted_by_predicate_allowlist() -> None:
 def test_gptq_plan_is_admitted_by_predicate_allowlist() -> None:
     plan = _mlp_plan(method=QuantMethod.GPTQ)
     # Preflight / coverage path must not reject solely because the method is GPTQ.
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = _legacy_predicate(plan, execute_refinement=False)
     config = predicate("layers.0.mlp.down_proj", object())
     assert config == {"group_size": 64, "bits": 4, "mode": "affine"}
     assert predicate.unmatched_quantized_modules() == set()
@@ -345,13 +386,13 @@ def test_gptq_plan_is_admitted_by_predicate_allowlist() -> None:
 def test_awq_refinement_requires_calibration_activations() -> None:
     plan = _mlp_plan(method=QuantMethod.AWQ)
     with pytest.raises(PlanningError, match="requires calibration activations"):
-        build_quant_predicate(plan, execute_refinement=True)
+        _legacy_predicate(plan, execute_refinement=True)
 
 
 def test_gptq_refinement_requires_calibration_activations() -> None:
     plan = _mlp_plan(method=QuantMethod.GPTQ)
     with pytest.raises(PlanningError, match="requires calibration activations"):
-        build_quant_predicate(plan, execute_refinement=True)
+        _legacy_predicate(plan, execute_refinement=True)
 
 
 def test_awq_refinement_executes_before_affine_packing(
@@ -384,7 +425,7 @@ def test_awq_refinement_executes_before_affine_packing(
 
     monkeypatch.setattr(predicate_module, "_apply_awq_scale", _fake_awq)
     activations = np.random.default_rng(0).standard_normal((32, 64), dtype=np.float32)
-    predicate = build_quant_predicate(
+    predicate = _legacy_predicate(
         plan,
         calibration_activations={plan.assignments[0].module_path: activations},
     )
@@ -429,7 +470,7 @@ def test_gptq_refinement_executes_before_affine_packing(
 
     monkeypatch.setattr(predicate_module, "_apply_gptq_refine", _fake_gptq)
     activations = np.random.default_rng(0).standard_normal((32, 64), dtype=np.float32)
-    predicate = build_quant_predicate(
+    predicate = _legacy_predicate(
         plan,
         calibration_activations={plan.assignments[0].module_path: activations},
     )
@@ -511,7 +552,7 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
             )
         )
     uniform = with_assignments([*plan.assignments, *members])
-    predicate = build_quant_predicate(uniform, execute_refinement=False)
+    predicate = _legacy_predicate(uniform, execute_refinement=False)
     # Visiting the fused MLX module marks every member expert as covered.
     result = predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict) and result["bits"] == 4
@@ -523,7 +564,7 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
     ]
     mixed = with_assignments([*plan.assignments, *mixed_members])
     with pytest.raises(PlanningError, match="mixes precisions"):
-        build_quant_predicate(mixed, execute_refinement=False)
+        _legacy_predicate(mixed, execute_refinement=False)
 
     gptq_members = [member.model_copy(update={"method": QuantMethod.GPTQ}) for member in members]
     gptq_fused = with_assignments([*plan.assignments, *gptq_members])
@@ -536,11 +577,11 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
         }
     )
     with pytest.raises(PlanningError, match="requires affine or dwq packing"):
-        build_quant_predicate(gptq_fused, execute_refinement=False)
+        _legacy_predicate(gptq_fused, execute_refinement=False)
 
     dwq_members = [member.model_copy(update={"method": QuantMethod.DWQ}) for member in members]
     dwq_fused = with_assignments([*plan.assignments, *dwq_members])
-    dwq_predicate = build_quant_predicate(dwq_fused, execute_refinement=False)
+    dwq_predicate = _legacy_predicate(dwq_fused, execute_refinement=False)
     result = dwq_predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict) and result["bits"] == 4
 
@@ -559,7 +600,7 @@ def test_packed_expert_requires_every_split_runtime_module() -> None:
         }
     )
     packed_plan = plan.model_copy(update={"assignments": [packed]})
-    predicate = build_quant_predicate(packed_plan, execute_refinement=False)
+    predicate = _legacy_predicate(packed_plan, execute_refinement=False)
 
     gate = predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(gate, dict)
@@ -584,7 +625,7 @@ def test_packed_expert_rejects_non_affine_refinement() -> None:
     with pytest.raises(
         PlanningError, match=r"packed expert tensor.*requires affine or dwq packing"
     ):
-        build_quant_predicate(packed_plan, execute_refinement=False)
+        _legacy_predicate(packed_plan, execute_refinement=False)
 
 
 def test_weight_suffixed_module_paths_keep_packed_and_fused_tracking() -> None:
@@ -601,7 +642,7 @@ def test_weight_suffixed_module_paths_keep_packed_and_fused_tracking() -> None:
         }
     )
     packed_plan = plan.model_copy(update={"assignments": [packed]})
-    predicate = build_quant_predicate(packed_plan, execute_refinement=False)
+    predicate = _legacy_predicate(packed_plan, execute_refinement=False)
 
     gate = predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(gate, dict)
@@ -626,7 +667,7 @@ def test_weight_suffixed_module_paths_keep_packed_and_fused_tracking() -> None:
         for index in (0, 1)
     ]
     fused_plan = plan.model_copy(update={"assignments": members})
-    fused_predicate = build_quant_predicate(fused_plan, execute_refinement=False)
+    fused_predicate = _legacy_predicate(fused_plan, execute_refinement=False)
     result = fused_predicate("model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict)
     assert fused_predicate.unmatched_quantized_modules() == set()
@@ -701,7 +742,7 @@ def test_gpt_oss_mxfp4_blocks_bind_experts_switch_glu_modules() -> None:
 def test_mxfp4_q_mode_remaps_four_bit_trunk() -> None:
     plan = _mlp_plan()
     plan.assignments[0].group_size = 32
-    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    predicate = _legacy_predicate(plan, q_mode="mxfp4")
     assert predicate("model.layers.0.mlp.down_proj", object()) == {
         "group_size": 32,
         "bits": 4,
@@ -709,7 +750,7 @@ def test_mxfp4_q_mode_remaps_four_bit_trunk() -> None:
     }
     plan.assignments[0].group_size = 64
     with pytest.raises(PlanningError, match="group_size 32"):
-        build_quant_predicate(plan, q_mode="mxfp4")("model.layers.0.mlp.down_proj", object())
+        _legacy_predicate(plan, q_mode="mxfp4")("model.layers.0.mlp.down_proj", object())
 
 
 def _mxfp4_selected_plan() -> QuantizationPlan:
@@ -731,7 +772,7 @@ def _mxfp4_selected_plan() -> QuantizationPlan:
 def test_plan_selected_mxfp4_wins_over_affine_q_mode() -> None:
     # AXQ-046 MH5: q_mode=affine never overrides an explicit plan selection.
     plan = _mxfp4_selected_plan()
-    predicate = build_quant_predicate(plan, q_mode="affine")
+    predicate = _legacy_predicate(plan, q_mode="affine")
     assert predicate("model.layers.0.mlp.down_proj", object()) == {
         "group_size": 32,
         "bits": 4,
@@ -741,7 +782,7 @@ def test_plan_selected_mxfp4_wins_over_affine_q_mode() -> None:
 
 def test_plan_selected_mxfp4_honored_under_mxfp4_q_mode() -> None:
     plan = _mxfp4_selected_plan()
-    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    predicate = _legacy_predicate(plan, q_mode="mxfp4")
     assert predicate("model.layers.0.mlp.down_proj", object()) == {
         "group_size": 32,
         "bits": 4,
@@ -764,7 +805,7 @@ def test_plan_selected_mxfp4_requires_4bit_group32() -> None:
             }
         )
     with pytest.raises(PlanningError, match="mxfp4 plan allocations require"):
-        build_quant_predicate(plan)
+        _legacy_predicate(plan)
 
 
 def test_q_mode_mxfp4_without_plan_selection_keeps_legacy_remap() -> None:
@@ -772,7 +813,7 @@ def test_q_mode_mxfp4_without_plan_selection_keeps_legacy_remap() -> None:
     # compatible), and non-4-bit floors stay affine.
     plan = _mlp_plan()
     plan.assignments[0].group_size = 32
-    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    predicate = _legacy_predicate(plan, q_mode="mxfp4")
     assert predicate("model.layers.0.mlp.down_proj", object()) == {
         "group_size": 32,
         "bits": 4,

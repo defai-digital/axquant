@@ -52,6 +52,7 @@ from axquant.schema import (
 from axquant.schema import (
     PROTECTED_MIN_BITS as _PROTECTED_MIN_BITS,
 )
+from axquant.schema.enums import MXFP4_GROUP_SIZE
 from axquant.serde import stable_sha256
 from axquant.versioning import collect_versions
 
@@ -678,6 +679,7 @@ def _options_for(
     *,
     evidence_kind: EvidenceKind,
     latency_lookup: Callable[[int, int | None, QuantMethod, int], float | None] | None = None,
+    allow_legacy_4bit: bool = False,
 ) -> tuple[list[_Option], str | None]:
     """Build a bits x group x method option ladder under hard floors (AXQ-028/QP1)."""
     minimum_bits, reason = _minimum_bits(entry, request)
@@ -709,6 +711,10 @@ def _options_for(
         # RM-42: experimental 2/3-bit stays on the robust trunk; other roles
         # keep their 4-bit-and-up candidates even when low bits are requested.
         and (candidate.bits not in EXPERIMENTAL_LOW_BITS or robust_trunk_role(role))
+        # AXQ-047 (ADR 0016): the affine 4-bit product line is retired; a
+        # 4-bit storage rung yields MXFP4 candidates only unless the explicit
+        # legacy opt-in is set.
+        and (allow_legacy_4bit or candidate.bits != 4 or candidate.method == QuantMethod.MXFP4)
         and (
             not (fused_expert or packed_expert)
             or candidate.bits == 16
@@ -716,6 +722,13 @@ def _options_for(
         )
         and (
             candidate.bits == 16
+            # The enforced MXFP4 rung carries its fixed group size 32 even
+            # when the requested grid names coarser groups only.
+            or (
+                candidate.method == QuantMethod.MXFP4
+                and candidate.group_size == MXFP4_GROUP_SIZE
+                and MXFP4_GROUP_SIZE in request.hardware.supported_group_sizes
+            )
             or (
                 candidate.group_size in request.hardware.supported_group_sizes
                 and candidate.group_size in allowed_groups
@@ -723,6 +736,9 @@ def _options_for(
         )
         and (
             not method_filter
+            # The enforced 4-bit MXFP4 rung stays planning-eligible like BF16;
+            # an explicit method filter cannot resurrect affine 4-bit.
+            or candidate.method == QuantMethod.MXFP4
             or candidate.method in method_filter
             or candidate.method == QuantMethod.BF16
         )
@@ -870,6 +886,7 @@ def plan_quantization(
     objective_weights: ObjectiveWeights | None = None,
     allocation_units: Literal["tensor", "fused-module"] = "tensor",
     allow_mtp_unmeasured: bool = False,
+    allow_legacy_4bit: bool = False,
 ) -> QuantizationPlan:
     if allocation_units not in {"tensor", "fused-module"}:
         raise PlanningError(
@@ -909,6 +926,28 @@ def plan_quantization(
     )
     weights = weights_model.normalized()
     latency_lookup = decode_latency_provider(kernel_latency) if kernel_latency is not None else None
+    if (
+        4 in set(request.candidate_bits) | set(request.mtp.candidate_bits)
+        and QuantMethod.MXFP4 not in request.hardware.supported_methods
+    ):
+        # AXQ-047: whenever a 4-bit rung exists the enforced MXFP4 candidate
+        # must be executable by the conversion predicate, so the emitted
+        # plan's hardware profile carries MXFP4 even when the request grid
+        # never named it (e.g. pre-MH5 measured reports, default hardware).
+        request = request.model_copy(
+            update={
+                "hardware": request.hardware.model_copy(
+                    update={
+                        "supported_methods": tuple(
+                            sorted(
+                                {*request.hardware.supported_methods, QuantMethod.MXFP4},
+                                key=lambda method: method.value,
+                            )
+                        )
+                    }
+                )
+            }
+        )
     # Collapse MXFP4 scale sidecars that share module_path with quantizable bodies
     # (openai/gpt-oss native export) so PlanPredicate sees unique module paths.
     planning_tensors = {
@@ -924,6 +963,7 @@ def plan_quantization(
             weights,
             evidence_kind=report.evidence_kind,
             latency_lookup=latency_lookup,
+            allow_legacy_4bit=allow_legacy_4bit,
         )
         choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
     tensor_names = [choice.entry.tensor.name for choice in choices]
@@ -1152,12 +1192,34 @@ def plan_quantization(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "
             "complete-model validation."
         )
+    if allow_legacy_4bit and any(
+        allocation.bits == 4 and allocation.method != QuantMethod.MXFP4
+        for allocation in allocations
+    ):
+        warnings.append(
+            "affine 4-bit is a retired product line; this plan uses the --allow-legacy-4bit opt-in"
+        )
     if allocation_units == "fused-module":
         warnings.append(
             "Allocation units are fused switch modules (and singleton tensors). "
             "This is the experimental trunk-mix path, not the default "
             "tensor-then-harmonize planner."
         )
+    # The recorded grid must cover every selected allocation: the enforced
+    # MXFP4 4-bit rung carries group size 32 even when the requested grid
+    # named coarser groups only (AXQ-047).
+    planned_group_sizes = tuple(
+        sorted(
+            {
+                *request.effective_group_sizes(),
+                *(
+                    allocation.group_size
+                    for allocation in allocations
+                    if allocation.group_size is not None
+                ),
+            }
+        )
+    )
     plan = QuantizationPlan(
         source_model=report.model,
         architecture_profile=_current_policy_profile(report.architecture_profile),
@@ -1168,7 +1230,7 @@ def plan_quantization(
         effective_bpw=effective_bpw,
         candidate_bits=request.candidate_bits,
         group_size=request.group_size,
-        candidate_group_sizes=request.effective_group_sizes(),
+        candidate_group_sizes=planned_group_sizes,
         objective=weights_model,
         hardware=request.hardware,
         mtp=request.mtp,

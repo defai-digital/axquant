@@ -473,6 +473,8 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         config=config,
         backend=backend,
         state_path=progress_path,
+        # The fixture intentionally probes retired affine 4-bit (AXQ-047).
+        allow_legacy_4bit=True,
     )
 
     assert report.evidence_kind == EvidenceKind.MEASURED_DEVELOPMENT
@@ -524,6 +526,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=refined_backend,
         state_path=tmp_path / "dwq-progress.json",
         base_report=report,
+        allow_legacy_4bit=True,
     )
     refined_entry = next(entry for entry in refined.entries if entry.tensor.name == target_tensor)
     dwq = next(
@@ -578,6 +581,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "stale-tier-progress.json",
         base_report=stale_report,
+        allow_legacy_4bit=True,
     )
     promoted_entry = next(entry for entry in promoted.entries if entry.tensor.name == target_tensor)
     assert any(
@@ -602,6 +606,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "legacy-hash-progress.json",
         base_report=legacy_report,
+        allow_legacy_4bit=True,
     )
     assert any(
         candidate.bits == 4 and candidate.method == QuantMethod.DWQ
@@ -676,6 +681,8 @@ def _base_probe_report(
         config=config,
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "probe-progress.json",
+        # Base reports intentionally carry retired affine 4-bit candidates.
+        allow_legacy_4bit=True,
     )
     return inventory, config, report
 
@@ -799,6 +806,95 @@ def test_probe_measures_mxfp4_candidates_at_4bit_group32(
     assert measured_mxfp4 > 0
 
 
+def test_four_bit_probe_grid_defaults_to_mxfp4_only(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    # AXQ-047 (ADR 0016): by default a 4-bit probe grid measures MXFP4 (group
+    # 32) only, even when the requested group size is coarser; the retired
+    # affine 4-bit candidates return only under the explicit opt-in.
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    dataset = tmp_path / "calibration.jsonl"
+    dataset.write_text(
+        "\n".join(
+            [
+                json.dumps({"text": "repair this function"}),
+                json.dumps({"text": "return valid JSON"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cache = tmp_path / "cache"
+    calibration = CalibrationManifest(
+        model=identity,
+        profile=ProfileName.AGENT_CODING,
+        dataset_id=str(dataset),
+        dataset_sha256=file_sha256(dataset),
+        samples=2,
+        domains=[],
+        sequence_length=32,
+        random_seed=11,
+        calibration_evaluation_separation_attested=True,
+    )
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
+    tokenize_calibration(
+        model=identity,
+        dataset_path=dataset,
+        output_dir=cache,
+        profile=ProfileName.AGENT_CODING,
+        sequence_length=32,
+        random_seed=11,
+        tokenizer=_FakeTokenizer(),
+        calibration_manifest_sha256=stable_sha256(
+            calibration.model_dump(mode="json", exclude={"created_at"})
+        ),
+        separation_attested=True,
+    )
+
+    def _probe(*, allow_legacy_4bit: bool) -> None:
+        backend = _MeasuredFakeBackend()
+        config = ProbeConfig(
+            model=identity,
+            calibration_cache=str(cache),
+            profile=ProfileName.AGENT_CODING,
+            candidate_bits=(4, 16),
+            candidate_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4),
+            group_size=64,
+            token_budget_per_candidate=32,
+        )
+        report = probe_tensor_sensitivity(
+            inventory,
+            config=config,
+            backend=backend,
+            state_path=tmp_path / f"grid-{'legacy' if allow_legacy_4bit else 'default'}.json",
+            allow_legacy_4bit=allow_legacy_4bit,
+        )
+        for entry in report.entries:
+            four_bit = [candidate for candidate in entry.candidates if candidate.bits == 4]
+            if not four_bit:
+                # Protected / probe-non-quantizable tensors stay 16-bit only.
+                continue
+            if allow_legacy_4bit:
+                assert any(candidate.method == QuantMethod.AFFINE for candidate in four_bit)
+            else:
+                assert len(four_bit) == 1
+                assert four_bit[0].method == QuantMethod.MXFP4
+                assert four_bit[0].group_size == 32
+
+    _probe(allow_legacy_4bit=False)
+    _probe(allow_legacy_4bit=True)
+
+
 def test_probe_requires_calibration_activations_for_awq_gptq(
     qwen36_model_dir: Path,
 ) -> None:
@@ -898,6 +994,7 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             state_path=tmp_path / f"{method.value}-progress.json",
             base_report=report,
             calibration_activations=bound_activations,
+            allow_legacy_4bit=True,
         )
         refined_entry = next(
             entry for entry in refined.entries if entry.tensor.name == target_tensor
@@ -949,6 +1046,7 @@ def test_probe_refinement_skips_failed_affine_packing_control(
             }
         ),
         backend=_AffineFailingBackend(),
+        allow_legacy_4bit=True,
     )
     quantized_entry = next(
         entry

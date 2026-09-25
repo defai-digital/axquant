@@ -183,6 +183,7 @@ def quick_convert(
     expert_stream: ExpertStreamSetting = "auto",
     allow_download: bool = False,
     allow_quantized: bool = False,
+    allow_legacy_4bit: bool = False,
 ) -> QuickConversionSummary:
     inventory = inspect_model(
         model,
@@ -240,7 +241,7 @@ def quick_convert(
             candidate_group_sizes=request.candidate_group_sizes,
         )
         try:
-            plan = plan_quantization(report, request)
+            plan = plan_quantization(report, request, allow_legacy_4bit=allow_legacy_4bit)
         except PlanningError as exc:
             # Simple-convert UX: protected floors can push the policy minimum
             # above the user's target (seen on Gemma-4 ~4.89 vs default 4.8).
@@ -253,7 +254,7 @@ def quick_convert(
             if raised <= request.target_bpw + 1e-9:
                 raise
             request = request.model_copy(update={"target_bpw": raised})
-            plan = plan_quantization(report, request)
+            plan = plan_quantization(report, request, allow_legacy_4bit=allow_legacy_4bit)
             plan.warnings.append(
                 f"target BPW raised from {float(match.group('requested')):.4f} to "
                 f"{raised:.4f} to satisfy protection floors (policy minimum "
@@ -298,6 +299,7 @@ def quick_convert(
         allow_unmeasured=True,
         ax_engine_manifest=ax_engine_manifest,
         expert_stream=expert_stream,
+        allow_legacy_4bit=allow_legacy_4bit,
     )
     output_dir = Path(output).expanduser().resolve()
     smoke_result = _runtime_smoke_check(

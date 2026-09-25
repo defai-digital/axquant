@@ -194,6 +194,8 @@ def test_kv_serving_quality_cli_binds_the_executed_plan(tmp_path) -> None:
             allow_unmeasured=True,
             hardware=HardwareProfile(),
         ),
+        # The fixture intentionally carries a retired affine 4-bit candidate.
+        allow_legacy_4bit=True,
     )
     kv_plan = allocate_kv_cache(4, default_bits=4, group_size=64)
     plan = plan.model_copy(update={"kv_cache": kv_plan})

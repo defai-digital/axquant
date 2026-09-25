@@ -152,6 +152,7 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         calibration_cache=str(cache),
         profile=ProfileName.AGENT_CODING,
         candidate_bits=(4, 8, 16),
+        candidate_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4),
         group_size=64,
         token_budget_per_candidate=64,
     )
@@ -182,8 +183,10 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         PlanRequest(
             profile=ProfileName.AGENT_CODING,
             # The fixture declares tied embeddings, so the protected BF16
-            # LM-head floor also applies to the shared embedding weight.
-            target_bpw=15.5,
+            # LM-head floor also applies to the shared embedding weight. The
+            # tied-pair harmonization needs headroom above the MXFP4 policy
+            # minimum (AXQ-047), so the target sits at the BF16 ceiling.
+            target_bpw=16.0,
             allow_unmeasured=True,
             mtp=MtpPolicy(mode="protected"),
         ),
@@ -192,7 +195,7 @@ def test_full_measured_pipeline_closes_loop(tiny_model_dir: Path, tmp_path: Path
         allow_mtp_unmeasured=True,
     )
 
-    assert plan.effective_bpw <= 15.5
+    assert plan.effective_bpw <= 16.0
     assert plan.evidence_kind == report.evidence_kind
 
     plan_tensors = {a.tensor for a in plan.assignments}

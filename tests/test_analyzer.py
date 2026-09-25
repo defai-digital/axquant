@@ -8,7 +8,7 @@ import pytest
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
 from axquant.inspector import inspect_model
-from axquant.schema import EvidenceKind, ProfileName
+from axquant.schema import EvidenceKind, ProfileName, QuantMethod
 
 
 def test_architecture_prior_is_explicitly_unmeasured(tiny_model_dir: Path) -> None:
@@ -22,7 +22,11 @@ def test_architecture_prior_is_explicitly_unmeasured(tiny_model_dir: Path) -> No
     assert report.calibration is None
     assert any("not calibration" in warning for warning in report.warnings)
     q_proj = next(entry for entry in report.entries if entry.tensor.name.endswith("q_proj.weight"))
-    assert [candidate.bits for candidate in q_proj.candidates] == [4, 6, 8, 16]
+    # AXQ-047: the 4-bit rung carries the enforced MXFP4 candidate (group 32)
+    # alongside the affine prior candidate.
+    assert [candidate.bits for candidate in q_proj.candidates] == [4, 4, 6, 8, 16]
+    mxfp4 = [candidate for candidate in q_proj.candidates if candidate.method is QuantMethod.MXFP4]
+    assert len(mxfp4) == 1 and mxfp4[0].group_size == 32
     assert q_proj.candidates[0].metrics.output_kl > q_proj.candidates[-1].metrics.output_kl
     inventory.created_at += timedelta(seconds=1)
     repeated = architecture_prior_report(
@@ -65,11 +69,14 @@ def test_architecture_prior_canonicalizes_and_validates_candidate_grid(
         candidate_group_sizes=(64, 32, 64),
     )
     quantizable = next(entry for entry in report.entries if entry.tensor.quantizable)
+    # AXQ-047: the 4-bit rung appends the enforced MXFP4 (group 32) candidate.
     assert [(candidate.bits, candidate.group_size) for candidate in quantizable.candidates] == [
         (4, 32),
         (4, 64),
+        (4, 32),
         (16, None),
     ]
+    assert quantizable.candidates[2].method is QuantMethod.MXFP4
 
     with pytest.raises(PlanningError, match=r"bit-widths.*5"):
         architecture_prior_report(

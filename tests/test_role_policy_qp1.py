@@ -111,6 +111,20 @@ def _measured_report() -> SensitivityReport:
                             ),
                         )
                     )
+                if bits == 4 and group_size == 32:
+                    # AXQ-047: the enforced 4-bit rung candidate.
+                    candidates.append(
+                        CandidateMeasurement(
+                            bits=4,
+                            method=QuantMethod.MXFP4,
+                            group_size=32,
+                            metrics=MetricVector(
+                                output_kl=base,
+                                hidden_state_error=base * 0.5,
+                                token_disagreement=base * 0.3,
+                            ),
+                        )
+                    )
         entries.append(TensorSensitivity(tensor=tensor, candidates=candidates))
     return SensitivityReport(
         model=ModelIdentity(model_id="org/model", revision="abc"),
@@ -183,6 +197,9 @@ def test_measured_plan_prefers_awq_for_attention_when_within_margin() -> None:
             hardware=HardwareProfile(),
             allow_unmeasured=False,
         ),
+        # Intent: affine-family refinement methods on the 4-bit rung (retired
+        # product line, explicit opt-in).
+        allow_legacy_4bit=True,
     )
     attention = next(item for item in plan.assignments if item.role == TensorRole.ATTENTION)
     # At equal storage key, measured attention should pick AWQ within margin.
@@ -223,6 +240,7 @@ def test_measured_plan_selects_gptq_when_clearly_better() -> None:
             hardware=HardwareProfile(),
             allow_unmeasured=False,
         ),
+        allow_legacy_4bit=True,
     )
     mlp = next(item for item in plan.assignments if item.role == TensorRole.MLP)
     # GPTQ loss is far outside the AFFINE preference margin, so it wins its key.
@@ -243,6 +261,7 @@ def test_method_near_ties_are_surfaced_and_capped_explicitly() -> None:
             hardware=HardwareProfile(),
             allow_unmeasured=False,
         ),
+        allow_legacy_4bit=True,
     )
     # The fixture places DWQ 1% above AFFINE — inside the default 2% epsilon —
     # so quantized selections must carry surfaced near ties (RM-14).
@@ -272,6 +291,7 @@ def test_near_tie_epsilon_zero_only_surfaces_preference_overrides() -> None:
             hardware=HardwareProfile(),
             allow_unmeasured=False,
         ),
+        allow_legacy_4bit=True,
     )
     # With epsilon 0 a tie survives only when the runner-up matched or beat
     # the winner's raw loss (i.e. a preference override displaced it).

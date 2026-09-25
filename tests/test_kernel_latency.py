@@ -153,7 +153,7 @@ def _request() -> PlanRequest:
 def test_latency_polish_prefers_faster_group_within_quality_epsilon() -> None:
     report = _single_tensor_report()
 
-    baseline = plan_quantization(report, _request())
+    baseline = plan_quantization(report, _request(), allow_legacy_4bit=True)
     assert baseline.cost_model == "abstract-bpw"
     assert baseline.kernel_latency_sha256 is None
     baseline_mlp = baseline.assignments[0]
@@ -166,7 +166,9 @@ def test_latency_polish_prefers_faster_group_within_quality_epsilon() -> None:
             _entry(bits=4, group_size=64, hidden_size=1024, decode_us=30.0),
         ]
     )
-    latency_plan = plan_quantization(report, _request(), kernel_latency=table)
+    latency_plan = plan_quantization(
+        report, _request(), kernel_latency=table, allow_legacy_4bit=True
+    )
     polished = latency_plan.assignments[0]
     # g64 is within the quality window, needs no extra storage, and its kernel
     # is measured faster — the plan flips and records why.
@@ -192,7 +194,7 @@ def test_latency_table_never_overrides_quality_outside_epsilon() -> None:
             _entry(bits=4, group_size=64, hidden_size=1024, decode_us=1.0),
         ]
     )
-    plan = plan_quantization(report, _request(), kernel_latency=table)
+    plan = plan_quantization(report, _request(), kernel_latency=table, allow_legacy_4bit=True)
     # Even a 50x faster kernel cannot buy a quality regression beyond epsilon.
     assert plan.assignments[0].group_size == 32
     assert plan.cost_model == "kernel-latency"

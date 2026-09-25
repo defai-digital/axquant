@@ -282,7 +282,7 @@ class TestComputePlanLoss:
     def test_higher_precision_lower_loss(self) -> None:
         report = _make_sensitivity_report()
         # Lower BPW forces more aggressive quantization
-        low_plan = plan_quantization(report, _make_request(target_bpw=7.0))
+        low_plan = plan_quantization(report, _make_request(target_bpw=8.0))
         # Higher BPW allows more upgrades
         high_plan = plan_quantization(report, _make_request(target_bpw=12.0))
         low_loss = _compute_plan_loss(low_plan)
@@ -302,7 +302,7 @@ class TestCoordinateDescentSwap:
     def test_tight_budget_no_swap(self) -> None:
         report = _make_sensitivity_report()
         # Tight budget close to policy minimum - limited room for upgrades
-        request = _make_request(target_bpw=7.0)
+        request = _make_request(target_bpw=8.0)
         plan = plan_quantization(report, request)
         # With a tight budget, swaps should be limited
         coordinate_descent_swap(plan, report, request, swap_radius=1)

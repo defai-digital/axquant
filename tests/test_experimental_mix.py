@@ -172,7 +172,7 @@ def test_plan_experimental_mix_upgrades_highest_kl_fused_unit_first() -> None:
     }
     _apply_kl(report, kl_by_tensor)
 
-    plan = plan_experimental_mix(report, _request())
+    plan = plan_experimental_mix(report, _request(), allow_legacy_4bit=True)
     by_tensor = {item.tensor: item for item in plan.assignments}
 
     assert by_tensor["layers.0.ffn.experts.0.w1.weight"].bits == 3

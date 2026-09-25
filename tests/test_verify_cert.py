@@ -65,6 +65,8 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path]:
             target_bpw=4.8,
             allow_unmeasured=True,
         ),
+        # The bundle fixture artifact is affine-packed at 4-bit (retired line).
+        allow_legacy_4bit=True,
     )
 
     artifact = tmp_path / "artifact"

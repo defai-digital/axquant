@@ -103,6 +103,13 @@ def _sensitivity() -> SensitivityReport:
                         measured_tokens=1024,
                     ),
                     CandidateMeasurement(
+                        bits=4,
+                        method=QuantMethod.MXFP4,
+                        group_size=32,
+                        metrics=MetricVector(output_kl=0.1),
+                        measured_tokens=1024,
+                    ),
+                    CandidateMeasurement(
                         bits=16,
                         method=QuantMethod.BF16,
                         metrics=MetricVector(),

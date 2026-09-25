@@ -72,8 +72,11 @@ def test_convert_ladders_loaded_from_yaml() -> None:
     assert prior.allow_unmeasured is True
     assert prior.candidate_group_sizes == (32, 64)
     assert prior.default_target_bpw == 4.8
+    # AXQ-047: every ladder with a 4-bit rung carries the MXFP4 candidate.
+    assert QuantMethod.MXFP4 in prior.candidate_methods
     refine = get_ladder(ConvertLadderName.REFINE_AWQ_DWQ)
     assert QuantMethod.GPTQ in refine.candidate_methods
+    assert QuantMethod.MXFP4 in refine.candidate_methods
     assert refine.requires_refinement is True
 
 

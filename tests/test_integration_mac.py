@@ -157,6 +157,9 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
             capture_points=("output",),
         ),
         calibration_activations=loaded,
+        # This test intentionally measures the retired affine-family 4-bit
+        # rung (AWQ/GPTQ refinement) on real hardware (AXQ-047).
+        allow_legacy_4bit=True,
     )
     assert report.evidence_kind.release_quality or report.calibration is not None
 
@@ -213,7 +216,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
         allow_unmeasured=True,
         hardware=HardwareProfile(),
     )
-    plan = plan_quantization(report, request)
+    plan = plan_quantization(report, request, allow_legacy_4bit=True)
     plan_path = tmp_path / "plan.json"
     write_data(plan_path, plan)
     plan = load_model(plan_path, QuantizationPlan)
@@ -231,6 +234,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
         calibration_activations=loaded,
         allow_unmeasured=True,
         ax_engine_manifest="skip",
+        allow_legacy_4bit=True,
     )
     assert artifact.plan_sha256
     assert output_dir.is_dir()

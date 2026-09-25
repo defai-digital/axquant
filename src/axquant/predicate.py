@@ -327,6 +327,7 @@ def build_quant_predicate(
     execute_refinement: bool = True,
     calibration_activations: Mapping[str, Any] | None = None,
     q_mode: str = "affine",
+    allow_legacy_4bit: bool = False,
 ) -> PlanPredicate:
     undeclared = {
         allocation.method.value
@@ -345,6 +346,18 @@ def build_quant_predicate(
     if unsupported:
         raise PlanningError(
             f"the MLX-LM predicate backend cannot execute methods {sorted(unsupported)}"
+        )
+    retired_4bit = [
+        allocation.module_path
+        for allocation in plan.assignments
+        if allocation.bits == 4 and allocation.method != QuantMethod.MXFP4
+    ]
+    if retired_4bit and not allow_legacy_4bit:
+        raise PlanningError(
+            "affine 4-bit is a retired product line (AXQ-047 / ADR 0016) and this plan "
+            "carries 4-bit affine allocations; pass --allow-legacy-4bit only for "
+            "historical campaign replay and recertification of published 4-bit packs: "
+            f"{sorted(retired_4bit)[:10]}"
         )
     mxfp4_violations = [
         allocation.module_path

@@ -47,12 +47,15 @@ def plan_experimental_mix(
     request: PlanRequest,
     *,
     allow_mtp_unmeasured: bool = False,
+    allow_legacy_4bit: bool = False,
 ) -> QuantizationPlan:
     """Allocate a convert-ready experimental 2/3/4 mix from a sensitivity report.
 
     Tests and the CLI must call this function (or ``plan_quantization`` with
     ``allocation_units='fused-module'``). The fused-signature rule stays the
     planner's fail-closed check; this wrapper only chooses the unit grid.
+    ``allow_legacy_4bit`` restores the retired affine 4-bit candidates for
+    historical replay (AXQ-047); the 2/3-bit robust trunk is unaffected.
     """
 
     mix_request = experimental_mix_request(request)
@@ -61,6 +64,7 @@ def plan_experimental_mix(
         mix_request,
         allocation_units="fused-module",
         allow_mtp_unmeasured=allow_mtp_unmeasured,
+        allow_legacy_4bit=allow_legacy_4bit,
     )
     warnings = list(plan.warnings)
     if EXPERIMENTAL_MIX_WARNING not in warnings:

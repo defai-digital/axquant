@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 AXQuant is a **precision allocator** for Apple Silicon. It inspects a supported
-Safetensors checkpoint, assigns 4-bit, 6-bit, 8-bit, or BF16 per tensor, keeps
-sensitive layers (norms, heads, routers, vision/audio, MTP) at hard floors, and
+Safetensors checkpoint, assigns MXFP4 (4-bit), 6-bit, 8-bit, or BF16 per tensor,
+keeps sensitive layers (norms, heads, routers, vision/audio, MTP) at hard floors, and
 writes the manifests AX Engine and MLX-LM need. Convert still goes through MLX.
 AX Engine is speed; AXQuant chooses the precision mix.
 
@@ -208,9 +208,11 @@ measurement shows it matters and fewer where it does not.
 
 Its design centers on:
 
-- **mixed precision:** 4-bit, 6-bit, 8-bit, and BF16 assignments, with an experimental
-  2/3-bit range for robust trunk tensors (AX Engine gates them behind
-  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`);
+- **mixed precision:** MXFP4 (4-bit) and 6-bit assignments as the headline
+  product classes, with 8-bit and BF16 as protection floors or opt-in rungs, and
+  an experimental 2/3-bit range for robust trunk tensors (AX Engine gates them behind
+  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`); affine-family
+  refinement (affine, DWQ, portable AWQ, GPTQ) applies at 6 bits and up;
 - **quality protection:** hard precision floors for sensitive model components;
 - **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
 - **workload awareness:** separate objectives for general and agent/coding workloads;
@@ -291,6 +293,12 @@ The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the c
 
 A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](docs/certifications/adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->
+
+**Product line (AXQ-047, 2026-09-25):** release planning going forward produces
+**MXFP4 (4-bit)** packs and **6-bit** packs; affine 4-bit is retired from release
+planning and survives only behind the explicit `--allow-legacy-4bit` opt-in for
+historical campaign replay and recertification. The 4-bit rows below are
+historical certificates for pre-retirement packs and stay unchanged.
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on
@@ -489,7 +497,7 @@ truth — the README intentionally does not mirror the per-family matrix.
 | Platform | macOS on Apple Silicon (M-series) with MLX |
 | Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
 | Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
-| Precision choices | 4-bit, 6-bit, 8-bit, and BF16 (plus experimental 2-bit and 3-bit behind AX Engine's documented gates); measured affine, DWQ-clipped affine, portable AWQ, and GPTQ |
+| Precision choices | MXFP4 (4-bit) and 6-bit as the headline classes; 8-bit and BF16 as protection floors / opt-in rungs; experimental 2-bit and 3-bit behind AX Engine's documented gates; measured affine, DWQ-clipped affine, portable AWQ, and GPTQ as 6/8-bit refinement methods |
 | Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
 | MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
 | Primary runtime | AX Engine for text tracks and **Qwen3-VL MoE (30B-A3B Instruct)**; MLX-Audio for Qwen3-ASR; MLX-VLM for dense Qwen3-VL 8B |

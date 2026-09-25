@@ -148,6 +148,7 @@ def simple_convert(
     mtp_sidecar: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
     kv_sensitivity: str | Path | None = None,
+    allow_legacy_4bit: bool = False,
 ) -> QuickConversionSummary:
     """One-command development convert with OptiQ-like defaults.
 
@@ -240,6 +241,7 @@ def simple_convert(
         expert_stream=expert_stream,
         allow_download=False,  # already resolved above
         allow_quantized=allow_quantized,
+        allow_legacy_4bit=allow_legacy_4bit,
     )
     extra_notes = [
         "Simple convert path: development evidence only (best practice: two doors).",

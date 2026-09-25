@@ -120,6 +120,18 @@ def architecture_prior_report(
                         note="architecture prior; not a measured quality result",
                     )
                 )
+            if bits == 4:
+                # AXQ-047: MXFP4 is the enforced 4-bit rung; the prior report
+                # must carry it so default planning is executable.
+                candidates.append(
+                    CandidateMeasurement(
+                        bits=4,
+                        method=QuantMethod.MXFP4,
+                        group_size=32,
+                        metrics=_prior_metrics(tensor.role, 4, group_size=32),
+                        note="architecture prior; not a measured quality result",
+                    )
+                )
         entries.append(TensorSensitivity(tensor=tensor, candidates=candidates))
     warnings = [
         "This report contains architecture priors, not calibration measurements.",

@@ -1755,7 +1755,7 @@ def _verify_converted_weights(
                 component.current_method is QuantMethod.AFFINE
                 or (
                     physical_mode == "mxfp4"
-                    and component.current_method in {QuantMethod.AFFINE, None}
+                    and component.current_method in {QuantMethod.AFFINE, QuantMethod.MXFP4, None}
                 )
                 for component in actual_components
             )
@@ -1898,6 +1898,7 @@ def convert_model(
     ax_engine_bench: str = "ax-engine-bench",
     q_mode: Literal["affine", "mxfp4"] = "affine",
     expert_stream: ExpertStreamSetting = "auto",
+    allow_legacy_4bit: bool = False,
 ) -> ArtifactManifest:
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
@@ -1976,6 +1977,7 @@ def convert_model(
             execute_refinement=False,
             calibration_activations=calibration_activations,
             q_mode=q_mode,
+            allow_legacy_4bit=allow_legacy_4bit,
         )
         _LOG.info("conversion_preflight_started", model=convert_model_ref)
         if backend == "mlx-lm":
@@ -1986,6 +1988,7 @@ def convert_model(
             plan,
             calibration_activations=calibration_activations,
             q_mode=q_mode,
+            allow_legacy_4bit=allow_legacy_4bit,
         )
         default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
         try:

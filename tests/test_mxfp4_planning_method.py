@@ -228,6 +228,9 @@ def _planned() -> QuantizationPlan:
     return plan_quantization(
         architecture_prior_report(inventory, profile=ProfileName.GENERAL),
         PlanRequest(profile=ProfileName.GENERAL, target_bpw=4.5, allow_unmeasured=True),
+        # Legacy opt-in: the frozen v1-envelope fixtures intentionally carry
+        # affine 4-bit allocations, which plan.v1 defined (AXQ-047).
+        allow_legacy_4bit=True,
     )
 
 
@@ -243,6 +246,11 @@ def test_plan_v1_on_disk_still_loads(tmp_path: Path) -> None:
 
     payload = json.loads(path.read_text(encoding="utf-8"))
     payload["schema_version"] = "axquant.plan.v1"
+    # v1-era plans predate MXFP4 (AXQ-047); the enforced rung injection never
+    # happened under plan.v1, so strip it from the frozen-envelope rewrite.
+    payload["hardware"]["supported_methods"] = [
+        method for method in payload["hardware"]["supported_methods"] if method != "mxfp4"
+    ]
     legacy_path = tmp_path / "plan-v1.json"
     legacy_path.write_text(json.dumps(payload), encoding="utf-8")
     legacy = load_quantization_plan(legacy_path)
@@ -273,7 +281,13 @@ def test_sensitivity_v1_on_disk_still_loads(qwen36_model_dir: Path, tmp_path: Pa
         model_id="Qwen/Qwen3.6-27B",
         revision="a" * 40,
     )
-    report = architecture_prior_report(inventory, profile=ProfileName.GENERAL)
+    # v1-era grids predate MXFP4 (AXQ-047); keep 4-bit off this grid so the
+    # frozen v1 envelope (no mxfp4 method literal) still validates.
+    report = architecture_prior_report(
+        inventory,
+        profile=ProfileName.GENERAL,
+        candidate_bits=(6, 8, 16),
+    )
     assert report.schema_version == "axquant.sensitivity.v2"
     path = tmp_path / "sensitivity.json"
     write_data(path, report)
@@ -322,7 +336,16 @@ def test_refinement_v2_on_disk_still_loads(tmp_path: Path) -> None:
     payload["schema_version"] = "axquant.refinement.v2"
     for embedded in payload["candidate_plans"].values():
         embedded["schema_version"] = "axquant.plan.v1"
+        # v1-era plans predate MXFP4 (AXQ-047); strip the enforced-rung injection.
+        embedded["hardware"]["supported_methods"] = [
+            method for method in embedded["hardware"]["supported_methods"] if method != "mxfp4"
+        ]
     payload["selected_plan"]["schema_version"] = "axquant.plan.v1"
+    payload["selected_plan"]["hardware"]["supported_methods"] = [
+        method
+        for method in payload["selected_plan"]["hardware"]["supported_methods"]
+        if method != "mxfp4"
+    ]
     legacy_path = tmp_path / "refinement-v2.json"
     legacy_path.write_text(json.dumps(payload), encoding="utf-8")
     legacy = load_refinement_result(legacy_path)

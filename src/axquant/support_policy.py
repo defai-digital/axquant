@@ -136,14 +136,15 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         cert_track=True,
         summary=(
             "Qwen3.8 dense VLM (27B hybrid GDN+attention, model_type=qwen3_5): checkpoint "
-            "Tier 1 on AXQ 4-bit (recovery lm_head-8) and 6-bit language-path packs, with "
-            "scoped MTP acceleration certification (MTP-P evidence) on AX Engine 6.16.1; "
-            "vision BF16-protected. Separate from "
+            "Tier 1 on historical AXQ 4-bit (recovery lm_head-8) and 6-bit language-path "
+            "packs, with scoped MTP acceleration certification (MTP-P evidence) on AX "
+            "Engine 6.16.1; vision BF16-protected. Separate from "
             "the Qwen 3.6 campaign track."
         ),
         do=(
-            "Ship and certify AXQ 4/6-bit language-path packs (vision BF16-protected).",
-            "Use plan-manual recovery with lm_head 8-bit when architecture-prior 4-bit fails size.",
+            "Ship and certify AXQ MXFP4/6-bit language-path packs (vision BF16-protected).",
+            "Use plan-manual recovery with lm_head 8-bit when an architecture-prior "
+            "MXFP4 plan fails size.",
             "Bind public Tier 1 certs only when size <=1.15x uniform and dual-suite "
             "retention >=0.98.",
         ),
@@ -164,11 +165,11 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Qwen3.5-class MoE and fine-tunes: 35B-A3B (Ornith-1.0-35B, "
             "Ornith-1.5-35B-A3B, Holo3-35B-A3B, Holo-3.1-35B-A3B, Qwen3.5-35B-A3B) "
             "and 397B (Ornith-1.5-397B). Fused-expert convert via the same MLX "
-            "layout as Qwen 3.6 MoE. Holo3 and Ornith-1.0 AXQ 4/6-bit direct-decode "
+            "layout as Qwen 3.6 MoE. Holo3 and Ornith-1.0 historical AXQ 4/6-bit direct-decode "
             "packs are checkpoint Tier 1."
         ),
         do=(
-            "Allow architecture-prior AXQ MXFP4/4/6-bit packs for signature-matched "
+            "Allow architecture-prior AXQ MXFP4/6-bit packs for signature-matched "
             "35B-A3B and 397B MoE fine-tunes.",
             "Bind Holo3 and Ornith-1.0 public Tier 1 only to the certified Hub revisions. "
             "Vision stays BF16-protected. Ornith 1.5 packs start as development evidence.",

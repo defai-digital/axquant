@@ -145,6 +145,15 @@ def test_support_policy_cli(tmp_path: Path) -> None:
     assert ordered_policies()[0].adapter_id == "qwen36-v1"
 
 
+def test_support_policy_names_mxfp4_and_6bit_as_current_line() -> None:
+    # AXQ-047: current-tense offerings name MXFP4 and 6-bit; the retired
+    # affine 4-bit rung is historical wording only.
+    text = support_policy_markdown()
+    assert "MXFP4/6-bit" in text
+    assert "MXFP4/4/6-bit" not in text
+    assert "Ship and certify AXQ 4/6-bit" not in text
+
+
 def test_support_matrix_cli_json(tmp_path: Path) -> None:
     out = tmp_path / "matrix.json"
     assert main(["support-matrix", "--output", str(out)]) == 0

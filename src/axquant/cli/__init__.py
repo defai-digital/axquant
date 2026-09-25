@@ -547,6 +547,7 @@ def _run(args: argparse.Namespace) -> int:
                     else None
                 ),
                 calibration_activations=calibration_activations,
+                allow_legacy_4bit=args.allow_legacy_4bit,
             )
         else:
             analysis_report = architecture_prior_report(
@@ -647,9 +648,17 @@ def _run(args: argparse.Namespace) -> int:
             target_mode=args.mode,
             hardware=HardwareProfile(
                 # Sort by method value so plan digests stay stable across PYTHONHASHSEED.
+                # AXQ-047: whenever a 4-bit rung exists the enforced MXFP4
+                # candidate must be executable by the conversion predicate.
                 supported_methods=tuple(
                     sorted(
-                        set(methods) | {QuantMethod.BF16},
+                        set(methods)
+                        | {QuantMethod.BF16}
+                        | (
+                            {QuantMethod.MXFP4}
+                            if 4 in set(candidate_bits) | set(args.mtp_bits)
+                            else set()
+                        ),
                         key=lambda method: method.value,
                     )
                 )
@@ -673,6 +682,7 @@ def _run(args: argparse.Namespace) -> int:
             request,
             kernel_latency=kernel_latency_table,
             allow_mtp_unmeasured=args.allow_mtp_unmeasured,
+            allow_legacy_4bit=args.allow_legacy_4bit,
         )
         if args.ladder is not None:
             plan.warnings.append(f"convert ladder: {args.ladder.value}")
@@ -900,6 +910,7 @@ def _run(args: argparse.Namespace) -> int:
             ax_engine_bench=args.ax_engine_bench,
             q_mode=args.q_mode,
             expert_stream=args.expert_stream,
+            allow_legacy_4bit=args.allow_legacy_4bit,
         )
         return 0
 
@@ -940,6 +951,7 @@ def _run(args: argparse.Namespace) -> int:
             image_input=args.image_input,
             ax_engine_manifest=args.ax_engine_manifest,
             expert_stream=args.expert_stream,
+            allow_legacy_4bit=args.allow_legacy_4bit,
         )
         if args.json_output:
             write_data(args.json_output, summary)

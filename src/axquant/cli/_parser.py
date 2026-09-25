@@ -425,7 +425,9 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument(
         "--methods",
         type=_probe_methods,
-        default=(QuantMethod.AFFINE,),
+        # AXQ-047: MXFP4 is in the default probe grid because it is the only
+        # 4-bit candidate method; affine/DWQ/AWQ/GPTQ apply at 6 bits and up.
+        default=(QuantMethod.AFFINE, QuantMethod.MXFP4),
     )
     analyze_parser.add_argument("--group-size", type=int, default=64)
     analyze_parser.add_argument("--calibration")
@@ -451,6 +453,12 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("--state")
     analyze_parser.add_argument("--output", default="sensitivity_map.json")
     analyze_parser.add_argument("--allow-download", action="store_true")
+    analyze_parser.add_argument(
+        "--allow-legacy-4bit",
+        action="store_true",
+        help="probe retired affine 4-bit candidates at the 4-bit rung "
+        "(historical campaign replay / recertification only, AXQ-047)",
+    )
 
     analyze_kv_parser = subparsers.add_parser(
         "analyze-kv",
@@ -528,6 +536,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "quality evidence",
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
+    plan_parser.add_argument(
+        "--allow-legacy-4bit",
+        action="store_true",
+        help="restore retired affine 4-bit candidates at the 4-bit rung "
+        "(historical campaign replay / recertification only, AXQ-047); the plan "
+        "records a retirement warning",
+    )
     plan_parser.add_argument(
         "--allow-mtp-unmeasured",
         action="store_true",
@@ -826,6 +841,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("--allow-unmeasured", action="store_true")
     convert_parser.add_argument(
+        "--allow-legacy-4bit",
+        action="store_true",
+        help="convert a plan carrying retired 4-bit affine allocations "
+        "(historical campaign replay / recertification only, AXQ-047)",
+    )
+    convert_parser.add_argument(
         "--ax-engine-manifest",
         choices=["required", "if-available", "skip"],
         default="required",
@@ -945,6 +966,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="emit the layer-stack SSD expert stream contract when applicable",
     )
     quantize_parser.add_argument("--json", dest="json_output")
+    quantize_parser.add_argument(
+        "--allow-legacy-4bit",
+        action="store_true",
+        help="plan/convert with retired 4-bit affine candidates "
+        "(historical campaign replay / recertification only, AXQ-047)",
+    )
 
     simple_help_parser = subparsers.add_parser(
         "simple-convert-help",

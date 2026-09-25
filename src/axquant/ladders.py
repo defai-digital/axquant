@@ -14,6 +14,7 @@ from axquant.package_data import load_package_yaml
 from axquant.schema import (
     ConvertLadderName,
     EvidenceKind,
+    HardwareProfile,
     PlanRequest,
     ProfileName,
     QuantMethod,
@@ -132,6 +133,11 @@ def plan_request_for_ladder(
 ) -> PlanRequest:
     """Build a PlanRequest from a ladder with optional overrides."""
     resolved = ladder if isinstance(ladder, ConvertLadder) else get_ladder(ladder)
+    hardware = HardwareProfile(
+        supported_methods=tuple(
+            sorted(set(resolved.candidate_methods) | {QuantMethod.BF16}, key=lambda m: m.value)
+        )
+    )
     return PlanRequest(
         profile=profile,
         target_bpw=resolved.default_target_bpw if target_bpw is None else target_bpw,
@@ -143,6 +149,7 @@ def plan_request_for_ladder(
             resolved.allow_unmeasured if allow_unmeasured is None else allow_unmeasured
         ),
         target_mode="low-memory" if resolved.name is ConvertLadderName.PRIOR else "balanced",
+        hardware=hardware,
     )
 
 

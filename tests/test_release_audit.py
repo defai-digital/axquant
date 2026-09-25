@@ -205,6 +205,8 @@ def _plan(sensitivity: SensitivityReport):
                 supported_methods=(QuantMethod.DWQ, QuantMethod.BF16),
             ),
         ),
+        # The fixture intentionally exercises the retired DWQ 4-bit rung.
+        allow_legacy_4bit=True,
     )
     versions = plan.software_versions.model_copy(update={"axquant": "1.0.0"})
     return plan.model_copy(update={"software_versions": versions})
@@ -606,6 +608,7 @@ def _inputs(
             ),
             random_seed=plan.random_seed + 1,
         ),
+        allow_legacy_4bit=True,
     ).model_copy(update={"software_versions": plan.software_versions})
     parent_sha = stable_sha256(parent_plan)
     selected_sha = stable_sha256(plan)
