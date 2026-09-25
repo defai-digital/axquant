@@ -29,6 +29,21 @@ weight values: two checkpoints with identical member sizes and an identical inde
 share it. Use it as a conversion-time guard and as an audit record, not as a
 content hash of the tensor payloads.
 
+## Bundles
+
+A recipe bundle exported by `axquant recipe-export` carries the producer's
+source binding (`axquant_source_binding.json`) when the plan had one beside it,
+with its digest recorded in the bundle's `lineage` map as
+`source_binding_sha256`. A consumer on another machine verifies its own copy of
+the pinned revision against that fingerprint instead of trusting a local
+re-derivation. Bundles exported before this version carry none and keep resolving;
+a missing or mismatched binding is rejected when a bundle declares one.
+
+The fingerprint identifies the checkpoint's layout and metadata, **not** its
+weight values: two checkpoints with identical member sizes and an identical index
+share it. It is a producer-origin structural binding, not a content hash of the
+tensor payloads.
+
 ## Operator action
 
 - `axquant convert --plan <plan>` reads the binding from beside the plan. A plan
