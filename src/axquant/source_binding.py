@@ -164,6 +164,62 @@ def path_shaped_identity_issues(model: ModelIdentity) -> list[str]:
     return ["model_id is a filesystem path"] if path_shaped_model_id(model.model_id) else []
 
 
+def _identity_values(node: object, path: str = "$") -> list[tuple[str, str]]:
+    """Every ``model``/``model_id`` string in a payload, with its location.
+
+    These are the fields a locally sourced run fills with the ``--model``
+    argument, so they are the ones that can carry a filesystem path into
+    published evidence.
+    """
+
+    found: list[tuple[str, str]] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in {"model", "model_id"} and isinstance(value, str):
+                found.append((f"{path}.{key}", value))
+                continue
+            found.extend(_identity_values(value, f"{path}.{key}"))
+    elif isinstance(node, list):
+        for index, item in enumerate(node):
+            found.extend(_identity_values(item, f"{path}[{index}]"))
+    return found
+
+
+def tree_identity_issues(directory: str | Path) -> dict[str, list[str]]:
+    """Path-shaped model identities found anywhere in a publication tree.
+
+    The plan and manifest are denied outright by ``artifact_identity_issues``.
+    The rest are reported so an operator can see what a stricter gate would
+    reject — the same content the publication privacy scan flags for absolute
+    paths, extended to relative ones and ``file:`` URLs.
+    """
+
+    root = Path(directory).expanduser()
+    reported: dict[str, list[str]] = {}
+    try:
+        members = sorted(path for path in root.rglob("*") if path.is_file())
+    except OSError:
+        return reported
+    for path in members:
+        if path.suffix.casefold() not in {".json", ".yaml", ".yml"}:
+            continue
+        relative = path.relative_to(root).as_posix()
+        if relative in {"axquant_plan.json", "axquant_manifest.json"}:
+            continue
+        try:
+            payload = read_data(path)
+        except ArtifactError:
+            continue
+        issues = [
+            f"{location} is a filesystem path ({value!r})"
+            for location, value in _identity_values(payload)
+            if path_shaped_model_id(value)
+        ]
+        if issues:
+            reported[relative] = issues
+    return reported
+
+
 def artifact_identity_issues(directory: str | Path) -> list[str]:
     """Path-shaped identities recorded in an artifact that is about to be published."""
 

@@ -22,6 +22,7 @@ from axquant.source_binding import (
     build_source_plan_binding,
     load_source_plan_binding,
     source_binding_issues,
+    tree_identity_issues,
     write_source_plan_binding,
 )
 
@@ -170,3 +171,28 @@ def test_binding_path_sits_beside_the_plan(tmp_path: Path) -> None:
     plan_path.write_text("{}\n", encoding="utf-8")
     assert binding_path_beside(plan_path) == plan_path.parent / BINDING_NAME
     assert binding_path_beside(plan_path.parent) == plan_path.parent / BINDING_NAME
+
+
+def test_tree_identity_issues_lists_path_shaped_identities(tmp_path: Path) -> None:
+    """AXQ-048: the remaining evidence writers are reported, not denied yet."""
+
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    write_data(
+        artifact / "activation_capture_manifest.json",
+        {"schema_version": "axquant.activation-capture.v1", "model": "/Volumes/Ext16TR0/src"},
+    )
+    write_data(
+        artifact / "certification" / "nested.json",
+        {"candidate_model": {"model_id": "~/models/Qwen3.6-27B"}},
+    )
+    write_data(artifact / "axquant_plan.json", {"source_model": {"model_id": "Qwen/Qwen3.6-27B"}})
+    (artifact / "README.md").write_text("plain prose, no identity\n", encoding="utf-8")
+
+    reported = tree_identity_issues(artifact)
+
+    assert set(reported) == {"activation_capture_manifest.json", "certification/nested.json"}
+    assert "model is a filesystem path" in reported["activation_capture_manifest.json"][0]
+    assert "model_id is a filesystem path" in reported["certification/nested.json"][0]
+    # The plan and manifest are denied by artifact_identity_issues, not reported here.
+    assert artifact_identity_issues(artifact) == []

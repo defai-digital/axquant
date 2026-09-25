@@ -57,7 +57,10 @@ tensor payloads.
 ## Publication identity
 
 `publish` now rejects an artifact whose `axquant_plan.json` or
-`axquant_manifest.json` records a filesystem path as `source_model.model_id`. A
+`axquant_manifest.json` records a filesystem path as `source_model.model_id`. It
+also logs `publication_path_shaped_identity` listing any other packaged file that
+records a path-shaped `model`/`model_id` — a report, not a rejection, while the
+remaining evidence writers are brought in line. A
 locally sourced run records its `--model` argument as `model_id` when no
 `--model-id` is given, which would upload the operator's directory to the Hub.
 Re-run the pipeline that produced the evidence with an explicit `--model-id` so

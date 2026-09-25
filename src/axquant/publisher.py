@@ -53,7 +53,7 @@ from axquant.schema import (
     ReleaseValidationIndex,
 )
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
-from axquant.source_binding import artifact_identity_issues
+from axquant.source_binding import artifact_identity_issues, tree_identity_issues
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -611,6 +611,12 @@ def publish_model(
         raise PublishingError(
             "publication identity is not publishable: " + "; ".join(identity_issues)
         )
+    # Report, do not deny, the rest of the tree: other evidence files may still
+    # record a path-shaped identity, and this is the list a stricter gate would
+    # reject (AXQ-048, remaining evidence writers).
+    tree_identity = tree_identity_issues(directory)
+    if tree_identity:
+        _LOG.warning("publication_path_shaped_identity", files=tree_identity)
     request_schema: str | None = None
     if release_audit_request_path is not None:
         payload = read_data(release_audit_request_path)
