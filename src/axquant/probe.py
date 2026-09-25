@@ -361,6 +361,42 @@ def _module_param_paths(root_name: str, module: Any) -> set[str]:
     return paths
 
 
+# Qwen3_5MoE MTP sidecar stacks the routed experts as 3-D tensors:
+# ``mlp.experts.gate_up_proj`` is (experts, 2 * intermediate, hidden) with the
+# gate and up projections concatenated along the intermediate axis, and
+# ``mlp.experts.down_proj`` is (experts, hidden, intermediate). The MLX-LM
+# decoder layer class exposes them as SwitchGLU projections with separate
+# weights, so the stacked tensor is halved at load.
+_MOE_GATE_UP_KEY = "mlp.experts.gate_up_proj"
+_MOE_DOWN_KEY = "mlp.experts.down_proj"
+_MOE_SWITCH_LEAVES = {
+    "mlp.switch_mlp.gate_proj.weight": _MOE_GATE_UP_KEY,
+    "mlp.switch_mlp.up_proj.weight": _MOE_GATE_UP_KEY,
+    "mlp.switch_mlp.down_proj.weight": _MOE_DOWN_KEY,
+}
+
+
+def _sidecar_leaf_source(
+    leaf: str, mapping: Mapping[str, _MtpTensorRef]
+) -> tuple[str, _MtpTensorRef, int | None] | None:
+    """Resolve a decoder-layer leaf to its sidecar source tensor.
+
+    Returns ``(source_key, ref, gate_up_half)`` where ``gate_up_half`` is 0
+    (gate) or 1 (up) for the concatenated Qwen3_5MoE projection, else None.
+    Direct names win; unknown leaves return None so the caller fails closed.
+    """
+    ref = mapping.get(leaf)
+    if ref is not None:
+        return leaf, ref, None
+    source_key = _MOE_SWITCH_LEAVES.get(leaf)
+    if source_key is not None and source_key in mapping:
+        if source_key == _MOE_GATE_UP_KEY:
+            half = 0 if leaf.endswith("gate_proj.weight") else 1
+            return source_key, mapping[source_key], half
+        return source_key, mapping[source_key], None
+    return None
+
+
 class MlxProbeBackend:
     """MLX-based probe backend with lazy imports.
 
@@ -472,17 +508,20 @@ class MlxProbeBackend:
     def _build_sidecar_mtp_capability(self, embedding: Any) -> bool:
         """Rebuild an integrated MTP block that the MLX-LM sanitizer stripped (MH6).
 
-        Qwen3.5 / Qwen3-Next native MTP checkpoints keep the draft block in
-        ``mtp.*`` tensors that ``mlx_lm.load`` drops, so the loaded model
-        exposes no MTP modules. When the checkpoint directory still holds
-        them (a dedicated ``mtp.safetensors`` or ``mtp.`` keys inside the
-        indexed shards), the block is reconstructed with the model's own
+        Qwen3.5 / Qwen3-Next / Qwen3_5MoE native MTP checkpoints keep the draft
+        block in ``mtp.*`` tensors that ``mlx_lm.load`` drops, so the loaded
+        model exposes no MTP modules. When the checkpoint directory still
+        holds them (a dedicated ``mtp.safetensors`` or ``mtp.`` keys inside
+        the indexed shards), the block is reconstructed with the model's own
         full-attention decoder layer class:
 
         ``fc(cat([pre_fc_norm_embedding(embed(t+1)),
         pre_fc_norm_hidden(hidden_t)]))`` -> MTP decoder layer(s) -> ``norm``
         -> draft head. Norm weights are stored shifted (gamma - 1) and get
-        ``_MTP_NORM_SHIFT`` added back.
+        ``_MTP_NORM_SHIFT`` added back. MoE MTP layers store the routed
+        experts as stacked 3-D tensors (``mlp.experts.gate_up_proj`` =
+        gate||up); they are split into the SwitchGLU projections the decoder
+        layer class exposes (``_sidecar_leaf_source``).
 
         Every structural deviation leaves the capability off (fail closed).
         """
@@ -625,16 +664,27 @@ class MlxProbeBackend:
                 if isinstance(value, dict):
                     assign(value, path)
                     continue
-                ref = mapping.get(path)
-                if ref is None:
+                source = _sidecar_leaf_source(path, mapping)
+                if source is None:
                     raise ProbeError(f"MTP sidecar has no weight for layer leaf {path!r}")
-                if tuple(ref.shape) != tuple(value.shape):
+                source_key, ref, gate_up_half = source
+                array = _read_safetensors_tensor(ref)
+                if gate_up_half is not None:
+                    if len(ref.shape) != 3 or ref.shape[1] % 2 != 0:
+                        raise ProbeError(
+                            f"MTP sidecar gate_up projection must be 3-D with an even "
+                            f"intermediate axis, got {ref.shape} for {source_key!r}"
+                        )
+                    width = ref.shape[1] // 2
+                    array = array[:, gate_up_half * width : (gate_up_half + 1) * width, :]
+                if tuple(array.shape) != tuple(value.shape):
                     raise ProbeError(
                         f"MTP sidecar shape mismatch for {path!r}: "
-                        f"{ref.shape} vs module {tuple(value.shape)}"
+                        f"{tuple(array.shape)} from {source_key!r} "
+                        f"vs module {tuple(value.shape)}"
                     )
-                node[key] = _read_safetensors_tensor(ref)
-                consumed.add(path)
+                node[key] = array
+                consumed.add(source_key)
 
         assign(tree, "")
         extra = sorted(set(mapping) - consumed)

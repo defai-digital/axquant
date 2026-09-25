@@ -698,3 +698,252 @@ def test_sidecar_module_quantize_and_restore_roundtrip(tmp_path: Path) -> None:
     assert np.allclose(
         np.asarray(backend.forward_mtp(tokens, hidden).draft_logits), reference, atol=1e-4
     )
+
+
+# --- Qwen3_5MoE MTP sidecar layout (real-checkpoint convention) ---
+#
+# The cert-track MoE pack (AX-Qwen3.6-35B-A3B-MLX-AXQ-4bit-MTP, validated on
+# hardware 2026-09-25) stores the MTP layer's routed experts as stacked 3-D
+# tensors: ``mlp.experts.gate_up_proj`` (experts, 2 * intermediate, hidden)
+# concatenates gate||up, and ``mlp.experts.down_proj`` is
+# (experts, hidden, intermediate). The decoder layer class exposes SwitchGLU
+# projections, so the stacked tensor is halved at reconstruction
+# (``_sidecar_leaf_source``). Router ``mlp.gate.weight`` and
+# ``mlp.shared_expert*_gate.weight`` are plain 2-D weights and are not norm
+# shifted; all 1-D norm weights keep the +1.0 storage shift.
+
+_MOE_HIDDEN = 128
+_MOE_EXPERTS = 4
+_MOE_INTER = 8
+
+
+def _write_synthetic_moe_sidecar(
+    model_dir: Path,
+    *,
+    hidden: int = _MOE_HIDDEN,
+    experts: int = _MOE_EXPERTS,
+    inter: int = _MOE_INTER,
+    gate_value: float = 0.11,
+    up_value: float = 0.77,
+) -> dict[str, np.ndarray]:
+    """Synthetic mtp.safetensors with the real Qwen3_5MoE key layout.
+
+    The gate_up tensor uses two distinct constant halves so tests can verify
+    the gate||up split order.
+    """
+    from safetensors.numpy import save_file
+
+    rng = np.random.default_rng(9)
+    arrays: dict[str, np.ndarray] = {}
+    dense_names = [
+        "mtp.fc.weight",
+        "mtp.pre_fc_norm_embedding.weight",
+        "mtp.pre_fc_norm_hidden.weight",
+        "mtp.norm.weight",
+        "mtp.layers.0.input_layernorm.weight",
+        "mtp.layers.0.post_attention_layernorm.weight",
+        "mtp.layers.0.self_attn.q_proj.weight",
+        "mtp.layers.0.self_attn.k_proj.weight",
+        "mtp.layers.0.self_attn.v_proj.weight",
+        "mtp.layers.0.self_attn.o_proj.weight",
+        "mtp.layers.0.self_attn.q_norm.weight",
+        "mtp.layers.0.self_attn.k_norm.weight",
+        "mtp.layers.0.mlp.gate.weight",
+        "mtp.layers.0.mlp.shared_expert.gate_proj.weight",
+        "mtp.layers.0.mlp.shared_expert.up_proj.weight",
+        "mtp.layers.0.mlp.shared_expert.down_proj.weight",
+        "mtp.layers.0.mlp.shared_expert_gate.weight",
+    ]
+    for name in dense_names:
+        if name == "mtp.fc.weight":
+            arrays[name] = (rng.standard_normal((hidden, 2 * hidden)) * 0.02).astype(np.float16)
+        elif name.endswith(("q_proj.weight",)):
+            arrays[name] = (rng.standard_normal((2 * hidden, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith(("k_proj.weight", "v_proj.weight")):
+            arrays[name] = (rng.standard_normal((hidden, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("o_proj.weight"):
+            arrays[name] = (rng.standard_normal((hidden, 2 * hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("q_norm.weight"):
+            arrays[name] = (0.5 + rng.standard_normal((2 * hidden,)) * 0.01).astype(np.float16)
+        elif name.endswith("k_norm.weight"):
+            arrays[name] = (0.5 + rng.standard_normal((hidden,)) * 0.01).astype(np.float16)
+        elif name == "mtp.layers.0.mlp.gate.weight":
+            arrays[name] = (rng.standard_normal((experts, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith(("shared_expert.gate_proj.weight", "shared_expert.up_proj.weight")):
+            arrays[name] = (rng.standard_normal((inter, hidden)) * 0.02).astype(np.float16)
+        elif name.endswith("shared_expert.down_proj.weight"):
+            arrays[name] = (rng.standard_normal((hidden, inter)) * 0.02).astype(np.float16)
+        elif name.endswith("shared_expert_gate.weight"):
+            arrays[name] = (rng.standard_normal((1, hidden)) * 0.02).astype(np.float16)
+        else:  # 1-D RMSNorm weights, stored in the shifted (gamma - 1) convention
+            arrays[name] = (0.5 + rng.standard_normal((hidden,)) * 0.01).astype(np.float16)
+    gate_half = np.full((experts, inter, hidden), gate_value, dtype=np.float16)
+    up_half = np.full((experts, inter, hidden), up_value, dtype=np.float16)
+    arrays["mtp.layers.0.mlp.experts.gate_up_proj"] = np.concatenate([gate_half, up_half], axis=1)
+    arrays["mtp.layers.0.mlp.experts.down_proj"] = (
+        rng.standard_normal((experts, hidden, inter)) * 0.02
+    ).astype(np.float16)
+    save_file(arrays, str(model_dir / "mtp.safetensors"))
+    return arrays
+
+
+def _fake_moe_sidecar_model(
+    vocab: int = 64, hidden: int = _MOE_HIDDEN, experts: int = _MOE_EXPERTS, inter: int = _MOE_INTER
+) -> Any:
+    """Tiny Qwen3_5MoE-shaped nn.Module tree (needs mlx)."""
+    mlx = pytest.importorskip("mlx.core")
+    nn = pytest.importorskip("mlx.nn")
+
+    class _Args:
+        def __init__(self) -> None:
+            self.hidden_size = hidden
+            self.rms_norm_eps = 1e-6
+            self.tie_word_embeddings = False
+            self.num_experts = experts
+            self.moe_intermediate_size = inter
+            self.shared_expert_intermediate_size = inter
+
+    class _Attn(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.q_proj = nn.Linear(dim, 2 * dim, bias=False)
+            self.k_proj = nn.Linear(dim, dim, bias=False)
+            self.v_proj = nn.Linear(dim, dim, bias=False)
+            self.o_proj = nn.Linear(2 * dim, dim, bias=False)
+            self.q_norm = nn.RMSNorm(2 * dim, eps=args.rms_norm_eps)
+            self.k_norm = nn.RMSNorm(dim, eps=args.rms_norm_eps)
+
+        def __call__(self, x: Any, mask: Any = None, cache: Any = None) -> Any:
+            del mask, cache
+            queries = mlx.tanh(self.q_norm(self.q_proj(x)))
+            gate = mlx.concatenate([self.k_norm(self.k_proj(x)), self.v_proj(x)], axis=-1)
+            return self.o_proj(queries * mlx.sigmoid(gate))
+
+    class _SwitchLinear(nn.Module):
+        """Shape-compatible stand-in for mlx SwitchLinear (3-D stacked weight)."""
+
+        def __init__(self, in_dim: int, out_dim: int, num_experts: int) -> None:
+            self.weight = mlx.zeros((num_experts, out_dim, in_dim))
+
+        def __call__(self, x: Any, indices: Any) -> Any:
+            del indices
+            # Dense weighted-expert computation: (B, P, E, out). Accepts
+            # token input (B, P, in) or per-expert input (B, P, E, in).
+            outs = []
+            for i in range(self.weight.shape[0]):
+                per = x[..., i, :] if x.ndim == 4 else x
+                outs.append(per @ self.weight[i].swapaxes(-1, -2))
+            return mlx.stack(outs, axis=-2)
+
+    class _MoeMlp(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.gate = nn.Linear(dim, args.num_experts, bias=False)
+            self.switch_mlp = _SwitchGlu(args)
+            self.shared_expert = _SharedExpert(args)
+            self.shared_expert_gate = nn.Linear(dim, 1, bias=False)
+
+        def __call__(self, x: Any) -> Any:
+            weights = mlx.softmax(self.gate(x), axis=-1)  # (B, P, E)
+            gate = self.switch_mlp.gate_proj(x, None)  # (B, P, E, I)
+            up = self.switch_mlp.up_proj(x, None)
+            activated = nn.silu(gate) * up
+            routed = self.switch_mlp.down_proj(activated, None)  # (B, P, E, H)
+            y = (routed * weights[..., None]).sum(axis=-2)
+            shared = self.shared_expert(x)
+            return y + mlx.sigmoid(self.shared_expert_gate(x)) * shared
+
+    class _SwitchGlu(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.gate_proj = _SwitchLinear(dim, args.moe_intermediate_size, args.num_experts)
+            self.up_proj = _SwitchLinear(dim, args.moe_intermediate_size, args.num_experts)
+            self.down_proj = _SwitchLinear(args.moe_intermediate_size, dim, args.num_experts)
+
+    class _SharedExpert(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            dim = args.hidden_size
+            self.gate_proj = nn.Linear(dim, args.shared_expert_intermediate_size, bias=False)
+            self.up_proj = nn.Linear(dim, args.shared_expert_intermediate_size, bias=False)
+            self.down_proj = nn.Linear(args.shared_expert_intermediate_size, dim, bias=False)
+
+        def __call__(self, x: Any) -> Any:
+            return self.down_proj(nn.silu(self.gate_proj(x)) * self.up_proj(x))
+
+    class _Layer(nn.Module):
+        def __init__(self, args: _Args, layer_idx: int) -> None:
+            del layer_idx
+            self.self_attn = _Attn(args)
+            self.input_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+            self.post_attention_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+            self.mlp = _MoeMlp(args)
+
+        def __call__(self, x: Any, mask: Any = None, cache: Any = None) -> Any:
+            hidden = x + self.self_attn(self.input_layernorm(x), mask=mask, cache=cache)
+            return hidden + self.mlp(self.post_attention_layernorm(hidden))
+
+    class _Backbone(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            self.embed_tokens = nn.Embedding(vocab, args.hidden_size)
+            self.layers = [_Layer(args, 0), _Layer(args, 1)]
+            self.norm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
+
+    class _TextModel(nn.Module):
+        def __init__(self, args: _Args) -> None:
+            self.args = args
+            self.model = _Backbone(args)
+            self.lm_head = nn.Linear(args.hidden_size, vocab, bias=False)
+
+    class _Model(nn.Module):
+        def __init__(self) -> None:
+            self.language_model = _TextModel(_Args())
+
+    return _Model()
+
+
+def test_sidecar_capability_reconstructs_moe_layout(tmp_path: Path) -> None:
+    mlx = pytest.importorskip("mlx.core")
+    stored = _write_synthetic_moe_sidecar(tmp_path)
+    backend = _detect_on_fake_model(tmp_path, _fake_moe_sidecar_model())
+
+    assert backend.supports_mtp_forward
+    layer = backend._mtp_sidecar["layers"][0]
+    # gate||up split order: gate half first (locked on the real MoE pack).
+    gate_proj = np.asarray(layer.mlp.switch_mlp.gate_proj.weight.astype(mlx.float32))
+    up_proj = np.asarray(layer.mlp.switch_mlp.up_proj.weight.astype(mlx.float32))
+    assert np.allclose(gate_proj, 0.11, atol=1e-3)
+    assert np.allclose(up_proj, 0.77, atol=1e-3)
+    down_proj = np.asarray(layer.mlp.switch_mlp.down_proj.weight.astype(mlx.float32))
+    expected_down = stored["mtp.layers.0.mlp.experts.down_proj"].astype(np.float32)
+    assert np.allclose(down_proj, expected_down, atol=1e-3)
+    # 2-D router and shared-expert-gate weights are not norm shifted.
+    router = np.asarray(layer.mlp.gate.weight.astype(mlx.float32))
+    assert np.allclose(router, stored["mtp.layers.0.mlp.gate.weight"].astype(np.float32), atol=1e-3)
+    # 1-D norm weights keep the +1.0 storage shift.
+    norm_w = np.asarray(backend._mtp_sidecar["pre_fc_norm_embedding"].weight.astype(mlx.float32))
+    assert np.allclose(
+        norm_w,
+        stored["mtp.pre_fc_norm_embedding.weight"].astype(np.float32) + 1.0,
+        atol=1e-3,
+    )
+
+    rng = np.random.default_rng(5)
+    tokens = rng.integers(0, 64, size=(1, 12)).astype(np.int32)
+    hidden = rng.standard_normal((1, 5, _MOE_HIDDEN)).astype(np.float32)
+    result = backend.forward_mtp(tokens, hidden)
+    assert result.draft_logits.shape == (1, 5, 64)
+    assert np.isfinite(result.draft_logits).all()
+
+
+def test_sidecar_capability_fails_closed_on_odd_gate_up(tmp_path: Path) -> None:
+    stored = _write_synthetic_moe_sidecar(tmp_path)
+    # Corrupt the stacked projection to an odd intermediate axis.
+    stored["mtp.layers.0.mlp.experts.gate_up_proj"] = stored[
+        "mtp.layers.0.mlp.experts.gate_up_proj"
+    ][:, :15, :]
+    from safetensors.numpy import save_file
+
+    save_file(stored, str(tmp_path / "mtp.safetensors"))
+    backend = _detect_on_fake_model(tmp_path, _fake_moe_sidecar_model())
+    assert not backend.supports_mtp_forward
+    assert backend._mtp_sidecar is None
