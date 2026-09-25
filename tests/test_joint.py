@@ -42,6 +42,11 @@ from axquant.schema import (
     SoftwareVersions,
 )
 from axquant.serde import load_model, stable_sha256, write_data
+from axquant.source_binding import (
+    binding_path_beside,
+    load_source_plan_binding,
+    source_binding_issues,
+)
 
 
 def _enable_kv_accounting(model_dir: Path) -> None:
@@ -776,6 +781,11 @@ def test_plan_joint_cli_writes_convert_ready_plan(
     assert selection.certification_eligible is False
     assert selection.selection_basis == "independent"
     assert selection.plan_sha256 == stable_sha256(plan)
+    # AXQ-048: the joint plan carries its run's source binding, so converting it
+    # from the same local directory is verified rather than fail-closed.
+    binding = load_source_plan_binding(binding_path_beside(output / "axquant_plan.json"))
+    assert binding.source_model.local_path is None
+    assert source_binding_issues(binding=binding, plan=plan, source_dir=tiny_model_dir) == []
 
 
 def _measured_sensitivity_with_zero_mtp_signal(model_dir: Path, path: Path) -> Path:

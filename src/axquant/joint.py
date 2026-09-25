@@ -51,6 +51,7 @@ from axquant.schema.loading import (
     load_sensitivity_report,
 )
 from axquant.serde import load_model, stable_sha256, write_data, write_text
+from axquant.source_binding import binding_path_beside, build_source_plan_binding
 
 _LAYER_INDEX = re.compile(r"\.layers\.(\d+)\.")
 _BETA_NOTE = (
@@ -809,6 +810,25 @@ I-gated WeightPlan x KVPlan search. This writes a development plan for
 """
 
 
+def _write_joint_source_binding(
+    plan_path: Path,
+    plan: QuantizationPlan,
+    source_dir: str | Path,
+) -> None:
+    """Bind a joint plan to the directory this run planned from (AXQ-048).
+
+    Joint selection is a development command whose plan and source belong to the
+    same run, so this is provenance for that run — not an origin proof for a
+    checkpoint measured elsewhere. A source that is not present locally gets no
+    binding, and converting the plan from a local directory then fails closed.
+    """
+
+    root = Path(source_dir).expanduser()
+    if not (root / "config.json").is_file():
+        return
+    write_data(binding_path_beside(plan_path), build_source_plan_binding(plan, root))
+
+
 def plan_joint_allocation(
     *,
     model_dir: str | Path,
@@ -928,6 +948,7 @@ def plan_joint_allocation(
             notes=notes,
         )
         write_data(output / "axquant_plan.json", independent_plan)
+        _write_joint_source_binding(output / "axquant_plan.json", independent_plan, model_dir)
         write_data(output / "joint-selection.json", selection)
         write_text(output / "joint-selection.md", joint_selection_markdown(selection))
         return selection
@@ -1002,6 +1023,7 @@ def plan_joint_allocation(
         notes=notes,
     )
     write_data(output / "axquant_plan.json", plan)
+    _write_joint_source_binding(output / "axquant_plan.json", plan, model_dir)
     write_data(output / "joint-selection.json", selection)
     write_text(output / "joint-selection.md", joint_selection_markdown(selection))
     return selection
