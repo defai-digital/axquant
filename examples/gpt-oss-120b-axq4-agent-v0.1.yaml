@@ -3,7 +3,7 @@
 # Prefer this over re-packing mlx-community MXFP4-Q4 (avoids double-quant of attention).
 # Prior architecture_prior 4-bit from community Q4 failed agent-coding (0.952 < 0.98).
 # Strategy: experts 4-bit trunk; attention 8-bit; protect router/norm/lm_head.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 5.1
 default_bits: 4

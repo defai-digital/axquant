@@ -1,6 +1,6 @@
 # Flash-0731 6-bit trunk, group 128 so 192 GB has a chance to generate.
 # Ship SKU. Not 3-bit. Not mlx-optiq.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 6

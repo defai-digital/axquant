@@ -9,6 +9,8 @@ from pydantic import Field, JsonValue, field_validator, model_validator
 from axquant.revisions import is_immutable_revision
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
 from axquant.schema.enums import (
+    MXFP4_BITS,
+    MXFP4_GROUP_SIZE,
     BaselineKind,
     BenchmarkEvidenceKind,
     EvidenceKind,
@@ -1332,9 +1334,21 @@ class QuantizerExecutionRecord(StrictModel):
     note: str | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def mxfp4_requires_4bit_group32(self) -> QuantizerExecutionRecord:
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 quantizer records require {MXFP4_BITS}-bit with group size "
+                f"{MXFP4_GROUP_SIZE}: {self.module_path} is {self.bits}-bit "
+                f"with group size {self.group_size}"
+            )
+        return self
+
 
 class QuantizerExecutionManifest(StrictModel):
-    schema_version: Literal["axquant.quantizer-execution.v1"] = "axquant.quantizer-execution.v1"
+    schema_version: Literal["axquant.quantizer-execution.v2"] = "axquant.quantizer-execution.v2"
     plan_sha256: str
     records: list[QuantizerExecutionRecord]
     created_at: datetime = Field(default_factory=utc_now)
@@ -1369,7 +1383,7 @@ class RefinementConfig(StrictModel):
 
 
 class RefinementResult(StrictModel):
-    schema_version: Literal["axquant.refinement.v2"] = "axquant.refinement.v2"
+    schema_version: Literal["axquant.refinement.v3"] = "axquant.refinement.v3"
     config: RefinementConfig
     history: list[CandidateEntry]
     candidate_plans: dict[str, QuantizationPlan]
@@ -1580,6 +1594,13 @@ class HardwareKernelCoverage(StrictModel):
 
     @model_validator(mode="after")
     def precision_fields_are_consistent(self) -> HardwareKernelCoverage:
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 hardware coverage requires {MXFP4_BITS}-bit with group size "
+                f"{MXFP4_GROUP_SIZE}"
+            )
         if self.bits == 16:
             if self.method != QuantMethod.BF16 or self.group_size is not None:
                 raise ValueError("16-bit hardware coverage must be ungrouped BF16")
@@ -1641,7 +1662,7 @@ class HardwareRegistryEntry(StrictModel):
 
 
 class HardwareProfileRegistry(StrictModel):
-    schema_version: Literal["axquant.hardware-registry.v3"] = "axquant.hardware-registry.v3"
+    schema_version: Literal["axquant.hardware-registry.v4"] = "axquant.hardware-registry.v4"
     registry_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     measurement_set_sha256: str
     measurement_set_file: str = Field(min_length=1)

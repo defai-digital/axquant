@@ -2,7 +2,7 @@
 # Same layout as Holo3 attn-6 / expert-4: architecture-prior 4-bit on this
 # 35B-A3B family failed Holo3 agent-coding (0.9793). Keep experts at 4-bit.
 # Source: deepreinforce-ai/Ornith-1.0-35B@5df2ed3f675c7beaa490328cc70bb573b65fb660
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 5.0
 default_bits: 4

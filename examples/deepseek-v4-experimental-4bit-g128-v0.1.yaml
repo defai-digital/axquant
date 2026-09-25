@@ -1,6 +1,6 @@
 # Flash-0731 4-bit trunk, group 128 — smaller than group-32 so 192 GB can generate.
 # Development only. Not mlx-optiq.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

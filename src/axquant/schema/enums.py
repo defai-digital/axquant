@@ -36,6 +36,14 @@ class QuantMethod(StrEnum):
     # as ``gptq``, distinct label so the probe measures it as its own candidate.
     GPTQ_ACT = "gptq-act"
     BF16 = "bf16"
+    # Native MLX MXFP4 block-float packing (ADR-0015 / AXQ-046 MH5). First-class
+    # planner/probe method, constrained to bits=4 / group_size=32 wherever a
+    # method-bearing allocation or params model is constructed.
+    MXFP4 = "mxfp4"
+
+
+MXFP4_BITS = 4
+MXFP4_GROUP_SIZE = 32
 
 
 class ScaleStrategy(StrEnum):

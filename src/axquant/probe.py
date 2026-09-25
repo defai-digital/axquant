@@ -3,6 +3,12 @@
 Implements per-tensor and module-group sensitivity probing using MLX
 forward passes.  MLX is a lazy optional dependency imported only when
 the probe backend is actually invoked.
+
+MH6 (AXQ-046): backends may optionally declare an MTP teacher-forced
+forward (``supports_mtp_forward`` / ``forward_mtp``) so MTP-role
+candidates record a measured, strictly-positive acceptance proxy loss
+instead of the honest 0.0 unmeasured marker. See MlxProbeBackend for the
+supported-layout limits of the MLX implementation.
 """
 
 from __future__ import annotations
@@ -11,7 +17,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import structlog
 
@@ -47,10 +53,16 @@ from axquant.schema import (
     TensorSpec,
     TokenizedCacheManifest,
 )
+from axquant.schema.loading import (
+    load_probe_progress,
+)
 from axquant.schema.sensitivity import candidate_key
 from axquant.serde import load_model, stable_sha256, write_data
 
 log = structlog.get_logger()
+
+_MXFP4_CANDIDATE_BITS = 4
+_MXFP4_CANDIDATE_GROUP_SIZE = 32
 
 _MIN_RELEASE_CALIBRATION_SAMPLES = 128
 _MIN_RELEASE_CALIBRATION_TOKENS = 8192
@@ -62,6 +74,13 @@ _REQUIRED_AGENT_CODING_DOMAINS = {
     "long-context",
 }
 _PROBE_BACKEND_VERSION = "axquant-mlx-isolated-probe-v6"
+# MH6 (AXQ-046): the MH1 gate treats any non-zero mtp_acceptance_loss as
+# measured, so a measured proxy is floored at epsilon to stay strictly
+# positive even when draft tokens agree perfectly. 1e-6 is far below the
+# smallest observable disagreement (1/metric_positions per sample) and far
+# below any profile weight scale, so the floor never inverts a real
+# candidate comparison.
+MTP_ACCEPTANCE_LOSS_EPSILON = 1e-6
 # Methods that refine the float weight before identical affine packing. They
 # reuse the matching AFFINE candidate as the hardware-cost control.
 _REFINEMENT_METHODS = frozenset(
@@ -95,6 +114,17 @@ class ForwardResult:
     token_count: int = 0
     peak_memory_bytes: int | None = None
     latency_seconds: float = 0.0
+    # MH6: draft-token logits from a teacher-forced MTP forward at the same
+    # metric positions as logits/hidden_states; None when the backend cannot
+    # run an MTP forward or hidden states were not captured.
+    mtp_draft_logits: Any = None
+
+
+@dataclass
+class MtpForwardResult:
+    """Draft-token logits from a teacher-forced MTP forward (MH6)."""
+
+    draft_logits: Any
 
 
 class ProbeBackend(Protocol):
@@ -123,6 +153,37 @@ class ProbeBackend(Protocol):
         ...
 
 
+class MtpForwardBackend(Protocol):
+    """Optional MH6 capability: teacher-forced MTP forward.
+
+    Backends declare ``supports_mtp_forward = True`` (set only when the
+    loaded model actually exposes usable MTP modules) and implement
+    ``forward_mtp`` to draft-token logits for the current in-memory module
+    state. Backends without this capability keep producing the honest 0.0
+    unmeasured marker in MetricVector.mtp_acceptance_loss.
+    """
+
+    supports_mtp_forward: bool
+
+    def forward_mtp(self, input_ids: Any, hidden_states: Any) -> MtpForwardResult:
+        """Draft-token logits of the MTP block teacher-forced with trunk hidden states."""
+        ...
+
+
+def _mtp_forward_capability(backend: ProbeBackend) -> MtpForwardBackend | None:
+    """Return the backend's MTP forward capability when fully declared.
+
+    A capability flag without a callable forward is treated as unsupported:
+    the probe must fail closed to the unmeasured zero marker, never guess.
+    """
+    if not bool(getattr(backend, "supports_mtp_forward", False)):
+        return None
+    forward_mtp = getattr(backend, "forward_mtp", None)
+    if not callable(forward_mtp):
+        return None
+    return cast(MtpForwardBackend, backend)
+
+
 def _candidate_bits_for_tensor(tensor: TensorSpec, config: ProbeConfig) -> tuple[int, ...]:
     """Apply role floors without turning every protected recommendation into BF16-only."""
     if not tensor.quantizable:
@@ -135,7 +196,20 @@ def _candidate_bits_for_tensor(tensor: TensorSpec, config: ProbeConfig) -> tuple
 
 
 class MlxProbeBackend:
-    """MLX-based probe backend with lazy imports."""
+    """MLX-based probe backend with lazy imports.
+
+    MH6 (AXQ-046): optionally supports a teacher-forced MTP forward used to
+    measure MTP acceptance proxy losses. Public MLX-LM has no stable
+    cross-architecture MTP entry point, so capability is duck-typed after
+    load: the model must expose MTP-block modules (a named module with an
+    ``mtp`` path segment) plus a resolvable token embedding and draft output
+    head. ``forward_mtp`` additionally fails closed: any runtime uncertainty
+    (missing modules, block signature mismatch, shape mismatch) raises
+    ProbeError and the probe records the honest 0.0 unmeasured marker.
+    Checkpoints whose MTP block does not accept a bare hidden-state argument
+    (e.g. architectures requiring explicit masks/caches) therefore keep the
+    unmeasured marker instead of producing guessed acceptance evidence.
+    """
 
     def __init__(self, *, calibration_activations: Mapping[str, Any] | None = None) -> None:
         self._model: Any = None
@@ -144,6 +218,9 @@ class MlxProbeBackend:
         self._mlx_lm: Any = None
         self._calibration_activations = dict(calibration_activations or {})
         self.metric_positions_per_sample = 32
+        self.supports_mtp_forward = False
+        self._mtp_blocks: list[Any] = []
+        self._embed_tokens_module: Any = None
 
     def _ensure_mlx(self) -> None:
         if self._mlx is not None:
@@ -163,7 +240,121 @@ class MlxProbeBackend:
         loaded = self._mlx_lm.load(str(model_dir), lazy=False)
         self._model = loaded[0]
         self._mlx.eval(self._model.parameters())
-        log.info("probe_model_loaded", model_dir=str(model_dir))
+        self._detect_mtp_forward_capability()
+        log.info(
+            "probe_model_loaded",
+            model_dir=str(model_dir),
+            supports_mtp_forward=self.supports_mtp_forward,
+        )
+
+    def _detect_mtp_forward_capability(self) -> None:
+        """Duck-type the pieces a teacher-forced MTP forward needs (MH6).
+
+        The flag stays False unless every structural prerequisite resolves;
+        runtime failures inside forward_mtp are additionally converted to
+        ProbeError so the probe falls back to the unmeasured zero marker.
+        """
+        self.supports_mtp_forward = False
+        self._mtp_blocks = []
+        self._embed_tokens_module = None
+        if self._model is None:
+            return
+        named = {str(name): module for name, module in self._model.named_modules() if name}
+        mtp_names = [name for name in named if any(part == "mtp" for part in name.split("."))]
+        if not mtp_names:
+            return
+        # Keep only the outermost MTP containers; nested projections must not
+        # be invoked as standalone blocks.
+        blocks = [
+            named[name]
+            for name in sorted(mtp_names)
+            if not any(other != name and other.startswith(f"{name}.") for other in mtp_names)
+        ]
+        if not blocks or any(not callable(block) for block in blocks):
+            return
+        embedding = self._resolve_embedding_module(named)
+        if embedding is None:
+            return
+        self._mtp_blocks = blocks
+        self._embed_tokens_module = embedding
+        self.supports_mtp_forward = True
+
+    def _resolve_embedding_module(self, named: Mapping[str, Any]) -> Any | None:
+        candidates = set()
+        for probe in ("model.embed_tokens.weight", "language_model.model.embed_tokens.weight"):
+            for alias in mlx_module_aliases(probe):
+                candidates.add(alias[: -len(".weight")] if alias.endswith(".weight") else alias)
+        for name in sorted(candidates, key=len, reverse=True):
+            module = named.get(name)
+            if module is not None and callable(module):
+                return module
+        return None
+
+    def forward_mtp(self, input_ids: Any, hidden_states: Any) -> MtpForwardResult:
+        """Teacher-force the loaded model's MTP blocks and return draft logits.
+
+        DeepSeek/Qwen-Next MTP convention: the draft block at position t sees
+        the embedding of token t+1 fused with the trunk hidden state at t.
+        The returned logits sit at the same metric positions as the trunk
+        hidden states, so reference and candidate drafts compare position by
+        position. Fail closed: any structural uncertainty raises ProbeError.
+        """
+        self._ensure_mlx()
+        if self._model is None:
+            raise ProbeError("model not loaded")
+        if not self.supports_mtp_forward:
+            raise ProbeError("loaded model exposes no usable MTP modules")
+        try:
+            import numpy as np
+        except ImportError:
+            raise BackendUnavailableError("MLX probing requires numpy") from None
+        tokens = self._mlx.array(np.asarray(input_ids, dtype=np.int32))
+        if tokens.ndim == 1:
+            tokens = tokens[None, :]
+        hidden = self._mlx.array(np.asarray(hidden_states, dtype=np.float32))
+        positions = int(hidden.shape[1]) if hidden.ndim == 3 else 0
+        if positions < 1 or tokens.ndim != 2 or hidden.shape[0] != tokens.shape[0]:
+            raise ProbeError(
+                "MTP forward shape mismatch: "
+                f"tokens {tuple(tokens.shape)}, hidden {tuple(hidden.shape)}"
+            )
+        try:
+            embedded = self._embed_tokens_module(tokens)
+            if isinstance(embedded, (tuple, list)):
+                embedded = embedded[0]
+            if int(embedded.shape[1]) < positions:
+                raise ProbeError(
+                    "MTP forward shape mismatch: embedding has fewer positions "
+                    f"({int(embedded.shape[1])}) than trunk hidden states ({positions})"
+                )
+            # Trunk hidden states cover tokens[:-1] at the metric positions;
+            # the draft input at those positions pairs them with the trailing
+            # token embeddings (token t+1 fused with hidden state t).
+            mtp_input = self._mlx.concatenate([embedded[:, -positions:], hidden], axis=-1)
+            block_out: Any = mtp_input
+            for block in self._mtp_blocks:
+                block_out = block(block_out)
+                if isinstance(block_out, (tuple, list)):
+                    block_out = block_out[0]
+            language_model = getattr(self._model, "language_model", None)
+            tied = bool(
+                getattr(getattr(language_model, "args", None), "tie_word_embeddings", False)
+            )
+            if tied and hasattr(self._embed_tokens_module, "as_linear"):
+                draft_logits = self._embed_tokens_module.as_linear(block_out)
+            else:
+                head_root = language_model if language_model is not None else self._model
+                lm_head = getattr(head_root, "lm_head", None)
+                if not callable(lm_head):
+                    raise ProbeError("cannot resolve a draft output head for MTP forward")
+                draft_logits = lm_head(block_out)
+        except ProbeError:
+            raise
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise ProbeError(f"MTP forward failed: {exc}") from exc
+        draft_logits = draft_logits.astype(self._mlx.float32)
+        self._mlx.eval(draft_logits)
+        return MtpForwardResult(draft_logits=np.asarray(draft_logits))
 
     def quantize_module(
         self,
@@ -182,11 +373,17 @@ class MlxProbeBackend:
         to_quantized = getattr(module, "to_quantized", None)
         if not callable(to_quantized):
             raise ProbeError(f"module does not support affine quantization: {resolved_path}")
-        if method not in {QuantMethod.AFFINE, *_REFINEMENT_METHODS}:
+        if method not in {QuantMethod.AFFINE, QuantMethod.MXFP4, *_REFINEMENT_METHODS}:
             raise ProbeError(f"probe backend does not support method {method.value}")
         original_weight = getattr(module, "weight", None)
         mutation_installed = False
         try:
+            quantized_mode = "affine"
+            if method == QuantMethod.MXFP4:
+                # ADR-0015 / AXQ-046 MH5: native MLX MXFP4 block-float packing.
+                if bits != _MXFP4_CANDIDATE_BITS or group_size != _MXFP4_CANDIDATE_GROUP_SIZE:
+                    raise ProbeError("mxfp4 probe candidates require 4-bit with group size 32")
+                quantized_mode = "mxfp4"
             if method == QuantMethod.DWQ:
                 apply_mlx_dwq_clip(module)
             elif method in _ACTIVATION_DRIVEN_METHODS:
@@ -209,7 +406,7 @@ class MlxProbeBackend:
             quantized_module = to_quantized(
                 group_size=group_size,
                 bits=bits,
-                mode="affine",
+                mode=quantized_mode,
             )
             self._set_child(parent, child_name, quantized_module)
             mutation_installed = True
@@ -591,6 +788,8 @@ def _measure_candidate(
     *,
     require_hidden_states: bool,
     long_context_min_tokens: int,
+    mtp_forward: MtpForwardBackend | None = None,
+    mtp_reference_drafts: list[Any] | None = None,
 ) -> MetricVector:
     import numpy as np
 
@@ -605,9 +804,11 @@ def _measure_candidate(
     token_disagreement: list[tuple[float, float]] = []
     task_loss_delta: list[tuple[float, float]] = []
     long_context_loss: list[tuple[float, float]] = []
+    mtp_disagreement: list[tuple[float, float]] = []
     peak_memory: list[float] = []
     latency: list[float] = []
-    for input_ids, reference in zip(inputs, references, strict=True):
+    mtp_measurement_failed = False
+    for batch_index, (input_ids, reference) in enumerate(zip(inputs, references, strict=True)):
         candidate = backend.forward(input_ids)
         rows = float(input_ids.shape[0]) if getattr(input_ids, "ndim", 1) == 2 else 1.0
         if reference.logits is None or candidate.logits is None:
@@ -642,6 +843,30 @@ def _measure_candidate(
             task_loss_delta.append((loss_delta, rows))
             if int(input_ids.shape[-1]) >= long_context_min_tokens:
                 long_context_loss.append((loss_delta, rows))
+        if mtp_forward is not None and mtp_reference_drafts is not None:
+            # MH6: teacher-force the (candidate-state) MTP block with the
+            # reference trunk hidden states and compare draft-token agreement.
+            # Any forward uncertainty fails closed to the unmeasured marker
+            # for this whole candidate.
+            try:
+                if reference.hidden_states is None:
+                    raise ProbeError("probe backend did not return trunk hidden states")
+                reference_draft = mtp_reference_drafts[batch_index]
+                candidate_draft = mtp_forward.forward_mtp(
+                    input_ids, reference.hidden_states
+                ).draft_logits
+                mtp_disagreement.append(
+                    (
+                        compute_token_disagreement(
+                            np.argmax(reference_draft, axis=-1),
+                            np.argmax(candidate_draft, axis=-1),
+                        ),
+                        rows,
+                    )
+                )
+            except (ProbeError, TypeError, ValueError, RuntimeError) as exc:
+                mtp_measurement_failed = True
+                log.warning("mtp_forward_candidate_failed", error=str(exc))
         peak_memory.append(float(candidate.peak_memory_bytes or 0))
         latency.append(candidate.latency_seconds)
 
@@ -658,13 +883,19 @@ def _measure_candidate(
     reference_latency = sum(reference.latency_seconds for reference in references)
     candidate_peak = max(peak_memory, default=0.0)
     candidate_latency = sum(latency)
+    mtp_acceptance_loss = 0.0
+    if mtp_forward is not None and mtp_reference_drafts is not None and not mtp_measurement_failed:
+        # Epsilon floor: a perfect-acceptance candidate must stay strictly
+        # positive so the MH1 gate reads it as measured, not as the zero
+        # unmeasured marker.
+        mtp_acceptance_loss = max(MTP_ACCEPTANCE_LOSS_EPSILON, mean(mtp_disagreement))
     return MetricVector(
         output_kl=mean(output_kl),
         hidden_state_error=mean(hidden_error),
         cosine_distance=mean(cosine_distance),
         token_disagreement=mean(token_disagreement),
         task_loss_delta=mean(task_loss_delta),
-        mtp_acceptance_loss=0.0,
+        mtp_acceptance_loss=mtp_acceptance_loss,
         long_context_loss=mean(long_context_loss),
         peak_memory_cost=candidate_peak / reference_peak if reference_peak > 0 else 0.0,
         prefill_latency_cost=(
@@ -840,7 +1071,7 @@ def probe_tensor_sensitivity(
     )
     progress_path = Path(state_path).expanduser().resolve() if state_path is not None else None
     if state is None and progress_path is not None and progress_path.is_file():
-        progress = load_model(progress_path, ProbeProgress)
+        progress = load_probe_progress(progress_path)
         if progress.inventory_sha256 != inventory_sha256:
             raise ProbeError("probe progress inventory does not match the current inventory")
         if progress.config_sha256 != config_sha256:
@@ -920,8 +1151,15 @@ def probe_tensor_sensitivity(
             )
 
     probe_required = not target_tensors.issubset(state.completed_tensors)
+    mtp_target_tensors = {
+        tensor.name
+        for tensor in inventory.tensors
+        if tensor.role.is_mtp and tensor.name in target_tensors
+    }
+    mtp_forward = _mtp_forward_capability(backend) if mtp_target_tensors else None
     references: list[ForwardResult] = []
     reference_metrics = MetricVector()
+    mtp_reference_drafts: list[Any] | None = None
     if probe_required:
         model_path = config.model.local_path or config.model.model_id
         backend.load_model(Path(model_path).expanduser().resolve())
@@ -939,6 +1177,27 @@ def probe_tensor_sensitivity(
                 "--capture-points output"
             )
         reference_metrics = _reference_metrics(references)
+        if mtp_forward is not None:
+            # MH6: capture reference draft logits from the untouched model so
+            # each MTP-role candidate can be scored by draft-token agreement.
+            # Any uncertainty (missing hidden states, forward failure) keeps
+            # the honest zero unmeasured marker for every MTP candidate.
+            try:
+                drafts = [
+                    mtp_forward.forward_mtp(input_ids, reference.hidden_states).draft_logits
+                    for input_ids, reference in zip(calibration_inputs, references, strict=True)
+                    if reference.hidden_states is not None
+                ]
+            except (ProbeError, TypeError, ValueError, RuntimeError) as exc:
+                log.warning("mtp_reference_forward_failed", error=str(exc))
+            else:
+                if len(drafts) == len(references):
+                    mtp_reference_drafts = drafts
+                else:
+                    log.warning(
+                        "mtp_reference_forward_missing_hidden_states",
+                        batches=len(references) - len(drafts),
+                    )
     else:
         log.info(
             "probe_resume_complete",
@@ -972,12 +1231,26 @@ def probe_tensor_sensitivity(
                     if not tensor.quantizable
                     else "role policy permits only reference precision"
                 )
+                preserved_metrics = MetricVector()
+                if tensor.role.is_mtp and mtp_reference_drafts is not None:
+                    # MH6: reference-precision MTP keeps the measured marker —
+                    # reference draft agreement against itself floors at epsilon.
+                    preserved_metrics = preserved_metrics.model_copy(
+                        update={"mtp_acceptance_loss": MTP_ACCEPTANCE_LOSS_EPSILON}
+                    )
+                    preservation_reason += (
+                        "; MTP acceptance loss measured via teacher-forced MTP forward"
+                    )
+                elif tensor.role.is_mtp:
+                    preservation_reason += (
+                        "; MTP acceptance loss unmeasured (backend has no MTP forward capability)"
+                    )
                 candidates = [
                     CandidateMeasurement(
                         bits=16,
                         method=QuantMethod.BF16,
                         group_size=None,
-                        metrics=MetricVector(),
+                        metrics=preserved_metrics,
                         evidence_scope="preserved",
                         measured_tokens=measured_tokens,
                         note=preservation_reason,
@@ -1030,14 +1303,28 @@ def probe_tensor_sensitivity(
             if bits == 16:
                 bf16_key = candidate_key(16, QuantMethod.BF16, None)
                 if bf16_key not in existing_keys:
+                    bf16_metrics = reference_metrics
+                    bf16_note = "reference precision"
+                    if tensor.role.is_mtp and mtp_reference_drafts is not None:
+                        # MH6: reference draft agreement floors at epsilon so
+                        # every MTP-scoped candidate stays strictly positive.
+                        bf16_metrics = bf16_metrics.model_copy(
+                            update={"mtp_acceptance_loss": MTP_ACCEPTANCE_LOSS_EPSILON}
+                        )
+                        bf16_note += "; MTP acceptance loss measured via teacher-forced MTP forward"
+                    elif tensor.role.is_mtp:
+                        bf16_note += (
+                            "; MTP acceptance loss unmeasured "
+                            "(backend has no MTP forward capability)"
+                        )
                     probe_candidates.append(
                         CandidateMeasurement(
                             bits=16,
                             method=QuantMethod.BF16,
                             group_size=None,
-                            metrics=reference_metrics,
+                            metrics=bf16_metrics,
                             measured_tokens=measured_tokens,
-                            note="reference precision",
+                            note=bf16_note,
                         )
                     )
                     existing_keys.add(bf16_key)
@@ -1045,6 +1332,13 @@ def probe_tensor_sensitivity(
 
             for group_size in effective_group_sizes:
                 for method in config.candidate_methods:
+                    if method == QuantMethod.MXFP4 and (
+                        bits != _MXFP4_CANDIDATE_BITS or group_size != _MXFP4_CANDIDATE_GROUP_SIZE
+                    ):
+                        # MXFP4 exists only at 4-bit / group 32; the candidate
+                        # grid naturally yields one mxfp4 candidate per 4-bit
+                        # gs32 tensor instead of measuring impossible configs.
+                        continue
                     cand_key = candidate_key(bits, method, group_size)
                     if cand_key in existing_keys:
                         continue
@@ -1063,6 +1357,10 @@ def probe_tensor_sensitivity(
                             references,
                             require_hidden_states="hidden" in config.capture_points,
                             long_context_min_tokens=config.long_context_min_tokens,
+                            mtp_forward=mtp_forward if tensor.role.is_mtp else None,
+                            mtp_reference_drafts=(
+                                mtp_reference_drafts if tensor.role.is_mtp else None
+                            ),
                         )
                         packing_control = next(
                             (
@@ -1110,6 +1408,17 @@ def probe_tensor_sensitivity(
                                 "dominated by cheaper "
                                 f"{method.value} candidate at "
                                 f"{config.early_termination_factor}x bound"
+                            )
+                        if tensor.role.is_mtp:
+                            # MH6: per-candidate provenance of the MTP
+                            # acceptance loss source.
+                            note_parts.append(
+                                "MTP acceptance loss measured via teacher-forced MTP forward"
+                                if metrics.mtp_acceptance_loss > 0
+                                else (
+                                    "MTP acceptance loss unmeasured "
+                                    "(backend has no MTP forward capability)"
+                                )
                             )
                         probe_candidates.append(
                             CandidateMeasurement(
@@ -1203,6 +1512,19 @@ def probe_tensor_sensitivity(
     }
     if bound_capture is not None:
         calibration_metadata.update(activation_capture_metadata(bound_capture))
+    if mtp_target_tensors:
+        # MH6: report-level provenance of the MTP acceptance loss source,
+        # derived from the recorded candidates so resumed runs report what
+        # is actually on record.
+        mtp_measured = any(
+            candidate.metrics.mtp_acceptance_loss > 0
+            for entry in entries
+            if entry.tensor.role.is_mtp
+            for candidate in entry.candidates
+        )
+        calibration_metadata["mtp_acceptance_provenance"] = (
+            "mtp-forward" if mtp_measured else "unmeasured"
+        )
     if calibration_random_seed is not None:
         calibration_metadata["calibration_random_seed"] = calibration_random_seed
     if base_report is not None:
@@ -1249,10 +1571,20 @@ def probe_tensor_sensitivity(
         and (base_report is None or base_report.evidence_kind == EvidenceKind.MEASURED)
     )
     evidence_kind = EvidenceKind.MEASURED if release_evidence else EvidenceKind.MEASURED_DEVELOPMENT
-    warnings = [
-        "MTP acceptance and decode latency are validated by the candidate benchmark stage, "
-        "not by isolated tensor forward probes."
-    ]
+    mtp_acceptance_measured = "mtp_acceptance_provenance" in calibration_metadata and (
+        calibration_metadata["mtp_acceptance_provenance"] == "mtp-forward"
+    )
+    if mtp_acceptance_measured:
+        warnings = [
+            "MTP acceptance loss was measured by teacher-forced MTP forward probes; "
+            "decode latency is validated by the candidate benchmark stage, not by "
+            "isolated tensor forward probes."
+        ]
+    else:
+        warnings = [
+            "MTP acceptance and decode latency are validated by the candidate benchmark stage, "
+            "not by isolated tensor forward probes."
+        ]
     if not release_evidence:
         warnings.append(
             "Measured development evidence does not meet the release calibration sample, "

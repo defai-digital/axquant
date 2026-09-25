@@ -34,6 +34,10 @@ from axquant.schema import (
     QuantizationPlan,
     QuantizerExecutionManifest,
 )
+from axquant.schema.loading import (
+    load_quantization_plan,
+    load_quantizer_execution_manifest,
+)
 from axquant.schema.public_certification import (
     PublicModalitiesBlock,
     load_public_checkpoint_certification,
@@ -1090,7 +1094,7 @@ def _serialized_manifest_sha256(manifest: ArtifactManifest) -> str:
 
 def _assert_public_consistency(directory: Path) -> None:
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
-    plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    plan = load_quantization_plan(directory / "axquant_plan.json")
     execution = load_model(
         directory / "axquant_quantizer_execution.json",
         QuantizerExecutionManifest,
@@ -1204,8 +1208,8 @@ def prepare_development_model_card(
     plan_path = directory / "axquant_plan.json"
     execution_path = directory / "axquant_quantizer_execution.json"
     manifest = load_model(manifest_path, ArtifactManifest)
-    plan = load_model(plan_path, QuantizationPlan)
-    execution = load_model(execution_path, QuantizerExecutionManifest)
+    plan = load_quantization_plan(plan_path)
+    execution = load_quantizer_execution_manifest(execution_path)
     packaged_names = [
         path.relative_to(directory).as_posix() for path in artifact_tree_files(directory)
     ]

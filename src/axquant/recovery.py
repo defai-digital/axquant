@@ -25,6 +25,7 @@ from axquant.schema import (
     SensitivityReport,
 )
 from axquant.schema._base import StrictModel, utc_now
+from axquant.schema.loading import load_quantization_plan, load_sensitivity_report
 from axquant.serde import load_model, stable_sha256, write_data
 
 
@@ -198,7 +199,7 @@ def validate_recovery_request(request: RecoveryRequest) -> None:
         raise PlanningError(f"recovery plan path traverses a symbolic link: {plan_symlink}")
     if not plan_path.is_file():
         raise PlanningError(f"recovery plan not found: {plan_path}")
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
     plan_sha256 = stable_sha256(plan)
     bundled_plan_path = source / "axquant_plan.json"
     manifest_path = source / "axquant_manifest.json"
@@ -207,7 +208,7 @@ def validate_recovery_request(request: RecoveryRequest) -> None:
             "recovery source artifact must contain axquant_plan.json or axquant_manifest.json"
         )
     if bundled_plan_path.is_file():
-        bundled_plan = load_model(bundled_plan_path, QuantizationPlan)
+        bundled_plan = load_quantization_plan(bundled_plan_path)
         if stable_sha256(bundled_plan) != plan_sha256:
             raise PlanningError("recovery plan does not match the source artifact plan")
     if manifest_path.is_file():
@@ -268,7 +269,7 @@ def rank_recovery_targets(
     Higher predicted_loss (or sensitivity output_kl when a report is bound) ranks first.
     Domain LoRA/SFT is not offered — only scale/bias recovery targets.
     """
-    plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
+    plan_model = plan if isinstance(plan, QuantizationPlan) else load_quantization_plan(plan)
     score_by_tensor: dict[str, float] = {}
     for allocation in plan_model.assignments:
         if allocation.bits >= 16:
@@ -280,7 +281,7 @@ def rank_recovery_targets(
         report = (
             sensitivity
             if isinstance(sensitivity, SensitivityReport)
-            else load_model(sensitivity, SensitivityReport)
+            else load_sensitivity_report(sensitivity)
         )
         sens_digest = stable_sha256(report)
         if (
@@ -356,7 +357,7 @@ def recover_checkpoint(request: RecoveryRequest) -> RecoveryManifest:
         raise PlanningError("recovery output must not contain the input plan")
     if output.exists():
         raise PlanningError(f"recovery output already exists; refusing to overwrite: {output}")
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
     plan_sha = stable_sha256(plan)
     source_sha = _sha256_hex_of_path(source)
 

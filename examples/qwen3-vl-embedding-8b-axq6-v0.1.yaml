@@ -1,6 +1,6 @@
 # Qwen3-VL-Embedding-8B AXQ 6-bit (no MTP).
 # Language attention+MLP 6-bit affine. Vision stays BF16.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 8.0
 default_bits: 6

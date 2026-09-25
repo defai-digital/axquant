@@ -1,7 +1,7 @@
 # Flash-0731 AXQ-MXFP4. Convert with --q-mode mxfp4 --allow-unmeasured.
 # Attention + fused trunk native MXFP4 (group 32). Floors stay affine 8 / BF16.
 # Ship SKU. Not mlx-optiq. Not an OCP/NVIDIA checkpoint.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

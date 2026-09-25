@@ -1,6 +1,6 @@
 # Muse-Glimmer-30B AXQ 8-bit (no MTP).
 # Language attention+MLP 8-bit affine. Vision stays BF16.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 10.0
 default_bits: 8

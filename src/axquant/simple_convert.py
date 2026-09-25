@@ -47,12 +47,13 @@ from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke
 from axquant.recipes import load_recipe_bundle
 from axquant.schema import (
     ConvertLadderName,
-    ManualPlanRecipe,
     ProfileName,
-    QuantizationPlan,
     QuickConversionSummary,
 )
-from axquant.serde import load_model
+from axquant.schema.loading import (
+    load_manual_plan_recipe,
+    load_quantization_plan,
+)
 
 _HUB_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9][A-Za-z0-9._-]*)+$")
 _SAFE_DIR = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
@@ -170,9 +171,9 @@ def simple_convert(
     if recipe is not None:
         recipe_record, recipe_payload = load_recipe_bundle(recipe)
         recipe_model = (
-            load_model(recipe_payload, QuantizationPlan)
+            load_quantization_plan(recipe_payload)
             if recipe_record.payload_kind == "plan"
-            else load_model(recipe_payload, ManualPlanRecipe)
+            else load_manual_plan_recipe(recipe_payload)
         )
         if profile is not None and profile != recipe_model.profile:
             raise PlanningError(

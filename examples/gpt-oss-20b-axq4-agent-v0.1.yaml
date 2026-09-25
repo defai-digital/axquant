@@ -2,7 +2,7 @@
 # Prefer convert source openai/gpt-oss-20b (native MXFP4 experts + BF16 non-experts).
 # Prior architecture_prior 4-bit from community MXFP4-Q4 failed general retention (0.893).
 # Raise attention to 8-bit; keep experts/MLP at 4-bit for size.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 5.2
 default_bits: 4

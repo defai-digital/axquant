@@ -10,7 +10,7 @@
 # one bit-width per projection per layer (MLX packs the stack as one unit).
 #
 # AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1 and AX_ENGINE_3BIT_EXPERIMENTAL=1.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

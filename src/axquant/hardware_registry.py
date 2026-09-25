@@ -32,6 +32,11 @@ from axquant.schema import (
     TrialResult,
     ValidationReport,
 )
+from axquant.schema.loading import (
+    load_quantization_plan,
+    load_quantizer_execution_manifest,
+    load_sensitivity_report,
+)
 from axquant.serde import file_sha256, load_model, stable_sha256
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -579,16 +584,16 @@ def build_hardware_profile_registry(
                 "quantizer execution manifest",
             ),
         }
-        plan = load_model(paths["plan"], QuantizationPlan)
+        plan = load_quantization_plan(paths["plan"])
         artifact = load_model(paths["artifact"], ArtifactManifest)
-        sensitivity = load_model(paths["sensitivity"], SensitivityReport)
+        sensitivity = load_sensitivity_report(paths["sensitivity"])
         quality = load_model(paths["quality"], QualityComparisonReport)
         validation = load_model(paths["validation"], ValidationReport)
         direct_evaluation = load_model(paths["direct_evaluation"], EvaluationBundle)
         mtp_evaluation = load_model(paths["mtp_evaluation"], EvaluationBundle)
         direct_result = load_model(paths["direct_result"], BenchmarkResult)
         mtp_result = load_model(paths["mtp_result"], BenchmarkResult)
-        execution = load_model(paths["execution"], QuantizerExecutionManifest)
+        execution = load_quantizer_execution_manifest(paths["execution"])
 
         issues: list[str] = []
         kernel_issues: list[str] = []

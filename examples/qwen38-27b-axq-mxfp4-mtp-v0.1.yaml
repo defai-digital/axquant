@@ -2,7 +2,7 @@
 # Trunk attention+MLP → native MXFP4 (group 32). MTP/vision/norms stay BF16.
 # Convert from the full BF16 source (do not use the no-MTP view).
 #   axquant convert --q-mode mxfp4 --allow-unmeasured ...
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Planner still uses affine storage_bpw for gs32 4-bit; MTP BF16 adds headroom.
 target_bpw: 5.8

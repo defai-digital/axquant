@@ -22,7 +22,9 @@ from axquant.schema import (
     ProbeCapacityReport,
     ProbeMode,
 )
-from axquant.serde import load_model
+from axquant.schema.loading import (
+    load_inventory,
+)
 
 # Storage heuristics (bytes per parameter) for capacity planning only — not BPW claims.
 _BF16_BYTES_PER_PARAM = 2.0
@@ -205,7 +207,7 @@ def assess_probe_capacity_from_inventory(
     headroom_fraction: float = _DEFAULT_HEADROOM,
 ) -> ProbeCapacityReport:
     """Assess capacity from an Inventory object or JSON path."""
-    report = inventory if isinstance(inventory, Inventory) else load_model(inventory, Inventory)
+    report = inventory if isinstance(inventory, Inventory) else load_inventory(inventory)
     try:
         report = Inventory.model_validate(report.model_dump(mode="python"))
     except ValidationError as exc:

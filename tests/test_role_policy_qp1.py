@@ -165,7 +165,10 @@ def test_gptq_preference_rank_follows_awq() -> None:
     assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.AWQ) == 0
     assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.GPTQ) == 1
     assert method_preference_rank(TensorRole.ATTENTION, QuantMethod.AFFINE) == 2
-    assert method_preference_rank(TensorRole.MLP, QuantMethod.GPTQ) == 3
+    assert method_preference_rank(TensorRole.MLP, QuantMethod.AFFINE) == 0
+    # MXFP4 ties behind affine until measured data prefers it (AXQ-046 MH5).
+    assert method_preference_rank(TensorRole.MLP, QuantMethod.MXFP4) == 1
+    assert method_preference_rank(TensorRole.MLP, QuantMethod.GPTQ) == 4
 
 
 def test_measured_plan_prefers_awq_for_attention_when_within_margin() -> None:

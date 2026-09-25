@@ -108,6 +108,49 @@ def qwen36_model_dir(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
+def qwen36_integrated_mtp_model_dir(tmp_path: Path) -> Path:
+    """Qwen 3.6-style checkpoint with native MTP tensors in the main safetensors.
+
+    Unlike ``qwen36_model_dir`` (external ``mtp.safetensors`` sidecar, which
+    the probe preserves at reference precision), integrated MTP tensors enter
+    the candidate grid, so MTP acceptance losses can be measured (AXQ-046 MH6).
+    """
+    model_dir = tmp_path / "Qwen3.6-27B-IntegratedMTP"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["Qwen3_5ForConditionalGeneration"],
+                "language_model_only": False,
+                "model_type": "qwen3_5",
+                "text_config": {
+                    "hidden_size": 5120,
+                    "intermediate_size": 17408,
+                    "model_type": "qwen3_5_text",
+                    "mtp_num_hidden_layers": 1,
+                    "num_hidden_layers": 64,
+                    "vocab_size": 248320,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "language_model.model.layers.0.mlp.down_proj.weight": np.zeros(
+                (8, 8),
+                dtype=np.float32,
+            ),
+            "language_model.lm_head.weight": np.zeros((16, 8), dtype=np.float32),
+            "mtp.fc.weight": np.zeros((8, 8), dtype=np.float32),
+            "mtp.layers.0.self_attn.q_proj.weight": np.zeros((8, 8), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+    return model_dir
+
+
+@pytest.fixture
 def packed_model_dir(tmp_path: Path) -> Path:
     model_dir = tmp_path / "packed-model"
     model_dir.mkdir()

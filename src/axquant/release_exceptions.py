@@ -16,6 +16,9 @@ from axquant.schema import (
     ValidationIssue,
     ValidationReport,
 )
+from axquant.schema.loading import (
+    load_quantization_plan,
+)
 from axquant.serde import file_sha256, load_model, stable_sha256
 
 _WEIGHT_SIZE_RATIO = "artifact.weight_size_ratio"
@@ -124,7 +127,7 @@ def verify_release_exception(
             raise ValidationGateError(f"release exception evidence checksum changed: {name}")
         resolved[name] = path
 
-    evidence_plan = load_model(resolved["plan"], QuantizationPlan)
+    evidence_plan = load_quantization_plan(resolved["plan"])
     if stable_sha256(evidence_plan) != exception.plan_sha256 or evidence_plan != plan:
         raise ValidationGateError("release exception plan evidence differs from validation")
 

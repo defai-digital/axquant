@@ -42,7 +42,6 @@ from axquant.schema import (
     IndependentReviewRecord,
     LifecycleReason,
     PublicClaimManifest,
-    QuantizationPlan,
     QuantMethod,
     ReleaseAuditCheck,
     ReleaseAuditRequest,
@@ -50,6 +49,10 @@ from axquant.schema import (
     ReproductionReviewRecord,
     ReproductionVerification,
     SourceCheckpointManifest,
+)
+from axquant.schema.loading import (
+    load_hardware_profile_registry,
+    load_quantization_plan,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
@@ -618,7 +621,7 @@ def build_flagship_release_audit(
         artifact = (legacy_request_path.parent / artifact).resolve()
     plan_path = artifact / "axquant_plan.json"
     manifest_path = artifact / "axquant_manifest.json"
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
     manifest = load_model(manifest_path, ArtifactManifest)
     sensitivity_path = Path(legacy_request.sensitivity_report).expanduser()
     if not sensitivity_path.is_absolute():
@@ -743,7 +746,7 @@ def build_flagship_release_audit(
     hardware_path = Path(legacy_request.hardware_registry).expanduser()
     if not hardware_path.is_absolute():
         hardware_path = (legacy_request_path.parent / hardware_path).resolve()
-    hardware = load_model(hardware_path, HardwareProfileRegistry)
+    hardware = load_hardware_profile_registry(hardware_path)
     m7 = checks_by_gate["M7"].issues
     m7.extend(
         _host_issues(

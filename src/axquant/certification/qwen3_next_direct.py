@@ -74,6 +74,12 @@ from axquant.schema import (
     SourceConversionProvenance,
     TensorRole,
 )
+from axquant.schema.loading import (
+    load_inventory,
+    load_quantization_plan,
+    load_refinement_result,
+    load_sensitivity_report,
+)
 from axquant.serde import file_sha256, load_model, stable_sha256
 
 _REQUIRED_CODING_CATEGORIES = {
@@ -1337,12 +1343,12 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
     manifest_path = required_file(artifact, "axquant_manifest.json", "artifact manifest")
     plan_path = required_file(artifact, "axquant_plan.json", "artifact plan")
 
-    inventory = load_model(paths["inventory"], Inventory)
+    inventory = load_inventory(paths["inventory"])
     source_manifest = load_model(paths["source_manifest"], SourceCheckpointManifest)
     feasibility = load_model(paths["feasibility"], FeasibilityReport)
-    sensitivity = load_model(paths["sensitivity"], SensitivityReport)
-    sensitivity_lineage = [load_model(path, SensitivityReport) for path in lineage_paths]
-    refinement = load_model(paths["refinement"], RefinementResult)
+    sensitivity = load_sensitivity_report(paths["sensitivity"])
+    sensitivity_lineage = [load_sensitivity_report(path) for path in lineage_paths]
+    refinement = load_refinement_result(paths["refinement"])
     measurements = load_model(paths["measurements"], DirectRefinementMeasurementSet)
     validation = load_model(paths["validation"], DirectReleaseValidationIndex)
     (
@@ -1381,7 +1387,7 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
     mlx_runtime = load_model(paths["mlx_runtime"], RuntimeCheck)
     archive = load_model(paths["archive"], EvidenceArchiveIndex)
     manifest = load_model(manifest_path, ArtifactManifest)
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
 
     if inventory.model.local_path is None:
         raise ArtifactError("source inventory does not bind a local immutable checkpoint")

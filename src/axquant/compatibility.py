@@ -14,11 +14,11 @@ from axquant.schema import (
     CompatibilityCandidateInput,
     CompatibilityMatrix,
     CompatibilityMatrixRequest,
-    QuantizationPlan,
     RuntimeCheck,
     RuntimeName,
     ValidationReport,
 )
+from axquant.schema.loading import load_quantization_plan
 from axquant.serde import file_sha256, load_model, stable_sha256
 
 
@@ -133,7 +133,7 @@ def _candidate_entry(
     manifest_path = artifact / "axquant_manifest.json"
     plan_path = artifact / "axquant_plan.json"
     manifest = load_model(manifest_path, ArtifactManifest)
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
     ax_path = _resolved(base, candidate.ax_engine_check)
     mlx_path = _resolved(base, candidate.mlx_lm_check)
     validation_path = _resolved(base, candidate.validation_report)

@@ -2,7 +2,7 @@
 # Trunk attention+MLP+experts → native MXFP4 (group 32). Floors stay affine 8 / BF16.
 # Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
 # Development evidence only — not a certificate.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Planner uses affine storage_bpw for gs32 4-bit; PLE 8-bit floor lands near 6.25.
 target_bpw: 6.8

@@ -15,7 +15,7 @@ from typing import Literal
 from pydantic import Field, model_validator
 
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
-from axquant.schema.enums import QuantMethod, RuntimeName
+from axquant.schema.enums import MXFP4_BITS, MXFP4_GROUP_SIZE, QuantMethod, RuntimeName
 
 
 class KernelLatencyEntry(StrictModel):
@@ -35,6 +35,12 @@ class KernelLatencyEntry(StrictModel):
 
     @model_validator(mode="after")
     def bf16_has_no_group(self) -> KernelLatencyEntry:
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 kernel entries require {MXFP4_BITS}-bit with group size {MXFP4_GROUP_SIZE}"
+            )
         if self.bits == 16 and self.group_size is not None:
             raise ValueError("16-bit kernel entries must not declare a group size")
         if self.bits < 16 and self.group_size is None:
@@ -43,9 +49,9 @@ class KernelLatencyEntry(StrictModel):
 
 
 class KernelLatencyTable(StrictModel):
-    """Host-scoped kernel latency evidence (``axquant.kernel-latency.v1``)."""
+    """Host-scoped kernel latency evidence (``axquant.kernel-latency.v2``)."""
 
-    schema_version: Literal["axquant.kernel-latency.v1"] = "axquant.kernel-latency.v1"
+    schema_version: Literal["axquant.kernel-latency.v2"] = "axquant.kernel-latency.v2"
     # Hardware-registry host identifier the timings bind to (e.g. ``df-macbookpro-m5``).
     host_id: str = Field(min_length=1)
     chip: str = Field(min_length=1)

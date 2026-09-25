@@ -6,7 +6,7 @@
 #
 # target_bpw is intentionally loose: protected embeddings / LM-head / norms /
 # MTP stay high-bit. Routed experts dominate the disk.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

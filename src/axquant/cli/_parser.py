@@ -147,6 +147,7 @@ def _probe_methods(value: str) -> tuple[QuantMethod, ...]:
         QuantMethod.AWQ,
         QuantMethod.GPTQ,
         QuantMethod.GPTQ_ACT,
+        QuantMethod.MXFP4,
     }
     if unsupported:
         names = ", ".join(sorted(method.value for method in unsupported))
@@ -537,9 +538,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     plan_parser.add_argument(
         "--latency-table",
-        help="optional axquant.kernel-latency.v1 table (ADR-0003): re-ranks "
-        "candidates by measured kernel speed inside the quality near-tie "
-        "window; without it planning is bit-identical to abstract-BPW",
+        help="optional axquant.kernel-latency.v2 table (ADR-0003; v1 tables still "
+        "load): re-ranks candidates by measured kernel speed inside the "
+        "quality near-tie window; without it planning is bit-identical to "
+        "abstract-BPW",
     )
     plan_parser.add_argument("--kv-cache", choices=["off", "prior", "measured"], default="off")
     plan_parser.add_argument("--kv-default-bits", type=_kv_default_bit, default=4)

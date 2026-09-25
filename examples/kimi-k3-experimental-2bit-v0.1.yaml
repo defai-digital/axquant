@@ -1,7 +1,7 @@
 # Experimental 2-bit Super-class recipe for Kimi-K3 (native MXFP4 source).
 # Hobby / curiosity pack only. Will not be certified. 2-bit only (no AXQ MXFP4 SKU).
 # Convert blocked unless mlx-vlm kimi_k3 KDA exists.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

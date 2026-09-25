@@ -692,7 +692,7 @@ def test_plan_joint_material_i_writes_coupled_plan(
     assert plan.kv_cache is not None
     assert plan.kv_cache.allocation_basis == "measured"
     assert selection.plan_sha256 == stable_sha256(plan)
-    assert plan.schema_version == "axquant.plan.v1"
+    assert plan.schema_version == "axquant.plan.v2"
 
 
 def test_plan_joint_negative_i_can_select_a_different_kv_cell(
@@ -772,7 +772,7 @@ def test_plan_joint_cli_writes_convert_ready_plan(
     assert exit_code == 0
     plan = load_model(output / "axquant_plan.json", QuantizationPlan)
     selection = load_model(output / "joint-selection.json", JointSelectionReport)
-    assert plan.schema_version == "axquant.plan.v1"
+    assert plan.schema_version == "axquant.plan.v2"
     assert selection.certification_eligible is False
     assert selection.selection_basis == "independent"
     assert selection.plan_sha256 == stable_sha256(plan)

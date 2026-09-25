@@ -9,7 +9,7 @@
 # Change vs v0.1: attention 6-bit DWQ clip then affine pack; shared experts
 # 4-bit affine (every token, tiny BPW). Routed trunk stays 2-bit affine.
 # AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

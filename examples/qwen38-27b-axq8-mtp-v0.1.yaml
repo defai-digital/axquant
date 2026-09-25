@@ -1,7 +1,7 @@
 # AXQ 8-bit lane for Qwen3.8-27B with integrated MTP.
 # Trunk attention+MLP+embed/head → 8-bit affine. MTP/vision/norms stay BF16.
 # Convert from the full BF16 source (do not use the no-MTP view).
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # MTP BF16 sidecar raises planned storage to ~8.74 BPW vs no-MTP 8.0.
 target_bpw: 8.8

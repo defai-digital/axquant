@@ -19,14 +19,18 @@ from axquant.schema import (
     DeploymentPlan,
     EvidenceKind,
     Inventory,
-    KernelLatencyTable,
     KvCachePlan,
-    KvSensitivityReport,
     PlanRequest,
     ProfileName,
     QuantizationPlan,
     RuntimeName,
     SensitivityReport,
+)
+from axquant.schema.loading import (
+    load_inventory,
+    load_kernel_latency_table,
+    load_kv_sensitivity_report,
+    load_sensitivity_report,
 )
 from axquant.serde import load_model, read_data, stable_sha256, write_data, write_text
 
@@ -72,7 +76,7 @@ def _inventory_digest(inventory: Inventory) -> str:
 
 def _load_inventory(model: Path, inventory_path: str | Path | None) -> Inventory:
     if inventory_path is not None:
-        return load_model(inventory_path, Inventory)
+        return load_inventory(inventory_path)
     return inspect_model(
         model,
         allow_quantized=(model / "axquant_manifest.json").is_file(),
@@ -93,7 +97,7 @@ def _load_sensitivity(
                 "architecture priors"
             )
         return architecture_prior_report(inventory, profile=profile)
-    report = load_model(sensitivity_path, SensitivityReport)
+    report = load_sensitivity_report(sensitivity_path)
     if report.inventory_sha256 != _inventory_digest(inventory):
         raise PlanningError("sensitivity report does not bind the selected inventory")
     return report
@@ -189,7 +193,7 @@ def _attach_kv_plan(
         return
     if kv_analysis is None:
         raise PlanningError("--kv-cache measured requires --kv-analysis")
-    report = load_model(kv_analysis, KvSensitivityReport)
+    report = load_kv_sensitivity_report(kv_analysis)
     if report.model.model_id != plan.source_model.model_id:
         raise PlanningError("KV sensitivity report model does not match the weight plan")
     plan.kv_cache = allocate_kv_cache_measured(report)
@@ -288,9 +292,7 @@ def optimize_deployment(
         minimum_quality_retention=minimum_quality_retention,
     )
     latency_table = (
-        load_model(latency_table_path, KernelLatencyTable)
-        if latency_table_path is not None
-        else None
+        load_kernel_latency_table(latency_table_path) if latency_table_path is not None else None
     )
     plan = plan_quantization(
         report,

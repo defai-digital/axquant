@@ -1,4 +1,4 @@
-schema_version: axquant.plan-request.v1
+schema_version: axquant.plan-request.v2
 profile: agent-coding
 target_bpw: 4.8
 candidate_bits:

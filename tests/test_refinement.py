@@ -389,7 +389,7 @@ class TestRefineCandidates:
         config = RefinementConfig(top_n=1, max_iterations=2, random_seed=0)
         result = refine_candidates(report, request, config)
         # Validate schema fields
-        assert result.schema_version == "axquant.refinement.v2"
+        assert result.schema_version == "axquant.refinement.v3"
         assert result.config == config
         assert result.selected_plan_sha256 in {entry.plan_sha256 for entry in result.history}
         assert result.candidate_plans

@@ -5,7 +5,7 @@
 # Does not reuse mixed-v0.1 (3-bit down-proj + edge FFN) or attn6-v0.2
 # (DWQ clip + shared-expert 4-bit), which scored worse on this host.
 # Routed trunk stays 2-bit affine. AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

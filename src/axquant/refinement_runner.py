@@ -10,7 +10,6 @@ from axquant.errors import ArtifactError, RefinementError
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     CalibrationManifest,
-    QuantizationPlan,
     RefinementExecutionManifest,
     RefinementExecutionRequest,
     RefinementExecutionStep,
@@ -19,6 +18,7 @@ from axquant.schema import (
     ValidationReport,
     utc_now,
 )
+from axquant.schema.loading import load_quantization_plan, load_refinement_result
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
@@ -81,7 +81,7 @@ def _command_steps(
         candidate_root.mkdir(parents=True, exist_ok=True)
         plan_path = candidate_root / "plan.json"
         if plan_path.exists():
-            if stable_sha256(load_model(plan_path, QuantizationPlan)) != stable_sha256(plan):
+            if stable_sha256(load_quantization_plan(plan_path)) != stable_sha256(plan):
                 raise RefinementError(f"candidate plan changed on resume: {candidate_id}")
         else:
             write_data(plan_path, plan)
@@ -341,7 +341,7 @@ def prepare_refinement_execution(
     )
     benchmark_prompts = _required_file(base, request.benchmark_prompts, "benchmark prompts")
     size_reference = _required_file(base, request.size_reference, "size reference")
-    refinement = load_model(refinement_path, RefinementResult)
+    refinement = load_refinement_result(refinement_path)
     calibration_manifest = load_model(calibration, CalibrationManifest)
     if refinement.selected_plan.profile != request.profile:
         raise RefinementError("refinement profile does not match execution request")

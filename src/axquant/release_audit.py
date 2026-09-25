@@ -58,7 +58,6 @@ from axquant.schema import (
     QuantizationPlan,
     QuantMethod,
     RefinementMeasurementSet,
-    RefinementResult,
     ReleaseAudit,
     ReleaseAuditCheck,
     ReleaseAuditRequest,
@@ -72,6 +71,12 @@ from axquant.schema import (
     TensorRole,
     TensorSpec,
     ValidationReport,
+)
+from axquant.schema.loading import (
+    load_hardware_profile_registry,
+    load_quantization_plan,
+    load_refinement_result,
+    load_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
@@ -729,7 +734,7 @@ def _complete_measurement_evidence_issues(
                 entry.validation_sha256,
                 f"{entry.entry_id} validation",
             )
-            plan = load_model(plan_path, QuantizationPlan)
+            plan = load_quantization_plan(plan_path)
             artifact = load_model(artifact_path, ArtifactManifest)
             quality = load_model(quality_path, QualityComparisonReport)
             validation = load_model(validation_path, ValidationReport)
@@ -820,7 +825,7 @@ def _compatibility_request_issues(
                 "compatibility validation",
             )
             manifest = load_model(manifest_path, ArtifactManifest)
-            plan = load_model(plan_path, QuantizationPlan)
+            plan = load_quantization_plan(plan_path)
             ax_engine = load_model(ax_engine_path, RuntimeCheck)
             mlx_lm = load_model(mlx_lm_path, RuntimeCheck)
             validation = load_model(validation_path, ValidationReport)
@@ -991,7 +996,7 @@ def _packaged_release_issues(
 
     issues: list[str] = []
     try:
-        packaged_plan = load_model(artifact / "quantization_plan.json", QuantizationPlan)
+        packaged_plan = load_quantization_plan(artifact / "quantization_plan.json")
         if packaged_plan != plan:
             issues.append("packaged quantization plan differs from the audited plan")
 
@@ -1023,7 +1028,7 @@ def _packaged_release_issues(
             )
 
         packaged_hardware_path = artifact / "hardware_profile_registry.json"
-        packaged_hardware = load_model(packaged_hardware_path, HardwareProfileRegistry)
+        packaged_hardware = load_hardware_profile_registry(packaged_hardware_path)
         if _normalized_hardware_registry(packaged_hardware) != _normalized_hardware_registry(
             hardware
         ):
@@ -1474,16 +1479,14 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     manifest_path = _required_file(artifact, "axquant_manifest.json", "artifact manifest")
     plan_path = _required_file(artifact, "axquant_plan.json", "artifact plan")
     manifest = load_model(manifest_path, ArtifactManifest)
-    plan = load_model(plan_path, QuantizationPlan)
+    plan = load_quantization_plan(plan_path)
     feasibility = load_model(paths["feasibility"], FeasibilityReport)
-    sensitivity = load_model(paths["sensitivity"], SensitivityReport)
-    sensitivity_lineage = [
-        load_model(path, SensitivityReport) for path in sensitivity_lineage_paths
-    ]
-    refinement = load_model(paths["refinement"], RefinementResult)
+    sensitivity = load_sensitivity_report(paths["sensitivity"])
+    sensitivity_lineage = [load_sensitivity_report(path) for path in sensitivity_lineage_paths]
+    refinement = load_refinement_result(paths["refinement"])
     validation_index = load_model(paths["validation"], ReleaseValidationIndex)
     validation_evidence = _validation_evidence(paths["validation"], validation_index)
-    hardware = load_model(paths["hardware"], HardwareProfileRegistry)
+    hardware = load_hardware_profile_registry(paths["hardware"])
     measurements, measurement_issues = _registry_measurements(paths["hardware"], hardware)
     pareto = load_model(paths["pareto"], ParetoReport)
     compatibility = load_model(paths["compatibility"], CompatibilityMatrix)

@@ -1,6 +1,6 @@
 # Holo-3.1-35B-A3B AXQ 8-bit (no MTP).
 # Attention + experts/MLP 8-bit affine. Vision stays BF16.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 11.0
 default_bits: 8

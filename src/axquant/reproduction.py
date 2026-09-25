@@ -8,9 +8,11 @@ from axquant.identity import same_model_identity
 from axquant.schema import (
     ArtifactManifest,
     CalibrationManifest,
-    QuantizationPlan,
     ReproductionRecipe,
     ReproductionVerification,
+)
+from axquant.schema.loading import (
+    load_quantization_plan,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256
 
@@ -155,7 +157,7 @@ def verify_reproduction(
 
     if plan_path is not None and plan_path.is_file():
         try:
-            plan = load_model(plan_path, QuantizationPlan)
+            plan = load_quantization_plan(plan_path)
         except (ArtifactError, ValueError) as exc:
             issues.append(f"quantization plan cannot be validated: {exc}")
         else:

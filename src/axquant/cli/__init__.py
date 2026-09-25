@@ -63,10 +63,7 @@ from axquant.schema import (
     CalibrationManifest,
     EvaluationBundle,
     HardwareProfile,
-    Inventory,
     KernelLatencyTable,
-    KvSensitivityReport,
-    ManualPlanRecipe,
     ModelIdentity,
     MtpAbComparison,
     MtpPolicy,
@@ -74,11 +71,18 @@ from axquant.schema import (
     PlanRequest,
     ProfileName,
     QualityEvaluationResult,
-    QuantizationPlan,
     QuantMethod,
     RuntimeName,
-    SensitivityReport,
     ValidationReport,
+)
+from axquant.schema.loading import (
+    load_inventory,
+    load_kernel_latency_table,
+    load_kv_sensitivity_report,
+    load_manual_plan_recipe,
+    load_quantization_plan,
+    load_refinement_result,
+    load_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
 from axquant.validator import validate_evaluations
@@ -260,7 +264,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "source-checkpoint-manifest":
         from axquant.certification.common import build_source_checkpoint_manifest
 
-        inventory = load_model(args.inventory, Inventory)
+        inventory = load_inventory(args.inventory)
         source_checkpoint_manifest = build_source_checkpoint_manifest(
             args.model, inventory=inventory
         )
@@ -538,7 +542,7 @@ def _run(args: argparse.Namespace) -> int:
                 ),
                 state_path=(args.state or str(Path(args.output).with_suffix(".progress.json"))),
                 base_report=(
-                    load_model(args.base_sensitivity, SensitivityReport)
+                    load_sensitivity_report(args.base_sensitivity)
                     if args.base_sensitivity
                     else None
                 ),
@@ -593,7 +597,7 @@ def _run(args: argparse.Namespace) -> int:
         from axquant.ladders import get_ladder, plan_request_for_ladder
         from axquant.unified_sensitivity import attach_binding_warning, bind_unified_sensitivity
 
-        analysis_report = load_model(args.analysis, SensitivityReport)
+        analysis_report = load_sensitivity_report(args.analysis)
         if args.ladder is not None:
             ladder = get_ladder(args.ladder)
             base_request = plan_request_for_ladder(
@@ -662,7 +666,7 @@ def _run(args: argparse.Namespace) -> int:
             ),
         )
         kernel_latency_table = (
-            load_model(args.latency_table, KernelLatencyTable) if args.latency_table else None
+            load_kernel_latency_table(args.latency_table) if args.latency_table else None
         )
         plan = plan_quantization(
             analysis_report,
@@ -684,7 +688,7 @@ def _run(args: argparse.Namespace) -> int:
         elif args.kv_cache == "measured":
             if not args.kv_analysis:
                 raise PlanningError("--kv-cache measured requires --kv-analysis")
-            kv_report = load_model(args.kv_analysis, KvSensitivityReport)
+            kv_report = load_kv_sensitivity_report(args.kv_analysis)
             if kv_report.model.model_id != plan.source_model.model_id:
                 raise PlanningError("KV sensitivity report model does not match the plan model")
             plan.kv_cache = allocate_kv_cache_measured(
@@ -713,8 +717,8 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "plan-manual":
-        inventory = load_model(args.inventory, Inventory)
-        recipe = load_model(args.recipe, ManualPlanRecipe)
+        inventory = load_inventory(args.inventory)
+        recipe = load_manual_plan_recipe(args.recipe)
         plan = manual_quantization_plan(inventory, recipe)
         write_data(args.output, plan)
         if args.markdown_output:
@@ -727,7 +731,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "plan-experimental-mix":
-        analysis_report = load_model(args.sensitivity, SensitivityReport)
+        analysis_report = load_sensitivity_report(args.sensitivity)
         request = PlanRequest(
             profile=analysis_report.profile,
             target_bpw=args.target_bpw,
@@ -757,7 +761,7 @@ def _run(args: argparse.Namespace) -> int:
     if args.command == "plan-replay":
         from axquant.plan_replay import replay_measured_plan_file
 
-        analysis_report = load_model(args.sensitivity, SensitivityReport)
+        analysis_report = load_sensitivity_report(args.sensitivity)
         plan = replay_measured_plan_file(
             analysis_report,
             args.source_plan,
@@ -871,7 +875,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "convert":
-        plan = load_model(args.plan, QuantizationPlan)
+        plan = load_quantization_plan(args.plan)
         calibration_activations = None
         if args.calibration_activations:
             from axquant.capture import load_capture_activations
@@ -1114,7 +1118,7 @@ def _run(args: argparse.Namespace) -> int:
         from axquant.kv_quality import build_kv_serving_quality_report
         from axquant.schema import KvServingQualityProfileResult
 
-        kv_plan_source = load_model(args.plan, QuantizationPlan)
+        kv_plan_source = load_quantization_plan(args.plan)
         if kv_plan_source.kv_cache is None:
             raise ArtifactError("kv-serving-quality requires a plan with a kv_cache section")
         summary_payload = _json.loads(
@@ -1391,7 +1395,7 @@ def _run(args: argparse.Namespace) -> int:
         candidate_size = (
             load_model(args.candidate_size, ArtifactSizeEvidence) if args.candidate_size else None
         )
-        bound_plan = load_model(args.plan, QuantizationPlan) if args.plan else None
+        bound_plan = load_quantization_plan(args.plan) if args.plan else None
         thresholds = thresholds_for(args.profile)
         # AXQ-045 MH2: profiles that define an explicit mtp_speed_floors table
         # resolve MTP speed floors by the candidate's architecture class (from
@@ -1536,7 +1540,7 @@ def _run(args: argparse.Namespace) -> int:
         candidate_size_path = Path(args.candidate_size).expanduser().resolve()
         size_reference_path = Path(args.size_reference).expanduser().resolve()
         tradeoff_path = Path(args.tradeoff_evidence).expanduser().resolve()
-        plan = load_model(plan_path, QuantizationPlan)
+        plan = load_quantization_plan(plan_path)
         candidate_size = load_model(candidate_size_path, ArtifactSizeEvidence)
         size_reference = load_model(size_reference_path, ArtifactSizeEvidence)
         if candidate_size.kind != "candidate" or size_reference.kind != "uniform-4bit":
@@ -1599,7 +1603,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "report":
-        plan = load_model(args.plan, QuantizationPlan)
+        plan = load_quantization_plan(args.plan)
         sections = [plan_markdown(plan)]
         if args.validation:
             validation = load_model(args.validation, ValidationReport)
@@ -2214,7 +2218,7 @@ def _run(args: argparse.Namespace) -> int:
         from axquant.refinement import refine_candidates
         from axquant.schema import RefinementConfig
 
-        analysis_report = load_model(args.analysis, SensitivityReport)
+        analysis_report = load_sensitivity_report(args.analysis)
         request = PlanRequest(
             profile=analysis_report.profile,
             target_bpw=args.target_bpw,
@@ -2279,9 +2283,9 @@ def _run(args: argparse.Namespace) -> int:
             optimize_candidate_interactions,
             select_complete_candidate,
         )
-        from axquant.schema import RefinementMeasurementSet, RefinementResult
+        from axquant.schema import RefinementMeasurementSet
 
-        refinement = load_model(args.refinement, RefinementResult)
+        refinement = load_refinement_result(args.refinement)
         measurements = load_model(args.measurements, RefinementMeasurementSet)
         if args.interaction:
             selected = optimize_candidate_interactions(refinement, measurements)
@@ -2307,10 +2311,9 @@ def _run(args: argparse.Namespace) -> int:
             ArtifactManifest,
             QualityComparisonReport,
             RefinementMeasurementSet,
-            RefinementResult,
         )
 
-        refinement = load_model(args.refinement, RefinementResult)
+        refinement = load_refinement_result(args.refinement)
         refine_measure_plan = refinement.candidate_plans.get(args.candidate_id)
         if refine_measure_plan is None:
             raise ValueError(f"unknown refinement candidate {args.candidate_id!r}")
@@ -2355,9 +2358,7 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "refine-export":
-        from axquant.schema import RefinementResult
-
-        refinement = load_model(args.refinement, RefinementResult)
+        refinement = load_refinement_result(args.refinement)
         output_dir = Path(args.output_dir).expanduser().resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
         targets = {

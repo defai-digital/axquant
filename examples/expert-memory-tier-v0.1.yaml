@@ -5,7 +5,7 @@
 #
 # target_bpw is intentionally loose so protected tensors do not make the recipe
 # infeasible on small fixtures. On full MoE trunks measured BPW falls much lower.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

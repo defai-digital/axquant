@@ -1,7 +1,7 @@
 # Experimental 2-bit DeepSeek V4 Flash recipe (AXQ-028).
 # Development evidence only — not a production claim without the release audit.
 # AX Engine requires AX_ENGINE_2BIT_EXPERIMENTAL=1 at runtime.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

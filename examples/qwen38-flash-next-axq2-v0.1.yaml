@@ -1,7 +1,7 @@
 # Experimental 2-bit AXQ recipe for Qwen3.8-Flash-Next (qwen4_exp).
 # Development evidence only. Experts/MLP 2-bit; attention stays 4-bit.
 # PLE/n-gram embeddings use the 8-bit embedding floor. Vision + gated residual BF16.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

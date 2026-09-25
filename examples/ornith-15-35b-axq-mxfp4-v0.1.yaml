@@ -1,7 +1,7 @@
 # Ornith-1.5-35B-A3B AXQ-MXFP4. Experts/MLP + attention → native MXFP4 (group 32).
 # Floors stay affine 8 / BF16. Language experts ship packed; MTP is sidecar-protected.
 # Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Planner uses affine storage_bpw; BF16 vision + floors raise the mix above a 5.6 trunk.
 target_bpw: 8.0

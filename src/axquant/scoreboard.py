@@ -25,6 +25,7 @@ from axquant.schema import (
     ScoreboardReport,
     ValidationReport,
 )
+from axquant.schema.loading import load_quantization_plan
 from axquant.serde import load_model, stable_sha256
 
 
@@ -111,7 +112,7 @@ def build_scoreboard(
     require_mtp_acceleration: bool = False,
 ) -> ScoreboardReport:
     """Build a scoreboard from a plan plus optional evidence artifacts."""
-    plan_model = plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
+    plan_model = plan if isinstance(plan, QuantizationPlan) else load_quantization_plan(plan)
     if profile is not None and profile != plan_model.profile:
         raise PlanningError("scoreboard profile does not match the quantization plan")
     active_profile = evaluation_profile or plan_model.profile

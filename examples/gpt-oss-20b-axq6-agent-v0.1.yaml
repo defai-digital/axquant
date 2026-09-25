@@ -2,7 +2,7 @@
 # architecture_prior at 6.0 BPW already certified from community MXFP4-Q4;
 # this recipe is a conservative native-source rebuild with attention 8-bit.
 # Use when prior 6.0 fails quality vs OpenAI native reference.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Raised for openai native BF16 non-experts + attention 8-bit (measured ~6.88).
 # Prefer architecture_prior --target-bpw 6.0 when a stricter 6.0 product window is required.

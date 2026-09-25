@@ -3,7 +3,7 @@
 # Backup recipe if agent-coding prior is insufficient: no 4-bit trunk + attention 8.
 # Planned BPW is ~6.58 (outside the 6.0±0.35 product-class window); still ship as
 # AXQ-6bit product name when quality is the goal. Use after agent-coding prior fails.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 6.6
 default_bits: 6

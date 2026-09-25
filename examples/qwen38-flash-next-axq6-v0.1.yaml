@@ -1,7 +1,7 @@
 # AXQ 6-bit recipe for Qwen3.8-Flash-Next (qwen4_exp).
 # Language attention/MLP/experts 6-bit affine. Vision + gated residual BF16.
 # Development evidence only — not a certificate.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 6

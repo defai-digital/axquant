@@ -2,7 +2,7 @@
 # Attention 6-bit DWQ (instruction path clip). Fused trunk stays 4-bit
 # affine — full-stack DWQ clip Killed:9 twice (BF16 materialize).
 # Not mlx-optiq. Not another 2-bit mix.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

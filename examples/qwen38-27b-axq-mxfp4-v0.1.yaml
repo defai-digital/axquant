@@ -1,7 +1,7 @@
 # AXQ-MXFP4 4-bit lane for Qwen3.8-27B (no-MTP).
 # Trunk attention+MLP → native MXFP4 (group 32). Floors stay affine 8 / BF16.
 # Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Planner still uses affine storage_bpw (4 + 32/32 = 5.0) for gs32 4-bit;
 # real MXFP4 is ~4.25. 5.6 leaves room for 8-bit embed/head floors.

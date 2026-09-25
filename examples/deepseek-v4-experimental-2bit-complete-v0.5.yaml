@@ -10,7 +10,7 @@
 # LM head 8-bit (AXQ-026 governed opt-in), routed trunk 2-bit.
 # No competitor code, calibration, or metadata is used.
 # AX Engine: AX_ENGINE_2BIT_EXPERIMENTAL=1.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

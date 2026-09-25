@@ -16,6 +16,7 @@ from axquant.schema import (
     ArchitectureSupportLevel,
     PrecisionShare,
     QuantizationPlan,
+    QuantizationPlanV1,
     SensitivityReport,
 )
 from axquant.schema._base import utc_now
@@ -52,12 +53,18 @@ def _normalized_source_plan(payload: Any) -> QuantizationPlan:
     Older refinement plans can predate target-class policy and strict distribution
     validators. Their tensor assignments remain the load-bearing input; BPW values
     must already agree with those assignments and are never silently repaired.
+    Both plan.v1 and plan.v2 sources are accepted (AXQ-046 MH5); the replayed
+    artifact always emits the current plan version.
     """
 
     if not isinstance(payload, dict):
         raise PlanningError("measured plan replay source must be a JSON object")
-    if payload.get("schema_version") != "axquant.plan.v1":
-        raise PlanningError("measured plan replay requires schema axquant.plan.v1")
+    version = payload.get("schema_version")
+    if version not in {"axquant.plan.v1", "axquant.plan.v2"}:
+        raise PlanningError(
+            "measured plan replay requires schema axquant.plan.v1 or axquant.plan.v2"
+        )
+    plan_type = QuantizationPlan if version == "axquant.plan.v2" else QuantizationPlanV1
     normalized = deepcopy(payload)
     raw_assignments = normalized.get("assignments")
     if not isinstance(raw_assignments, list) or not raw_assignments:
@@ -97,7 +104,7 @@ def _normalized_source_plan(payload: Any) -> QuantizationPlan:
     normalized["weight_distribution"] = _distribution(assignments)
     normalized["mtp_distribution"] = _distribution(assignments, mtp_only=True)
     try:
-        return QuantizationPlan.model_validate(normalized)
+        return plan_type.model_validate(normalized)
     except ValidationError as exc:
         raise PlanningError(f"measured plan replay source is invalid: {exc}") from exc
 
@@ -266,6 +273,9 @@ def replay_measured_plan(
     )
     replayed = source.model_copy(
         update={
+            # Replay always emits the current plan version (AXQ-046 MH5); a v1
+            # source upgrades to v2 with identical assignment semantics.
+            "schema_version": QuantizationPlan.model_fields["schema_version"].default,
             "architecture_profile": _current_policy_profile(report.architecture_profile),
             "target_class": target_class_for_bpw(source.target_bpw),
             "nominal_bpw": nominal_bpw,

@@ -154,10 +154,10 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
         plan_path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
         # Rebind plan digest so prepare_development_model_card accepts the strip.
         try:
-            from axquant.schema import QuantizationPlan
-            from axquant.serde import load_model, stable_sha256, write_data
+            from axquant.schema.loading import load_quantization_plan
+            from axquant.serde import stable_sha256, write_data
 
-            plan_model = load_model(plan_path, QuantizationPlan)
+            plan_model = load_quantization_plan(plan_path)
             write_data(plan_path, plan_model)
             plan_sha = stable_sha256(plan_model)
         except Exception:

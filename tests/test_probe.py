@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import ClassVar
 
 import numpy as np
@@ -84,7 +85,12 @@ class _MeasuredFakeBackend:
         method: QuantMethod = QuantMethod.AFFINE,
     ) -> None:
         assert module_path
-        assert group_size == 64
+        if method == QuantMethod.MXFP4:
+            # AXQ-046 MH5: mxfp4 candidates exist only at 4-bit / group 32.
+            assert bits == 4
+            assert group_size == 32
+        else:
+            assert group_size == 64
         self.bits = bits
         self.method = method
         self.methods.append(method)
@@ -181,6 +187,13 @@ class TestProbeConfigValidation:
             QuantMethod.AWQ,
             QuantMethod.GPTQ,
         )
+        # AXQ-046 MH5: mxfp4 is a measurable probe candidate.
+        mxfp4 = ProbeConfig(
+            model=ModelIdentity(model_id="m"),
+            calibration_cache="/tmp",
+            candidate_methods=(QuantMethod.MXFP4, QuantMethod.AFFINE),
+        )
+        assert mxfp4.candidate_methods == (QuantMethod.AFFINE, QuantMethod.MXFP4)
         with pytest.raises(ValueError, match="probe methods"):
             ProbeConfig(
                 model=ModelIdentity(model_id="m"),
@@ -344,6 +357,54 @@ class TestMlxProbeBackend:
         backend._mlx = True  # Fake MLX availability
         with pytest.raises(ProbeError, match="model not loaded"):
             backend.forward(None)
+
+    def test_quantize_mxfp4_uses_native_mode(self) -> None:
+        backend = MlxProbeBackend()
+        calls: dict[str, object] = {}
+
+        class _FakeModule:
+            weight = None
+
+            def to_quantized(self, *, group_size: int, bits: int, mode: str) -> _FakeModule:
+                calls.update({"group_size": group_size, "bits": bits, "mode": mode})
+                return self
+
+            def parameters(self) -> list:
+                return []
+
+        fake = _FakeModule()
+        backend._mlx = SimpleNamespace(eval=lambda *args: None)
+        backend._model = object()
+        backend._resolve_module_path = lambda path: path
+        backend._get_parent_and_module = lambda path: (None, "child", fake)
+        backend._set_child = lambda parent, name, module: None
+        backend.quantize_module("some.module", 4, 32, QuantMethod.MXFP4)
+        assert calls == {"group_size": 32, "bits": 4, "mode": "mxfp4"}
+        backend.restore_module("some.module")
+
+    @pytest.mark.parametrize(
+        "bits,group_size",
+        [(8, 32), (4, 64)],
+    )
+    def test_quantize_mxfp4_rejects_non_4bit_group32(
+        self,
+        bits: int,
+        group_size: int,
+    ) -> None:
+        backend = MlxProbeBackend()
+        backend._mlx = SimpleNamespace(eval=lambda *args: None)
+        backend._model = object()
+        backend._resolve_module_path = lambda path: path
+
+        class _FakeModule:
+            weight = None
+
+            def to_quantized(self, **kwargs: object) -> _FakeModule:
+                return self
+
+        backend._get_parent_and_module = lambda path: (None, "child", _FakeModule())
+        with pytest.raises(ProbeError, match="mxfp4 probe candidates require"):
+            backend.quantize_module("some.module", bits, group_size, QuantMethod.MXFP4)
 
 
 def test_probe_replays_verified_tokens_and_emits_measured_evidence(
@@ -643,6 +704,99 @@ def _bound_probe_capture(
         manifest=manifest,
         activations=activations,
     )
+
+
+def test_probe_measures_mxfp4_candidates_at_4bit_group32(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    identity = ModelIdentity(
+        model_id="Qwen/Qwen3.6-27B",
+        revision="a" * 40,
+        local_path=str(qwen36_model_dir),
+    )
+    inventory = inspect_model(
+        qwen36_model_dir,
+        model_id=identity.model_id,
+        revision=identity.revision,
+    )
+    dataset = tmp_path / "calibration.jsonl"
+    dataset.write_text(
+        "\n".join(
+            [
+                json.dumps({"text": "repair this function"}),
+                json.dumps({"text": "return valid JSON"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cache = tmp_path / "cache"
+    calibration = CalibrationManifest(
+        model=identity,
+        profile=ProfileName.AGENT_CODING,
+        dataset_id=str(dataset),
+        dataset_sha256=file_sha256(dataset),
+        samples=2,
+        domains=[],
+        sequence_length=32,
+        random_seed=11,
+        calibration_evaluation_separation_attested=True,
+    )
+    cache.mkdir()
+    write_data(cache / "calibration_manifest.json", calibration)
+    tokenize_calibration(
+        model=identity,
+        dataset_path=dataset,
+        output_dir=cache,
+        profile=ProfileName.AGENT_CODING,
+        sequence_length=32,
+        random_seed=11,
+        tokenizer=_FakeTokenizer(),
+        calibration_manifest_sha256=stable_sha256(
+            calibration.model_dump(mode="json", exclude={"created_at"})
+        ),
+        separation_attested=True,
+    )
+    backend = _MeasuredFakeBackend()
+    config = ProbeConfig(
+        model=identity,
+        calibration_cache=str(cache),
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 16),
+        candidate_methods=(QuantMethod.MXFP4,),
+        candidate_group_sizes=(32,),
+        group_size=64,
+        token_budget_per_candidate=32,
+    )
+    report = probe_tensor_sensitivity(
+        inventory,
+        config=config,
+        backend=backend,
+        state_path=tmp_path / "mxfp4-progress.json",
+    )
+
+    assert report.schema_version == "axquant.sensitivity.v2"
+    assert backend.methods and set(backend.methods) == {QuantMethod.MXFP4}
+    measured_mxfp4 = 0
+    for entry in report.entries:
+        mxfp4_candidates = [
+            candidate for candidate in entry.candidates if candidate.method == QuantMethod.MXFP4
+        ]
+        if not entry.tensor.quantizable or not any(
+            candidate.bits == 4 for candidate in entry.candidates
+        ):
+            # Protected / 16-bit-only tensors never reach the mxfp4 grid.
+            assert mxfp4_candidates == []
+            continue
+        assert len(mxfp4_candidates) == 1
+        candidate = mxfp4_candidates[0]
+        # The grid yields exactly one mxfp4 candidate per 4-bit/gs32 tensor.
+        assert candidate.bits == 4
+        assert candidate.group_size == 32
+        assert candidate.supported
+        assert candidate.measured_tokens > 0
+        measured_mxfp4 += 1
+    assert measured_mxfp4 > 0
 
 
 def test_probe_requires_calibration_activations_for_awq_gptq(

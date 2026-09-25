@@ -45,6 +45,11 @@ from axquant.schema import (
     RuntimeName,
     SensitivityReport,
 )
+from axquant.schema.loading import (
+    load_inventory,
+    load_kv_sensitivity_report,
+    load_sensitivity_report,
+)
 from axquant.serde import load_model, stable_sha256, write_data, write_text
 
 _LAYER_INDEX = re.compile(r"\.layers\.(\d+)\.")
@@ -72,7 +77,7 @@ def _load_sensitivity(
                 "because it uses architecture priors"
             )
         return architecture_prior_report(inventory, profile=profile)
-    report = load_model(sensitivity_path, SensitivityReport)
+    report = load_sensitivity_report(sensitivity_path)
     if report.inventory_sha256 != _inventory_digest(inventory):
         raise PlanningError("sensitivity report does not bind the selected inventory")
     return report
@@ -467,7 +472,7 @@ def diagnose_joint_interaction(
     if inventory_path is None:
         inventory = live_inventory
     else:
-        inventory = load_model(inventory_path, Inventory)
+        inventory = load_inventory(inventory_path)
         if _inventory_digest(inventory) != _inventory_digest(live_inventory):
             raise PlanningError("supplied --inventory does not match the inspected --model")
     report = _load_sensitivity(
@@ -477,7 +482,7 @@ def diagnose_joint_interaction(
         allow_unmeasured=allow_unmeasured,
     )
     kv_report = (
-        load_model(kv_analysis_path, KvSensitivityReport) if kv_analysis_path is not None else None
+        load_kv_sensitivity_report(kv_analysis_path) if kv_analysis_path is not None else None
     )
     if kv_report is not None:
         if not same_model_identity(kv_report.model, report.model) and not _same_model_id(

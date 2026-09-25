@@ -16,7 +16,12 @@ from axquant.schema import (
     SensitivityReport,
     UnifiedSensitivityBinding,
 )
-from axquant.serde import load_model, stable_sha256
+from axquant.schema.loading import (
+    load_kv_sensitivity_report,
+    load_quantization_plan,
+    load_sensitivity_report,
+)
+from axquant.serde import stable_sha256
 
 
 def _same_model_lineage(left: object, right: object) -> bool:
@@ -43,7 +48,7 @@ def bind_unified_sensitivity(
     weight = (
         weight_sensitivity
         if isinstance(weight_sensitivity, SensitivityReport)
-        else load_model(weight_sensitivity, SensitivityReport)
+        else load_sensitivity_report(weight_sensitivity)
     )
     try:
         weight = SensitivityReport.model_validate(weight.model_dump(mode="python"))
@@ -64,7 +69,7 @@ def bind_unified_sensitivity(
         kv = (
             kv_sensitivity
             if isinstance(kv_sensitivity, KvSensitivityReport)
-            else load_model(kv_sensitivity, KvSensitivityReport)
+            else load_kv_sensitivity_report(kv_sensitivity)
         )
         try:
             kv = KvSensitivityReport.model_validate(kv.model_dump(mode="python"))
@@ -102,9 +107,7 @@ def bind_unified_sensitivity(
         kv_basis = kv_report_basis
 
     if plan is not None:
-        plan_model = (
-            plan if isinstance(plan, QuantizationPlan) else load_model(plan, QuantizationPlan)
-        )
+        plan_model = plan if isinstance(plan, QuantizationPlan) else load_quantization_plan(plan)
         try:
             plan_model = QuantizationPlan.model_validate(plan_model.model_dump(mode="python"))
         except ValidationError as exc:

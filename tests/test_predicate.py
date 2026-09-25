@@ -710,3 +710,71 @@ def test_mxfp4_q_mode_remaps_four_bit_trunk() -> None:
     plan.assignments[0].group_size = 64
     with pytest.raises(PlanningError, match="group_size 32"):
         build_quant_predicate(plan, q_mode="mxfp4")("model.layers.0.mlp.down_proj", object())
+
+
+def _mxfp4_selected_plan() -> QuantizationPlan:
+    plan = _mlp_plan()
+    allocation = plan.assignments[0].model_copy(
+        update={"group_size": 32, "method": QuantMethod.MXFP4}
+    )
+    hardware = plan.hardware.model_copy(
+        update={
+            "supported_methods": (
+                *plan.hardware.supported_methods,
+                QuantMethod.MXFP4,
+            )
+        }
+    )
+    return plan.model_copy(update={"assignments": [allocation], "hardware": hardware})
+
+
+def test_plan_selected_mxfp4_wins_over_affine_q_mode() -> None:
+    # AXQ-046 MH5: q_mode=affine never overrides an explicit plan selection.
+    plan = _mxfp4_selected_plan()
+    predicate = build_quant_predicate(plan, q_mode="affine")
+    assert predicate("model.layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }
+
+
+def test_plan_selected_mxfp4_honored_under_mxfp4_q_mode() -> None:
+    plan = _mxfp4_selected_plan()
+    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    assert predicate("model.layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }
+
+
+def test_plan_selected_mxfp4_requires_4bit_group32() -> None:
+    # The predicate enforces the mxfp4 constraint even for hand-edited plans
+    # whose method was swapped after schema validation.
+    plan = _mlp_plan()
+    plan.assignments[0] = plan.assignments[0].model_copy(update={"method": QuantMethod.MXFP4})
+    if QuantMethod.MXFP4 not in plan.hardware.supported_methods:
+        plan.hardware = plan.hardware.model_copy(
+            update={
+                "supported_methods": (
+                    *plan.hardware.supported_methods,
+                    QuantMethod.MXFP4,
+                )
+            }
+        )
+    with pytest.raises(PlanningError, match="mxfp4 plan allocations require"):
+        build_quant_predicate(plan)
+
+
+def test_q_mode_mxfp4_without_plan_selection_keeps_legacy_remap() -> None:
+    # No plan mxfp4 selection: the whole-4bit remap still applies (backward
+    # compatible), and non-4-bit floors stay affine.
+    plan = _mlp_plan()
+    plan.assignments[0].group_size = 32
+    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    assert predicate("model.layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }

@@ -3,7 +3,7 @@
 # driven by long_context (0.875). Raise attention to 6-bit (8-bit blows size
 # ratio past 1.15); keep MoE experts at 4-bit for product class.
 # Source: Hcompany/Holo3-35B-A3B@208d5ae3a03f99d561f32ab5e606f73397a390ea
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 5.0
 default_bits: 4

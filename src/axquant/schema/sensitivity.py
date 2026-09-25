@@ -6,7 +6,13 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
-from axquant.schema.enums import EvidenceKind, ProfileName, QuantMethod
+from axquant.schema.enums import (
+    MXFP4_BITS,
+    MXFP4_GROUP_SIZE,
+    EvidenceKind,
+    ProfileName,
+    QuantMethod,
+)
 from axquant.schema.inventory import ArchitectureProfile, ModelIdentity, TensorSpec
 
 
@@ -44,6 +50,12 @@ class CandidateMeasurement(StrictModel):
 
     @model_validator(mode="after")
     def bf16_has_no_group(self) -> CandidateMeasurement:
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 candidates require {MXFP4_BITS}-bit with group size {MXFP4_GROUP_SIZE}"
+            )
         if self.bits == 16 and self.method != QuantMethod.BF16:
             raise ValueError("16-bit candidates must use the bf16 method")
         if self.method == QuantMethod.BF16 and self.bits != 16:
@@ -95,7 +107,7 @@ class TensorSensitivity(StrictModel):
 
 
 class SensitivityReport(StrictModel):
-    schema_version: Literal["axquant.sensitivity.v1"] = "axquant.sensitivity.v1"
+    schema_version: Literal["axquant.sensitivity.v2"] = "axquant.sensitivity.v2"
     model: ModelIdentity
     architecture_profile: ArchitectureProfile = Field(default_factory=ArchitectureProfile)
     profile: ProfileName
@@ -114,7 +126,7 @@ class SensitivityReport(StrictModel):
 
 
 class ProbeConfig(StrictModel):
-    schema_version: Literal["axquant.probe-config.v1"] = "axquant.probe-config.v1"
+    schema_version: Literal["axquant.probe-config.v2"] = "axquant.probe-config.v2"
     model: ModelIdentity
     calibration_cache: str
     profile: ProfileName = ProfileName.AGENT_CODING
@@ -156,10 +168,11 @@ class ProbeConfig(StrictModel):
             QuantMethod.AWQ,
             QuantMethod.GPTQ,
             QuantMethod.GPTQ_ACT,
+            QuantMethod.MXFP4,
         }
         if not normalized or set(normalized) - supported:
             raise ValueError(
-                "probe methods must contain only affine, dwq, awq, gptq, and/or gptq-act"
+                "probe methods must contain only affine, dwq, awq, gptq, gptq-act, and/or mxfp4"
             )
         return normalized
 
@@ -294,7 +307,7 @@ class CaptureProgress(StrictModel):
 
 
 class ProbeProgress(StrictModel):
-    schema_version: Literal["axquant.probe-progress.v1"] = "axquant.probe-progress.v1"
+    schema_version: Literal["axquant.probe-progress.v2"] = "axquant.probe-progress.v2"
     inventory_sha256: str
     config_sha256: str
     completed_tensors: dict[str, list[CandidateMeasurement]] = Field(default_factory=dict)

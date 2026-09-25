@@ -1,4 +1,4 @@
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 7.0
 default_bits: 4

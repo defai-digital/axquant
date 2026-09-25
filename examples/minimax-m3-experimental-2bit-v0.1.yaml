@@ -1,7 +1,7 @@
 # Experimental 2-bit Super-class recipe for MiniMax-M3 (BF16 source).
 # Hobby / curiosity pack only. Will not be certified. Stream required.
 # Convert is blocked unless mlx-vlm minimax_m3 language generate exists.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

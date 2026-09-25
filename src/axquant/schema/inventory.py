@@ -7,6 +7,8 @@ from pydantic import Field, field_validator, model_validator
 
 from axquant.schema._base import StrictModel, utc_now
 from axquant.schema.enums import (
+    MXFP4_BITS,
+    MXFP4_GROUP_SIZE,
     ArchitectureSupportLevel,
     OptimizationScope,
     QuantMethod,
@@ -84,9 +86,21 @@ class TensorSpec(StrictModel):
             raise ValueError("tensor shape must contain non-negative dimensions")
         return value
 
+    @model_validator(mode="after")
+    def mxfp4_current_precision_is_4bit_group32(self) -> TensorSpec:
+        if self.current_method == QuantMethod.MXFP4 and (
+            self.current_bits != MXFP4_BITS or self.current_group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 tensors record {MXFP4_BITS}-bit with group size "
+                f"{MXFP4_GROUP_SIZE}: {self.name} records {self.current_bits}-bit "
+                f"with group size {self.current_group_size}"
+            )
+        return self
+
 
 class Inventory(StrictModel):
-    schema_version: Literal["axquant.inventory.v1"] = "axquant.inventory.v1"
+    schema_version: Literal["axquant.inventory.v2"] = "axquant.inventory.v2"
     model: ModelIdentity
     tensors: list[TensorSpec]
     total_parameters: int = Field(ge=0)

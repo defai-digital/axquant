@@ -1,7 +1,7 @@
 # Flash-0731 4-bit robust trunk. Development only. Not mlx-optiq.
 # Factory 2-bit affine packs echo the prompt. 4-bit is the first AXQ
 # precision class expected to stay coherent on this source.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

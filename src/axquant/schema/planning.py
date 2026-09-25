@@ -8,6 +8,8 @@ from pydantic import Field, field_validator, model_validator
 
 from axquant.schema._base import SoftwareVersions, StrictModel, utc_now
 from axquant.schema.enums import (
+    MXFP4_BITS,
+    MXFP4_GROUP_SIZE,
     EvidenceKind,
     OutlierStrategy,
     ProfileName,
@@ -135,6 +137,12 @@ class ManualPrecisionRule(StrictModel):
     def valid_rule(self) -> ManualPrecisionRule:
         if not self.tensor_glob and not self.module_glob and not self.roles:
             raise ValueError("manual precision rules require at least one selector")
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 manual rules require {MXFP4_BITS}-bit with group size {MXFP4_GROUP_SIZE}"
+            )
         if self.bits == 16:
             if self.method != QuantMethod.BF16:
                 raise ValueError("16-bit manual rules must use bf16")
@@ -146,7 +154,7 @@ class ManualPrecisionRule(StrictModel):
 
 
 class ManualPlanRecipe(StrictModel):
-    schema_version: Literal["axquant.manual-recipe.v1"] = "axquant.manual-recipe.v1"
+    schema_version: Literal["axquant.manual-recipe.v2"] = "axquant.manual-recipe.v2"
     profile: ProfileName = ProfileName.AGENT_CODING
     target_bpw: float = Field(default=6.0, gt=0.0, le=16.0)
     default_bits: int = Field(default=4, ge=2, le=16)
@@ -168,6 +176,13 @@ class ManualPlanRecipe(StrictModel):
 
     @model_validator(mode="after")
     def valid_recipe(self) -> ManualPlanRecipe:
+        if self.default_method == QuantMethod.MXFP4 and (
+            self.default_bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"an mxfp4 manual default requires {MXFP4_BITS}-bit with group size "
+                f"{MXFP4_GROUP_SIZE}"
+            )
         if self.default_bits == 16 and self.default_method != QuantMethod.BF16:
             raise ValueError("a 16-bit manual default must use bf16")
         if self.default_bits < 16 and self.default_method == QuantMethod.BF16:
@@ -185,7 +200,7 @@ class ManualPlanRecipe(StrictModel):
 
 
 class PlanRequest(StrictModel):
-    schema_version: Literal["axquant.plan-request.v1"] = "axquant.plan-request.v1"
+    schema_version: Literal["axquant.plan-request.v2"] = "axquant.plan-request.v2"
     profile: ProfileName
     target_bpw: float = Field(gt=0.0, le=16.0)
     candidate_bits: tuple[int, ...] = (4, 6, 8, 16)
@@ -340,7 +355,7 @@ class KvLayerSensitivity(StrictModel):
 class KvSensitivityReport(StrictModel):
     """Measured per-layer KV-cache sensitivity (AXQ-024)."""
 
-    schema_version: Literal["axquant.kv-sensitivity.v1"] = "axquant.kv-sensitivity.v1"
+    schema_version: Literal["axquant.kv-sensitivity.v2"] = "axquant.kv-sensitivity.v2"
     model: ModelIdentity
     architecture_profile: ArchitectureProfile = Field(default_factory=ArchitectureProfile)
     profile: ProfileName
@@ -497,6 +512,18 @@ class Allocation(StrictModel):
     outlier_strategy: OutlierStrategy = OutlierStrategy.NONE
     strategy_metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def mxfp4_requires_4bit_group32(self) -> Allocation:
+        if self.method == QuantMethod.MXFP4 and (
+            self.bits != MXFP4_BITS or self.group_size != MXFP4_GROUP_SIZE
+        ):
+            raise ValueError(
+                f"mxfp4 allocations require {MXFP4_BITS}-bit with group size "
+                f"{MXFP4_GROUP_SIZE}: {self.tensor} is {self.bits}-bit "
+                f"with group size {self.group_size}"
+            )
+        return self
+
 
 class PrecisionShare(StrictModel):
     parameters: int = Field(ge=0)
@@ -521,7 +548,7 @@ class MethodNearTie(StrictModel):
 
 
 class QuantizationPlan(StrictModel):
-    schema_version: Literal["axquant.plan.v1"] = "axquant.plan.v1"
+    schema_version: Literal["axquant.plan.v2"] = "axquant.plan.v2"
     quantizer: Literal["axquant"] = "axquant"
     status: Literal["planned"] = "planned"
     source_model: ModelIdentity

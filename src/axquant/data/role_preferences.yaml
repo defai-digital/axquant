@@ -1,5 +1,7 @@
 # Role-aware soft preferences (AXQ-028 QP1). Never lower protection floors.
 # Defaults for method_loss_margin / ranking_discount match RolePreference dataclass.
+# MXFP4 (AXQ-046 MH5) is listed after affine everywhere: until measured data
+# prefers it, it only wins a storage key on strictly lower measured loss.
 
 defaults:
   method_loss_margin: 0.05
@@ -7,20 +9,20 @@ defaults:
 
 preferences:
   attention:
-    preferred_methods: [awq, gptq, affine, dwq]
+    preferred_methods: [awq, gptq, affine, mxfp4, dwq]
     preferred_max_group_size: 32
   lm_head:
-    preferred_methods: [affine, dwq]
+    preferred_methods: [affine, mxfp4, dwq]
     preferred_max_group_size: 64
   embedding:
-    preferred_methods: [affine]
+    preferred_methods: [affine, mxfp4]
     preferred_max_group_size: 64
   router:
-    preferred_methods: [affine]
+    preferred_methods: [affine, mxfp4]
     preferred_max_group_size: 64
   mlp:
-    preferred_methods: [affine, dwq, awq, gptq]
+    preferred_methods: [affine, mxfp4, dwq, awq, gptq]
     preferred_max_group_size: 64
   expert:
-    preferred_methods: [affine, dwq]
+    preferred_methods: [affine, mxfp4, dwq]
     preferred_max_group_size: 64

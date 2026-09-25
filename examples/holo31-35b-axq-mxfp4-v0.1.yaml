@@ -1,6 +1,6 @@
 # Holo-3.1-35B-A3B AXQ-MXFP4 (no MTP).
 # Experts/MLP + attention → native MXFP4 (group 32). Floors stay affine 8 / BF16.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 4

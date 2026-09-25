@@ -7,7 +7,7 @@
 # On small development fixtures the protected share dominates; on full 27B
 # trunks the measured BPW falls much lower. allow_unmatched_rules is true so
 # optional roles (e.g. router on dense) do not fail closed when absent.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 2

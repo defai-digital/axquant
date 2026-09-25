@@ -4,7 +4,7 @@
 # Factory 2-bit affine packs echo the prompt (general 0.487 vs OptiQ 0.948).
 # This recipe keeps the robust trunk at 4-bit and applies AXQ-owned DWQ
 # percentile clip before affine packing, including fused switch stacks.
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4

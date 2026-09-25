@@ -27,7 +27,6 @@ from axquant.schema import (
     CalibrationManifest,
     EvaluationBundle,
     HardwareProfileRegistry,
-    KvSensitivityReport,
     MtpSidecarLayout,
     ParetoReport,
     PreparedMtpSidecarManifest,
@@ -41,6 +40,11 @@ from axquant.schema import (
     RuntimeName,
     SupportTier,
     ValidationReport,
+)
+from axquant.schema.loading import (
+    load_hardware_profile_registry,
+    load_kv_sensitivity_report,
+    load_quantization_plan,
 )
 from axquant.serde import (
     file_sha256,
@@ -451,7 +455,7 @@ def _verify_measured_kv_plan(directory: Path, plan: QuantizationPlan) -> None:
         raise ValidationGateError(
             "a measured KV-cache plan requires the packaged kv_sensitivity.json report"
         )
-    report = load_model(report_path, KvSensitivityReport)
+    report = load_kv_sensitivity_report(report_path)
     if stable_sha256(report) != kv.sensitivity_sha256:
         raise ValidationGateError("packaged KV sensitivity report does not match the plan binding")
     if kv.max_output_kl is None:
@@ -510,7 +514,7 @@ def prepare_publication(
     except ValueError as exc:
         raise ValidationGateError(str(exc)) from exc
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
-    plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    plan = load_quantization_plan(directory / "axquant_plan.json")
     if plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY:
         raise ValidationGateError(
             "publication requires at least the convertible support tier; the packaged plan "
@@ -580,7 +584,7 @@ def prepare_publication(
         raise ValidationGateError("required validation profiles are not matched and disjoint")
     hardware_registry_source = Path(hardware_registry_path).expanduser().resolve()
     pareto_report_source = Path(pareto_report_path).expanduser().resolve()
-    hardware_registry = load_model(hardware_registry_source, HardwareProfileRegistry)
+    hardware_registry = load_hardware_profile_registry(hardware_registry_source)
     pareto_report = load_model(pareto_report_source, ParetoReport)
     if not hardware_registry.release_ready:
         raise ValidationGateError("publication requires a release-ready hardware registry")

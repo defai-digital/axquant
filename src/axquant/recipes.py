@@ -22,9 +22,12 @@ from axquant.manual import manual_quantization_plan
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     Inventory,
-    ManualPlanRecipe,
     QuantizationPlan,
     RecipeBundle,
+)
+from axquant.schema.loading import (
+    load_manual_plan_recipe,
+    load_quantization_plan,
 )
 from axquant.serde import file_sha256, load_model, write_data
 
@@ -161,7 +164,7 @@ def resolve_recipe_plan(
             f"{record.source_model.revision}, not {target.revision}"
         )
     if record.payload_kind == "plan":
-        plan = load_model(payload, QuantizationPlan)
+        plan = load_quantization_plan(payload)
         if (
             plan.source_model.model_id != record.source_model.model_id
             or plan.source_model.revision != record.source_model.revision
@@ -182,7 +185,7 @@ def resolve_recipe_plan(
             }
         )
     else:
-        recipe = load_model(payload, ManualPlanRecipe)
+        recipe = load_manual_plan_recipe(payload)
         plan = manual_quantization_plan(inventory, recipe)
     if plan.evidence_kind != record.evidence_kind:
         raise ArtifactError(
@@ -202,7 +205,7 @@ def export_recipe_bundle(
 ) -> Path:
     """Export a plan file as a recipe bundle directory."""
     plan_path = Path(plan).expanduser().resolve()
-    loaded = load_model(plan_path, QuantizationPlan)
+    loaded = load_quantization_plan(plan_path)
     if not is_immutable_revision(loaded.source_model.revision):
         raise ArtifactError("a recipe bundle requires a revision-pinned plan")
     validated_lineage = _validated_lineage(dict(lineage or {}))

@@ -62,7 +62,6 @@ from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
     CalibrationManifest,
-    KvSensitivityReport,
     MtpSidecarLayout,
     ProtectedTensorSidecarManifest,
     QuantizationPlan,
@@ -70,6 +69,9 @@ from axquant.schema import (
     QuantizerExecutionRecord,
     QuantMethod,
     TensorRole,
+)
+from axquant.schema.loading import (
+    load_kv_sensitivity_report,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.source_prep import prepare_conversion_source
@@ -717,7 +719,7 @@ def _validated_kv_sensitivity_source(
     source = Path(kv_sensitivity).expanduser().resolve()
     if not source.is_file():
         raise ArtifactError(f"KV sensitivity report does not exist: {source}")
-    report = load_model(source, KvSensitivityReport)
+    report = load_kv_sensitivity_report(source)
     if stable_sha256(report) != kv.sensitivity_sha256:
         raise PlanningError("KV sensitivity report digest does not match the plan binding")
     if (

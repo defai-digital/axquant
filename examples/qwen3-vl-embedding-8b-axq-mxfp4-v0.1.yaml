@@ -1,7 +1,7 @@
 # Qwen3-VL-Embedding-8B AXQ-MXFP4 (no MTP).
 # Language attention+MLP native MXFP4 (group 32). Vision stays BF16.
 # Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
-schema_version: axquant.manual-recipe.v1
+schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 8.0
 default_bits: 4

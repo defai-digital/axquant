@@ -12,9 +12,9 @@ from axquant.module_paths import (
     mlx_module_aliases,
     packed_expert_runtime_modules,
 )
-from axquant.schema import Allocation, QuantizationPlan
+from axquant.schema import Allocation, QuantizationPlan, QuantMethod
 
-_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act"})
+_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act", "mxfp4"})
 # Fused/packed SwitchLinear stacks can only run portable affine packing.
 # DWQ is percentile clip then that same affine pack — allowed. AWQ/GPTQ are not.
 FUSED_STACK_METHODS = frozenset({"affine", "dwq"})
@@ -33,12 +33,16 @@ def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> 
 
     ``q_mode=mxfp4`` remaps 4-bit trunk tensors onto native MXFP4. 8-bit and
     BF16 floors stay affine / unpacked. ``strategy_metadata['physical_mode']``
-    can request the same remap without a convert flag.
+    can request the same remap without a convert flag. A plan-selected mxfp4
+    allocation (ADR-0015 / AXQ-046 MH5) is honored under every q_mode:
+    ``q_mode=affine`` never overrides an explicit plan selection.
     """
 
     requested = str(q_mode or "affine").lower()
     if requested not in _PHYSICAL_MODES:
         raise PlanningError(f"unsupported convert q-mode: {q_mode}")
+    if allocation.method == QuantMethod.MXFP4:
+        return "mxfp4"
     meta = str(allocation.strategy_metadata.get("physical_mode") or "").lower()
     if requested == "mxfp4" and allocation.bits == 4:
         return "mxfp4"
@@ -341,6 +345,18 @@ def build_quant_predicate(
     if unsupported:
         raise PlanningError(
             f"the MLX-LM predicate backend cannot execute methods {sorted(unsupported)}"
+        )
+    mxfp4_violations = [
+        allocation.module_path
+        for allocation in plan.assignments
+        if allocation.bits < 16
+        and allocation.method == QuantMethod.MXFP4
+        and (allocation.bits != 4 or allocation.group_size != MXFP4_GROUP_SIZE)
+    ]
+    if mxfp4_violations:
+        raise PlanningError(
+            f"mxfp4 plan allocations require 4-bit with group size "
+            f"{MXFP4_GROUP_SIZE}: {sorted(mxfp4_violations)[:10]}"
         )
     calibration_assignments = [
         allocation
