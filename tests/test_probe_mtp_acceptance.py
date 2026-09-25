@@ -172,6 +172,20 @@ class _CapabilityLessFakeBackend:
         )
 
 
+class _LateCapableFakeBackend(_MtpCapableFakeBackend):
+    """Capability that only appears once ``load_model`` inspected the tree.
+
+    Mirrors ``MlxProbeBackend``, which initializes ``supports_mtp_forward`` to
+    False and only sets it inside ``load_model``.
+    """
+
+    supports_mtp_forward = False
+
+    def load_model(self, model_dir: Path) -> None:
+        super().load_model(model_dir)
+        self.supports_mtp_forward = True
+
+
 def _run_probe(
     model_dir: Path,
     tmp_path: Path,
@@ -333,6 +347,35 @@ def test_capability_less_backend_keeps_zero_marker_and_gate_fails_closed(
         enforce_mtp_acceptance_measured(report, weights)
     warnings = enforce_mtp_acceptance_measured(report, weights, allow_mtp_unmeasured=True)
     assert warnings
+
+
+def test_mtp_capability_resolves_after_load_model(
+    qwen36_integrated_mtp_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    """Regression: read the capability only after the backend has loaded.
+
+    ``MlxProbeBackend`` initializes ``supports_mtp_forward`` to False and only
+    sets it inside ``load_model``. Resolving the capability before the load
+    therefore reported every probe as capability-less: all MTP candidates kept
+    the 0.0 marker and the provenance claimed the backend had no MTP forward,
+    silently disabling the measured-acceptance path.
+    """
+
+    backend = _LateCapableFakeBackend()
+    assert not backend.supports_mtp_forward
+    report = _run_probe(qwen36_integrated_mtp_model_dir, tmp_path, backend)
+
+    assert backend.mtp_forwards > 0
+    assert report.calibration is not None
+    assert report.calibration.metadata["mtp_acceptance_provenance"] == "mtp-forward"
+    mtp_losses = [
+        candidate.metrics.mtp_acceptance_loss
+        for entry in _mtp_entries(report)
+        for candidate in entry.candidates
+    ]
+    assert any(value > 0.0 for value in mtp_losses)
+    assert enforce_mtp_acceptance_measured(report, objective_for(ProfileName.AGENT_CODING)) == []
 
 
 def test_perfect_agreement_floors_at_epsilon(

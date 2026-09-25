@@ -1639,13 +1639,19 @@ def probe_tensor_sensitivity(
         for tensor in inventory.tensors
         if tensor.role.is_mtp and tensor.name in target_tensors
     }
-    mtp_forward = _mtp_forward_capability(backend) if mtp_target_tensors else None
+    mtp_forward: MtpForwardBackend | None = None
     references: list[ForwardResult] = []
     reference_metrics = MetricVector()
     mtp_reference_drafts: list[Any] | None = None
     if probe_required:
         model_path = config.model.local_path or config.model.model_id
         backend.load_model(Path(model_path).expanduser().resolve())
+        # MTP forward capability is only known once load_model inspected the
+        # loaded module tree, so resolve it here: a fresh backend reports False
+        # until then, which would silently skip every MTP acceptance
+        # measurement and misreport the provenance as capability-less.
+        if mtp_target_tensors:
+            mtp_forward = _mtp_forward_capability(backend)
         for _ in range(config.warmup_replays):
             backend.forward(calibration_inputs[0])
         references = [backend.forward(input_ids) for input_ids in calibration_inputs]

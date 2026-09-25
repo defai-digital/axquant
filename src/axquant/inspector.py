@@ -293,9 +293,12 @@ def _deepseek_fp4_expert_weight(name: str, dtype: str, config: dict[str, Any]) -
         return True
     configured = config.get("quantization_config")
     if isinstance(configured, dict):
+        # An explicit container format is authoritative. Only an FP4 format
+        # means half-width packing; int8, fp8 blocks, and affine
+        # bits/group_size expert bodies keep their declared width, so the
+        # model-family default below must not override them.
         fmt = str(configured.get("fmt", "")).lower()
-        if "fp4" in fmt or fmt in {"f4", "e2m1"}:
-            return True
+        return "fp4" in fmt or fmt in {"f4", "e2m1"}
     return expert_dtype == "" and str(config.get("model_type", "")).startswith("deepseek")
 
 

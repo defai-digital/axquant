@@ -84,9 +84,15 @@ class Qwen38Adapter:
         )
 
     def classify_tensor(self, name: str, source_file: str) -> TensorRole | None:
-        value = name.lower()
-        if "shared_expert_gate" in value:
-            return TensorRole.ROUTER
-        if "shared_expert" in value:
-            return TensorRole.MLP
-        return classify_dense_tensor(name, source_file)
+        # Shared-expert names are family extras, not pre-checks: the shared
+        # classifier applies extra patterns after its MTP branch, so a
+        # protected MTP sidecar (mtp.safetensors, mtp.* keys) keeps its MTP
+        # role instead of being reclassified as a quantizable MLP.
+        return classify_dense_tensor(
+            name,
+            source_file,
+            extra_patterns=(
+                ("shared_expert_gate", TensorRole.ROUTER),
+                ("shared_expert", TensorRole.MLP),
+            ),
+        )

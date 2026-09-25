@@ -164,6 +164,39 @@ def test_qwen38_adapter_matches_only_catalog_super_identity() -> None:
     )
 
 
+def test_qwen38_mtp_sidecar_shared_experts_keep_their_mtp_role() -> None:
+    """Regression: shared-expert extras must not shadow the MTP protection floor.
+
+    The adapter applied ``shared_expert_gate``/``shared_expert`` as pre-checks
+    before delegating, so an MTP sidecar carrying shared-expert tensors was
+    classified as quantizable MLP/ROUTER instead of staying protected.
+    """
+
+    adapter = Qwen38Adapter()
+    for name in (
+        "mtp.shared_experts.gate_proj.weight",
+        "mtp.layers.0.shared_experts.down_proj.weight",
+    ):
+        role = adapter.classify_tensor(name, "mtp.safetensors")
+        assert role is not None and role.is_mtp, (name, role)
+
+    # Ordinary (non-MTP) shared-expert names keep their family roles.
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.mlp.shared_expert_gate.weight",
+            "model.safetensors",
+        )
+        is TensorRole.ROUTER
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.layers.0.mlp.shared_expert.down_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.MLP
+    )
+
+
 def test_qwen38_adapter_does_not_steal_qwen36_35b_a3b() -> None:
     config = {
         "model_type": "qwen3_5_moe",

@@ -500,6 +500,42 @@ def test_deepseek_fp4_expert_weights_expand_logical_parameters(tmp_path: Path) -
     assert list(w2.shape) == [4096, 2048]
 
 
+def test_deepseek_int8_experts_are_not_unpacked_as_fp4(tmp_path: Path) -> None:
+    """Regression: an explicit non-FP4 container wins over the family heuristic.
+
+    The fallback treated any DeepSeek checkpoint without ``expert_dtype`` as
+    FP4-in-int8, so a genuinely int8 export had its expert bodies half-width
+    unpacked: doubled parameters, doubled trailing dim, and a 4-bit affine
+    precision record feeding downstream budget math.
+    """
+
+    model_dir = tmp_path / "deepseek-int8"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "architectures": ["DeepseekV4ForCausalLM"],
+                "model_type": "deepseek_v4",
+                "quantization_config": {"quant_method": "int8", "fmt": "int8"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    save_file(
+        {
+            "layers.0.ffn.experts.0.w1.weight": np.zeros((2048, 2048), dtype=np.int8),
+            "layers.0.ffn.experts.0.w1.scale": np.ones((2048, 128), dtype=np.float32),
+        },
+        str(model_dir / "model.safetensors"),
+    )
+    inventory = inspect_model(model_dir, allow_quantized=True)
+    w1 = {t.name: t for t in inventory.tensors}["layers.0.ffn.experts.0.w1.weight"]
+    assert w1.physical_elements == 2048 * 2048
+    assert w1.parameters == 2048 * 2048
+    assert list(w1.shape) == [2048, 2048]
+    assert w1.current_bits != 4
+
+
 def test_gpt_oss_native_mxfp4_inventory_reconstructs_sanitized_expert_shapes(
     tmp_path: Path,
 ) -> None:
