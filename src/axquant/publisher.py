@@ -744,14 +744,17 @@ def publish_model(
         # scan. Re-scan the exact final tree immediately before previewing or
         # uploading it.
         #
-        # Deliberately flagship-only for now: the direct and legacy tracks bind
-        # their candidate to the artifact by absolute local path (the packaged
-        # request/audit and the evidence copied beside them), so their trees are
-        # not path-clean by construction and this scan would fail closed on
-        # every publication. The publisher-created files are already clean
-        # (_package_release_audit, append_certified_checkpoint). Enabling this
-        # for all tracks needs the candidate bound by artifact digest instead;
-        # see docs/guides/known-issues.md (Evidence and state).
+        # Deliberately flagship-only for now. AXQ-048 binds the candidate by
+        # artifact-manifest digest on every track, the files this publisher
+        # writes are path-neutral (_package_release_audit,
+        # append_certified_checkpoint), and a direct-track tree assembled by the
+        # current tooling passes this scan. What can still fail is an operator
+        # input: a packaged request, its copied evidence, or
+        # exact_checkpoint_scope.json carrying an absolute local path from older
+        # campaign tooling. `publish` reports those as
+        # publication_path_shaped_identity, so enabling the scan for every track
+        # is a re-export of that tooling, not a change here; see
+        # docs/guides/known-issues.md (Evidence and state).
         require_publication_privacy(directory)
     _require_artifact_evidence_binding(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]

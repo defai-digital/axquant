@@ -1,6 +1,6 @@
 # Known issues
 
-As of AXQuant **v1.7.0**. Items here are documented limitations, not silent failures — each
+As of AXQuant **v1.9.0**. Items here are documented limitations, not silent failures — each
 fails closed or is gated behind an explicit flag. See
 [GitHub Releases](https://github.com/defai-digital/axquant/releases) for what changed
 between published versions.
@@ -147,14 +147,19 @@ between published versions.
   [6bit](certifications/qwen3-coder-next-axq6-tier1.md)). Prefer those commits; ignore
   `legacy-pre-v2` / pre-fix expert-BF16 revisions.
 - **The final publication privacy scan runs on the flagship track only.** `publish` re-scans the
-  exact tree it is about to upload only for a flagship request. The direct (Qwen3Next) and legacy
-  tracks upload without that last scan, and their trees are not path-clean: the certification
-  request, its copied evidence, and `certification/exact_checkpoint_scope.json` bind the candidate
-  by an absolute local path, which `publish` needs in order to resolve the artifact directory.
-  The files `publish` itself adds — the packaged release audit and the certified-checkpoint
-  registry copy — are written without any `local_path`. Enabling the scan for every track requires
-  binding the candidate to the artifact by digest instead of by filesystem path; until then, treat
-  a direct/legacy upload as unverified for operator paths.
+  exact tree it is about to upload only for a flagship request, so a direct (Qwen3Next) or legacy
+  upload is not verified for operator paths. The repository-side obstacles are gone: AXQ-048 binds
+  the candidate by artifact-manifest digest on every track, the files `publish` itself adds — the
+  packaged release audit and the certified-checkpoint registry copy — are written without any
+  `local_path`, and the writers this repository owns are path-neutral, so a direct-track tree
+  assembled by current tooling passes the scan. What still fails it is an input written by older
+  campaign tooling: a packaged `request.json`, its copied evidence, or
+  `certification/exact_checkpoint_scope.json` recording an absolute local path
+  (`candidate_model.local_path`, `ExactCertificationScope.source_model.local_path`), and an
+  `evidence_archive_index.json` whose `durable_uri` is a filesystem path (AXQ-049 requires a
+  scheme-qualified, host-independent reference). `publish` reports those as
+  `publication_path_shaped_identity`. Enabling the scan for every track therefore needs those trees
+  re-exported; until then, treat a direct/legacy upload as unverified for operator paths.
 
 ## Overlap and multilingual text
 
