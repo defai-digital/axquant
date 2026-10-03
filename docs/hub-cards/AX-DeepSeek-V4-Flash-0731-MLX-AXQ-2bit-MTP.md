@@ -24,7 +24,7 @@ tags:
 [`deepseek-ai/DeepSeek-V4-Flash-0731`](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731)
 @ `7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 
-Converted on `df-macstudio-m2` (Apple M2 Ultra, 192 GB) from the native FP8
+Converted on a factory Mac Studio (M2 Ultra, 192 GB) from the native FP8
 0731 source (`quant_method=fp8`). Product class `2bit-experimental`.
 Recipe: AXQuant manual
 [`deepseek-v4-experimental-2bit-v0.1.yaml`](https://github.com/defai-digital/axquant/blob/main/examples/deepseek-v4-experimental-2bit-v0.1.yaml)
@@ -56,7 +56,7 @@ recipes scored worse and are not this pack.
 | Measured total BPW | `3.2142055528774454` |
 | Weight bytes | `122,212,298,775` |
 | Source | `deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b1d1fe23eabc4c98b48bffcef5a386062` |
-| Convert host | `df-macstudio-m2` |
+| Convert host | factory Mac Studio (M2 Ultra, 192 GB) |
 | AXQuant | `1.9.0` |
 
 ## Claims
@@ -66,7 +66,7 @@ recipes scored worse and are not this pack.
 | Converted on Studio from the pinned 0731 revision | **Yes** |
 | Official DSV4 `chat_template.jinja` | **In pack** |
 | Checkpoint Tier 1 (generation viability suite) | **Not certified** — 7.1.5 native 15+15 combined **0.633**; `v-extract` on AX Engine HEAD `80f2a3e6` combined **0.887** (floor 0.90). Distinct 2-bit recipe converts scored worse. |
-| AX Engine 7.1.5 native load | **Passed** on `df-macstudio-m2` (Hub commit `cb1a34b4`, `--stream-experts off`, chat smoke `Okay.`) |
+| AX Engine 7.1.5 native load | **Passed** on factory Mac Studio (M2 Ultra, 192 GB) (Hub commit `cb1a34b4`, `--stream-experts off`, chat smoke `Okay.`) |
 | Decode-128 (informational) | 15.535 tok/s on 7.1.5; not a Tier 1 claim |
 | MTP assets (`mtp.safetensors`) | **Packaged** — Hub name uses `-MTP` |
 | MTP acceleration | **Not certified** (T1 below 0.90; MTP A/B not run) |

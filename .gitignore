@@ -28,3 +28,4 @@ agents.md
 # Local agent tooling state and config (never publish).
 .ax-code/
 ax-code.json
+.ax-wiki/

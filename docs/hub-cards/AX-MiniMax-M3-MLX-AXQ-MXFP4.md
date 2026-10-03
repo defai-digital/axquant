@@ -28,6 +28,6 @@ Language path only. Vision stays BF16.
 
 | Item | Status |
 | --- | --- |
-| Convert + `ax_expert_stream.json` | Done on `df-macstudio-m2`; measured main BPW 4.366 |
+| Convert + `ax_expert_stream.json` | Done on factory Mac Studio (M2 Ultra, 192 GB); measured main BPW 4.366 |
 | Convert git SHA | (stamped at Hub upload) |
 | License | Upstream MiniMax LICENSE copied into the pack |

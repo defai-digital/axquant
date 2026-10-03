@@ -1,5 +1,11 @@
 # AXQ model fleet v2 migration
 
+> Historical snapshot. This guide describes the fleet as audited 2026-08-05 through
+> 2026-08-30. The 2026-09-19 Hub catalog cleanup removed most of the listed AXQ
+> 4/6/8-bit and experimental 2-bit repos; the live catalog is MXFP4, embedding,
+> and OCR packs only. For what is published today, see
+> [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX).
+
 Audit date: 2026-08-05
 Hub owner: `AutomatosX`
 Scope: every public model repository whose name contains `AXQ` and does not already carry the
@@ -25,8 +31,8 @@ remains available at the immutable `v2` tag; certified v3 is Hub commit
 `cdd13bf81cf21818a01cf59a31fc116ef84326bc`.
 
 On 2026-08-10, the corrected Qwen3-Coder-Next Hub heads closed **checkpoint Tier 1** (non-MTP
-direct-decode) on `df-macbookpro-m5`. On 2026-08-18, the AXQ-MXFP4 pack closed checkpoint
-Tier 1 on `df-macstudio-m2`:
+direct-decode) on a MacBook Pro (M5, 128 GB) host. On 2026-08-18, the AXQ-MXFP4 pack closed checkpoint
+Tier 1 on a Mac Studio (M2 Ultra, 192 GB) host:
 
 | Pack | Hub commit | BPW | Certificate |
 | --- | --- | ---: | --- |

@@ -29,6 +29,6 @@ mlx-vlm Kimi Delta Attention.
 
 | Item | Status |
 | --- | --- |
-| Convert + `ax_expert_stream.json` | Done on `df-macstudio-m2`; measured main BPW 4.018 |
+| Convert + `ax_expert_stream.json` | Done on factory Mac Studio (M2 Ultra, 192 GB); measured main BPW 4.018 |
 | Convert git SHA | (stamped at Hub upload) |
 | License | Kimi K3 License copied into the pack |

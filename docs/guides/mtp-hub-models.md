@@ -1,5 +1,11 @@
 # AXQ MTP Hub model runtime matrix
 
+> Stale snapshot. Verified against the `AutomatosX` Hugging Face organization on
+> 2026-08-30; the 2026-09-19 catalog cleanup removed most listed repos and all
+> per-pack certificate records were withdrawn on 2026-10-03. Re-run the fleet
+> audit below before trusting any row; do not treat this page as the live
+> catalog.
+
 Verified against the `AutomatosX` Hugging Face organization on 2026-08-30. The inventory contains
 25 populated AXQ MTP checkpoints and one explicitly reserved repository. An `-MTP` name means MTP
 assets are packaged; it does not by itself mean that speculative decoding is enabled, compatible

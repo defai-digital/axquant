@@ -107,19 +107,72 @@ def test_readme_product_path_is_install_then_convert() -> None:
     assert "You do not need to clone this repository." in readme
 
 
-def test_readme_cli_table_covers_every_command() -> None:
+def test_cli_reference_table_covers_every_command() -> None:
     parser = _build_parser()
     subparsers = next(
         action for action in parser._actions if isinstance(action, argparse._SubParsersAction)
     )
     commands = set(subparsers.choices)
 
-    readme = _read("README.md")
-    section = readme.split("## CLI workflow", 1)[1].split("## Measured planning and validation", 1)[
-        0
-    ]
-    documented = set(re.findall(r"^\| `([^`]+)` \|", section, flags=re.MULTILINE))
+    reference = _read("docs/cli-reference.md")
+    documented = set(re.findall(r"^\| `([^`]+)` \|", reference, flags=re.MULTILINE))
     assert documented == commands
+    # The slim README keeps a short entry-point section that links here.
+    readme = _read("README.md")
+    assert "## CLI workflow" in readme
+    assert "docs/cli-reference.md" in readme
+
+
+def test_live_docs_do_not_name_factory_machines() -> None:
+    """Live docs describe the factory host by spec, never by machine identity.
+
+    Machine hostnames and internal volume names are a privacy leak in live
+    prose. Historical evidence (reports, eval dumps, evidence bundles, tagged
+    release notes, the frozen certification spec) keeps its recorded names;
+    everything else must use the hardware spec.
+    """
+    forbidden = (
+        "df-macstudio-m2",
+        "df-macbookpro-m5",
+        "df-macbookpro-m3",
+        "df-macmini",
+        "tn-macstudio",
+        "localadacStudio",
+        "Ext16TR0",
+        "Ext12T",
+        "Ext4T",
+    )
+    live_paths = [
+        "README.md",
+        "CONTRIBUTING.md",
+        "THIRD_PARTY_NOTICES.md",
+        "docs/README.md",
+        "docs/cli-reference.md",
+        "docs/certifications/README.md",
+        "docs/certifications/adr033-mapping.md",
+        "docs/certifications/full-list.md",
+        "docs/releases/certification-matrix.md",
+        "docs/releases/1.9.0.md",
+        "docs/contracts/axq-pack-interchange-v1.md",
+        "docs/contracts/expert-ssd-stream-contract.md",
+        *sorted(str(path.relative_to(_ROOT)) for path in (_ROOT / "docs" / "guides").glob("*.md")),
+        *sorted(
+            str(path.relative_to(_ROOT)) for path in (_ROOT / "docs" / "runbooks").glob("*.md")
+        ),
+        *sorted(
+            str(path.relative_to(_ROOT)) for path in (_ROOT / "docs" / "hub-cards").glob("*.md")
+        ),
+        *sorted(
+            str(path.relative_to(_ROOT)) for path in (_ROOT / "docs" / "migrations").glob("*.md")
+        ),
+    ]
+    offenders: list[str] = []
+    for relative in live_paths:
+        text = _read(relative)
+        for marker in forbidden:
+            if marker in text:
+                offenders.append(f"{relative}: {marker}")
+    assert not offenders
 
 
 def test_public_markdown_local_links_resolve() -> None:

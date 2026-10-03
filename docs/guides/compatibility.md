@@ -45,7 +45,7 @@ else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, rep
 
 ## Tested configuration
 
-The current toolkit release is **v1.7.0**. CI (`.github/workflows/ci.yml`) runs the full
+The current certified release is **v1.8.1** and the development line is **v1.9.0**. CI (`.github/workflows/ci.yml`) runs the full
 suite on `macos-14` (Apple Silicon) with Python 3.13 and the `mlx` extra. A historical
 v1.2.0 development environment was macOS arm64, Python 3.13, `mlx 0.32.0`,
 `mlx-lm 0.31.3`, `mlx-audio 0.4.7`, and `mlx-vlm 0.6.10`.

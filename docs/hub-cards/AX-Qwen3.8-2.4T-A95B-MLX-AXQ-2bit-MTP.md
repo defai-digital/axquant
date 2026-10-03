@@ -91,7 +91,7 @@ hidden 8192, MoE intermediate 2048, one MTP layer).
 
 | Item | Status |
 | --- | --- |
-| Convert + `ax_expert_stream.json` | Done on `df-macstudio-m2` |
+| Convert + `ax_expert_stream.json` | Done on factory Mac Studio (M2 Ultra, 192 GB) |
 | Hub weights | Uploaded |
 | Quality vs BF16 / FP8 | Not measured |
 | AX Engine cert | **Will not certify this revision** (too slow to be practical) |

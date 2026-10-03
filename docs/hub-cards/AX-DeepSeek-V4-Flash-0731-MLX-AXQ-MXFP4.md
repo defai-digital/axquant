@@ -24,7 +24,7 @@ The source *can* do MTP; this repo does **not** ship `mtp.safetensors`, so
 the leaf does **not** end in `-MTP`. The suffix is added only when a sidecar
 ships.
 
-**Checkpoint Tier 1 is not certified** on `df-macstudio-m2` (192 GB). If the
+**Checkpoint Tier 1 is not certified** on factory Mac Studio (M2 Ultra, 192 GB) (192 GB). If the
 pack is in the 170 GB+ class, factory generate/cert is memory-blocked.
 
 This is an MLX Apple MXFP4 pack, not an OCP or NVIDIA checkpoint.

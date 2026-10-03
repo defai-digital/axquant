@@ -1,8 +1,9 @@
 # Holo3-35B-A3B — development AXQ 4/6-bit convert + Hugging Face publish
 
-**Host:** `df-macstudio-m2` (factory convert + Ext16TR0)
+**Host:** factory Mac Studio (M2 Ultra, 192 GB)
 **Adapter:** `qwen35-moe-v1` (Qwen3.5-class 35B-A3B MoE / fine-tunes)  
-**Claims:** **4-bit and 6-bit checkpoint Tier 1 certified** on `df-macstudio-m2`. Not the Qwen 3.6 certificate family.  
+**Claims:** historical 4-bit and 6-bit checkpoint Tier 1 records (2026-08-14, withdrawn 2026-10-03 pending re-certification). Not the Qwen 3.6 certificate family.
+
 **Goal:** Build AutomatosX AXQ 4-bit and 6-bit MLX packs from Holo3 BF16, publish, and record Tier 1 evidence.
 
 ## Published packs (live)
@@ -143,12 +144,12 @@ ax-engine serve /path/to/AX-Holo3-35B-A3B-MLX-AXQ-4bit --mlx --port 31418
 # Download aliases: ax-holo3-35b / ax-holo3-35b-4bit / ax-holo3-35b-6bit
 ```
 
-**Verified on `df-macstudio-m2`:** load + vision sidecar + `/v1/chat/completions`
+**Verified on the factory Mac Studio (M2 Ultra, 192 GB):** load + vision sidecar + `/v1/chat/completions`
 and `/v1/completions` smoke for both 4-bit and 6-bit packs.
 
 Text-path only: GUI / vision quality is **not** claimed.
 
-## Checkpoint Tier 1 (2026-08-14, `df-macstudio-m2`)
+## Checkpoint Tier 1 (2026-08-14, historical record withdrawn pending re-certification)
 
 | Gate | 4-bit (attn-6 / expert-4 recovery) | 6-bit |
 | --- | ---: | ---: |

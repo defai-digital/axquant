@@ -23,5 +23,5 @@ The source *can* do MTP; this repo does **not** ship `mtp.safetensors`, so
 the leaf does **not** end in `-MTP`. The suffix is added only when a sidecar
 ships.
 
-**Checkpoint Tier 1 cannot be run on `df-macstudio-m2` (192 GB).** Dual-suite
+**Checkpoint Tier 1 cannot be run on factory Mac Studio (M2 Ultra, 192 GB) (192 GB).** Dual-suite
 generate is memory-blocked. Recert on a larger Mac. The SKU stays listed.

@@ -6,7 +6,7 @@ not replace that path.
 
 1.9 adds **smarter allocation** under one memory budget on **Apple / MLX**,
 not faster convert. AX Engine is speed; AXQuant chooses the precision mix.
-Convert, inspect, and real-model runs belong on `df-macstudio-m2`. CUDA,
+Convert, inspect, and real-model runs belong on the factory Mac Studio (M2 Ultra, 192 GB). CUDA,
 NVFP4, and a portable OCP MX packer are **v2.x**. `--q-mode mxfp4` in 1.9
 is the MLX Apple packer (group 32, scales only), not a cross-backend FP4
 dialect.

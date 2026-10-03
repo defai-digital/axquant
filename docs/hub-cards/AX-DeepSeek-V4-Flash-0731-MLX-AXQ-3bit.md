@@ -23,7 +23,7 @@ tags:
 [`deepseek-ai/DeepSeek-V4-Flash-0731`](https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731)
 @ `7872f01b1d1fe23eabc4c98b48bffcef5a386062`.
 
-Converted on `df-macstudio-m2`. Product class `3bit-experimental`.
+Converted on factory Mac Studio (M2 Ultra, 192 GB). Product class `3bit-experimental`.
 
 > Not the older `DeepSeek-V4-Flash` 3-bit Hub pack.
 
@@ -35,7 +35,7 @@ Converted on `df-macstudio-m2`. Product class `3bit-experimental`.
 | Measured main BPW | `4.110998966099255` |
 | Measured total BPW | `4.128490312221629` |
 | Weight bytes | `156,975,738,865` |
-| Convert host | `df-macstudio-m2` |
+| Convert host | factory Mac Studio (M2 Ultra, 192 GB) |
 | AXQuant | `1.8.1` |
 
 ## Claims
@@ -43,7 +43,7 @@ Converted on `df-macstudio-m2`. Product class `3bit-experimental`.
 | Claim | Status |
 | --- | --- |
 | Converted on Studio from the pinned 0731 revision | **Yes** |
-| mlx-lm load + generate smoke | **Passed** on `df-macstudio-m2` |
+| mlx-lm load + generate smoke | **Passed** on factory Mac Studio (M2 Ultra, 192 GB) |
 | Checkpoint Tier 1 | **Not certified** this record |
 | AX Engine native manifest | **Not generated** (same split gate/up miss as 2-bit) |
 | MTP acceleration | **Not certified** |

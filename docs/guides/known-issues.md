@@ -119,10 +119,8 @@ between published versions.
   section in the main README.
 - **GPT-OSS 120B AXQ 4-bit is not certified.** Agent-coding retention was **0.952** (&lt; 0.98
   gate) while general quality and size passed under an `architecture_prior` MXFP4 re-pack.
-  Further recovery recipes on `df-macbookpro-m5` did not clear the gate; certification is
-  skipped. Prefer certified
-  [`AX-gpt-oss-120b-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-gpt-oss-120b-MLX-AXQ-6bit)
-  or read [gpt-oss-120b-axq4-tier1.md](certifications/gpt-oss-120b-axq4-tier1.md).
+  Further recovery recipes on a MacBook Pro (M5, 128 GB) host did not clear the gate;
+  certification is skipped.
 
 ## Evidence and state
 
@@ -186,25 +184,20 @@ between published versions.
 
 ## Validated scope
 
-- **Large-model certification is exact-revision scoped.** On `df-macbookpro-m5`, dense Qwen 3.6
-  27B AXQ 6-bit v3 and 27B AXQ 4-bit (5.6 BPW) have checkpoint Tier 1 and scoped MTP Tier 2
-  ([index](certifications/README.md)). 35B-A3B MoE packs have Tier 1 + scoped Tier 2 on the
-  published records. Gemma-4 **12B / 26B-A4B / 31B** AXQ 4-bit and 6-bit historical revisions
-  have revision-bound checkpoint Tier 1 records. The six 2026-08-30 compatibility rebuilds are
-  new immutable Hub heads and are **not covered** by those records. **Tier 2 is not certified**
-  for any current Gemma head; see any
-  [historical Gemma Tier 2 status](certifications/gemma4-12b-axq6-tier1.md#tier-2-status). The 12B packs
-  were **rebuilt from `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b`
-  converts failed quality with multimodal placeholder loops; text-path prep now also strips
-  `vision_config` / `audio_config` so MLX convert does not emit empty `vision_embedder` biases.
-  Formal MTP for Qwen MoE can load after engine
-  `experts.gate_up_proj` support, but 35B speedup gates (≥1.20× / ≥1.10×) are not met on any
-  released engine. The blocker is fixed per-step host cost — the speculative verify graph is built
-  serially with the GPU idle, ~40-45% of a MoE decode step against ~15% of a dense one — not
-  sparse-expert weight bandwidth. Two exactness-preserving changes clear it in pre-release
-  measurement (`--qwen36-moe-exact-profile`, plus
-  [ax-engine#77](https://github.com/defai-digital/ax-engine/pull/77)); see the
-  [4-bit](certifications/qwen36-35b-axq4-tier1.md#tier-2-status) and
-  [6-bit](certifications/qwen36-35b-axq6-tier1.md#tier-2-status) Tier 2 status sections. Product
-  default remains MTP direct fallback; the formal acceleration route is opt-in. Vision paths and
-  short-answer universal speedup remain uncertified.
+- **Large-model certification is exact-revision scoped.** A certificate covers one exact
+  revision only; sibling packs, rebuilds, and other revisions are never covered by
+  association. All per-pack records were withdrawn on 2026-10-03 pending
+  re-certification — the [certification index](../certifications/README.md) is the source
+  of truth for what is certified today. Durable notes: Gemma 12B packs were **rebuilt
+  from `google/gemma-4-12b-it`** after the earlier non-IT `google/gemma-4-12b` converts
+  failed quality with multimodal placeholder loops; text-path prep now also strips
+  `vision_config` / `audio_config` so MLX convert does not emit empty `vision_embedder`
+  biases. Formal MTP for Qwen MoE can load after engine `experts.gate_up_proj` support,
+  but 35B speedup gates (≥1.20× / ≥1.10×) are not met on any released engine. The
+  blocker is fixed per-step host cost — the speculative verify graph is built serially
+  with the GPU idle, ~40-45% of a MoE decode step against ~15% of a dense one — not
+  sparse-expert weight bandwidth. Two exactness-preserving changes clear it in
+  pre-release measurement (`--qwen36-moe-exact-profile`, plus
+  [ax-engine#77](https://github.com/defai-digital/ax-engine/pull/77)). Product default
+  remains MTP direct fallback; the formal acceleration route is opt-in. Vision paths
+  and short-answer universal speedup remain uncertified.

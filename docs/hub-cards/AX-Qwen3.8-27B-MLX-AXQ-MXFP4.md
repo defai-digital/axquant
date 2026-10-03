@@ -23,7 +23,7 @@ tags:
 An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted directly from
 the BF16 source model. The language path is quantized while the vision tower are preserved at BF16 in the checkpoint (or a bound sidecar when present).
 
-> **Checkpoint Tier 1 certified** on `df-macstudio-m2` (2026-08-15) for this exact
+> **Checkpoint Tier 1 (historical record, withdrawn 2026-10-03)** issued on factory Mac Studio (M2 Ultra, 192 GB) (2026-08-15) for this exact
 > revision — measured size against a matched uniform baseline, quality retention, and
 > conversion integrity. Tier 1 is a checkpoint claim, **not** a speed claim: MTP
 > acceleration is **not certified**; no MTP speedup claim for this checkpoint.
@@ -149,7 +149,7 @@ establish MTP acceleration or vision-language quality.
 | Vision-language quality | Present, not certified; text Tier 1 does not imply VLM quality |
 | Speech-recognition quality | Not applicable (audio disabled for this pack) |
 | Long-context quality | 262,144-token capacity is config metadata, not a validated claim |
-| Release certification | **Checkpoint Tier 1 certified** on `df-macstudio-m2` (2026-08-15), Hub commit `106526955b0e`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
+| Release certification | **Checkpoint Tier 1 (historical record, withdrawn 2026-10-03)** issued on factory Mac Studio (M2 Ultra, 192 GB) (2026-08-15), Hub commit `106526955b0e`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
 
 ## Modalities (capability-gated)
 

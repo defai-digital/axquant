@@ -55,9 +55,12 @@ For the exact artifact revision, host, and AX Engine build bound in the record:
 
 ## Worked example: Qwen3.8-27B MLX AXQ 6-bit MTP
 
+Historical example (record withdrawn pending re-certification; kept to show
+how the two surfaces read side by side):
+
 | Surface | Statement | Refers to |
 | --- | --- | --- |
-| AXQuant | Tier 2 certified, bound to AX Engine 6.16.1, host `df-macbookpro-m3`, authorizing profiles agent-coding and long-form general | Scoped measured acceleration for that pack and engine build |
+| AXQuant | Tier 2 certified, bound to AX Engine 6.16.1 on a MacBook Pro (M3) host, authorizing profiles agent-coding and long-form general | Scoped measured acceleration for that pack and engine build |
 | AX Engine | "MTP Tier 2 pending" | MTP-D not opened, and MTP-P not yet evidenced **on the default product path** |
 
 Both statements can be true at once. The AXQuant record covers acceleration
@@ -68,8 +71,8 @@ AX Engine record concerns the shipping default path on a later engine build.
 
 This page discharges the disclosure obligation in
 [`docs/certifications/README.md`](README.md),
-[`docs/releases/certification-matrix.md`](../releases/certification-matrix.md),
-and the README headline matrix. Each certified Tier 2 cell names the AX Engine
+[`docs/releases/certification-matrix.md`](../releases/certification-matrix.md).
+Each certified Tier 2 cell names the AX Engine
 build it is bound to, and each matrix repeats the scope rule. When a certificate
 is superseded by re-certification on a newer engine build, add the new record
 rather than editing the historical one.

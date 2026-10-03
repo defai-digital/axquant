@@ -48,7 +48,7 @@ gap; fused AWQ/GPTQ is still blocked.
 
 ## Flash-0731 status (2026-08-16)
 
-`df-macstudio-m2` is reachable and has the 0731 inventory plus both AXQ packs
+The factory Mac Studio (M2 Ultra, 192 GB) has the 0731 inventory plus both AXQ packs
 and OptiQ. `plan-experimental-mix` runs on that inventory (72,317 tensors,
 129 fused switch units, mixed fused signatures = 0) from an architecture
 prior in about 10s. Policy minimum is **3.97 BPW** at group 32.

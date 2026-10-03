@@ -5,41 +5,77 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AXQuant is a **precision allocator** for Apple Silicon. It inspects a supported
-Safetensors checkpoint, assigns MXFP4 (4-bit), 6-bit, 8-bit, or BF16 per tensor,
-keeps sensitive layers (norms, heads, routers, vision/audio, MTP) at hard floors, and
-writes the manifests AX Engine and MLX-LM need. Convert still goes through MLX.
-AX Engine is speed; AXQuant chooses the precision mix.
+AXQuant is the offline precision and evidence control plane for Apple Silicon.
+It allocates per-tensor precision under explicit policy, materializes
+checkpoints through public MLX backends, and binds source identity, plan,
+output bytes, runtime evidence, and — when certified — permitted claims into a
+checksum-verifiable artifact graph. AX Engine is the primary inference
+runtime; performance claims require bound measurements.
 
-It does not train the source model or add new capabilities. The goal is a smaller,
-cheaper checkpoint that still behaves well.
+In short: MLX encodes, AX Engine runs, and AXQuant decides the precision mix —
+then proves what the result may claim. It does not train the source model or
+add new capabilities.
 
-**Current PyPI / certified pin:** [v1.8.1](https://github.com/defai-digital/axquant/releases/tag/v1.8.1)
-(`axquant==1.8.1`). The 1.8 inspect → plan → affine U32 convert → certify path
-stays.
-
-**`1.9.0` (this branch, Apple / MLX):** smarter allocation under one memory
-budget via `diagnose-joint` and `plan-joint`. It does not replace 1.8 convert.
-CUDA / NVFP4 is 2.x. See
-[docs/guides/experimental-joint-interaction.md](docs/guides/experimental-joint-interaction.md)
-and [docs/releases/1.9.0.md](docs/releases/1.9.0.md).
+**Status:** toolkit `1.9.0`, packaging classifier **Beta**. The certified PyPI
+pin stays `axquant[mlx]==1.8.1`; the 1.9 line adds joint weight/KV diagnostics
+(`diagnose-joint`, `plan-joint`) as development evidence. CUDA / NVFP4 is 2.x.
+All per-pack certificate records were withdrawn on 2026-10-03 pending
+re-certification, so there is currently **no** certified pack revision on the
+live catalog; the certification index is the source of truth for what is
+certified today.
 
 Install from PyPI, then convert. You do not need to clone this repository.
 
+## Who it is for
+
+- You ship or evaluate quantized models on Apple Silicon and want mixed
+  precision with protection floors, not blind uniform quantization.
+- You need reproducible artifacts: pinned source, exact plan, measured BPW,
+  checksums, and runtime metadata in every output.
+- You publish packs and want fail-closed gates between a development
+  checkpoint and a public quality or speed claim.
+
+Not for: training or fine-tuning, non-Apple platforms, GGUF workflows, or
+any model family below the `convertible` support tier.
+
+## How it compares
+
+| Tool | Strength | What AXQuant adds |
+| --- | --- | --- |
+| `mlx_lm.convert` | Fast HF-to-MLX conversion, affine / MXFP recipes | Architecture roles, hard protection floors, budget allocation, coverage checks, provenance-bound artifacts |
+| MLX learned quants | Dynamic per-layer bit selection, DWQ / AWQ / GPTQ | Per-tensor planning under policy, replayable artifact graph, governed claim labels |
+| Community MLX scripts | Speed of experimentation, broad coverage | Reproducibility, completeness checks, refusal of ambiguous success |
+| llama.cpp quantize | GGUF breadth, cross-platform serving | Native Apple/MLX packs, AX Engine metadata, MTP and multimodal sidecar protection |
+
+## Design beliefs
+
+1. **Precision allocation, not codec invention.** AXQuant chooses which
+   tensors deserve which precision; public MLX backends do the encoding.
+2. **Floors are constraints, not suggestions.** Sensitive components are
+   never sacrificed to hit a pretty BPW number; infeasible budgets adjust
+   or refuse, with a record.
+3. **Prior, measurement, and certification are different things.**
+   Architecture priors suit fast development; calibrated measurement
+   supports allocation; only complete quality and hardware evidence
+   supports a public claim.
+4. **Success must be complete.** Every module a plan claims to quantize
+   must actually be processed by the backend — no silent fallback.
+5. **Claims follow artifact identity.** Quality, size, and speed claims
+   belong to one source revision, one plan, one set of bytes, and one
+   runtime and profile — never to a family by association.
+6. **Certification aims at reproducibility, not universality.** A single
+   factory host class keeps comparisons honest; checkpoint (Tier 1) and
+   MTP acceleration (Tier 2) claims stay separate.
+
 ## Install
 
-Apple Silicon Mac (M1–M5) and **Python 3.11+**. Conversion needs the MLX extra; that stack
-only runs on arm64 macOS. Use Homebrew `brew install python@3.13` or
-[python.org](https://www.python.org/downloads/macos/).
+Apple Silicon Mac and **Python 3.11+**. Conversion needs the MLX extra; that
+stack only runs on arm64 macOS.
 
-**Always install into a virtual environment.** Homebrew Python is
-[PEP 668](https://peps.python.org/pep-0668/) externally managed: a bare
-`python -m pip install axquant` against system Python fails with
-`externally-managed-environment`. That is expected; do **not** pass
-`--break-system-packages`.
-
-Copy the block as a whole (plain ASCII quotes; single-quote the extra so zsh does not treat
-`[mlx]` as a glob):
+**Always install into a virtual environment.** A bare system-wide install
+fails with `externally-managed-environment`; do **not** pass
+`--break-system-packages`. Copy the block as a whole (plain ASCII quotes;
+single-quote the extra so zsh does not treat `[mlx]` as a glob):
 
 ```bash
 python3 -m venv .venv
@@ -49,33 +85,24 @@ python -m pip install 'axquant[mlx]==1.8.1'
 axquant --help
 ```
 
-With the venv active, `python` and `axquant` are both from `.venv`. Without activate, call
-`.venv/bin/axquant` directly.
-
 | Goal | Command |
 | --- | --- |
 | Convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.1'` inside a venv |
 | Inspect / plan / report only (no Metal) | `python -m pip install 'axquant==1.8.1'` inside a venv |
 | Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.1'` |
 
-If zsh prints `missing end of string`, a curly/smart quote usually got pasted. Re-type the
-line or paste only from the fenced block above.
-
-Package index: [pypi.org/project/axquant](https://pypi.org/project/axquant/). Wheels and checksums
-also ship on [GitHub Releases](https://github.com/defai-digital/axquant/releases) (not the GitHub
-Packages tab; that UI is for npm/containers, not pip).
+Wheels and checksums also ship on
+[GitHub Releases](https://github.com/defai-digital/axquant/releases).
 
 ## Convert
 
-Point `quantize` at a local BF16 Safetensors directory. `--target-bpw` defaults to 4.8.
-The result is a **development** checkpoint — good for trying the model locally, not a public
-quality or speed claim.
+Point `quantize` at a local BF16 Safetensors directory. `--target-bpw`
+defaults to 4.8. The result is a **development** checkpoint — good for
+trying the model locally, not a public quality or speed claim.
 
 ```bash
 axquant quantize /path/to/model-bf16
 ```
-
-Useful options:
 
 ```bash
 # Choose the bit budget and output folder
@@ -95,1243 +122,102 @@ python -m pip install -U mlx-lm
 mlx_lm.generate --model ./AXQuant-output --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
 
-Skip convert and use a ready-made pack. The current public catalog lives on
-[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — review the live packs,
-model cards, and certification status there; this README no longer mirrors the pack list.
-`axquant quantize --help` lists every flag. Family-specific notes (ASR normalization, VL
-image smoke, recipes) are under
-[Simple development conversion](#simple-development-conversion).
+Prefer a ready-made pack? The live catalog is on
+[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — packs,
+model cards, and certification status. This README deliberately does not
+mirror the pack list.
 
-Conversion needs enough unified memory for the source model. Public certification of a pack
-is a separate, evidence-gated path — see [Current status](#current-status).
-
-## Contents
-
-**Start here**
-
-- [Install](#install)
-- [Convert](#convert)
-- [How it works](#how-it-works)
-- [Input and output](#input-and-output)
-- [Why AXQuant](#why-axquant)
-
-**Product status and packs**
-
-- [Current status](#current-status) (certification records, known gaps, [72 h endurance](docs/reports/ax-engine-72h-endurance.md))
-
-**Operators**
-
-- [From-source install (Mac)](#from-source-install-mac)
-- [Simple development conversion](#simple-development-conversion)
-- [Staged development conversion](#staged-development-conversion)
-- [CLI workflow](#cli-workflow)
-- [Measured planning and validation](#measured-planning-and-validation)
-- [Evidence and safety boundaries](#evidence-and-safety-boundaries)
-- [Model naming](#model-naming)
-
-**Contributors**
-
-- [Development](#development)
-- [Contributing](#contributing)
-- [Documentation](#documentation)
-- [License](#license)
+Conversion needs enough unified memory for the source model. Not every
+Hugging Face model is convertible: run `axquant support-matrix` and
+`axquant support-policy` for the registry-derived tier
+(`certified` / `convertible` / `inspect-only`) before beginning work.
 
 ## How it works
 
 ```text
-BF16 Safetensors checkpoint supported by its promoted MLX backend
-        (pin a revision for measured/release evidence)
-                         │
-                         ▼
-        inspect → plan → convert → runtime-check / validate
-           │                │
-           │                └── AXQuant-optimized MLX checkpoint
-           │                    + AX Engine runtime metadata
-           │                    + plan, manifest, and provenance
-           └── model inventory and protection boundaries
+BF16 Safetensors checkpoint (pin a revision for measured/release evidence)
+                         |
+                         v
+        inspect -> plan -> convert -> runtime-check / validate
+           |                |
+           |                +-- mixed-precision MLX checkpoint
+           |                    + plan, manifest, checksums, provenance
+           |                    + AX Engine / MLX runtime metadata
+           +-- inventory with protection boundaries
 ```
 
-Most users only need [Install](#install) and [Convert](#convert):
-
-```bash
-python -m pip install 'axquant[mlx]==1.8.1'
-axquant quantize /path/to/model-bf16
-```
-
-The staged journey (inspect → plan → convert → validate → publish) is for measured
-releases and public claims. See [Simple development conversion](#simple-development-conversion)
-and [Measured planning and validation](#measured-planning-and-validation).
+Most users only need [Install](#install) and [Convert](#convert). The
+staged journey (inspect → plan → convert → validate → publish) is for
+measured releases and public claims; see the
+[certification operator guide](docs/guides/flagship-certification.md).
 
 ## Input and output
 
-### Input
-
-AXQuant converts unquantized Safetensors checkpoints of families at the `convertible` tier or
-above through the public runtime backend promoted for that architecture. Text families use
-MLX-LM. Qwen3-VL uses MLX-VLM with its vision tower protected at BF16. Qwen3-ASR uses MLX-Audio
-with its audio tower protected at BF16; the pinned upstream `thinker.*` checkpoint must first be
-normalized with `scripts/hf_to_mlx_bf16.py`, which records `axquant_source.json`. Planning directly
-from the unnormalized ASR export is rejected because it contains a duplicated tied LM head and
-runtime-specific tensor layouts.
-
-A pinned source revision is mandatory for measured sensitivity and release evidence; an unpinned
-local source is permitted only for development workflows. MoE expert stacks quantize as fused
-switch modules with a uniform per-group precision, and routers keep an 8-bit floor. The checkpoint
-must use the expected configuration and indexed Safetensors layout. Remaining recognized families
-(for example Nemotron Super/Ultra) stay inspect-only until promotion evidence exists.
-
-### Output
-
-A successful conversion produces a new portable MLX model directory containing:
-
-- mixed-precision model weights and standard MLX configuration files;
-- the exact quantization plan used for the conversion;
-- an AXQuant artifact manifest with checksums and provenance;
-- architecture-specific runtime metadata for AX Engine, MLX-LM, MLX-Audio, or MLX-VLM;
-- an AX Engine native manifest when the runtime tool is available;
-- a byte-preserved external MTP sidecar by default, or an explicitly prepared development
-  sidecar with transform-level provenance;
-- a raw, checksummed BF16 sidecar for protected vision tensors when MLX-LM excludes them, or
-  protected modality tensors in the main MLX-Audio/MLX-VLM checkpoint.
-
-The artifact manifest records authoritative main-model and total logical parameters, physical
-Safetensors bytes, and measured BPW. The language-model output remains usable as a standard MLX
-checkpoint. AX Engine consumes the additional AXQuant metadata for runtime-specific behavior;
-MLX-LM may ignore that metadata and use ordinary decode.
-
-## Why AXQuant
-
-Uniform quantization gives every eligible tensor the same precision; rule-based per-module
-overrides assign precision by name pattern. AXQuant instead allocates precision per tensor from
-a budget-constrained solve over measured sensitivity, so the model spends more bits where the
-measurement shows it matters and fewer where it does not.
-
-Its design centers on:
-
-- **mixed precision:** MXFP4 (4-bit) and 6-bit assignments as the headline
-  product classes, with 8-bit and BF16 as protection floors or opt-in rungs, and
-  an experimental 2/3-bit range for robust trunk tensors (AX Engine gates them behind
-  `AX_ENGINE_2BIT_EXPERIMENTAL` / `AX_ENGINE_3BIT_EXPERIMENTAL`); affine-family
-  refinement (affine, DWQ, portable AWQ, GPTQ) applies at 6 bits and up;
-- **quality protection:** hard precision floors for sensitive model components;
-- **MTP awareness:** explicit MTP detection, protection, validation, and runtime metadata;
-- **workload awareness:** separate objectives for general and agent/coding workloads;
-- **real deployment cost:** actual artifact bytes, unified memory, latency, and throughput;
-- **reproducibility:** revision-pinned release inputs, deterministic artifacts, checksums, and
-  manifests;
-- **fail-closed conversion:** incomplete plans or unmatched modules stop conversion;
-- **independent implementation:** public APIs and research without reused quantizer internals.
-
-## Current status
-
-The latest tagged toolkit version is `1.8.1` (GitHub tag `v1.8.1`, PyPI `axquant==1.8.1`;
-packaging classifier: **Beta**). Its inspection, planning, conversion, runtime-check,
-validation, and publication-gating commands are implemented and covered by the test suite.
-Certification is checkpoint- and evidence-specific; a working command does not by itself
-certify an output.
-
-**Ready-made packs:** [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX)
-([collections](https://huggingface.co/AutomatosX/collections),
-[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq)).
-**Certification host (from now on):** conversion, **all Tier 1**, and **all Tier 2**
-certifications **must** run on Mac Studio M2 Ultra, 192 GB (host id `df-macstudio-m2`)
-with Ext16TR0. Do not convert or certify on `df-macbookpro-m5` or `df-macbookpro-m3`.
-Existing certificates stay bound to the host recorded in each JSON record
-(`df-macstudio-m2`, `df-macbookpro-m5`, or `df-macbookpro-m3`) until recertified on
-`df-macstudio-m2`. The frozen M0–M8 flagship campaign schema still names
-`df-macbookpro-m5` until that contract is versioned separately.
-AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
-([report](docs/reports/ax-engine-72h-endurance.md)).
-**Public certificate records** are historical evidence and do not imply the pack repo
-is still published. See the listed-pack index with Hub commits
-([docs/certifications/](docs/certifications/README.md)) and the
-[full list of every AXQ certificate record](docs/certifications/full-list.md)
-(including unlisted no-MTP siblings and evaluation archives).
-For live packs, model cards, and certifications, visit
-[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — this README
-deliberately does not mirror the per-pack list.
-
-> All per-pack certificate records were withdrawn on 2026-10-03 pending
-> re-certification under the current host and privacy rules. Certification
-> claims below are historical until their records are re-issued.
-
-**Product line (AXQ-047, 2026-09-25):** release planning going forward produces
-**MXFP4 (4-bit)** packs and **6-bit** packs; affine 4-bit is retired from release
-planning and survives only behind the explicit `--allow-legacy-4bit` opt-in for
-historical campaign replay and recertification. The 4-bit certificates are
-historical records for pre-retirement packs and stay unchanged.
-
-The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
-profile (async draft, verify-submit interval 8, pipeline granularity layer) on
-`df-macbookpro-m5`.
-
-**Qwen3.8-27B** AXQ **4-bit and 6-bit** MTP packs are **checkpoint Tier 1 + scoped Tier 2 MTP**
-certified on `df-macbookpro-m3` (AX Engine 6.16.1, `QWEN38_EXACT_MTP_PROFILE_ENV` / async draft).
-Non-MTP siblings remain Tier 1 only (Tier 2 N/A). Product default remains direct fallback;
-acceleration is opt-in under the formal exact profile. Vision weights are BF16-protected, but
-end-to-end image/video quality is not certified; see the
-[Qwen3.8-27B AXQ VL retention assessment](docs/reports/qwen38-27b-axq-vl-retention.md).
-
-**Gemma 4** (12B / 26B-A4B / 31B) AXQ **4-bit and 6-bit** historical revisions have
-revision-bound checkpoint Tier 1 records on `df-macbookpro-m5` (size, matched quality, load).
-The six Hub heads rebuilt on 2026-08-30 for the corrected Gemma/oMLX layout are new immutable
-revisions and are **not** covered by those records; they remain development artifacts until
-recertified on the current factory host. **Tier 2 is not certified** on any current Gemma head.
-The 12B targets use `google/gemma-4-12b-it` after the earlier non-IT base failed quality.
-
-**Qwen3-Coder-Next** AXQ **MXFP4** is **checkpoint Tier 1 certified** on `df-macstudio-m2`
-(non-MTP direct-decode; Tier 2 N/A). The AXQ 4/6-bit siblings remain certified on
-`df-macbookpro-m5`. **GPT-OSS 20B** AXQ **4-bit and 6-bit**, and **GPT-OSS 120B**
-AXQ **6-bit**, are checkpoint Tier 1 certified on the same host (non-MTP; 120B via manual no-4-bit
-agent-coding recipe). **GPT-OSS 120B AXQ 4-bit is not certified** (agent-coding retention 0.952
-&lt; 0.98 under the withdrawn evaluation record). **DeepSeek V4 Flash** AXQ **2-bit experimental** (older `DeepSeek-V4-Flash` source)
-is **checkpoint Tier 1 certified** on `df-macstudio-m2` (generation viability;
-MTP Tier 2 not claimed). **3-bit Flash SKUs are withdrawn** (no unique quality
-or size slot vs 2-bit / 4-bit). **Flash-0731** ship SKUs are 2-bit, 4-bit g128,
-MXFP4, and 6-bit g128 (`deepseek-ai/DeepSeek-V4-Flash-0731@7872f01b`); 0731
-certificates are being redone. Other
-catalog entries remain development artifacts unless their own exact revision
-has a certificate.
-
-**Qwen3.8-2.4T-A95B** experimental **AXQ 2-bit** (layer-stack expert stream, ~1.13 TiB,
-measured 4.074 BPW, native MTP sidecar packaged; acceleration not claimed) was withdrawn
-from the public Hub catalog in the 2026-09-19 cleanup and is no longer distributed.
-**This revision will not be certified** — SSD paging is too slow for practical
-serving; it stays a hobby / curiosity pack in the archive. **No AXQ 4-bit pack will be
-released** for this base. Technical report:
-[docs/reports/qwen38-axq-2bit.md](docs/reports/qwen38-axq-2bit.md). Separate OptiQ 2/4-bit
-repos are not AX Engine artifacts
-([docs/reports/qwen38-optiq-experimental.md](docs/reports/qwen38-optiq-experimental.md)).
-
-**DeepSeek-V4-Pro-0813** experimental **AXQ 2-bit MTP** is the same Super-class
-hobby path (layer-stack expert stream of the official mixed FP4+FP8 snapshot; DSpark
-sidecar packaged; acceleration not claimed), also withdrawn from the public Hub catalog
-in the 2026-09-19 cleanup. **This revision will not be certified** — SSD paging is too
-slow for practical serving. **No AXQ 4-bit pack will be released** for this base. Technical report:
-[docs/reports/deepseek-v4-pro-0813-axq-2bit.md](docs/reports/deepseek-v4-pro-0813-axq-2bit.md).
-
-**MiniMax-M3** experimental **AXQ 2-bit** (BF16 source, layer-stack expert stream
-required, vision BF16 in-shard) was withdrawn from the public Hub catalog in the
-2026-09-19 cleanup. Config `num_mtp_modules` is not packaged MTP, so the leaf has no
-`-MTP`. **This revision will not be certified.** The MXFP4 sibling remains live on the
-org page (`AX-MiniMax-M3-MLX-AXQ-MXFP4`).
-
-**Kimi-K3** experimental **AXQ 2-bit** (native MXFP4 source dequantized to affine
-2-bit, stream required, MoonViT-V2 BF16 sidecar) was withdrawn from the public Hub
-catalog in the 2026-09-19 cleanup. No packaged MTP. **This revision will not be
-certified.** No AXQ MXFP4 sibling.
-
-### v1.8.x at a glance
-
-- Published [Certification Spec v1.0](docs/contracts/certification-spec-v1.0.md) and `axquant verify-cert`
-  so a third party can re-check a local certificate bundle without network access.
-- Added `axquant optimize` to spend one explicit memory budget on weights plus optional KV cache.
-  Infeasible requests fail before conversion.
-- Froze the [affine U32 interchange](docs/contracts/axq-pack-interchange-v1.md) that AX Engine and
-  MLX-LM already load. Public Hub names stay `4bit`/`6bit` SKUs; measured BPW is the claim
-  ([migration](docs/migrations/migration-v1.8.md)). CUDA and other physical formats remain out of scope.
-
-### v1.7.x at a glance
-
-- Coding evaluation now uses a deny-default macOS Seatbelt policy with sealed inputs, explicit
-  runtime/toolchain read scopes, network denial, and parent-owned output pipes. The pipe boundary
-  closes a confused-deputy path where generated code could replace scorer log files with symbolic
-  links. See [SECURITY.md](SECURITY.md) for the threat model and operating guidance.
-- Qwen3.8-27B AXQ 4/6-bit language-path packs are checkpoint Tier 1 certified; the MTP variants
-  also have scoped Tier 2 certificates on AX Engine 6.16.1 under the exact Qwen3.8 profile.
-- Qwen3-VL 30B-A3B Instruct AXQ 4/6-bit and Holo3-35B-A3B AXQ 4/6-bit are checkpoint Tier 1
-  certified. Holo3 MTP alignment tooling now covers measure, decide, teacher-force, and staged
-  adaptation, but the public Holo3 products remain direct-decode because Tier 2 did not pass.
-- The generated [full certification list](docs/certifications/full-list.md) separates the public
-  catalog from unlisted evaluation records and keeps Tier 1 quality distinct from scoped Tier 2
-  acceleration.
-- AX Engine 6.15.0 completed a 72-hour Qwen 3.6 AXQ 6-bit endurance run with 3,643/3,643 successful
-  requests, zero errors, and no observed RSS leak or swap. This is runtime evidence, not a new
-  checkpoint certificate ([report](docs/reports/ax-engine-72h-endurance.md)).
-
-### v1.6.x at a glance
-
-- DeepSeek V4 Flash is **convertible** (mixed FP4+FP8 source → dequant/affine re-pack) with
-  experimental 2-bit recipes. The older-source AXQ **2-bit experimental** pack was checkpoint
-  Tier 1 certified on `df-macstudio-m2` (record withdrawn pending redo).
-  **3-bit Flash is withdrawn.**
-  Requires an `mlx-lm` build that includes `deepseek_v4` (v1.6.0+).
-- Convert/inventory hardening for DeepSeek sanitizer renames, FP4 expert logical params,
-  MultiLinear `wo_a` dequant, and byte-preserved MTP sidecars (v1.6.0).
-- Patch: correct fused-gate shapes for even Qwen expert counts; MTP module fusion skip;
-  HC learnable scale aliases no longer invent `.scales` (v1.6.1).
-- GPT-OSS 20B/120B MXFP4 sources are convertible through a fail-closed affine re-pack path;
-  the 20B 4/6-bit and 120B 6-bit packs are checkpoint Tier 1 certified (v1.6.2). GPT-OSS 120B
-  4-bit failed agent-coding quality and is not published (Hub pack removed).
-- Public certificate JSON is now validated through strict schemas and drives generated
-  certification matrices; every versioned artifact schema is frozen behind canonical snapshots
-  and a digest manifest (v1.6.2).
-- Checkpoint Tier 1 and scoped MTP Tier 2 are separate claims. Exact Qwen 3.6 27B/35B-A3B
-  revisions have scoped certificates, while Gemma-4, Qwen3-Coder-Next, and experimental
-  DeepSeek V4 Flash packs publish their narrower checkpoint verdicts (v1.6.2).
-
-### v1.5.x at a glance
-
-- Coding-suite and general-holdout overlap share `campaign-overlap`'s CJK-aware
-  `axquant-token-5gram-v2` tokenizer; regenerate coding-suite manifests built under v1.
-  GPTQ column codes use the joint `round(w/s + z)` form shared with AWQ (v1.5.1).
-- The flagship formal-host identifier is `df-macbookpro-m5` (was `mbp-m5`): the machine is a
-  **MacBook Pro M5 with 128 GB unified memory and an 18-core CPU**. The id is the machine's
-  canonical DNS name and a schema literal on the host contract, preflight, and certified-claim
-  hardware scope. No campaign or claim ever bound the old id (v1.5.0).
-
-### v1.4.x at a glance
-
-- `campaign-overlap` normalization is Unicode-aware (`axquant-token-5gram-v2`): CJK and other
-  non-ASCII scripts now produce real shingles instead of failing closed, unblocking flagship
-  campaign freezes over multilingual datasets; ASCII-only reports are byte-identical to v1.
-- `campaign-overlap --id-field` is repeatable with ordered fallback (default `id`, then
-  `task_id`), so one overlap run spans calibration corpora and strict `QualityTask` suites
-  (v1.4.1).
-- Quantized MTP sidecars can emit AX Engine's MLX-packed layout (`mlx-affine-packed-u32`)
-  with round-trip verification and `--runtime-json` `mtp_sidecar_bits` stamping. Capability
-  and contract gates still fail closed until an AX Engine build reports that layout as
-  executable, so **shipped public packs keep byte-preserved sidecars** (see the
-  certification index).
-- `benchmark-kernels --from-ax-engine` ingests the engine's raw kernel-latency documents into
-  host-scoped tables that plug directly into `plan --latency-table`.
-
-See the [v1.7.0 release notes](https://github.com/defai-digital/axquant/releases/tag/v1.7.0)
-for the complete change list and download verification instructions. Past tags keep their
-notes on [GitHub Releases](https://github.com/defai-digital/axquant/releases); the next
-tag's curated body is prepared under [docs/releases/](docs/releases/README.md).
-
-### Model support
-
-The README no longer mirrors the supported-family tables or the Hub pack list — both
-drift too easily. Use these live sources instead:
-
-- `axquant support-matrix` and `axquant support-policy` — the registry-derived support tier
-  (`certified` / `convertible` / `inspect-only`) and investment posture for every
-  recognized family, recorded in every inventory and plan. Run them for the exact tier of
-  a checkpoint before beginning work.
-- [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — the current public
-  pack catalog, model cards, and certifications. After the 2026-09-19 catalog cleanup the
-  public catalog carries MXFP4, embedding, and OCR packs; review the org page for what is
-  live rather than relying on any mirrored list.
-
-Further reading: [AXQ model fleet v2 migration and audit](docs/guides/model-fleet-v2.md),
-[migration guide (v1.1.x → v1.2.0)](docs/migrations/migration-v1.2.md),
-[migration guide (v1.0.x → v1.1.x)](docs/migrations/migration-v1.1.md),
-[environment compatibility matrix](docs/guides/compatibility.md), and
-[known issues](docs/guides/known-issues.md).
-
-Release artifacts are built and signed (keyless Sigstore attestation) by the release workflow;
-verify a downloaded dist with `gh attestation verify <file> --repo defai-digital/axquant` and
-`shasum -a 256 -c SHA256SUMS.txt`.
-
-AXQuant separates checkpoint and acceleration claims. Dual Tier 1 + scoped Tier 2 certificates
-now exist for both **Qwen3.8-27B AXQ 4/6-bit MTP** (AX Engine 6.16.1 on `df-macbookpro-m3`)
-and **Qwen 3.6 27B / 35B-A3B AXQ 4/6-bit MTP** (AX Engine 6.14.x on `df-macbookpro-m5`).
-The exact Qwen 3.6 27B AXQ 6-bit revision, for example, has passed:
-
-- **Tier 1 (checkpoint):** measured plan and size, matched general/agent-coding quality,
-  zero-fallback conversion, and the safe default runtime route
-  (certificate withdrawn pending redo).
-- **Tier 2 (MTP acceleration, scoped):** greedy exactness plus ≥1.20× token-weighted and ≥1.10×
-  prompt-median decode speedup on authorizing decode-heavy profiles on **MacBook Pro M5
-  (128 GB, 18-core)** with AX Engine 6.14.0 under the formal exact MTP contract
-  (certificate withdrawn pending redo).
-
-Product **default** remains Qwen linear MTP **direct fallback** (safe Tier 1 default). The
-certified acceleration route is the formal opt-in exact / certification-candidate contract—not a
-promise that every short-answer prompt is faster. Full M0–M8 flagship publication remains a
-separate campaign track. Other packs and revisions remain development artifacts until
-separately certified; a certificate never promotes a family by association.
-
-AXQuant records an evidence-backed **support tier** for every recognized model family
-(`certified` / `convertible` / `inspect-only`). Conversion requires at least the `convertible`
-tier; tier promotion requires recorded promotion evidence, and certification requires the full
-release audit. New families start at `inspect-only`. Run
-`axquant support-matrix` and `axquant support-policy` for the registry-derived source of
-truth — the README intentionally does not mirror the per-family matrix.
-
-| Area | Current support |
-| --- | --- |
-| Platform | macOS on Apple Silicon (M-series) with MLX |
-| Conversion input | Unquantized Safetensors checkpoint supported by the promoted MLX backend; revision pin required for measured/release evidence |
-| Family support tiers | `certified` / `convertible` / `inspect-only`, recorded in every inventory and plan |
-| Precision choices | MXFP4 (4-bit) and 6-bit as the headline classes; 8-bit and BF16 as protection floors / opt-in rungs; experimental 2-bit and 3-bit behind AX Engine's documented gates; measured affine, DWQ-clipped affine, portable AWQ, and GPTQ as 6/8-bit refinement methods |
-| Planning | Manual recipes and a planner that consumes measured sensitivity artifacts |
-| MTP | Detection, byte-preserved sidecars, and an opt-in Qwen 3.6 AX Engine layout backend |
-| Primary runtime | AX Engine for text tracks and **Qwen3-VL MoE (30B-A3B Instruct)**; MLX-Audio for Qwen3-ASR; MLX-VLM for dense Qwen3-VL 8B |
-| Compatibility runtime | Architecture-specific standard inference; generic text artifacts use MLX-LM; **VL MoE also supports MLX-VLM** (vision smoke / Hub consumers) |
-| Output integrity | Atomic conversion, exact parameter coverage, measured BPW, checksums, manifests, and runtime metadata |
-
-### Development evidence
-
-Conversion and generation smokes establish artifact compatibility, not model quality or release
-certification. The public model cards and manifests record each checkpoint's exact source
-revision, plan, achieved BPW, sidecars, and evidence limits. Keep hardware names, network
-addresses, and local artifact paths in local operational records rather than public docs.
-
-The default 4.8 BPW budget can be infeasible when protection floors raise the policy minimum
-(for example, Gemma-4, Devstral, and Mistral3). The simple `quantize` path raises the requested
-budget once to the computed minimum and records that decision. Use an explicit `--target-bpw` at
-or above the floor when the budget must be fixed.
-
-### AutomatosX Hub catalog (AXQ)
-
-Ready-made packs live on [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX).
-**Review the current catalog on the org page** — the repos, model cards, and
-[collections](https://huggingface.co/AutomatosX/collections) (including
-[certified AXQ](https://huggingface.co/collections/AutomatosX/certified-axq) and the
-[complete index](https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog))
-are authoritative for what is published today, each pack's measured BPW, and its evidence
-limits. This README deliberately does not mirror the pack table: pack membership changes,
-and a mirrored list goes stale and accumulates dead links.
-
-Public packs are development evidence unless an exact immutable revision is linked to a
-certificate. As of **2026-09-19** the public catalog carries **MXFP4, embedding, and OCR
-packs only**; the older AXQ 4/6/8-bit and experimental 2-bit repos were removed in the
-catalog cleanup. Historical certificate records (including withdrawn and deleted repos)
-stay in [docs/certifications/](docs/certifications/README.md) and the
-[full list](docs/certifications/full-list.md) — a certificate describes evidence for one
-exact immutable revision; it does not imply the repo is still published.
-
-Each published repo ships a full model card (`README.md`) plus public AXQuant provenance
-(`axquant_manifest.json`, `axquant_plan.json`, runtime metadata, sidecars when present).
-Cards are multi-family aware and state evidence limits explicitly. Stable repository
-names remain the canonical model identifiers; edition history is recorded in the model
-card and immutable Hub tags rather than by renaming the repository.
-
-**Development naming:** `AX-<Base>-MLX-AXQ-<4bit|6bit|8bit>[-MTP]` (MLX-style bit labels,
-not GGUF `q4`). Artifact editions are recorded in the model card and immutable Hub tags instead
-of changing the repository identifier. The class is a planning budget, not a claim that every
-tensor uses that width. Not every base publishes every class — when protection floors collapse
-the low-memory budget onto the same artifact as the next class up, only one pack is published.
-
-**Certified naming:** a checkpoint Tier 1 certificate may retain the stable product-class
-repository name when it pins the exact Hub tag/commit, artifact edition, hashes, and measured BPW.
-An acceleration-bearing flagship uses
-`AX-<Base>-MLX-AXQ-MP-<measured-main-BPW>bpw[-MTP]`, rounded to two decimal places with decimal
-half-up rules (for example `MP-5p30bpw-MTP`). `target_class` remains metadata.
-
-**Quick load (MLX-LM):**
-
-```bash
-python -m pip install -U mlx-lm
-# --model accepts a local pack directory or an AutomatosX repo id from the org page
-mlx_lm.generate --model ./AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP \
-  --prompt "Hello" --max-tokens 64 --temp 0.0
-```
-
-**Investment policy:** `axquant support-policy` (formal campaign / primary investment track =
-Qwen 3.6; Qwen3.8-27B is a separate certified dense VLM track; Nemotron = thin Nano only).
-
-Regenerate a public card from a local pack:
-
-```bash
-python scripts/prepare_development_model_card.py \
-  --artifact /path/to/AX-...-MLX-AXQ-6bit-MTP \
-  --repo-id AutomatosX/AX-...-MLX-AXQ-6bit-MTP \
-  --artifact-edition 2
-```
-
-Implemented now:
-
-- indexed Safetensors inspection and logical parameter reconstruction;
-- deterministic, provenance-bound tokenized calibration caches;
-- resumable per-tensor MLX probes with 4/6/8/BF16 affine candidates and targeted DWQ/AWQ/GPTQ refinement;
-- portable AWQ activation-scale search and GPTQ Hessian error compensation with convert-time refinement and affine packing;
-- checksum-bound per-module activation capture (`capture-activations`) feeding AWQ/GPTQ probes and conversion;
-- Qwen 3.6 tensor classification, MTP detection, and vision protection;
-- Qwen3.8-27B dense language-path conversion (`qwen38-dense-v1`) with BF16-protected vision
-  and certified AXQ 4/6-bit ± MTP packs;
-- Qwen3-ASR and Qwen3-VL text-path quantization through public MLX-Audio/MLX-VLM backends,
-  with BF16 modality-tower protection and real media runtime smokes;
-- Qwen3-VL 30B-A3B Instruct MoE convert (AX Engine primary + MLX-VLM compatible) and Holo3
-  35B-A3B grafted-MTP alignment tooling;
-- auditable manual recipes with mandatory precision floors;
-- mixed-precision planning from compatible sensitivity reports;
-- architecture-specific MLX conversion with plan-to-module coverage checks;
-- atomic output staging that prevents partial final checkpoints;
-- AX Engine manifest generation and runtime readiness checks;
-- identical-checkpoint AX Engine MTP off/on benchmarking with greedy-output equality;
-- deterministic quality/benchmark suites and complete-model MLX quality evaluation;
-- validation gates for externally measured quality and performance evidence;
-- guarded Hugging Face publication;
-- tiered family support with declarative adapters (Qwen 3.6 formal campaign primary;
-  Qwen3.8-27B certified dense VLM; Qwen 3.5, Qwen3-ASR, Qwen3-VL, MiniCPM5, Gemma-4,
-  Mistral/Devstral, Mistral3, and Nemotron Nano at `convertible`; Nemotron Super/Ultra remain
-  inspect-only), including byte-preserving extraction of integrated MTP heads and protected
-  vision into canonical checksummed sidecars;
-- development Hub model cards (`axquant.model_card` / `scripts/prepare_development_model_card.py`)
-  that sanitize provenance and document evidence limits for public packs;
-- `axquant quantize`: one-command development conversion with explicit development-evidence
-  labeling;
-- checksummed recipe bundles (`recipe-export`, `quantize --recipe`) that bind published plans
-  to user conversions without upgrading their evidence kind, resolvable locally or from
-  revision-pinned `hf://` references; prepared releases package their bundle automatically;
-- a registry-derived support matrix (`support-matrix`) with investment posture and
-  `support-policy` best practices (Qwen 3.6 campaign primary; Qwen3.8 certified separately;
-  thin Nemotron Nano only);
-- per-layer KV-cache precision planning **and runtime execution**: prior-based
-  (`--kv-cache prior`) and measured (`analyze-kv` + `plan --kv-cache measured`, digest-bound
-  to the sensitivity report) planning, and `runtime-check --runtime mlx-lm-kv` executes the
-  plan's exact per-layer table at runtime — one cache object per layer through MLX-LM's
-  public `prompt_cache`/`QuantizedKVCache` API, with per-layer mixed precisions (e.g.
-  8-bit boundary + 4-bit interior layers) verified active on real artifacts. The ordinary
-  generation smoke also applies the advisory global KV values. Families whose attention
-  implementation rejects quantized caches fail closed (the hybrid Qwen 3.6 path awaits
-  AX Engine-native KV, the scoped engine project);
-- a fail-closed measured-KV release chain: conversion packages the bound `kv_sensitivity.json`
-  (`convert --kv-sensitivity`) and publication re-verifies the digest and reproduces the exact
-  per-layer allocation from the packaged report;
-- an evidence-bound head-to-head page renderer that loads only checksum-verified evaluation
-  bundles and always lists unavailable mandatory baselines with their reasons;
-- a bundled, clean-room-authored reference calibration dataset (160 samples across 7 domains —
-  coding, json, tool, multilingual, long-context, reasoning, general) with a
-  `validate-calibration-dataset` command, so a user without their own domain-representative
-  calibration text can still run the full measured pipeline; an integration test proves the
-  complete chain (inspect → tokenize-calibration → analyze → plan) closes end to end on it;
-- a repository evaluation task suite (`data/eval/`) with 60 clean-room-authored tasks across four
-  categories (coding, reasoning, json-tool, instruction) for `evaluate-quality` and
-  `compare-quality`, covering python-syntax, JSON validity, exact match, regex, and token-F1
-  scoring.
-
-Still incomplete (external evidence / runtime / deferred scope — not missing toolkit commands):
-
-- **Qwen 3.6 full M0–M8 flagship publication campaign** is a separate process from the closed
-  Tier 1/Tier 2 metric certificates for the 27B AXQ 6-bit v3 artifact; product default MTP remains
-  fail-closed / direct fallback until an explicit runtime promotion;
-- interaction-optimization evidence: the toolkit path exists
-  (`refine-select --interaction`, holdout-safe by construction), but no bound candidate has yet
-  been optimized against real measured development-role evaluations;
-- validated conversion evidence for any future official dense Qwen 3.6 sizes beyond current smokes;
-- certification evidence for remaining secondary / inspect-only families (Nemotron Super/Ultra
-  remain inspect-only; DeepSeek-OCR-2, Muse-Glimmer,
-  Qwen3-VL 8B, and Qwen3-ASR are still development evidence);
-- quantized external MTP sidecars in production: the toolkit can emit the engine's
-  `mlx-affine-packed-u32` layout via `quantize-mtp-sidecar` (with a fail-closed capability
-  probe), but no AX Engine build yet reports that layout as executable, so every shipped
-  public pack keeps a byte-preserved sidecar;
-- measured KV serving-quality evidence: the report-only artifact and `kv-serving-quality`
-  command exist, but the dual-profile short/long-context measurements that would fill them have
-  not been run;
-- vision-tower quantization (deferred scope — Qwen3-VL language paths convert, but vision towers
-  remain BF16 until vision-specific evaluation evidence exists);
-- per-expert (unfused) MoE precision (deferred scope — packed expert stacks quantize as fused
-  switch modules with one precision per group; finer splits need MLX-LM-side support).
-
-The `validation-index`, `hardware-registry`, `compatibility-matrix`, and `release-audit` commands
-enforce release gate order, dual-profile completeness, and evidence binding.
-
-Architecture-prior analysis, smoke probes, and manual plans are explicitly marked as
-non-release development evidence. They cannot support production-quality or performance claims.
-
-## From-source install (Mac)
-
-Users should install from PyPI under [Install](#install). An editable checkout is only
-needed to change the toolkit. Conversion needs `.[mlx]`; AX Engine manifest generation
-needs `ax-engine-bench` on `PATH`:
-
-```bash
-git clone https://github.com/defai-digital/axquant.git
-cd axquant
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip
-python -m pip install -e '.[mlx]'           # conversion path
-# python -m pip install -e '.[dev,mlx]'     # plus tests and lint
-axquant --help
-```
-
-## Simple development conversion
-
-AXQuant uses a **two-door** model:
-
-| Door | When | Command |
-| --- | --- | --- |
-| **Simple (dev)** | local trials, fit-check, smoke | `axquant quantize MODEL` (`--target-bpw` defaults to 4.8) |
-| **Release** | public quality/speed claims | staged analyze → plan → convert → validate → scoreboard |
-
-Simple convert is **always development evidence**. It never upgrades to a certified claim.
-
-### Minimal commands
-
-```bash
-# Local BF16 checkpoint — one command from source to development artifact
-axquant quantize /models/Qwen3.6-27B-bf16 --target-bpw 4.8
-
-# Explicit flags still work
-axquant quantize \
-  --model /models/Qwen3.6-27B-bf16 \
-  --model-id Qwen/Qwen3.6-27B \
-  --revision REVISION_SHA \
-  --target-bpw 4.8 \
-  --runtime-smoke mlx-lm \
-  --json quantize-summary.json
-
-# Hub id (download opt-in; pin a revision for reproducibility)
-axquant quantize Qwen/Qwen3.6-27B --target-bpw 4.8 --allow-download --revision REVISION_SHA
-```
-
-Qwen3-ASR requires one pinned BF16 normalization step before inspection or planning:
-
-```bash
-python scripts/hf_to_mlx_bf16.py \
-  --hf-id Qwen/Qwen3-ASR-1.7B \
-  --revision REVISION_SHA \
-  --mlx-path /models/Qwen3-ASR-1.7B-MLX-BF16 \
-  --work /models/.axquant-source-work
-
-axquant quantize /models/Qwen3-ASR-1.7B-MLX-BF16 \
-  --target-bpw 6.91 \
-  --runtime-smoke mlx-audio \
-  --audio-input ./sample.wav
-```
-
-Qwen3-VL converts from its pinned upstream BF16 checkpoint through MLX-VLM:
-
-```bash
-axquant quantize /models/Qwen3-VL-8B-Instruct \
-  --model-id Qwen/Qwen3-VL-8B-Instruct \
-  --revision REVISION_SHA \
-  --target-bpw 6.36 \
-  --runtime-smoke mlx-vlm \
-  --image-input ./sample.png
-```
-
-**Qwen3-VL 30B-A3B Instruct (MoE)** — thin convert; product class **4bit and 6bit** packs;
-primary runtime AX Engine, vision smoke via MLX-VLM (no MTP):
-
-```bash
-# BF16 source only (not community 3bit / FP8)
-SRC=/models/Qwen3-VL-30B-A3B-Instruct
-REV=REVISION_SHA
-IMG=./sample.png
-
-axquant quantize "$SRC" \
-  --model-id Qwen/Qwen3-VL-30B-A3B-Instruct --revision "$REV" \
-  --target-bpw 4.8 \
-  --output ./AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-4bit \
-  --runtime-smoke mlx-vlm --image-input "$IMG"
-
-axquant quantize "$SRC" \
-  --model-id Qwen/Qwen3-VL-30B-A3B-Instruct --revision "$REV" \
-  --target-bpw 6.0 \
-  --output ./AX-Qwen3-VL-30B-A3B-Instruct-MLX-AXQ-6bit \
-  --runtime-smoke mlx-vlm --image-input "$IMG"
-
-# Optional AX Engine readiness smoke after convert:
-# axquant runtime-check --model ./AX-...-4bit --runtime ax-engine
-```
-
-Defaults on the simple path:
-
-- ladder `prior` with multi-group grid `(32, 64)`;
-- output directory `./AX-<model>-MLX-AXQ-4bit` when `--output` is omitted;
-- development-evidence banner in logs and summary notes;
-- family tier gates (inspect-only still fails closed).
-
-```bash
-axquant simple-convert-help          # two-door best practices
-axquant ladders --markdown-output convert-ladders.md
-axquant probe-capacity --inventory architecture_report.json --output probe-capacity.json
-axquant scoreboard --plan plan-01.json --output scoreboard.json --markdown-output scoreboard.md
-```
-
-To reuse published planning evidence, pass a checksummed recipe bundle with `--recipe` — either a
-local path or a revision-pinned Hub reference such as
-`--recipe hf://AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit@COMMIT_SHA/recipe/axquant_recipe_bundle.json`
-(the revision pin is mandatory and the payload checksum is always verified). Expert memory-tier
-development recipes live under `examples/expert-memory-tier-v0.1.yaml` (2-bit fused experts, 8-bit
-routers; requires AX Engine experimental 2-bit flags). To add prior-based per-layer KV-cache
-metadata, pass `--kv-cache prior`.
-
-## Staged development conversion
-
-The staged path below uses the reviewed manual recipe. This proves the
-conversion workflow stage by stage, but its output remains unmeasured development evidence.
-
-### 1. Inspect the source checkpoint
-
-```bash
-axquant inspect \
-  --model /models/Qwen3.6-27B-bf16 \
-  --model-id Qwen/Qwen3.6-27B \
-  --revision REVISION_SHA \
-  --output inventory.json
-```
-
-Inspection verifies the checkpoint layout, identifies the supported architecture, classifies
-each tensor, detects MTP, and records which components must remain protected.
-
-### 2. Create a mixed-precision plan
-
-```bash
-axquant plan-manual \
-  --inventory inventory.json \
-  --recipe examples/qwen36-27b-manual-v0.1.yaml \
-  --output manual-plan.json \
-  --markdown-output manual-plan.md
-```
-
-The included recipe applies 4-bit defaults, keeps attention weights at 6-bit, and preserves
-protected components at their required precision. The generated plan records every assignment
-and its reason.
-
-### 3. Convert the model
-
-```bash
-axquant convert \
-  --model /models/Qwen3.6-27B-bf16 \
-  --revision REVISION_SHA \
-  --plan manual-plan.json \
-  --allow-unmeasured \
-  --ax-engine-manifest if-available \
-  --output AX-Qwen3.6-27B-MLX-AXQ-4bit
-```
-
-If the plan preserves MTP as an external bundle, conversion requires:
-
-```bash
---mtp-sidecar /models/Qwen3.6-27B-bf16/mtp.safetensors
-```
-
-The default `--mtp-layout byte-preserved` path never changes tensor payloads; the copied bundle's
-`mtplx_runtime.json` declares `mtp_norm_layout: raw_hf_delta` so AX Engine converts every MTP
-norm deterministically at load time instead of guessing from tensor statistics.
-
-For the resident-loadable Qwen 3.5, Qwen 3.6, and Qwen 3.8 dense adapters, that runtime file also
-declares the canonical `qwen3-next-mtp` identity required by strict sidecar importers such as oMLX.
-Known historical `qwen-dense` / `qwen-moe-packed` labels are normalized without replacing any
-existing exactness evidence. The Super-class `qwen38-moe-v1` stream pack is deliberately excluded:
-it cannot resident-load on a Mac, and an oMLX/MTPLX sidecar-import claim would be misleading.
-
-The complete, family-specific Hub inventory is maintained in the
-[AXQ MTP runtime matrix](docs/guides/mtp-hub-models.md). It distinguishes resident Qwen sidecars, Gemma
-assistant bundles, DeepSeek `nextn` sidecars, and the Qwen expert-stream artifact; these contracts
-are not interchangeable.
-
-MTPLX `2.5.2` cannot load the Qwen 3.8 Flash-Next preview packs as-is: their n-gram PLE table
-ships as sharded keys inside `model.safetensors.index.json` instead of the standalone
-`ngram-table.safetensors` MTPLX expects. `axquant relayout-ngram-table --directory <pack>
---output <variant>` builds a byte-preserving MTPLX-targeted variant in a new directory
-(tensor payloads are hash-verified; the source pack is untouched; `--dry-run` previews the
-plan). This is layout compatibility only — the MTPLX Forge exactness baseline stays unverified,
-and no MTP acceleration claim is implied.
-
-The explicit development path:
-
-```bash
---mtp-layout ax-engine-qwen36-v1
-```
-
-accepts only a checksum-bound raw Qwen 3.6 bundle with the exact 15-tensor BF16 contract. It adds
-one, with BF16 rounding, to the seven named MTP RMSNorm tensors, proves the eight projection
-payloads unchanged, and writes a new provenance manifest plus a depth-1 AX Engine runtime
-contract. This opt-in layout is not a release waiver: identical-checkpoint MTP exactness,
-acceptance, and throughput must still pass the ordinary validation gates.
-
-The `--allow-unmeasured` and `--ax-engine-manifest if-available` options are development-only.
-Omit them from a release workflow: release conversion requires measured evidence and a valid AX
-Engine manifest. A measured plan must also pass
-`--calibration-manifest calibration_manifest.json`; conversion verifies its checksum and
-provenance against the plan and packages it with the artifact.
-
-### 4. Check the converted model
-
-```bash
-axquant runtime-check \
-  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --revision candidate-revision \
-  --runtime ax-engine \
-  --output runtime-check.json
-```
-
-Use `--runtime mlx-lm` to perform the MLX-LM generation smoke. Qwen3-ASR uses
-`--runtime mlx-audio --audio-input ./sample.wav`; Qwen3-VL uses
-`--runtime mlx-vlm --image-input ./sample.png`. `--static-only` is an MLX-LM development
-diagnostic.
+**Input:** an unquantized Safetensors checkpoint of a family at the
+`convertible` tier or above, converted through the promoted public backend
+(MLX-LM for text, MLX-VLM / MLX-Audio with BF16-protected modality towers
+for vision and audio). A pinned source revision is mandatory for measured
+sensitivity and release evidence; an unpinned local source is permitted
+only for development.
+
+**Output:** a portable MLX model directory with mixed-precision weights,
+the exact quantization plan, a checksum-bound artifact manifest recording
+authoritative parameters and measured BPW, runtime metadata for the
+supported runtimes, and byte-preserved MTP / modality sidecars unless an
+explicit validated transform is selected. The language-model output stays
+usable as a standard MLX checkpoint; AX Engine reads the extra metadata.
 
 ## CLI workflow
 
-Run `axquant COMMAND --help` for the full options of any command.
+Run `axquant COMMAND --help` for the full options of any command. The main
+entry points are `quantize` (one-command development conversion), `inspect`,
+`analyze`, `plan`, `convert`, and `verify-cert` (offline certificate
+check). The complete command table lives in the
+[CLI reference](docs/cli-reference.md).
 
-| Command | Purpose | Current maturity |
-| --- | --- | --- |
-| `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
-| `source-checkpoint-manifest` | Derive and bind the immutable source revision, tokenizer, architecture, and file digests for exact-checkpoint certification | Implemented |
-| `certification-policy` | Emit the frozen Qwen3-Next non-MTP certification policy and policy digest | Implemented |
-| `prepare-coding-suite` | Build the checksum-bound 128-task Qwen3-Next coding suite, toolchain manifest, and calibration-overlap report (`axquant-token-5gram-v2`) | Implemented; formal use requires all pinned toolchains; regenerate manifests for Seatbelt policy v3 |
-| `evaluate-coding-suite` | Run resumable generation and deny-default executable scoring for coding-suite v2 | Implemented; Apple Silicon/Seatbelt execution evidence required |
-| `verify-coding-suite` | Self-test every coding oracle and scorer by requiring the reference to pass and an empty mutant to fail | Implemented; run before suite freeze |
-| `evaluate-general-quality` | Evaluate the disjoint direct-track general holdout and archive every raw model output | Implemented; BF16 and candidate runs must use matched settings |
-| `direct-validation-index` | Recompute policy-bound BF16/candidate quality retention for both direct-track profiles | Implemented; emits a fail-closed index for N4 |
-| `prepare-general-overlap` | Recompute exact/near-duplicate separation between general holdout and calibration (`axquant-token-5gram-v2`) | Implemented; any match blocks direct validation |
-| `inspect` | Inventory tensors, architecture, quantization, and MTP | Implemented |
-| `calibrate` | Validate calibration input, record provenance, and build a tokenized cache (`--manifest-only` skips tokenization) | Implemented |
-| `validate-calibration-dataset` | Check a calibration JSONL against the toolkit's domain/size/format bar (defaults to the bundled reference dataset) | Implemented |
-| `tokenize-calibration` | Build and verify a deterministic tokenized cache | Implemented |
-| `capture-activations` | Capture per-module Linear input activations from a verified tokenized cache into a checksum-bound artifact | Implemented |
-| `analyze` | Generate architecture priors or measure resumable affine/DWQ/AWQ/GPTQ/BF16 sensitivity from a calibration cache | Implemented |
-| `analyze-kv` | Measure per-layer KV-cache sensitivity over a tokenized calibration cache | Implemented; development evidence |
-| `plan` | Allocate 4/6/8/BF16 from a sensitivity report | Implemented; release use requires measured evidence |
-| `optimize` | Plan weights and optional KV cache under one explicit memory budget and runtime reserve | Implemented; architecture-prior inputs remain estimates |
-| `diagnose-joint` | Measure weight x KV interaction I(W,KV) and memory-budget crossover across context lengths | 1.9.0 development evidence only; never a certification claim; 1.8 convert unchanged |
-| `plan-joint` | I-gated WeightPlan x KVPlan search that writes a convert-ready development plan | 1.9.0; small I keeps 1.8 independent optimize; material I selects a coupled cell |
-| `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
-| `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
-| `plan-experimental-mix` | Measured mixed 2/3/4-bit on the robust trunk; fused switch modules upgrade as one unit | Development only; not plan-joint; not mlx-optiq |
-| `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
-| `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
-| `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
-| `probe-capacity` | Recommend sensitivity probe mode under host memory (bf16-full / measured-lite / streaming / prior-only) | Implemented |
-| `scoreboard` | Certification scoreboard from plan + optional size/quality/MTP evidence (MTP speed owned by AX Engine) | Implemented |
-| `bind-sensitivity` | Bind weight (+ optional KV) sensitivity digests into one lineage artifact | Implemented |
-| `recovery-rank` | Rank quantized tensors for opt-in recovery by sensitivity (not implied by convert) | Implemented |
-| `deferred-features` | List fail-closed deferred expansion features (vision-tower quant, per-expert unfused, domain LoRA) | Implemented |
-| `recipe-export` | Export a revision-pinned plan as a checksummed recipe bundle | Implemented |
-| `support-matrix` | List families with tier, investment posture, priority, and policy notes | Implemented |
-| `support-policy` | Print family investment best practices (primary/secondary/thin) | Implemented |
-| `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
-| `export-mxfp6` | Export a source-bound E2M3/E3M2 MXFP6 reference artifact | Experimental reference-only; no native inference |
-| `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for checkpoints at the `convertible` tier or above |
-| `runtime-check` | Run AX Engine readiness or actual MLX-LM, MLX-Audio, or MLX-VLM generation | Implemented |
-| `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |
-| `evaluate-quality` | Run MLX perplexity and scored generation tasks | Implemented |
-| `compare-quality` | Compare matched quality runs with per-task visibility | Implemented |
-| `benchmark` | Collect AX Engine runtime evidence | Implemented |
-| `benchmark-ab` | Compare one checkpoint with MTP disabled/enabled | Implemented |
-| `compose-gemma4-assistant-mtp` | Compose a Tier 2 candidate: byte-identical AXQ Gemma target + `assistant/` drafter + `ax_gemma4_assistant_mtp.json` (does not mutate the Tier 1 pack) | Implemented; product Hub packs ship as bundles under `…-MLX-AXQ-*-MTP` |
-| `prepare-grafted-mtp` | Extract and bind a Qwen3.5/3.6 MoE MTP donor head for a Holo3-class trunk | Implemented; graft provenance explicitly records that the donor was not co-trained |
-| `compose-grafted-mtp` | Attach a prepared grafted MTP sidecar without mutating the certified trunk tensors | Implemented |
-| `mtp-align-prepare-data` | Build trunk-greedy self-distillation labels and optional cached features for MTP adaptation | Implemented; development workflow |
-| `mtp-align-teacher-force` | Measure offline depth-1 MTP top-1 agreement against trunk-greedy labels | Implemented; development diagnostic |
-| `mtp-align-adapt-fc` | Adapt the grafted MTP FC and normalization tensors while freezing the transformer | Implemented; development workflow |
-| `mtp-align-adapt-full` | Continue adaptation with all packed MTP tensors unfrozen | Implemented; development workflow |
-| `mtp-align-evaluate` | Score MTP probe or engine A/B evidence against the alignment ladder | Implemented; decision support |
-| `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
-| `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
-| `annotate-omlx-mtp` | Write `axquant_omlx_compat.json` for an existing Qwen MTP pack (`--directory`); does not requantize or merge `mtp.*` into the language index | Implemented |
-| `relayout-ngram-table` | Build an MTPLX-compatible variant pack (`--directory` → `--output`) that moves sharded n-gram keys into a standalone `ngram-table.safetensors`; byte-preserving, new directory, `--dry-run` supported | Implemented |
-| `kv-serving-quality` | Bind executed per-layer KV precisions to dual-profile quality retention as a report-only artifact | Implemented |
-| `mtp-diagnose` | Run the MTP kill-switch diagnostic matrix | Implemented; diagnostic evidence only |
-| `benchmark-index` | Bind every required baseline or record why it is unavailable | Implemented |
-| `validation-index` | Require disjoint passing agent-coding and general evidence | Implemented |
-| `refine` | Generate proxy-ranked bounded precision swaps | Development only |
-| `recover` | Record optional post-PTQ recovery provenance | Implemented as identity-copy provenance; no weight mutation |
-| `refine-measure` | Build checksum-bound complete-candidate evidence | Implemented |
-| `refine-select` | Select only from checksum-bound, validated complete candidates | Implemented |
-| `refine-export` | Export standalone executable plans from a refinement result | Implemented |
-| `refine-run` | Resume complete conversion, quality, MTP, validation, and selection runs | Implemented |
-| `pareto` | Report non-dominated validated candidates on named hardware | Implemented |
-| `hardware-registry` | Certify checksum-bound kernel, version, power, and shape coverage | Implemented |
-| `campaign-overlap` | Build privacy-preserving exact/5-gram overlap evidence (`axquant-token-5gram-v2`; repeatable `--id-field`, default `id` then `task_id`) | Implemented |
-| `campaign-frontier` | Verify every cheapest-failure-first candidate gate and derive the eligible frontier | Implemented |
-| `campaign-freeze` | Freeze one exact `qwen36-mtp-v2` source/candidate/evidence graph | Implemented |
-| `campaign-preflight` | Verify frozen bindings, durable storage, and exact formal host identity (`df-macbookpro-m5` = MacBook Pro M5, 128 GB, 18-core) | Implemented |
-| `campaign-start-formal` | Start one budgeted formal cycle only after matching preflight | Implemented |
-| `campaign-complete-formal` | Derive pass/fail from the bound completion and consume both formal holdouts | Implemented |
-| `campaign-close-no-go` | Close a pre-formal campaign without consuming its blind holdout | Implemented |
-| `campaign-record-publication` | Bind downloaded Hub bytes, revision, audit, claim, lifecycle, and runtime re-verification | Implemented |
-| `artifact-lifecycle` | Append legal development → candidate → frozen → certified/superseded/revoked transitions | Implemented |
-| `claim-render` | Generate measured-BPW public claims and the certified model card from bound evidence | Implemented |
-| `release-audit` | Dispatch historical Qwen 3.6 v4, Qwen3-Next N0–N8, or additive `qwen36-mtp-v2` M0–M8 proof | Implemented |
-| `compatibility-matrix` | Bind family-wide artifact, runtime, and validation evidence | Implemented |
-| `validate` | Apply release thresholds to external benchmark evidence | Implemented |
-| `size-evidence` | Bind authoritative candidate/uniform-4 or uniform-6 artifact sizes | Implemented |
-| `release-exception` | Record an approved, expiring, evidence-bound size exception | Implemented |
-| `report` | Render plan and validation reports | Implemented |
-| `publish-prepare` | Assemble a release only after validation | Implemented |
-| `bind-artifact-evidence` | Write the artifact evidence-binding sidecar that authorizes release claims | Implemented |
-| `publish` | Preview or execute a guarded Hugging Face upload | Implemented |
-| `verify-reproduction` | Verify regenerated weight bytes and bound provenance | Implemented |
-| `verify-cert` | Offline-check a public certificate and optional artifact bundle with a machine-readable verdict | Implemented; exits nonzero on any inconsistent binding |
-| `name` | Generate the recommended AXQuant model name | Implemented |
+## Certification
 
-## Measured planning and validation
+AXQuant separates checkpoint claims from acceleration claims:
 
-DWQ release evidence uses the same deterministic 0.1/99.9-percentile clipping implementation
-during sensitivity probing and conversion. A targeted run adds measured DWQ candidates to an
-existing complete affine report without rewriting any base candidate:
+- **Tier 1 (checkpoint):** size, matched quality, conversion integrity,
+  and standard-runtime compatibility for one exact revision.
+- **Tier 2 (MTP, scoped):** greedy exactness plus token-weighted ≥1.20×
+  and prompt-median ≥1.10× decode speedup on named authorizing workloads —
+  measured evidence for that pack, engine build, and host only.
 
-```bash
-axquant analyze \
-  --model Qwen/Qwen3.6-27B \
-  --revision pinned-source-revision \
-  --calibration calibration-cache \
-  --base-sensitivity measured-affine-sensitivity.json \
-  --methods dwq \
-  --target-tensor model.language_model.layers.4.mlp.up_proj.weight \
-  --state dwq-probe-progress.json \
-  --output measured-affine-dwq-sensitivity.json
-```
+Conversion, Tier 1, and Tier 2 evidence are all produced on one factory
+host class: **Mac Studio, M2 Ultra, 192 GB unified memory**. Records name
+the hardware spec, never a machine identity.
 
-The merged report records the base report's semantic digest, inventory digest, probe backend,
-target count, and method set. Release audit requests list every ancestor under
-`sensitivity_lineage`; M3 replays the chain and rejects removed or modified base candidates,
-undeclared additions, protocol drift, cycles, missing parents, and unused reports.
+The rules are frozen in the
+[Certification Spec v1.0](docs/contracts/certification-spec-v1.0.md); the
+verdicts live in [docs/certifications/](docs/certifications/README.md),
+including the [full list](docs/certifications/full-list.md) of every
+record. A certificate never promotes a family by association.
 
-Once a measured sensitivity report is available, create a plan without the development override:
+## Documentation
 
-```bash
-axquant plan \
-  --analysis measured-analysis.json \
-  --target-bpw 4.8 \
-  --bits 4,6,8,16 \
-  --mtp protected \
-  --output quantization-plans
-```
+Index: [docs/README.md](docs/README.md).
 
-`--lm-head-floor 8bit` is the governed size-gate path: it lowers the LM-head weight
-floor from BF16 to 8-bit for that plan only, records the deviation in
-`constraints.lm_head_min_bits`, and requires a measured 8-bit LM-head sensitivity candidate
-before the release audit accepts the plan. The default floor stays BF16.
+| I want to … | Start with |
+| --- | --- |
+| Quantize a model | [Convert](#convert), then the [CLI reference](docs/cli-reference.md) |
+| Understand or verify an artifact | [Pack interchange contract](docs/contracts/axq-pack-interchange-v1.md), [certified checkpoints](docs/certifications/README.md) |
+| Operate certification | [Certification operator guide](docs/guides/flagship-certification.md), [Certification Spec v1.0](docs/contracts/certification-spec-v1.0.md) |
+| Contribute code | [Development](#development), [CONTRIBUTING.md](CONTRIBUTING.md), [CI root causes](docs/guides/ci-root-causes.md) |
 
-Validate externally collected benchmark bundles:
-
-```bash
-axquant size-evidence \
-  --artifact-manifest candidate/axquant_manifest.json \
-  --model-id AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --revision candidate-revision \
-  --output candidate-size-evidence.json
-
-axquant validate \
-  --reference-evaluation reference-evaluation.json \
-  --candidate-direct-evaluation candidate-mtp-off.json \
-  --candidate-evaluation candidate-mtp-on.json \
-  --mtp-ab candidate-mtp-ab.json \
-  --size-reference uniform4-size-evidence.json \
-  --candidate-size candidate-size-evidence.json \
-  --profile agent-coding \
-  --output validation.json
-```
-
-For an MTP speed claim, `--mtp-ab` binds the matched AX Engine direct/MTP comparison used for
-token-weighted decode speedup, prompt-median speedup, and greedy-output exactness. AXQuant rejects
-the bundle when its model identity, workload, software, hardware, controls, or environment do not
-match the candidate evidence.
-
-For a `6bit` certification, freeze the class explicitly and derive the size reference from the
-matching complete uniform-6 baseline. The same `max_weight_size_ratio` threshold is then applied
-to the uniform-6 denominator; a 4-bit candidate cannot switch denominators opportunistically:
-
-```bash
-axquant size-evidence \
-  --feasibility-report feasibility.json \
-  --reference-kind uniform-6bit \
-  --output uniform6-size-evidence.json
-
-axquant validate \
-  --reference-evaluation reference-evaluation.json \
-  --candidate-direct-evaluation candidate-mtp-off.json \
-  --candidate-evaluation candidate-mtp-on.json \
-  --mtp-ab candidate-mtp-ab.json \
-  --size-reference uniform6-size-evidence.json \
-  --candidate-size candidate-size-evidence.json \
-  --target-class 6bit \
-  --profile agent-coding \
-  --output validation.json
-```
-
-If a measured Pareto candidate misses both the BPW target and the uniform-4 size-ratio gate, a
-release authority can record a time-bounded exception. The command computes the observed values
-from the two size artifacts; it does not accept caller-authored observed values:
-
-```bash
-axquant release-exception \
-  --exception-id AXQ-SIZE-001 \
-  --plan selected-plan.json \
-  --candidate-size candidate-size-evidence.json \
-  --size-reference uniform4-size-evidence.json \
-  --tradeoff-evidence measured-tradeoff.json \
-  --measured-tradeoff "Measured quality, speed, and memory tradeoff approved for release." \
-  --owner "AutomatosX release owner" \
-  --approved-by "Named release authority" \
-  --approval-reference "release-decision-001" \
-  --approved-at 2026-07-30T12:00:00Z \
-  --expires-at 2027-01-31T00:00:00Z \
-  --output release-exception.json
-
-axquant validate \
-  --reference-evaluation reference-evaluation.json \
-  --candidate-direct-evaluation candidate-mtp-off.json \
-  --candidate-evaluation candidate-mtp-on.json \
-  --size-reference uniform4-size-evidence.json \
-  --candidate-size candidate-size-evidence.json \
-  --plan selected-plan.json \
-  --release-exception release-exception.json \
-  --exception-evidence tradeoff=measured-tradeoff.json \
-  --profile agent-coding \
-  --output validation.json
-```
-
-The exception can downgrade only `artifact.weight_size_ratio`; it must also disclose the failed
-measured-BPW target. Quality, speed, memory, fallback, integrity, and provenance failures remain
-errors. Release audit requests that use an exception must list its file under
-`release_exceptions` and provide the exact `plan`, `candidate_size`, `size_reference`, and
-`tradeoff` paths under `release_exception_evidence`. M4 reloads and hashes every file, checks both
-validation profiles, verifies approval and expiry, and compares the packaged
-`release_exception.json` with the approved record.
-
-For a refinement candidate, derive its selection record from the converted manifest, matched
-quality comparison, and release validation rather than authoring measurement values:
-
-```bash
-axquant refine-measure \
-  --refinement refinement.json \
-  --candidate-id cand-0000-000 \
-  --measurement-id cand-0000-000-m3-max \
-  --artifact-manifest candidate/axquant_manifest.json \
-  --quality-comparison candidate/quality-comparison.json \
-  --validation candidate/validation.json \
-  --output measurements.json
-```
-
-Use `--existing measurements.json` with a new output path to accumulate another candidate or a
-second named-host result for the same candidate. Measurement IDs must be unique. `refine-select`
-uses the worst measured objective and BPW across every host record for a candidate, so adding
-hardware evidence cannot make selection less conservative. The complete objective combines task
-retention and perplexity with MTP acceptance, peak memory, and effective speed. Refinement
-parentage is a precision-only monotonic chain: a child may upgrade formats but cannot downgrade
-or exchange an unrelated tensor.
-
-Prepare the exact complete-candidate run without executing expensive model work:
-
-```bash
-axquant refine-run \
-  --request examples/refinement-execution-request.yaml \
-  --output-dir run/complete-candidates
-```
-
-Review `execution-manifest.json`, then add `--execute`. The runner resumes checksum-verified
-completed outputs, skips the remainder of a candidate after an execution failure, treats
-validation exit `1` as measured failed-gate evidence, merges complete measurements, and runs
-`refine-select` plus `pareto`.
-
-Every release benchmark must name its power mode and quantizer/version. `refine-run` reads
-`benchmark_power_mode` from its request, derives the AXQuant identity from each plan, and includes
-both raw A/B logs in the resumable output contract. Standalone baseline runs use
-`--power-mode`, `--quantizer`, and `--quantizer-version`. `benchmark-ab` derives adjacent-token
-repetition directly from emitted token IDs, records depth-one proposal accuracy, and derives
-greedy divergence from the matched A/B outputs. Its release speed gate defaults to
-`token-weighted-decode-tps`: total output tokens divided by total generation wall time, with the
-same calculation applied to both arms. The artifact also records the legacy prompt-median TPS
-ratio and requires it to remain at or above `1.10x`, preventing a long decode from hiding a
-typical-prompt regression. Release MTP evidence therefore requires token-weighted decode speedup
-`>=1.20x`, prompt-median speedup `>=1.10x`, and exact greedy outputs. Use
-`--speedup-metric prompt-median-tps` only when reproducing the
-legacy protocol. For a uniform-6 reference A/B, use
-`--direct-baseline-kind uniform-6bit --mtp-baseline-kind uniform-6bit`; the default kinds remain
-the AXQuant MTP-off/on release pair. Use `--record-failed-speedup` for an evidence sweep that must
-retain both evaluation bundles when only the speed floor fails: the command writes the complete
-evidence, returns status `1`, and leaves exactness and matched-control invariants fail-closed.
-Build the M7 hardware registry only from the resulting raw
-logs, evaluation bundles, validation, plan, converted artifact manifest, sensitivity report,
-quality comparison, and quantizer execution manifest:
-
-```bash
-axquant hardware-registry \
-  --request examples/hardware-registry-request.yaml \
-  --output hardware-profile-registry.json
-```
-
-The command returns `1` while validation is failing, any runtime or conversion fallback is
-present, provenance is inconsistent, the complete objective cannot be rebuilt from the artifact,
-quality, and validation files, or the claimed bit/group/role/shape coverage is not measured. The
-registry records both the semantic and file digest of its complete-candidate measurement set.
-Publication verifies that file, packages it as `refinement_measurements.json`, packages every
-objective input, and rewrites the registry to packaged relative paths. Each registry entry
-identifies the exact measurement ID, allowing one candidate and plan to be certified on multiple
-named hosts.
-
-### Flagship campaign closure
-
-The certified Qwen 3.6 path starts from the exact source
-`Qwen/Qwen3.6-27B@6a9e13bd6fc8f0983b9b99948120bc37f49c13e9`. It is separate from the
-historical v4 development audit:
-
-```bash
-axquant campaign-freeze \
-  --request flagship-campaign-request.json \
-  --output flagship-campaign.json
-
-# Authorizing preflight must run on the formal host:
-# MacBook Pro M5, 128 GB, 18-core (host id df-macbookpro-m5).
-axquant campaign-preflight \
-  --campaign flagship-campaign.json \
-  --output flagship-campaign-preflight.json
-
-axquant release-audit \
-  --request flagship-release-audit-request.json \
-  --output flagship-authorization-audit.json
-```
-
-An authorization-ready audit proves the frozen campaign and current M0–M8 evidence but is
-deliberately not publication-ready until the independent lifecycle and claim closure is present.
-The campaign request and every transition, raw-evidence, review, no-go, and publication record
-must remain inside the declared non-symlinked durable root. Formal preflight also requires fresh
-doctor, Metal, zero-fallback, storage, power, and thermal results bound to the exact frozen
-host contract (MacBook Pro M5, 128 GB, 18-core; host id `df-macbookpro-m5`).
-After the legal `frozen → certified` event, `claim-render` creates `public-claim.json` and the
-measured-BPW `README.md`. An independent final publication review binds those exact files and the
-authorization audit under the durable campaign root; the final flagship request must pass M0–M8
-again. Preview and executed publication both rerun that exact final request. A v4 audit cannot
-authorize a package containing flagship claims or lifecycle metadata.
-
-Prepare the release directory locally, then run the aggregate proof before publishing a certified
-checkpoint:
-
-```bash
-axquant publish-prepare \
-  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --validation-index release-validation-index.json \
-  --hardware-registry hardware-profile-registry.json \
-  --pareto-report pareto-report.json
-```
-
-```bash
-axquant release-audit \
-  --request examples/release-audit-request.yaml \
-  --output release-audit.json
-```
-
-This revalidates indexed evaluation, complete-refinement, and hardware file checksums; binds the
-selected interaction improvement to the packaged measurement set; reruns reproduction
-verification; inspects the wheel metadata, contents, and every `RECORD` member hash/size; and
-requires the packaged plan, validation/benchmark evidence, hardware registry/evidence,
-refinement measurements, Pareto report, and recipe to match the external evidence graph. The
-M0 check recomputes checkpoint completeness, parameter/architecture equivalence, revisions, MTP,
-and baseline runtime results rather than trusting the feasibility status label. M1 requires every
-artifact Safetensors file to have one safe, size- and checksum-valid manifest record. M2 reloads
-the indexed evaluations and rechecks complete trials, matched controls and hardware, provenance,
-fallbacks, identical-checkpoint MTP pairing, one cross-profile candidate/reference pair, and
-disjoint datasets. M3 reloads the checksum-bound calibration manifest, verifies separation and
-provenance, requires finite tensor-scoped measurements, and verifies every targeted-sensitivity
-ancestor. M6 reloads the bound artifact, quality comparison, and validation for every
-measurement, recomputes the versioned complete objective, and requires a measured, validated,
-monotonic parent/child gain. Complete-measurement construction also rejects non-authoritative
-profile thresholds, an inconsistent validation pass label, core release metrics below their
-active thresholds, nonzero kernel fallbacks, and a passing size overage without its governed
-plan-bound exception. M7 rebuilds every Pareto point and frontier member from the bound
-measurement set. The
-compatibility matrix must bind that same candidate manifest, runtime checks, and validation. The
-audit also reloads every checkpoint from the original compatibility request and re-hashes its
-manifest, plan, runtime checks, and validation. The wheel must declare Python 3.11+, MIT, and all
-runtime dependencies; the artifact, plan, recipe, and wheel must identify the same AXQuant
-version. It reports M0 through M8 separately and returns `0` only when all nine milestones pass;
-an alpha or pre-1.0 wheel, including one still carrying an Alpha distribution classifier, cannot
-pass M8. An executed publication packages that exact authorizing result as `release_audit.json`
-and refuses to overwrite a different existing audit.
-
-Preview publication first. Add `--yes` only when the release should be uploaded; an executed
-upload also requires the matching audit and its original request so the full M0–M8 proof can be
-rerun from current evidence:
-
-```bash
-axquant publish \
-  --model AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --repo AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit \
-  --validation-index release-validation-index.json \
-  --hardware-registry hardware-profile-registry.json \
-  --pareto-report pareto-report.json \
-  --release-audit release-audit.json \
-  --release-audit-request examples/release-audit-request.yaml
-```
-
-Before publication, build the complete comparison index. BF16, uniform 4-bit, uniform 6-bit,
-and the identical AXQuant MTP-off/on pair are mandatory. Mixed-precision, AWQ, and DWQ entries
-may be unavailable, but they cannot be omitted and must state why:
-
-```bash
-axquant benchmark-index \
-  --request examples/benchmark-evidence-request.yaml \
-  --output benchmark-evidence-index.json
-```
-
-Build one benchmark index and validation report for each required profile, using distinct
-evaluation datasets. Then bind them into the publication gate:
-
-```bash
-axquant validation-index \
-  --request examples/release-validation-request.yaml \
-  --output release-validation-index.json
-```
-
-Publication rejects a missing profile, a reused dataset, differing candidate/reference
-identities, a failed validation, or a non-ready benchmark index.
-
-Every prepared release includes `reproduction_recipe.yaml` with argument-array commands for
-downloading the pinned source, converting it, checking both runtimes, and verifying every
-regenerated Safetensors file. Prepared MTP layouts additionally checksum-bind the provenance and
-runtime companion files required to reuse the transformed sidecar without applying the transform
-again. After running those commands, verification can also be invoked directly:
-
-```bash
-axquant verify-reproduction \
-  --recipe reproduction_recipe.yaml \
-  --artifact regenerated-model \
-  --output reproduction-verification.json
-```
-
-Build the M5 family matrix from checksum-bound artifact, AX Engine, MLX-LM, and validation
-evidence:
-
-```bash
-axquant compatibility-matrix \
-  --request examples/qwen36-compatibility-request.yaml \
-  --output compatibility-matrix.json
-```
-
-The request declares the complete official dense catalog as verified at a timezone-qualified
-timestamp. The command returns `1` and still writes the matrix when any declared official dense
-Qwen 3.6 model is absent, uses inconsistent candidate evidence, or lacks a compatible
-`agent-coding` or `general` validation profile. The checked-in example lists 27B as the only dense
-size in the linked catalog; refresh `catalog_verified_at` and `required_dense_models` before every
-release. FP8 is a representation of a parameter size, not a second model size.
-
-## Evidence and safety boundaries
-
-- Architecture priors are never described as measured sensitivity.
-- `--allow-unmeasured` is restricted to development conversion.
-- Conversion fails if the plan does not cover every module it claims to quantize.
-- External MTP sidecars remain byte-for-byte unchanged unless the explicit, provenance-checked
-  Qwen 3.6 AX Engine layout backend is selected.
-- Output is staged and atomically renamed only after conversion succeeds.
-- Release claims require complete-model quality and hardware evidence.
-- Credentials and Hugging Face tokens are never written to logs or manifests.
-
-## Model naming
-
-Recommended model names use:
-
-```text
-OWNER/AX-BASE-MODEL-MLX-AXQ-TARGET
-```
-
-For example:
-
-```text
-AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit
-```
-
-The target suffix describes the checkpoint class, not a claim that every tensor uses that bit
-width. The manifest contains the actual precision distribution and effective bits per weight.
+Product requirements, the architecture decision register, technical
+specifications, and the independent-implementation policy are maintained
+internally and are not published in this repository.
 
 ## Development
 
-A Mac with MLX installed will **not** catch Ubuntu CI failures. CI splits surfaces on
-purpose: **Ubuntu = non-MLX** (`.[dev]` only; MLX cannot run on Linux runners) and
-**macOS = MLX** (`.[dev,mlx]`). Prefer the local CI mirror:
+CI splits surfaces on purpose: Ubuntu runs the non-MLX gate, macOS runs
+the MLX suite. Prefer the local CI mirror:
 
 ```bash
 ./scripts/ci-local.sh
 ```
-
-That runs ruff, format, mypy, then a **non-MLX** venv with a sanitized `PATH` (matching
-GitHub Actions non-MLX jobs), and the host MLX suite when available. See
-[docs/guides/ci-root-causes.md](docs/guides/ci-root-causes.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 .venv/bin/pytest
@@ -1340,47 +226,19 @@ GitHub Actions non-MLX jobs), and the host MLX suite when available. See
 .venv/bin/mypy src
 ```
 
-Tests use small synthetic Safetensors fixtures and do not require real model weights.
+Tests use small synthetic Safetensors fixtures and do not require real
+model weights. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contributing
 
-Contributions are warmly welcome. AXQuant is built to help Mac users get more reliable,
-efficient local inference and a better experience on Apple Silicon. Fork the repository and
-send us a pull request for bug fixes, documentation, tests, usability improvements, runtime
-compatibility, architecture adapters, or reproducible quantization research.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the fork-and-pull-request workflow, development setup,
-validation commands, and evidence requirements. For a substantial design change or new model
-family, open a [GitHub issue](https://github.com/defai-digital/axquant/issues) first so the scope
-and required promotion evidence are clear.
-
-## Documentation
-
-Index: [docs/README.md](docs/README.md).
-
-| Doc | Audience |
-| --- | --- |
-| [AX Engine 72-hour endurance](docs/reports/ax-engine-72h-endurance.md) | Users — AX Engine 6.15.0 passed a 72 h soak on Qwen 3.6 27B AXQ 6-bit |
-| [Qwen3.8-27B AXQ VL retention assessment](docs/reports/qwen38-27b-axq-vl-retention.md) | Users and evaluators — BF16 vision preservation, current evidence limits, and required VL validation |
-| [Qwen3.8 AXQ 2-bit report](docs/reports/qwen38-axq-2bit.md) | Users — Super-class 2-bit convert evidence; this revision will not be certified (too slow) |
-| [Known issues](docs/guides/known-issues.md) | Operators — documented limitations and fail-closed gates |
-| [Environment compatibility](docs/guides/compatibility.md) | Operators — platforms, Python, MLX extras |
-| [Microscaling formats](docs/guides/microscaling.md) | Operators — native MXFP4/MXFP8 and experimental MXFP6 reference export |
-| [Flagship certification](docs/guides/flagship-certification.md) | Certification operators — `qwen36-mtp-v2` sequence |
-| [Certified checkpoints](docs/certifications/README.md) | Users and auditors — exact public verdicts, scopes, and hashes |
-| [AXQ model fleet v2](docs/guides/model-fleet-v2.md) | Hub pack maintainers — stable names and editions |
-| [Migration v1.1](docs/migrations/migration-v1.1.md) / [v1.2](docs/migrations/migration-v1.2.md) | Upgraders from earlier toolkit releases |
-| [CI root causes and prevention](docs/guides/ci-root-causes.md) | Contributors — Ubuntu non-MLX vs macOS MLX, PyPI gate |
-| [AXQ pack interchange v1](docs/contracts/axq-pack-interchange-v1.md) | Operators — affine U32 pack contract |
-| [Release notes convention](docs/releases/README.md) | Maintainers — curated GitHub Release body per version |
-| [GitHub Releases](https://github.com/defai-digital/axquant/releases) | Everyone — published version history |
-| [Third-party notices](THIRD_PARTY_NOTICES.md) | Legal — research and dependency attribution |
-
-Product requirements, the architecture decision register, technical specifications, and the
-independent-implementation policy are maintained internally and are not published in this
-repository.
+Contributions are warmly welcome: bug fixes, documentation, tests,
+usability improvements, runtime compatibility, architecture adapters, or
+reproducible quantization research. Fork the repository and send a pull
+request; for a substantial design change or new model family, open a
+[GitHub issue](https://github.com/defai-digital/axquant/issues) first.
 
 ## License
 
-AXQuant is released under the [MIT License](LICENSE). Dependencies, model checkpoints,
-calibration datasets, and external tools retain their own licenses.
+AXQuant is released under the [MIT License](LICENSE). Dependencies, model
+checkpoints, calibration datasets, and external tools retain their own
+licenses.

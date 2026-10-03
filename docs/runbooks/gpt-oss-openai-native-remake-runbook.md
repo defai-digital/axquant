@@ -1,7 +1,8 @@
 # GPT-OSS remake runbook — OpenAI native source → AXQ 4/6-bit → Hub overwrite
 
-**Host:** `df-macstudio-m2` (recommended; 120B needs large free disk + long CPU convert).
-Historical GPT-OSS Tier 1 records were measured on `df-macbookpro-m5`.  
+**Host:** factory Mac Studio (M2 Ultra, 192 GB) (recommended; 120B needs large free disk + long CPU convert).
+Historical GPT-OSS Tier 1 records were measured on a MacBook Pro (M5, 128 GB) host.
+
 **Toolkit:** AXQuant ≥ 1.6.2 (current release **1.7.0**) with `mlx-lm` that implements `model_type=gpt_oss`  
 **Goal:** Rebuild four AutomatosX packs from **official OpenAI native weights**, then overwrite the public Hub repos.
 
@@ -43,7 +44,7 @@ huggingface-cli whoami
 #   OpenAI 20B source  ~15–25 GB
 #   OpenAI 120B source ~60–80 GB
 #   Outputs: 20B×2 ~30 GB; 120B 4-bit ~70 GB; 120B 6-bit ~96 GB
-#   Plus working space for dequant peaks — prefer ≥400 GB free on Ext16TR0
+#   Plus working space for dequant peaks — prefer ≥400 GB free on factory external storage
 df -h /path/to/ext-storage
 ```
 
@@ -66,7 +67,7 @@ export OSS20_REV="<40-char-sha>"   # openai/gpt-oss-20b
 export OSS120_REV="<40-char-sha>"  # openai/gpt-oss-120b
 export SEED=20260728
 export MAX_TOKENS=64
-export HOST_ID=df-macstudio-m2
+export HOST_ID=factory-mac-studio-m2-ultra
 export AXQ_ROOT=/path/to/user/code/axquant
 export WORK=/path/to/ext-storage/axquant/work/gpt-oss-openai-native-remake
 export PUB=/path/to/ext-storage/axquant/axq-publish
@@ -84,7 +85,7 @@ export AXQUANT_FORCE_CPU=1
 
 ## 1. Materialize pinned OpenAI sources
 
-Prefer local Hub cache under Ext16TR0 (see `scripts/setup-ext16tr0-hf.sh` if HF home is not already pointed at the volume).
+Prefer local Hub cache on factory external storage (see `scripts/setup-ext16tr0-hf.sh` if HF home is not already pointed at the volume).
 
 ```bash
 # Download / ensure cache (immutable revision)

@@ -24,7 +24,7 @@ tags:
 An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted directly from
 the BF16 source model. The language path is quantized while the multi-token-prediction (MTP) head and vision tower are preserved at BF16 in the checkpoint (or a bound sidecar when present).
 
-> **Checkpoint Tier 1 certified** on `df-macstudio-m2` (2026-08-15) at Hub commit
+> **Checkpoint Tier 1 (historical record, withdrawn 2026-10-03)** issued on factory Mac Studio (M2 Ultra, 192 GB) (2026-08-15) at Hub commit
 > `594de6507dc9` — measured size against a matched uniform baseline, quality retention,
 > and conversion integrity. Current `main` preserves that revision's exact Safetensors
 > payloads while allowing metadata-only compatibility fixes. Tier 1 is a checkpoint claim,
@@ -167,12 +167,12 @@ establish MTP acceleration or vision-language quality.
 | Quantizer execution | 498/498 recorded module conversions succeeded; 0 fallbacks |
 | AX Engine native manifest | included as `model-manifest.json` |
 | Quality versus BF16 or uniform baselines | Not published; no quality-retention claim |
-| MTP acceptance and speed | **not certified** on `df-macstudio-m2` / AX Engine 6.16.1 ([Tier 2 record](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier2.md)); greedy exactness failed and measured speedups were 0.0. Product default remains direct fallback. |
+| MTP acceptance and speed | **not certified** on factory Mac Studio (M2 Ultra, 192 GB) / AX Engine 6.16.1 ([Tier 2 record](https://github.com/defai-digital/axquant/blob/main/docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier2.md)); greedy exactness failed and measured speedups were 0.0. Product default remains direct fallback. |
 | AX Engine kernel evidence | `unmeasured` |
 | Vision-language quality | Present, not certified; text Tier 1 does not imply VLM quality |
 | Speech-recognition quality | Not applicable (audio disabled for this pack) |
 | Long-context quality | 262,144-token capacity is config metadata, not a validated claim |
-| Release certification | **Checkpoint Tier 1 certified** on `df-macstudio-m2` (2026-08-15), Hub commit `594de6507dc9`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
+| Release certification | **Checkpoint Tier 1 (historical record, withdrawn 2026-10-03)** issued on factory Mac Studio (M2 Ultra, 192 GB) (2026-08-15), Hub commit `594de6507dc9`; the formal AXQuant M0-M8 release campaign is a separate process and is not implied |
 
 ## Modalities (capability-gated)
 

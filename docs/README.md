@@ -14,15 +14,28 @@ published here.
 | [`hub-cards/`](hub-cards/) | Hub model-card drafts |
 | [`releases/`](releases/README.md) | Curated GitHub Release notes |
 | [`eval/`](eval/) | Raw eval dumps bound by reports |
+| [`cli-reference.md`](cli-reference.md) | Every `axquant` subcommand in one table |
 
 ## Start here
 
-- Install and convert: repository [README](../README.md)
-- Known limitations: [guides/known-issues.md](guides/known-issues.md)
-- Pack format: [contracts/axq-pack-interchange-v1.md](contracts/axq-pack-interchange-v1.md)
+Pick the journey that matches your goal:
+
+- **I want to quantize a model** — repository [README](../README.md)
+  (install, convert), then the [CLI reference](cli-reference.md) and
+  [known issues](guides/known-issues.md).
+- **I want to understand or verify an artifact** — the
+  [pack interchange contract](contracts/axq-pack-interchange-v1.md),
+  [public certificates](certifications/README.md), and
+  [microscaling formats](guides/microscaling.md).
+- **I want to operate certification** — the
+  [certification operator guide](guides/flagship-certification.md) and the
+  [certification rules](contracts/certification-spec-v1.0.md).
+- **I want to contribute code** — [CONTRIBUTING.md](../CONTRIBUTING.md) and
+  [CI root causes](guides/ci-root-causes.md).
+
+Other entry points:
+
 - Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
-- MXFP4, MXFP6, and MXFP8: [guides/microscaling.md](guides/microscaling.md)
-- Public certificates: [certifications/README.md](certifications/README.md)
-- Certification rules: [contracts/certification-spec-v1.0.md](contracts/certification-spec-v1.0.md)
+- Compatibility: [guides/compatibility.md](guides/compatibility.md)
 
 Do not add PRDs, ADRs, or product-planning tech specs under `docs/`.

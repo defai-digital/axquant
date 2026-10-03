@@ -71,7 +71,7 @@ decode.
 
 | Item | Status |
 | --- | --- |
-| Convert + `ax_expert_stream.json` | Factory job on `df-macstudio-m2` |
+| Convert + `ax_expert_stream.json` | Factory job on factory Mac Studio (M2 Ultra, 192 GB) |
 | Convert git SHA | (stamped at Hub upload) |
 | License | Upstream DeepSeek LICENSE copied into the pack |
 | Hub weights | Uploaded after convert |

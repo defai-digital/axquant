@@ -3,7 +3,7 @@
 | Field | Value |
 | --- | --- |
 | Status | Development recipe + factory runbook; **not** a certification |
-| Target host | `df-macstudio-m2` (Apple M2 Ultra, 192 GB) + Ext16TR0 |
+| Target host | Factory Mac Studio (M2 Ultra, 192 GB) + external storage |
 | Date | 2026-08-20 |
 | Protocol | Factory `v-extract` (same as AXQ T1): seed `20260728`, coding 384 / general 64, suite system prompts, DSV4 non-thinking, greedy |
 
@@ -36,7 +36,7 @@ code, calibration data, or metadata is used. This follows the boundary set in
 
 ## Factory job
 
-Orchestrator (runs only on `df-macstudio-m2`):
+Orchestrator (runs only on the factory Mac Studio):
 
 ```text
 scripts/run_deepseek_v4_0731_axq2_complete.sh
