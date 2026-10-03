@@ -69,6 +69,11 @@ scale expected by fused runtime modules. Keeping one member preserves its
 entire fused unit. Shared groups may span source shards; conversion computes
 their common maximum before packing.
 
+Runtime vision wrappers may rename internal modules, such as `transformer`
+to `encoder`. Protected vision/audio namespaces also receive conservative
+regex ignore rules so those aliases retain source precision. An ignore
+pattern overlapping a selected NVFP4 tensor aborts conversion.
+
 Each selected matrix stores these unswizzled checkpoint tensors:
 
 | Suffix | Dtype | Shape |

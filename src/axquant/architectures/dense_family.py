@@ -53,6 +53,8 @@ _VISION_TOKENS = (
     "multi_modal",
     "multimodal",
     "patch_merger",
+    "view_separator",
+    "view_seperator",  # Upstream Unlimited-OCR preserves this spelling.
 )
 _AUDIO_TOKENS = (
     "audio_tower",

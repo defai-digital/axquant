@@ -5,6 +5,7 @@ from __future__ import annotations
 import fnmatch
 import math
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -21,7 +22,7 @@ from axquant.schema.cuda import (
     CudaQuantizationPlan,
     CudaTensorAllocation,
 )
-from axquant.schema.enums import SupportTier
+from axquant.schema.enums import SupportTier, TensorRole
 from axquant.serde import file_sha256, read_data, stable_sha256, write_data
 
 PLAN_NAME = "axquant_cuda_plan.json"
@@ -190,6 +191,15 @@ def _quantization_config(plan: CudaQuantizationPlan) -> dict[str, Any]:
             if item.method == "preserve" and item.tensor_name.endswith(".weight")
         }
     )
+    if any(item.role in {TensorRole.VISION, TensorRole.AUDIO} for item in plan.allocations):
+        # Runtime vision wrappers may rename internal paths (transformer -> encoder).
+        protected = r".*(?:vision|visual|sam_model|projector|view_sep|image_newline|audio).*"
+        if any(
+            item.method == "nvfp4" and re.fullmatch(protected, item.tensor_name)
+            for item in plan.allocations
+        ):
+            raise PlanningError("runtime protection pattern overlaps a selected NVFP4 tensor")
+        ignored.append("re:" + protected)
     return {
         "quant_method": "compressed-tensors",
         "format": "nvfp4-pack-quantized",

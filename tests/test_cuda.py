@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
 import pytest
 from pydantic import ValidationError
-from safetensors.numpy import save_file
+from safetensors.numpy import load_file, save_file
 
 from axquant import cuda
 from axquant.cli import main
@@ -66,6 +67,34 @@ def test_plan_preserves_all_protected_and_ineligible_tensors(cuda_source: Path) 
     assert str(cuda_source.parent) not in serialized
     assert "credentials.json" not in serialized
     assert "runtime_check.json" not in serialized
+
+
+@pytest.mark.parametrize("spelling", ["view_separator", "view_seperator"])
+def test_image_separator_remains_protected(cuda_source: Path, spelling: str) -> None:
+    member = cuda_source / "model.safetensors"
+    tensors = load_file(member)
+    name = f"model.{spelling}"
+    tensors[name] = np.ones(32, dtype=np.float32)
+    save_file(tensors, member)
+    allocation = next(
+        item for item in build_plan(cuda_source).allocations if item.tensor_name == name
+    )
+    assert allocation.role.value == "vision"
+    assert allocation.method == "preserve"
+
+
+def test_runtime_vision_aliases_remain_unquantized(cuda_source: Path) -> None:
+    ignored = cuda._quantization_config(build_plan(cuda_source))["ignore"]
+    patterns = [item.removeprefix("re:") for item in ignored if item.startswith("re:")]
+    for path in (
+        "vision_model.encoder.layers.0.mlp.fc1",
+        "model.vision_model.transformer.layers.0.mlp.fc1",
+        "sam_model.blocks.0.attn.qkv",
+        "projector.layers.0",
+        "model.audio_encoder.proj",
+    ):
+        assert any(re.fullmatch(pattern, path) for pattern in patterns)
+    assert not any(re.fullmatch(pattern, "model.layers.0.mlp.down_proj") for pattern in patterns)
 
 
 def test_keep_policy_and_content_binding(cuda_source: Path) -> None:
