@@ -32,6 +32,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+mxfp6 = ["numpy>=2.0,<2.4"]
 mlx = [
     "mlx>=0.32.2",
     "mlx-audio>=0.4.7",

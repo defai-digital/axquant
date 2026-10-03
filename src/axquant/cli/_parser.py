@@ -818,6 +818,15 @@ def _build_parser() -> argparse.ArgumentParser:
     experimental_mix_parser.add_argument("--output", default="experimental-mix-plan.json")
     experimental_mix_parser.add_argument("--markdown-output")
 
+    mxfp6_parser = subparsers.add_parser(
+        "export-mxfp6", help="Export a source-bound experimental MXFP6 reference artifact"
+    )
+    mxfp6_parser.add_argument("--model", required=True, help="Local BF16/FP16/FP32 source")
+    mxfp6_parser.add_argument("--plan", required=True, help="Bound plan with affine6 allocations")
+    mxfp6_parser.add_argument("--element-format", choices=("e2m3", "e3m2"), default="e2m3")
+    mxfp6_parser.add_argument("--allow-unmeasured", action="store_true")
+    mxfp6_parser.add_argument("--output", required=True)
+
     convert_parser = subparsers.add_parser("convert")
     convert_parser.add_argument("--model", required=True)
     convert_parser.add_argument("--revision")
@@ -860,9 +869,10 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
     convert_parser.add_argument(
         "--q-mode",
-        choices=("affine", "mxfp4"),
+        choices=("affine", "mxfp4", "mxfp8"),
         default="affine",
-        help="Physical packing for 4-bit trunk tensors (8-bit floors stay affine)",
+        help="Physical packing: mxfp4 remaps 4-bit; mxfp8 remaps unrefined 8-bit "
+        "allocations at group32 and requires --allow-unmeasured",
     )
     convert_parser.add_argument("--output", required=True)
 

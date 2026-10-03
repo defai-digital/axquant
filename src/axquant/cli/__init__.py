@@ -925,6 +925,28 @@ def _run(args: argparse.Namespace) -> int:
         )
         return 0
 
+    if args.command == "export-mxfp6":
+        from axquant.mxfp6_export import export_mxfp6
+
+        plan = load_quantization_plan(args.plan)
+        binding_path = binding_path_beside(args.plan)
+        source_binding = load_source_plan_binding(binding_path) if binding_path.is_file() else None
+        mx_manifest = export_mxfp6(
+            args.model,
+            plan,
+            args.output,
+            element_format=args.element_format,
+            allow_unmeasured=args.allow_unmeasured,
+            source_binding=source_binding,
+        )
+        log.info(
+            "mxfp6_export_completed",
+            output=Path(args.output).name,
+            element_format=mx_manifest.element_format,
+            runtime_support=mx_manifest.runtime_support,
+        )
+        return 0
+
     if args.command == "convert":
         plan = load_quantization_plan(args.plan)
         source_binding = None

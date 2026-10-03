@@ -1,0 +1,193 @@
+{
+  "$defs": {
+    "Mxfp6File": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "Mxfp6TensorRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "data_key": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "encoding": {
+          "enum": [
+            "mxfp6",
+            "preserved"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "output_file": {
+          "type": "string"
+        },
+        "scales_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "source_dtype": {
+          "type": "string"
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "storage_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "source_file",
+        "output_file",
+        "shape",
+        "source_dtype",
+        "encoding",
+        "data_key",
+        "storage_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "block_size": {
+      "const": 32,
+      "default": 32,
+      "type": "integer"
+    },
+    "element_format": {
+      "enum": [
+        "e2m3",
+        "e3m2"
+      ],
+      "type": "string"
+    },
+    "evidence_kind": {
+      "const": "unmeasured_development",
+      "default": "unmeasured_development",
+      "type": "string"
+    },
+    "output_files": {
+      "items": {
+        "$ref": "#/$defs/Mxfp6File"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "packing": {
+      "const": "lsb-first-6bit",
+      "default": "lsb-first-6bit",
+      "type": "string"
+    },
+    "rounding": {
+      "const": "ties-to-even",
+      "default": "ties-to-even",
+      "type": "string"
+    },
+    "runtime_support": {
+      "const": "reference-only",
+      "default": "reference-only",
+      "type": "string"
+    },
+    "scale_format": {
+      "const": "e8m0",
+      "default": "e8m0",
+      "type": "string"
+    },
+    "scale_policy": {
+      "const": "floor-amax-exponent",
+      "default": "floor-amax-exponent",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.mxfp6-pack.v1",
+      "default": "axquant.mxfp6-pack.v1",
+      "type": "string"
+    },
+    "source_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/Mxfp6File"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "source_index_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "status": {
+      "const": "experimental",
+      "default": "experimental",
+      "type": "string"
+    },
+    "tensors": {
+      "items": {
+        "$ref": "#/$defs/Mxfp6TensorRecord"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "element_format",
+    "source_plan_sha256",
+    "source_config_sha256",
+    "source_files",
+    "output_files",
+    "tensors"
+  ],
+  "type": "object"
+}

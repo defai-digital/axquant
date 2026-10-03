@@ -167,8 +167,11 @@ def _quantize_with_plan_predicate(
     mlx_nn = _import("mlx.nn", extra="mlx")
     quantized_config = copy.deepcopy(config)
     default_mode = str(q_mode or "affine")
+    default_group_size = 32 if default_mode == "mxfp8" else plan.group_size
+    if default_mode == "mxfp8":
+        default_bits = 8
     quant_params = {
-        "group_size": plan.group_size,
+        "group_size": default_group_size,
         "bits": default_bits,
         "mode": default_mode,
     }
@@ -180,7 +183,7 @@ def _quantize_with_plan_predicate(
             path,
             module,
             predicate,
-            default_group_size=plan.group_size,
+            default_group_size=default_group_size,
             default_bits=default_bits,
             default_mode=default_mode,
         )
@@ -191,7 +194,7 @@ def _quantize_with_plan_predicate(
 
     mlx_nn.quantize(
         model,
-        group_size=plan.group_size,
+        group_size=default_group_size,
         bits=default_bits,
         mode=default_mode,
         class_predicate=class_predicate,
@@ -301,8 +304,8 @@ def _convert_deepseek_ocr2(
         model, config = quant_utils.quantize_model(
             model,
             config,
-            plan.group_size,
-            default_bits,
+            32 if q_mode == "mxfp8" else plan.group_size,
+            8 if q_mode == "mxfp8" else default_bits,
             mode=q_mode,
             quant_predicate=predicate,
         )
@@ -356,8 +359,8 @@ def _convert_muse_glimmer(
         model, config = quant_utils.quantize_model(
             model,
             config,
-            plan.group_size,
-            default_bits,
+            32 if q_mode == "mxfp8" else plan.group_size,
+            8 if q_mode == "mxfp8" else default_bits,
             mode=q_mode,
             quant_predicate=predicate,
         )
@@ -459,8 +462,8 @@ def _convert_vlm(
         str(source),
         mlx_path=destination,
         quantize=True,
-        q_group_size=plan.group_size,
-        q_bits=default_bits,
+        q_group_size=32 if q_mode == "mxfp8" else plan.group_size,
+        q_bits=8 if q_mode == "mxfp8" else default_bits,
         q_mode=q_mode,
         quant_method="rtn",
         quant_predicate=predicate,

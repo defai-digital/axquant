@@ -934,6 +934,7 @@ Run `axquant COMMAND --help` for the full options of any command.
 | `support-matrix` | List families with tier, investment posture, priority, and policy notes | Implemented |
 | `support-policy` | Print family investment best practices (primary/secondary/thin) | Implemented |
 | `head-to-head` | Render the public comparison page from a bound benchmark evidence index | Implemented |
+| `export-mxfp6` | Export a source-bound E2M3/E3M2 MXFP6 reference artifact | Experimental reference-only; no native inference |
 | `convert` | Create the mixed-precision MLX checkpoint and metadata | Implemented for checkpoints at the `convertible` tier or above |
 | `runtime-check` | Run AX Engine readiness or actual MLX-LM, MLX-Audio, or MLX-VLM generation | Implemented |
 | `prepare-suite` | Materialize deterministic disjoint benchmark inputs | Implemented |
@@ -1405,6 +1406,7 @@ Index: [docs/README.md](docs/README.md).
 | [Qwen3.8 AXQ 2-bit report](docs/reports/qwen38-axq-2bit.md) | Users — Super-class 2-bit convert evidence; this revision will not be certified (too slow) |
 | [Known issues](docs/guides/known-issues.md) | Operators — documented limitations and fail-closed gates |
 | [Environment compatibility](docs/guides/compatibility.md) | Operators — platforms, Python, MLX extras |
+| [Microscaling formats](docs/guides/microscaling.md) | Operators — native MXFP4/MXFP8 and experimental MXFP6 reference export |
 | [Flagship certification](docs/guides/flagship-certification.md) | Certification operators — `qwen36-mtp-v2` sequence |
 | [Certified checkpoints](docs/certifications/README.md) | Users and auditors — exact public verdicts, scopes, and hashes |
 | [AXQ model fleet v2](docs/guides/model-fleet-v2.md) | Hub pack maintainers — stable names and editions |

@@ -1677,6 +1677,11 @@ def _verify_converted_weights(
         revision=plan.source_model.revision,
         allow_quantized=True,
     )
+    converted_config = json.loads((staging_dir / "config.json").read_text(encoding="utf-8"))
+    physical_config = converted_config.get("quantization_config") or converted_config.get(
+        "quantization", {}
+    )
+    all_tensors = {tensor.name: tensor for tensor in inventory.tensors}
     expected_parameters = sum(allocation.parameters for allocation in plan.assignments)
     expected_mtp_parameters = sum(
         allocation.parameters for allocation in plan.assignments if allocation.role.is_mtp
@@ -1787,10 +1792,21 @@ def _verify_converted_weights(
         actual_shapes = tuple(component.shape for component in actual_components)
         if allocation.bits < 16:
             physical_mode = allocation_physical_mode(allocation, q_mode)
+            if physical_mode == "mxfp8":
+                for component in actual_components:
+                    params = (
+                        physical_config.get(component.module_path, physical_config)
+                        if isinstance(physical_config, dict)
+                        else {}
+                    )
+                    if not isinstance(params, dict) or params.get("mode") != "mxfp8":
+                        raise ArtifactError(
+                            f"converted tensor {verification_name} does not declare MXFP8 packing"
+                        )
             method_ok = all(
                 component.current_method is QuantMethod.AFFINE
                 or (
-                    physical_mode == "mxfp4"
+                    physical_mode in {"mxfp4", "mxfp8"}
                     and component.current_method in {QuantMethod.AFFINE, QuantMethod.MXFP4, None}
                 )
                 for component in actual_components
@@ -1809,7 +1825,7 @@ def _verify_converted_weights(
                     f"expected shapes {expected_shapes}, {physical_mode} {allocation.bits}-bit "
                     f"group {allocation.group_size}; found shapes {actual_shapes}"
                 )
-            suffixes = ("scales",) if physical_mode == "mxfp4" else ("scales", "biases")
+            suffixes = ("scales",) if physical_mode in {"mxfp4", "mxfp8"} else ("scales", "biases")
             required_metadata = {
                 f"{component.module_path}.{suffix}"
                 for component in actual_components
@@ -1817,11 +1833,22 @@ def _verify_converted_weights(
             }
             missing_metadata = required_metadata - metadata_names
             if missing_metadata:
-                kind = "MXFP4" if physical_mode == "mxfp4" else "affine"
+                kind = physical_mode.upper() if physical_mode in {"mxfp4", "mxfp8"} else "affine"
                 raise ArtifactError(
                     f"converted tensor {verification_name} lacks {kind} metadata: "
                     f"{sorted(missing_metadata)}"
                 )
+            if physical_mode == "mxfp8":
+                for component in actual_components:
+                    scales = all_tensors[f"{component.module_path}.scales"]
+                    scale_shape = (*component.shape[:-1], component.shape[-1] // 8)
+                    if scales.dtype != "U8" or scales.shape != scale_shape:
+                        raise ArtifactError(
+                            f"converted tensor {verification_name} has invalid MXFP8 scales; "
+                            "expected one U8 E8M0 scale per block of 32"
+                        )
+                    if f"{component.module_path}.biases" in all_tensors:
+                        raise ArtifactError("MXFP8 packing cannot contain affine bias metadata")
         else:
             shape_matches = actual_shapes == expected_shapes
             if len(actual_components) == 1 and not shape_matches:
@@ -1932,12 +1959,20 @@ def convert_model(
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
     ax_engine_bench: str = "ax-engine-bench",
-    q_mode: Literal["affine", "mxfp4"] = "affine",
+    q_mode: Literal["affine", "mxfp4", "mxfp8"] = "affine",
     expert_stream: ExpertStreamSetting = "auto",
     allow_legacy_4bit: bool = False,
     source_binding: SourcePlanBinding | None = None,
 ) -> ArtifactManifest:
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
+    if (
+        q_mode == "mxfp8"
+        or any(item.strategy_metadata.get("physical_mode") == "mxfp8" for item in plan.assignments)
+    ) and not allow_unmeasured:
+        raise PlanningError(
+            "MXFP8 physical repacking requires --allow-unmeasured; affine sensitivity "
+            "does not measure MXFP8"
+        )
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
         raise PlanningError(
             "conversion requires measured evidence; pass --allow-unmeasured only for dry runs"

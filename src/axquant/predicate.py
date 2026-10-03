@@ -19,7 +19,7 @@ _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act", "mx
 # DWQ is percentile clip then that same affine pack — allowed. AWQ/GPTQ are not.
 FUSED_STACK_METHODS = frozenset({"affine", "dwq"})
 MXFP4_GROUP_SIZE = 32
-_PHYSICAL_MODES = frozenset({"affine", "mxfp4"})
+_PHYSICAL_MODES = frozenset({"affine", "mxfp4", "mxfp8"})
 
 
 def fused_stack_method_allowed(method: str) -> bool:
@@ -36,6 +36,9 @@ def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> 
     can request the same remap without a convert flag. A plan-selected mxfp4
     allocation (ADR-0015 / AXQ-046 MH5) is honored under every q_mode:
     ``q_mode=affine`` never overrides an explicit plan selection.
+    ``q_mode=mxfp8`` remaps unrefined 8-bit allocations. MXFP8 is a physical
+    repacking mode, not a measured planner method; affine sensitivity cannot
+    substantiate an MXFP8 quality claim.
     """
 
     requested = str(q_mode or "affine").lower()
@@ -44,6 +47,12 @@ def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> 
     if allocation.method == QuantMethod.MXFP4:
         return "mxfp4"
     meta = str(allocation.strategy_metadata.get("physical_mode") or "").lower()
+    if meta and meta not in _PHYSICAL_MODES:
+        raise PlanningError(f"unsupported allocation physical mode: {meta}")
+    if requested == "mxfp8" and allocation.bits == 8:
+        return "mxfp8"
+    if meta == "mxfp8":
+        return "mxfp8"
     if requested == "mxfp4" and allocation.bits == 4:
         return "mxfp4"
     if meta == "mxfp4" and allocation.bits == 4:
@@ -54,16 +63,20 @@ def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> 
 def allocation_quant_params(allocation: Allocation, q_mode: str = "affine") -> dict[str, Any]:
     mode = allocation_physical_mode(allocation, q_mode)
     group_size = allocation.group_size
-    if mode == "mxfp4":
-        if allocation.bits != 4:
+    if mode in {"mxfp4", "mxfp8"}:
+        bits = 4 if mode == "mxfp4" else 8
+        if allocation.bits != bits:
             raise PlanningError(
-                f"MXFP4 physical mode requires 4-bit allocation: {allocation.module_path}"
+                f"{mode.upper()} physical mode requires {bits}-bit allocation: "
+                f"{allocation.module_path}"
             )
         if group_size != MXFP4_GROUP_SIZE:
             raise PlanningError(
-                f"MXFP4 physical mode requires group_size {MXFP4_GROUP_SIZE}: "
+                f"{mode.upper()} physical mode requires group_size {MXFP4_GROUP_SIZE}: "
                 f"{allocation.module_path} has {group_size}"
             )
+        if mode == "mxfp8" and allocation.method is not QuantMethod.AFFINE:
+            raise PlanningError("MXFP8 physical packing requires an unrefined affine allocation")
     return {"group_size": group_size, "bits": allocation.bits, "mode": mode}
 
 
@@ -98,6 +111,13 @@ class PlanPredicate:
         self._q_mode = str(q_mode or "affine").lower()
         if self._q_mode not in _PHYSICAL_MODES:
             raise PlanningError(f"unsupported convert q-mode: {q_mode}")
+        for allocation in plan.assignments:
+            if allocation_physical_mode(allocation, self._q_mode) == "mxfp8":
+                allocation_quant_params(allocation, self._q_mode)
+                if fused_expert_module(allocation.module_path) is not None or (
+                    packed_expert_runtime_modules(allocation.module_path)
+                ):
+                    raise PlanningError("MXFP8 fused expert packing has not been validated")
         self._assignments = {
             _without_weight_suffix(allocation.module_path): allocation
             for allocation in plan.assignments
