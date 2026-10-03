@@ -371,3 +371,19 @@ def test_bf16_source_decodes_and_exports_without_torch(source_and_plan, tmp_path
         if item.source_dtype == "BF16" and item.encoding == "preserved":
             expected = (arrays[item.name].view(np.uint32) & 0xFFFF0000).view(np.float32)
             np.testing.assert_array_equal(decoded, expected)
+
+
+@pytest.mark.parametrize("shape", [(True, 32), (1.5, 32), (1, 32.0)])
+def test_storage_estimate_rejects_non_integer_dimensions(shape):
+    with pytest.raises(QuantizerError, match="shape"):
+        mxfp6_storage_bytes(shape)
+
+
+def test_readback_rejects_forged_preserved_storage_bytes(source_and_plan, tmp_path):
+    output = tmp_path / "output"
+    manifest = _export(source_and_plan, output)
+    preserved = next(item for item in manifest.tensors if item.encoding == "preserved")
+    preserved.storage_bytes += 1
+    write_data(output / MANIFEST_NAME, manifest)
+    with pytest.raises(ArtifactError, match="storage bytes"):
+        load_mxfp6_tensor(output, preserved.name)

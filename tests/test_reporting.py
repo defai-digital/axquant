@@ -871,6 +871,110 @@ def test_publication_materializes_runtime_and_reproduction_evidence(
     assert "immutable conversion manifest source model does not match recipe" in mismatched.issues
 
 
+def test_publication_recognizes_alternate_mtp_sidecar_filename(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    candidate = tmp_path / "candidate"
+    plan = _plan(qwen36_model_dir)
+    plan.evidence_kind = EvidenceKind.MEASURED
+    plan.calibration = CalibrationEvidence(
+        dataset_id="internal/agent-coding-calibration",
+        dataset_sha256="a" * 64,
+        samples=128,
+        domains=["coding", "tool-use"],
+        sequence_length=2048,
+        backend="mlx",
+        reference="calibration-manifest.json",
+    )
+    _write_candidate(candidate, plan)
+    (candidate / "mtp.safetensors").rename(candidate / "mtp_head.safetensors")
+    manifest = load_model(candidate / "axquant_manifest.json", ArtifactManifest)
+    manifest.runtime = build_runtime_metadata(plan, candidate)
+    write_data(candidate / "axquant_runtime.json", manifest.runtime)
+    manifest.files = [
+        ArtifactFile(
+            path=path.relative_to(candidate).as_posix(),
+            size_bytes=path.stat().st_size,
+            sha256=file_sha256(path),
+        )
+        for path in sorted(candidate.iterdir())
+        if path.is_file() and path.name != "axquant_manifest.json"
+    ]
+    write_data(candidate / "axquant_manifest.json", manifest)
+    tier2_certificate = tmp_path / "tier2-certificate.json"
+    tier2_certificate.write_text('{"fixture": "tier2-certificate"}\n', encoding="utf-8")
+    write_artifact_evidence_binding(
+        artifact_directory=candidate,
+        evidence_kind=EvidenceKind.MEASURED,
+        tier2_certificate_path=tier2_certificate,
+    )
+    validation = tmp_path / "validation.json"
+    write_data(validation, _validation("AutomatosX/candidate", candidate))
+    validation_index = _release_validation_index(
+        tmp_path,
+        candidate_id="AutomatosX/candidate",
+        primary_validation=validation,
+    )
+    hardware_registry, pareto = _m7_evidence(
+        tmp_path,
+        candidate_id="AutomatosX/candidate",
+        plan=plan,
+    )
+    prepare_publication(
+        model_dir=candidate,
+        repo_id="AutomatosX/candidate",
+        validation_index_path=validation_index,
+        hardware_registry_path=hardware_registry,
+        pareto_report_path=pareto,
+    )
+    recipe = load_model(candidate / "reproduction_recipe.yaml", ReproductionRecipe)
+    assert recipe.mtp_sidecar_file == "mtp_head.safetensors"
+    assert recipe.mtp_sidecar_sha256 == file_sha256(candidate / "mtp_head.safetensors")
+
+
+def test_packaged_legacy_tree_passes_publication_privacy_scan(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    from axquant.publisher import publication_privacy_issues
+
+    candidate = tmp_path / "candidate"
+    plan = _plan(qwen36_model_dir)
+    plan.evidence_kind = EvidenceKind.MEASURED
+    plan.calibration = CalibrationEvidence(
+        dataset_id="internal/agent-coding-calibration",
+        dataset_sha256="a" * 64,
+        samples=128,
+        domains=["coding", "tool-use"],
+        sequence_length=2048,
+        backend="mlx",
+        reference="calibration-manifest.json",
+    )
+    _write_candidate(candidate, plan)
+    validation = tmp_path / "validation.json"
+    write_data(validation, _validation("AutomatosX/candidate", candidate))
+    validation_index = _release_validation_index(
+        tmp_path,
+        candidate_id="AutomatosX/candidate",
+        primary_validation=validation,
+    )
+    hardware_registry, pareto = _m7_evidence(
+        tmp_path,
+        candidate_id="AutomatosX/candidate",
+        plan=plan,
+    )
+    prepare_publication(
+        model_dir=candidate,
+        repo_id="AutomatosX/candidate",
+        validation_index_path=validation_index,
+        hardware_registry_path=hardware_registry,
+        pareto_report_path=pareto,
+    )
+
+    assert publication_privacy_issues(candidate) == []
+
+
 def test_publication_snapshots_hardware_manifest_before_runtime_updates(
     qwen36_model_dir: Path,
     tmp_path: Path,

@@ -70,8 +70,11 @@ def _install_fake_mlx(monkeypatch: pytest.MonkeyPatch, model_dir: Path) -> None:
                     *value.shape[:-1],
                     max(1, (value.shape[-1] + group_size - 1) // group_size),
                 )
-                tensors[f"{path}.scales"] = np.ones(metadata_shape, dtype=np.float32)
-                tensors[f"{path}.biases"] = np.zeros(metadata_shape, dtype=np.float32)
+                if config.get("mode", "affine") in {"mxfp4", "mxfp8"}:
+                    tensors[f"{path}.scales"] = np.full(metadata_shape, 127, dtype=np.uint8)
+                else:
+                    tensors[f"{path}.scales"] = np.ones(metadata_shape, dtype=np.float32)
+                    tensors[f"{path}.biases"] = np.zeros(metadata_shape, dtype=np.float32)
         converted_config["quantization"] = quantization
         (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
         save_file(tensors, output / "model.safetensors")
@@ -187,6 +190,16 @@ def test_quick_convert_raises_infeasible_target_bpw(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Protected floors can make a low target infeasible; simple convert raises once."""
+    # The MXFP4 budget floor needs executable, block-aligned trunk weights.
+    weight_file = qwen36_model_dir / "model.safetensors"
+    with safe_open(weight_file, framework="numpy") as source:
+        tensors = {
+            name: np.repeat(source.get_tensor(name), 8, axis=-1)
+            if "model.layers." in name
+            else source.get_tensor(name)
+            for name in list(source.keys())
+        }
+    save_file(tensors, weight_file)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     output = tmp_path / "raised-bpw"
     # Extremely low target forces a raise to the policy minimum.

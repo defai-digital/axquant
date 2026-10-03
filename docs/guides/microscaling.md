@@ -110,8 +110,8 @@ from axquant.mxfp6_export import load_mxfp6_tensor
 weights = load_mxfp6_tensor("/path/to/output-mxfp6", "model.layers.0.mlp.down_proj.weight")
 ```
 
-Readback verifies the requested shard's checksum, tensor coverage, dtypes and
-shapes before decoding. It materializes one requested tensor; export uses
+Readback verifies the requested shard's checksum, tensor coverage, dtypes,
+shapes and per-tensor storage sizes before decoding. It materializes one requested tensor; export uses
 bounded row chunks and does not resident-load the whole checkpoint. Native
 MXFP6 inference requires a separate runtime implementation.
 

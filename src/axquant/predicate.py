@@ -44,11 +44,11 @@ def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> 
     requested = str(q_mode or "affine").lower()
     if requested not in _PHYSICAL_MODES:
         raise PlanningError(f"unsupported convert q-mode: {q_mode}")
-    if allocation.method == QuantMethod.MXFP4:
-        return "mxfp4"
     meta = str(allocation.strategy_metadata.get("physical_mode") or "").lower()
     if meta and meta not in _PHYSICAL_MODES:
         raise PlanningError(f"unsupported allocation physical mode: {meta}")
+    if allocation.method == QuantMethod.MXFP4:
+        return "mxfp4"
     if requested == "mxfp8" and allocation.bits == 8:
         return "mxfp8"
     if meta == "mxfp8":

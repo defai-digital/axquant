@@ -4,10 +4,12 @@
 Certificate records under ``docs/certifications/*.json`` are the single source
 of truth. This script writes:
 
-* the marked matrix in ``README.md``
 * the marked matrix in ``docs/certifications/README.md``
 * ``docs/releases/certification-matrix.md``
 * ``docs/certifications/full-list.md`` (every certificate record)
+
+The root ``README.md`` carries no per-pack matrix; it points at the live Hub
+org page instead and is left untouched.
 
 Usage::
 
@@ -34,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument(
         "--write",
         action="store_true",
-        help="Regenerate README, certification index, and release matrices",
+        help="Regenerate certification index, release, and full-list matrices",
     )
     mode.add_argument(
         "--check",

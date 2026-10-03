@@ -2688,3 +2688,108 @@ def _source_binding(plan: QuantizationPlan, source_dir: Path) -> object:
     """The binding production writes beside the plan (AXQ-048)."""
 
     return build_source_plan_binding(plan, source_dir)
+
+
+def test_support_file_completion_copies_absent_runtime_assets(tmp_path: Path) -> None:
+    source, staging = tmp_path / "source", tmp_path / "staging"
+    source.mkdir()
+    staging.mkdir()
+    (source / "config.json").write_text("{}", encoding="utf-8")
+    (source / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (source / "chat_template.jinja").write_text("template", encoding="utf-8")
+    (source / "preprocessor_config.json").write_text("{}", encoding="utf-8")
+    (source / "spiece.model").write_bytes(b"sentencepiece")
+    (staging / "config.json").write_text("{}", encoding="utf-8")
+
+    completed = converter._complete_runtime_support_files(source, staging)
+
+    assert sorted(completed) == [
+        "chat_template.jinja",
+        "preprocessor_config.json",
+        "spiece.model",
+    ]
+    for name in completed:
+        assert (staging / name).read_bytes() == (source / name).read_bytes()
+    assert not (staging / "tokenizer.json").exists()
+
+
+def test_support_file_completion_never_overwrites_backend_output(tmp_path: Path) -> None:
+    source, staging = tmp_path / "source", tmp_path / "staging"
+    source.mkdir()
+    staging.mkdir()
+    (source / "chat_template.jinja").write_text("source", encoding="utf-8")
+    (staging / "chat_template.jinja").write_text("backend", encoding="utf-8")
+
+    completed = converter._complete_runtime_support_files(source, staging)
+
+    assert completed == []
+    assert (staging / "chat_template.jinja").read_text(encoding="utf-8") == "backend"
+
+
+def test_convert_time_omlx_annotation_writes_compat_companion(tmp_path: Path) -> None:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    save_file(
+        {"mtp.fc.weight": np.zeros((1,), dtype=np.float32)},
+        staging / "mtp.safetensors",
+    )
+    (staging / "mtplx_runtime.json").write_text(
+        json.dumps({"arch_id": "qwen3-next-mtp"}), encoding="utf-8"
+    )
+
+    written = converter._maybe_annotate_omlx_compat(staging)
+
+    assert written is not None and written.name == "axquant_omlx_compat.json"
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    assert payload["arch_id"] == "qwen3-next-mtp"
+    assert payload["lightning_mtp_tensors"] == ["mtp.fc.weight"]
+
+
+def test_convert_time_omlx_annotation_skips_non_lightning_sidecars(tmp_path: Path) -> None:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    save_file(
+        {"block.weight": np.zeros((1,), dtype=np.float32)},
+        staging / "mtp.safetensors",
+    )
+    (staging / "mtplx_runtime.json").write_text(
+        json.dumps({"arch_id": "qwen3-next-mtp"}), encoding="utf-8"
+    )
+
+    assert converter._maybe_annotate_omlx_compat(staging) is None
+    assert not (staging / "axquant_omlx_compat.json").exists()
+
+
+def test_publish_staging_dir_fsyncs_parent_entry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    (staging / "model.safetensors").write_bytes(b"weights")
+    output = tmp_path / "output"
+    opened: list[str] = []
+    fsynced: list[int] = []
+    real_open = converter.os.open
+    monkeypatch.setattr(
+        converter.os,
+        "open",
+        lambda path, *args: (opened.append(str(path)), real_open(path, *args))[1],
+    )
+    monkeypatch.setattr(converter.os, "fsync", lambda descriptor: fsynced.append(descriptor))
+
+    converter._publish_staging_dir(staging, output)
+
+    assert output.is_dir()
+    assert (output / "model.safetensors").read_bytes() == b"weights"
+    assert opened == [str(tmp_path)]
+    assert len(fsynced) == 1
+
+
+def test_publish_staging_dir_rejects_preexisting_output(tmp_path: Path) -> None:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    output = tmp_path / "output"
+    output.mkdir()
+
+    with pytest.raises(ArtifactError, match="appeared during conversion"):
+        converter._publish_staging_dir(staging, output)

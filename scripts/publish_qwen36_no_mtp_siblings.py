@@ -2,14 +2,17 @@
 """Derive and publish no-MTP Hub siblings of certified Qwen 3.6 MTP packs.
 
 For each certified ``*-MTP`` pack:
-  1. Snapshot the Hub MTP artifact (pinned tip, or QWEN36_MTP_REVISIONS).
+  1. Snapshot the Hub MTP artifact at a pinned revision
+     (``QWEN36_MTP_REVISIONS`` JSON, else the resolved tip recorded per pack).
   2. Materialize a no-MTP tree (drop ``mtp.safetensors`` + MTP sidecar metadata).
   3. Rewrite ``axquant_manifest.json`` / plan MTP flags and rebind the card.
-  4. Upload to ``AutomatosX/AX-…-AXQ-{4,6}bit`` (no ``-MTP`` suffix).
+  4. Privacy-scan, upload to ``AutomatosX/AX-…-AXQ-{4,6}bit`` (no ``-MTP``
+     suffix), and verify the Hub file set.
 
 Usage (factory host with Ext16TR0 + HF token):
-  .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py
-  .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py --skip-upload
+  .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py --dry-run
+  QWEN36_MTP_REVISIONS='{"AutomatosX/AX-...-MTP": "<40-hex>"}' \\
+    .venv/bin/python scripts/publish_qwen36_no_mtp_siblings.py
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -62,14 +66,40 @@ MTP_FILE_NAMES = frozenset(
     {
         "mtp.safetensors",
         "mtp_head.safetensors",
-        "axquant_mtp_sidecar_manifest.json",
+        "ax_mtp_sidecar_manifest.json",
         "axquant_mtp_graft.json",
+        "mtplx_runtime.json",
+        "axquant_omlx_compat.json",
     }
 )
 
 
+_IMMUTABLE_REVISION = re.compile(r"^[0-9a-f]{40}$")
+_SOURCE_REVISION_FILENAME = "axquant_source_revision.json"
+
+
 def log(msg: str) -> None:
     print(msg, flush=True)
+
+
+def pinned_source_revisions() -> dict[str, str]:
+    """Parse the ``QWEN36_MTP_REVISIONS`` pin map (repo id to 40-hex sha)."""
+
+    raw = os.environ.get("QWEN36_MTP_REVISIONS", "").strip()
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"QWEN36_MTP_REVISIONS is not valid JSON: {exc}") from exc
+    if not isinstance(value, dict) or not all(
+        isinstance(repo, str) and isinstance(rev, str) for repo, rev in value.items()
+    ):
+        raise SystemExit("QWEN36_MTP_REVISIONS must map repo ids to revision shas")
+    for repo, rev in value.items():
+        if not _IMMUTABLE_REVISION.match(rev):
+            raise SystemExit(f"QWEN36_MTP_REVISIONS pins {repo} to non-immutable {rev!r}")
+    return dict(value)
 
 
 def _is_mtp_path(rel: str) -> bool:
@@ -83,6 +113,9 @@ def _is_mtp_path(rel: str) -> bool:
 
 
 def materialize_no_mtp(src: Path, dest: Path) -> None:
+    from axquant.schema.loading import load_quantization_plan
+    from axquant.serde import stable_sha256, write_data
+
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
@@ -151,16 +184,16 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
             plan["mtp"] = mtp
         if "mtp_distribution" in plan:
             plan["mtp_distribution"] = {}
-        plan_path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+        # Atomic rewrite: dest files may be hardlinks into the reused
+        # snapshot, so an in-place truncate would corrupt the source.
+        write_data(plan_path, plan)
         # Rebind plan digest so prepare_development_model_card accepts the strip.
         try:
-            from axquant.schema.loading import load_quantization_plan
-            from axquant.serde import stable_sha256, write_data
-
             plan_model = load_quantization_plan(plan_path)
             write_data(plan_path, plan_model)
             plan_sha = stable_sha256(plan_model)
-        except Exception:
+        except Exception as exc:
+            log(f"WARNING: plan rebind failed, manifest keeps stale plan_sha256: {exc}")
             plan_sha = None
     else:
         plan_sha = None
@@ -189,9 +222,9 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
         try:
             execution = json.loads(exec_path.read_text(encoding="utf-8"))
             execution["plan_sha256"] = plan_sha
-            exec_path.write_text(json.dumps(execution, indent=2) + "\n", encoding="utf-8")
-        except Exception:
-            pass
+            write_data(exec_path, execution)
+        except Exception as exc:
+            log(f"WARNING: execution rebind failed for {exec_path.name}: {exc}")
     # Recompute weight totals from remaining safetensors on disk.
     # ArtifactManifest requires main + mtp == total; with mtp=0, main == total
     # (vision is counted inside main for this product layout).
@@ -217,7 +250,7 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
         man["files"] = [
             rec for rec in files if not _is_mtp_path(str(rec.get("path") or rec.get("name") or ""))
         ]
-    man_path.write_text(json.dumps(man, indent=2) + "\n", encoding="utf-8")
+    write_data(man_path, man)
 
     # Config: clear MTP layer count if present so loaders do not expect a head.
     config_path = dest / "config.json"
@@ -243,7 +276,7 @@ def materialize_no_mtp(src: Path, dest: Path) -> None:
                     text[key] = 0
                     changed = True
         if changed:
-            config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+            write_data(config_path, config)
 
 
 def main() -> int:
@@ -253,23 +286,35 @@ def main() -> int:
     parser.add_argument("--skip-download", action="store_true")
     parser.add_argument("--skip-upload", action="store_true")
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Materialize and validate locally without creating or uploading any repo.",
+    )
+    parser.add_argument(
         "--only",
         action="append",
         default=[],
         help="Only process matching no_mtp_name substring (repeatable)",
     )
     args = parser.parse_args()
+    skip_upload = bool(args.skip_upload or args.dry_run)
 
     sys.path.insert(0, str(ROOT / "src"))
     from huggingface_hub import HfApi, snapshot_download
 
     from axquant.model_card import prepare_development_model_card
+    from axquant.publisher import (
+        publication_privacy_issues,
+        retry_hub_call,
+        verify_hub_upload,
+    )
 
     work: Path = args.work.expanduser()
     out_root: Path = args.out.expanduser()
     work.mkdir(parents=True, exist_ok=True)
     out_root.mkdir(parents=True, exist_ok=True)
     api = HfApi()
+    pins = pinned_source_revisions()
     results: list[dict[str, object]] = []
 
     packs = PACKS
@@ -284,25 +329,42 @@ def main() -> int:
         product_class = pack["product_class"]
         snap = work / "snapshots" / no_name
         dest = out_root / no_name
+        revision_path = snap / _SOURCE_REVISION_FILENAME
         log(f"=== {no_name} from {mtp_repo} ===")
-        snap_ready = (snap / "axquant_manifest.json").is_file() and any(
-            snap.glob("model-*.safetensors")
+        snap_ready = (
+            (snap / "axquant_manifest.json").is_file()
+            and revision_path.is_file()
+            and any(snap.glob("model-*.safetensors"))
         )
         if args.skip_download and not snap_ready:
             raise SystemExit(f"--skip-download set but snapshot incomplete: {snap}")
-        if snap_ready and not args.skip_download:
+        if snap_ready:
             # Resume-friendly: keep a complete local snapshot without re-fetching.
-            log(f"reuse complete snapshot {snap}")
-        elif not snap_ready:
-            log(f"snapshot_download {mtp_repo} -> {snap}")
+            record = json.loads(revision_path.read_text(encoding="utf-8"))
+            source_revision = str(record["revision"])
+            log(f"reuse complete snapshot {snap} @ {source_revision}")
+        else:
+            pinned = pins.get(mtp_repo)
+            if pinned is not None:
+                source_revision = pinned
+            else:
+                tip = api.model_info(mtp_repo).sha
+                if not tip:
+                    raise SystemExit(f"cannot resolve Hub tip for {mtp_repo}")
+                source_revision = tip
+                log(f"WARNING: no QWEN36_MTP_REVISIONS pin for {mtp_repo}; using tip")
+            log(f"snapshot_download {mtp_repo}@{source_revision} -> {snap}")
             if snap.exists():
                 shutil.rmtree(snap)
             snapshot_download(
                 repo_id=mtp_repo,
+                revision=source_revision,
                 local_dir=str(snap),
             )
-        else:
-            log(f"reuse snapshot {snap}")
+            revision_path.write_text(
+                json.dumps({"repo_id": mtp_repo, "revision": source_revision}) + "\n",
+                encoding="utf-8",
+            )
 
         log(f"materialize no-MTP -> {dest}")
         materialize_no_mtp(snap, dest)
@@ -316,25 +378,49 @@ def main() -> int:
         )
 
         commit = None
-        if not args.skip_upload:
+        if not skip_upload:
             no_repo = f"AutomatosX/{no_name}"
+            privacy_issues = publication_privacy_issues(dest)
+            if privacy_issues:
+                raise SystemExit(f"privacy scan failed for {no_name}: " + "; ".join(privacy_issues))
             log(f"upload {no_repo}")
             # Ensure repo exists
             try:
-                api.create_repo(no_repo, repo_type="model", exist_ok=True, private=False)
+                retry_hub_call(
+                    "create_repo",
+                    lambda no_repo=no_repo: api.create_repo(
+                        no_repo, repo_type="model", exist_ok=True, private=False
+                    ),
+                )
             except Exception as exc:
                 log(f"create_repo note: {exc}")
-            info = api.upload_folder(
-                folder_path=str(dest),
-                repo_id=no_repo,
-                repo_type="model",
-                commit_message=(
-                    "Publish no-MTP sibling of certified MTP pack "
-                    "(language path identical; mtp.safetensors omitted)."
+            info = retry_hub_call(
+                "upload_folder",
+                lambda dest=dest, no_repo=no_repo: api.upload_folder(
+                    folder_path=str(dest),
+                    repo_id=no_repo,
+                    repo_type="model",
+                    commit_message=(
+                        "Publish no-MTP sibling of certified MTP pack "
+                        "(language path identical; mtp.safetensors omitted)."
+                    ),
                 ),
             )
             commit = getattr(info, "oid", None) or str(info).rstrip("/").split("/")[-1]
             log(f"  commit {commit}")
+            local_files = sorted(
+                path.relative_to(dest).as_posix() for path in dest.rglob("*") if path.is_file()
+            )
+            retry_hub_call(
+                "verify_upload",
+                lambda no_repo=no_repo, local_files=local_files, no_name=no_name: verify_hub_upload(
+                    api=api,
+                    repo_id=no_repo,
+                    files=local_files,
+                    label=f"no-MTP upload {no_name}",
+                ),
+            )
+            log(f"  verified {len(local_files)} files on {no_repo}")
         else:
             log("skip upload")
 
@@ -343,6 +429,7 @@ def main() -> int:
             {
                 "no_mtp_name": no_name,
                 "mtp_repo": mtp_repo,
+                "source_revision": source_revision,
                 "local_path": str(dest),
                 "hub_repo_id": f"AutomatosX/{no_name}",
                 "hub_commit": commit,

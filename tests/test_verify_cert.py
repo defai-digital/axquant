@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+from _cert_fixtures import write_cert_pair
 from safetensors.numpy import save_file
 
 from axquant.analyzer import architecture_prior_report
@@ -219,17 +220,12 @@ def test_exact_bpw_rewrite_fails_and_cli_writes_report(tmp_path: Path) -> None:
     assert any("measured main BPW" in issue for issue in report["issues"])
 
 
-def test_published_v1_catalog_certificate_passes_locally() -> None:
-    """Historical catalog records must remain verifiable without a local pack."""
+def test_synthetic_v1_certificate_passes_locally(tmp_path: Path) -> None:
+    """A schema-valid Tier 1 record stays verifiable without a local pack."""
 
-    certificate = (
-        Path(__file__).resolve().parents[1]
-        / "docs"
-        / "certifications"
-        / "qwen36-27b-axq4-tier1.json"
-    )
+    certificate, _ = write_cert_pair(tmp_path, "demo-axq6")
     report = verify_certificate(certificate_path=certificate)
 
     assert report.passed is True
-    assert report.product_class == "5p6bpw"
-    assert report.hub_repo_id == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit-MTP"
+    assert report.product_class == "6bit"
+    assert report.hub_repo_id == "AutomatosX/AX-Demo-MLX-AXQ-6bit"

@@ -400,6 +400,7 @@ def test_top_n_request_accepted() -> None:
     plan = plan_quantization(report, _request(candidate_count=8))
     assert plan is not None
     assert plan.effective_bpw > 0
+    assert any("candidate_count=8" in warning for warning in plan.warnings)
 
 
 def test_infeasible_protection_budget_fails() -> None:

@@ -30,43 +30,10 @@ or `quality-certified` only with bound evidence. Spec:
 <!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
 | Checkpoint | Edition | Tier 1 (quality) | Tier 2 (MTP -- Scoped) |
 | --- | --- | --- | --- |
-| [Qwen3.8-27B MLX AXQ 4-bit MTP](qwen38-27b-axq4-mtp-tier1.md) | main@`32f44846` | [Certified](qwen38-27b-axq4-mtp-tier1.md) | [Certified](qwen38-27b-axq4-mtp-tier2.md) (AX Engine 6.16.1) |
-| [Qwen3.8-27B MLX AXQ 6-bit MTP](qwen38-27b-axq6-mtp-tier1.md) | main@`a5a0b700` | [Certified](qwen38-27b-axq6-mtp-tier1.md) | [Certified](qwen38-27b-axq6-mtp-tier2.md) (AX Engine 6.16.1) |
-| [Qwen 3.6 27B MLX AXQ 4-bit MTP](qwen36-27b-axq4-tier1.md) | main@`f44a9eee` | [Certified](qwen36-27b-axq4-tier1.md) | [Certified](qwen36-27b-axq4-tier2.md) (AX Engine 6.14.0) |
-| [Qwen 3.6 27B MLX AXQ 6-bit MTP](qwen36-27b-axq6-tier1.md) | v3 | [Certified](qwen36-27b-axq6-tier1.md) | [Certified](qwen36-27b-axq6-tier2.md) (AX Engine 6.14.0) |
-| [Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP](qwen36-35b-axq4-tier1.md) | main@`a549387d` | [Certified](qwen36-35b-axq4-tier1.md) | [Certified](qwen36-35b-axq4-tier2.md) (AX Engine 6.14.1) |
-| [Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP](qwen36-35b-axq6-tier1.md) | main@`7b9ff47a` | [Certified](qwen36-35b-axq6-tier1.md) | [Certified](qwen36-35b-axq6-tier2.md) (AX Engine 6.14.1) |
-| [Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit](qwen3-vl-30b-axq4-tier1.md) | main@`ffcad97e` | [Certified](qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
-| [Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit](qwen3-vl-30b-axq6-tier1.md) | main@`71f90ad5` | [Certified](qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
-| [Holo3-35B-A3B MLX AXQ 4-bit](holo3-35b-axq4-tier1.md) | main@`7b225613` | [Certified](holo3-35b-axq4-tier1.md) | N/A (no MTP) |
-| [Holo3-35B-A3B MLX AXQ 6-bit](holo3-35b-axq6-tier1.md) | main@`e6cc340b` | [Certified](holo3-35b-axq6-tier1.md) | N/A (no MTP) |
-| [Holo-3.1-35B-A3B MLX AXQ MXFP4](holo31-35b-axq-mxfp4-tier1.md) | main@23aa374f | [Certified](holo31-35b-axq-mxfp4-tier1.md) | N/A (no MTP) |
-| [GPT-OSS 20B MLX AXQ 4-bit](gpt-oss-20b-axq4-tier1.md) | main@`0c1806bf` | [Certified](gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
-| [GPT-OSS 20B MLX AXQ 6-bit](gpt-oss-20b-axq6-tier1.md) | main@`a04eea37` | [Certified](gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| [GPT-OSS 120B MLX AXQ 6-bit](gpt-oss-120b-axq6-tier1.md) | main@`50537a80` | [Certified](gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
-| [Qwen3.8-27B MLX AXQ MXFP4 MTP](qwen38-27b-axq-mxfp4-mtp-tier1.md) | main@`594de650` | [Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| [Qwen3.8-27B MLX AXQ 8-bit MTP](qwen38-27b-axq8-mtp-tier1.md) | main@`7772fd6e` | [Certified](qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash MLX AXQ 2-bit MTP (exp.)](deepseek-v4-flash-axq2-tier1.md) | main@`e22b117a` | [Certified](deepseek-v4-flash-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| [Gemma 4 12B MLX AXQ 4-bit](gemma4-12b-axq4-tier1.md) | main@`6d124af8` (IT rebuild) | [Certified](gemma4-12b-axq4-tier1.md) | [Not Certified](gemma4-12b-axq4-tier1.md#tier-2-status) |
-| [Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | main@607a7ba0 | [Certified](tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | [Not Certified](tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md#tier-2-status) |
-| [Gemma 4 12B MLX AXQ 6-bit](gemma4-12b-axq6-tier1.md) | main@`d0a1a932` (IT rebuild) | [Certified](gemma4-12b-axq6-tier1.md) | [Not Certified](gemma4-12b-axq6-tier1.md#tier-2-status) |
-| [Gemma 4 26B-A4B MLX AXQ 4-bit](gemma4-26b-a4b-axq4-tier1.md) | main@`85b0a78a` | [Certified](gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
-| [Gemma 4 26B-A4B MLX AXQ 6-bit](gemma4-26b-a4b-axq6-tier1.md) | main@`4a62bf66` | [Certified](gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
-| [Gemma 4 31B MLX AXQ 4-bit](gemma4-31b-axq4-tier1.md) | main@`bc2de70b` | [Certified](gemma4-31b-axq4-tier1.md) | [Not Certified](gemma4-31b-axq4-tier1.md#tier-2-status) |
-| [Gemma 4 31B MLX AXQ 6-bit](gemma4-31b-axq6-tier1.md) | main@`f024707a` | [Certified](gemma4-31b-axq6-tier1.md) | [Not Certified](gemma4-31b-axq6-tier1.md#tier-2-status) |
-| [Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | m5-runtime-smoke@7.4.0-dev | [Not Certified](tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| [Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | m5-runtime-smoke@7.4.0-dev | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| [Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | main@90b785d8 | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | [Not Certified](cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.)](deepseek-v4-flash-0731-axq2-tier1.md) | axengine-7.1.5@`cb1a34b4` | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP](deepseek-v4-flash-0731-axq4-tier1.md) | studio-local-g128 | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash-0731 MLX AXQ MXFP4](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | recipe-only | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
-| [DeepSeek V4 Flash-0731 MLX AXQ 6-bit](deepseek-v4-flash-0731-axq6-tier1.md) | memory-blocked-192gb | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
-| [MiniMax-M3 MLX AXQ 2-bit (exp.)](minimax-m3-axq2-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq2-tier1.md) | N/A (no MTP) |
-| [MiniMax-M3 MLX AXQ MXFP4 (exp.)](minimax-m3-axq-mxfp4-tier1.md) | m3@7.2.0 | [Not Certified](minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
 
 **Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named authorizing workloads, measured on the host and AX Engine build recorded in that certificate.
 
-The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the certificate's own integrity rule such a result does not transfer to another host or engine build. Certified records are historical and are not re-certified for later AX Engine releases.
+No certified Tier 2 row is present, so no engine binding applies. Certified records are historical and are not re-certified for later AX Engine releases.
 
 A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
 <!-- END:AXQUANT_CERTIFICATION_MATRIX -->

@@ -6,6 +6,13 @@ if [[ "$host" != "df-macstudio-m2" && "$host" != "devopsmacstudio" ]]; then
   echo "factory publish must run on df-macstudio-m2; observed $host" >&2
   exit 2
 fi
+if [[ "${AXQUANT_HOBBY_PUBLISH_OVERRIDE:-0}" != "1" ]]; then
+  echo "retired: the Kimi K3 2-bit hobby pack was deleted in the 2026-09-19 Hub" >&2
+  echo "catalog cleanup, and axquant.hobby_pack/hobby_upload are not in this repo" >&2
+  echo "(stale ssd-stream worktree reference). Set AXQUANT_HOBBY_PUBLISH_OVERRIDE=1" >&2
+  echo "only under an explicit re-publish decision with restored upload modules." >&2
+  exit 2
+fi
 export HF_HOME="${HF_HOME:-/Volumes/Ext16TR0/huggingface}"
 export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-$HF_HOME/hub}"
 export HF_HUB_CACHE="${HF_HUB_CACHE:-$HF_HOME/hub}"

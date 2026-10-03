@@ -893,11 +893,6 @@ def plan_quantization(
         raise PlanningError(
             f"unsupported allocation unit {allocation_units!r}; use 'tensor' or 'fused-module'"
         )
-    if request.candidate_count > 1:
-        # Top-N generation is handled by the refinement module;
-        # the planner itself always produces a single deterministic plan.
-        # Accept candidate_count > 1 but only produce one plan here.
-        pass
     if report.profile != request.profile:
         raise PlanningError(
             f"analysis profile {report.profile} does not match plan profile {request.profile}"
@@ -1188,6 +1183,14 @@ def plan_quantization(
     quantized_bits = [bits for bits in request.candidate_bits if bits < 16]
     target_class = target_class_for_bpw(request.target_bpw) if quantized_bits else "bf16"
     warnings = [*report.warnings, *mtp_warnings]
+    if request.candidate_count > 1:
+        # Top-N generation is handled by the refinement module; the planner
+        # always produces a single deterministic plan. Record the request so
+        # the single-plan output is explicit, not silently accepted.
+        warnings.append(
+            f"candidate_count={request.candidate_count} requested; this is the single "
+            "deterministic plan and Top-N branching stays in the refinement module."
+        )
     if not report.evidence_kind.release_quality:
         warnings.append(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "

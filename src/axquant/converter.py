@@ -40,6 +40,8 @@ from axquant.mtp_sidecar import (
     QWEN_NEXT_MTP_ADAPTER_IDS,
     QWEN_NEXT_MTP_ARCH_ID,
     QWEN_NEXT_MTP_LEGACY_ARCH_IDS,
+    annotate_qwen_mtp_omlx_compat,
+    is_qwen_next_omlx_runtime,
     prepare_qwen36_mtp_sidecar,
 )
 from axquant.multimodal_backend import (
@@ -283,6 +285,112 @@ def _copy_verified(source: Path, destination: Path) -> None:
     shutil.copy2(source, destination)
     if file_sha256(destination) != file_sha256(source):
         raise ArtifactError(f"{source.name} checksum changed during copy")
+
+
+# Runtime support files the MLX backends do not reliably carry into the
+# converted pack. ``mlx_lm.utils.save`` copies only ``*.py``,
+# ``generation_config.json``, and ``tokenizer.save_pretrained`` output, so a
+# standalone ``chat_template.jinja`` and processor/vocabulary assets would
+# otherwise be silently dropped for every family except the narrow Qwen 3.5
+# dequant-requant restore below. Deliberately excludes ``config.json``,
+# ``tokenizer.json``, and ``tokenizer_config.json``: the converted tokenizer
+# pairing is authoritative and must never be overwritten here.
+_RUNTIME_SUPPORT_FILENAMES = (
+    "chat_template.jinja",
+    "preprocessor_config.json",
+    "processor_config.json",
+    "image_processor_config.json",
+    "video_processor_config.json",
+    "special_tokens_map.json",
+    "added_tokens.json",
+    "vocab.txt",
+    "vocab.json",
+    "merges.txt",
+)
+_RUNTIME_SUPPORT_GLOBS = ("*.model",)
+
+
+def _complete_runtime_support_files(source_dir: Path, staging_dir: Path) -> list[str]:
+    """Copy missing runtime support files from the source checkpoint.
+
+    Copy-if-absent only: when the backend already emitted one of these files,
+    the converted output wins and is left untouched, so this step can run for
+    every backend without disturbing tokenizer/config pairing. Returns the
+    completed filenames for logging and tests.
+    """
+
+    completed: list[str] = []
+    candidates: list[Path] = []
+    for name in _RUNTIME_SUPPORT_FILENAMES:
+        candidates.append(source_dir / name)
+    for pattern in _RUNTIME_SUPPORT_GLOBS:
+        candidates.extend(sorted(source_dir.glob(pattern)))
+    for source in candidates:
+        if not source.is_file():
+            continue
+        destination = staging_dir / source.name
+        if destination.exists():
+            continue
+        expected_sha256 = file_sha256(source)
+        shutil.copy2(source, destination)
+        if file_sha256(destination) != expected_sha256:
+            raise ArtifactError(f"{source.name} checksum changed during support-file copy")
+        completed.append(source.name)
+    return completed
+
+
+def _maybe_annotate_omlx_compat(staging_dir: Path) -> Path | None:
+    """Emit ``axquant_omlx_compat.json`` for applicable Qwen MTP packs.
+
+    Convert output previously left this oMLX import companion to
+    publish-prepare, so every fresh convert lacked the file oMLX needs until
+    publication. Annotate here under the same runtime gate; packs whose
+    sidecar carries no ``mtp.*`` tensors are not OMLX Lightning import
+    targets and are skipped, while publish-prepare stays the fail-closed
+    gate for misdeclared packs.
+    """
+
+    if not is_qwen_next_omlx_runtime(staging_dir):
+        return None
+    sidecar = next(
+        (
+            staging_dir / name
+            for name in EXTERNAL_MTP_SIDECAR_FILENAMES
+            if (staging_dir / name).is_file()
+        ),
+        None,
+    )
+    if sidecar is None:
+        return None
+    _, header = _safetensor_header(sidecar)
+    if not any(name.startswith("mtp.") for name in header if name != "__metadata__"):
+        return None
+    return annotate_qwen_mtp_omlx_compat(staging_dir)
+
+
+def _publish_staging_dir(staging_dir: Path, output_dir: Path) -> None:
+    """Rename the staged artifact into place and durable-publish the entry.
+
+    File payloads are already fsynced by their writers; without a parent
+    directory fsync after the rename, a crash can lose the directory entry
+    itself. The fsync is best-effort: the rename already succeeded, so a
+    platform that rejects directory fsync must warn, not fail the convert.
+    """
+
+    if output_dir.exists():
+        raise ArtifactError(f"conversion output appeared during conversion: {output_dir}")
+    staging_dir.rename(output_dir)
+    try:
+        descriptor = os.open(output_dir.parent, os.O_RDONLY)
+    except OSError as exc:
+        _LOG.warning("staging_publish_fsync_skipped", error=str(exc))
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError as exc:
+        _LOG.warning("staging_publish_fsync_failed", error=str(exc))
+    finally:
+        os.close(descriptor)
 
 
 def _validate_mtp_sidecar_provenance(source: Path) -> None:
@@ -1678,8 +1786,8 @@ def _verify_converted_weights(
         allow_quantized=True,
     )
     converted_config = json.loads((staging_dir / "config.json").read_text(encoding="utf-8"))
-    physical_config = converted_config.get("quantization_config") or converted_config.get(
-        "quantization", {}
+    physical_config = converted_config.get("quantization") or converted_config.get(
+        "quantization_config", {}
     )
     all_tensors = {tensor.name: tensor for tensor in inventory.tensors}
     expected_parameters = sum(allocation.parameters for allocation in plan.assignments)
@@ -1792,23 +1900,25 @@ def _verify_converted_weights(
         actual_shapes = tuple(component.shape for component in actual_components)
         if allocation.bits < 16:
             physical_mode = allocation_physical_mode(allocation, q_mode)
-            if physical_mode == "mxfp8":
+            if physical_mode in {"mxfp4", "mxfp8"}:
                 for component in actual_components:
                     params = (
                         physical_config.get(component.module_path, physical_config)
                         if isinstance(physical_config, dict)
                         else {}
                     )
-                    if not isinstance(params, dict) or params.get("mode") != "mxfp8":
+                    if not isinstance(params, dict) or params.get("mode") != physical_mode:
                         raise ArtifactError(
-                            f"converted tensor {verification_name} does not declare MXFP8 packing"
+                            f"converted tensor {verification_name} does not declare "
+                            f"{physical_mode.upper()} packing"
                         )
+            methods_by_mode: dict[str, set[QuantMethod | None]] = {
+                "affine": {QuantMethod.AFFINE},
+                "mxfp4": {QuantMethod.AFFINE, QuantMethod.MXFP4},
+                "mxfp8": {None},
+            }
             method_ok = all(
-                component.current_method is QuantMethod.AFFINE
-                or (
-                    physical_mode in {"mxfp4", "mxfp8"}
-                    and component.current_method in {QuantMethod.AFFINE, QuantMethod.MXFP4, None}
-                )
+                component.current_method in methods_by_mode[physical_mode]
                 for component in actual_components
             )
             if (
@@ -1838,17 +1948,24 @@ def _verify_converted_weights(
                     f"converted tensor {verification_name} lacks {kind} metadata: "
                     f"{sorted(missing_metadata)}"
                 )
-            if physical_mode == "mxfp8":
+            if physical_mode in {"mxfp4", "mxfp8"}:
                 for component in actual_components:
                     scales = all_tensors[f"{component.module_path}.scales"]
-                    scale_shape = (*component.shape[:-1], component.shape[-1] // 8)
+                    packed_words_per_block = allocation.bits
+                    scale_shape = (
+                        *component.shape[:-1],
+                        component.shape[-1] // packed_words_per_block,
+                    )
                     if scales.dtype != "U8" or scales.shape != scale_shape:
                         raise ArtifactError(
-                            f"converted tensor {verification_name} has invalid MXFP8 scales; "
+                            f"converted tensor {verification_name} has invalid "
+                            f"{physical_mode.upper()} scales; "
                             "expected one U8 E8M0 scale per block of 32"
                         )
                     if f"{component.module_path}.biases" in all_tensors:
-                        raise ArtifactError("MXFP8 packing cannot contain affine bias metadata")
+                        raise ArtifactError(
+                            f"{physical_mode.upper()} packing cannot contain affine bias metadata"
+                        )
         else:
             shape_matches = actual_shapes == expected_shapes
             if len(actual_components) == 1 and not shape_matches:
@@ -1966,8 +2083,8 @@ def convert_model(
 ) -> ArtifactManifest:
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
     if (
-        q_mode == "mxfp8"
-        or any(item.strategy_metadata.get("physical_mode") == "mxfp8" for item in plan.assignments)
+        str(q_mode or "affine").lower() == "mxfp8"
+        or any(allocation_physical_mode(item, q_mode) == "mxfp8" for item in plan.assignments)
     ) and not allow_unmeasured:
         raise PlanningError(
             "MXFP8 physical repacking requires --allow-unmeasured; affine sensitivity "
@@ -2190,6 +2307,16 @@ def convert_model(
         from axquant.deepseek_v4_chat import maybe_write_deepseek_v4_chat_template
 
         maybe_write_deepseek_v4_chat_template(staging_dir, plan)
+        if source_model_dir is not None:
+            completed_support_files = _complete_runtime_support_files(source_model_dir, staging_dir)
+            if completed_support_files:
+                _LOG.info(
+                    "conversion_support_files_completed",
+                    files=completed_support_files,
+                )
+        omlx_compat_path = _maybe_annotate_omlx_compat(staging_dir)
+        if omlx_compat_path is not None:
+            _LOG.info("conversion_omlx_compat_annotated", file=omlx_compat_path.name)
         emit_expert_stream_manifest(staging_dir, plan, setting=expert_stream)
         if ax_engine_manifest == "required":
             require_ax_engine_manifest(staging_dir, executable=ax_engine_bench)
@@ -2243,9 +2370,7 @@ def convert_model(
             files=_artifact_files(staging_dir),
         )
         write_data(staging_dir / "axquant_manifest.json", manifest)
-        if output_dir.exists():
-            raise ArtifactError(f"conversion output appeared during conversion: {output_dir}")
-        staging_dir.rename(output_dir)
+        _publish_staging_dir(staging_dir, output_dir)
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
     _LOG.info(

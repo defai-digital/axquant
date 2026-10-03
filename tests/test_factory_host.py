@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -49,30 +48,17 @@ def test_normalize_host_id_strips_domain() -> None:
 
 
 def test_historical_cert_hosts_are_recognized_and_not_rewritten() -> None:
-    rows = load_public_cert_rows(_CERTS)
-    assert rows, "expected published cert rows"
-    # New Tiel smoke records use a public hardware label, not a factory host.
-    # This must never license a checkpoint or acceleration certificate there.
-    smoke_rows = [row for row in rows if row.host_id == "macbook-pro-m5-max-128gb"]
-    assert {row.record_id for row in smoke_rows} == {
-        "tiel-coder-35b-axq-mxfp4-mtp",
-        "cyber-tiel-coder-35b-axq-mxfp4-mtp",
-    }
-    assert all(
-        row.tier1_status == "not_certified" and row.tier2_status == "not_certified"
-        for row in smoke_rows
-    )
-    hosts = {row.host_id for row in rows if row not in smoke_rows}
-    assert hosts <= {
+    # The public catalog was withdrawn pending re-certification; the
+    # historical host set itself stays recognized without live rows.
+    assert load_public_cert_rows(_CERTS) == []
+    for host in (
         "df-macstudio-m2",
         "df-macbookpro-m5",
         "df-macbookpro-m3",
         "tn-macstudio-m3",
-    }
-    # Immutable historical hosts must remain present in the published set.
-    assert "df-macbookpro-m5" in hosts or "df-macbookpro-m3" in hosts
-    for host in hosts:
+    ):
         assert is_historical_cert_host(host)
+    assert not is_historical_cert_host("synthetic-test-host")
 
 
 def test_require_large_memory_cert_host_accepts_m3_studio_aliases() -> None:
@@ -83,9 +69,3 @@ def test_require_large_memory_cert_host_accepts_m3_studio_aliases() -> None:
     )
     with pytest.raises(FactoryHostError, match="tn-macstudio-m3"):
         require_large_memory_cert_host("df-macstudio-m2")
-
-
-def test_qwen38_4bit_mtp_historical_host_json_not_rewritten() -> None:
-    payload = json.loads((_CERTS / "qwen38-27b-axq4-mtp-tier1.json").read_text())
-    assert payload["host_id"] == "df-macbookpro-m3"
-    assert payload["artifact"]["hub_repo_id"].endswith("4bit-MTP")

@@ -35,6 +35,7 @@ from axquant.publisher import (
     _package_release_audit,
     _require_release_audit,
     _rerun_release_audit,
+    publication_privacy_issues,
     publish_model,
 )
 from axquant.runtime import build_runtime_metadata
@@ -1270,6 +1271,12 @@ def _build_inputs(tmp_path: Path) -> Path:
     return request_path
 
 
+def test_packaged_direct_tree_passes_publication_privacy_scan(tmp_path: Path) -> None:
+    _build_inputs(tmp_path)
+
+    assert publication_privacy_issues(tmp_path / "artifact") == []
+
+
 def test_complete_synthetic_non_mtp_audit_passes_n0_through_n8(tmp_path: Path) -> None:
     request_path = _build_inputs(tmp_path)
     audit = build_qwen3_next_release_audit(request_path)
@@ -1669,11 +1676,23 @@ def test_direct_executed_publish_uploads_only_after_registry_append(
     calls: list[str] = []
 
     class FakeHub:
+        def __init__(self) -> None:
+            self._folder: Path | None = None
+
         def create_repo(self, **_kwargs: object) -> None:
             calls.append("create")
 
-        def upload_folder(self, **_kwargs: object) -> None:
+        def upload_folder(self, **kwargs: object) -> None:
             calls.append("upload")
+            folder = kwargs.get("folder_path")
+            self._folder = Path(str(folder)) if folder is not None else None
+
+        def list_repo_files(self, **_kwargs: object) -> list[str]:
+            assert self._folder is not None
+            root = self._folder.resolve()
+            return sorted(
+                path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+            )
 
     monkeypatch.setattr(publisher, "HfApi", FakeHub)
     publish_model(

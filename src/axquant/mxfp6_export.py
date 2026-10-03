@@ -333,6 +333,17 @@ def load_mxfp6_tensor(directory: str | Path, name: str) -> NDArray[np.generic]:
         entry = header[key]
         if entry["dtype"] != dtype or tuple(entry["shape"]) != shape:
             raise ArtifactError(f"MXFP6 payload layout differs from its manifest: {key}")
+    for item in manifest.tensors:
+        if item.output_file != member.path:
+            continue
+        keys = (item.data_key,) if item.scales_key is None else (item.data_key, item.scales_key)
+        storage_bytes = sum(
+            header[key]["data_offsets"][1] - header[key]["data_offsets"][0] for key in keys
+        )
+        if storage_bytes != item.storage_bytes:
+            raise ArtifactError(
+                f"MXFP6 payload storage bytes differ from its manifest: {item.name}"
+            )
     with path.open("rb") as reader:
         entry = header[tensor.data_key]
         lo, hi = entry["data_offsets"]

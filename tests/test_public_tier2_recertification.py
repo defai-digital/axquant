@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from _cert_fixtures import write_cert_pair
 from pydantic import ValidationError
 
 from axquant.certification.verify import verify_tier2_recertification
@@ -17,9 +18,6 @@ from axquant.schema import (
     load_public_tier2_recertification,
 )
 from axquant.serde import file_sha256
-
-_ROOT = Path(__file__).resolve().parents[1]
-_CERT_DIR = _ROOT / "docs" / "certifications"
 
 
 def _original_cert() -> PublicMtpAccelerationCertification:
@@ -235,10 +233,8 @@ def _write_recert_file(directory: Path, record_id: str, payload: dict[str, objec
 
 
 def _index_fixture(tmp_path: Path) -> tuple[str, dict[str, object]]:
-    stem = "qwen36-27b-axq6"
-    for suffix in ("tier1.json", "tier1.md", "tier2.json", "tier2.md"):
-        source = _CERT_DIR / f"{stem}-{suffix}"
-        (tmp_path / source.name).write_bytes(source.read_bytes())
+    stem = "demo-axq6"
+    write_cert_pair(tmp_path, stem)
     tier2_path = tmp_path / f"{stem}-tier2.json"
     original = json.loads(tier2_path.read_text(encoding="utf-8"))
     payload = _recert_payload()

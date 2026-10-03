@@ -187,6 +187,10 @@ def dequantize_mxfp6(tensor: Mxfp6Tensor) -> NDArray[np.float32]:
 
 
 def mxfp6_storage_bytes(shape: tuple[int, ...]) -> int:
-    if len(shape) < 2 or any(size <= 0 for size in shape) or shape[-1] % GROUP_SIZE:
+    if (
+        len(shape) < 2
+        or any(isinstance(size, bool) or not isinstance(size, int) or size <= 0 for size in shape)
+        or shape[-1] % GROUP_SIZE
+    ):
         raise QuantizerError("MXFP6 storage requires a nonempty block-aligned matrix shape")
     return math.prod(shape) // GROUP_SIZE * (PACKED_BLOCK_BYTES + 1)

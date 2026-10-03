@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import re
 import shutil
+import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import structlog
 from huggingface_hub import HfApi
+from huggingface_hub.errors import HfHubHTTPError
 from pydantic import ValidationError
 
 from axquant.artifact_evidence_binding import artifact_evidence_binding_issues
@@ -57,6 +61,8 @@ from axquant.source_binding import artifact_identity_issues, tree_identity_issue
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+_T = TypeVar("_T")
+_HUB_TRANSIENT_STATUSES = frozenset({408, 409, 429, 500, 502, 503, 504})
 _TEXT_PUBLICATION_SUFFIXES = {
     ".json",
     ".jsonl",
@@ -137,6 +143,46 @@ def require_publication_privacy(directory: Path) -> None:
     issues = publication_privacy_issues(directory)
     if issues:
         raise PublishingError("publication privacy scan failed: " + "; ".join(issues))
+
+
+def retry_hub_call(label: str, operation: Callable[[], _T], *, retries: int = 4) -> _T:
+    """Run one Hub call, retrying transient HTTP statuses with backoff."""
+
+    delay = 1.0
+    for attempt in range(retries):
+        try:
+            return operation()
+        except HfHubHTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in _HUB_TRANSIENT_STATUSES and attempt + 1 < retries:
+                _LOG.warning("hub_transient_retry", label=label, attempt=attempt + 1, status=status)
+                time.sleep(delay)
+                delay = min(delay * 2.0, 30.0)
+                continue
+            raise
+    raise AssertionError("unreachable")
+
+
+def verify_hub_upload(
+    *, api: HfApi, repo_id: str, files: list[str], label: str = "Hub upload"
+) -> None:
+    """Fail closed unless every local file is listed on the Hub repository.
+
+    Hub-managed extras (``.gitattributes``) are allowed; anything missing is
+    an incomplete upload, not a successful publication.
+    """
+
+    try:
+        remote = set(api.list_repo_files(repo_id=repo_id, repo_type="model"))
+    except HfHubHTTPError:
+        raise
+    except Exception as exc:
+        raise PublishingError(f"{label} verification failed: {exc}") from exc
+    missing = [name for name in files if name not in remote]
+    if missing:
+        preview = ", ".join(missing[:10])
+        suffix = "" if len(missing) <= 10 else f" and {len(missing) - 10} more"
+        raise PublishingError(f"{label} incomplete for {repo_id}: missing={preview}{suffix}")
 
 
 def _copy_exact_publication_file(source: Path, target: Path, *, label: str) -> Path:
@@ -739,20 +785,12 @@ def publish_model(
         validation_index_path=validation_index_path,
         repo_id=repo_id,
     )
-    if flagship_request:
-        # Audit packaging adds public text artifacts after the request-level
-        # scan. Re-scan the exact final tree immediately before previewing or
-        # uploading it.
-        #
-        # Deliberately flagship-only for now: the direct and legacy tracks bind
-        # their candidate to the artifact by absolute local path (the packaged
-        # request/audit and the evidence copied beside them), so their trees are
-        # not path-clean by construction and this scan would fail closed on
-        # every publication. The publisher-created files are already clean
-        # (_package_release_audit, append_certified_checkpoint). Enabling this
-        # for all tracks needs the candidate bound by artifact digest instead;
-        # see docs/guides/known-issues.md (Evidence and state).
-        require_publication_privacy(directory)
+    # Audit packaging adds public text artifacts after the request-level
+    # scan. Re-scan the exact final tree immediately before previewing or
+    # uploading it, on every track: modern path-neutral flows (AXQ-048)
+    # package clean trees, and a legacy path-carrying tree must fail closed
+    # here instead of silently uploading operator paths.
+    require_publication_privacy(directory)
     _require_artifact_evidence_binding(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]
     if (directory / ASSISTANT_CONTRACT_NAME).is_file():
@@ -765,13 +803,27 @@ def publish_model(
         return files
     api = HfApi()
     try:
-        api.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
-        api.upload_folder(
-            repo_id=repo_id,
-            repo_type="model",
-            folder_path=directory,
-            commit_message="Publish AXQuant model artifact",
+        retry_hub_call(
+            "create_repo",
+            lambda: api.create_repo(
+                repo_id=repo_id, repo_type="model", private=private, exist_ok=True
+            ),
         )
+        retry_hub_call(
+            "upload_folder",
+            lambda: api.upload_folder(
+                repo_id=repo_id,
+                repo_type="model",
+                folder_path=directory,
+                commit_message="Publish AXQuant model artifact",
+            ),
+        )
+        retry_hub_call(
+            "verify_upload",
+            lambda: verify_hub_upload(api=api, repo_id=repo_id, files=files),
+        )
+    except PublishingError:
+        raise
     except Exception as exc:
         raise PublishingError(f"Hub publication failed: {exc}") from exc
     _LOG.info("publication_completed", repo=repo_id, files=len(files), private=private)

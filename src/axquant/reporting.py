@@ -795,8 +795,12 @@ def prepare_publication(
     source_revision = plan.source_model.revision
     if source_revision is None:
         raise ValidationGateError("publication requires an immutable source revision")
-    mtp_sidecar_path = directory / "mtp.safetensors"
-    mtp_sidecar_file = mtp_sidecar_path.name if mtp_sidecar_path.is_file() else None
+    from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
+
+    mtp_sidecar_file = next(
+        (name for name in EXTERNAL_MTP_SIDECAR_FILENAMES if (directory / name).is_file()),
+        None,
+    )
     mtp_companion_files: list[ArtifactFile] = []
     mtp_layout = MtpSidecarLayout.BYTE_PRESERVED
     mtp_provenance_path = directory / "ax_mtp_sidecar_manifest.json"
@@ -964,7 +968,7 @@ def prepare_publication(
             conversion_manifest_sha256=file_sha256(conversion_manifest_path),
             mtp_sidecar_file=mtp_sidecar_file,
             mtp_sidecar_sha256=(
-                file_sha256(mtp_sidecar_path) if mtp_sidecar_file is not None else None
+                file_sha256(directory / mtp_sidecar_file) if mtp_sidecar_file is not None else None
             ),
             mtp_companion_files=mtp_companion_files,
             expected_logical_parameters=conversion_manifest.logical_parameters,

@@ -132,6 +132,26 @@ class PublicModalitiesBlock(StrictModel):
     audio: PublicModalityClaim
 
 
+class PublicHostSpec(StrictModel):
+    """Machine specification for the host that produced a certificate.
+
+    New public certificates identify their host by specification, never by
+    machine name. ``profile`` is the stable hardware profile identifier and
+    must equal the record ``host_id``; ``os`` is the measured OS release.
+    Serial numbers, hostnames, and operator paths must never appear here.
+    """
+
+    profile: str = Field(min_length=1)
+    chip: str = Field(min_length=1)
+    memory_gb: int = Field(ge=1)
+    os: str = Field(min_length=1)
+
+
+def _check_host_spec_consistency(host_id: str, host_spec: PublicHostSpec | None) -> None:
+    if host_spec is not None and host_id != host_spec.profile:
+        raise ValueError("host_id must equal host_spec.profile for spec-bound certificates")
+
+
 class PublicCheckpointCertification(StrictModel):
     """Published checkpoint Tier 1 certificate (``*-tier1.json``)."""
 

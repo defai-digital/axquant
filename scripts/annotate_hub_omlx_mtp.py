@@ -20,6 +20,10 @@ from huggingface_hub import HfApi, hf_hub_download, list_repo_files
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from axquant.errors import ArtifactError
+from axquant.hub_mtp_audit import (
+    discover_axq_mtp_artifact_repositories,
+    discover_axq_mtp_repositories,
+)
 from axquant.mtp_sidecar import OMLX_COMPAT_FILENAME, annotate_qwen_mtp_omlx_compat
 
 SIDECAR_NAMES = ("mtp.safetensors", "mtp_head.safetensors")
@@ -30,7 +34,16 @@ COMMIT_MESSAGE = (
 
 
 def _list_mtp_repos(api: HfApi, author: str) -> list[str]:
-    return sorted(model.id for model in api.list_models(author=author) if "MTP" in model.id.upper())
+    # Union name-based and manifest-based discovery (same as the fleet
+    # audit): oMLX import needs the companion file on every sidecar-bearing
+    # pack, including packs whose name lacks the -mtp suffix.
+    ordered = dict.fromkeys(
+        (
+            *discover_axq_mtp_repositories(api, author),
+            *discover_axq_mtp_artifact_repositories(api, author),
+        )
+    )
+    return sorted(ordered, key=str.casefold)
 
 
 def _annotate_repo(api: HfApi, repo_id: str, work: Path) -> dict[str, str]:

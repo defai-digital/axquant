@@ -6,6 +6,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from _cert_fixtures import write_cert_pair
+
 from axquant.cli._parser import _build_parser
 from axquant.public_cert_index import (
     BEGIN_MARKER,
@@ -17,7 +19,6 @@ from axquant.public_cert_index import (
     render_full_cert_list,
     render_index_matrix,
     render_model_card_certification_section,
-    render_readme_matrix,
     render_release_matrix,
 )
 from axquant.schema_contracts import check_schema_contracts, render_schema_catalog
@@ -71,6 +72,8 @@ def test_readme_points_to_hub_org_instead_of_mirroring_pack_catalog() -> None:
     assert "https://huggingface.co/AutomatosX" in readme
     pack_links = re.findall(r"https://huggingface\.co/AutomatosX/AX-", readme)
     assert not pack_links, f"README links deleted pack repos: {sorted(set(pack_links))}"
+    assert BEGIN_MARKER not in readme
+    assert END_MARKER not in readme
     assert "support-matrix" in readme
     assert "docs/certifications/" in readme
 
@@ -89,18 +92,17 @@ def test_internal_tree_is_not_tracked() -> None:
 
 
 def test_readme_product_path_is_install_then_convert() -> None:
-    """The public front door is PyPI + quantize, not a git clone or cert matrix."""
+    """The public front door is PyPI + quantize, not a git clone."""
     readme = _read("README.md")
     install = readme.index("## Install\n")
     convert = readme.index("## Convert\n")
-    matrix = readme.index("<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->")
     pip = readme.index("python -m pip install 'axquant[mlx]==1.8.1'")
     quantize = readme.index("axquant quantize /path/to/model-bf16")
     clone = readme.find("git clone https://github.com/defai-digital/axquant.git")
 
-    assert install < convert < matrix
-    assert pip < matrix
-    assert quantize < matrix
+    assert install < convert
+    assert install < pip
+    assert convert < quantize
     assert clone == -1 or quantize < clone
     assert "You do not need to clone this repository." in readme
 
@@ -144,225 +146,120 @@ def _extract_marked_matrix(text: str) -> str:
     return match.group(1).strip() + "\n"
 
 
-def test_public_certification_json_is_loadable_ssot() -> None:
-    """Every checkpoint Tier 1 JSON must load with a companion markdown file."""
+def test_public_certification_json_is_loadable_ssot(tmp_path: Path) -> None:
+    """The loader accepts the empty catalog and synthetic pairs alike."""
 
-    rows = load_public_cert_rows(listed_only=False)
-    assert rows, "expected at least one public certification record"
-    listed = [row for row in rows if row.listed]
-    assert listed, "expected listed public certification rows"
-    # Gemma 4 4-bit and 6-bit packs are both Tier 1 certified (not 6-bit-only).
-    gemma = [row for row in listed if row.record_id.startswith("gemma4-")]
-    assert {row.record_id for row in gemma} == {
-        "gemma4-12b-axq4",
-        "gemma4-12b-axq6",
-        "gemma4-26b-a4b-axq4",
-        "gemma4-26b-a4b-axq6",
-        "gemma4-31b-axq4",
-        "gemma4-31b-axq6",
-    }
-    assert all(row.tier1_status == "certified" for row in gemma)
-    assert all(row.tier2_status == "not_certified" for row in gemma)
-    # Unlisted evaluation records remain loadable without entering the public matrix.
-    unlisted = [row for row in rows if not row.listed]
-    unlisted_ids = {row.record_id for row in unlisted}
-    assert "gpt-oss-120b-axq4" in unlisted_ids
-    assert "muse-glimmer-30b-axq4" in unlisted_ids
-    assert "muse-glimmer-30b-axq6" in unlisted_ids
-    assert "qwen38-27b-axq4-mtp-studio" in unlisted_ids
-    assert "qwen38-27b-axq6-mtp-studio" in unlisted_ids
-    assert "deepseek-v4-flash-0731-axq2" not in unlisted_ids  # listed ship SKU
-    assert "deepseek-v4-flash-0731-axq3" in unlisted_ids  # withdrawn
-    assert "deepseek-v4-flash-0731-axq4" not in unlisted_ids
-    assert "deepseek-v4-flash-0731-axq-mxfp4" not in unlisted_ids
-    assert "deepseek-v4-flash-0731-axq6" not in unlisted_ids
-    assert "ornith-35b-axq4" in unlisted_ids  # Hub repo deleted 2026-09-19; record retained
-    assert "ornith-35b-axq6" in unlisted_ids  # Hub repo deleted 2026-09-19; record retained
-    assert "qwen3-vl-32b-thinking-axq6" in unlisted_ids
-    assert "qwen3-vl-32b-thinking-axq-mxfp4" in unlisted_ids
-    assert "holo31-35b-axq6" in unlisted_ids
-    assert "holo31-35b-axq8" in unlisted_ids
-    assert "holo31-35b-axq-mxfp4" not in unlisted_ids
-    assert "gpt-oss-20b-axq4" not in unlisted_ids  # certified + listed
-    assert "holo3-35b-axq4" not in unlisted_ids  # certified + listed
-    assert "holo3-35b-axq6" not in unlisted_ids  # certified + listed
-    # No-MTP Qwen / Coder-Next siblings stay certified on disk but off the matrix.
-    for rid in (
-        "qwen38-27b-axq-mxfp4",
-        "qwen38-27b-axq4",
-        "qwen38-27b-axq6",
-        "qwen38-27b-axq8",
-        "qwen36-27b-axq4-nomtp",
-        "qwen36-27b-axq6-nomtp",
-        "qwen36-35b-axq4-nomtp",
-        "qwen36-35b-axq6-nomtp",
-        "qwen3-coder-next-axq-mxfp4",
-        "qwen3-coder-next-axq4",
-        "qwen3-coder-next-axq6",
-    ):
-        assert rid in unlisted_ids
+    assert load_public_cert_rows(listed_only=False) == []
+    assert load_public_cert_rows(listed_only=True) == []
+    write_cert_pair(tmp_path, "demo-dual")
+    write_cert_pair(
+        tmp_path,
+        "demo-eval",
+        tier1_status="not_certified",
+        tier1_mtp_status="not-certified",
+        with_tier2=False,
+        listed=False,
+    )
+    rows = load_public_cert_rows(tmp_path, listed_only=False)
+    assert {row.record_id for row in rows} == {"demo-dual", "demo-eval"}
+    assert [row.record_id for row in load_public_cert_rows(tmp_path)] == ["demo-dual"]
 
 
-def test_public_certification_rows_are_flagship_first_and_deterministic() -> None:
+def test_public_certification_rows_are_flagship_first_and_deterministic(
+    tmp_path: Path,
+) -> None:
     """Dual Tier 1+2 certified packs lead; remaining groups keep sort_order."""
 
-    rows = load_public_cert_rows(listed_only=False)
-    assert len({row.sort_order for row in rows}) == len(rows)
-    # Completeness: both tiers certified → T1-only (T2 N/A) → T1 with T2 not certified.
-    assert [row.record_id for row in rows] == [
-        # Dual certified (Tier 1 + scoped Tier 2)
-        "qwen38-27b-axq4-mtp",
-        "qwen38-27b-axq6-mtp",
-        "qwen36-27b-axq4",
-        "qwen36-27b-axq6",
-        "qwen36-35b-axq4",
-        "qwen36-35b-axq6",
-        # Tier 1 only, no MTP (T2 N/A)
-        "qwen38-27b-axq-mxfp4",
-        "qwen38-27b-axq4",
-        "qwen38-27b-axq6",
-        "qwen38-27b-axq8",
-        "qwen36-27b-axq4-nomtp",
-        "qwen36-27b-axq6-nomtp",
-        "qwen36-35b-axq4-nomtp",
-        "qwen36-35b-axq6-nomtp",
-        "qwen3-coder-next-axq-mxfp4",
-        "qwen3-coder-next-axq4",
-        "qwen3-coder-next-axq6",
-        "qwen3-vl-30b-axq4",
-        "qwen3-vl-30b-axq6",
-        "holo3-35b-axq4",
-        "holo3-35b-axq6",
-        "ornith-35b-axq4",
-        "ornith-35b-axq6",
-        "holo31-35b-axq-mxfp4",
-        "gpt-oss-20b-axq4",
-        "gpt-oss-20b-axq6",
-        "gpt-oss-120b-axq6",
-        # Tier 1 certified; MTP present but Tier 2 not certified
-        "qwen38-27b-axq-mxfp4-mtp",
-        "qwen38-27b-axq8-mtp",
-        "deepseek-v4-flash-axq2",
-        "deepseek-v4-flash-axq3",
-        "gemma4-12b-axq4",
-        "tiel-coder-35b-axq-mxfp4-mtp-redo",
-        "gemma4-12b-axq6",
-        "gemma4-26b-a4b-axq4",
-        "gemma4-26b-a4b-axq6",
-        "gemma4-31b-axq4",
-        "gemma4-31b-axq6",
-        # Not checkpoint-certified (unlisted evaluation record)
-        "holo31-35b-axq6",
-        "holo31-35b-axq8",
-        "tiel-coder-35b-axq-mxfp4-mtp",
-        "cyber-tiel-coder-35b-axq-mxfp4-mtp",
-        "cyber-tiel-coder-35b-axq-mxfp4-mtp-redo",
-        "gpt-oss-120b-axq4",
-        "muse-glimmer-30b-axq4",
-        "muse-glimmer-30b-axq6",
-        "qwen38-27b-axq4-mtp-studio",
-        "qwen38-27b-axq6-mtp-studio",
-        "deepseek-v4-flash-0731-axq2",
-        "deepseek-v4-flash-0731-axq3",
-        "deepseek-v4-flash-0731-axq4",
-        "deepseek-v4-flash-0731-axq-mxfp4",
-        "deepseek-v4-flash-0731-axq6",
-        "minimax-m3-axq2",
-        "minimax-m3-axq-mxfp4",
-        "qwen3-vl-32b-thinking-axq6",
-        "qwen3-vl-32b-thinking-axq-mxfp4",
-    ]
-    dual = [
-        row for row in rows if row.tier1_status == "certified" and row.tier2_status == "certified"
-    ]
-    assert dual
-    assert all(
-        rows.index(dual[0]) < rows.index(row) for row in rows if row.tier2_status != "certified"
+    write_cert_pair(
+        tmp_path,
+        "demo-eval",
+        tier1_status="not_certified",
+        tier1_mtp_status="not-certified",
+        with_tier2=False,
+        listed=False,
     )
-    unlisted_ids = {row.record_id for row in rows if not row.listed}
-    assert "holo3-35b-axq4" not in unlisted_ids
-    assert "holo3-35b-axq6" not in unlisted_ids
+    write_cert_pair(
+        tmp_path,
+        "demo-nomtp",
+        tier1_mtp_status="not-applicable",
+        with_tier2=False,
+    )
+    write_cert_pair(tmp_path, "demo-dual")
+    rows = load_public_cert_rows(tmp_path, listed_only=False)
+    assert [row.record_id for row in rows] == ["demo-dual", "demo-nomtp", "demo-eval"]
+    assert [row.record_id for row in load_public_cert_rows(tmp_path)] == [
+        "demo-dual",
+        "demo-nomtp",
+    ]
 
 
 def test_certification_docs_match_certificate_json_exactly() -> None:
-    """README, cert index, and release matrix must equal the generated SSOT output."""
+    """Cert index and release matrix must equal the generated SSOT output."""
 
     messages = check_documents(root=_ROOT)
     assert not messages, "\n".join(messages)
 
     rows = load_public_cert_rows()
     all_rows = load_public_cert_rows(listed_only=False)
-    readme_body = _extract_marked_matrix(_read("README.md"))
+    assert rows == []
+    assert all_rows == []
     index_body = _extract_marked_matrix(_read("docs/certifications/README.md"))
-    assert readme_body == render_readme_matrix(rows)
     assert index_body == render_index_matrix(rows)
     assert _read("docs/releases/certification-matrix.md") == render_release_matrix(rows)
     assert _read("docs/certifications/full-list.md") == render_full_cert_list(all_rows)
     assert "full-list.md" in _read("README.md")
-    # Full list includes unlisted no-MTP / Coder-Next records omitted from headline.
     full = _read("docs/certifications/full-list.md")
-    assert "Qwen3.8-27B MLX AXQ 4-bit]" in full or "Qwen3.8-27B MLX AXQ 4-bit |" in full
-    assert "qwen38-27b-axq4-tier1.md" in full
-    assert "qwen3-coder-next-axq4-tier1.md" in full
-    assert "qwen3-coder-next-axq-mxfp4-tier1.md" in full
-    assert "In headline matrix" in full
+    assert "Total certificate records: **0**" in full
+    assert "In headline matrices" in full
     assert "Tier 1 (quality)" in full
     assert "Tier 2 (MTP -- Scoped)" in full
     assert "checkpoint **quality**" in full
 
-    # Display names and Tier 1 verdicts agree across every generated surface.
-    def _data_rows(matrix: str) -> list[str]:
-        names: list[str] = []
-        for line in matrix.splitlines():
-            if not line.startswith("| "):
-                continue
-            if (
-                line.startswith("| ---")
-                or line.startswith("| Pack")
-                or line.startswith("| Checkpoint")
-            ):
-                continue
-            cell = line.split("|", 2)[1].strip()
-            names.append(re.sub(r"^\[([^\]]+)\]\([^)]+\)$", r"\1", cell))
-        return names
 
-    assert _data_rows(readme_body) == [row.display_name for row in rows]
-    listed_ids = [row.record_id for row in rows]
-    assert "qwen38-27b-axq-mxfp4" not in listed_ids
-    assert "qwen38-27b-axq8" not in listed_ids
-    # Dual-certified rows lead; T2-not-certified MXFP4-MTP must not float to the top.
-    assert listed_ids.index("qwen38-27b-axq4-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
-    assert listed_ids.index("qwen38-27b-axq6-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
-    assert _data_rows(index_body) == [row.display_name for row in rows]
-    for row in rows:
-        assert f"| {row.display_name} |" in readme_body
-        assert f"[{row.tier1_label}](docs/certifications/{row.tier1_stem}.md)" in readme_body
-
-
-def test_model_card_certification_section_matches_public_records() -> None:
+def test_model_card_certification_section_matches_public_records(tmp_path: Path) -> None:
     """Hub card certification prose is derived from the same certificate rows."""
 
+    write_cert_pair(tmp_path, "demo-dual")
+    write_cert_pair(
+        tmp_path,
+        "demo-eval",
+        tier1_status="not_certified",
+        tier1_mtp_status="not-certified",
+        with_tier2=False,
+        listed=False,
+    )
+    assert public_row_for_repo("AutomatosX/AX-Demo-MLX-AXQ-6bit", listed_only=False) is None
     certified = public_row_for_repo(
-        "AutomatosX/AX-gemma-4-12b-MLX-AXQ-4bit-MTP",
+        "AutomatosX/AX-Demo-MLX-AXQ-6bit",
+        cert_dir=tmp_path,
         listed_only=False,
     )
     assert certified is not None
     section = render_model_card_certification_section(certified)
     assert "Checkpoint Tier 1 certified" in section
     assert certified.host_id in section
-    assert "not certified" in section.lower()  # Tier 2 / MTP still open
     claim = claim_from_public_row(certified)
     assert claim is not None
     assert claim.hub_repo_id == certified.hub_repo_id
     assert claim.hub_commit == certified.hub_commit
     assert claim.candidate_manifest_sha256 == certified.candidate_manifest_sha256
-    assert claim.mtp_acceleration_status == "not-certified"
+    assert claim.mtp_acceleration_status == "certified-scoped"
 
-    failed = public_row_for_repo(
-        "AutomatosX/AX-gpt-oss-120b-MLX-AXQ-4bit",
+    write_cert_pair(
+        tmp_path,
+        "demo-open",
+        hub_repo_id="AutomatosX/AX-Demo-Open-MLX-AXQ-6bit",
+        tier2_status="not_certified",
+    )
+    open_row = public_row_for_repo(
+        "AutomatosX/AX-Demo-Open-MLX-AXQ-6bit",
+        cert_dir=tmp_path,
         listed_only=False,
     )
-    assert failed is not None
+    assert open_row is not None
+    assert "not certified" in render_model_card_certification_section(open_row).lower()
+
+    failed = load_public_cert_rows(tmp_path, listed_only=False)[-1]
     assert failed.listed is False
     failed_section = render_model_card_certification_section(failed)
     assert "Not certified" in failed_section
@@ -378,27 +275,16 @@ def test_tier2_cells_disclose_engine_binding_and_scope() -> None:
     """
 
     rows = load_public_cert_rows()
+    assert rows == []
     release = render_release_matrix(rows)
-    readme_body = _extract_marked_matrix(_read("README.md"))
 
     certified = [row for row in rows if row.tier2_status == "certified"]
-    assert certified, "expected at least one certified Tier 2 row"
-    for row in certified:
-        assert row.mtp_bound_engine, f"{row.record_id}: certified Tier 2 must record a bound engine"
-        assert f"(AX Engine {row.mtp_bound_engine})" in release
-
-    engines = sorted({row.mtp_bound_engine for row in certified})
-    assert f"bound to AX Engine {', '.join(engines)}" in release
-    for matrix in (release, readme_body):
-        assert "Tier 2 (MTP -- Scoped)" in matrix
-        assert "MTP-S" in matrix
-        assert "MTP-D" in matrix
-        assert "adr033-mapping.md" in matrix
-
-    # The disclosure only belongs where a Tier 2 binding exists.
-    unbound = [row for row in rows if row.tier2_status != "certified"]
-    assert unbound
-    assert all(row.mtp_bound_engine is None for row in unbound)
+    assert certified == []
+    assert "No certified Tier 2 row is present" in release
+    assert "Tier 2 (MTP -- Scoped)" in release
+    assert "MTP-S" in release
+    assert "MTP-D" in release
+    assert "adr033-mapping.md" in release
 
     # The link target of the disclosure must exist.
     assert (_ROOT / "docs" / "certifications" / "adr033-mapping.md").is_file()

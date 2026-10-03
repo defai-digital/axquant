@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Create and keep AutomatosX Hugging Face collections family-first.
+"""Create and keep AutomatosX Hugging Face collections method-first, then family.
 
 The previous single dump mixed uniform MLX, QAT, OptiQ, and AXQ across every
 family. This script keeps the org collections the way users browse: a
-certified starting list, one collection per live model family, plus a
-complete index of every public AutomatosX model.
+certified starting list, one collection per precision line (MXFP4, MXFP6,
+MXFP8), one collection per live model family, plus a complete index of every
+public AutomatosX model.
 """
 
 from __future__ import annotations
@@ -119,6 +120,31 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
         ),
+    ),
+    Spec(
+        title="MXFP4",
+        description="Every AXQ MXFP4 pack: certified and development, MTP and no-MTP.",
+        items=(
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
+            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
+            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
+        ),
+    ),
+    Spec(
+        title="MXFP6",
+        description="Reserved for MXFP6-format packs. Empty until the first pack ships.",
+        items=(),
+    ),
+    Spec(
+        title="MXFP8",
+        description="MXFP8-format packs. MLX OCR today.",
+        items=(_ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),),
     ),
     Spec(
         title="Qwen",

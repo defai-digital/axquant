@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from _cert_fixtures import tier1_payload
 from pydantic import ValidationError
 
 from axquant.modality_certification import (
@@ -23,9 +24,6 @@ from axquant.schema.public_certification import (
     PublicModalityClaim,
     load_public_checkpoint_certification,
 )
-
-_ROOT = Path(__file__).resolve().parents[1]
-_CERT_DIR = _ROOT / "docs" / "certifications"
 
 
 def test_unsupported_disables_modality() -> None:
@@ -111,49 +109,6 @@ def test_smoke_requires_evidence_kind() -> None:
         PublicModalityClaim(status="smoke-certified", supported=True)
 
 
-def test_all_in_tree_tier1_certs_have_valid_modalities() -> None:
-    paths = sorted(_CERT_DIR.glob("*-tier1.json"))
-    assert paths
-    for path in paths:
-        cert = load_public_checkpoint_certification(path)
-        assert cert.modalities is not None, path.name
-        assert cert.modalities.policy == "capability-gated-v1"
-        # Smoke/quality must carry evidence_kind (enforced by model).
-        for claim in (cert.modalities.vision, cert.modalities.audio):
-            if claim.status in {"smoke-certified", "quality-certified"}:
-                assert claim.evidence_kind
-
-
-def test_qwen3_vl_is_vision_smoke_audio_na() -> None:
-    cert = load_public_checkpoint_certification(_CERT_DIR / "qwen3-vl-30b-axq4-tier1.json")
-    assert cert.modalities is not None
-    assert cert.modalities.vision.status == "smoke-certified"
-    assert cert.modalities.audio.status == "not-applicable"
-
-
-def test_gemma4_hub_vision_sidecar_is_not_disabled() -> None:
-    cert = load_public_checkpoint_certification(_CERT_DIR / "gemma4-12b-axq4-tier1.json")
-    assert cert.modalities is not None
-    assert cert.modalities.vision.supported is True
-    assert cert.modalities.vision.status != "not-applicable"
-    assert cert.modalities.audio.status == "not-applicable"
-    text = format_modalities_card_section(cert.modalities)
-    assert "capability-gated" in text
-    assert "not a quality pass" in text
-
-
-def test_certified_non_deepseek_support_matches_status() -> None:
-    for path in sorted(_CERT_DIR.glob("*-tier1.json")):
-        cert = load_public_checkpoint_certification(path)
-        if cert.status != "certified" or cert.modalities is None:
-            continue
-        for claim in (cert.modalities.vision, cert.modalities.audio):
-            if claim.status == "not-applicable":
-                assert claim.supported is False, path.name
-            else:
-                assert claim.supported is True, path.name
-
-
 def test_inspect_treats_sidecar_and_config_as_supported(tmp_path: Path) -> None:
     (tmp_path / "config.json").write_text(
         json.dumps({"model_type": "demo", "vision_config": {"depth": 1}, "audio_token_id": 7}),
@@ -190,8 +145,7 @@ def test_format_modalities_card_rejects_quality_wording() -> None:
 
 
 def test_legacy_cert_without_modalities_still_loads(tmp_path: Path) -> None:
-    source = _CERT_DIR / "gpt-oss-20b-axq4-tier1.json"
-    data = json.loads(source.read_text(encoding="utf-8"))
+    data = tier1_payload()
     data.pop("modalities", None)
     path = tmp_path / "legacy-tier1.json"
     path.write_text(json.dumps(data), encoding="utf-8")

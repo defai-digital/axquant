@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from huggingface_hub.errors import HfHubHTTPError
 from safetensors.numpy import save_file
 
 from axquant import publisher
@@ -763,11 +765,24 @@ def test_executed_publication_uploads_only_after_every_gate_passes(
     calls: dict[str, dict[str, object]] = {}
 
     class _FakeHfApi:
+        def __init__(self) -> None:
+            self._folder: Path | None = None
+
         def create_repo(self, **kwargs: object) -> None:
             calls["create_repo"] = kwargs
 
         def upload_folder(self, **kwargs: object) -> None:
             calls["upload_folder"] = kwargs
+            folder = kwargs.get("folder_path")
+            self._folder = Path(str(folder)) if folder is not None else None
+
+        def list_repo_files(self, **kwargs: object) -> list[str]:
+            del kwargs
+            assert self._folder is not None
+            root = self._folder.resolve()
+            return sorted(
+                path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+            )
 
     monkeypatch.setattr(publisher, "HfApi", _FakeHfApi)
 
@@ -786,6 +801,96 @@ def test_executed_publication_uploads_only_after_every_gate_passes(
     assert calls["upload_folder"]["repo_id"] == repo_id
     assert calls["upload_folder"]["folder_path"] == tmp_path / "artifact"
     assert isinstance(files, list)
+
+
+def _transient_hub_error(status_code: int) -> HfHubHTTPError:
+    response = MagicMock()
+    response.status_code = status_code
+    return HfHubHTTPError(f"hub {status_code}", response=response)
+
+
+def test_executed_publication_retries_transient_hub_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_id = "AutomatosX/AXQuant-test"
+    audit_path, paths = _release_audit(tmp_path)
+    audit = _bind_release_ready_validation(audit_path, paths)
+    request_path = tmp_path / "release-audit-request.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(publisher, "build_release_audit", lambda _path: audit)
+    monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: [])
+    monkeypatch.setattr(publisher.time, "sleep", lambda _seconds: None)
+    attempts: list[str] = []
+
+    class _FlakyHfApi:
+        def create_repo(self, **kwargs: object) -> None:
+            del kwargs
+
+        def upload_folder(self, **kwargs: object) -> None:
+            del kwargs
+            attempts.append("upload")
+            if len(attempts) < 3:
+                raise _transient_hub_error(503)
+
+        def list_repo_files(self, **kwargs: object) -> list[str]:
+            del kwargs
+            root = (tmp_path / "artifact").resolve()
+            return sorted(
+                path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()
+            )
+
+    monkeypatch.setattr(publisher, "HfApi", _FlakyHfApi)
+
+    files = publish_model(
+        model_dir=tmp_path / "artifact",
+        repo_id=repo_id,
+        validation_index_path=paths["release_validation_index"],
+        hardware_registry_path=paths["hardware_registry"],
+        pareto_report_path=paths["pareto_report"],
+        release_audit_path=audit_path,
+        release_audit_request_path=request_path,
+        execute=True,
+    )
+
+    assert attempts == ["upload", "upload", "upload"]
+    assert isinstance(files, list)
+
+
+def test_executed_publication_fails_closed_on_incomplete_upload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo_id = "AutomatosX/AXQuant-test"
+    audit_path, paths = _release_audit(tmp_path)
+    audit = _bind_release_ready_validation(audit_path, paths)
+    request_path = tmp_path / "release-audit-request.json"
+    request_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(publisher, "build_release_audit", lambda _path: audit)
+    monkeypatch.setattr(publisher, "prepare_publication", lambda **_kwargs: [])
+
+    class _PartialHfApi:
+        def create_repo(self, **kwargs: object) -> None:
+            del kwargs
+
+        def upload_folder(self, **kwargs: object) -> None:
+            del kwargs
+
+        def list_repo_files(self, **kwargs: object) -> list[str]:
+            del kwargs
+            return []
+
+    monkeypatch.setattr(publisher, "HfApi", _PartialHfApi)
+
+    with pytest.raises(PublishingError, match="upload incomplete"):
+        publish_model(
+            model_dir=tmp_path / "artifact",
+            repo_id=repo_id,
+            validation_index_path=paths["release_validation_index"],
+            hardware_registry_path=paths["hardware_registry"],
+            pareto_report_path=paths["pareto_report"],
+            release_audit_path=audit_path,
+            release_audit_request_path=request_path,
+            execute=True,
+        )
 
 
 def test_flagship_package_rejects_legacy_request_downgrade(tmp_path: Path) -> None:
