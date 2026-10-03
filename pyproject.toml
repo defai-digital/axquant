@@ -32,6 +32,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+cuda = [
+    "torch>=2.6",
+    "numpy>=2.0,<2.4",
+]
 mxfp6 = ["numpy>=2.0,<2.4"]
 mlx = [
     "mlx>=0.32.2",
@@ -73,7 +77,7 @@ addopts = "-q"
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
-    "integration: real-hardware end-to-end pipeline tests (Apple Silicon + MLX)",
+    "integration: real-hardware pipeline tests (Apple Silicon + MLX or NVIDIA CUDA)",
 ]
 
 [tool.ruff]
@@ -92,9 +96,9 @@ strict = true
 plugins = ["pydantic.mypy"]
 packages = ["axquant"]
 
-# Optional execution backends (axquant[mlx]) are not present on the Ubuntu lint
-# job. Ignore missing imports so mypy can type-check the non-MLX surface without
-# requiring Apple Silicon packages or transformers on that runner.
+# Optional MLX/CUDA execution backends are not present on the Ubuntu lint job.
+# Ignore missing imports so mypy can check planning without Apple Silicon
+# packages, transformers or PyTorch on that runner.
 [[tool.mypy.overrides]]
 module = [
     "mlx",
@@ -103,6 +107,8 @@ module = [
     "mlx_lm.*",
     "transformers",
     "transformers.*",
+    "torch",
+    "torch.*",
 ]
 ignore_missing_imports = true
 

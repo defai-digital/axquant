@@ -198,6 +198,10 @@ def _toolchain_overrides(values: list[str]) -> dict[str, str]:
 
 def _run(args: argparse.Namespace) -> int:
     log = structlog.get_logger()
+    if args.command in {"plan-cuda", "convert-cuda", "quantize-cuda"}:
+        from axquant.cli._cuda import run_cuda_command
+
+        return run_cuda_command(args)
     if args.command == "feasibility":
         output_paths = [
             Path(args.output).expanduser().resolve(),

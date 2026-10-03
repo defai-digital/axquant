@@ -1,5 +1,5 @@
 {
-  "count": 137,
+  "count": 139,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -232,6 +232,22 @@
       "model": "axquant.schema.artifacts.CompatibilityMatrixRequest",
       "schema_version": "axquant.compatibility-request.v2",
       "sha256": "bb7964c29192ae0ba5e6ace973b5506dbee627455850a4cfca408f87b8218a18"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.cuda-pack.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.cuda.CudaPackManifest",
+      "schema_version": "axquant.cuda-pack.v1",
+      "sha256": "05a179573aeaec4ae6f37ce19e125462f5378db786ffc720ebc14bbef4cb8c20"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.cuda-plan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.cuda.CudaQuantizationPlan",
+      "schema_version": "axquant.cuda-plan.v1",
+      "sha256": "393f53cc65d7cc2e6a5d13bf3dfab2c6cc905460937d507a6e1cbc9c76b39a45"
     },
     {
       "compatibility_class": "evidence",

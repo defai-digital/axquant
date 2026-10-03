@@ -26,7 +26,8 @@ Pick the journey that matches your goal:
 - **I want to understand or verify an artifact** — the
   [pack interchange contract](contracts/axq-pack-interchange-v1.md),
   [public certificates](certifications/README.md), and
-  [microscaling formats](guides/microscaling.md).
+  [microscaling formats](guides/microscaling.md) and
+  [native CUDA NVFP4 conversion](guides/cuda-nvfp4.md).
 - **I want to operate certification** — the
   [certification operator guide](guides/flagship-certification.md) and the
   [certification rules](contracts/certification-spec-v1.0.md).

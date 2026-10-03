@@ -4,6 +4,7 @@ import argparse
 import sys
 from datetime import datetime
 
+from axquant.cli._cuda import add_cuda_commands
 from axquant.optimizer import parse_memory_bytes
 from axquant.profiles import implemented_profiles
 from axquant.schema import (
@@ -250,6 +251,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--verbose", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=False)
+    add_cuda_commands(subparsers)
 
     feasibility_parser = subparsers.add_parser("feasibility")
     feasibility_parser.add_argument("--reference-4bit", required=True)
