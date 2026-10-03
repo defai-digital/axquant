@@ -11,14 +11,8 @@ import pytest
 from pydantic import ValidationError
 from safetensors.numpy import save_file
 
+import axquant.capture as capture_module
 from axquant.activation_cache import tokenize_calibration
-from axquant.capture import (
-    CAPTURE_ACTIVATIONS_DIR,
-    CAPTURE_COMPLETION_SCHEMA,
-    CAPTURE_MANIFEST_NAME,
-    capture_calibration_activations,
-    load_capture_activations,
-)
 from axquant.capture_binding import LoadedActivationCapture
 from axquant.errors import CaptureError
 from axquant.schema import (
@@ -29,6 +23,12 @@ from axquant.schema import (
     ProfileName,
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+
+CAPTURE_ACTIVATIONS_DIR = capture_module.CAPTURE_ACTIVATIONS_DIR
+CAPTURE_COMPLETION_SCHEMA = capture_module.CAPTURE_COMPLETION_SCHEMA
+CAPTURE_MANIFEST_NAME = capture_module.CAPTURE_MANIFEST_NAME
+capture_calibration_activations = capture_module.capture_calibration_activations
+load_capture_activations = capture_module.load_capture_activations
 
 _HIDDEN = 32
 _INTERMEDIATE = 64
@@ -534,8 +534,6 @@ class TestCaptureResume:
         output_dir = tmp_path / "capture"
         control_dir = tmp_path / "capture-control"
 
-        import axquant.capture as capture_module
-
         real_replay = capture_module._replay_segment
         calls = {"count": 0}
 
@@ -600,8 +598,6 @@ class TestCaptureResume:
         _write_tiny_llama(model_dir)
         output_dir = tmp_path / "capture"
 
-        import axquant.capture as capture_module
-
         real_replay = capture_module._replay_segment
         calls = {"count": 0}
 
@@ -641,8 +637,6 @@ class TestCaptureResume:
         model_dir = tmp_path / "tiny-llama"
         _write_tiny_llama(model_dir)
         output_dir = tmp_path / "capture"
-
-        import axquant.capture as capture_module
 
         real_replay = capture_module._replay_segment
         calls = {"count": 0}
@@ -744,7 +738,7 @@ class TestActivationRowsF16:
 
     def test_bfloat16_mlx_array_converts_to_fp16_rows(self) -> None:
         mx = pytest.importorskip("mlx.core")
-        from axquant.capture import _activation_rows_f16
+        _activation_rows_f16 = capture_module._activation_rows_f16
 
         x = mx.array([[1.5, -2.25], [3.0, 4.5]], dtype=mx.bfloat16)
         rows = _activation_rows_f16(mx, x)

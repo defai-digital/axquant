@@ -265,11 +265,11 @@ def replay_measured_plan(
     warnings.extend(
         [
             "Measured precision allocation replayed with exact tensor, candidate-signature, "
-            "metric, and objective-loss matching against the bound sensitivity report.",
+            + "metric, and objective-loss matching against the bound sensitivity report.",
             f"Measured plan replay source file SHA-256: {source_file_sha256}.",
             f"Measured plan replay source analysis SHA-256: {source.analysis_sha256}.",
             "Replayed candidates still require complete-model quality, runtime, size, and MTP "
-            "validation; replay does not promote or waive any release gate.",
+            + "validation; replay does not promote or waive any release gate.",
         ]
     )
     replayed = source.model_copy(

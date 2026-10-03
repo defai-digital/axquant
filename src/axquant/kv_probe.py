@@ -49,11 +49,9 @@ class KvProbeBackend(Protocol):
 
     def load_model(self, model_dir: Path) -> None:
         """Load the source model into memory."""
-        ...
 
     def quantizable_layers(self) -> set[int]:
         """Layer indices whose KV cache supports quantization."""
-        ...
 
     def forward_logits(
         self,
@@ -68,7 +66,6 @@ class KvProbeBackend(Protocol):
         (and ``None``) use the model's default cache. Returns logits as a
         numpy-compatible array of shape ``(1, positions, vocab)``.
         """
-        ...
 
 
 class MlxKvProbeBackend:

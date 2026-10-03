@@ -144,7 +144,6 @@ class ProbeBackend(Protocol):
 
     def load_model(self, model_dir: Path) -> None:
         """Load the source model into memory."""
-        ...
 
     def quantize_module(
         self,
@@ -154,15 +153,12 @@ class ProbeBackend(Protocol):
         method: QuantMethod = QuantMethod.AFFINE,
     ) -> None:
         """Quantize a single module in-place."""
-        ...
 
     def restore_module(self, module_path: str) -> None:
         """Restore a module to its original unquantized state."""
-        ...
 
     def forward(self, input_ids: Any) -> ForwardResult:
         """Run a forward pass and capture outputs."""
-        ...
 
 
 class MtpForwardBackend(Protocol):
@@ -179,7 +175,6 @@ class MtpForwardBackend(Protocol):
 
     def forward_mtp(self, input_ids: Any, hidden_states: Any) -> MtpForwardResult:
         """Draft-token logits of the MTP block teacher-forced with trunk hidden states."""
-        ...
 
 
 def _mtp_forward_capability(backend: ProbeBackend) -> MtpForwardBackend | None:
@@ -1410,7 +1405,7 @@ def _module_group_for_tensor(tensor_name: str) -> str | None:
                 if i + 2 < len(parts):
                     return ".".join(parts[: i + 3])
             except ValueError:
-                pass
+                continue
     return None
 
 

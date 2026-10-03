@@ -598,7 +598,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     {
-        "download": lambda: cmd_download(),
+        "download": cmd_download,
         "convert": lambda: cmd_convert(args.pack),
         "quality": lambda: cmd_quality(args.pack),
         "runtime": lambda: cmd_runtime(args.pack),

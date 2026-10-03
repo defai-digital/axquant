@@ -368,7 +368,6 @@ def cmd_preflight() -> None:
     major = macos_major()
     mem = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
     mlx_ok = False
-    mlx_note = "mlx-vlm not importable"
     try:
         from mlx_vlm.models.minimax_m3.minimax_m3 import Model
         from mlx_vlm.models.minimax_m3_vl.language import MiniMaxAttention

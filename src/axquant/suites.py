@@ -322,7 +322,7 @@ def build_benchmark_suites(
             "Long-context tasks use deterministic synthetic records and hidden retrieval markers.",
             "Agent-coding and general runtime prompts are disjoint by task ID and file digest.",
             "General quality includes structured JSON and Python-syntax tasks so dual-profile "
-            "release validation always receives governed json_valid_rate and syntax_valid_rate.",
+            + "release validation always receives governed json_valid_rate and syntax_valid_rate.",
         ],
     )
     write_data(directory / "suite-manifest.json", manifest)

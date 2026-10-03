@@ -243,6 +243,7 @@ def _candidate_entry(
                     release_exception_allows_size(validation, plan=plan)
                     continue
                 except ValidationGateError:
+                    # Invalid exceptions retain the threshold violation below.
                     pass
             issues.append(f"validation comparison violates its release threshold: {metric}")
     string_comparisons = named_hardware - {"hardware.unified_memory_bytes"}

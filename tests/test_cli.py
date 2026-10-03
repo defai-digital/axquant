@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 import axquant.cli as cli_module
-from axquant.cli import _build_parser, main
 from axquant.schema import (
     ActivationCaptureManifest,
     ModelIdentity,
@@ -16,6 +15,9 @@ from axquant.schema import (
     TokenizedCacheManifest,
 )
 from axquant.serde import load_model, write_data
+
+_build_parser = cli_module._build_parser
+main = cli_module.main
 
 
 def test_name_command_uses_product_naming(capsys) -> None:

@@ -10,19 +10,6 @@ import axquant.refinement as refinement_module
 from axquant.errors import RefinementError
 from axquant.planner import plan_quantization
 from axquant.profiles import thresholds_for
-from axquant.refinement import (
-    _ax_engine_attention_packing_compatible,
-    _canonicalize_ax_engine_attention_packs,
-    _complete_objective_loss,
-    _compute_plan_loss,
-    _is_monotonic_precision_refinement,
-    build_complete_candidate_measurement,
-    coordinate_descent_swap,
-    generate_top_n_plans,
-    optimize_candidate_interactions,
-    refine_candidates,
-    select_complete_candidate,
-)
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -44,6 +31,18 @@ from axquant.schema import (
     TensorSpec,
 )
 from axquant.serde import stable_sha256
+
+_ax_engine_attention_packing_compatible = refinement_module._ax_engine_attention_packing_compatible
+_canonicalize_ax_engine_attention_packs = refinement_module._canonicalize_ax_engine_attention_packs
+_complete_objective_loss = refinement_module._complete_objective_loss
+_compute_plan_loss = refinement_module._compute_plan_loss
+_is_monotonic_precision_refinement = refinement_module._is_monotonic_precision_refinement
+build_complete_candidate_measurement = refinement_module.build_complete_candidate_measurement
+coordinate_descent_swap = refinement_module.coordinate_descent_swap
+generate_top_n_plans = refinement_module.generate_top_n_plans
+optimize_candidate_interactions = refinement_module.optimize_candidate_interactions
+refine_candidates = refinement_module.refine_candidates
+select_complete_candidate = refinement_module.select_complete_candidate
 
 _ARTIFACT_SHA = "a" * 64
 _QUALITY_SHA = "b" * 64

@@ -171,22 +171,18 @@ class QuantizerPlugin(Protocol):
     @property
     def method_id(self) -> QuantMethod:
         """The quantization method this plugin implements."""
-        ...
 
     @property
     def supported_bits(self) -> tuple[int, ...]:
         """Supported bit widths."""
-        ...
 
     @property
     def supported_group_sizes(self) -> tuple[int, ...]:
         """Supported group sizes."""
-        ...
 
     @property
     def requires_calibration(self) -> bool:
         """Whether this plugin requires calibration data."""
-        ...
 
     def quantize(
         self,
@@ -197,11 +193,9 @@ class QuantizerPlugin(Protocol):
         calibration: Any | None = None,
     ) -> QuantizedWeight:
         """Quantize a weight tensor."""
-        ...
 
     def dequantize(self, quantized: QuantizedWeight) -> Any:
         """Dequantize back to full precision."""
-        ...
 
 
 class _PluginRegistry:

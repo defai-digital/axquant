@@ -5,16 +5,11 @@ from pathlib import Path
 
 import pytest
 
+import axquant.recipes as recipes
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import ArtifactError
 from axquant.inspector import inspect_model
 from axquant.planner import plan_quantization
-from axquant.recipes import (
-    SOURCE_BINDING_LINEAGE_KEY,
-    export_recipe_bundle,
-    load_recipe_bundle,
-    resolve_recipe_plan,
-)
 from axquant.schema import (
     EvidenceKind,
     Inventory,
@@ -30,6 +25,11 @@ from axquant.source_binding import (
     source_binding_issues,
     write_source_plan_binding,
 )
+
+SOURCE_BINDING_LINEAGE_KEY = recipes.SOURCE_BINDING_LINEAGE_KEY
+export_recipe_bundle = recipes.export_recipe_bundle
+load_recipe_bundle = recipes.load_recipe_bundle
+resolve_recipe_plan = recipes.resolve_recipe_plan
 
 _SOURCE_REVISION = "a" * 40
 _OTHER_REVISION = "b" * 40
@@ -317,7 +317,7 @@ def _fake_hub(remote_root: Path, *, expected_revision: str):
 
 
 def test_remote_bundle_resolution_requires_revision_pin() -> None:
-    from axquant.recipes import _parse_remote_reference
+    _parse_remote_reference = recipes._parse_remote_reference
 
     with pytest.raises(ArtifactError, match="pin a revision"):
         _parse_remote_reference("hf://AutomatosX/AX-Model")
@@ -346,7 +346,6 @@ def test_remote_bundle_resolves_and_verifies(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import axquant.recipes as recipes
 
     inventory = _inventory(qwen36_model_dir)
     plan_path = tmp_path / "plan.json"
@@ -376,7 +375,6 @@ def test_remote_bundle_download_failure_is_artifact_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import axquant.recipes as recipes
 
     monkeypatch.setattr(
         recipes,

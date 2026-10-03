@@ -532,7 +532,7 @@ def cmd_write_certs() -> None:
         "notes": [
             f"Checkpoint Tier 1 on host id {HOST_ID}.",
             "AXQ-MXFP4-MTP: attention+MLP native MXFP4; embed/lm_head 8-bit affine; "
-            "vision/norms/MTP BF16-protected.",
+            + "vision/norms/MTP BF16-protected.",
             "Quality vs same-pin full BF16 (MTP present); size vs no-MTP uniform MXFP4.",
             "Adapter qwen38-dense-v1 — not the Qwen 3.6 flagship track.",
             "Vision BF16-protected; VLM quality not claimed.",
@@ -600,8 +600,8 @@ def cmd_write_certs() -> None:
                 "## Tier 2 status",
                 "",
                 "MTP weights are packaged (BF16-protected). Scoped acceleration is "
-                "**not certified** on this record. Product default remains direct decode "
-                "until a revision-bound Tier 2 certificate exists.",
+                + "**not certified** on this record. Product default remains direct decode "
+                + "until a revision-bound Tier 2 certificate exists.",
                 "",
                 f"Machine-readable: [{CERT_STEM}.json]({CERT_STEM}.json).",
                 "",

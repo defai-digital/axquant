@@ -9,13 +9,13 @@ import numpy as np
 import pytest
 from safetensors.numpy import save_file
 
+import axquant.grafted_mtp as grafted_mtp
 from axquant.errors import ArtifactError
-from axquant.grafted_mtp import (
-    QWEN35_MOE_PACKED_MTP_SHAPES,
-    compose_grafted_mtp_onto_pack,
-    prepare_grafted_qwen_moe_mtp,
-)
 from axquant.schema import ModelIdentity
+
+QWEN35_MOE_PACKED_MTP_SHAPES = grafted_mtp.QWEN35_MOE_PACKED_MTP_SHAPES
+compose_grafted_mtp_onto_pack = grafted_mtp.compose_grafted_mtp_onto_pack
+prepare_grafted_qwen_moe_mtp = grafted_mtp.prepare_grafted_qwen_moe_mtp
 
 
 def _tiny_shapes(
@@ -134,7 +134,6 @@ def test_prepare_grafted_qwen_moe_mtp_packs_unpacked_experts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pytest.importorskip("mlx.core")
-    import axquant.grafted_mtp as grafted_mtp
 
     experts, hidden, inter = 2, 4, 3
     shapes = _tiny_shapes(experts=experts, hidden=hidden, inter=inter)
@@ -192,7 +191,6 @@ def test_prepare_grafted_rejects_incomplete_experts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pytest.importorskip("mlx.core")
-    import axquant.grafted_mtp as grafted_mtp
 
     shapes = _tiny_shapes(experts=2)
     monkeypatch.setattr(grafted_mtp, "QWEN35_MOE_PACKED_MTP_SHAPES", shapes)
@@ -216,7 +214,6 @@ def test_compose_grafted_mtp_onto_pack_copies_sidecar_and_flags(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pytest.importorskip("mlx.core")
-    import axquant.grafted_mtp as grafted_mtp
 
     shapes = _tiny_shapes()
     monkeypatch.setattr(grafted_mtp, "QWEN35_MOE_PACKED_MTP_SHAPES", shapes)
@@ -264,7 +261,6 @@ def test_compose_grafted_mtp_onto_pack_copies_sidecar_and_flags(
 
 def test_compose_rejects_existing_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("mlx.core")
-    import axquant.grafted_mtp as grafted_mtp
 
     monkeypatch.setattr(grafted_mtp, "QWEN35_MOE_PACKED_MTP_SHAPES", _tiny_shapes())
     donor_dir = tmp_path / "donor"

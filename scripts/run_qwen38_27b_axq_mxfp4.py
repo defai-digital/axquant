@@ -530,7 +530,7 @@ def cmd_write_certs() -> None:
         "notes": [
             f"Checkpoint Tier 1 on host id {HOST_ID}.",
             "AXQ-MXFP4: attention+MLP native MXFP4; embed/lm_head 8-bit affine; "
-            "vision/norms/MTP protected.",
+            + "vision/norms/MTP protected.",
             "Quality vs same-pin no-MTP BF16; size vs local uniform MXFP4.",
             "Adapter qwen38-dense-v1 — not the Qwen 3.6 flagship track.",
             "Vision BF16-protected; VLM quality not claimed.",

@@ -623,7 +623,7 @@ def cmd_write_certs() -> None:
         "notes": [
             f"Checkpoint Tier 1 on host id {FACTORY_HOST_ID}.",
             "AXQ-MXFP4: attention + fused expert/MLP native MXFP4; embed/router 8-bit affine; "
-            "norms/lm_head protected.",
+            + "norms/lm_head protected.",
             "Quality vs matched uniform MXFP4 when available, else mlx-community 4-bit.",
             f"Adapter {ADAPTER_ID}.",
             "No MTP acceleration claim; source has no declared MTP weights.",

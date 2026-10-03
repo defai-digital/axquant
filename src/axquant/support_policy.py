@@ -463,7 +463,7 @@ def support_policy_markdown() -> str:
             "1. Two doors: simple convert = development; release = measured + audit.",
             "2. Primary cert track is Qwen 3.6 + AX Engine.",
             "3. SSD expert streaming is an explicit Super-class path for packs that exceed "
-            "target unified memory.",
+            + "target unified memory.",
             "4. Keep Nemotron thin (Nano only); Super/Ultra need their own stream convert.",
             "5. Never copy mlx-optiq or inherit quality/certification claims by association.",
             "6. Never upgrade evidence_kind automatically.",

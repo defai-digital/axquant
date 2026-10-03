@@ -98,6 +98,7 @@ def _ax_engine_version(executable: str) -> str | None:
             if top_level is not None and str(top_level).strip():
                 return str(top_level).strip()
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        # Older engines may only expose a version through their standalone CLI.
         pass
     return standalone_executable_version(executable)
 

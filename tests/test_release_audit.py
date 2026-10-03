@@ -1984,7 +1984,6 @@ def test_release_audit_binds_packaged_awq_capture_manifest(tmp_path: Path) -> No
         manifest=capture_manifest,
         activations={},
     )
-    capture_manifest = capture.manifest
     binding = activation_capture_metadata(capture)
     sensitivity.calibration.metadata.update(binding)
     plan.calibration.metadata.update(binding)

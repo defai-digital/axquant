@@ -10,10 +10,14 @@ import numpy as np
 import pytest
 from safetensors.numpy import save_file
 
+import axquant.feasibility as feasibility
 from axquant.cli import main
-from axquant.feasibility import ArtifactTarget, assess_feasibility, audit_artifact
 from axquant.schema import BaselineKind, FeasibilityReport
 from axquant.serde import file_sha256, load_model
+
+ArtifactTarget = feasibility.ArtifactTarget
+assess_feasibility = feasibility.assess_feasibility
+audit_artifact = feasibility.audit_artifact
 
 
 def _qwen_config(bits: int | None = None) -> dict[str, object]:
@@ -268,7 +272,6 @@ def test_baseline_audit_resolves_the_requested_revision(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import axquant.feasibility as feasibility
 
     model_dir = _quantized_baseline(tmp_path, 4)
     revision = "a" * 40

@@ -9,10 +9,6 @@ from pydantic import ValidationError
 import axquant.expert_stream as expert_stream
 from axquant.cli._parser import _build_parser
 from axquant.errors import PlanningError
-from axquant.expert_stream import (
-    build_expert_stream_manifest,
-    validate_expert_stream_request,
-)
 from axquant.runtime import build_runtime_metadata
 from axquant.schema import (
     ArchitectureProfile,
@@ -25,6 +21,9 @@ from axquant.schema import (
 )
 from axquant.schema.registry import schema_entry
 from axquant.serde import load_model, write_data
+
+build_expert_stream_manifest = expert_stream.build_expert_stream_manifest
+validate_expert_stream_request = expert_stream.validate_expert_stream_request
 
 
 def _tensor(

@@ -50,10 +50,10 @@ def test_find_inflight_flash_next_converts_ignores_other_jobs(
         [
             "  11 /usr/bin/ssh um-macstudio-m2",
             "  22 /Volumes/Ext16TR0/axquant-venv/bin/python -m axquant convert "
-            "--model /Volumes/Ext16TR0/models/Qwen3.8-Flash-Next "
-            "--output /Volumes/Ext16TR0/models/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
+            + "--model /Volumes/Ext16TR0/models/Qwen3.8-Flash-Next "
+            + "--output /Volumes/Ext16TR0/models/AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP",
             "  33 /Volumes/Ext16TR0/axquant-venv/bin/python -m axquant convert "
-            "--model /data/Qwen3.6-27B --output /data/out",
+            + "--model /data/Qwen3.6-27B --output /data/out",
             "  44 /bin/bash scripts/retry_qwen38_flash_next_packs.sh",
         ]
     )

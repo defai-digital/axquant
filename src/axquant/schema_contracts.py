@@ -34,8 +34,6 @@ from axquant.schema.registry import (
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_DEFAULT_SCHEMAS_DIR = _REPO_ROOT / "schemas"
-_DEFAULT_CATALOG = _REPO_ROOT / "docs" / "guides" / "schema-catalog.md"
 _MANIFEST_NAME = "manifest.json"
 
 # Drop documentation-only keys so Pydantic docstring/title churn is not a freeze break.

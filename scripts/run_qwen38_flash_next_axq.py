@@ -492,8 +492,8 @@ def cmd_download() -> None:
                 str(py),
                 "-c",
                 "import hf_xet, os, sys; "
-                "assert os.environ.get('HF_XET_HIGH_PERFORMANCE')=='1'; "
-                "print('hf-xet', hf_xet.__file__)",
+                + "assert os.environ.get('HF_XET_HIGH_PERFORMANCE')=='1'; "
+                + "print('hf-xet', hf_xet.__file__)",
             ],
             WORK / "logs" / "download-xet-preflight.log",
         )

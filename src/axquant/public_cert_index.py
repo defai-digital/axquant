@@ -33,8 +33,6 @@ END_MARKER = "<!-- END:AXQUANT_CERTIFICATION_MATRIX -->"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_CERT_DIR = _REPO_ROOT / "docs" / "certifications"
-_DEFAULT_INDEX = _DEFAULT_CERT_DIR / "README.md"
-_DEFAULT_RELEASE_MATRIX = _REPO_ROOT / "docs" / "releases" / "certification-matrix.md"
 
 _GITHUB_CERT_BASE = "https://github.com/defai-digital/axquant/blob/main/docs/certifications"
 
@@ -373,9 +371,9 @@ def _tier2_scope_note(rows: list[PublicCertRow], *, link_prefix: str) -> list[st
     return [
         "",
         "**Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted "
-        "decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named "
-        "authorizing workloads, measured on the host and AX Engine build recorded in that "
-        "certificate.",
+        + "decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named "
+        + "authorizing workloads, measured on the host and AX Engine build recorded in that "
+        + "certificate.",
         "",
         f"{binding} Certified records are historical and are not re-certified for later AX "
         "Engine releases.",
@@ -473,7 +471,7 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "",
         (
             "| Pack family | Hub repository | Edition | Tier 1 (quality) | "
-            "Tier 2 (MTP -- Scoped) | Host | In headline matrix |"
+            + "Tier 2 (MTP -- Scoped) | Host | In headline matrix |"
         ),
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]

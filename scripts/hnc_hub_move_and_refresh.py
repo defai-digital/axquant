@@ -62,7 +62,7 @@ def _head_redirect(url: str) -> tuple[int, str | None]:
         location = exc.headers.get("Location") if exc.headers is not None else None
         return int(exc.code), location
     except URLError as exc:
-        _die(f"HEAD {url} failed: {exc}")
+        return _die(f"HEAD {url} failed: {exc}")
 
 
 def _expect_suffix_fail(leaf: str, filenames: list[str]) -> str:
@@ -70,7 +70,7 @@ def _expect_suffix_fail(leaf: str, filenames: list[str]) -> str:
         require_mtp_suffix_matches_packaging(leaf, filenames=filenames)
     except ArtifactError as exc:
         return str(exc)
-    _die(f"{leaf} unexpectedly passed the MTP suffix lint")
+    return _die(f"{leaf} unexpectedly passed the MTP suffix lint")
 
 
 def _preflight(api: HfApi) -> tuple[str, list[str]]:
@@ -99,7 +99,7 @@ def _preflight(api: HfApi) -> tuple[str, list[str]]:
         require_mtp_suffix_matches_packaging(TO_ID.rsplit("/", 1)[-1], filenames=files)
         print("already moved; card refresh only", flush=True)
         return "refresh", files
-    _die(f"neither {FROM_ID} nor {TO_ID} exists")
+    return _die(f"neither {FROM_ID} nor {TO_ID} exists")
 
 
 def _apply(api: HfApi, action: str) -> None:

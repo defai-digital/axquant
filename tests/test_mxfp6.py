@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from safetensors import safe_open
 from safetensors.numpy import save_file
 
+import axquant.mxfp6_export as exporter
 from axquant.cli import main
 from axquant.errors import ArtifactError, PlanningError, QuantizerError
 from axquant.inspector import inspect_model
@@ -23,11 +24,14 @@ from axquant.mxfp6 import (
     quantize_mxfp6,
     unpack_fp6,
 )
-from axquant.mxfp6_export import MANIFEST_NAME, export_mxfp6, load_mxfp6_tensor
 from axquant.schema import ManualPlanRecipe, QuantMethod, TensorRole
 from axquant.schema.mxfp6 import Mxfp6File, Mxfp6PackManifest
 from axquant.serde import file_sha256, write_data
 from axquant.source_binding import build_source_plan_binding, write_source_plan_binding
+
+MANIFEST_NAME = exporter.MANIFEST_NAME
+export_mxfp6 = exporter.export_mxfp6
+load_mxfp6_tensor = exporter.load_mxfp6_tensor
 
 
 def _positive_fp6_values(element_format):
@@ -196,7 +200,6 @@ def _export(source_and_plan, output, **kwargs):
 def test_export_readback_preserves_protected_tensors_and_mtp_bytes(
     source_and_plan, tmp_path, element_format, monkeypatch
 ):
-    import axquant.mxfp6_export as exporter
 
     # Force multiple chunks instead of covering only the single-chunk path.
     monkeypatch.setattr(exporter, "_CHUNK_BYTES", 256)
@@ -262,7 +265,6 @@ def test_protected_assignment_and_incompatible_bits_rejected(source_and_plan, tm
 
 
 def test_atomic_failure_cleanup_and_existing_destination(source_and_plan, tmp_path, monkeypatch):
-    import axquant.mxfp6_export as exporter
 
     def fail(*args, **kwargs):
         raise ArtifactError("injected I/O failure")

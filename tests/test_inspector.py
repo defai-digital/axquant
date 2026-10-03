@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from safetensors.numpy import save_file
 
+import axquant.inspector as inspector_module
 from axquant.errors import ArtifactError
-from axquant.inspector import classify_tensor, inspect_model
 from axquant.schema import (
     ArchitectureSupportLevel,
     OptimizationScope,
@@ -16,6 +16,9 @@ from axquant.schema import (
     TensorRole,
 )
 from axquant.serde import write_data
+
+classify_tensor = inspector_module.classify_tensor
+inspect_model = inspector_module.inspect_model
 
 
 def test_classifies_supported_tensor_roles() -> None:
@@ -273,8 +276,6 @@ def test_supported_adapter_downgrades_for_unclassified_tensor(
 
 def test_nemotron_moegate_is_not_quantizable(tmp_path: Path) -> None:
     """Nemotron-H MoEGate has no MLX to_quantized(); keep it BF16 in plans."""
-    import json
-
     import numpy as np
     from safetensors.numpy import save_file
 
@@ -414,7 +415,6 @@ def test_supported_moe_downgrades_when_fused_expert_coverage_drifts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import axquant.inspector as inspector_module
     from axquant.architectures.registry import adapter_for
 
     model_dir = tmp_path / "Qwen3-Coder-Next"

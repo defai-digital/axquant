@@ -385,7 +385,6 @@ def _ensure_collection(api: HfApi, spec: Spec) -> str:
 
 def _sync_items(api: HfApi, slug: str, spec: Spec) -> None:
     collection = _retry(lambda: api.get_collection(slug))
-    by_id = {item.item_id: item for item in collection.items}
     desired = [item.repo for item in spec.items]
     desired_set = set(desired)
 

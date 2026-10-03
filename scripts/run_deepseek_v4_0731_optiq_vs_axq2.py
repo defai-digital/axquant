@@ -570,8 +570,8 @@ def cmd_report() -> None:
             "| Protocol | Greedy, temperature `0`, thinking off, factory development suites |",
             "",
             "Product question: on the same Mac Studio, how does the mlx-community "
-            "OptiQ 2-bit streaming pack compare to the AXQuant 1.9.0 AXQ 2-bit resident "
-            "pack for short QA and decode speed?",
+            + "OptiQ 2-bit streaming pack compare to the AXQuant 1.9.0 AXQ 2-bit resident "
+            + "pack for short QA and decode speed?",
             "",
             f"**Short answer:** factory-suite mean score AXQ `{a_mean:.3f}` vs OptiQ "
             f"`{o_mean:.3f}`. Speed is native-runtime: AXQ resident mlx-lm vs OptiQ "
@@ -619,15 +619,15 @@ def cmd_report() -> None:
             "",
             "- This is **not** checkpoint Tier 1 and **not** a retention-vs-BF16 claim.",
             "- AXQ 0731 2-bit remains **not certified** (dual-suite viability was "
-            "previously skipped; AX Engine manifest fails on fused gate+up).",
+            + "previously skipped; AX Engine manifest fails on fused gate+up).",
             "- OptiQ streams routed experts from SSD; AXQ keeps the expert table "
-            "resident. Speed is not a same-kernel A/B.",
+            + "resident. Speed is not a same-kernel A/B.",
             "- Suites: `development-agent-coding` and `development-general` on Ext16TR0.",
             "",
             "Runner: [`scripts/run_deepseek_v4_0731_optiq_vs_axq2.py`]"
-            "(../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).",
+            + "(../scripts/run_deepseek_v4_0731_optiq_vs_axq2.py).",
             "Raw JSON: [`docs/eval/deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2/`]"
-            "(eval/deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2/).",
+            + "(eval/deepseek-v4-flash-0731-optiq2-vs-axq2-v190-macstudio-m2/).",
             "",
         ]
     )

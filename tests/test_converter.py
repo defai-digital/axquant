@@ -12,6 +12,7 @@ from safetensors.numpy import save_file
 
 import axquant.converter as converter
 import axquant.multimodal_backend as multimodal_backend
+import axquant.predicate as predicate_module
 from axquant.analyzer import architecture_prior_report
 from axquant.capture_binding import (
     CAPTURE_MANIFEST_SHA256_KEY,
@@ -23,7 +24,6 @@ from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.module_paths import fused_expert_module
 from axquant.planner import plan_quantization
-from axquant.predicate import build_quant_predicate
 from axquant.schema import (
     ActivationCaptureManifest,
     ArtifactManifest,
@@ -42,6 +42,8 @@ from axquant.schema import (
 )
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.source_binding import build_source_plan_binding
+
+build_quant_predicate = predicate_module.build_quant_predicate
 
 
 def test_qwen_requantization_preserves_exact_tokenizer_assets(
@@ -891,7 +893,6 @@ def test_awq_convert_preflight_and_predicate_are_executable(
         _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
 
     # Use the real portable refine path for AWQ modules (numpy weights; no MLX required).
-    import axquant.predicate as predicate_module
     from axquant.awq import refine_weight_with_awq
 
     def _apply_numpy_awq(
@@ -1031,7 +1032,6 @@ def test_gptq_convert_preflight_and_predicate_are_executable(
         _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
 
     # Use the real portable refine path for GPTQ modules (numpy weights; no MLX required).
-    import axquant.predicate as predicate_module
     from axquant.gptq import learn_gptq_refined_weight
 
     def _apply_numpy_gptq(
@@ -2760,8 +2760,9 @@ def test_convert_time_omlx_annotation_skips_non_lightning_sidecars(tmp_path: Pat
     assert not (staging / "axquant_omlx_compat.json").exists()
 
 
+@pytest.mark.parametrize("fsync_fails", [False, True])
 def test_publish_staging_dir_fsyncs_parent_entry(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fsync_fails: bool
 ) -> None:
     staging = tmp_path / "staging"
     staging.mkdir()
@@ -2769,13 +2770,26 @@ def test_publish_staging_dir_fsyncs_parent_entry(
     output = tmp_path / "output"
     opened: list[str] = []
     fsynced: list[int] = []
+    closed: list[int] = []
     real_open = converter.os.open
-    monkeypatch.setattr(
-        converter.os,
-        "open",
-        lambda path, *args: (opened.append(str(path)), real_open(path, *args))[1],
-    )
-    monkeypatch.setattr(converter.os, "fsync", lambda descriptor: fsynced.append(descriptor))
+    real_close = converter.os.close
+
+    def tracked_open(path, *args):
+        opened.append(str(path))
+        return real_open(path, *args)
+
+    def tracked_fsync(descriptor):
+        fsynced.append(descriptor)
+        if fsync_fails:
+            raise OSError("injected directory fsync failure")
+
+    def tracked_close(descriptor):
+        closed.append(descriptor)
+        real_close(descriptor)
+
+    monkeypatch.setattr(converter.os, "open", tracked_open)
+    monkeypatch.setattr(converter.os, "fsync", tracked_fsync)
+    monkeypatch.setattr(converter.os, "close", tracked_close)
 
     converter._publish_staging_dir(staging, output)
 
@@ -2783,6 +2797,9 @@ def test_publish_staging_dir_fsyncs_parent_entry(
     assert (output / "model.safetensors").read_bytes() == b"weights"
     assert opened == [str(tmp_path)]
     assert len(fsynced) == 1
+    assert closed == fsynced
+    with pytest.raises(OSError):
+        converter.os.fstat(closed[0])
 
 
 def test_publish_staging_dir_rejects_preexisting_output(tmp_path: Path) -> None:

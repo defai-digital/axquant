@@ -201,10 +201,10 @@ class Qwen35MoeAdapter:
         vision_present = isinstance(config.get("vision_config"), dict)
         notes = [
             "AXQuant optimizes the Qwen3.5-class MoE language path only "
-            "(development convert; not the Qwen 3.6 certification track).",
+            + "(development convert; not the Qwen 3.6 certification track).",
             "Vision tensors are preserved at BF16 and VLM quality is not claimed.",
             "Validated sizes: 35B-A3B (Ornith-1.0-35B, Ornith-1.5-35B-A3B, "
-            "Holo3-35B-A3B, Holo-3.1-35B-A3B) and 397B (Ornith-1.5-397B).",
+            + "Holo3-35B-A3B, Holo-3.1-35B-A3B) and 397B (Ornith-1.5-397B).",
         ]
         if supported:
             notes.append(

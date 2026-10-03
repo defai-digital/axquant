@@ -89,7 +89,6 @@ _NO_DISTINCT_4BIT_SIBLING_REASONS: dict[str, str] = {
         "names, so only this 6bit pack is published."
     ),
 }
-_NO_DISTINCT_4BIT_SIBLING_STEMS = frozenset(_NO_DISTINCT_4BIT_SIBLING_REASONS)
 
 
 def _resolve_artifact_edition(

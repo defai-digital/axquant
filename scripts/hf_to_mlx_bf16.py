@@ -137,6 +137,7 @@ def _prepare_with_prefix(snapshot: Path, prepared: Path) -> Path:
                 if isinstance(original.get("metadata"), dict):
                     index["metadata"] = {**original["metadata"], **index["metadata"]}
             except json.JSONDecodeError:
+                # Keep the scanned tensor index when optional source metadata is malformed.
                 pass
         (prepared / "model.safetensors.index.json").write_text(
             json.dumps(index, indent=2, sort_keys=True) + "\n",

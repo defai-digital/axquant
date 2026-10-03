@@ -17,6 +17,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import axquant.capture as capture_module
+
 pytest.importorskip("mlx.core")
 pytest.importorskip("mlx_lm")
 
@@ -24,12 +26,6 @@ import test_capture as _tc
 from safetensors import safe_open
 
 from axquant.activation_cache import tokenize_calibration
-from axquant.capture import (
-    CAPTURE_ACTIVATIONS_DIR,
-    CAPTURE_MANIFEST_NAME,
-    capture_calibration_activations,
-    load_capture_activations,
-)
 from axquant.converter import convert_model
 from axquant.errors import CaptureError, PlanningError
 from axquant.inspector import inspect_model
@@ -50,6 +46,11 @@ from axquant.schema import (
 from axquant.schema.sensitivity import SensitivityReport
 from axquant.serde import load_model, write_data
 from axquant.source_binding import build_source_plan_binding
+
+CAPTURE_ACTIVATIONS_DIR = capture_module.CAPTURE_ACTIVATIONS_DIR
+CAPTURE_MANIFEST_NAME = capture_module.CAPTURE_MANIFEST_NAME
+capture_calibration_activations = capture_module.capture_calibration_activations
+load_capture_activations = capture_module.load_capture_activations
 
 pytestmark = [
     pytest.mark.integration,
@@ -290,8 +291,6 @@ def test_capture_resume_matches_uninterrupted(
     cache_dir = _tokenize(tmp_path, sequence_length=16, name="cache-multi")
     output_dir = tmp_path / "capture"
     control_dir = tmp_path / "capture-control"
-
-    import axquant.capture as capture_module
 
     real_replay = capture_module._replay_segment
     calls = {"count": 0}

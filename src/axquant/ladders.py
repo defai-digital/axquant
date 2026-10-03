@@ -160,7 +160,7 @@ def ladder_markdown(ladders: list[ConvertLadder] | None = None) -> str:
         "# AXQuant convert ladders",
         "",
         "Progress from fast architecture-prior development converts to measured, "
-        "refined release candidates. Evidence labels never upgrade automatically.",
+        + "refined release candidates. Evidence labels never upgrade automatically.",
         "",
         "| Ladder | Evidence | Target BPW | Bits | Groups | Methods | Rel. cost | Needs cal |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",

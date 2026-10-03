@@ -8,7 +8,6 @@ from pydantic import ValidationError
 import axquant.planner as planner_module
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
-from axquant.planner import plan_quantization, storage_bpw
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -29,6 +28,9 @@ from axquant.schema import (
     TensorRole,
     TensorSpec,
 )
+
+plan_quantization = planner_module.plan_quantization
+storage_bpw = planner_module.storage_bpw
 
 
 def _tensor(
@@ -413,7 +415,7 @@ def test_infeasible_protection_budget_fails() -> None:
 
 
 def test_kv_cache_allocator_covers_layers_with_boundary_floor() -> None:
-    from axquant.planner import allocate_kv_cache
+    allocate_kv_cache = planner_module.allocate_kv_cache
 
     plan = allocate_kv_cache(20, default_bits=4, group_size=64)
     assert plan.allocation_basis == "architecture-prior"
@@ -428,7 +430,7 @@ def test_kv_cache_allocator_covers_layers_with_boundary_floor() -> None:
 
 
 def test_kv_cache_allocator_rejects_invalid_inputs() -> None:
-    from axquant.planner import allocate_kv_cache
+    allocate_kv_cache = planner_module.allocate_kv_cache
 
     with pytest.raises(PlanningError, match="positive text layer count"):
         allocate_kv_cache(0)

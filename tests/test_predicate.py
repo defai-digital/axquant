@@ -15,7 +15,6 @@ from axquant.module_paths import (
     mlx_tensor_binding_groups,
 )
 from axquant.planner import plan_quantization
-from axquant.predicate import PlanPredicate, build_quant_predicate
 from axquant.schema import (
     Allocation,
     Inventory,
@@ -28,6 +27,9 @@ from axquant.schema import (
     TensorRole,
     TensorSpec,
 )
+
+PlanPredicate = predicate_module.PlanPredicate
+build_quant_predicate = predicate_module.build_quant_predicate
 
 
 def _mlp_plan(*, shape: tuple[int, int] = (64, 64), method: QuantMethod = QuantMethod.AFFINE):

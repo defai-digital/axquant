@@ -652,7 +652,7 @@ def cmd_write_certs(spec: dict[str, Any]) -> None:
         "notes": [
             f"Checkpoint Tier 1 on host id {FACTORY_HOST_ID}.",
             "AXQ-MXFP4: attention + expert/MLP native MXFP4; embed/router 8-bit affine; "
-            "vision/norms/lm_head protected.",
+            + "vision/norms/lm_head protected.",
             "Quality vs matched uniform MXFP4 when mlx-lm can load the family.",
             f"Adapter {spec['adapter_id']}.",
             "Vision BF16-protected; VLM quality not claimed.",

@@ -610,7 +610,7 @@ def diagnose_joint_interaction(
         _BETA_NOTE,
         "Independent planning is still used for each grid cell; this is not a joint solver.",
         "I(W, KV) is only defined when the BF16 baseline and three treatment evaluations "
-        "are supplied.",
+        + "are supplied.",
         "Memory feasibility is analytical (estimated weights + KV + reserve), not measured RSS.",
     ]
     if kv_report is None:
@@ -893,7 +893,7 @@ def plan_joint_allocation(
     notes = [
         "plan-joint is a 1.9.0 development search. It is not a certificate.",
         "I is a gate: small keeps the 1.8 independent plan; material ranks "
-        "feasible WeightPlan x KVPlan cells with a coupled proxy.",
+        + "feasible WeightPlan x KVPlan cells with a coupled proxy.",
     ]
     independent = None
     independent_plan = None

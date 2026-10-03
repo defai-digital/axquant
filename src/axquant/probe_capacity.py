@@ -51,7 +51,7 @@ def _read_available_memory_bytes(explicit: int | None) -> int | None:
         ):
             return page_size * phys_pages
     except (AttributeError, OSError, ValueError):
-        pass
+        return None
     return None
 
 

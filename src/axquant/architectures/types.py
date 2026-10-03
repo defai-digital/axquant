@@ -12,8 +12,11 @@ class ArchitectureAdapter(Protocol):
     # concrete profile may still downgrade to inspect-only (fail closed).
     declared_tier: SupportTier
 
-    def matches(self, model_reference: str, config: dict[str, Any]) -> bool: ...
+    def matches(self, model_reference: str, config: dict[str, Any]) -> bool:
+        """Return whether the source belongs to this architecture."""
 
-    def profile(self, model_reference: str, config: dict[str, Any]) -> ArchitectureProfile: ...
+    def profile(self, model_reference: str, config: dict[str, Any]) -> ArchitectureProfile:
+        """Describe the supported optimization scope and protection policy."""
 
-    def classify_tensor(self, name: str, source_file: str) -> TensorRole | None: ...
+    def classify_tensor(self, name: str, source_file: str) -> TensorRole | None:
+        """Return the tensor role recognized by this architecture."""

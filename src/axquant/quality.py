@@ -32,15 +32,20 @@ log = structlog.get_logger()
 
 
 class QualityBackend(Protocol):
-    def load_model(self, model: str, revision: str | None) -> None: ...
+    def load_model(self, model: str, revision: str | None) -> None:
+        """Load the source model at the requested revision."""
 
-    def perplexity_loss(self, text: str, max_length: int) -> tuple[float, int]: ...
+    def perplexity_loss(self, text: str, max_length: int) -> tuple[float, int]:
+        """Return aggregate token loss and the number of scored tokens."""
 
-    def generate(self, prompt: str, max_tokens: int, random_seed: int) -> str: ...
+    def generate(self, prompt: str, max_tokens: int, random_seed: int) -> str:
+        """Generate text with the supplied token limit and random seed."""
 
-    def generation_metadata(self) -> tuple[str, str | None]: ...
+    def generation_metadata(self) -> tuple[str, str | None]:
+        """Return the runtime engine name and version."""
 
-    def count_tokens(self, text: str) -> int: ...
+    def count_tokens(self, text: str) -> int:
+        """Return the token count under the loaded model tokenizer."""
 
 
 class MlxQualityBackend:

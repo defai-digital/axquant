@@ -744,8 +744,8 @@ def publish_model(
     if execute:
         if audit is None:
             raise PublishingError("executed publication requires a release audit")
-        if release_audit_request_path is None:
-            raise PublishingError("executed publication requires --release-audit-request")
+        # The request path was required before publication preparation above.
+        assert release_audit_request_path is not None
         _rerun_release_audit(audit=audit, request_path=release_audit_request_path)
         _require_release_audit(
             audit_path=release_audit_path,

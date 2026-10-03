@@ -3,7 +3,7 @@ from __future__ import annotations
 import heapq
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
@@ -90,7 +90,8 @@ class _Choice:
         return self.options[self.index]
 
 
-_PrecisionSignature = tuple[int, QuantMethod, int | None]
+_PrecisionSignature: TypeAlias = tuple[int, QuantMethod, int | None]
+_UnitFrontier: TypeAlias = list[tuple[_PrecisionSignature, list[int], float, float]]
 _UpgradeCandidate = tuple[float, int, float, int]
 
 
@@ -249,7 +250,6 @@ def _apply_fused_unit_upgrades(
         key = allocation_unit_key(choice.entry.tensor.module_path, choice.entry.tensor.name)
         groups.setdefault(key, []).append(choice)
 
-    _UnitFrontier = list[tuple[_PrecisionSignature, list[int], float, float]]
     units: list[tuple[str, list[_Choice], _UnitFrontier]] = []
     unit_index: dict[str, int] = {}
     selected_storage = 0.0
@@ -1096,14 +1096,14 @@ def plan_quantization(
     ]
     if ungrouped_choices:
         if allocation_units == "fused-module":
-            running_storage_bits = _apply_fused_unit_upgrades(
+            _apply_fused_unit_upgrades(
                 ungrouped_choices,
                 running_storage_bits=running_storage_bits,
                 target_storage_bits=target_storage_bits,
                 snap_to_minimum=False,
             )
         else:
-            running_storage_bits = _apply_budget_upgrades(
+            _apply_budget_upgrades(
                 ungrouped_choices,
                 running_storage_bits=running_storage_bits,
                 target_storage_bits=target_storage_bits,
