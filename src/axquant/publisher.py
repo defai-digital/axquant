@@ -787,9 +787,17 @@ def publish_model(
     )
     # Audit packaging adds public text artifacts after the request-level
     # scan. Re-scan the exact final tree immediately before previewing or
-    # uploading it, on every track: modern path-neutral flows (AXQ-048)
-    # package clean trees, and a legacy path-carrying tree must fail closed
-    # here instead of silently uploading operator paths.
+    # uploading it, on every track. AXQ-048 binds the candidate by
+    # artifact-manifest digest on every track and the files this publisher
+    # writes are path-neutral (_package_release_audit,
+    # append_certified_checkpoint), so a tree assembled by current tooling
+    # passes. A tree carrying an absolute local path from older campaign
+    # tooling (packaged request, copied evidence, exact_checkpoint_scope.json,
+    # or a filesystem durable_uri) fails closed here and is reported as
+    # publication_path_shaped_identity instead of silently uploading operator
+    # paths; re-export that input with current tooling (AXQ-049 requires a
+    # scheme-qualified, host-independent reference). See
+    # docs/guides/known-issues.md (Evidence and state).
     require_publication_privacy(directory)
     _require_artifact_evidence_binding(directory)
     files = [path.relative_to(directory).as_posix() for path in _publication_files(directory)]

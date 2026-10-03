@@ -1,6 +1,6 @@
 # Known issues
 
-As of AXQuant **v1.7.0**. Items here are documented limitations, not silent failures — each
+As of AXQuant **v1.9.0**. Items here are documented limitations, not silent failures — each
 fails closed or is gated behind an explicit flag. See
 [GitHub Releases](https://github.com/defai-digital/axquant/releases) for what changed
 between published versions.
@@ -147,10 +147,18 @@ between published versions.
   [6bit](certifications/qwen3-coder-next-axq6-tier1.md)). Prefer those commits; ignore
   `legacy-pre-v2` / pre-fix expert-BF16 revisions.
 - **The final publication privacy scan runs on every track.** `publish` re-scans the
-  exact tree it is about to upload immediately before previewing or uploading it. Modern
-  path-neutral flows (AXQ-048) package clean trees on all tracks; a legacy path-carrying tree
-  fails closed here instead of uploading operator paths. Rebuild pre-AXQ-048 requests that still
-  bind the candidate by absolute local path before publishing.
+  exact tree it is about to upload immediately before previewing or uploading it. AXQ-048 binds
+  the candidate by artifact-manifest digest on every track, the files `publish` itself adds — the
+  packaged release audit and the certified-checkpoint registry copy — are written without any
+  `local_path`, and the writers this repository owns are path-neutral, so a tree assembled by
+  current tooling passes the scan. What still fails it is an input written by older campaign
+  tooling: a packaged `request.json`, its copied evidence, or
+  `certification/exact_checkpoint_scope.json` recording an absolute local path
+  (`candidate_model.local_path`, `ExactCertificationScope.source_model.local_path`), and an
+  `evidence_archive_index.json` whose `durable_uri` is a filesystem path (AXQ-049 requires a
+  scheme-qualified, host-independent reference). `publish` reports those as
+  `publication_path_shaped_identity` and fails closed instead of uploading operator paths;
+  re-export that input with current tooling before publishing.
 
 ## Overlap and multilingual text
 
