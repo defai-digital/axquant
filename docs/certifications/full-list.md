@@ -3,8 +3,8 @@
 # Full AXQ certification list
 
 Every public AXQuant certificate record under
-[`docs/certifications/`](./), including packs omitted from the README
-headline matrix (`public_index.listed = false`).
+[`docs/certifications/`](./), including packs omitted from the headline
+matrices (`public_index.listed = false`).
 
 Source of truth: `*-tier1.json` / companion `*-tier2.json` files.
 Regenerate with `python scripts/render_certification_docs.py --write`.
@@ -81,7 +81,7 @@ acceleration bound to the host and AX Engine build in its certificate
 ## Counts
 
 - Total certificate records: **57**
-- In README headline matrix (`listed`): **33**
+- In headline matrices (`listed`): **33**
 - Dual Tier 1 + scoped Tier 2 certified: **6**
 - Tier 1 certified without Tier 2 certified: **32**
 - Not checkpoint-certified (evaluation only): **19**

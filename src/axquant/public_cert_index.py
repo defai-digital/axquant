@@ -1,9 +1,10 @@
 """Public certification index: certificate JSON is the single source of truth.
 
 Machine-readable records under ``docs/certifications/*.json`` drive the
-README matrix, the certification index table, the release certification
-matrix, and the Hub model-card certification section. Hand-edited table
-cells that disagree with those records are a documentation bug.
+certification index table, the release certification matrix, the full
+certification list, and the Hub model-card certification section.
+Hand-edited table cells that disagree with those records are a
+documentation bug.
 """
 
 from __future__ import annotations
@@ -32,7 +33,6 @@ END_MARKER = "<!-- END:AXQUANT_CERTIFICATION_MATRIX -->"
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_CERT_DIR = _REPO_ROOT / "docs" / "certifications"
-_DEFAULT_README = _REPO_ROOT / "README.md"
 _DEFAULT_INDEX = _DEFAULT_CERT_DIR / "README.md"
 _DEFAULT_RELEASE_MATRIX = _REPO_ROOT / "docs" / "releases" / "certification-matrix.md"
 
@@ -388,24 +388,6 @@ def _tier2_scope_note(rows: list[PublicCertRow], *, link_prefix: str) -> list[st
     ]
 
 
-def render_readme_matrix(rows: list[PublicCertRow] | None = None) -> str:
-    """README top-of-page certification matrix (no edition column)."""
-
-    catalog = rows if rows is not None else load_public_cert_rows()
-    lines = [
-        "| Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |",
-        "| --- | --- | --- |",
-    ]
-    prefix = "docs/certifications/"
-    for row in catalog:
-        lines.append(
-            f"| {row.display_name} | {_tier1_cell(row, link_prefix=prefix)} | "
-            f"{_tier2_cell(row, link_prefix=prefix)} |"
-        )
-    lines.extend(_tier2_scope_note(catalog, link_prefix=prefix))
-    return "\n".join(lines) + "\n"
-
-
 def render_index_matrix(rows: list[PublicCertRow] | None = None) -> str:
     """``docs/certifications/README.md`` index table with edition pin."""
 
@@ -462,8 +444,8 @@ def render_release_matrix(rows: list[PublicCertRow] | None = None) -> str:
 def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
     """Full list of every AXQ certificate record (listed and unlisted).
 
-    Written to ``docs/certifications/full-list.md``. The README headline matrix
-    only shows ``public_index.listed`` packs; this document is the complete
+    Written to ``docs/certifications/full-list.md``. The headline matrices
+    only show ``public_index.listed`` packs; this document is the complete
     inventory.
     """
 
@@ -474,8 +456,8 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
         "# Full AXQ certification list",
         "",
         "Every public AXQuant certificate record under",
-        "[`docs/certifications/`](./), including packs omitted from the README",
-        "headline matrix (`public_index.listed = false`).",
+        "[`docs/certifications/`](./), including packs omitted from the headline",
+        "matrices (`public_index.listed = false`).",
         "",
         "Source of truth: `*-tier1.json` / companion `*-tier2.json` files.",
         "Regenerate with `python scripts/render_certification_docs.py --write`.",
@@ -517,7 +499,7 @@ def render_full_cert_list(rows: list[PublicCertRow] | None = None) -> str:
     )
     not_cert_n = sum(1 for row in catalog if row.tier1_status != "certified")
     lines.append(f"- Total certificate records: **{len(catalog)}**")
-    lines.append(f"- In README headline matrix (`listed`): **{listed_n}**")
+    lines.append(f"- In headline matrices (`listed`): **{listed_n}**")
     lines.append(f"- Dual Tier 1 + scoped Tier 2 certified: **{dual_n}**")
     lines.append(f"- Tier 1 certified without Tier 2 certified: **{t1_only_n}**")
     lines.append(f"- Not checkpoint-certified (evaluation only): **{not_cert_n}**")
@@ -627,15 +609,12 @@ def expected_documents(
     repo = root or _REPO_ROOT
     catalog = rows if rows is not None else load_public_cert_rows(certifications_dir(repo))
     full_catalog = load_public_cert_rows(certifications_dir(repo), listed_only=False)
-    readme_path = repo / "README.md"
     index_path = certifications_dir(repo) / "README.md"
     release_path = repo / "docs" / "releases" / "certification-matrix.md"
     full_list_path = certifications_dir(repo) / "full-list.md"
 
-    readme = replace_marked_section(
-        readme_path.read_text(encoding="utf-8"),
-        render_readme_matrix(catalog),
-    )
+    # The root README deliberately carries no per-pack matrix; it points at
+    # the live Hub org page instead.
     index = replace_marked_section(
         index_path.read_text(encoding="utf-8"),
         render_index_matrix(catalog),
@@ -643,7 +622,6 @@ def expected_documents(
     release = render_release_matrix(catalog)
     full_list = render_full_cert_list(full_catalog)
     return {
-        readme_path: readme,
         index_path: index,
         release_path: release,
         full_list_path: full_list,

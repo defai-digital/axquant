@@ -242,63 +242,20 @@ Existing certificates stay bound to the host recorded in each JSON record
 `df-macbookpro-m5` until that contract is versioned separately.
 AX Engine **6.15.0** passed a **72-hour** endurance soak on `df-macmini-03`
 ([report](docs/reports/ax-engine-72h-endurance.md)).
-Headline matrix below lists **public certificate records** only (dual Tier 1+2 first);
-it is historical evidence and does not imply the pack repo is still published.
-**Full list of every AXQ certificate record** (including unlisted no-MTP siblings and
-evaluation archives): [docs/certifications/full-list.md](docs/certifications/full-list.md).
-Listed-pack index with Hub commits: [docs/certifications/](docs/certifications/README.md).
-The tables are generated from certificate JSON
-(`python scripts/render_certification_docs.py --write`); do not edit the table cells by hand.
-
-<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->
-| Pack family | Tier 1 (Quality) | Tier 2 (MTP -- Scoped) |
-| --- | --- | --- |
-| Qwen3.8-27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq4-mtp-tier2.md) (AX Engine 6.16.1) |
-| Qwen3.8-27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier1.md) | [Certified](docs/certifications/qwen38-27b-axq6-mtp-tier2.md) (AX Engine 6.16.1) |
-| Qwen 3.6 27B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-27b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq4-tier2.md) (AX Engine 6.14.0) |
-| Qwen 3.6 27B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-27b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-27b-axq6-tier2.md) (AX Engine 6.14.0) |
-| Qwen 3.6 35B-A3B MLX AXQ 4-bit MTP | [Certified](docs/certifications/qwen36-35b-axq4-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq4-tier2.md) (AX Engine 6.14.1) |
-| Qwen 3.6 35B-A3B MLX AXQ 6-bit MTP | [Certified](docs/certifications/qwen36-35b-axq6-tier1.md) | [Certified](docs/certifications/qwen36-35b-axq6-tier2.md) (AX Engine 6.14.1) |
-| Qwen3-VL 30B-A3B Instruct MLX AXQ 4-bit | [Certified](docs/certifications/qwen3-vl-30b-axq4-tier1.md) | N/A (no MTP) |
-| Qwen3-VL 30B-A3B Instruct MLX AXQ 6-bit | [Certified](docs/certifications/qwen3-vl-30b-axq6-tier1.md) | N/A (no MTP) |
-| Holo3-35B-A3B MLX AXQ 4-bit | [Certified](docs/certifications/holo3-35b-axq4-tier1.md) | N/A (no MTP) |
-| Holo3-35B-A3B MLX AXQ 6-bit | [Certified](docs/certifications/holo3-35b-axq6-tier1.md) | N/A (no MTP) |
-| Holo-3.1-35B-A3B MLX AXQ MXFP4 | [Certified](docs/certifications/holo31-35b-axq-mxfp4-tier1.md) | N/A (no MTP) |
-| GPT-OSS 20B MLX AXQ 4-bit | [Certified](docs/certifications/gpt-oss-20b-axq4-tier1.md) | N/A (no MTP) |
-| GPT-OSS 20B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-20b-axq6-tier1.md) | N/A (no MTP) |
-| GPT-OSS 120B MLX AXQ 6-bit | [Certified](docs/certifications/gpt-oss-120b-axq6-tier1.md) | N/A (no MTP) |
-| Qwen3.8-27B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| Qwen3.8-27B MLX AXQ 8-bit MTP | [Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md) | [Not Certified](docs/certifications/qwen38-27b-axq8-mtp-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash MLX AXQ 2-bit MTP (exp.) | [Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-axq2-tier1.md#tier-2-status) |
-| Gemma 4 12B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-12b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq4-tier1.md#tier-2-status) |
-| Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | [Not Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md#tier-2-status) |
-| Gemma 4 12B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-12b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-12b-axq6-tier1.md#tier-2-status) |
-| Gemma 4 26B-A4B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq4-tier1.md#tier-2-status) |
-| Gemma 4 26B-A4B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-26b-a4b-axq6-tier1.md#tier-2-status) |
-| Gemma 4 31B MLX AXQ 4-bit | [Certified](docs/certifications/gemma4-31b-axq4-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq4-tier1.md#tier-2-status) |
-| Gemma 4 31B MLX AXQ 6-bit | [Certified](docs/certifications/gemma4-31b-axq6-tier1.md) | [Not Certified](docs/certifications/gemma4-31b-axq6-tier1.md#tier-2-status) |
-| Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Not Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md) | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-tier1.md#tier-2-status) |
-| Cyber Tiel Coder 35B-A3B MLX AXQ MXFP4 MTP | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md) | [Not Certified](docs/certifications/cyber-tiel-coder-35b-axq-mxfp4-mtp-redo-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash-0731 MLX AXQ 2-bit MTP (exp.) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq2-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash-0731 MLX AXQ 4-bit MTP | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq4-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash-0731 MLX AXQ MXFP4 | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq-mxfp4-tier1.md#tier-2-status) |
-| DeepSeek V4 Flash-0731 MLX AXQ 6-bit | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md) | [Not Certified](docs/certifications/deepseek-v4-flash-0731-axq6-tier1.md#tier-2-status) |
-| MiniMax-M3 MLX AXQ 2-bit (exp.) | [Not Certified](docs/certifications/minimax-m3-axq2-tier1.md) | N/A (no MTP) |
-| MiniMax-M3 MLX AXQ MXFP4 (exp.) | [Not Certified](docs/certifications/minimax-m3-axq-mxfp4-tier1.md) | N/A (no MTP) |
-
-**Tier 2 (MTP -- Scoped)** is a scoped MTP *acceleration* certification: token-weighted decode speedup >= 1.20x and prompt-median >= 1.10x on the certificate's named authorizing workloads, measured on the host and AX Engine build recorded in that certificate.
-
-The certified rows here are bound to AX Engine 6.14.0, 6.14.1, 6.16.1. Per the certificate's own integrity rule such a result does not transfer to another host or engine build. Certified records are historical and are not re-certified for later AX Engine releases.
-
-A Tier 2 certificate is a scoped acceleration claim only. It is **not** the AX Engine MTP ship gate (MTP-S, in-path exactness), **not** AX Engine default promotion (MTP-D), and not a claim for hosts, engines, or workloads outside its recorded binding. See [MTP gate mapping](docs/certifications/adr033-mapping.md) for what a Tier 2 record is and is not evidence for.
-<!-- END:AXQUANT_CERTIFICATION_MATRIX -->
+**Public certificate records** are historical evidence and do not imply the pack repo
+is still published. See the listed-pack index with Hub commits
+([docs/certifications/](docs/certifications/README.md)) and the
+[full list of every AXQ certificate record](docs/certifications/full-list.md)
+(including unlisted no-MTP siblings and evaluation archives).
+For live packs, model cards, and certifications, visit
+[AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — this README
+deliberately does not mirror the per-pack list.
 
 **Product line (AXQ-047, 2026-09-25):** release planning going forward produces
 **MXFP4 (4-bit)** packs and **6-bit** packs; affine 4-bit is retired from release
 planning and survives only behind the explicit `--allow-legacy-4bit` opt-in for
-historical campaign replay and recertification. The 4-bit rows below are
-historical certificates for pre-retirement packs and stay unchanged.
+historical campaign replay and recertification. The 4-bit certificates are
+historical records for pre-retirement packs and stay unchanged.
 
 The sparse-expert (35B-A3B) Tier 2 path is closed on AX Engine 6.14.1 with the MoE exact
 profile (async draft, verify-submit interval 8, pipeline granularity layer) on

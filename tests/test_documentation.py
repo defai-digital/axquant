@@ -17,7 +17,6 @@ from axquant.public_cert_index import (
     render_full_cert_list,
     render_index_matrix,
     render_model_card_certification_section,
-    render_readme_matrix,
     render_release_matrix,
 )
 from axquant.schema_contracts import check_schema_contracts, render_schema_catalog
@@ -71,6 +70,8 @@ def test_readme_points_to_hub_org_instead_of_mirroring_pack_catalog() -> None:
     assert "https://huggingface.co/AutomatosX" in readme
     pack_links = re.findall(r"https://huggingface\.co/AutomatosX/AX-", readme)
     assert not pack_links, f"README links deleted pack repos: {sorted(set(pack_links))}"
+    assert BEGIN_MARKER not in readme
+    assert END_MARKER not in readme
     assert "support-matrix" in readme
     assert "docs/certifications/" in readme
 
@@ -89,18 +90,17 @@ def test_internal_tree_is_not_tracked() -> None:
 
 
 def test_readme_product_path_is_install_then_convert() -> None:
-    """The public front door is PyPI + quantize, not a git clone or cert matrix."""
+    """The public front door is PyPI + quantize, not a git clone."""
     readme = _read("README.md")
     install = readme.index("## Install\n")
     convert = readme.index("## Convert\n")
-    matrix = readme.index("<!-- BEGIN:AXQUANT_CERTIFICATION_MATRIX -->")
     pip = readme.index("python -m pip install 'axquant[mlx]==1.8.1'")
     quantize = readme.index("axquant quantize /path/to/model-bf16")
     clone = readme.find("git clone https://github.com/defai-digital/axquant.git")
 
-    assert install < convert < matrix
-    assert pip < matrix
-    assert quantize < matrix
+    assert install < convert
+    assert install < pip
+    assert convert < quantize
     assert clone == -1 or quantize < clone
     assert "You do not need to clone this repository." in readme
 
@@ -285,16 +285,14 @@ def test_public_certification_rows_are_flagship_first_and_deterministic() -> Non
 
 
 def test_certification_docs_match_certificate_json_exactly() -> None:
-    """README, cert index, and release matrix must equal the generated SSOT output."""
+    """Cert index and release matrix must equal the generated SSOT output."""
 
     messages = check_documents(root=_ROOT)
     assert not messages, "\n".join(messages)
 
     rows = load_public_cert_rows()
     all_rows = load_public_cert_rows(listed_only=False)
-    readme_body = _extract_marked_matrix(_read("README.md"))
     index_body = _extract_marked_matrix(_read("docs/certifications/README.md"))
-    assert readme_body == render_readme_matrix(rows)
     assert index_body == render_index_matrix(rows)
     assert _read("docs/releases/certification-matrix.md") == render_release_matrix(rows)
     assert _read("docs/certifications/full-list.md") == render_full_cert_list(all_rows)
@@ -305,7 +303,7 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert "qwen38-27b-axq4-tier1.md" in full
     assert "qwen3-coder-next-axq4-tier1.md" in full
     assert "qwen3-coder-next-axq-mxfp4-tier1.md" in full
-    assert "In headline matrix" in full
+    assert "In headline matrices" in full
     assert "Tier 1 (quality)" in full
     assert "Tier 2 (MTP -- Scoped)" in full
     assert "checkpoint **quality**" in full
@@ -326,7 +324,6 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
             names.append(re.sub(r"^\[([^\]]+)\]\([^)]+\)$", r"\1", cell))
         return names
 
-    assert _data_rows(readme_body) == [row.display_name for row in rows]
     listed_ids = [row.record_id for row in rows]
     assert "qwen38-27b-axq-mxfp4" not in listed_ids
     assert "qwen38-27b-axq8" not in listed_ids
@@ -334,9 +331,6 @@ def test_certification_docs_match_certificate_json_exactly() -> None:
     assert listed_ids.index("qwen38-27b-axq4-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
     assert listed_ids.index("qwen38-27b-axq6-mtp") < listed_ids.index("qwen38-27b-axq-mxfp4-mtp")
     assert _data_rows(index_body) == [row.display_name for row in rows]
-    for row in rows:
-        assert f"| {row.display_name} |" in readme_body
-        assert f"[{row.tier1_label}](docs/certifications/{row.tier1_stem}.md)" in readme_body
 
 
 def test_model_card_certification_section_matches_public_records() -> None:
@@ -379,7 +373,6 @@ def test_tier2_cells_disclose_engine_binding_and_scope() -> None:
 
     rows = load_public_cert_rows()
     release = render_release_matrix(rows)
-    readme_body = _extract_marked_matrix(_read("README.md"))
 
     certified = [row for row in rows if row.tier2_status == "certified"]
     assert certified, "expected at least one certified Tier 2 row"
@@ -389,11 +382,10 @@ def test_tier2_cells_disclose_engine_binding_and_scope() -> None:
 
     engines = sorted({row.mtp_bound_engine for row in certified})
     assert f"bound to AX Engine {', '.join(engines)}" in release
-    for matrix in (release, readme_body):
-        assert "Tier 2 (MTP -- Scoped)" in matrix
-        assert "MTP-S" in matrix
-        assert "MTP-D" in matrix
-        assert "adr033-mapping.md" in matrix
+    assert "Tier 2 (MTP -- Scoped)" in release
+    assert "MTP-S" in release
+    assert "MTP-D" in release
+    assert "adr033-mapping.md" in release
 
     # The disclosure only belongs where a Tier 2 binding exists.
     unbound = [row for row in rows if row.tier2_status != "certified"]
