@@ -297,3 +297,7 @@ certifications. Unlimited-OCR still produced extra prefix text on the
 single development page; expected-line and repetition checks do not qualify
 clean extraction or layout markup. Consult each model card and its exact
 runtime output before treating the pack as an application baseline.
+
+For Qwen3-Embedding and Nemotron-3-Embed exports, see the
+[CUDA NVFP4 embedding guide](cuda-nvfp4-embeddings.md). It documents preserved
+pooling semantics, BF16 protection and the scope of vector-drift checks.

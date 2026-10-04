@@ -5,8 +5,7 @@ The previous single dump mixed uniform MLX, QAT, OptiQ, and AXQ across every
 family. This script keeps the org collections the way users browse: a
 certified starting list, one collection per precision line (MXFP4, MXFP8, NVFP4),
 one MTP collection,
-one collection per live model family, plus a complete index of every public
-AutomatosX model.
+one collection per live model family, plus separate MLX and CUDA catalogs.
 """
 
 from __future__ import annotations
@@ -21,9 +20,7 @@ from huggingface_hub.errors import HfHubHTTPError
 
 NAMESPACE = "AutomatosX"
 CATALOG_TITLE = "MLX"
-# Pinned after the 2026-10-04 apply (all 14 embedding repos + Embeddings /
-# Nemotron collections deleted; catalog collection renamed to MLX). A slug
-# that 404s is recreated.
+# Pinned collection identities. A missing slug is rediscovered or recreated.
 KNOWN_SLUGS: dict[str, str] = {
     "CUDA": "AutomatosX/cuda-6ac1b59d9199d121c6c7e2e3",
     "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
@@ -67,6 +64,9 @@ NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
 NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
 NOTE_CUDA_W4A4 = (
     "Native AXQuant CUDA NVFP4 W4A4. Two-GPU development smoke; no MTP or quality certification."
+)
+NOTE_CUDA_EMBED = (
+    "Native AXQuant CUDA NVFP4 W4A4 retrieval pack. Two-GPU development checks; not certified."
 )
 NOTE_MXFP8 = "MLX MXFP8 OCR pack."
 NOTE_24T = (
@@ -147,6 +147,11 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="NVFP4",
         description="Native AXQuant CUDA NVFP4 W4A16 and calibrated W4A4 development checkpoints.",
         items=(
+            _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
@@ -167,8 +172,13 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="CUDA",
-        description="Native AXQuant CUDA NVFP4 OCR and Qwen3-VL development checkpoints.",
+        description="CUDA NVFP4 OCR, Qwen3-VL and retrieval development checkpoints.",
         items=(
+            _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
@@ -181,6 +191,9 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="Qwen",
         description="All public Qwen packs: Qwen3.8, VL, and embeddings.",
         items=(
+            _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
@@ -199,8 +212,16 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Embeddings",
-        description="All AXQ retrieval packs: Qwen3-Embedding and Nemotron-3-Embed MXFP4/MXFP8.",
+        description=(
+            "AXQ Qwen3-Embedding and Nemotron-3-Embed retrieval packs: "
+            "MLX MXFP4/MXFP8 and CUDA NVFP4."
+        ),
         items=(
+            _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
@@ -215,8 +236,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Nemotron",
-        description="Nemotron-3-Embed 1B/8B AXQ MXFP4/MXFP8 retrieval packs. Not certified.",
+        description=(
+            "Nemotron-3-Embed 1B/8B AXQ retrieval: MLX MXFP4/MXFP8 and CUDA NVFP4. Not certified."
+        ),
         items=(
+            _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
@@ -288,23 +313,17 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title=CATALOG_TITLE,
         description=(
-            "Complete index of every public AutomatosX model. Prefer the family collections above."
+            "MLX packs only. Native NVIDIA checkpoints are listed in the CUDA collection."
         ),
         items=(
-            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
-            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
-            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
-            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
-            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
@@ -326,7 +345,7 @@ COLLECTIONS: tuple[Spec, ...] = (
 
 def _validate() -> None:
     if not COLLECTIONS or COLLECTIONS[-1].title != CATALOG_TITLE:
-        raise SystemExit("complete catalog must be the last collection")
+        raise SystemExit("MLX catalog must be the last collection")
     for spec in COLLECTIONS:
         if len(spec.description) > 150:
             raise SystemExit(f"description too long ({len(spec.description)}): {spec.title!r}")
@@ -343,9 +362,16 @@ def _validate() -> None:
                 )
     catalog = {item.repo for item in COLLECTIONS[-1].items}
     family = {item.repo for spec in COLLECTIONS[:-1] for item in spec.items}
-    missing_from_catalog = sorted(family - catalog)
+    cuda = {item.repo for spec in COLLECTIONS if spec.title == "CUDA" for item in spec.items}
+    if catalog & cuda:
+        raise SystemExit("MLX and CUDA catalogs must not overlap")
+    if any("-MLX-" not in repo for repo in catalog):
+        raise SystemExit("MLX catalog contains a non-MLX checkpoint")
+    if any("-CUDA-" not in repo for repo in cuda):
+        raise SystemExit("CUDA catalog contains a non-CUDA checkpoint")
+    missing_from_catalog = sorted(family - catalog - cuda)
     if missing_from_catalog:
-        raise SystemExit(f"complete catalog missing: {missing_from_catalog}")
+        raise SystemExit(f"runtime catalogs missing: {missing_from_catalog}")
     only_in_catalog = sorted(catalog - family)
     if only_in_catalog:
         raise SystemExit(f"models missing a family collection: {only_in_catalog}")
@@ -462,9 +488,9 @@ def _sync_items(api: HfApi, slug: str, spec: Spec) -> None:
 
 def sync(*, apply: bool) -> int:
     _validate()
-    complete_repos = {item.repo for item in COLLECTIONS[-1].items}
+    complete_repos = {item.repo for spec in COLLECTIONS for item in spec.items}
 
-    print(f"{len(COLLECTIONS)} collections, {len(complete_repos)} complete-index models")
+    print(f"{len(COLLECTIONS)} collections, {len(complete_repos)} public models")
     for spec in COLLECTIONS:
         print(f"  {spec.title:22} {len(spec.items):3}  {spec.description}")
     if not apply:

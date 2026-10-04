@@ -64,3 +64,29 @@ The tested recipe uses vLLM 0.25.1, eager execution, full-sequence prefill,
 prefill is required for the tested bidirectional mean-pooling path. Memory
 fractions in each model card apply to the recorded development recipe;
 production document lengths and concurrency need separate sizing.
+
+## Published exact-checkpoint previews
+
+Each preview includes the original immutable source revision, license/notices,
+checksums, calibrated plan, protected-tensor checks and both GPU runtime records.
+Every selected runtime module uses `CutlassNvFp4LinearKernel`. All four paired
+retrieval queries rank their matching document first on both GPUs.
+
+| Checkpoint | Native FP4 Linear modules | RTX 5090 mean cosine | Thor mean cosine |
+| --- | --- | --- | --- |
+| [Qwen3-Embedding-0.6B](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4/tree/f3b332dcf8f95b9cb509258407e89a7b313eb5d8) | 48 | 0.969200 | 0.968076 |
+| [Qwen3-Embedding-4B](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4/tree/760de1ca6c8c521296a38ddaab10dc26ef0d5f6a) | 64 | 0.982176 | 0.982622 |
+| [Qwen3-Embedding-8B](https://huggingface.co/AutomatosX/AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4/tree/f93bb79d3b6f308750e97e129176a56622af519f) | 64 | 0.986226 | 0.986426 |
+| [Nemotron-3-Embed-1B](https://huggingface.co/AutomatosX/AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4/tree/68817d7b214f14f3574c5ff3630d325987941256) | 64 | 0.988085 | 0.988092 |
+| [Nemotron-3-Embed-8B](https://huggingface.co/AutomatosX/AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4/tree/952869891397bf0eaa79ed27fb0f088830e8c147) | 136 | 0.983442 | 0.983408 |
+
+Cosine values compare eight full-dimension vectors with the original BF16
+checkpoint on each GPU. The corpus and candidate-selection limitations above
+apply. Download the entire repository and use its included `examples/embedding_smoke.py`
+with the GPU-specific BF16 reference. Each card records the pinned vLLM image,
+precision policy, memory recipe and exact development evidence.
+
+The Hub collection tool keeps CUDA packs in the CUDA and NVFP4 catalogs and
+retrieval packs in Embeddings plus their family collection. The MLX catalog
+contains only MLX packs. The live-model drift gate checks the union of the
+runtime catalogs before a full collection apply.
