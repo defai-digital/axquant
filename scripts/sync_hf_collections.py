@@ -20,9 +20,10 @@ from huggingface_hub import HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
 NAMESPACE = "AutomatosX"
-CATALOG_TITLE = "AutomatosX MLX Model Catalog"
-# Pinned after the 2026-10-04 apply (Qwen3-VL 4B/8B MXFP4/MXFP8 published;
-# Qwen3-VL collection recreated). A slug that 404s is recreated.
+CATALOG_TITLE = "MLX"
+# Pinned after the 2026-10-04 apply (all 14 embedding repos + Embeddings /
+# Nemotron collections deleted; catalog collection renamed to MLX). A slug
+# that 404s is recreated.
 KNOWN_SLUGS: dict[str, str] = {
     "CUDA": "AutomatosX/cuda-6ac1b59d9199d121c6c7e2e3",
     "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
@@ -35,8 +36,6 @@ KNOWN_SLUGS: dict[str, str] = {
     "Tiel Coder": "AutomatosX/tiel-coder-6ab432f2fdec85ba0ecd515d",
     "Qwen3-VL": "AutomatosX/qwen3-vl-6ac1af94ba7bf169f75c1ab5",
     "DeepSeek": "AutomatosX/deepseek-6ac15fa3aeb86a300e188fdf",
-    "Embeddings": "AutomatosX/embeddings-6ab432f5816b838cc48d89cc",
-    "Nemotron": "AutomatosX/nemotron-6ac15fa6aeb86a300e189040",
     "OCR": "AutomatosX/ocr-6ab432f8bed2124120a3b782",
     "Unlimited-OCR": "AutomatosX/unlimited-ocr-6ac15fa87eb43e9e3ef61c97",
     CATALOG_TITLE: "AutomatosX/automatosx-mlx-model-catalog-6ab432f9724c4d8a1037df1c",
@@ -53,13 +52,6 @@ NOTE_T1_NOMTP = (
 NOTE_T1_EXP = (
     "Experimental pack. Checkpoint Tier 1 certified (generation viability); MTP Tier 2 not claimed."
 )
-NOTE_0731 = (
-    "Flash-0731 source revision. AXQ 2-bit MTP is listed but not certified "
-    "(AX Engine 7.1.5 factory viability 0.633). See the model card."
-)
-NOTE_0731_MEM = (
-    "Flash-0731 ship SKU. Not certified on the 192 GB factory Studio; recert on a larger Mac."
-)
 CERTIFIED_NOTES = frozenset({NOTE_T1, NOTE_T1_T2, NOTE_T1_NO_T2, NOTE_T1_NOMTP, NOTE_T1_EXP})
 NOTE_OPTIQ = "OptiQ mixed 4/8-bit."
 NOTE_UNIFORM = "Uniform MLX quantization."
@@ -68,6 +60,7 @@ NOTE_QAT_OPTIQ = "QAT source, then OptiQ mixed 4/8-bit."
 NOTE_AXQ_DEV = "AXQ development artifact. Not certified; see the model card."
 NOTE_AXQ_ASR = "AXQ language-decoder PTQ with a protected BF16 audio tower. Not certified."
 NOTE_AXQ_VL = "AXQ language-path PTQ with a protected BF16 vision tower. Not certified."
+NOTE_AXQ_EMBED = "AXQ retrieval pack (feature-extraction only). Not certified."
 NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
 NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
 NOTE_CUDA_W4A4 = (
@@ -87,13 +80,6 @@ NOTE_PRO_0813 = (
 NOTE_KIMI_K3 = (
     "Experimental Super-class stream pack of Kimi-K3. SSD paging required; "
     "not certified. Native MXFP4 dequantized to affine 2-bit. No packaged MTP."
-)
-NOTE_0731_RESERVED = (
-    "Flash-0731 4-bit-MTP name is reserved; Hub weights are not uploaded. See the model card."
-)
-NOTE_0731_STUB = (
-    "Flash-0731 ship SKU stub. Hub weights are not uploaded. Not certified on "
-    "the 192 GB factory Studio; -MTP is added only when a sidecar ships."
 )
 
 
@@ -129,21 +115,30 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
         ),
     ),
     Spec(
         title="MXFP8",
-        description="MXFP8-format packs. MLX OCR and Qwen3-VL.",
+        description="MXFP8-format packs. MLX OCR, Qwen3-VL, and embeddings.",
         items=(
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
         ),
     ),
     Spec(
@@ -182,7 +177,7 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen",
-        description="All public Qwen packs: Qwen3.8, VL, and Qwen3-Embedding.",
+        description="All public Qwen packs: Qwen3.8, VL, and embeddings.",
         items=(
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
@@ -192,15 +187,22 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-8bit", NOTE_UNIFORM),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+        ),
+    ),
+    Spec(
+        title="Nemotron",
+        description="Nemotron-3-Embed 1B/8B AXQ MXFP4/MXFP8 retrieval packs. Not certified.",
+        items=(
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
         ),
     ),
     Spec(
@@ -221,7 +223,7 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3-VL",
-        description="Qwen3-VL 4B/8B Instruct: MLX MXFP4/MXFP8 plus CUDA NVFP4 W4A4. Vision BF16; no MTP. Not certified.",
+        description="Qwen3-VL 4B/8B MLX MXFP4/MXFP8 plus CUDA NVFP4 W4A4. Vision BF16, no MTP.",
         items=(
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
@@ -233,45 +235,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="DeepSeek",
-        description="DeepSeek V4 Flash-0731 MXFP4 plus DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4.",
+        description="DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4.",
         items=(
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
-        ),
-    ),
-    Spec(
-        title="Embeddings",
-        description=(
-            "Qwen3-Embedding, EmbeddingGemma, and Nemotron-3-Embed (uniform, DWQ, and AXQ)."
-        ),
-        items=(
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-8bit", NOTE_UNIFORM),
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-EmbeddingGemma-300M-MLX-8bit", NOTE_UNIFORM),
-        ),
-    ),
-    Spec(
-        title="Nemotron",
-        description="Nemotron-3-Embed 1B and 8B AXQ 4-bit and 6-bit.",
-        items=(
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -312,24 +281,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-4B-MLX-4bit-DWQ", NOTE_DWQ),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Embedding-0.6B-MLX-8bit", NOTE_UNIFORM),
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-EmbeddingGemma-300M-MLX-8bit", NOTE_UNIFORM),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
@@ -337,6 +291,16 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
         ),
     ),
 )

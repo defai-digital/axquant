@@ -1,0 +1,12 @@
+{
+  "retired": [
+    {
+      "decision": "AXQ-051",
+      "filename": "axquant.mxfp6-pack.v1.schema.json",
+      "note": "Experimental MXFP6 reference export retired: no MLX or AX Engine runtime supports MXFP6 inference.",
+      "retired_at": "2026-10-03",
+      "schema_version": "axquant.mxfp6-pack.v1",
+      "sha256": "3c437d13ad922f840ba64045150dd0a243a16b2d7eb09a83137031ffa0548b7c"
+    }
+  ]
+}

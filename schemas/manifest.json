@@ -1,5 +1,5 @@
 {
-  "count": 144,
+  "count": 143,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -688,14 +688,6 @@
       "model": "axquant.schema.artifacts.BytePreservedMtpSidecarManifest",
       "schema_version": "axquant.mtp_sidecar_provenance.v2",
       "sha256": "2ca0702a5690b665d1322224f17367a88b621871208522ab172f7690888cbcf5"
-    },
-    {
-      "compatibility_class": "evidence",
-      "filename": "axquant.mxfp6-pack.v1.schema.json",
-      "freeze_policy": "immutable-envelope",
-      "model": "axquant.schema.mxfp6.Mxfp6PackManifest",
-      "schema_version": "axquant.mxfp6-pack.v1",
-      "sha256": "3c437d13ad922f840ba64045150dd0a243a16b2d7eb09a83137031ffa0548b7c"
     },
     {
       "compatibility_class": "evidence",

@@ -469,6 +469,104 @@ def test_ministral3_model_prefix_prep_rewrites_keys_and_forces_tie(
     assert "embed_tokens.weight" not in saved
 
 
+def test_qwen3_bare_prefix_prep_rewrites_keys_and_forces_tie(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Qwen3-Embedding style: bare layers.* keys + missing lm_head."""
+    import numpy as np
+
+    from axquant.source_prep import (
+        needs_qwen3_bare_prefix_prep,
+        prepare_qwen3_bare_prefix_source,
+    )
+
+    model_dir = tmp_path / "Qwen3-Embedding-8B"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "qwen3",
+                "num_hidden_layers": 2,
+                "tie_word_embeddings": False,
+                "architectures": ["Qwen3ForCausalLM"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    weights = {
+        "embed_tokens.weight": np.zeros((8, 4), dtype=np.float32),
+        "layers.0.input_layernorm.weight": np.zeros((4,), dtype=np.float32),
+        "layers.0.mlp.gate_proj.weight": np.zeros((4, 4), dtype=np.float32),
+        "norm.weight": np.zeros((4,), dtype=np.float32),
+    }
+
+    class _FakeMlx:
+        @staticmethod
+        def load(path: str) -> dict[str, np.ndarray]:
+            del path
+            return dict(weights)
+
+        @staticmethod
+        def save_safetensors(path: str, payload: dict[str, np.ndarray]) -> None:
+            # Persist names only for verification (values unused).
+            Path(path).write_text("\n".join(sorted(payload)), encoding="utf-8")
+
+    monkeypatch.setattr(source_prep, "_mlx_core", lambda: _FakeMlx)
+    # Bypass real safetensors round-trip verification (fake writer).
+    monkeypatch.setattr(
+        source_prep,
+        "_verify_saved_tensor_names",
+        lambda mx, path, expected: None,
+    )
+    # Sample keys from our synthetic map without needing a real safetensors file.
+    monkeypatch.setattr(
+        source_prep,
+        "_sample_safetensor_keys",
+        lambda directory, limit=32: list(weights)[:limit],
+    )
+    (model_dir / "model.safetensors").write_bytes(b"fake")
+
+    assert needs_qwen3_bare_prefix_prep(model_dir, {"model_type": "qwen3"})
+    prepared = prepare_qwen3_bare_prefix_source(model_dir, work_dir=tmp_path / "work")
+    cfg = json.loads((prepared / "config.json").read_text(encoding="utf-8"))
+    assert cfg["tie_word_embeddings"] is True
+    saved = (prepared / "model.safetensors").read_text(encoding="utf-8").splitlines()
+    assert "model.embed_tokens.weight" in saved
+    assert "model.layers.0.mlp.gate_proj.weight" in saved
+    assert "embed_tokens.weight" not in saved
+
+
+def test_qwen3_bare_prefix_prep_rejects_prefixed_checkpoint(tmp_path: Path) -> None:
+    """Standard Qwen3 causal checkpoints already carry the model. prefix."""
+    import numpy as np
+
+    from axquant.errors import ArtifactError
+    from axquant.source_prep import (
+        needs_qwen3_bare_prefix_prep,
+        prepare_qwen3_bare_prefix_source,
+    )
+
+    model_dir = tmp_path / "Qwen3-0.6B"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text(
+        json.dumps({"model_type": "qwen3", "tie_word_embeddings": True}),
+        encoding="utf-8",
+    )
+    from safetensors.numpy import save_file
+
+    save_file(
+        {
+            "model.embed_tokens.weight": np.zeros((8, 4), dtype=np.float32),
+            "lm_head.weight": np.zeros((8, 4), dtype=np.float32),
+        },
+        model_dir / "model.safetensors",
+    )
+    assert not needs_qwen3_bare_prefix_prep(model_dir, {"model_type": "qwen3"})
+    with pytest.raises(ArtifactError, match="model_type=qwen3"):
+        prepare_qwen3_bare_prefix_source(model_dir, work_dir=tmp_path / "work")
+
+
 def test_prepare_rejects_wrong_type(tmp_path: Path) -> None:
     model_dir = tmp_path / "plain"
     model_dir.mkdir()

@@ -1,0 +1,49 @@
+# Nemotron-3-Embed-8B AXQ-mxfp8 (no MTP).
+# Nemotron-3-Embed-8B is a retrieval checkpoint: attention+MLP trunk mxfp8, embed table 8-bit
+# affine floor, norms BF16. No lm_head tensor ships in the source.
+# Do not claim generative or MTP metrics.
+# Convert with: axquant convert --q-mode mxfp8 --allow-unmeasured ...
+schema_version: axquant.manual-recipe.v2
+profile: agent-coding
+target_bpw: 16.0
+default_bits: 8
+default_method: affine
+group_size: 32
+allow_unmatched_rules: false
+lm_head_min_bits: 16
+target_mode: low-memory
+primary_runtime: ax-engine
+random_seed: 20260728
+rules:
+  - rule_id: protect-norms
+    roles: [norm]
+    bits: 16
+    method: bf16
+    reason: Protection floor — norms stay BF16
+  # No protect-lm-head rule: embedding sources ship no lm_head tensor.
+  - rule_id: embedding-8
+    roles: [embedding]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: Embedding floor 8-bit affine
+  - rule_id: attention-mxfp8
+    roles: [attention]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: AXQ-mxfp8 attention trunk
+  - rule_id: mlp-mxfp8
+    roles: [mlp]
+    bits: 8
+    method: affine
+    group_size: 32
+    reason: AXQ-mxfp8 MLP trunk
+mtp:
+  mode: protected
+  candidate_bits: [8, 16]
+  min_bits: 8
+  preserve_external_sidecar: true
+  protect_norms: true
+  protect_output_head: true
+  optimize_for_acceptance: true

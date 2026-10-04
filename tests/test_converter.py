@@ -2713,6 +2713,29 @@ def test_support_file_completion_copies_absent_runtime_assets(tmp_path: Path) ->
     assert not (staging / "tokenizer.json").exists()
 
 
+def test_support_file_completion_copies_sentence_transformers_assets(tmp_path: Path) -> None:
+    source, staging = tmp_path / "source", tmp_path / "staging"
+    source.mkdir()
+    staging.mkdir()
+    (source / "modules.json").write_text("[]", encoding="utf-8")
+    (source / "config_sentence_transformers.json").write_text("{}", encoding="utf-8")
+    pooling = source / "1_Pooling"
+    pooling.mkdir()
+    (pooling / "config.json").write_text("{}", encoding="utf-8")
+
+    completed = converter._complete_runtime_support_files(source, staging)
+
+    assert sorted(completed) == [
+        "1_Pooling",
+        "config_sentence_transformers.json",
+        "modules.json",
+    ]
+    assert (staging / "1_Pooling" / "config.json").read_bytes() == (
+        pooling / "config.json"
+    ).read_bytes()
+    assert not (staging / "sentence_bert_config.json").exists()
+
+
 def test_support_file_completion_never_overwrites_backend_output(tmp_path: Path) -> None:
     source, staging = tmp_path / "source", tmp_path / "staging"
     source.mkdir()

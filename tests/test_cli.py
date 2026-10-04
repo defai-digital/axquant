@@ -597,3 +597,11 @@ def test_capture_activations_resolves_model_at_cache_revision(
 def test_validate_calibration_dataset_fails_on_missing_file(tmp_path: Path) -> None:
     result = main(["validate-calibration-dataset", "--path", str(tmp_path / "nope.jsonl")])
     assert result == 2
+
+
+def test_export_mxfp6_subcommand_is_retired(capsys: pytest.CaptureFixture[str]) -> None:
+    """AXQ-051: the experimental MXFP6 export is removed, not deprecated."""
+    with pytest.raises(SystemExit) as excinfo:
+        _build_parser().parse_args(["export-mxfp6", "--model", "m", "--plan", "p", "--output", "o"])
+    assert excinfo.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err

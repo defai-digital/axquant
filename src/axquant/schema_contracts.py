@@ -35,6 +35,8 @@ from axquant.schema.registry import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _MANIFEST_NAME = "manifest.json"
+_RETIRED_NAME = "retired.json"
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 # Drop documentation-only keys so Pydantic docstring/title churn is not a freeze break.
 _NOISE_KEYS: Final[frozenset[str]] = frozenset(
@@ -379,6 +381,8 @@ def check_schema_contracts(*, root: Path | None = None) -> list[str]:
 
     messages: list[str] = []
     repo = root or _REPO_ROOT
+    _, retired_messages = load_retired_versions(root=repo)
+    messages.extend(retired_messages)
     expected = expected_schema_files(root=repo)
     out_dir = schemas_dir(repo)
     if not out_dir.is_dir():
@@ -400,6 +404,53 @@ def check_schema_contracts(*, root: Path | None = None) -> list[str]:
                 "(run: python scripts/render_schema_contracts.py --write)"
             )
     return messages
+
+
+def load_retired_versions(*, root: Path | None = None) -> tuple[dict[str, str], list[str]]:
+    """Return {schema_version: sha256} tombstones plus structural complaints.
+
+    ``schemas/retired.json`` is a hand-maintained decision record, not rendered
+    output: a removal listed here with the base snapshot digest is an explicit
+    retirement, not a silent contract break.
+    """
+
+    repo = root or _REPO_ROOT
+    path = schemas_dir(repo) / _RETIRED_NAME
+    if not path.is_file():
+        return {}, []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {}, [f"schemas/{_RETIRED_NAME} is not valid JSON: {exc}"]
+    items = data.get("retired") if isinstance(data, dict) else None
+    if not isinstance(items, list):
+        return {}, [f"schemas/{_RETIRED_NAME} must hold a 'retired' list"]
+    records: dict[str, str] = {}
+    messages: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            messages.append(f"schemas/{_RETIRED_NAME} entries must be objects")
+            continue
+        version = item.get("schema_version")
+        sha = item.get("sha256")
+        decision = item.get("decision")
+        if not isinstance(version, str) or not version:
+            messages.append(f"schemas/{_RETIRED_NAME} entry needs a schema_version")
+            continue
+        if not isinstance(sha, str) or _SHA256_RE.match(sha) is None:
+            messages.append(f"schemas/{_RETIRED_NAME} entry {version!r} needs a sha256 digest")
+            continue
+        if not isinstance(decision, str) or not decision:
+            messages.append(f"schemas/{_RETIRED_NAME} entry {version!r} needs a decision ref")
+            continue
+        records[version] = sha
+    return records, messages
+
+
+def is_explicitly_retired(version: str, base_sha256: object, retired: dict[str, str]) -> bool:
+    """True when a tombstone covers this exact base snapshot digest."""
+
+    return isinstance(base_sha256, str) and retired.get(version) == base_sha256
 
 
 def check_base_ref_immutability(
@@ -458,9 +509,12 @@ def check_base_ref_immutability(
         if isinstance(item, dict) and isinstance(item.get("schema_version"), str)
     }
 
-    messages: list[str] = []
+    retired, retired_messages = load_retired_versions(root=repo)
+    messages: list[str] = list(retired_messages)
     for version, base_item in sorted(base_entries.items()):
         if version not in current_entries:
+            if is_explicitly_retired(version, base_item.get("sha256"), retired):
+                continue
             messages.append(
                 f"schema_version {version!r} removed from freeze registry "
                 f"(forbidden without explicit retirement; base={ref})"

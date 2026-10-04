@@ -31,6 +31,8 @@ from axquant.schema_contracts import (
     check_schema_contracts,
     discover_versioned_models,
     expected_schema_files,
+    is_explicitly_retired,
+    load_retired_versions,
     render_schema_catalog,
     schema_filename,
     schema_snapshot_text,
@@ -133,6 +135,42 @@ def test_base_ref_check_is_callable() -> None:
     # On a clean tree matching origin, either no base manifest yet or digests match.
     messages = check_base_ref_immutability(root=_ROOT)
     assert isinstance(messages, list)
+
+
+def test_explicit_retirement_requires_exact_base_digest() -> None:
+    retired = {"axquant.mxfp6-pack.v1": "3c437d13" + "0" * 56}
+    assert is_explicitly_retired("axquant.mxfp6-pack.v1", "3c437d13" + "0" * 56, retired)
+    assert not is_explicitly_retired("axquant.mxfp6-pack.v1", "f" * 64, retired)
+    assert not is_explicitly_retired("axquant.other.v1", "3c437d13" + "0" * 56, retired)
+    assert not is_explicitly_retired("axquant.mxfp6-pack.v1", None, retired)
+
+
+def test_retired_registry_covers_mxfp6_removal() -> None:
+    records, messages = load_retired_versions(root=_ROOT)
+    assert messages == []
+    assert records["axquant.mxfp6-pack.v1"] == (
+        "3c437d13ad922f840ba64045150dd0a243a16b2d7eb09a83137031ffa0548b7c"
+    )
+    assert "mxfp6" not in "".join(check_base_ref_immutability(root=_ROOT))
+
+
+def test_retired_registry_rejects_malformed_records(tmp_path: Path) -> None:
+    schemas = tmp_path / "schemas"
+    schemas.mkdir()
+    (schemas / "retired.json").write_text(
+        json.dumps(
+            {
+                "retired": [
+                    {"schema_version": "axquant.bad.v1"},
+                    "not-an-object",
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    records, messages = load_retired_versions(root=tmp_path)
+    assert records == {}
+    assert len(messages) == 2
 
 
 def test_noise_key_drop_preserves_model_field_names() -> None:

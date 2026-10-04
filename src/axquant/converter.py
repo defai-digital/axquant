@@ -306,8 +306,15 @@ _RUNTIME_SUPPORT_FILENAMES = (
     "vocab.txt",
     "vocab.json",
     "merges.txt",
+    "modules.json",
+    "config_sentence_transformers.json",
+    "sentence_bert_config.json",
 )
 _RUNTIME_SUPPORT_GLOBS = ("*.model",)
+# Sentence-transformers pooling directories (embedding packs only). Copied
+# whole, copy-if-absent like the files above, so retrieval runtimes can
+# resolve the pooling module without the BF16 source.
+_RUNTIME_SUPPORT_DIRS = ("1_Pooling",)
 
 
 def _complete_runtime_support_files(source_dir: Path, staging_dir: Path) -> list[str]:
@@ -336,6 +343,18 @@ def _complete_runtime_support_files(source_dir: Path, staging_dir: Path) -> list
         if file_sha256(destination) != expected_sha256:
             raise ArtifactError(f"{source.name} checksum changed during support-file copy")
         completed.append(source.name)
+    for name in _RUNTIME_SUPPORT_DIRS:
+        source = source_dir / name
+        if not source.is_dir() or (staging_dir / name).exists():
+            continue
+        shutil.copytree(source, staging_dir / name, symlinks=False)
+        for copied in sorted((staging_dir / name).rglob("*")):
+            if not copied.is_file():
+                continue
+            original = source / copied.relative_to(staging_dir / name)
+            if not original.is_file() or file_sha256(copied) != file_sha256(original):
+                raise ArtifactError(f"{name} changed during support-dir copy")
+        completed.append(name)
     return completed
 
 

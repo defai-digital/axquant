@@ -12,7 +12,7 @@
 | 6-bit | [`AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit) | experts/MLP **6-bit**, attention **8-bit** | [`c5087faa48039c4eb9ee014a24243458298cd763`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit/tree/c5087faa48039c4eb9ee014a24243458298cd763) |
 | MXFP4 | [`AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4) | experts/attention/MLP **MXFP4** gs32, embed 8-bit | [`4d576db1ad0a`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4/tree/4d576db1ad0a61e555c52b76e797263a79f861c8) |
 | MXFP8 | [`AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8) | experts/attention/MLP/embed **MXFP8** gs32 | [`3811f59706ed`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8/tree/3811f59706edf01163dbf9e6dbbc2c2bcd73a0ca) |
-| MXFP6 | [`AutomatosX/AX-DeepSeek-OCR-2-AXQ-MXFP6`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-AXQ-MXFP6) | E2M3 **reference export**, not loadable | [`a4ec894f153b`](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-AXQ-MXFP6/tree/a4ec894f153b83c3b0c1138b5a5f9aac1eb5e18e) |
+| MXFP6 | ~~`AutomatosX/AX-DeepSeek-OCR-2-AXQ-MXFP6`~~ | E2M3 reference export | deleted 2026-10-03 with AXQ-051 (`a4ec894f153b`) |
 
 **Official source pin:** `deepseek-ai/DeepSeek-OCR-2` @
 [`aaa02f3811945a91062062994c5c4a3f4c0af2b0`](https://huggingface.co/deepseek-ai/DeepSeek-OCR-2/tree/aaa02f3811945a91062062994c5c4a3f4c0af2b0)
@@ -74,8 +74,8 @@ axquant convert --model $WORK/src-deepseek-ocr2-bf16 \
 # MXFP6 lane retired (AXQ-051): no MLX or AX Engine runtime supports MXFP6
 # inference, so `export-mxfp6`, the `axquant[mxfp6]` extra, and the
 # `axquant.mxfp6-pack.v1` envelope were removed from the toolkit. The Hub
-# pack above remains as published history; it is not loadable and no new
-# MXFP6 packs will be produced.
+# pack was deleted the same day with the MXFP6 collection; no new MXFP6
+# packs will be produced.
 
 # Publish (needs AutomatosX write token: hf auth login --force)
 bash scripts/publish_ocr_mx_20261003.sh
