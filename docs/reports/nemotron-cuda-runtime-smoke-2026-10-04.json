@@ -1,0 +1,136 @@
+{
+  "backbone_moe_backend": "marlin",
+  "date": "2026-10-04",
+  "enforce_eager": true,
+  "max_model_len": 256,
+  "max_num_seqs": 1,
+  "max_tokens": 8,
+  "mlx_mtp_runtime": "unverified",
+  "mtp_moe_backend": "triton",
+  "quality_certified": false,
+  "records": [
+    {
+      "async_scheduling": false,
+      "generated_token_ids": [
+        11745,
+        1681,
+        1261,
+        11483,
+        2832,
+        2100,
+        1049,
+        1046
+      ],
+      "gpu": "NVIDIA GeForce RTX 5090",
+      "kv_cache_memory_bytes": 536870912,
+      "manifest_sha256": "10f0f525440255fe75be8e6e3951b65d1f1d686b838ed75c2f24af3e235ea84c",
+      "mtp_requested": false,
+      "mtp_runtime_configured": false,
+      "publication_revision": "b6bf81e693ceb64f2bdf2294a112258fdb6de222",
+      "repo_id": "AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP",
+      "scope": "exact checkpoint load and generation smoke; no quality or speed certificate",
+      "source_revision": "a9904d24bcc1d289a1950fa9d2b978c47cf903b9",
+      "status": "passed",
+      "torch_version": "2.11.0+cu130",
+      "vllm_version": "0.25.1"
+    },
+    {
+      "async_scheduling": false,
+      "generated_token_ids": [
+        11745,
+        1681,
+        1261,
+        11483,
+        2832,
+        2100,
+        1049,
+        1046
+      ],
+      "gpu": "NVIDIA Thor",
+      "kv_cache_memory_bytes": 536870912,
+      "manifest_sha256": "10f0f525440255fe75be8e6e3951b65d1f1d686b838ed75c2f24af3e235ea84c",
+      "mtp_requested": false,
+      "mtp_runtime_configured": false,
+      "publication_revision": "b6bf81e693ceb64f2bdf2294a112258fdb6de222",
+      "repo_id": "AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP",
+      "scope": "exact checkpoint load and generation smoke; no quality or speed certificate",
+      "source_revision": "a9904d24bcc1d289a1950fa9d2b978c47cf903b9",
+      "status": "passed",
+      "torch_version": "2.13.0a0+9186a08b2c.nv26.07",
+      "vllm_version": "0.24.0+092c4842.nv26.7.59534043"
+    },
+    {
+      "async_scheduling": false,
+      "generated_token_ids": [
+        11745,
+        1681,
+        1261,
+        11483,
+        2832,
+        2100,
+        1049,
+        1046
+      ],
+      "gpu": "NVIDIA GeForce RTX 5090",
+      "kv_cache_memory_bytes": 536870912,
+      "manifest_sha256": "f3c7a3a7dd2c3fafb4664459b6fe95652de54aaaf24a732d7553a5573c752cdb",
+      "mtp_requested": true,
+      "mtp_runtime_configured": true,
+      "publication_revision": "b04ff0a889ec2278e71c5017cbd0a72ebc8fe3df",
+      "repo_id": "AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP",
+      "scope": "exact checkpoint load and generation smoke; no quality or speed certificate",
+      "source_revision": "a9904d24bcc1d289a1950fa9d2b978c47cf903b9",
+      "speculative_counters": {
+        "vllm:spec_decode_num_accepted_tokens": 4,
+        "vllm:spec_decode_num_draft_tokens": 4,
+        "vllm:spec_decode_num_drafts": 4
+      },
+      "status": "passed",
+      "torch_version": "2.11.0+cu130",
+      "vllm_version": "0.25.1"
+    },
+    {
+      "async_scheduling": false,
+      "generated_token_ids": [
+        11745,
+        1681,
+        1261,
+        11483,
+        2832,
+        2100,
+        1049,
+        1046
+      ],
+      "gpu": "NVIDIA Thor",
+      "kv_cache_memory_bytes": 536870912,
+      "manifest_sha256": "f3c7a3a7dd2c3fafb4664459b6fe95652de54aaaf24a732d7553a5573c752cdb",
+      "mtp_requested": true,
+      "mtp_runtime_configured": true,
+      "publication_revision": "b04ff0a889ec2278e71c5017cbd0a72ebc8fe3df",
+      "repo_id": "AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP",
+      "scope": "exact checkpoint load and generation smoke; no quality or speed certificate",
+      "source_revision": "a9904d24bcc1d289a1950fa9d2b978c47cf903b9",
+      "speculative_counters": {
+        "vllm:spec_decode_num_accepted_tokens": 4,
+        "vllm:spec_decode_num_draft_tokens": 4,
+        "vllm:spec_decode_num_drafts": 4
+      },
+      "status": "passed",
+      "torch_version": "2.13.0a0+9186a08b2c.nv26.07",
+      "vllm_version": "0.24.0+092c4842.nv26.7.59534043"
+    }
+  ],
+  "scope": "development execution smoke; no quality, speed, or long-context certification",
+  "source_prompt": "What is 2 + 2?",
+  "super_cuda_runtime": "unverified",
+  "verification": {
+    "isolated_non_mlx_ci": {
+      "base_revision": "3d2d394768e53586d6b48b40e12ff930e9246bfe",
+      "deselected": 6,
+      "passed": 1791,
+      "skipped": 91
+    },
+    "rtx_nvfp4_regressions": 94,
+    "thor_nvfp4_regressions": 94
+  }
+}

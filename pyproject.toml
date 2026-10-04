@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axquant"
-version = "1.9.0"
+version = "2.0.0"
 description = "MLX-native mixed-precision PTQ for language and multimodal checkpoints on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,9 +12,10 @@ license = { text = "MIT" }
 authors = [{ name = "AutomatosX" }]
 keywords = ["mlx", "quantization", "apple-silicon", "multimodal", "mtp", "ptq"]
 classifiers = [
-    # Toolkit API and CLI are feature-complete and tested; formal host/candidate Hub
-    # certification (MTP speed, size floor, release-audit) remains evidence-gated.
-    "Development Status :: 4 - Beta",
+    # 2.0 opens the experimental CUDA/NVFP4 track; the MLX toolkit is tested but
+    # formal host/candidate Hub certification stays evidence-gated, so the
+    # packaging status is Alpha rather than Beta or Production/Stable.
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",

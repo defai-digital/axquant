@@ -113,6 +113,30 @@ def test_runtime_vision_aliases_remain_unquantized(cuda_source: Path) -> None:
     assert not any(re.fullmatch(pattern, "model.layers.0.mlp.down_proj") for pattern in patterns)
 
 
+def test_runtime_mtp_virtual_expert_projections_remain_unquantized(cuda_source: Path) -> None:
+    plan = build_plan(cuda_source)
+    ignored = cuda._quantization_config(plan)["ignore"]
+    patterns = [item.removeprefix("re:") for item in ignored if item.startswith("re:")]
+    for prefix in ("mtp", "model.mtp"):
+        for projection in ("gate_proj", "up_proj", "down_proj"):
+            name = f"{prefix}.layers.1.mixer.experts.0.{projection}"
+            assert any(re.fullmatch(pattern, name) for pattern in patterns)
+    assert not any(
+        re.fullmatch(pattern, "backbone.layers.1.mixer.experts.0.up_proj") for pattern in patterns
+    )
+    allocation = next(item for item in plan.allocations if item.tensor_name.startswith("mtp."))
+    invalid = plan.model_copy(
+        update={
+            "allocations": [
+                item.model_copy(update={"method": "nvfp4"}) if item == allocation else item
+                for item in plan.allocations
+            ]
+        }
+    )
+    with pytest.raises(PlanningError, match="MTP protection overlaps"):
+        cuda._quantization_config(invalid)
+
+
 def test_keep_policy_and_content_binding(cuda_source: Path) -> None:
     plan = build_plan(cuda_source, keep_patterns=["*.self_attn.*"])
     assert [item.tensor_name for item in plan.allocations if item.method == "nvfp4"] == [

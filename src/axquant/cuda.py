@@ -279,6 +279,15 @@ def _quantization_config(plan: CudaQuantizationPlan) -> dict[str, Any]:
         if item.method == "preserve" and (group := _fused_scale_group(item.tensor_name)) is not None
     }
     ignored.extend(sorted(fused_units))
+    if any(item.tensor_name.startswith("mtp.") for item in plan.allocations):
+        # Fused runtime MoE adds virtual projections absent from source tensors.
+        protected_mtp = r"(?:model\.)?mtp(?:\..*)?"
+        if any(
+            item.method == "nvfp4" and re.fullmatch(protected_mtp, item.tensor_name)
+            for item in plan.allocations
+        ):
+            raise PlanningError("runtime MTP protection overlaps a selected NVFP4 tensor")
+        ignored.append("re:" + protected_mtp)
     if any(item.tensor_name.startswith("layers.") for item in plan.allocations):
         # Base embedding checkpoints omit the wrapper prefix added by vLLM.
         ignored = sorted(set(ignored) | {"model." + name for name in ignored})

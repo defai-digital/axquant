@@ -60,6 +60,47 @@ It does not execute MTP or establish quality. Publication separately checks
 all local SHA256 inventory members, anonymous Hub file access, and large
 weight-file hashes at the exact uploaded revision.
 
+## CUDA checkpoints
+
+| Source family | Physical format | Immutable Hub snapshot |
+| --- | --- | --- |
+| Lightning 30B-A3B | NVFP4A16 | [AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP](https://huggingface.co/AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP/tree/b04ff0a889ec2278e71c5017cbd0a72ebc8fe3df) |
+| Super 120B-A12B | NVFP4A16 | [AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP](https://huggingface.co/AutomatosX/AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP/tree/3fd44399dca208f16a047d42823c55e2b4346a5b) |
+
+These native AXQuant RTN exports use compressed-tensors NVFP4 weight
+serialization and BF16 activations. They use no AWQ or activation calibration.
+Factory conversion used the CPU `numpy-reference` codec; that establishes
+serialized-format evidence, not GPU execution or quality certification.
+
+CUDA packs retain the original integrated `mtp.*` tensor layout in the main
+Safetensors index. Source precision, shape and payload bytes were verified
+for all 270 Lightning and 1,040 Super MTP tensors. CUDA consumers must load
+and execute that original architecture; the MLX sidecar audit does not apply.
+
+Lightning passed eight-token backbone and MTP generation smokes on RTX 5090
+(vLLM 0.25.1) and Thor (vLLM 0.24.0). The test uses synchronous scheduling,
+512 MiB KV/Mamba cache, eager execution, a 256-token context and one request.
+The backbone uses Marlin and the preserved BF16 MTP experts use Triton.
+Each MTP smoke recorded four draft tokens and four accepted draft tokens;
+this tiny prompt does not establish a general acceptance rate or speedup.
+NVFP4 and preservation regressions passed 94 tests on each GPU.
+An earlier 64 MiB cache setting stalled request scheduling; disabling
+asynchronous scheduling alone did not resolve it. These are bounded execution
+checks, not quality, speed or long-context certification.
+
+The updated CUDA revisions protect the complete integrated MTP namespace,
+including virtual fused-expert projections used by consumers. Exact source
+payloads remain unchanged. Super CUDA generation and MTP execution remain
+unverified; its checkpoint is 85.2 GB and requires its own runtime validation.
+The MLX MTP sidecars also remain unverified at execution time.
+
+The [CUDA runtime smoke record](../reports/nemotron-cuda-runtime-smoke-2026-10-04.json)
+binds each bounded run to its publication revision and manifest digest.
+The probe requires positive draft-token counters when testing MTP. Run it
+inside an externally timed container so a stalled worker cannot retain GPU
+memory indefinitely. The original backbone runs predate the metadata fix;
+the later MTP runs use the corrected Lightning revision above.
+
 ## Sources and licenses
 
 - [Lightning BF16 source](https://huggingface.co/nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16),
