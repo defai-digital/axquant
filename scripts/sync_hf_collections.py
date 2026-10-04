@@ -107,13 +107,13 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="Certified AXQ",
         description="Measured AXQ packs with a public Tier 1 certificate. Start here.",
-        items=(_ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),),
+        items=(),
     ),
     Spec(
         title="MXFP4",
-        description="Every AXQ MXFP4 pack: certified and development, MTP and no-MTP.",
+        description="Every AXQ MXFP4 development pack, MTP and no-MTP.",
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
@@ -130,12 +130,14 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="MXFP8",
-        description="MXFP8-format packs. MLX OCR, Qwen3-VL, and embeddings.",
+        description="MXFP8-format packs. MLX OCR, Qwen3-VL, Qwen3.8 MTP, and embeddings.",
         items=(
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
@@ -164,10 +166,12 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="MTP",
         description="AXQ packs with packaged MTP sidecars. -MTP ships assets; speed needs Tier 2.",
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -196,8 +200,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
@@ -250,10 +256,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3.8",
-        description="Qwen3.8 MLX: 27B MXFP4 with packaged MTP, and Flash-Next MXFP4 MTP.",
+        description="Qwen3.8 MLX: 27B and Flash-Next MXFP4/MXFP8 with packaged MTP.",
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -316,8 +324,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             "MLX packs only. Native NVIDIA checkpoints are listed in the CUDA collection."
         ),
         items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
