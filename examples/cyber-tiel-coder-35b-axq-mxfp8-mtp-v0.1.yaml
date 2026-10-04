@@ -6,7 +6,7 @@
 #   axquant convert --q-mode mxfp8 --allow-unmeasured ...
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
-target_bpw: 9.0
+target_bpw: 9.4
 default_bits: 8
 default_method: affine
 group_size: 32
