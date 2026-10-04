@@ -69,6 +69,22 @@ def test_plan_preserves_all_protected_and_ineligible_tensors(cuda_source: Path) 
     assert "runtime_check.json" not in serialized
 
 
+def test_withdrawn_cuda_fp8_mode_is_rejected(cuda_source: Path) -> None:
+    with pytest.raises(SystemExit, match="2"):
+        main(
+            [
+                "plan-cuda",
+                str(cuda_source),
+                "--q-mode",
+                "fp8",
+                "--allow-unmeasured",
+                "--output",
+                str(cuda_source.parent / "plan.json"),
+            ]
+        )
+    assert not (cuda_source.parent / "plan.json").exists()
+
+
 @pytest.mark.parametrize("spelling", ["view_separator", "view_seperator"])
 def test_image_separator_remains_protected(cuda_source: Path, spelling: str) -> None:
     member = cuda_source / "model.safetensors"

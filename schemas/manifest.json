@@ -237,7 +237,7 @@
       "compatibility_class": "evidence",
       "filename": "axquant.cuda-fp8-pack.v1.schema.json",
       "freeze_policy": "immutable-envelope",
-      "model": "axquant.schema.cuda_fp8.CudaFp8PackManifest",
+      "model": "axquant.schema.frozen_cuda_fp8.CudaFp8PackManifest",
       "schema_version": "axquant.cuda-fp8-pack.v1",
       "sha256": "0e86fc6f029ac85665670ada31ed30acb805981084164086d1f039400d9edbe4"
     },
@@ -245,7 +245,7 @@
       "compatibility_class": "evidence",
       "filename": "axquant.cuda-fp8-plan.v1.schema.json",
       "freeze_policy": "immutable-envelope",
-      "model": "axquant.schema.cuda_fp8.CudaFp8QuantizationPlan",
+      "model": "axquant.schema.frozen_cuda_fp8.CudaFp8QuantizationPlan",
       "schema_version": "axquant.cuda-fp8-plan.v1",
       "sha256": "5df9f31716b5b76d787e0cde2c3e8c3fd474560b91ee6d1b4b56e25d652c462a"
     },

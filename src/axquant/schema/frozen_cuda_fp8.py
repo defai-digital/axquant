@@ -1,4 +1,4 @@
-"""Independent FP8 W8A8 CUDA development contracts."""
+"""Historical contracts for the withdrawn CUDA FP8 experiment; no conversion support."""
 
 from __future__ import annotations
 

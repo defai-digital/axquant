@@ -1,46 +1,19 @@
-# Native CUDA NVFP4 and FP8 conversion
+# Native CUDA NVFP4 conversion
 
 This experimental backend adds AXQuant-owned round-to-nearest (RTN) NVFP4
 weight quantization. It does not use AWQ. It is separate from the existing
 MLX conversion path and requires a build containing the CUDA commands.
 Installing the extra does not backport these commands to an older wheel.
 
+CUDA NVFP4 is the supported experimental conversion format. The short-lived
+CUDA FP8 converter and publication were withdrawn. Frozen FP8 artifact
+definitions remain solely for historical metadata; no FP8 conversion command
+or export backend is provided.
+
 The initial format is **NVFP4 W4A16**: selected weights use E2M1 FP4,
 activations execute in FP16/BF16 without activation quantization, and protected
 weights retain their source precision. This backend does not calibrate or
 quantize activations to FP4 (W4A4).
-
-The additional `--q-mode fp8` exports **FP8 E4M3 W8A8** with per-output-channel
-FP32 weight scales and dynamic per-token activation quantization in the runtime.
-Protected weights remain at source precision. This is standard FP8 E4M3FN,
-not the block-scaled MXFP8 format. NVIDIA's public format names are FP8, MXFP8
-and NVFP4; this backend does not invent a separate NVFP8 checkpoint format.
-
-```bash
-axquant quantize-cuda /path/to/source-bf16 \
-  --device cuda:0 --q-mode fp8 --allow-unmeasured \
-  --output /path/to/output-fp8
-```
-
-Use `--q-mode fp8` in both `plan-cuda` and `convert-cuda` when splitting these
-stages. The FP8 path retains the existing CUDA protection and source-binding
-policy, including complete fused-unit preservation. FP8 weights retain their
-`.weight` name and shape with dtype `float8_e4m3fn`; each has a `.weight_scale`
-FP32 tensor of shape `(rows, 1)`. Scale is `max(abs(row)) / 448`; zero rows use
-scale 1. Non-finite inputs and unrepresentable positive FP32 scales fail closed.
-The encoder processes bounded row chunks on the selected device. Explicit
-`--device cpu` records `torch-cpu`; unavailable CUDA never falls back silently.
-
-FP8 uses independent `axquant.cuda-fp8-plan.v1` and `axquant.cuda-fp8-pack.v1`
-contracts, preserving the NVFP4 v1 contracts. The public compressed-tensors
-format is `float-quantized`. Dynamic activation scales are computed during
-inference; conversion does not claim measured calibration. MoE FP8 runtime
-support requires compatible weight and activation schemes.
-
-References: [NVIDIA FP8 and FP4 formats](https://docs.nvidia.com/deeplearning/transformer-engine-releases/release-2.14/user-guide/examples/fp8_primer.html)
-and the [vLLM compressed-tensors interface](https://docs.vllm.ai/en/latest/features/quantization/compressed_tensors/).
-Run `pytest tests/test_cuda_fp8.py` in an environment with the CUDA extra;
-its integration cases require a CUDA device.
 
 ## Install and convert
 
