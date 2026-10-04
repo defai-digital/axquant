@@ -14,8 +14,10 @@ from axquant.errors import ArtifactError
 from axquant.source_prep import (
     needs_conversion_prep,
     needs_gemma4_unified_prep,
+    needs_unlimited_ocr_prep,
     prepare_conversion_source,
     prepare_gemma4_unified_source,
+    prepare_unlimited_ocr_source,
 )
 
 
@@ -236,6 +238,58 @@ def _write_gemma4_unified_fixture(root: Path) -> Path:
 def test_needs_gemma4_unified_prep() -> None:
     assert needs_gemma4_unified_prep({"model_type": "gemma4_unified"})
     assert not needs_gemma4_unified_prep({"model_type": "gemma4"})
+
+
+def test_needs_unlimited_ocr_prep(tmp_path: Path) -> None:
+    source = tmp_path / "unlimited-ocr-bf16"
+    source.mkdir()
+    config = {
+        "model_type": "unlimited-ocr",
+        "architectures": ["UnlimitedOCRForCausalLM"],
+        "auto_map": {"AutoModel": "modeling_unlimitedocr.UnlimitedOCRForCausalLM"},
+    }
+    assert needs_unlimited_ocr_prep(source, config)
+    assert not needs_unlimited_ocr_prep(source, {**config, "model_type": "deepseekocr"})
+    assert not needs_unlimited_ocr_prep(
+        source, {k: v for k, v in config.items() if k != "auto_map"}
+    )
+
+
+def test_prepare_unlimited_ocr_strips_remote_code(tmp_path: Path) -> None:
+    source = tmp_path / "unlimited-ocr-bf16"
+    source.mkdir()
+    (source / "config.json").write_text(
+        json.dumps(
+            {
+                "model_type": "unlimited-ocr",
+                "architectures": ["UnlimitedOCRForCausalLM"],
+                "auto_map": {"AutoModel": "modeling_unlimitedocr.UnlimitedOCRForCausalLM"},
+            }
+        )
+    )
+    (source / "modeling_unlimitedocr.py").write_text("# remote code")
+    (source / "deepencoder.py").write_text("# remote code")
+    (source / "tokenizer.json").write_text("{}")
+    (source / "assets").mkdir()
+    (source / "assets" / "preview.png").write_bytes(b"PNG")
+    (source / "wheel").mkdir()
+    save_file(
+        {"language_model.model.norm.weight": np.ones(4, dtype=np.float32)},
+        source / "model.safetensors",
+    )
+    assert needs_conversion_prep(source)
+    prepared = prepare_unlimited_ocr_source(source, work_dir=tmp_path / "work")
+    assert not (prepared / "modeling_unlimitedocr.py").exists()
+    assert not (prepared / "deepencoder.py").exists()
+    assert not (prepared / "assets").exists()
+    assert not (prepared / "wheel").exists()
+    assert (prepared / "tokenizer.json").is_file()
+    assert (prepared / "model.safetensors").is_file()
+    cfg = json.loads((prepared / "config.json").read_text(encoding="utf-8"))
+    assert cfg["model_type"] == "unlimited-ocr"
+    assert "auto_map" not in cfg
+    # The original snapshot is untouched.
+    assert (source / "modeling_unlimitedocr.py").is_file()
 
 
 def test_prepare_gemma4_unified_filters_multimodal(

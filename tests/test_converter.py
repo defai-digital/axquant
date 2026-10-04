@@ -26,11 +26,13 @@ from axquant.module_paths import fused_expert_module
 from axquant.planner import plan_quantization
 from axquant.schema import (
     ActivationCaptureManifest,
+    Allocation,
     ArtifactManifest,
     CalibrationEvidence,
     CalibrationManifest,
     EvidenceKind,
     Inventory,
+    MetricVector,
     ModelIdentity,
     PlanRequest,
     ProfileName,
@@ -143,6 +145,14 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
         }
     )
     assert multimodal_backend.conversion_backend(qwen4_plan) == "mlx-vlm"
+    uocr_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "unlimited-ocr-v1"}
+            )
+        }
+    )
+    assert multimodal_backend.conversion_backend(uocr_plan) == "mlx-vlm"
     predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
     observed: dict[str, object] = {}
 
@@ -183,6 +193,52 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
         q_mode="mxfp4",
     )
     assert observed["q_mode"] == "mxfp4"
+
+
+@pytest.mark.parametrize("adapter_id", ["deepseek-ocr2-v1", "unlimited-ocr-v1"])
+def test_moegate_routers_stay_bf16_for_ocr_adapters(
+    qwen36_model_dir: Path, adapter_id: str
+) -> None:
+    """MoEGate routers are not Linear; quantize keeps them dense BF16."""
+    from axquant.quantize import _keep_moegate_routers_bf16
+
+    plan = _plan(qwen36_model_dir)
+    router = Allocation(
+        tensor="language_model.model.layers.1.mlp.gate.weight",
+        module_path="language_model.model.layers.1.mlp.gate",
+        role=TensorRole.ROUTER,
+        parameters=128,
+        bits=8,
+        method=QuantMethod.AFFINE,
+        group_size=64,
+        predicted_loss=0.0,
+        metrics=MetricVector(),
+        reason="test router",
+    )
+    routed = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": adapter_id}
+            ),
+            "assignments": [*plan.assignments, router],
+        }
+    )
+    kept = _keep_moegate_routers_bf16(routed)
+    updated = [a for a in kept.assignments if a.role is TensorRole.ROUTER]
+    assert len(updated) == 1
+    assert updated[0].bits == 16
+    assert updated[0].method is QuantMethod.BF16
+    assert updated[0].group_size is None
+    assert any("MoEGate" in warning for warning in kept.warnings)
+    # Other families are untouched.
+    dense = routed.model_copy(
+        update={
+            "architecture_profile": routed.architecture_profile.model_copy(
+                update={"adapter_id": "qwen36-v1"}
+            )
+        }
+    )
+    assert _keep_moegate_routers_bf16(dense) is dense
 
 
 def test_audio_backend_uses_public_stt_model_and_mlx_quantization_contract(

@@ -369,6 +369,33 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         ),
     ),
     DenseFamilySpec(
+        # Unlimited-OCR 3B MoE: MLX-VLM unlimited_ocr path; language MoE
+        # quantized, dual vision (CLIP + SAM) BF16. Promoted 2026-10-03 with
+        # adapter tests plus a real-checkpoint MXFP4 smoke (AXQ-017).
+        adapter_id="unlimited-ocr-v1",
+        product_family="unlimited-ocr",
+        model_types=("unlimited-ocr",),
+        reference_pattern=r"unlimited[._-]?ocr",
+        support_tier=SupportTier.CONVERTIBLE,
+        # Prefer nested language_config; fall back to top-level num_hidden_layers.
+        text_config_key="language_config",
+        allow_moe=True,
+        extra_role_patterns=(
+            ("sam_model", TensorRole.VISION),
+            ("vision_model", TensorRole.VISION),
+            ("projector", TensorRole.VISION),
+            ("view_separator", TensorRole.VISION),
+            # Image-layout placeholder row: vision-adjacent state, BF16-protected.
+            ("image_newline", TensorRole.VISION),
+        ),
+        notes=(
+            "Unlimited-OCR 3B MoE converts through MLX-VLM (unlimited_ocr).",
+            "CLIP / SAM vision encoders / projector stay BF16-protected; OCR "
+            "quality claims require measured eval — development evidence only.",
+            "Convert from a byte-verified MLX BF16 remaster of baidu/Unlimited-OCR.",
+        ),
+    ),
+    DenseFamilySpec(
         # Meta Muse Glimmer 30B: dense multimodal agentic VL via MLX-VLM muse_glimmer.
         adapter_id="muse-glimmer-v1",
         product_family="muse-glimmer",

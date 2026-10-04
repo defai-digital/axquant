@@ -24,7 +24,7 @@ ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm"]
 _QWEN3_VL_ADAPTERS = frozenset({"qwen3-vl-v1", "qwen3-vl-moe-v1"})
 # OCR / document VL families that share the public MLX-VLM convert entrypoint.
 _MLX_VLM_ADAPTERS = _QWEN3_VL_ADAPTERS | frozenset(
-    {"deepseek-ocr2-v1", "muse-glimmer-v1", "qwen4-exp-v1"}
+    {"deepseek-ocr2-v1", "muse-glimmer-v1", "qwen4-exp-v1", "unlimited-ocr-v1"}
 )
 
 
@@ -330,6 +330,66 @@ def _convert_deepseek_ocr2(
         del model
 
 
+def _convert_unlimited_ocr(
+    source: Path,
+    destination: Path,
+    plan: QuantizationPlan,
+    predicate: PlanPredicate,
+    default_bits: int,
+    q_mode: str = "affine",
+) -> None:
+    """Convert Unlimited-OCR without Hugging Face AutoProcessor remote-code.
+
+    BF16 remasters ship ``auto_map`` + ``modeling_*.py`` that require torch.
+    MLX-VLM provides ``UnlimitedOCRProcessor``; use it directly and quantize
+    through the public ``quantize_model`` helper.
+    """
+    import glob
+    import shutil
+
+    vlm_utils = _import("mlx_vlm.utils", extra="mlx-vlm")
+    quant_utils = _import("mlx_vlm.quant_utils", extra="mlx-vlm")
+    processor_mod = _import(
+        "mlx_vlm.models.unlimited_ocr.processing_unlimitedocr",
+        extra="mlx-vlm",
+    )
+    try:
+        model = vlm_utils.load_model(source, lazy=True)
+        config = vlm_utils.load_config(source)
+        processor = processor_mod.UnlimitedOCRProcessor.from_pretrained(str(source))
+    except Exception as exc:
+        raise ArtifactError(f"cannot load Unlimited-OCR for MLX-VLM convert: {exc}") from exc
+    try:
+        config.setdefault("vision_config", {})
+        model, config = quant_utils.quantize_model(
+            model,
+            config,
+            32 if q_mode == "mxfp8" else plan.group_size,
+            8 if q_mode == "mxfp8" else default_bits,
+            mode=q_mode,
+            quant_predicate=predicate,
+        )
+        # MoEGate routers are not Linear modules; quantize_model skips them.
+        # Visit remaining plan modules so fail-closed coverage matches preflight
+        # (routers stay dense BF16 — still above the 8-bit floor).
+        _visit_modules(model, predicate, backend="MLX-VLM")
+        destination.mkdir(parents=True, exist_ok=False)
+        vlm_utils.save_weights(destination, model, donate_weights=True)
+        for pattern in ("*.py", "*.json", "*.jinja", "*.txt"):
+            for file in glob.glob(str(source / pattern)):
+                name = Path(file).name
+                if name == "model.safetensors.index.json":
+                    continue
+                shutil.copy(file, destination / name)
+        if hasattr(processor, "save_pretrained"):
+            with suppress(Exception):
+                processor.save_pretrained(destination)
+                # Processor files were already copied from source if this fails.
+        vlm_utils.save_config(config, config_path=destination / "config.json")
+    finally:
+        del model
+
+
 def _convert_muse_glimmer(
     source: Path,
     destination: Path,
@@ -450,6 +510,9 @@ def _convert_vlm(
 ) -> None:
     if plan.architecture_profile.adapter_id == "deepseek-ocr2-v1":
         _convert_deepseek_ocr2(source, destination, plan, predicate, default_bits, q_mode=q_mode)
+        return
+    if plan.architecture_profile.adapter_id == "unlimited-ocr-v1":
+        _convert_unlimited_ocr(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         return
     if plan.architecture_profile.adapter_id == "muse-glimmer-v1":
         _convert_muse_glimmer(source, destination, plan, predicate, default_bits, q_mode=q_mode)

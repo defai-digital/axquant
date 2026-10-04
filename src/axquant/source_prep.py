@@ -206,6 +206,7 @@ def needs_conversion_prep(model_dir: str | Path) -> bool:
         or needs_qwen3_bare_prefix_prep(directory, config)
         or needs_qwen_moe_unpacked_expert_prep(directory, config)
         or needs_deepseek_ocr2_prep(directory, config)
+        or needs_unlimited_ocr_prep(directory, config)
     )
 
 
@@ -845,6 +846,76 @@ def prepare_deepseek_ocr2_source(
     return prepared
 
 
+def needs_unlimited_ocr_prep(model_dir: str | Path, config: dict[str, Any] | None = None) -> bool:
+    """True when Unlimited-OCR ships torch remote-code that blocks MLX-VLM convert."""
+    directory = Path(model_dir).expanduser().resolve()
+    if config is None:
+        try:
+            config = _read_config(directory)
+        except ArtifactError:
+            return False
+    if str(config.get("model_type", "")) != "unlimited-ocr":
+        return False
+    # Only Unlimited-OCR v2 snapshots (not v1 deepseekocr remasters).
+    architectures = config.get("architectures")
+    arch_ok = isinstance(architectures, list) and any(
+        "unlimitedocr" in str(item).lower() for item in architectures
+    )
+    name_ok = any(
+        re.search(r"unlimited[._-]?ocr", str(item), re.IGNORECASE)
+        for item in (directory.name, config.get("_name_or_path", ""))
+    )
+    if not (arch_ok or name_ok):
+        return False
+    has_remote = (directory / "modeling_unlimitedocr.py").is_file() or bool(config.get("auto_map"))
+    return has_remote
+
+
+def prepare_unlimited_ocr_source(
+    source_dir: str | Path,
+    *,
+    work_dir: str | Path,
+) -> Path:
+    """Strip torch remote-code so MLX-VLM processor/load can run without torch.
+
+    Keeps tokenizer / processor JSON + weights; drops ``modeling_*.py`` and
+    ``auto_map``; skips documentation bundles (``assets/``, ``wheel/``);
+    forces ``model_type=unlimited-ocr`` for the MLX-VLM module.
+    """
+    source = Path(source_dir).expanduser().resolve()
+    config = _read_config(source)
+    if not needs_unlimited_ocr_prep(source, config):
+        raise ArtifactError("unlimited-ocr preparation expected remote-code snapshot")
+    prepared = _prepared_directory(source, work_dir, "unlimited-ocr-mlx")
+    for path in sorted(source.iterdir()):
+        name = path.name
+        if name.startswith("."):
+            continue
+        if name.startswith("modeling_") or name in {
+            "deepencoder.py",
+            "deepencoderv2.py",
+            "configuration_deepseek_v2.py",
+            "conversation.py",
+            "assets",
+            "wheel",
+        }:
+            continue
+        destination = prepared / name
+        if path.is_dir():
+            shutil.copytree(path, destination, dirs_exist_ok=True)
+        elif path.is_file():
+            shutil.copy2(path, destination)
+    prepared_config = _read_config(prepared)
+    prepared_config["model_type"] = "unlimited-ocr"
+    prepared_config.pop("auto_map", None)
+    (prepared / "config.json").write_text(
+        json.dumps(prepared_config, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    log.info("unlimited_ocr_source_prepared", source=str(source), prepared=str(prepared))
+    return prepared
+
+
 def prepare_conversion_source(
     source_dir: str | Path,
     *,
@@ -871,6 +942,8 @@ def prepare_conversion_source(
         return prepare_qwen_moe_packed_experts_source(source, work_dir=work_dir)
     if needs_deepseek_ocr2_prep(source, config):
         return prepare_deepseek_ocr2_source(source, work_dir=work_dir)
+    if needs_unlimited_ocr_prep(source, config):
+        return prepare_unlimited_ocr_source(source, work_dir=work_dir)
     if needs_tekken_tokenizer_prep(source):
         return prepare_tekken_tokenizer_source(source, work_dir=work_dir, model_id=model_id)
     return None

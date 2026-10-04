@@ -314,6 +314,27 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         ),
     ),
     FamilySupportPolicy(
+        product_family="unlimited-ocr",
+        adapter_id="unlimited-ocr-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=31,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin convert: Unlimited-OCR 3B MoE document VL via MLX-VLM unlimited_ocr; "
+            "language quantized, dual vision (CLIP + SAM) + projector BF16-protected."
+        ),
+        do=(
+            "Convert from a byte-verified MLX BF16 remaster of baidu/Unlimited-OCR.",
+            "Label packs development; protect vision towers at BF16.",
+        ),
+        do_not=(
+            "Do not claim OCR accuracy parity without measured document evals.",
+            "Do not re-pack community 4/6/8-bit as AXQ without a full convert.",
+            "Do not treat Unlimited-OCR v1 (deepseekocr) remasters as v2 by association.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="muse-glimmer",
         adapter_id="muse-glimmer-v1",
         investment_posture=InvestmentPosture.THIN,

@@ -53,10 +53,11 @@ DEVELOPMENT_NOTE = "This artifact is development evidence; it is not a certified
 
 RuntimeSmoke = Literal["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"]
 
-# MLX-VLM DeepSeek-OCR-2 routers are MoEGate modules (not nn.Linear); the public
-# quantize_model path leaves them dense. Keep plan routers at BF16 so convert
-# verification does not expect packed 8-bit shapes that never materialize.
-_MOEGATE_ROUTER_BF16_ADAPTERS = frozenset({"deepseek-ocr2-v1"})
+# MLX-VLM DeepSeek-OCR-2 / Unlimited-OCR routers are MoEGate modules (not
+# nn.Linear); the public quantize_model path leaves them dense. Keep plan
+# routers at BF16 so convert verification does not expect packed 8-bit shapes
+# that never materialize.
+_MOEGATE_ROUTER_BF16_ADAPTERS = frozenset({"deepseek-ocr2-v1", "unlimited-ocr-v1"})
 
 
 def _keep_moegate_routers_bf16(plan: QuantizationPlan) -> QuantizationPlan:

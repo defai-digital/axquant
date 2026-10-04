@@ -858,6 +858,7 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen3-vl-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-moe-v1": SupportTier.CONVERTIBLE,
         "deepseek-ocr2-v1": SupportTier.CONVERTIBLE,
+        "unlimited-ocr-v1": SupportTier.CONVERTIBLE,
         "muse-glimmer-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
@@ -1194,6 +1195,73 @@ def test_deepseek_ocr2_is_convertible_via_mlx_vlm() -> None:
             "model.safetensors",
         )
         is TensorRole.EXPERT
+    )
+
+
+def test_unlimited_ocr_is_convertible_via_mlx_vlm() -> None:
+    config = {
+        "model_type": "unlimited-ocr",
+        "architectures": ["UnlimitedOCRForCausalLM"],
+        "num_hidden_layers": 12,
+        "n_routed_experts": 64,
+        "num_experts_per_tok": 6,
+        "language_config": {
+            "num_hidden_layers": 12,
+            "n_routed_experts": 64,
+            "num_experts_per_tok": 6,
+            "hidden_size": 2048,
+        },
+        "vision_config": {"model_type": "vision", "image_size": 1024},
+        "_name_or_path": "baidu/Unlimited-OCR",
+    }
+    for reference in (
+        "baidu/Unlimited-OCR",
+        "tokimoa/unlimited-ocr-mlx-bf16",
+        "Unlimited-OCR",
+    ):
+        adapter = adapter_for(reference, config)
+        assert adapter is not None
+        assert adapter.adapter_id == "unlimited-ocr-v1"
+        profile = adapter.profile(reference, config)
+        assert profile.support_tier is SupportTier.CONVERTIBLE
+        assert profile.dense is False
+        assert profile.text_layer_count == 12
+        assert profile.vision_present is True
+        assert profile.optimization_scope is OptimizationScope.TEXT_PATH
+    # Role classification routes dual vision / projector to vision protection.
+    adapter = adapter_for("baidu/Unlimited-OCR", config)
+    assert adapter is not None
+    assert (
+        adapter.classify_tensor("sam_model.blocks.0.attn.qkv.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("vision_model.embeddings.patch_embedding.weight", "m")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("projector.layers.weight", "model.safetensors") is TensorRole.VISION
+    )
+    assert adapter.classify_tensor("image_newline", "model.safetensors") is TensorRole.VISION
+    assert (
+        adapter.classify_tensor(
+            "language_model.model.layers.1.mlp.switch_mlp.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+    assert (
+        adapter.classify_tensor(
+            "language_model.model.layers.1.mlp.gate.weight", "model.safetensors"
+        )
+        is TensorRole.ROUTER
+    )
+    assert (
+        adapter.classify_tensor(
+            "language_model.model.layers.0.self_attn.q_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.ATTENTION
     )
 
 
