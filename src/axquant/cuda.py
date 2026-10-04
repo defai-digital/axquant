@@ -43,6 +43,7 @@ _ASSET_PATTERNS = (
     "merges.txt",
     "*.model",
     "chat_template*.jinja",
+    "chat_template*.json",
     "*processor_config.json",
     "*.py",
 )
@@ -227,6 +228,18 @@ def _quantization_config(plan: CudaQuantizationPlan) -> dict[str, Any]:
             if item.method == "preserve" and item.tensor_name.endswith(".weight")
         }
     )
+    expert_units = {
+        unit
+        for item in plan.allocations
+        if item.method == "preserve" and (unit := _expert_unit(item.tensor_name)) is not None
+    }
+    ignored.extend(sorted(expert_units))
+    fused_units = {
+        group
+        for item in plan.allocations
+        if item.method == "preserve" and (group := _fused_scale_group(item.tensor_name)) is not None
+    }
+    ignored.extend(sorted(fused_units))
     if any(item.role in {TensorRole.VISION, TensorRole.AUDIO} for item in plan.allocations):
         # Runtime vision wrappers may rename internal paths (transformer -> encoder).
         protected = r".*(?:vision|visual|sam_model|projector|view_sep|image_newline|audio).*"

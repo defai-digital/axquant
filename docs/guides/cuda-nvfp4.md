@@ -152,8 +152,11 @@ axquant convert-cuda /path/to/source-bf16 --plan work/w4a4-plan.json \
   --device cuda:0 --allow-unmeasured --output /path/to/output-w4a4
 ```
 
-The capture script supports the official DeepSeek-OCR-2 and Unlimited-OCR
-layouts. It observes BF16 Linear inputs and replays every source expert on
+The capture script supports official DeepSeek-OCR-2, Unlimited-OCR and dense
+Qwen3-VL Instruct layouts. Qwen3-VL uses its tokenizer chat template and
+explicit runtime-to-source language aliases; its visual tower stays BF16.
+The smoke reserves 512 MiB KV cache for Qwen3-VL and 128 MiB for the OCR models.
+ It observes BF16 Linear inputs and replays every source expert on
 observed BF16 hidden states, including experts not routed on that page.
 Down-projection statistics come from actual source gate/up matrix operations
 and SiLU. The calibration records this replay method, image digests, exact
@@ -167,9 +170,13 @@ per selected matrix and writes `axquant.cuda-w4a4-plan.v1` and
 `axquant.cuda-w4a4-pack.v1`. Weight packing remains native AXQuant RTN.
 A small development calibration page cannot establish broad OCR accuracy.
 
-Use the OCR smoke with chunked prefill enabled and explicit native FP4
-requirements. Unsupported CUTLASS execution fails instead of silently
-using a weight-only kernel:
+Use the image-text smoke with chunked prefill enabled and native FP4
+requirements. It inspects actual worker kernels, requires native CUTLASS
+Linear, and rejects Marlin, Humming or emulation for quantized MoE. The MoE
+selector stays automatic so preserved BF16 expert tables can use their
+supported backend. Actual Linear and expert-table counts must match every
+fused runtime unit implied by the source allocation plan. It rejects repeated nonblank output lines even when
+the three expected test-page lines are present:
 
 ```bash
 python scripts/smoke_cuda_ocr.py --model /path/to/output-w4a4 \
@@ -253,3 +260,23 @@ and recognized all three expected English test-page lines. Exact protected
 tensor equality and identical checkpoint hashes across test hosts were checked.
 Calibration and smoke used the same generated page; this is not a held-out
 OCR evaluation, layout/markup qualification or a speed certification.
+
+
+Qwen3-VL-4B-Instruct and Qwen3-VL-8B-Instruct are dense, non-MTP sources.
+NVFP4 conversion does not add trained MTP heads. The complete visual stack,
+embeddings, normalization tensors and LM head retain original precision.
+JSON chat templates are checksum-bound source assets and are copied into
+the export alongside tokenizer and processor files. Other unpromoted
+Qwen3-VL variants remain inventory-only.
+
+Keeping fused text projections emits both source and fused-runtime ignore
+entries. Keeping one expert projection protects the complete expert table.
+A fully quantized Unlimited-OCR Thor development smoke exposed repeated
+prefix lines despite recognizing the expected text. The stricter smoke
+rejects that candidate; subsequent conversion uses explicit front-MLP
+protection and must pass the same checks before publication.
+
+For Unlimited-OCR on vLLM 0.25.1, MHA attention Linears omit module prefixes,
+so per-layer BF16 attention protection cannot be addressed by the quantization
+config. The development smoke rejects that layout before loading. Use
+MLP-only protection when keeping front layers with this pinned runtime.

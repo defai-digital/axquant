@@ -473,7 +473,6 @@ def test_registry_resolves_qwen3_vl_moe_30b_instruct() -> None:
     [
         ("Qwen/Qwen3-ASR-0.6B", "qwen3_asr"),
         ("Qwen/Qwen3-ASR-17B", "qwen3_asr"),
-        ("Qwen/Qwen3-VL-4B-Instruct", "qwen3_vl"),
         ("Qwen/Qwen3-VL-18B-Instruct", "qwen3_vl"),
         ("Qwen/Qwen3-VL-8B-Thinking", "qwen3_vl"),
         ("Qwen/Qwen3-VL-30B-A3B-Thinking", "qwen3_vl_moe"),

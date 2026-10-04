@@ -314,12 +314,12 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         model_types=("qwen3_vl",),
         reference_pattern=(
             r"(?:^|[/_.-])qwen[._-]?3[._-]vl[._-]"
-            r"(8b[._-]instruct|embedding[._-]8b|32b[._-]thinking)(?:$|[/_.-])"
+            r"((?:4b|8b)[._-]instruct|embedding[._-]8b|32b[._-]thinking)(?:$|[/_.-])"
         ),
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=(
-            "Qwen3-VL 8B Instruct, Embedding-8B, and 32B-Thinking convert through MLX-VLM.",
+            "Qwen3-VL 4B/8B Instruct, Embedding-8B, and 32B-Thinking have a protected vision path.",
             "The complete vision tower remains protected at BF16.",
             "Embedding SKUs are retrieval checkpoints — do not claim generative or MTP metrics.",
         ),

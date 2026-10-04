@@ -9,6 +9,7 @@ from safetensors.numpy import save_file
 
 from axquant.cli import main
 from axquant.cuda import (
+    _quantization_config,
     convert_cuda_nvfp4_w4a4,
     plan_cuda_nvfp4,
     plan_cuda_nvfp4_w4a4,
@@ -66,6 +67,7 @@ def test_keep_one_expert_preserves_complete_runtime_table(expert_source: Path) -
         item.method == "preserve" for item in plan.allocations if ".experts." in item.tensor_name
     )
     assert any(item.method == "nvfp4" for item in plan.allocations)
+    assert "model.layers.0.mlp.experts" in _quantization_config(plan)["ignore"]
 
 
 @pytest.mark.parametrize("mutation", ["identity", "missing", "shape", "precision"])
@@ -149,3 +151,76 @@ def test_w4a4_cli_requires_calibration_before_output(expert_source: Path) -> Non
         == 2
     )
     assert not output.exists()
+
+
+def test_ocr_smoke_rejects_repetitive_prefix_even_with_expected_text() -> None:
+    from scripts.smoke_cuda_ocr import require_smoke_text
+
+    expected = "AXQuant NVFP4\nInvoice 12345\nTotal USD 42.50"
+    require_smoke_text(expected)
+    with pytest.raises(RuntimeError, match="repetitive"):
+        require_smoke_text("1.\n1.\n1.\n" + expected)
+
+
+@pytest.mark.parametrize("prefix", ["model.", "model.language_model."])
+def test_calibration_maps_runtime_language_aliases(prefix: str) -> None:
+    from scripts.capture_cuda_ocr import runtime_source_name
+
+    selected = {prefix + "layers.0.self_attn.q_proj.weight": {}}
+    assert runtime_source_name("language_model.model.layers.0.self_attn.q_proj", selected) == (
+        prefix + "layers.0.self_attn.q_proj"
+    )
+
+
+def test_native_kernel_check_rejects_fallback() -> None:
+    from types import SimpleNamespace
+
+    from scripts.smoke_cuda_ocr import inspect_native_fp4
+
+    scheme_type = type("CompressedTensorsW4A4Fp4", (), {})
+    scheme = scheme_type()
+    scheme.use_a16 = False
+    scheme.kernel = type("CutlassNvFp4LinearKernel", (), {})()
+    layer = SimpleNamespace(scheme=scheme)
+    model = SimpleNamespace(named_modules=lambda: [("layer", layer)])
+    assert inspect_native_fp4(model)["linear_kernels"] == {"CutlassNvFp4LinearKernel": 1}
+    layer.quant_method = SimpleNamespace(nvfp4_backend=SimpleNamespace(name="MARLIN"))
+    with pytest.raises(RuntimeError, match="MoE check rejected"):
+        inspect_native_fp4(model)
+    del layer.quant_method
+    scheme.use_a16 = True
+    with pytest.raises(RuntimeError, match="Linear check rejected"):
+        inspect_native_fp4(model)
+
+
+def test_preserved_fused_attention_is_ignored_by_runtime(expert_source: Path) -> None:
+    plan = plan_cuda_nvfp4(expert_source, keep_patterns=["*.self_attn.*"], allow_unmeasured=True)
+    assert "model.layers.0.self_attn.qkv_proj" in _quantization_config(plan)["ignore"]
+
+
+def test_unlimited_runtime_rejects_unaddressable_preserved_attention() -> None:
+    from scripts.smoke_cuda_ocr import require_runtime_layout
+
+    config = {
+        "architectures": ["UnlimitedOCRForCausalLM"],
+        "quantization_config": {"ignore": ["model.layers.0.self_attn.q_proj"]},
+    }
+    with pytest.raises(ValueError, match="lacks Linear prefixes"):
+        require_runtime_layout(config)
+    config["quantization_config"]["ignore"] = ["model.layers.0.mlp.gate_up_proj"]
+    require_runtime_layout(config)
+
+
+def test_kernel_coverage_requires_every_planned_runtime_unit(expert_source: Path) -> None:
+    from scripts.smoke_cuda_ocr import require_kernel_coverage
+
+    plan = plan_cuda_nvfp4(expert_source, allow_unmeasured=True)
+    w4a4 = plan_cuda_nvfp4_w4a4(plan, calibration_for(plan))
+    record = {
+        "linear_kernels": {"CutlassNvFp4LinearKernel": 1},
+        "moe_backends": {"VLLM_CUTLASS": 1},
+    }
+    require_kernel_coverage(w4a4.model_dump(mode="json"), record)
+    record["moe_backends"] = {}
+    with pytest.raises(RuntimeError, match="MoE coverage differs"):
+        require_kernel_coverage(w4a4.model_dump(mode="json"), record)

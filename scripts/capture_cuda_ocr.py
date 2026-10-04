@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture source-bound BF16 OCR inputs for development NVFP4 W4A4 export."""
+"""Capture source-bound BF16 OCR and Qwen3-VL inputs for development NVFP4 W4A4 export."""
 
 from __future__ import annotations
 
@@ -12,6 +12,15 @@ from axquant.cuda import _verify_source, plan_cuda_nvfp4_w4a4
 from axquant.schema.cuda import CudaFileDigest, CudaQuantizationPlan
 from axquant.schema.cuda_activation import CudaActivationCalibration
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
+
+
+def runtime_source_name(runtime_name: str, selected: dict[str, Any]) -> str:
+    qwen_prefix = "language_model.model."
+    if runtime_name.startswith(qwen_prefix) and any(
+        name.startswith("model.language_model.") for name in selected
+    ):
+        return "model.language_model." + runtime_name.removeprefix(qwen_prefix)
+    return runtime_name.removeprefix("language_model.")
 
 
 def install_hooks(model: Any, source: str, allocations: list[dict[str, Any]]) -> dict[str, Any]:
@@ -71,7 +80,7 @@ def install_hooks(model: Any, source: str, allocations: list[dict[str, Any]]) ->
 
     matched: set[str] = set()
     for runtime_name, module in model.named_modules():
-        module_name = runtime_name.removeprefix("language_model.")
+        module_name = runtime_source_name(runtime_name, selected)
         direct = module_name + ".weight"
         names = [direct] if direct in selected else []
         for fused_name, source_names in (
@@ -156,10 +165,11 @@ def main() -> None:
     processors = {
         "DeepseekOCR2ForCausalLM": "deepseek_ocr",
         "UnlimitedOCRForCausalLM": "unlimited_ocr",
+        "Qwen3VLForConditionalGeneration": None,
     }
     if architecture not in processors:
         raise ValueError(
-            "This development capture script supports official OCR2/Unlimited-OCR only"
+            "This development capture script supports official OCR2, Unlimited-OCR and Qwen3-VL"
         )
     from PIL import Image
     from vllm import LLM, SamplingParams
@@ -176,7 +186,9 @@ def main() -> None:
         enable_chunked_prefill=True,
         enforce_eager=True,
         gpu_memory_utilization=args.memory_fraction,
-        kv_cache_memory_bytes=128 * 1024 * 1024,
+        kv_cache_memory_bytes=(512 if architecture == "Qwen3VLForConditionalGeneration" else 128)
+        * 1024
+        * 1024,
         limit_mm_per_prompt={"image": 1},
         skip_mm_profiling=True,
         mm_processor_cache_gb=0,
@@ -187,8 +199,12 @@ def main() -> None:
         generation_config="vllm",
         logits_processors=[
             f"vllm.model_executor.models.{processors[architecture]}:NGramPerReqLogitsProcessor"
-        ],
+        ]
+        if processors[architecture]
+        else [],
     )
+
+    from smoke_cuda_ocr import image_prompt
 
     print(
         engine.collective_rpc(
@@ -200,7 +216,7 @@ def main() -> None:
     outputs = engine.generate(
         [
             {
-                "prompt": "<image>\nFree OCR.",
+                "prompt": image_prompt(engine, architecture),
                 "multi_modal_data": {"image": Image.open(image_path).convert("RGB")},
             }
         ],
@@ -209,7 +225,7 @@ def main() -> None:
             max_tokens=128,
             min_tokens=16,
             skip_special_tokens=False,
-            extra_args={"ngram_size": 35, "window_size": 128},
+            extra_args={"ngram_size": 35, "window_size": 128} if processors[architecture] else {},
         ),
     )
     print(outputs[0].outputs[0].text, flush=True)
