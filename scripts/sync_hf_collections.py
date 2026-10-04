@@ -3,9 +3,10 @@
 
 The previous single dump mixed uniform MLX, QAT, OptiQ, and AXQ across every
 family. This script keeps the org collections the way users browse: a
-certified starting list, one collection per precision line (MXFP4, MXFP6,
-MXFP8), one collection per live model family, plus a complete index of every
-public AutomatosX model.
+certified starting list, one collection per precision line (MXFP4, MXFP8, NVFP4),
+one MTP collection,
+one collection per live model family, plus a complete index of every public
+AutomatosX model.
 """
 
 from __future__ import annotations
@@ -20,20 +21,25 @@ from huggingface_hub.errors import HfHubHTTPError
 
 NAMESPACE = "AutomatosX"
 CATALOG_TITLE = "AutomatosX MLX Model Catalog"
-# Pinned after the 2026-09-23 recreate. A slug that 404s is recreated.
+# Pinned after the 2026-10-03 apply (NVFP4 + MTP collections added;
+# Qwen3-Coder-Next, Holo-3.1, and MiniMax-M3 repos + collections
+# deleted; deleted OCR 4/6-bit and non-AXQ MXFP8 repos dropped; DS-OCR
+# NVFP4 added). A slug that 404s is recreated.
 KNOWN_SLUGS: dict[str, str] = {
     "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
+    "MXFP4": "AutomatosX/mxfp4-6ac15f9e6eda0bc49dee0a32",
+    "MXFP8": "AutomatosX/mxfp8-6ac15fa0b73470ecf715faec",
+    "NVFP4": "AutomatosX/nvfp4-6ac1a489659e8a86ec4280fa",
+    "MTP": "AutomatosX/mtp-6ac1a4e2daa11b99c2da9338",
     "Qwen": "AutomatosX/qwen-6ab4341bed3654678bbc5f72",
-    "Qwen3.8": "AutomatosX/qwen38-6ab432f1b777c7d225848389",
+    "Qwen3.8": "AutomatosX/qwen38-6ac15fa1ba7bf169f7539343",
     "Tiel Coder": "AutomatosX/tiel-coder-6ab432f2fdec85ba0ecd515d",
-    "Qwen3-Coder-Next": "AutomatosX/qwen3-coder-next-6ab432f22c57fc39ac996cad",
-    "Qwen3-VL": "AutomatosX/qwen3-vl-6ab432f3eea990c8f27e5146",
-    "DeepSeek": "AutomatosX/deepseek-6ab432f39494bc2b71d237aa",
-    "Holo-3.1": "AutomatosX/holo-31-6ab432f4ef1022cb381c36ad",
-    "MiniMax": "AutomatosX/minimax-6ab432f4c988a1b1cba0b1fb",
+    "Qwen3-VL": "AutomatosX/qwen3-vl-6ac15fa32497d9f46d455679",
+    "DeepSeek": "AutomatosX/deepseek-6ac15fa3aeb86a300e188fdf",
     "Embeddings": "AutomatosX/embeddings-6ab432f5816b838cc48d89cc",
-    "Nemotron": "AutomatosX/nemotron-6ab433e82ce4ed9ed06735ea",
+    "Nemotron": "AutomatosX/nemotron-6ac15fa6aeb86a300e189040",
     "OCR": "AutomatosX/ocr-6ab432f8bed2124120a3b782",
+    "Unlimited-OCR": "AutomatosX/unlimited-ocr-6ac15fa87eb43e9e3ef61c97",
     CATALOG_TITLE: "AutomatosX/automatosx-mlx-model-catalog-6ab432f9724c4d8a1037df1c",
 }
 
@@ -76,10 +82,6 @@ NOTE_PRO_0813 = (
     "SSD paging required; not certified. DSpark sidecar packaged; acceleration "
     "not claimed. No 4-bit sibling."
 )
-NOTE_MINIMAX_M3 = (
-    "Experimental Super-class stream pack of MiniMax-M3. SSD paging required; "
-    "not certified. Config MTP flags are not packaged MTP. Vision BF16."
-)
 NOTE_KIMI_K3 = (
     "Experimental Super-class stream pack of Kimi-K3. SSD paging required; "
     "not certified. Native MXFP4 dequantized to affine 2-bit. No packaged MTP."
@@ -115,11 +117,7 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="Certified AXQ",
         description="Measured AXQ packs with a public Tier 1 certificate. Start here.",
-        items=(
-            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-        ),
+        items=(_ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),),
     ),
     Spec(
         title="MXFP4",
@@ -129,30 +127,44 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
         ),
-    ),
-    Spec(
-        title="MXFP6",
-        description="Reserved for MXFP6-format packs. Empty until the first pack ships.",
-        items=(),
     ),
     Spec(
         title="MXFP8",
         description="MXFP8-format packs. MLX OCR today.",
-        items=(_ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),),
+        items=(
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+        ),
     ),
     Spec(
-        title="Qwen",
-        description="All public Qwen packs: Qwen3.8, Coder-Next, VL, and Qwen3-Embedding.",
+        title="NVFP4",
+        description="Native AXQuant CUDA NVFP4 W4A16 packs for NVIDIA inference via vLLM.",
+        items=(
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+        ),
+    ),
+    Spec(
+        title="MTP",
+        description="AXQ packs with packaged MTP sidecars. -MTP ships assets; speed needs Tier 2.",
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
+        title="Qwen",
+        description="All public Qwen packs: Qwen3.8, VL, and Qwen3-Embedding.",
+        items=(
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
+            _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
@@ -182,11 +194,6 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
-        title="Qwen3-Coder-Next",
-        description="Qwen3-Coder-Next AXQ MXFP4. Tier 1 certified. No MTP.",
-        items=(_ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),),
-    ),
-    Spec(
         title="Qwen3-VL",
         description=(
             "Qwen3-VL 32B Thinking AXQ MXFP4 with a protected BF16 vision tower. Not certified."
@@ -195,25 +202,13 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="DeepSeek",
-        description="DeepSeek V4 Flash-0731 MXFP4 plus DeepSeek-OCR-2 AXQ 4-bit and 6-bit.",
+        description="DeepSeek V4 Flash-0731 MXFP4 plus DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4.",
         items=(
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
         ),
-    ),
-    Spec(
-        title="Holo-3.1",
-        description="Holo-3.1-35B-A3B AXQ MXFP4. Tier 1 certified. Vision BF16, no MTP.",
-        items=(_ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),),
-    ),
-    Spec(
-        title="MiniMax",
-        description=(
-            "MiniMax-M3 AXQ MXFP4. Experimental stream pack with a BF16 vision sidecar. "
-            "Not certified."
-        ),
-        items=(_ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),),
     ),
     Spec(
         title="Embeddings",
@@ -249,12 +244,23 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="OCR",
-        description="Unlimited-OCR (MLX MXFP8 and native AXQ CUDA NVFP4) plus DeepSeek-OCR-2.",
+        description="DeepSeek-OCR-2 and Unlimited-OCR AXQ MX packs plus CUDA NVFP4.",
         items=(
-            _ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
+        title="Unlimited-OCR",
+        description="Unlimited-OCR 3B MoE: native AXQ CUDA NVFP4 and MLX MXFP8/MXFP4 packs.",
+        items=(
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -267,13 +273,11 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
-            _ax("AX-Qwen3-Coder-Next-MLX-AXQ-MXFP4", NOTE_T1),
             _ax("AX-Qwen3-VL-32B-Thinking-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
-            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
-            _ax("AX-Holo-3.1-35B-A3B-MLX-AXQ-MXFP4", NOTE_T1),
-            _ax("AX-MiniMax-M3-MLX-AXQ-MXFP4", NOTE_MINIMAX_M3),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-8bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-8B-MLX-4bit-DWQ", NOTE_DWQ),
@@ -288,7 +292,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-EmbeddingGemma-300M-MLX-8bit", NOTE_UNIFORM),
-            _ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
+            _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
         ),
     ),
