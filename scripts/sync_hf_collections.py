@@ -24,6 +24,7 @@ CATALOG_TITLE = "AutomatosX MLX Model Catalog"
 # Pinned after the 2026-10-04 apply (Qwen3-VL 4B/8B MXFP4/MXFP8 published;
 # Qwen3-VL collection recreated). A slug that 404s is recreated.
 KNOWN_SLUGS: dict[str, str] = {
+    "CUDA": "AutomatosX/cuda-6ac1b59d9199d121c6c7e2e3",
     "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
     "MXFP4": "AutomatosX/mxfp4-6ac15f9e6eda0bc49dee0a32",
     "MXFP8": "AutomatosX/mxfp8-6ac15fa0b73470ecf715faec",
@@ -69,6 +70,9 @@ NOTE_AXQ_ASR = "AXQ language-decoder PTQ with a protected BF16 audio tower. Not 
 NOTE_AXQ_VL = "AXQ language-path PTQ with a protected BF16 vision tower. Not certified."
 NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
 NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
+NOTE_CUDA_W4A4 = (
+    "Native AXQuant CUDA NVFP4 W4A4. Two-GPU development smoke; no MTP or quality certification."
+)
 NOTE_MXFP8 = "MLX MXFP8 OCR pack."
 NOTE_24T = (
     "Experimental 2-bit of the 2.4T MoE with a packaged native MTP sidecar. "
@@ -144,8 +148,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="NVFP4",
-        description="Native AXQuant CUDA NVFP4 W4A16 packs for NVIDIA inference via vLLM.",
+        description="Native AXQuant CUDA NVFP4 W4A16 and calibrated W4A4 development checkpoints.",
         items=(
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
         ),
@@ -161,9 +169,23 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
+        title="CUDA",
+        description="Native AXQuant CUDA NVFP4 OCR and Qwen3-VL development checkpoints.",
+        items=(
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+        ),
+    ),
+    Spec(
         title="Qwen",
         description="All public Qwen packs: Qwen3.8, VL, and Qwen3-Embedding.",
         items=(
+            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
@@ -199,8 +221,10 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3-VL",
-        description="Qwen3-VL 4B/8B Instruct AXQ MXFP4/MXFP8. Vision BF16. Not certified.",
+        description="Qwen3-VL 4B/8B Instruct: MLX MXFP4/MXFP8 plus CUDA NVFP4 W4A4. Vision BF16; no MTP. Not certified.",
         items=(
+            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
@@ -211,6 +235,7 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="DeepSeek",
         description="DeepSeek V4 Flash-0731 MXFP4 plus DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4.",
         items=(
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-DeepSeek-V4-Flash-0731-MLX-AXQ-MXFP4", NOTE_0731_STUB),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
@@ -253,6 +278,8 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="OCR",
         description="DeepSeek-OCR-2 and Unlimited-OCR AXQ MX packs plus CUDA NVFP4.",
         items=(
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
@@ -265,6 +292,7 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="Unlimited-OCR",
         description="Unlimited-OCR 3B MoE: native AXQ CUDA NVFP4 and MLX MXFP8/MXFP4 packs.",
         items=(
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
@@ -276,6 +304,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             "Complete index of every public AutomatosX model. Prefer the family collections above."
         ),
         items=(
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_T1_NO_T2),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),

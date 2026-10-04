@@ -280,3 +280,20 @@ For Unlimited-OCR on vLLM 0.25.1, MHA attention Linears omit module prefixes,
 so per-layer BF16 attention protection cannot be addressed by the quantization
 config. The development smoke rejects that layout before loading. Use
 MLP-only protection when keeping front layers with this pinned runtime.
+
+## Published native W4A4 development checkpoints
+
+The following exact-checkpoint previews include calibrated W4A4 plans,
+protected-tensor equality checks, pinned sources, public checksums and
+RTX 5090 plus Thor native FP4 runtime evidence:
+
+- [Qwen3-VL-4B-Instruct](https://huggingface.co/AutomatosX/AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4)
+- [Qwen3-VL-8B-Instruct](https://huggingface.co/AutomatosX/AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4)
+- [DeepSeek-OCR-2](https://huggingface.co/AutomatosX/AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4)
+- [Unlimited-OCR](https://huggingface.co/AutomatosX/AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4)
+
+Qwen3-VL has no native MTP. These previews are not quality or speed
+certifications. Unlimited-OCR still produced extra prefix text on the
+single development page; expected-line and repetition checks do not qualify
+clean extraction or layout markup. Consult each model card and its exact
+runtime output before treating the pack as an application baseline.
