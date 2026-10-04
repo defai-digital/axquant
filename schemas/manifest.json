@@ -1,5 +1,5 @@
 {
-  "count": 143,
+  "count": 144,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -688,6 +688,14 @@
       "model": "axquant.schema.artifacts.BytePreservedMtpSidecarManifest",
       "schema_version": "axquant.mtp_sidecar_provenance.v2",
       "sha256": "2ca0702a5690b665d1322224f17367a88b621871208522ab172f7690888cbcf5"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.nemotron-mtp.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.NemotronMtpSidecarManifest",
+      "schema_version": "axquant.nemotron-mtp.v1",
+      "sha256": "e77ad577db95b94e1dbcc592efe2fb7759f5c5a6897ccbe9bf17f970ccef71a5"
     },
     {
       "compatibility_class": "evidence",

@@ -374,7 +374,9 @@ def build_quant_predicate(
     retired_4bit = [
         allocation.module_path
         for allocation in plan.assignments
-        if allocation.bits == 4 and allocation.method != QuantMethod.MXFP4
+        if allocation.bits == 4
+        and allocation_physical_mode(allocation, q_mode) != "mxfp4"
+        and allocation.method != QuantMethod.MXFP4
     ]
     if retired_4bit and not allow_legacy_4bit:
         raise PlanningError(

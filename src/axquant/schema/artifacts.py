@@ -614,6 +614,29 @@ class ProtectedTensorSidecarManifest(StrictModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+class NemotronMtpSidecarManifest(StrictModel):
+    """Source-bound inventory for byte-preserved integrated Nemotron-H MTP tensors."""
+
+    schema_version: Literal["axquant.nemotron-mtp.v1"] = "axquant.nemotron-mtp.v1"
+    arch_id: Literal["nemotron_h_mtp_v1"] = "nemotron_h_mtp_v1"
+    source_model: ModelIdentity
+    mtp_tensor_count: int = Field(ge=1)
+    mtp_tensor_names_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    payload_status: Literal["byte-preserved-from-integrated-source"] = (
+        "byte-preserved-from-integrated-source"
+    )
+    runtime_compatibility: Literal["unverified"] = "unverified"
+    development_only: Literal[True] = True
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def source_revision_is_immutable(self) -> NemotronMtpSidecarManifest:
+        if not is_immutable_revision(self.source_model.revision):
+            raise ValueError("Nemotron MTP provenance requires an immutable source revision")
+        return self
+
+
 class QualityMetrics(StrictModel):
     perplexity: float | None = Field(default=None, gt=0.0)
     task_scores: dict[str, float] = Field(default_factory=dict)

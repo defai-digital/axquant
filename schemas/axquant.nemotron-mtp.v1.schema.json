@@ -1,0 +1,108 @@
+{
+  "$defs": {
+    "ModelIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "format": {
+          "const": "mlx",
+          "default": "mlx",
+          "type": "string"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_id": {
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "model_id"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "arch_id": {
+      "const": "nemotron_h_mtp_v1",
+      "default": "nemotron_h_mtp_v1",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "development_only": {
+      "const": true,
+      "default": true,
+      "type": "boolean"
+    },
+    "mtp_tensor_count": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "mtp_tensor_names_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "payload_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "payload_status": {
+      "const": "byte-preserved-from-integrated-source",
+      "default": "byte-preserved-from-integrated-source",
+      "type": "string"
+    },
+    "runtime_compatibility": {
+      "const": "unverified",
+      "default": "unverified",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.nemotron-mtp.v1",
+      "default": "axquant.nemotron-mtp.v1",
+      "type": "string"
+    },
+    "source_model": {
+      "$ref": "#/$defs/ModelIdentity"
+    }
+  },
+  "required": [
+    "source_model",
+    "mtp_tensor_count",
+    "mtp_tensor_names_sha256",
+    "payload_sha256"
+  ],
+  "type": "object"
+}

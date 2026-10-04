@@ -28,7 +28,8 @@ Pick the journey that matches your goal:
   [public certificates](certifications/README.md), and
   [microscaling formats](guides/microscaling.md) and
   [native CUDA NVFP4 conversion](guides/cuda-nvfp4.md), including
-  [embedding previews](guides/cuda-nvfp4-embeddings.md).
+  [embedding previews](guides/cuda-nvfp4-embeddings.md) and
+  [Nemotron MTP development packs](guides/nemotron-mtp-packs.md).
 - **I want to operate certification** — the
   [certification operator guide](guides/flagship-certification.md) and the
   [certification rules](contracts/certification-spec-v1.0.md).

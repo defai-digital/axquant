@@ -1,4 +1,4 @@
-"""Nemotron 3 hybrid MoE adapter (Nano / Super / Ultra catalog).
+"""Nemotron 3 hybrid MoE adapter (Nano / Lightning / Super / Ultra catalog).
 
 Public generative Nemotron 3 checkpoints use ``model_type: nemotron_h`` with
 routed experts under ``backbone.layers.*.mixer.experts.*``. MLX-LM loads them
@@ -20,8 +20,7 @@ from axquant.schema import (
 )
 
 _NEMOTRON3 = re.compile(r"nemotron[._-]?3", re.IGNORECASE)
-# Thin-support best practice: only Nano-30B-A3B is a convert product target.
-# Super/Ultra remain inspect-only (OptiQ owns SSD-stream / huge-MoE product story).
+# Conversion scope is limited to exact NVIDIA catalog checkpoints below.
 _NANO_MOE = re.compile(
     r"(nano[._-]?30b[._-]?a3b|(?<![0-9])30b[._-]?a3b(?![0-9]))",
     re.IGNORECASE,
@@ -31,6 +30,8 @@ _SUPER_OR_ULTRA = re.compile(
     r"(?<![0-9])120b[._-]?a12b(?![0-9])|(?<![0-9])550b[._-]?a55b(?![0-9]))",
     re.IGNORECASE,
 )
+_LIGHTNING = re.compile(r"nemotron[._-]?3[._-]?5[._-]?lightning[._-]?30b[._-]?a3b", re.I)
+_SUPER = re.compile(r"nemotron[._-]?3[._-]?super[._-]?120b[._-]?a12b", re.I)
 _MOE_KEYS = (
     "n_routed_experts",
     "num_experts",
@@ -45,6 +46,26 @@ _NANO_30B_A3B_SIGNATURE = {
     "num_experts_per_tok": 6,
     "n_shared_experts": 1,
     "moe_intermediate_size": 1856,
+}
+_LIGHTNING_30B_A3B_SIGNATURE = {
+    "num_hidden_layers": 52,
+    "hidden_size": 2688,
+    "n_routed_experts": 128,
+    "num_experts_per_tok": 6,
+    "n_shared_experts": 1,
+    "moe_intermediate_size": 1856,
+    "moe_shared_expert_intermediate_size": 3712,
+    "num_nextn_predict_layers": 1,
+}
+_SUPER_120B_A12B_SIGNATURE = {
+    "num_hidden_layers": 88,
+    "hidden_size": 4096,
+    "n_routed_experts": 512,
+    "num_experts_per_tok": 22,
+    "n_shared_experts": 1,
+    "moe_intermediate_size": 2688,
+    "moe_latent_size": 1024,
+    "num_nextn_predict_layers": 1,
 }
 _NEMOTRON_EXTRA = (
     ("shared_experts", TensorRole.MLP),  # fires every token — denser than routed experts
@@ -63,11 +84,16 @@ _NEMOTRON_EXTRA = (
 )
 
 
+def _matches_signature(scope: dict[str, Any], signature: dict[str, int]) -> bool:
+    return all(
+        type(scope.get(key)) is int and scope[key] == value for key, value in signature.items()
+    )
+
+
 class Nemotron3Adapter:
     adapter_id = "nemotron3-v1"
     product_family = "nemotron3"
-    # Declared family tier is convertible because Nano is in scope; Super/Ultra
-    # checkpoints still profile as inspect-only (thin-support best practice).
+    # Exact Nano, 3.5 Lightning, and 3 Super catalog checkpoints are convertible.
     declared_tier = SupportTier.CONVERTIBLE
 
     def matches(self, model_reference: str, config: dict[str, Any]) -> bool:
@@ -92,35 +118,48 @@ class Nemotron3Adapter:
                 str(config.get("architectures", "")),
             ]
         )
-        is_nano = bool(_NANO_MOE.search(references))
-        is_super_ultra = bool(_SUPER_OR_ULTRA.search(references))
-        signature_is_nano = all(
-            scope.get(key) == value for key, value in _NANO_30B_A3B_SIGNATURE.items()
+        is_lightning = bool(_LIGHTNING.search(references))
+        is_super = bool(_SUPER.search(references))
+        is_nano = (
+            bool(_NANO_MOE.search(references))
+            and not bool(_SUPER_OR_ULTRA.search(references))
+            and not is_lightning
         )
-        # Thin support: only Nano-30B-A3B MoE converts. Super/Ultra are inventory.
-        # A conflicting catalog identity must fail closed. A stale Nano
-        # `_name_or_path` must never promote an explicitly named Super/Ultra
-        # checkpoint into the thin Nano-only conversion scope.
+        signature_is_nano = _matches_signature(scope, _NANO_30B_A3B_SIGNATURE)
+        signature_is_lightning = _matches_signature(scope, _LIGHTNING_30B_A3B_SIGNATURE)
+        signature_is_super = _matches_signature(scope, _SUPER_120B_A12B_SIGNATURE)
+        # Each catalog marker requires its complete source signature; a stale
+        # _name_or_path or conflicting model id cannot promote a checkpoint.
         supported = bool(
-            moe and is_nano and not is_super_ultra and signature_is_nano and layers is not None
+            moe
+            and layers is not None
+            and (
+                (is_nano and signature_is_nano)
+                or (is_lightning and signature_is_lightning)
+                or (is_super and signature_is_super)
+            )
         )
         notes = [
             "Nemotron 3 generative catalog is hybrid MoE (nemotron_h).",
             "Routed experts fuse to switch_mlp.fc1/fc2 under MLX-LM sanitize.",
             "Shared experts are treated as dense MLP (higher protection than routed experts).",
-            "Investment posture: thin — Nano convert only; not OptiQ Super/stream parity.",
+            "MXFP8 packing uses MLX-LM SwitchLinear group_size=32; format-level evidence only.",
+            "MTP tensors are preserved in a tagged sidecar; runtime support is external.",
         ]
         if supported:
-            notes.append("Nano-30B-A3B is convertible (development evidence until certified).")
-        elif is_super_ultra:
             notes.append(
-                "Super/Ultra are inspect-only under thin-support policy: SSD expert "
-                "streaming and huge-MoE product features are deferred (not AX Engine path)."
+                "Catalog checkpoint is convertible (development evidence until certified)."
+            )
+        elif _SUPER_OR_ULTRA.search(references):
+            notes.append(
+                "Only the exact Nemotron 3 Super-120B-A12B catalog signature is convertible; "
+                "other Super and all Ultra references remain inspect-only."
             )
         else:
             notes.append(
                 "This Nemotron 3 checkpoint is inventory-only until it matches the "
-                "thin-support convert target (Nano-30B-A3B MoE)."
+                "catalog convert targets (Nano-30B-A3B, 3.5 Lightning-30B-A3B, "
+                "or 3 Super-120B-A12B)."
             )
         return ArchitectureProfile(
             adapter_id=self.adapter_id,
@@ -137,13 +176,20 @@ class Nemotron3Adapter:
             ),
             dense=not moe,
             text_layer_count=layers,
-            mtp_declared=False,
+            mtp_declared=any(
+                bool(scope.get(key))
+                for key in ("mtp_num_hidden_layers", "num_nextn_predict_layers")
+            ),
             vision_present=isinstance(config.get("vision_config"), dict),
             notes=notes,
         )
 
     def classify_tensor(self, name: str, source_file: str) -> TensorRole | None:
         value = name.lower()
+        if value.startswith("mtp."):
+            if any(token in value for token in ("norm", "layernorm", "conv1d")):
+                return TensorRole.MTP_BLOCK
+            return TensorRole.MTP_PROJECTION
         # Experts before generic mixer / mlp rules.
         if ".experts." in value or value.endswith(".experts"):
             return TensorRole.EXPERT

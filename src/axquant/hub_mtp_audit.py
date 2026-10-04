@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import HfApi, get_session, hf_hub_download, hf_hub_url
+from pydantic import ValidationError
 
 from axquant.errors import ArtifactError
 from axquant.gemma4_assistant_compose import validate_known_gemma4_assistant_pair
@@ -28,6 +29,8 @@ from axquant.ngram_layout import (
     NGRAM_LAYOUT_STANDALONE,
     NGRAM_TABLE_FILENAME,
 )
+from axquant.schema.artifacts import NemotronMtpSidecarManifest
+from axquant.serde import stable_sha256
 
 _IMMUTABLE_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _MAX_SAFETENSORS_HEADER_BYTES = 64 * 1024 * 1024
@@ -39,6 +42,7 @@ _JSON_DOCUMENTS = (
     "ax_gemma4_assistant_mtp.json",
     "ax_composite_pack_manifest.json",
     "assistant/config.json",
+    "ax_nemotron_mtp_manifest.json",
 )
 RESERVED_MTP_REPOSITORIES = frozenset({"AutomatosX/AX-DeepSeek-V4-Flash-0731-MLX-AXQ-4bit-MTP"})
 
@@ -50,6 +54,7 @@ class MtpHubPackKind(StrEnum):
     QWEN_RESIDENT = "qwen-resident"
     QWEN_EXPERT_STREAM = "qwen-expert-stream"
     DEEPSEEK_NEXTN = "deepseek-nextn"
+    NEMOTRON_SIDECAR = "nemotron-sidecar"
     RESERVED = "reserved"
     UNKNOWN = "unknown"
 
@@ -333,6 +338,8 @@ def audit_mtp_hub_snapshot(snapshot: MtpHubRepositorySnapshot) -> MtpHubAuditRes
             kind = _audit_deepseek(snapshot, issues)
         elif isinstance(model_type, str) and model_type.startswith("qwen"):
             kind = _audit_qwen(snapshot, issues, expert_stream=expert_stream)
+        elif model_type == "nemotron_h":
+            kind = _audit_nemotron(snapshot, issues)
         else:
             kind = MtpHubPackKind.UNKNOWN
             issues.append(f"unsupported or missing MTP model_type: {model_type!r}")
@@ -343,6 +350,41 @@ def audit_mtp_hub_snapshot(snapshot: MtpHubRepositorySnapshot) -> MtpHubAuditRes
         kind=kind,
         issues=tuple(dict.fromkeys(issues)),
     )
+
+
+def _audit_nemotron(snapshot: MtpHubRepositorySnapshot, issues: list[str]) -> MtpHubPackKind:
+    raw = _document(snapshot, "ax_nemotron_mtp_manifest.json", issues)
+    try:
+        manifest = NemotronMtpSidecarManifest.model_validate(raw)
+    except ValidationError:
+        issues.append("Nemotron MTP provenance does not match its strict versioned contract")
+        return MtpHubPackKind.NEMOTRON_SIDECAR
+    if manifest.source_model.local_path is not None:
+        issues.append("Nemotron MTP provenance must not contain a local source path")
+    if "mtplx_runtime.json" in snapshot.files:
+        issues.append("Nemotron MTP must not inherit a different architecture's runtime contract")
+    config = _document(snapshot, "config.json", issues)
+    if not _positive_integer(config.get("num_nextn_predict_layers")):
+        issues.append("Nemotron checkpoint must retain the source MTP layer declaration")
+    header = snapshot.safetensors_headers.get("mtp.safetensors")
+    if "mtp.safetensors" not in snapshot.files or header is None:
+        issues.append("Nemotron MTP pack is missing a readable mtp.safetensors header")
+    else:
+        names = sorted(header.tensor_names)
+        if len(names) != manifest.mtp_tensor_count or stable_sha256(names) != (
+            manifest.mtp_tensor_names_sha256
+        ):
+            issues.append("Nemotron MTP tensor inventory differs from its provenance manifest")
+        if any(not name.startswith("mtp.") for name in names):
+            issues.append("Nemotron MTP sidecar contains non-MTP tensor names")
+    index = _document(snapshot, "model.safetensors.index.json", issues)
+    weight_map = index.get("weight_map")
+    if not isinstance(weight_map, Mapping) or any(
+        str(name).startswith("mtp.") or member == "mtp.safetensors"
+        for name, member in weight_map.items()
+    ):
+        issues.append("Nemotron MLX backbone index must exclude the separate MTP payload")
+    return MtpHubPackKind.NEMOTRON_SIDECAR
 
 
 def _json_object_without_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -366,17 +408,29 @@ def _read_json_document(repo_id: str, revision: str, name: str) -> Mapping[str, 
 
 
 def _read_range(url: str, start: int, end: int) -> bytes:
-    response = get_session().get(
-        url,
-        headers={"Range": f"bytes={start}-{end}"},
-        timeout=60,
-    )
+    session: Any = get_session()
+    headers = {"Range": f"bytes={start}-{end}"}
+    if hasattr(session, "stream"):
+        with session.stream("GET", url, headers=headers, timeout=60) as response:
+            return _consume_range(response, response.iter_bytes(), end - start + 1)
+    response = session.get(url, headers=headers, timeout=60, stream=True)
     try:
-        if response.status_code != 206:
-            raise ArtifactError(f"Hub did not honor byte range for {url}")
-        return bytes(response.content)
+        return _consume_range(response, response.iter_content(chunk_size=65536), end - start + 1)
     finally:
         response.close()
+
+
+def _consume_range(response: Any, chunks: Any, expected_bytes: int) -> bytes:
+    if response.status_code != 206:
+        raise ArtifactError("Hub did not honor the Safetensors header byte range")
+    payload = bytearray()
+    for chunk in chunks:
+        if len(payload) + len(chunk) > expected_bytes:
+            raise ArtifactError("Hub returned more bytes than the requested header range")
+        payload.extend(chunk)
+    if len(payload) != expected_bytes:
+        raise ArtifactError("Hub returned a truncated Safetensors header byte range")
+    return bytes(payload)
 
 
 def read_remote_safetensors_header(

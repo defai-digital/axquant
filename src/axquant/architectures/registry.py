@@ -50,7 +50,10 @@ def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:
     if isinstance(adapter, DenseFamilyAdapter):
         notes.extend(adapter.spec.notes)
     elif isinstance(adapter, Nemotron3Adapter):
-        notes.append("Thin convert scope: Nano-30B-A3B only; Super/Ultra are inspect-only.")
+        notes.append(
+            "Exact Nano, 3.5 Lightning-30B-A3B, and 3 Super-120B-A12B catalog signatures "
+            "convert to standard MLX; Ultra remains inspect-only."
+        )
     elif isinstance(adapter, Qwen36Adapter):
         notes.append("Primary cert track for AX Engine + MTP.")
     elif isinstance(adapter, Qwen35MoeAdapter):

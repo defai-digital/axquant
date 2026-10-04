@@ -362,18 +362,19 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         declared_tier=SupportTier.CONVERTIBLE,
         cert_track=False,
         summary=(
-            "Thin support: catalog Nano-30B-A3B MoE convert only. "
-            "Not OptiQ-parity (no SSD Super stream / hybrid KV product)."
+            "Catalog development conversion for Nano, Nemotron 3.5 Lightning-30B-A3B, "
+            "and Nemotron 3 Super-120B-A12B with standard MLX-LM weights."
         ),
         do=(
-            "Allow convert for Nano-30B-A3B hybrid MoE via mlx_lm nemotron_h.",
+            "Allow exact catalog signatures for Nano, Lightning, and Super via mlx_lm nemotron_h.",
+            "Preserve integrated MTP in a tagged sidecar without asserting runtime compatibility.",
             "Label all Nemotron outputs as development evidence until certified.",
-            "Keep Super/Ultra inspect-only until AX Engine hybrid product path exists.",
         ),
         do_not=(
-            "Do not market Super-120B / Ultra as AXQuant product targets.",
-            "Do not promote Super/Ultra until a Nemotron-specific stream convert exists.",
+            "Do not claim MTP execution support for AX Engine, MTPLX, or oMLX without validation.",
+            "Do not claim Super resident-load support on Mac from a standard MLX package export.",
             "Do not promote non-catalog Nemotron refs to convertible.",
+            "Keep Ultra inspect-only.",
         ),
     ),
     FamilySupportPolicy(

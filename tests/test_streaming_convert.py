@@ -167,7 +167,10 @@ def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:
     assert stream_cfg["quantization"]["a"]["mode"] == "affine"
 
 
-def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("mode", "bits"), [("mxfp4", 4), ("mxfp8", 8)])
+def test_quantize_and_save_streaming_switch_linear_mxfp(
+    tmp_path: Path, mode: str, bits: int
+) -> None:
     mx = pytest.importorskip("mlx.core")
     nn = pytest.importorskip("mlx.nn")
     from mlx_lm.models.switch_layers import SwitchLinear
@@ -190,7 +193,7 @@ def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None
 
     def predicate(path: str, module: object) -> dict[str, int | str]:
         del path, module
-        return {"group_size": 32, "bits": 4, "mode": "mxfp4"}
+        return {"group_size": 32, "bits": bits, "mode": mode}
 
     class Tokenizer:
         def save_pretrained(self, path: str | Path) -> None:
@@ -209,8 +212,8 @@ def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None
         src,
         quant_predicate=predicate,
         q_group_size=32,
-        q_bits=4,
-        q_mode="mxfp4",
+        q_bits=bits,
+        q_mode=mode,
     )
 
     mx.random.seed(1)
@@ -218,7 +221,7 @@ def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None
     stock.experts.weight = mx.arange(4 * 64 * 32, dtype=mx.float32).reshape(4, 64, 32)
     mx.eval(stock.parameters())
     stock, stock_config = quantize_model(
-        stock, dict(config), 32, 4, mode="mxfp4", quant_predicate=predicate
+        stock, dict(config), 32, bits, mode=mode, quant_predicate=predicate
     )
     stock_dir.mkdir()
     save_model(stock_dir, stock, donate_model=True)
@@ -230,7 +233,7 @@ def test_quantize_and_save_streaming_switch_linear_mxfp4(tmp_path: Path) -> None
     for key, value in stock_weights.items():
         assert mx.array_equal(stream_weights[key], value), key
     stream_cfg = json.loads((stream_dir / "config.json").read_text(encoding="utf-8"))
-    assert stream_cfg["quantization"]["experts"]["mode"] == "mxfp4"
+    assert stream_cfg["quantization"]["experts"]["mode"] == mode
 
 
 def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) -> None:

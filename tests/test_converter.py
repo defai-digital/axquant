@@ -2665,6 +2665,42 @@ def test_original_unquantized_mtp_retains_raw_delta_contract(tmp_path: Path) -> 
     )
 
 
+@pytest.mark.parametrize("include_source_config", [True, False])
+def test_nemotron_mtp_emits_neutral_provenance_without_runtime_assumptions(
+    tmp_path: Path, include_source_config: bool
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    (source / "config.json").write_text(
+        json.dumps({"model_type": "nemotron_h", "num_nextn_predict_layers": 1})
+    )
+    save_file(
+        {"mtp.layers.0.proj.weight": np.ones((2, 2), dtype=np.float32)}, output / "mtp.safetensors"
+    )
+    plan = SimpleNamespace(
+        architecture_profile=SimpleNamespace(adapter_id="nemotron3-v1"),
+        source_model=ModelIdentity(
+            model_id="nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+            revision="a" * 40,
+        ),
+    )
+
+    converter._declare_raw_mtp_runtime_contract(
+        output,
+        plan=plan,
+        source_dir=source if include_source_config else None,
+    )
+
+    manifest = json.loads((output / "ax_nemotron_mtp_manifest.json").read_text())
+    assert manifest["arch_id"] == "nemotron_h_mtp_v1"
+    assert manifest["mtp_tensor_count"] == 1
+    assert manifest["payload_sha256"] == file_sha256(output / "mtp.safetensors")
+    assert manifest["runtime_compatibility"] == "unverified"
+    assert manifest["source_model"]["revision"] == "a" * 40
+    assert not (output / "mtplx_runtime.json").exists()
+
+
 @pytest.mark.parametrize("layout", [None, "auto", "unknown", 1])
 def test_preserved_mtp_rejects_invalid_explicit_norm_layout(tmp_path: Path, layout: object) -> None:
     (tmp_path / "mtplx_runtime.json").write_text(json.dumps({"mtp_norm_layout": layout}))

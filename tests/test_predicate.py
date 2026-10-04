@@ -150,6 +150,18 @@ def test_mxfp4_4bit_plan_accepted_without_opt_in() -> None:
     }
 
 
+def test_affine_plan_on_mxfp4_physical_mode_is_not_legacy_affine4() -> None:
+    report_plan = _mlp_plan()
+    allocation = report_plan.assignments[0].model_copy(update={"group_size": 32})
+    plan = report_plan.model_copy(update={"assignments": [allocation]})
+    predicate = build_quant_predicate(plan, q_mode="mxfp4")
+    assert predicate("layers.0.mlp.down_proj", object()) == {
+        "group_size": 32,
+        "bits": 4,
+        "mode": "mxfp4",
+    }
+
+
 def test_qwen_checkpoint_paths_map_to_mlx_lm_module_paths() -> None:
     assert "language_model.model.layers.0.mlp.down_proj" in mlx_module_aliases(
         "model.language_model.layers.0.mlp.down_proj"
@@ -586,6 +598,39 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
     dwq_predicate = _legacy_predicate(dwq_fused, execute_refinement=False)
     result = dwq_predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict) and result["bits"] == 4
+
+
+def test_mxfp8_allows_validated_mlx_switchlinear_fused_experts() -> None:
+    plan = _mlp_plan()
+    template = plan.assignments[0]
+    members = [
+        template.model_copy(
+            update={
+                "tensor": f"backbone.layers.0.mixer.experts.{index}.up_proj.weight",
+                "module_path": f"backbone.layers.0.mixer.experts.{index}.up_proj",
+                "role": TensorRole.EXPERT,
+                "bits": 8,
+                "method": QuantMethod.AFFINE,
+                "group_size": 32,
+            }
+        )
+        for index in (0, 1)
+    ]
+    total = sum(item.parameters for item in members)
+    plan = plan.model_copy(
+        update={
+            "assignments": members,
+            "weight_distribution": {
+                "8bit": PrecisionShare(parameters=total, fraction=1.0),
+            },
+        }
+    )
+    predicate = PlanPredicate(plan, q_mode="mxfp8", execute_refinement=False)
+    assert predicate("backbone.layers.0.mixer.switch_mlp.fc1", object()) == {
+        "group_size": 32,
+        "bits": 8,
+        "mode": "mxfp8",
+    }
 
 
 def test_mxfp4_method_matches_affine_remap_on_packed_experts() -> None:

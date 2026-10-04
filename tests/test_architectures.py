@@ -911,21 +911,48 @@ def test_nemotron3_catalog_moe_is_convertible() -> None:
     assert profile.support_tier is SupportTier.CONVERTIBLE
     assert profile.dense is False
     assert profile.text_layer_count == 52
-    # Non-Nano catalog / experimental refs stay fail-closed (thin-support policy).
+    # Non-catalog refs stay fail-closed.
     other_cfg = {**config, "_name_or_path": "nvidia/Nemotron-3-experimental"}
     other = adapter.profile("nvidia/Nemotron-3-experimental", other_cfg)
     assert other.support_tier is SupportTier.INSPECT_ONLY
     super_cfg = {
         **config,
         "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "num_hidden_layers": 88,
+        "hidden_size": 4096,
+        "n_routed_experts": 512,
+        "num_experts_per_tok": 22,
+        "moe_intermediate_size": 2688,
+        "moe_latent_size": 1024,
+        "num_nextn_predict_layers": 1,
     }
     super_profile = adapter.profile("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", super_cfg)
-    assert super_profile.support_tier is SupportTier.INSPECT_ONLY
+    assert super_profile.support_tier is SupportTier.CONVERTIBLE
+    assert super_profile.mtp_declared is True
     conflicting_identity = adapter.profile(
         "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
         config,
     )
     assert conflicting_identity.support_tier is SupportTier.INSPECT_ONLY
+    lightning_cfg = {
+        **config,
+        "_name_or_path": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "moe_shared_expert_intermediate_size": 3712,
+        "num_nextn_predict_layers": 1,
+    }
+    lightning_profile = adapter.profile(
+        "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        lightning_cfg,
+    )
+    assert lightning_profile.support_tier is SupportTier.CONVERTIBLE
+    assert lightning_profile.mtp_declared is True
+    assert (
+        adapter.profile(
+            "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
+            {**config, "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16"},
+        ).support_tier
+        is SupportTier.INSPECT_ONLY
+    )
     wrong_signature = adapter.profile(
         "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         {**config, "hidden_size": 4096},
@@ -948,9 +975,36 @@ def test_nemotron3_catalog_moe_is_convertible() -> None:
         "backbone.layers.3.mixer.conv1d.weight": TensorRole.ATTENTION,
         "backbone.layers.3.norm.weight": TensorRole.NORM,
         "backbone.embeddings.weight": TensorRole.EMBEDDING,
+        "mtp.layers.1.mixer.experts.14.up_proj.weight": TensorRole.MTP_PROJECTION,
+        "mtp.layers.1.final_layernorm.weight": TensorRole.MTP_BLOCK,
     }
     for name, expected in cases.items():
         assert adapter.classify_tensor(name, "model.safetensors") is expected
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("num_nextn_predict_layers", None),
+        ("num_nextn_predict_layers", 0),
+        ("num_nextn_predict_layers", True),
+        ("moe_shared_expert_intermediate_size", 1856),
+        ("n_shared_experts", True),
+    ],
+)
+def test_lightning_cannot_fall_back_to_the_less_specific_nano_signature(
+    key: str, value: object
+) -> None:
+    from axquant.architectures.nemotron3 import (
+        _LIGHTNING_30B_A3B_SIGNATURE,
+        Nemotron3Adapter,
+    )
+
+    config = {**_LIGHTNING_30B_A3B_SIGNATURE, "model_type": "nemotron_h", key: value}
+    profile = Nemotron3Adapter().profile(
+        "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16", config
+    )
+    assert profile.support_tier is SupportTier.INSPECT_ONLY
 
 
 def test_qwen4_exp_ngram_shard_aliases_mlx_vlm_shards() -> None:

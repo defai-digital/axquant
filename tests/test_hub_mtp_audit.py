@@ -3,6 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
+from axquant import hub_mtp_audit
+from axquant.errors import ArtifactError
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.hub_mtp_audit import (
     MtpHubPackKind,
@@ -11,6 +15,9 @@ from axquant.hub_mtp_audit import (
     audit_mtp_hub_snapshot,
     discover_axq_mtp_artifact_repositories,
 )
+from axquant.schema.artifacts import NemotronMtpSidecarManifest
+from axquant.schema.inventory import ModelIdentity
+from axquant.serde import stable_sha256
 
 
 def _snapshot(
@@ -27,6 +34,77 @@ def _snapshot(
         documents=documents,
         safetensors_headers=headers,
     )
+
+
+@pytest.mark.parametrize("status,payload", [(200, b""), (206, b"short"), (206, b"too long!")])
+def test_header_range_rejects_ignored_or_wrong_length_responses(
+    monkeypatch: pytest.MonkeyPatch, status: int, payload: bytes
+) -> None:
+    consumed = []
+    closed = []
+
+    def chunks(**kwargs):
+        consumed.append(True)
+        assert status == 206
+        yield payload
+
+    response = SimpleNamespace(
+        status_code=status, iter_content=chunks, close=lambda: closed.append(True)
+    )
+
+    def get(url, **kwargs):
+        assert kwargs["stream"] is True
+        return response
+
+    monkeypatch.setattr(hub_mtp_audit, "get_session", lambda: SimpleNamespace(get=get))
+    with pytest.raises(ArtifactError):
+        hub_mtp_audit._read_range("https://example.test/model", 0, 7)
+    assert closed == [True]
+    assert bool(consumed) is (status == 206)
+
+
+@pytest.mark.parametrize(
+    "drift", ["none", "count", "hash", "header", "indexed", "runtime", "declaration"]
+)
+def test_nemotron_audit_validates_neutral_mtp_inventory_without_runtime_claims(drift: str) -> None:
+    names = ("mtp.layers.0.eh_proj.weight", "mtp.layers.0.norm.weight")
+    manifest = NemotronMtpSidecarManifest(
+        source_model=ModelIdentity(
+            model_id="nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16", revision="a" * 40
+        ),
+        mtp_tensor_count=2,
+        mtp_tensor_names_sha256=stable_sha256(sorted(names)),
+        payload_sha256="b" * 64,
+    ).model_dump(mode="json")
+    documents: dict[str, dict] = {
+        "config.json": {"model_type": "nemotron_h", "num_nextn_predict_layers": 1},
+        "ax_nemotron_mtp_manifest.json": manifest,
+        "model.safetensors.index.json": {
+            "weight_map": {"backbone.norm.weight": "model.safetensors"}
+        },
+    }
+    files = {*documents, "model.safetensors", "mtp.safetensors"}
+    if drift == "count":
+        manifest["mtp_tensor_count"] = 3
+    elif drift == "hash":
+        manifest["mtp_tensor_names_sha256"] = "c" * 64
+    elif drift == "header":
+        names = ("backbone.norm.weight",)
+    elif drift == "indexed":
+        documents["model.safetensors.index.json"]["weight_map"][names[0]] = "mtp.safetensors"
+    elif drift == "runtime":
+        files.add("mtplx_runtime.json")
+    elif drift == "declaration":
+        documents["config.json"]["num_nextn_predict_layers"] = 0
+    snapshot = _snapshot(
+        repo_id="AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP",
+        files=files,
+        documents=documents,
+        headers={"mtp.safetensors": SafetensorsHeader(tensor_names=names, metadata={})},
+    )
+    result = audit_mtp_hub_snapshot(snapshot)
+    assert result.kind is MtpHubPackKind.NEMOTRON_SIDECAR
+    assert result.passed is (drift == "none")
 
 
 def test_gemma_assistant_audit_accepts_public_mlx_vlm_layout() -> None:

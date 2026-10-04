@@ -65,6 +65,7 @@ from axquant.schema import (
     ArtifactManifest,
     CalibrationManifest,
     MtpSidecarLayout,
+    NemotronMtpSidecarManifest,
     ProtectedTensorSidecarManifest,
     QuantizationPlan,
     QuantizerExecutionManifest,
@@ -602,7 +603,9 @@ def _declare_raw_mtp_runtime_contract(
 
     Byte preservation retains the source norm convention, not necessarily raw
     HF deltas. Requantized sources must provide an explicit runtime declaration.
-    Original unquantized HF inputs retain the raw-delta default. AX Engine
+    Original unquantized HF inputs retain the raw-delta default for adapters
+    with a declared raw-HF norm convention. Nemotron-H emits provenance only.
+    AX Engine
     reads ``mtp_norm_layout`` from ``mtplx_runtime.json`` and applies the
     ``+1.0`` HF-delta conversion to every norm at load time; without the
     declaration it must guess from tensor statistics. For recognized Qwen MTP
@@ -644,6 +647,24 @@ def _declare_raw_mtp_runtime_contract(
             )
         if source_contract:
             _copy_verified(source_runtime, output_dir / "mtplx_runtime.json")
+    if plan is not None and plan.architecture_profile.adapter_id == "nemotron3-v1":
+        sidecar_path = output_dir / "mtp.safetensors"
+        _, header = _safetensor_header(sidecar_path)
+        nemotron_tensor_names = sorted(name for name in header if name != "__metadata__")
+        if not nemotron_tensor_names:
+            raise ArtifactError("Nemotron MTP sidecar contains no tensors")
+        if (output_dir / "mtplx_runtime.json").is_file():
+            raise ArtifactError(
+                "Nemotron MTP source must not inherit a cross-architecture runtime contract"
+            )
+        manifest = NemotronMtpSidecarManifest(
+            source_model=plan.source_model,
+            mtp_tensor_count=len(nemotron_tensor_names),
+            mtp_tensor_names_sha256=stable_sha256(nemotron_tensor_names),
+            payload_sha256=file_sha256(sidecar_path),
+        )
+        write_data(output_dir / "ax_nemotron_mtp_manifest.json", manifest)
+        return
     runtime_path = output_dir / "mtplx_runtime.json"
     contract: dict[str, Any] = {
         "schema_version": "axquant.mtp-runtime.v1",

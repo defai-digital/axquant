@@ -1,5 +1,9 @@
 # AXQ MTP Hub model runtime matrix
 
+The [Nemotron MTP development pack guide](nemotron-mtp-packs.md) records the
+2026-10-04 immutable MLX publications and their neutral, runtime-unverified
+MTP sidecar contract.
+
 > Stale snapshot. Verified against the `AutomatosX` Hugging Face organization on
 > 2026-08-30; the 2026-09-19 catalog cleanup removed most listed repos and all
 > per-pack certificate records were withdrawn on 2026-10-03. Re-run the fleet

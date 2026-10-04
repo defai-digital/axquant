@@ -46,7 +46,7 @@ def test_deepseek_v4_policy_allows_flash_stream_convert() -> None:
     assert "expert stream contract" in text
 
 
-def test_nemotron_is_thin_and_nano_only_convertible() -> None:
+def test_nemotron_is_thin_with_exact_lightning_and_super_scope() -> None:
     policy = policy_for_adapter("nemotron3-v1")
     assert policy is not None
     assert policy.investment_posture is InvestmentPosture.THIN
@@ -69,10 +69,17 @@ def test_nemotron_is_thin_and_nano_only_convertible() -> None:
     super_cfg = {
         **nano,
         "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
+        "num_hidden_layers": 88,
+        "hidden_size": 4096,
+        "n_routed_experts": 512,
+        "num_experts_per_tok": 22,
+        "moe_intermediate_size": 2688,
+        "moe_latent_size": 1024,
+        "num_nextn_predict_layers": 1,
     }
     super_profile = adapter.profile("nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16", super_cfg)
-    assert super_profile.support_tier is SupportTier.INSPECT_ONLY
-    assert any("Super/Ultra" in note for note in super_profile.notes)
+    assert super_profile.support_tier is SupportTier.CONVERTIBLE
+    assert super_profile.mtp_declared is True
     ultra_cfg = {
         **nano,
         "_name_or_path": "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
@@ -80,6 +87,16 @@ def test_nemotron_is_thin_and_nano_only_convertible() -> None:
     assert (
         adapter.profile("nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16", ultra_cfg).support_tier
         is SupportTier.INSPECT_ONLY
+    )
+    lightning = {
+        **nano,
+        "_name_or_path": "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+        "moe_shared_expert_intermediate_size": 3712,
+        "num_nextn_predict_layers": 1,
+    }
+    assert (
+        adapter.profile("nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16", lightning).support_tier
+        is SupportTier.CONVERTIBLE
     )
 
 
