@@ -1,0 +1,199 @@
+{
+  "$defs": {
+    "CudaFileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CudaFp8TensorAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "fp8",
+            "preserve"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/TensorRole"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "source_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "tensor_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor_name",
+        "source_file",
+        "shape",
+        "dtype",
+        "role",
+        "method",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "activation_precision": {
+      "const": 8,
+      "default": 8,
+      "type": "integer"
+    },
+    "activation_strategy": {
+      "const": "dynamic-token",
+      "default": "dynamic-token",
+      "type": "string"
+    },
+    "algorithm": {
+      "const": "rtn",
+      "default": "rtn",
+      "type": "string"
+    },
+    "allocations": {
+      "items": {
+        "$ref": "#/$defs/CudaFp8TensorAllocation"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "estimated_weight_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "evidence_kind": {
+      "const": "unmeasured",
+      "default": "unmeasured",
+      "type": "string"
+    },
+    "format": {
+      "const": "fp8_e4m3",
+      "default": "fp8_e4m3",
+      "type": "string"
+    },
+    "keep_patterns": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "model_type": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "runtime_dtype": {
+      "default": "bfloat16",
+      "enum": [
+        "bfloat16",
+        "float16"
+      ],
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.cuda-fp8-plan.v1",
+      "default": "axquant.cuda-fp8-plan.v1",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/CudaFileDigest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "weight_strategy": {
+      "const": "channel",
+      "default": "channel",
+      "type": "string"
+    }
+  },
+  "required": [
+    "model_id",
+    "model_type",
+    "config_sha256",
+    "source_files",
+    "allocations",
+    "estimated_weight_bytes"
+  ],
+  "type": "object"
+}

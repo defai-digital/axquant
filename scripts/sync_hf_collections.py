@@ -64,7 +64,8 @@ NOTE_AXQ_DEV = "AXQ development artifact. Not certified; see the model card."
 NOTE_AXQ_ASR = "AXQ language-decoder PTQ with a protected BF16 audio tower. Not certified."
 NOTE_AXQ_VL = "AXQ language-path PTQ with a protected BF16 vision tower. Not certified."
 NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
-NOTE_CUDA = "CUDA AWQ W4A16. Not an MLX pack."
+NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
+NOTE_CUDA_FP8 = "Native AXQuant CUDA FP8 E4M3 W8A8. Development artifact; not certified."
 NOTE_MXFP8 = "MLX MXFP8 OCR pack."
 NOTE_24T = (
     "Experimental 2-bit of the 2.4T MoE with a packaged native MTP sidecar. "
@@ -249,10 +250,11 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="OCR",
-        description="Unlimited-OCR (MLX MXFP8 and CUDA AWQ) plus DeepSeek-OCR-2 AXQ.",
+        description="Unlimited-OCR (MLX MXFP8 and native AXQ CUDA NVFP4/FP8) plus DeepSeek-OCR-2.",
         items=(
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),
-            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AWQ-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-FP8-E4M3-W8A8", NOTE_CUDA_FP8),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-6bit", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-4bit", NOTE_AXQ_DEV),
         ),
@@ -289,7 +291,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-4bit", NOTE_AXQ_DEV),
             _ax("AX-EmbeddingGemma-300M-MLX-8bit", NOTE_UNIFORM),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-MXFP8", NOTE_MXFP8),
-            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AWQ-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-FP8-E4M3-W8A8", NOTE_CUDA_FP8),
         ),
     ),
 )
