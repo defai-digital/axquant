@@ -375,6 +375,21 @@ def test_development_model_card_supports_versioned_fleet_names(
     assert "AX-Qwen3.6-27B-MLX-AXQ-6bit-v2-MTP" in readme
 
 
+def test_development_model_card_accepts_mxfp8_product_class(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    _prepare_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8-MTP",
+        product_class="MXFP8",
+    )
+
+    readme = (directory / "README.md").read_text(encoding="utf-8")
+    assert "| Hub budget class | `MXFP8` |" in readme
+
+
 def test_development_model_card_marks_v2_at_stable_repository_name(
     qwen36_model_dir: Path,
     tmp_path: Path,

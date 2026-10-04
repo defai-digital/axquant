@@ -28,6 +28,7 @@ def main() -> None:
             "6bit",
             "8bit",
             "MXFP4",
+            "MXFP8",
         ),
         default=None,
     )
