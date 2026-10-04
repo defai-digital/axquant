@@ -138,6 +138,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
@@ -172,6 +174,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -266,10 +270,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Tiel Coder",
-        description="Tiel Coder 35B-A3B MXFP4 with packaged MTP, including the Cyber variant.",
+        description="Tiel Coder 35B-A3B MXFP4/MXFP8 with packaged MTP, and the Cyber variant.",
         items=(
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -330,6 +336,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
