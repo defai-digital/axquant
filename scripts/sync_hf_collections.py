@@ -32,13 +32,14 @@ KNOWN_SLUGS: dict[str, str] = {
     "NVFP4": "AutomatosX/nvfp4-6ac1a489659e8a86ec4280fa",
     "MTP": "AutomatosX/mtp-6ac1a4e2daa11b99c2da9338",
     "Qwen": "AutomatosX/qwen-6ab4341bed3654678bbc5f72",
+    "Nemotron": "AutomatosX/nemotron-6ac1b99e003f6638a7513f59",
     "Qwen3.8": "AutomatosX/qwen38-6ac15fa1ba7bf169f7539343",
     "Tiel Coder": "AutomatosX/tiel-coder-6ab432f2fdec85ba0ecd515d",
     "Qwen3-VL": "AutomatosX/qwen3-vl-6ac1af94ba7bf169f75c1ab5",
     "DeepSeek": "AutomatosX/deepseek-6ac15fa3aeb86a300e188fdf",
     "OCR": "AutomatosX/ocr-6ab432f8bed2124120a3b782",
     "Unlimited-OCR": "AutomatosX/unlimited-ocr-6ac15fa87eb43e9e3ef61c97",
-    CATALOG_TITLE: "AutomatosX/automatosx-mlx-model-catalog-6ab432f9724c4d8a1037df1c",
+    CATALOG_TITLE: "AutomatosX/mlx-6ab432f9724c4d8a1037df1c",
 }
 
 NOTE_T1 = "Checkpoint Tier 1 certified. See the certificate for the bound host."
