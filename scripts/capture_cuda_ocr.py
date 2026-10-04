@@ -20,7 +20,10 @@ def runtime_source_name(runtime_name: str, selected: dict[str, Any]) -> str:
         name.startswith("model.language_model.") for name in selected
     ):
         return "model.language_model." + runtime_name.removeprefix(qwen_prefix)
-    return runtime_name.removeprefix("language_model.")
+    name = runtime_name.removeprefix("language_model.")
+    if name.startswith("model.") and any(key.startswith("layers.") for key in selected):
+        return name.removeprefix("model.")
+    return name
 
 
 def install_hooks(model: Any, source: str, allocations: list[dict[str, Any]]) -> dict[str, Any]:

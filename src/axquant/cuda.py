@@ -46,7 +46,11 @@ _ASSET_PATTERNS = (
     "chat_template*.json",
     "*processor_config.json",
     "*.py",
+    "modules.json",
+    "config_sentence_transformers.json",
+    "sentence_bert_config.json",
 )
+_POOLING_ASSETS = ("1_Pooling/config.json", "2_Normalize/config.json")
 
 
 def _digest(root: Path, relative: str) -> CudaFileDigest:
@@ -95,6 +99,7 @@ def plan_cuda_nvfp4(
     model_id: str | None = None,
     revision: str | None = None,
     keep_patterns: list[str] | None = None,
+    embedding_protection: bool = False,
     allow_unmeasured: bool = False,
 ) -> CudaQuantizationPlan:
     """Allocate eligible text matrices to NVFP4 and preserve every other tensor."""
@@ -111,6 +116,39 @@ def plan_cuda_nvfp4(
     if inventory.architecture_profile.support_tier == SupportTier.INSPECT_ONLY:
         raise PlanningError("CUDA conversion requires a registered convertible architecture")
     patterns = sorted(set(keep_patterns or []))
+    if embedding_protection:
+        config = read_data(source / "config.json")
+        layers = config.get("num_hidden_layers")
+        if (
+            config.get("model_type") != "qwen3"
+            or not isinstance(layers, int)
+            or isinstance(layers, bool)
+            or layers < 5
+            or not all(
+                (source / name).is_file()
+                for name in (
+                    "modules.json",
+                    "1_Pooling/config.json",
+                    "config_sentence_transformers.json",
+                )
+            )
+        ):
+            raise PlanningError("Embedding protection requires a Qwen3 embedding checkpoint")
+        pooling = read_data(source / "1_Pooling/config.json")
+        enabled = [
+            key for key, value in pooling.items() if key.startswith("pooling_mode_") and value
+        ]
+        if enabled != ["pooling_mode_lasttoken"]:
+            raise PlanningError("Qwen3 embedding protection requires last-token pooling")
+        flat = any(tensor.name.startswith("layers.") for tensor in inventory.tensors)
+        prefix = "" if flat else "model."
+        patterns = sorted(
+            set(patterns)
+            | {
+                prefix + "layers.*.self_attn.*",
+                *(f"{prefix}layers.{index}.mlp.*" for index in (0, 1, layers - 2, layers - 1)),
+            }
+        )
     allocations: list[CudaTensorAllocation] = []
     for tensor in sorted(inventory.tensors, key=lambda item: item.name):
         eligible = (
@@ -189,6 +227,7 @@ def plan_cuda_nvfp4(
         for path in source.iterdir()
         if any(fnmatch.fnmatchcase(path.name, pattern) for pattern in _ASSET_PATTERNS)
     )
+    members.update(name for name in _POOLING_ASSETS if (source / name).exists())
     if (source / _INDEX_NAME).exists():
         members.add(_INDEX_NAME)
     config = read_data(source / "config.json")
@@ -240,6 +279,9 @@ def _quantization_config(plan: CudaQuantizationPlan) -> dict[str, Any]:
         if item.method == "preserve" and (group := _fused_scale_group(item.tensor_name)) is not None
     }
     ignored.extend(sorted(fused_units))
+    if any(item.tensor_name.startswith("layers.") for item in plan.allocations):
+        # Base embedding checkpoints omit the wrapper prefix added by vLLM.
+        ignored = sorted(set(ignored) | {"model." + name for name in ignored})
     if any(item.role in {TensorRole.VISION, TensorRole.AUDIO} for item in plan.allocations):
         # Runtime vision wrappers may rename internal paths (transformer -> encoder).
         protected = r".*(?:vision|visual|sam_model|projector|view_sep|image_newline|audio).*"

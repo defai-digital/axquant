@@ -162,7 +162,7 @@ def test_ocr_smoke_rejects_repetitive_prefix_even_with_expected_text() -> None:
         require_smoke_text("1.\n1.\n1.\n" + expected)
 
 
-@pytest.mark.parametrize("prefix", ["model.", "model.language_model."])
+@pytest.mark.parametrize("prefix", ["", "model.", "model.language_model."])
 def test_calibration_maps_runtime_language_aliases(prefix: str) -> None:
     from scripts.capture_cuda_ocr import runtime_source_name
 

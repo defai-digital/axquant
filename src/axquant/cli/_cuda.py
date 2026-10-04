@@ -28,6 +28,11 @@ def add_cuda_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
             parser.add_argument(
                 "--keep", action="append", default=[], help="Preserve a tensor glob"
             )
+            parser.add_argument(
+                "--embedding-protection",
+                action="store_true",
+                help="Preserve Qwen3 embedding attention and first/last two MLP blocks",
+            )
         if name == "convert-cuda":
             parser.add_argument("--plan", required=True)
         if name != "plan-cuda":
@@ -73,6 +78,7 @@ def run_cuda_command(args: argparse.Namespace) -> int:
             model_id=args.model_id,
             revision=args.revision,
             keep_patterns=args.keep,
+            embedding_protection=args.embedding_protection,
             allow_unmeasured=args.allow_unmeasured,
         )
         if args.activation_bits == 4:
