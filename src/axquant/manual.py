@@ -130,7 +130,8 @@ def _precision(
         )
     # Per-expert checkpoint tensors and packed expert tensors fuse into
     # MLX-LM switch modules. Convert can pack those affinely, optionally
-    # after DWQ percentile clip. AWQ/GPTQ still cannot run on the stack.
+    # after DWQ percentile clip, or natively as MXFP4. AWQ/GPTQ still cannot
+    # run on the stack.
     fused_module = fused_expert_module(tensor.module_path)
     packed_modules = packed_expert_runtime_modules(tensor.module_path)
     if (
@@ -140,8 +141,8 @@ def _precision(
     ):
         raise PlanningError(
             f"manual recipe assigns {method.value} to expert tensor {tensor.name}; "
-            "conversion can only execute affine or dwq packing for fused/packed "
-            "expert modules"
+            "conversion can only execute affine, dwq, or mxfp4 packing for "
+            "fused/packed expert modules"
         )
     if rule is not None:
         reason = f"manual rule {rule.rule_id}: {rule.reason}"

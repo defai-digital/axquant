@@ -690,8 +690,8 @@ def _options_for(
     role = entry.tensor.role
     # MLX-LM exposes both per-expert checkpoint tensors and packed expert
     # tensors through fused SwitchLinear modules.  Predicate/conversion can
-    # only execute affine packing for those modules, so do not let refinement
-    # candidates produce a plan that the conversion preflight must reject.
+    # only execute affine, DWQ, or MXFP4 packing for those modules, so do not
+    # let refinement candidates produce a plan that conversion must reject.
     fused_expert = fused_expert_module(entry.tensor.module_path) is not None
     packed_expert = bool(packed_expert_runtime_modules(entry.tensor.module_path))
     if role.is_mtp and request.mtp.mode != "disabled":

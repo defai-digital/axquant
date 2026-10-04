@@ -15,9 +15,13 @@ from axquant.module_paths import (
 from axquant.schema import Allocation, QuantizationPlan, QuantMethod
 
 _EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act", "mxfp4"})
-# Fused/packed SwitchLinear stacks can only run portable affine packing.
-# DWQ is percentile clip then that same affine pack — allowed. AWQ/GPTQ are not.
-FUSED_STACK_METHODS = frozenset({"affine", "dwq"})
+# Fused/packed SwitchLinear stacks run portable affine packing, DWQ (percentile
+# clip then that same affine pack), and native MXFP4. A plan-selected mxfp4
+# allocation emits the identical group-32 4-bit MXFP4 ``to_quantized`` dict as
+# the long-shipped affine allocation plus ``--q-mode mxfp4`` remap, validated
+# end to end (quantize_model -> save -> load -> forward) on SwitchLinear.
+# AWQ/GPTQ refinement cannot run on fused stacks and stays refused.
+FUSED_STACK_METHODS = frozenset({"affine", "dwq", "mxfp4"})
 MXFP4_GROUP_SIZE = 32
 _PHYSICAL_MODES = frozenset({"affine", "mxfp4", "mxfp8"})
 
@@ -113,11 +117,11 @@ class PlanPredicate:
             raise PlanningError(f"unsupported convert q-mode: {q_mode}")
         for allocation in plan.assignments:
             if allocation_physical_mode(allocation, self._q_mode) == "mxfp8":
+                # MXFP8 on packed experts is validated end to end
+                # (quantize_model -> save -> load -> forward on SwitchLinear);
+                # the params check below still enforces group-32 8-bit
+                # unrefined-affine packing for every MXFP8 allocation.
                 allocation_quant_params(allocation, self._q_mode)
-                if fused_expert_module(allocation.module_path) is not None or (
-                    packed_expert_runtime_modules(allocation.module_path)
-                ):
-                    raise PlanningError("MXFP8 fused expert packing has not been validated")
         self._assignments = {
             _without_weight_suffix(allocation.module_path): allocation
             for allocation in plan.assignments
@@ -139,8 +143,8 @@ class PlanPredicate:
             if packed_modules:
                 if allocation.bits < 16 and not fused_stack_method_allowed(allocation.method.value):
                     raise PlanningError(
-                        f"packed expert tensor {module_path} requires affine or dwq packing; "
-                        f"got {allocation.method.value}"
+                        f"packed expert tensor {module_path} requires affine, dwq, "
+                        f"or mxfp4 packing; got {allocation.method.value}"
                     )
                 self._packed_requirements[module_path] = tuple(
                     frozenset(mlx_module_aliases(runtime_module))
@@ -158,8 +162,8 @@ class PlanPredicate:
                 )
             if members[0].bits < 16 and not fused_stack_method_allowed(members[0].method.value):
                 raise PlanningError(
-                    f"fused expert module {fused} requires affine or dwq packing; "
-                    f"got {members[0].method.value}"
+                    f"fused expert module {fused} requires affine, dwq, or mxfp4 "
+                    f"packing; got {members[0].method.value}"
                 )
         self._aliases: dict[str, Allocation] = {}
         for module_path, allocation in self._assignments.items():

@@ -15,6 +15,7 @@ from axquant.schema import (
     ArchitectureSupportLevel,
     CalibrationEvidence,
     EvidenceKind,
+    HardwareProfile,
     Inventory,
     ManualPlanRecipe,
     ManualPrecisionRule,
@@ -596,7 +597,7 @@ def test_manual_rejects_awq_on_fused_and_packed_experts(
         group_size=64,
         reason="unexecutable refinement on a fused/packed expert module",
     )
-    with pytest.raises(PlanningError, match="affine or dwq"):
+    with pytest.raises(PlanningError, match="affine, dwq, or mxfp4"):
         manual_quantization_plan(inventory, _recipe(rules=[rule]))
 
 
@@ -617,6 +618,44 @@ def test_manual_accepts_dwq_on_fused_experts(qwen36_model_dir: Path) -> None:
     experts = [item for item in plan.assignments if item.role == TensorRole.EXPERT]
     assert experts
     assert all(item.method == QuantMethod.DWQ and item.bits == 4 for item in experts)
+
+
+@pytest.mark.parametrize(
+    "module_path",
+    [
+        "model.layers.0.mlp.experts.0.gate_proj",
+        "model.layers.0.mlp.experts.gate_up_proj",
+    ],
+)
+def test_manual_accepts_mxfp4_on_fused_and_packed_experts(
+    qwen36_model_dir: Path,
+    module_path: str,
+) -> None:
+    inventory = _inventory(qwen36_model_dir)
+    inventory.tensors.append(_expert_tensor(f"{module_path}.weight", module_path))
+    rule = ManualPrecisionRule(
+        rule_id="expert-mxfp4",
+        bits=4,
+        method=QuantMethod.MXFP4,
+        module_glob=f"*{module_path.removeprefix('model.')}",
+        group_size=32,
+        reason="native MXFP4 pack executes on a fused switch",
+    )
+    hardware = HardwareProfile(
+        supported_methods=(
+            QuantMethod.AFFINE,
+            QuantMethod.DWQ,
+            QuantMethod.MXFP4,
+            QuantMethod.BF16,
+        )
+    )
+    plan = manual_quantization_plan(inventory, _recipe(rules=[rule], hardware=hardware))
+    experts = [item for item in plan.assignments if item.role == TensorRole.EXPERT]
+    assert experts
+    assert all(
+        item.method == QuantMethod.MXFP4 and item.bits == 4 and item.group_size == 32
+        for item in experts
+    )
 
 
 def test_manual_rejects_mixed_precisions_within_fused_expert_group(

@@ -578,7 +578,7 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
             )
         }
     )
-    with pytest.raises(PlanningError, match="requires affine or dwq packing"):
+    with pytest.raises(PlanningError, match="requires affine, dwq, or mxfp4 packing"):
         _legacy_predicate(gptq_fused, execute_refinement=False)
 
     dwq_members = [member.model_copy(update={"method": QuantMethod.DWQ}) for member in members]
@@ -586,6 +586,89 @@ def test_fused_expert_group_requires_uniform_precision() -> None:
     dwq_predicate = _legacy_predicate(dwq_fused, execute_refinement=False)
     result = dwq_predicate("language_model.model.layers.0.mlp.switch_mlp.gate_proj", object())
     assert isinstance(result, dict) and result["bits"] == 4
+
+
+def test_mxfp4_method_matches_affine_remap_on_packed_experts() -> None:
+    """A plan-selected mxfp4 expert pack executes the proven remap params."""
+
+    def _packed(method: QuantMethod) -> QuantizationPlan:
+        plan = _mlp_plan()
+        packed = plan.assignments[0].model_copy(
+            update={
+                "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+                "module_path": "model.layers.0.mlp.experts.gate_up_proj",
+                "role": TensorRole.EXPERT,
+                "bits": 4,
+                "method": method,
+                "group_size": 32,
+            }
+        )
+        hardware = plan.hardware
+        if method not in hardware.supported_methods:
+            hardware = hardware.model_copy(
+                update={"supported_methods": (*hardware.supported_methods, method)}
+            )
+        return plan.model_copy(update={"assignments": [packed], "hardware": hardware})
+
+    native = _legacy_predicate(_packed(QuantMethod.MXFP4), execute_refinement=False)
+    remapped = _legacy_predicate(
+        _packed(QuantMethod.AFFINE), execute_refinement=False, q_mode="mxfp4"
+    )
+    expected = {"group_size": 32, "bits": 4, "mode": "mxfp4"}
+    for runtime_module in (
+        "model.layers.0.mlp.switch_mlp.gate_proj",
+        "model.layers.0.mlp.switch_mlp.up_proj",
+    ):
+        assert native(runtime_module, object()) == expected
+        assert remapped(runtime_module, object()) == expected
+
+
+def test_mxfp8_packed_expert_requires_every_split_runtime_module() -> None:
+    """MXFP8 packed experts quantize once both split switch modules visit."""
+
+    plan = _mlp_plan()
+    packed = plan.assignments[0].model_copy(
+        update={
+            "tensor": "model.layers.0.mlp.experts.gate_up_proj.weight",
+            "module_path": "model.layers.0.mlp.experts.gate_up_proj",
+            "role": TensorRole.EXPERT,
+            "bits": 8,
+            "method": QuantMethod.AFFINE,
+            "group_size": 32,
+        }
+    )
+    packed_plan = plan.model_copy(update={"assignments": [packed]})
+    predicate = _legacy_predicate(packed_plan, execute_refinement=False, q_mode="mxfp8")
+
+    expected = {"group_size": 32, "bits": 8, "mode": "mxfp8"}
+    assert predicate("model.layers.0.mlp.switch_mlp.gate_proj", object()) == expected
+    assert predicate.unmatched_quantized_modules() == {packed.module_path}
+    assert predicate("model.layers.0.mlp.switch_mlp.up_proj", object()) == expected
+    assert predicate.unmatched_quantized_modules() == set()
+
+
+def test_allocation_quant_params_returns_complete_to_quantized_dict() -> None:
+    """Every physical mode emits all three to_quantized keys explicitly.
+
+    MLX passes a predicate dict to ``to_quantized`` verbatim; omitted
+    group_size/bits silently fall back to 64/4, which would pack an invalid
+    microscaling tensor. The predicate must never rely on those defaults.
+    """
+
+    base = _mlp_plan().assignments[0]
+    cases = [
+        (QuantMethod.AFFINE, 4, 64, "affine", {"group_size": 64, "bits": 4, "mode": "affine"}),
+        (QuantMethod.AFFINE, 4, 32, "mxfp4", {"group_size": 32, "bits": 4, "mode": "mxfp4"}),
+        (QuantMethod.MXFP4, 4, 32, "affine", {"group_size": 32, "bits": 4, "mode": "mxfp4"}),
+        (QuantMethod.AFFINE, 8, 32, "mxfp8", {"group_size": 32, "bits": 8, "mode": "mxfp8"}),
+    ]
+    for method, bits, group_size, q_mode, expected in cases:
+        allocation = base.model_copy(
+            update={"method": method, "bits": bits, "group_size": group_size}
+        )
+        params = predicate_module.allocation_quant_params(allocation, q_mode)
+        assert set(params) == {"group_size", "bits", "mode"}
+        assert params == expected
 
 
 def test_packed_expert_requires_every_split_runtime_module() -> None:
@@ -625,7 +708,7 @@ def test_packed_expert_rejects_non_affine_refinement() -> None:
     packed_plan = plan.model_copy(update={"assignments": [packed]})
 
     with pytest.raises(
-        PlanningError, match=r"packed expert tensor.*requires affine or dwq packing"
+        PlanningError, match=r"packed expert tensor.*requires affine, dwq, or mxfp4 packing"
     ):
         _legacy_predicate(packed_plan, execute_refinement=False)
 

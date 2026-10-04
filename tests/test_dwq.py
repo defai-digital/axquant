@@ -96,8 +96,10 @@ def test_flash_dwq_recipe_clips_attention_not_fused_trunk() -> None:
 def test_fused_switch_cannot_mix_bit_widths_and_dwq_stays_allowed() -> None:
     assert fused_stack_method_allowed("dwq")
     assert fused_stack_method_allowed("affine")
+    assert fused_stack_method_allowed("mxfp4")
     assert not fused_stack_method_allowed("awq")
-    assert frozenset({"affine", "dwq"}) == FUSED_STACK_METHODS
+    assert not fused_stack_method_allowed("gptq")
+    assert frozenset({"affine", "dwq", "mxfp4"}) == FUSED_STACK_METHODS
     gate0 = "model.layers.0.ffn.experts.0.w1"
     gate1 = "model.layers.0.ffn.experts.1.w1"
     assert fused_expert_module(gate0) == fused_expert_module(gate1)
