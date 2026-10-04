@@ -1,0 +1,341 @@
+{
+  "$defs": {
+    "CudaActivationCalibration": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "input_files": {
+          "items": {
+            "$ref": "#/$defs/CudaFileDigest"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "method": {
+          "const": "observed-input-and-expert-replay-absmax",
+          "default": "observed-input-and-expert-replay-absmax",
+          "type": "string"
+        },
+        "runtime": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "runtime_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "axquant.cuda-activation.v1",
+          "default": "axquant.cuda-activation.v1",
+          "type": "string"
+        },
+        "source_precision": {
+          "enum": [
+            "bfloat16",
+            "float16"
+          ],
+          "type": "string"
+        },
+        "statistics": {
+          "items": {
+            "$ref": "#/$defs/CudaActivationStat"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "status": {
+          "const": "complete",
+          "default": "complete",
+          "type": "string"
+        },
+        "weight_plan_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "weight_plan_sha256",
+        "input_files",
+        "runtime",
+        "runtime_version",
+        "source_precision",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "CudaActivationStat": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_maximum": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "input_columns": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "sample_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "tensor_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor_name",
+        "input_columns",
+        "sample_count",
+        "absolute_maximum"
+      ],
+      "type": "object"
+    },
+    "CudaFileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CudaQuantizationPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "activation_dtype": {
+          "default": "bfloat16",
+          "enum": [
+            "bfloat16",
+            "float16"
+          ],
+          "type": "string"
+        },
+        "activation_precision": {
+          "const": 16,
+          "default": 16,
+          "type": "integer"
+        },
+        "algorithm": {
+          "const": "rtn",
+          "default": "rtn",
+          "type": "string"
+        },
+        "allocations": {
+          "items": {
+            "$ref": "#/$defs/CudaTensorAllocation"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "block_size": {
+          "const": 16,
+          "default": 16,
+          "type": "integer"
+        },
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "estimated_weight_bytes": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "evidence_kind": {
+          "const": "unmeasured",
+          "default": "unmeasured",
+          "type": "string"
+        },
+        "format": {
+          "const": "nvfp4",
+          "default": "nvfp4",
+          "type": "string"
+        },
+        "keep_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "model_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_type": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema_version": {
+          "const": "axquant.cuda-plan.v1",
+          "default": "axquant.cuda-plan.v1",
+          "type": "string"
+        },
+        "source_files": {
+          "items": {
+            "$ref": "#/$defs/CudaFileDigest"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "model_id",
+        "model_type",
+        "config_sha256",
+        "source_files",
+        "allocations",
+        "estimated_weight_bytes"
+      ],
+      "type": "object"
+    },
+    "CudaTensorAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "nvfp4",
+            "preserve"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/TensorRole"
+        },
+        "scale_group": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "source_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "tensor_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor_name",
+        "source_file",
+        "shape",
+        "dtype",
+        "role",
+        "method",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "activation_headroom": {
+      "default": 1.25,
+      "maximum": 16,
+      "minimum": 1,
+      "type": "number"
+    },
+    "activation_precision": {
+      "const": 4,
+      "default": 4,
+      "type": "integer"
+    },
+    "calibration": {
+      "$ref": "#/$defs/CudaActivationCalibration"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "format": {
+      "const": "nvfp4",
+      "default": "nvfp4",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.cuda-w4a4-plan.v1",
+      "default": "axquant.cuda-w4a4-plan.v1",
+      "type": "string"
+    },
+    "weight_plan": {
+      "$ref": "#/$defs/CudaQuantizationPlan"
+    }
+  },
+  "required": [
+    "weight_plan",
+    "calibration"
+  ],
+  "type": "object"
+}

@@ -10,10 +10,17 @@ CUDA FP8 converter and publication were withdrawn. Frozen FP8 artifact
 definitions remain solely for historical metadata; no FP8 conversion command
 or export backend is provided.
 
-The initial format is **NVFP4 W4A16**: selected weights use E2M1 FP4,
+The default format is **NVFP4 W4A16**: selected weights use E2M1 FP4,
 activations execute in FP16/BF16 without activation quantization, and protected
-weights retain their source precision. This backend does not calibrate or
-quantize activations to FP4 (W4A4).
+weights retain their source precision. vLLM 0.25.1 selects Marlin for this
+weight-only mode, including on FP4-capable GPUs. That saves weight storage
+and bandwidth without establishing native FP4 matrix execution.
+
+The opt-in **NVFP4 W4A4** path requires source-bound activation calibration.
+Selected Linear and MoE inputs use FP4 with dynamic block scales and calibrated
+global scales. Protected vision, router, embedding, norm and head tensors
+retain source precision. Separate versioned W4A4 plans and manifests preserve
+the frozen W4A16 contracts.
 
 ## Install and convert
 
@@ -74,6 +81,10 @@ scale expected by fused runtime modules. Keeping one member preserves its
 entire fused unit. Shared groups may span source shards; conversion computes
 their common maximum before packing.
 
+Keeping one individual expert projection preserves the complete runtime
+expert table. Runtime MoE modules cannot combine missing packed projections
+with individual BF16 experts under one quantization scheme.
+
 Runtime vision wrappers may rename internal modules, such as `transformer`
 to `encoder`. Protected vision/audio namespaces also receive conservative
 regex ignore rules so those aliases retain source precision. An ignore
@@ -119,6 +130,57 @@ Local credentials and runtime evidence are not copied. Source changes,
 incomplete plan coverage or conversion failure abort before publication.
 Output is staged beside the destination and published by directory rename;
 an existing output is rejected.
+
+## Calibrated W4A4
+
+First create an ordinary source-bound weight plan. Capture BF16 inputs using
+the same portable model identity, revision, protection policy and original
+checkpoint. The development OCR capture script uses native vLLM model support,
+named worker RPCs and primitive arguments; it does not enable callable pickle
+serialization or execute model remote code.
+
+```bash
+axquant plan-cuda /path/to/source-bf16 --model-id organization/model \
+  --allow-unmeasured --output work/weight-plan.json
+python scripts/capture_cuda_ocr.py --model /path/to/source-bf16 \
+  --plan work/weight-plan.json --image /path/to/calibration-page.png \
+  --output work/activations.json
+axquant plan-cuda /path/to/source-bf16 --model-id organization/model \
+  --activation-bits 4 --activation-calibration work/activations.json \
+  --allow-unmeasured --output work/w4a4-plan.json
+axquant convert-cuda /path/to/source-bf16 --plan work/w4a4-plan.json \
+  --device cuda:0 --allow-unmeasured --output /path/to/output-w4a4
+```
+
+The capture script supports the official DeepSeek-OCR-2 and Unlimited-OCR
+layouts. It observes BF16 Linear inputs and replays every source expert on
+observed BF16 hidden states, including experts not routed on that page.
+Down-projection statistics come from actual source gate/up matrix operations
+and SiLU. The calibration records this replay method, image digests, exact
+weight-plan hash, shapes, sample counts and maxima. Missing coverage, wrong
+shapes, non-finite values or source drift abort. The default 1.25 activation
+headroom is a conservative range allowance, not a measured quality result.
+
+W4A4 shares both weight and input global scales across fused Q/K/V, gate/up,
+and each complete MoE expert table. It adds one FP32 `input_global_scale`
+per selected matrix and writes `axquant.cuda-w4a4-plan.v1` and
+`axquant.cuda-w4a4-pack.v1`. Weight packing remains native AXQuant RTN.
+A small development calibration page cannot establish broad OCR accuracy.
+
+Use the OCR smoke with chunked prefill enabled and explicit native FP4
+requirements. Unsupported CUTLASS execution fails instead of silently
+using a weight-only kernel:
+
+```bash
+python scripts/smoke_cuda_ocr.py --model /path/to/output-w4a4 \
+  --image /path/to/ocr-smoke-page.png --output work/runtime.json \
+  --require-native-fp4 --memory-fraction 0.30
+```
+
+Both scripts require a build containing these changes and a compatible CUDA
+vLLM environment. They are development/operator scripts, not features of
+older published AXQuant wheels. Actual GPU/runtime/model compatibility must
+be established by load and generation checks.
 
 ## Runtime and evidence boundaries
 
@@ -180,5 +242,14 @@ BF16 control and AXQuant NVFP4 output in isolated vLLM processes.
 
 The generated weight file hashes and token IDs matched across both GPUs.
 The final runs had no fused-projection global-scale rescaling warning.
-This is synthetic conversion and runtime evidence; trained-model/OCR quality,
-performance and W4A4 Tensor Core execution remain unqualified.
+This synthetic run alone does not establish trained-model OCR quality,
+performance or W4A4 Tensor Core execution.
+
+Subsequent trained-checkpoint development checks exercised DeepSeek-OCR-2 and
+Unlimited-OCR W4A4 packs on both RTX 5090 and Thor, using official vLLM 0.25.1,
+PyTorch 2.11.0+cu130 and CUDA 13.0. Every case loaded with
+`CutlassNvFp4LinearKernel` and `VLLM_CUTLASS` MoE, enabled chunked prefill,
+and recognized all three expected English test-page lines. Exact protected
+tensor equality and identical checkpoint hashes across test hosts were checked.
+Calibration and smoke used the same generated page; this is not a held-out
+OCR evaluation, layout/markup qualification or a speed certification.

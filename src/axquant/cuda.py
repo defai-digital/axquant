@@ -22,6 +22,11 @@ from axquant.schema.cuda import (
     CudaQuantizationPlan,
     CudaTensorAllocation,
 )
+from axquant.schema.cuda_activation import (
+    CudaActivationCalibration,
+    CudaW4A4PackManifest,
+    CudaW4A4Plan,
+)
 from axquant.schema.enums import SupportTier, TensorRole
 from axquant.serde import file_sha256, read_data, stable_sha256, write_data
 
@@ -66,6 +71,21 @@ def _fused_scale_group(name: str) -> str | None:
             if name.endswith(ending):
                 return name.removesuffix(ending) + "." + group
     return None
+
+
+def _expert_unit(name: str) -> str | None:
+    match = re.fullmatch(
+        r"(.+\.experts)\.\d+\.(?:gate_proj|up_proj|down_proj|w[123])\.weight", name
+    )
+    return match.group(1) if match else None
+
+
+def _w4a4_scale_group(name: str) -> str:
+    unit = _expert_unit(name)
+    if unit is not None:
+        down = name.endswith((".down_proj.weight", ".w2.weight"))
+        return unit + (".w2" if down else ".w13")
+    return _fused_scale_group(name) or name.removesuffix(".weight")
 
 
 def plan_cuda_nvfp4(
@@ -137,6 +157,22 @@ def plan_cuda_nvfp4(
                     "reason": allocation.reason
                     if quantized
                     else "Preserve complete fused runtime unit",
+                }
+            )
+    expert_units: dict[str, list[int]] = {}
+    for index, allocation in enumerate(allocations):
+        unit = _expert_unit(allocation.tensor_name)
+        if unit is not None:
+            expert_units.setdefault(unit, []).append(index)
+    for indices in expert_units.values():
+        if all(allocations[index].method == "nvfp4" for index in indices):
+            continue
+        for index in indices:
+            allocations[index] = allocations[index].model_copy(
+                update={
+                    "method": "preserve",
+                    "scale_group": None,
+                    "reason": "Preserve complete fused runtime expert table",
                 }
             )
     storage = {tensor.name: tensor for tensor in inventory.tensors}
@@ -235,6 +271,88 @@ def convert_cuda_nvfp4(
     allow_unmeasured: bool = False,
 ) -> CudaPackManifest:
     """Export NVFP4A16 bytes atomically; CUDA is required unless CPU is explicit."""
+    result = _convert_cuda_nvfp4(
+        model_dir,
+        plan,
+        output_dir,
+        device=device,
+        rows_per_chunk=rows_per_chunk,
+        allow_unmeasured=allow_unmeasured,
+    )
+    assert isinstance(result, CudaPackManifest)
+    return result
+
+
+def plan_cuda_nvfp4_w4a4(
+    weight_plan: CudaQuantizationPlan,
+    calibration: CudaActivationCalibration,
+    *,
+    activation_headroom: float = 1.25,
+) -> CudaW4A4Plan:
+    """Require exact weight identity, observed inputs and complete activation coverage."""
+    if calibration.weight_plan_sha256 != stable_sha256(weight_plan):
+        raise PlanningError("CUDA activation calibration does not bind this weight plan")
+    if calibration.source_precision != weight_plan.activation_dtype:
+        raise PlanningError("CUDA activation calibration precision differs from the source")
+    selected = {
+        item.tensor_name: item for item in weight_plan.allocations if item.method == "nvfp4"
+    }
+    stats = {item.tensor_name: item for item in calibration.statistics}
+    if set(stats) != set(selected):
+        raise PlanningError("CUDA activation calibration must cover every selected tensor exactly")
+    for name, allocation in selected.items():
+        if stats[name].input_columns != allocation.shape[1]:
+            raise PlanningError(f"CUDA activation calibration input shape differs: {name}")
+        _global_scale(stats[name].absolute_maximum)
+    return CudaW4A4Plan(
+        weight_plan=weight_plan,
+        calibration=calibration,
+        activation_headroom=activation_headroom,
+    )
+
+
+def convert_cuda_nvfp4_w4a4(
+    model_dir: str | Path,
+    plan: CudaW4A4Plan,
+    output_dir: str | Path,
+    *,
+    device: str = "cuda",
+    rows_per_chunk: int = 256,
+    allow_unmeasured: bool = False,
+) -> CudaW4A4PackManifest:
+    """Export calibrated W4A4 with shared global scales for fused expert tables."""
+    verified = plan_cuda_nvfp4_w4a4(
+        plan.weight_plan,
+        plan.calibration,
+        activation_headroom=plan.activation_headroom,
+    )
+    if stable_sha256(verified) != stable_sha256(plan):
+        raise PlanningError("CUDA W4A4 plan differs from its calibration binding")
+    result = _convert_cuda_nvfp4(
+        model_dir,
+        plan.weight_plan,
+        output_dir,
+        device=device,
+        rows_per_chunk=rows_per_chunk,
+        allow_unmeasured=allow_unmeasured,
+        calibration=plan.calibration,
+        activation_headroom=plan.activation_headroom,
+    )
+    assert isinstance(result, CudaW4A4PackManifest)
+    return result
+
+
+def _convert_cuda_nvfp4(
+    model_dir: str | Path,
+    plan: CudaQuantizationPlan,
+    output_dir: str | Path,
+    *,
+    device: str,
+    rows_per_chunk: int,
+    allow_unmeasured: bool,
+    calibration: CudaActivationCalibration | None = None,
+    activation_headroom: float = 1.25,
+) -> CudaPackManifest | CudaW4A4PackManifest:
     _require_unmeasured(allow_unmeasured)
     if rows_per_chunk < 1:
         raise PlanningError("rows_per_chunk must be positive")
@@ -267,8 +385,29 @@ def convert_cuda_nvfp4(
 
     allocations = {item.tensor_name: item for item in plan.allocations}
     selected = {name for name, item in allocations.items() if item.method == "nvfp4"}
+    input_scales: dict[str, float] = {}
+    artifact_plan: CudaQuantizationPlan | CudaW4A4Plan = plan
+    if calibration is not None:
+        artifact_plan = plan_cuda_nvfp4_w4a4(
+            plan,
+            calibration,
+            activation_headroom=activation_headroom,
+        )
+        maxima: dict[str, float] = {}
+        for stat in calibration.statistics:
+            group = _w4a4_scale_group(stat.tensor_name)
+            maxima[group] = max(maxima.get(group, 0), stat.absolute_maximum)
+        input_scales = {
+            group: _global_scale(maximum * activation_headroom) for group, maximum in maxima.items()
+        }
+        allocations = {
+            name: item.model_copy(update={"scale_group": _w4a4_scale_group(name)})
+            if name in selected
+            else item
+            for name, item in allocations.items()
+        }
     group_maxima: dict[str, float] = {}
-    grouped_files = sorted({item.source_file for item in plan.allocations if item.scale_group})
+    grouped_files = sorted({item.source_file for item in allocations.values() if item.scale_group})
     for relative in grouped_files:
         group_tensors = load_file(str(source / relative), device="cpu")
         for name, weight in group_tensors.items():
@@ -281,11 +420,10 @@ def convert_cuda_nvfp4(
                 group_maxima[group] = max(group_maxima.get(group, 0), maximum)
         del group_tensors
     group_scales = {group: _global_scale(maximum) for group, maximum in group_maxima.items()}
-    generated = {
-        name.removesuffix(".weight") + suffix
-        for name in selected
-        for suffix in (".weight_packed", ".weight_scale", ".weight_global_scale")
-    }
+    suffixes: tuple[str, ...] = (".weight_packed", ".weight_scale", ".weight_global_scale")
+    if calibration is not None:
+        suffixes += (".input_global_scale",)
+    generated = {name.removesuffix(".weight") + suffix for name in selected for suffix in suffixes}
     if generated & allocations.keys():
         raise PlanningError("NVFP4 generated tensor names collide with source tensors")
     source_index = read_data(source / _INDEX_NAME) if (source / _INDEX_NAME).exists() else None
@@ -342,13 +480,14 @@ def convert_cuda_nvfp4(
                     transformed[prefix + ".weight_global_scale"] = torch.tensor(
                         packed.global_scale, dtype=torch.float32
                     )
+                    if calibration is not None:
+                        transformed[prefix + ".input_global_scale"] = torch.tensor(
+                            input_scales[_w4a4_scale_group(name)], dtype=torch.float32
+                        )
                 output_names = (
                     [name]
                     if item.method == "preserve"
-                    else [
-                        name.removesuffix(".weight") + suffix
-                        for suffix in (".weight_packed", ".weight_scale", ".weight_global_scale")
-                    ]
+                    else [name.removesuffix(".weight") + suffix for suffix in suffixes]
                 )
                 if name in main_names:
                     for output_name in output_names:
@@ -367,16 +506,26 @@ def convert_cuda_nvfp4(
         if "dtype" in config:
             config["dtype"] = plan.activation_dtype
         config["quantization_config"] = _quantization_config(plan)
+        if calibration is not None:
+            config["quantization_config"]["config_groups"]["nvfp4"]["input_activations"] = {
+                "num_bits": 4,
+                "type": "float",
+                "symmetric": True,
+                "strategy": "tensor_group",
+                "group_size": 16,
+                "dynamic": "local",
+                "scale_dtype": "float8_e4m3fn",
+            }
         write_data(staging / "config.json", config)
         write_data(
             staging / _INDEX_NAME,
             {"metadata": {"total_size": total_size}, "weight_map": weight_map},
         )
-        write_data(staging / PLAN_NAME, plan)
-        manifest = CudaPackManifest(
+        write_data(staging / PLAN_NAME, artifact_plan)
+        manifest_data: dict[str, Any] = dict(
             activation_dtype=plan.activation_dtype,
             backend="numpy-reference" if device == "cpu" else "torch-cuda",
-            plan_sha256=stable_sha256(plan),
+            plan_sha256=stable_sha256(artifact_plan),
             quantized_tensors=sorted(selected),
             files=[
                 _digest(staging, path.relative_to(staging).as_posix())
@@ -384,6 +533,14 @@ def convert_cuda_nvfp4(
                 if path.is_file()
             ],
         )
+        manifest: CudaPackManifest | CudaW4A4PackManifest
+        if calibration is None:
+            manifest = CudaPackManifest(**manifest_data)
+        else:
+            manifest = CudaW4A4PackManifest(
+                **manifest_data,
+                calibration_sha256=stable_sha256(calibration),
+            )
         write_data(staging / MANIFEST_NAME, manifest)
         _verify_source(source, plan)
         if output.exists():

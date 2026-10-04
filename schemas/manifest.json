@@ -1,5 +1,5 @@
 {
-  "count": 141,
+  "count": 144,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -235,6 +235,14 @@
     },
     {
       "compatibility_class": "evidence",
+      "filename": "axquant.cuda-activation.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.cuda_activation.CudaActivationCalibration",
+      "schema_version": "axquant.cuda-activation.v1",
+      "sha256": "dd67277963a6e9980f54909dc0036fbeebd33fcfb7f36da5fca237cbde7598a6"
+    },
+    {
+      "compatibility_class": "evidence",
       "filename": "axquant.cuda-fp8-pack.v1.schema.json",
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.frozen_cuda_fp8.CudaFp8PackManifest",
@@ -264,6 +272,22 @@
       "model": "axquant.schema.cuda.CudaQuantizationPlan",
       "schema_version": "axquant.cuda-plan.v1",
       "sha256": "393f53cc65d7cc2e6a5d13bf3dfab2c6cc905460937d507a6e1cbc9c76b39a45"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.cuda-w4a4-pack.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.cuda_activation.CudaW4A4PackManifest",
+      "schema_version": "axquant.cuda-w4a4-pack.v1",
+      "sha256": "88d45dc9f7e7bdad14a62ec38144c50124e070546aa92d3f5df5d0941f987047"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.cuda-w4a4-plan.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.cuda_activation.CudaW4A4Plan",
+      "schema_version": "axquant.cuda-w4a4-plan.v1",
+      "sha256": "25d44842b4299fb564e121c40248ad14c9c0746294c42a98f5bb70b1b522396a"
     },
     {
       "compatibility_class": "evidence",

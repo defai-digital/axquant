@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "CudaActivationStat": {
+      "additionalProperties": false,
+      "properties": {
+        "absolute_maximum": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "input_columns": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "sample_count": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "tensor_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor_name",
+        "input_columns",
+        "sample_count",
+        "absolute_maximum"
+      ],
+      "type": "object"
+    },
+    "CudaFileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "input_files": {
+      "items": {
+        "$ref": "#/$defs/CudaFileDigest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "method": {
+      "const": "observed-input-and-expert-replay-absmax",
+      "default": "observed-input-and-expert-replay-absmax",
+      "type": "string"
+    },
+    "runtime": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "runtime_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.cuda-activation.v1",
+      "default": "axquant.cuda-activation.v1",
+      "type": "string"
+    },
+    "source_precision": {
+      "enum": [
+        "bfloat16",
+        "float16"
+      ],
+      "type": "string"
+    },
+    "statistics": {
+      "items": {
+        "$ref": "#/$defs/CudaActivationStat"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "status": {
+      "const": "complete",
+      "default": "complete",
+      "type": "string"
+    },
+    "weight_plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "weight_plan_sha256",
+    "input_files",
+    "runtime",
+    "runtime_version",
+    "source_precision",
+    "statistics"
+  ],
+  "type": "object"
+}

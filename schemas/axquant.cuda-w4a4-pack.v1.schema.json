@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "CudaFileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "activation_dtype": {
+      "default": "bfloat16",
+      "enum": [
+        "bfloat16",
+        "float16"
+      ],
+      "type": "string"
+    },
+    "activation_precision": {
+      "const": 4,
+      "default": 4,
+      "type": "integer"
+    },
+    "algorithm": {
+      "const": "rtn",
+      "default": "rtn",
+      "type": "string"
+    },
+    "backend": {
+      "enum": [
+        "numpy-reference",
+        "torch-cuda"
+      ],
+      "type": "string"
+    },
+    "block_size": {
+      "const": 16,
+      "default": 16,
+      "type": "integer"
+    },
+    "calibration_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/CudaFileDigest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "format": {
+      "const": "nvfp4",
+      "default": "nvfp4",
+      "type": "string"
+    },
+    "plan_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "quality_certified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "quantized_tensors": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "runtime_verified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.cuda-w4a4-pack.v1",
+      "default": "axquant.cuda-w4a4-pack.v1",
+      "type": "string"
+    },
+    "status": {
+      "const": "development",
+      "default": "development",
+      "type": "string"
+    }
+  },
+  "required": [
+    "backend",
+    "plan_sha256",
+    "calibration_sha256",
+    "quantized_tensors",
+    "files"
+  ],
+  "type": "object"
+}
