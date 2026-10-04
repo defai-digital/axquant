@@ -58,6 +58,7 @@ def _pack(
     q_mode: str,
     smoke: str = "mlx_vlm",
     legacy_4bit: bool = False,
+    no_public_cert: bool = False,
 ) -> dict[str, Any]:
     return {
         "model": model,
@@ -67,15 +68,18 @@ def _pack(
         "product_class": q_mode.upper(),
         "smoke": smoke,
         "legacy_4bit": legacy_4bit,
+        "no_public_cert": no_public_cert,
     }
 
 
 PACKS: dict[str, dict[str, Any]] = {
+    # Remarks overwrite as development: never bind the stale in-tree Tier 1.
     "q38-27b-mxfp4": _pack(
         "q38-27b",
         "AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
         "qwen38-27b-axq-mxfp4-mtp-v0.2.yaml",
         "mxfp4",
+        no_public_cert=True,
     ),
     "q38-27b-mxfp8": _pack(
         "q38-27b",
@@ -93,6 +97,7 @@ PACKS: dict[str, dict[str, Any]] = {
         "qwen38-flash-next-axq-mxfp4-v0.1.yaml",
         "mxfp4",
         legacy_4bit=True,
+        no_public_cert=True,
     ),
     "flash-mxfp8": _pack(
         "flash",
@@ -338,19 +343,19 @@ def cmd_publish(key: str) -> None:
     py = ROOT / ".venv" / "bin" / "python"
     hf = ROOT / ".venv" / "bin" / "hf"
     hf_bin = str(hf) if hf.is_file() else "hf"
-    run(
-        [
-            str(py) if py.is_file() else "python",
-            str(ROOT / "scripts" / "prepare_development_model_card.py"),
-            "--artifact",
-            str(pack),
-            "--repo-id",
-            repo,
-            "--product-class",
-            item["product_class"],
-        ],
-        work_dir(model) / "logs" / f"prepare-card-{key}.log",
-    )
+    card_cmd: list[str] = [
+        str(py) if py.is_file() else "python",
+        str(ROOT / "scripts" / "prepare_development_model_card.py"),
+        "--artifact",
+        str(pack),
+        "--repo-id",
+        repo,
+        "--product-class",
+        item["product_class"],
+    ]
+    if item["no_public_cert"]:
+        card_cmd.append("--no-public-certification")
+    run(card_cmd, work_dir(model) / "logs" / f"prepare-card-{key}.log")
     run(
         [hf_bin, "repo", "create", repo, "--exist-ok"],
         work_dir(model) / "logs" / f"hf-repo-{key}.log",
