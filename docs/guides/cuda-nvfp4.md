@@ -7,8 +7,9 @@ Installing the extra does not backport these commands to an older wheel.
 
 CUDA NVFP4 is the supported experimental conversion format. The short-lived
 CUDA FP8 converter and publication were withdrawn. Frozen FP8 artifact
-definitions remain solely for historical metadata; no FP8 conversion command
-or export backend is provided.
+definitions remain solely for historical metadata; no standalone FP8
+conversion command or FP8 checkpoint is provided. The FP8 encoder is retained
+only as an internal building block of the mixed six-bit lane below.
 
 The default format is **NVFP4 W4A16**: selected weights use E2M1 FP4,
 activations execute in FP16/BF16 without activation quantization, and protected
@@ -130,6 +131,64 @@ Local credentials and runtime evidence are not copied. Source changes,
 incomplete plan coverage or conversion failure abort before publication.
 Output is staged beside the destination and published by directory rename;
 an existing output is rejected.
+
+## Mixed six-bit budget class (`--q-mode mix6`)
+
+A CUDA "six-bit" lane is a budget class, not a datatype. NVIDIA defines FP8
+E4M3/E5M2, MXFP8 and NVFP4 but no six-bit float, and the only six-bit float
+standard was retired because no runtime loads it. `--q-mode mix6` therefore
+realizes the project's `6bit` class by mixing 4-bit NVFP4 matrices with 8-bit
+FP8 E4M3 matrices in one checkpoint, exactly as
+[`target_class_for_bpw`](../../src/axquant/naming.py) already labels a mixed
+6.0-BPW plan. The standalone FP8 product remains withdrawn and is not
+published.
+
+```bash
+axquant plan-cuda /path/to/source-bf16 --q-mode mix6 --target-bpw 6.0 \
+  --allow-unmeasured --output work/mix-plan.json
+axquant convert-cuda /path/to/source-bf16 --plan work/mix-plan.json \
+  --device cuda:0 --rows-per-chunk 256 --allow-unmeasured \
+  --output /path/to/output-mix6
+```
+
+Planning starts from the NVFP4 protection policy and promotes whole allocation
+units to FP8, in ascending unit parameter count, until the language-trunk bits
+per weight reaches `--target-bpw`. An allocation unit is a complete expert
+table, a fused projection, or the whole attention block, so a runtime unit
+never mixes packed and source-precision inputs. The attention block moves as
+one unit because vLLM builds `qkv_proj`/`o_proj` without a module prefix and
+can only match them by class. Promotion order is a documented unmeasured
+heuristic, not measured sensitivity. `--target-bpw` defaults to 6.0 and applies
+only to `mix6`. The plan records the requested `target_bpw`, the realized
+`trunk_bpw` and the estimated weight bytes; the trunk is the attention, MLP and
+expert matrices that carry quantized weights.
+
+Both tensor families are written into one staged checkpoint. NVFP4 matrices
+keep the layout and shared fused-group scales described above. FP8 matrices
+store the original tensor name as E4M3 plus a per-row
+`<prefix>.weight_scale` FP32 tensor of shape `(rows, 1)`. `config.json` uses
+one `compressed-tensors` config with two groups: `nvfp4`
+(`nvfp4-pack-quantized`, block 16 with an E4M3 block scale) and `fp8`
+(`float-quantized`, channel weights and dynamic token activations). The group
+that carries the attention method uses the single `Linear` class target, and the
+other group uses anchored `re:` name targets, because vLLM matches a target by
+exact module name (or regex) and the runtime names carry a backend wrapper
+prefix. Ignored modules use anchored `re:` targets too. There is no top-level
+`format`, because the checkpoint is mixed. Protected vision, router, embedding,
+norm, head and MTP tensors stay at source precision exactly as in the NVFP4
+path, and the same MTP and vision/audio ignore rules apply.
+
+Output is development evidence. Every mix manifest records
+`status=development`, `runtime_verified=false` and `quality_certified=false`,
+and the export uses `axquant.cuda-mix-plan.v1` and
+`axquant.cuda-mix-pack.v1`. Native vLLM load and generation on the NVIDIA
+development hosts is required before any preview is published, and no
+certification, accuracy or speed claim is authorized. The two-group `targets`
+semantics are validated on that real vLLM GPU host; a CPU `--device cpu` run
+only exercises the exporter. Published mixed previews are named
+`AX-<Base>-CUDA-AXQ-NVFP4-FP8-6bit` by `naming.cuda_pack_name`: CUDA packs stay
+format-qualified, and the mixed lane must name both datatypes and the project
+`6bit` budget class, so ad hoc tokens such as `MIX6` are rejected.
 
 ## Calibrated W4A4
 

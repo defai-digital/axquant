@@ -33,6 +33,13 @@ _NATIVE_MTP_ROOT_FILES = frozenset(
 )
 _ASSISTANT_CONTRACT = "ax_gemma4_assistant_mtp.json"
 
+# CUDA packs are format-qualified, unlike MLX packs which name the budget class.
+# The mixed lane must name both datatypes and the project 6bit budget class, so
+# ad hoc tokens such as MIX6 are rejected. NVIDIA has no six-bit datatype and
+# the only six-bit float standard (OCP MXFP6) was retired.
+CUDA_LANES: frozenset[str] = frozenset({"NVFP4-W4A16", "NVFP4-W4A4", "FP8-E4M3-W8A8"})
+CUDA_MIXED_LANE = "NVFP4-FP8-6bit"
+
 
 def distinct_4bit_sibling_allowed(four_bit_bytes: int, six_bit_bytes: int) -> bool:
     """Return whether a 4-bit SKU saves at least 5% of complete weight bytes."""
@@ -92,6 +99,38 @@ def model_name(
     result = "-".join(parts)
     if not _VALID_NAME.fullmatch(result):
         raise ArtifactError("model name components produce an unsafe model name")
+    return result
+
+
+def cuda_pack_name(
+    base_model: str,
+    *,
+    lane: str,
+    mtp: bool = False,
+    prefix: str = "AX-",
+    quant_brand: str = _DEFAULT_QUANT_BRAND,
+    cuda_tag: str = "CUDA",
+) -> str:
+    """Return the Hub name for a CUDA pack from its quantization lane.
+
+    CUDA packs stay format-qualified. ``lane`` must be a documented CUDA lane
+    (``NVFP4-W4A16``, ``NVFP4-W4A4``, ``FP8-E4M3-W8A8``) or the mixed lane
+    ``NVFP4-FP8-6bit``. The mixed lane names both datatypes and the project
+    6bit budget class, so invented tokens such as ``MIX6`` are refused.
+    """
+
+    if lane not in CUDA_LANES and lane != CUDA_MIXED_LANE:
+        raise ArtifactError(f"unsupported CUDA quantization lane: {lane}")
+    base = base_model.rstrip("/").split("/")[-1]
+    base = _QUANT_SUFFIX.sub("", base)
+    if not _VALID_NAME.fullmatch(base):
+        raise ArtifactError(f"cannot derive a safe model name from {base_model}")
+    parts = [f"{prefix}{base}", cuda_tag, quant_brand, lane]
+    if mtp:
+        parts.append("MTP")
+    result = "-".join(parts)
+    if not _VALID_NAME.fullmatch(result):
+        raise ArtifactError("CUDA model name components produce an unsafe model name")
     return result
 
 

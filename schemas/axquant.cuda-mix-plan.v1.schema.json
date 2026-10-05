@@ -1,0 +1,227 @@
+{
+  "$defs": {
+    "CudaFileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "CudaMixTensorAllocation": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "nvfp4",
+            "fp8",
+            "preserve"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "$ref": "#/$defs/TensorRole"
+        },
+        "scale_group": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "source_file": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "tensor_name": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "tensor_name",
+        "source_file",
+        "shape",
+        "dtype",
+        "role",
+        "method",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "TensorRole": {
+      "enum": [
+        "embedding",
+        "attention",
+        "mlp",
+        "norm",
+        "lm_head",
+        "router",
+        "expert",
+        "mtp_projection",
+        "mtp_block",
+        "mtp_output",
+        "vision",
+        "audio",
+        "other"
+      ],
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "activation_dtype": {
+      "default": "bfloat16",
+      "enum": [
+        "bfloat16",
+        "float16"
+      ],
+      "type": "string"
+    },
+    "activation_precision": {
+      "const": 16,
+      "default": 16,
+      "type": "integer"
+    },
+    "algorithm": {
+      "const": "rtn",
+      "default": "rtn",
+      "type": "string"
+    },
+    "allocations": {
+      "items": {
+        "$ref": "#/$defs/CudaMixTensorAllocation"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "block_size": {
+      "const": 16,
+      "default": 16,
+      "type": "integer"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "estimated_weight_bytes": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "evidence_kind": {
+      "const": "unmeasured",
+      "default": "unmeasured",
+      "type": "string"
+    },
+    "format": {
+      "const": "nvfp4+fp8",
+      "default": "nvfp4+fp8",
+      "type": "string"
+    },
+    "fp8_activation_strategy": {
+      "const": "dynamic-token",
+      "default": "dynamic-token",
+      "type": "string"
+    },
+    "fp8_weight_strategy": {
+      "const": "channel",
+      "default": "channel",
+      "type": "string"
+    },
+    "keep_patterns": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model_id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "model_type": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.cuda-mix-plan.v1",
+      "default": "axquant.cuda-mix-plan.v1",
+      "type": "string"
+    },
+    "source_files": {
+      "items": {
+        "$ref": "#/$defs/CudaFileDigest"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "target_bpw": {
+      "exclusiveMinimum": 0,
+      "type": "number"
+    },
+    "trunk_bpw": {
+      "exclusiveMinimum": 0,
+      "type": "number"
+    }
+  },
+  "required": [
+    "target_bpw",
+    "trunk_bpw",
+    "model_id",
+    "model_type",
+    "config_sha256",
+    "source_files",
+    "allocations",
+    "estimated_weight_bytes"
+  ],
+  "type": "object"
+}

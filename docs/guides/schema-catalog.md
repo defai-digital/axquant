@@ -48,6 +48,8 @@ Policy: [schema governance](schema-governance.md).
 | `axquant.cuda-activation.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda_activation.CudaActivationCalibration` | [`axquant.cuda-activation.v1.schema.json`](../../schemas/axquant.cuda-activation.v1.schema.json) |
 | `axquant.cuda-fp8-pack.v1` | `evidence` | `immutable-envelope` | `axquant.schema.frozen_cuda_fp8.CudaFp8PackManifest` | [`axquant.cuda-fp8-pack.v1.schema.json`](../../schemas/axquant.cuda-fp8-pack.v1.schema.json) |
 | `axquant.cuda-fp8-plan.v1` | `evidence` | `immutable-envelope` | `axquant.schema.frozen_cuda_fp8.CudaFp8QuantizationPlan` | [`axquant.cuda-fp8-plan.v1.schema.json`](../../schemas/axquant.cuda-fp8-plan.v1.schema.json) |
+| `axquant.cuda-mix-pack.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda_mix.CudaMixPackManifest` | [`axquant.cuda-mix-pack.v1.schema.json`](../../schemas/axquant.cuda-mix-pack.v1.schema.json) |
+| `axquant.cuda-mix-plan.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda_mix.CudaMixQuantizationPlan` | [`axquant.cuda-mix-plan.v1.schema.json`](../../schemas/axquant.cuda-mix-plan.v1.schema.json) |
 | `axquant.cuda-pack.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda.CudaPackManifest` | [`axquant.cuda-pack.v1.schema.json`](../../schemas/axquant.cuda-pack.v1.schema.json) |
 | `axquant.cuda-plan.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda.CudaQuantizationPlan` | [`axquant.cuda-plan.v1.schema.json`](../../schemas/axquant.cuda-plan.v1.schema.json) |
 | `axquant.cuda-w4a4-pack.v1` | `evidence` | `immutable-envelope` | `axquant.schema.cuda_activation.CudaW4A4PackManifest` | [`axquant.cuda-w4a4-pack.v1.schema.json`](../../schemas/axquant.cuda-w4a4-pack.v1.schema.json) |

@@ -68,6 +68,9 @@ NOTE_CUDA_W4A4 = (
 NOTE_CUDA_EMBED = (
     "Native AXQuant CUDA NVFP4 W4A4 retrieval pack. Two-GPU development checks; not certified."
 )
+NOTE_CUDA_MIXED6 = (
+    "Native AXQuant CUDA mixed NVFP4+FP8 six-bit lane. Development artifact; not certified."
+)
 NOTE_MXFP8 = "MLX MXFP8 OCR pack."
 NOTE_24T = (
     "Experimental 2-bit of the 2.4T MoE with a packaged native MTP sidecar. "
@@ -126,6 +129,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -145,6 +150,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -162,6 +169,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
         ),
     ),
     Spec(
@@ -172,15 +181,21 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
         title="CUDA",
-        description="CUDA NVFP4 OCR, Qwen3-VL and retrieval development checkpoints.",
+        description=(
+            "CUDA NVFP4 and mixed six-bit OCR, Qwen3-VL and retrieval development checkpoints."
+        ),
         items=(
             _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
@@ -189,10 +204,14 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
+            _ax("AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
         ),
     ),
     Spec(
@@ -247,15 +266,22 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="Nemotron",
         description=(
-            "Nemotron-3-Embed 1B/8B AXQ retrieval: MLX MXFP4/MXFP8 and CUDA NVFP4. Not certified."
+            "Nemotron-3-Embed 1B/8B retrieval and Super-120B/Lightning-30B MTP AXQ packs: "
+            "MLX MXFP4/MXFP8 and CUDA NVFP4. Not certified."
         ),
         items=(
             _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
     Spec(
@@ -292,7 +318,7 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="DeepSeek",
-        description="DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4.",
+        description="DeepSeek-OCR-2 AXQ MXFP4/MXFP8/NVFP4 and CUDA mixed six-bit.",
         items=(
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
@@ -302,7 +328,9 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="OCR",
-        description="DeepSeek-OCR-2 and Unlimited-OCR AXQ MX packs plus CUDA NVFP4.",
+        description=(
+            "DeepSeek-OCR-2 and Unlimited-OCR AXQ MX packs plus CUDA NVFP4 and six-bit lane."
+        ),
         items=(
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
@@ -312,11 +340,15 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
+            _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
+            _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
         ),
     ),
     Spec(
         title="Unlimited-OCR",
-        description="Unlimited-OCR 3B MoE: native AXQ CUDA NVFP4 and MLX MXFP8/MXFP4 packs.",
+        description=(
+            "Unlimited-OCR 3B MoE: native AXQ CUDA NVFP4, CUDA mixed six-bit, and MLX MXFP8/MXFP4."
+        ),
         items=(
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
@@ -356,6 +388,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
 )

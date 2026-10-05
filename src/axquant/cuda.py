@@ -9,7 +9,7 @@ import re
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from axquant.errors import ArtifactError, PlanningError
 from axquant.inspector import inspect_model
@@ -51,6 +51,12 @@ _ASSET_PATTERNS = (
     "sentence_bert_config.json",
 )
 _POOLING_ASSETS = ("1_Pooling/config.json", "2_Normalize/config.json")
+
+
+class SourceBoundPlan(Protocol):
+    """Any CUDA plan whose source members are bound by exact content digests."""
+
+    source_files: list[CudaFileDigest]
 
 
 def _digest(root: Path, relative: str) -> CudaFileDigest:
@@ -245,7 +251,7 @@ def plan_cuda_nvfp4(
     )
 
 
-def _verify_source(source: Path, plan: CudaQuantizationPlan) -> None:
+def _verify_source(source: Path, plan: SourceBoundPlan) -> None:
     for member in plan.source_files:
         if _digest(source, member.path) != member:
             raise ArtifactError(f"CUDA source content changed: {member.path}")

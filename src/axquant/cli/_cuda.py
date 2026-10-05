@@ -12,9 +12,15 @@ def add_cuda_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
         parser = subparsers.add_parser(name, help="Experimental native NVFP4, no AWQ")
         parser.add_argument("model", help="Local unquantized Safetensors checkpoint")
         parser.add_argument("--output", required=True)
-        parser.add_argument("--q-mode", choices=("nvfp4",), default="nvfp4")
+        parser.add_argument("--q-mode", choices=("nvfp4", "mix6"), default="nvfp4")
         parser.add_argument("--allow-unmeasured", action="store_true")
         if name != "convert-cuda":
+            parser.add_argument(
+                "--target-bpw",
+                type=float,
+                default=6.0,
+                help="Language-trunk budget class for --q-mode mix6",
+            )
             parser.add_argument("--activation-bits", type=int, choices=(4, 16), default=16)
             parser.add_argument(
                 "--activation-calibration", help="Exact-source-bound capture required for W4A4"
@@ -51,6 +57,7 @@ def run_cuda_command(args: argparse.Namespace) -> int:
         plan_cuda_nvfp4,
         plan_cuda_nvfp4_w4a4,
     )
+    from axquant.cuda_mix import convert_cuda_mix, plan_cuda_mix
     from axquant.errors import PlanningError
     from axquant.schema.cuda import CudaPackManifest, CudaQuantizationPlan
     from axquant.schema.cuda_activation import (
@@ -58,15 +65,30 @@ def run_cuda_command(args: argparse.Namespace) -> int:
         CudaW4A4PackManifest,
         CudaW4A4Plan,
     )
+    from axquant.schema.cuda_mix import CudaMixPackManifest, CudaMixQuantizationPlan
     from axquant.serde import read_data
 
-    plan: CudaQuantizationPlan | CudaW4A4Plan
+    plan: CudaQuantizationPlan | CudaW4A4Plan | CudaMixQuantizationPlan
     if args.command == "convert-cuda":
         version = read_data(args.plan).get("schema_version")
-        plan = (
-            load_model(args.plan, CudaW4A4Plan)
-            if version == "axquant.cuda-w4a4-plan.v1"
-            else load_model(args.plan, CudaQuantizationPlan)
+        if version == "axquant.cuda-w4a4-plan.v1":
+            plan = load_model(args.plan, CudaW4A4Plan)
+        elif version == "axquant.cuda-mix-plan.v1":
+            plan = load_model(args.plan, CudaMixQuantizationPlan)
+        else:
+            plan = load_model(args.plan, CudaQuantizationPlan)
+    elif args.q_mode == "mix6":
+        if args.activation_bits == 4 or args.activation_calibration:
+            raise PlanningError("mix6 does not support W4A4 activation calibration")
+        if args.embedding_protection:
+            raise PlanningError("mix6 does not support Qwen3 embedding protection")
+        plan = plan_cuda_mix(
+            args.model,
+            target_bpw=args.target_bpw,
+            model_id=args.model_id,
+            revision=args.revision,
+            keep_patterns=args.keep,
+            allow_unmeasured=args.allow_unmeasured,
         )
     else:
         if args.activation_bits == 4 and not args.activation_calibration:
@@ -88,7 +110,7 @@ def run_cuda_command(args: argparse.Namespace) -> int:
         write_data(args.output, plan)
         structlog.get_logger().info("cuda_plan_created", output=args.output, evidence="unmeasured")
         return 0
-    manifest: CudaPackManifest | CudaW4A4PackManifest
+    manifest: CudaPackManifest | CudaW4A4PackManifest | CudaMixPackManifest
     if isinstance(plan, CudaW4A4Plan):
         manifest = convert_cuda_nvfp4_w4a4(
             args.model,
@@ -98,6 +120,23 @@ def run_cuda_command(args: argparse.Namespace) -> int:
             rows_per_chunk=args.rows_per_chunk,
             allow_unmeasured=args.allow_unmeasured,
         )
+    elif isinstance(plan, CudaMixQuantizationPlan):
+        manifest = convert_cuda_mix(
+            args.model,
+            plan,
+            args.output,
+            device=args.device,
+            rows_per_chunk=args.rows_per_chunk,
+            allow_unmeasured=args.allow_unmeasured,
+        )
+        structlog.get_logger().info(
+            "cuda_mix_pack_created",
+            output=args.output,
+            backend=manifest.backend,
+            status=manifest.status,
+            quantized_tensors=len(manifest.quantized_tensors),
+        )
+        return 0
     else:
         manifest = convert_cuda_nvfp4(
             args.model,

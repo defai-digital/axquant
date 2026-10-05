@@ -4,6 +4,7 @@ from axquant.errors import ArtifactError, PlanningError
 from axquant.naming import (
     RESERVED_EMPTY_MTP_LEAVES,
     assert_manifest_mtp_files_agree,
+    cuda_pack_name,
     distinct_4bit_sibling_allowed,
     model_name,
     packaged_mtp_present,
@@ -162,3 +163,29 @@ def test_distinct_4bit_sibling_requires_five_percent_complete_weight_savings() -
     assert distinct_4bit_sibling_allowed(96, 100) is False
     with pytest.raises(ArtifactError, match="positive integers"):
         distinct_4bit_sibling_allowed(0, 100)
+
+
+def test_cuda_pack_name_matches_published_lanes() -> None:
+    assert cuda_pack_name("baidu/Unlimited-OCR", lane="NVFP4-W4A16") == (
+        "AX-Unlimited-OCR-CUDA-AXQ-NVFP4-W4A16"
+    )
+    assert cuda_pack_name("Unlimited-OCR-3B-MoE", lane="NVFP4-FP8-6bit") == (
+        "AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-FP8-6bit"
+    )
+    assert cuda_pack_name("deepseek-ai/DeepSeek-OCR-2", lane="NVFP4-FP8-6bit", mtp=True).endswith(
+        "-CUDA-AXQ-NVFP4-FP8-6bit-MTP"
+    )
+
+
+def test_cuda_mixed_lane_names_both_formats_and_the_standard_class() -> None:
+    mixed = cuda_pack_name("Some-Base", lane="NVFP4-FP8-6bit")
+    assert mixed.endswith("-CUDA-AXQ-NVFP4-FP8-6bit")
+    assert "NVFP4" in mixed and "FP8" in mixed
+    # 6bit is the project budget class, so the mixed lane must use that token.
+    assert target_class_for_bpw(6.0) == "6bit"
+
+
+@pytest.mark.parametrize("lane", ["MIX6", "MIXED-6bit", "NVFP4-FP8", "6bit", "int6"])
+def test_cuda_pack_name_rejects_ad_hoc_tokens(lane: str) -> None:
+    with pytest.raises(ArtifactError, match="unsupported CUDA quantization lane"):
+        cuda_pack_name("Some-Base", lane=lane)
