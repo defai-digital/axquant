@@ -2,14 +2,15 @@
 
 Qwen4-exp packs carry the hashed n-gram PLE table as ShardedEmbedding keys
 (``...ngram_embedding.shards.<i>...`` plus the HF alias ``shard_<i>``) inside
-``model.safetensors.index.json``. MTPLX 2.5.2 expects those tensors in a
+``model.safetensors.index.json``. The inspected MTPLX 2.11.3 loader expects a
 standalone ``ngram-table.safetensors`` and treats the in-index keys as
 extraneous parameters, so the pack fails to load.
 
 ``relayout_ngram_table`` builds an MTPLX-targeted variant pack in a NEW
-directory and moves exactly one variable: tensor location. Names, dtypes,
-shapes, and payload bytes are preserved (no merge, no load/save round-trip,
-no requantize) and the source pack is never modified. Layout compatibility is
+directory and concatenates shard rows in numeric order under the canonical
+``ngram.weight/scales/biases`` names. Dtypes and payload bytes are preserved
+without requantization, using bounded-memory copies. The source is never modified.
+Layout compatibility is
 not exactness: the MTPLX Forge baseline of a relaid-out pack stays unverified.
 """
 
@@ -20,6 +21,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import shutil
 import struct
 import tempfile
@@ -28,19 +30,33 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from axquant.converter import MTPLX_RUNTIME_COMPATIBILITY_VERSION
+from axquant.artifact_paths import artifact_member_path, artifact_tree_files
 from axquant.errors import ArtifactError
-from axquant.module_paths import is_ngram_shard_key
+from axquant.module_paths import is_ngram_shard_key, mlx_module_aliases
 from axquant.serde import file_sha256
 
 NGRAM_TABLE_FILENAME = "ngram-table.safetensors"
 NGRAM_RELAYOUT_MANIFEST_FILENAME = "axquant_ngram_relayout_manifest.json"
-NGRAM_RELAYOUT_SCHEMA = "axquant.ngram-relayout.v1"
+NGRAM_RELAYOUT_SCHEMA = "axquant.ngram-relayout.v2"
 NGRAM_LAYOUT_CONTRACT_KEY = "ngram_layout"
 NGRAM_LAYOUT_SHARDED = "sharded-index"
 NGRAM_LAYOUT_STANDALONE = "standalone-table"
 INDEX_FILENAME = "model.safetensors.index.json"
 RUNTIME_CONTRACT_FILENAME = "mtplx_runtime.json"
+MTPLX_NGRAM_PROFILE_VERSION = "2.11.3"
+_SOURCE_ONLY_EVIDENCE = frozenset(
+    {
+        "axquant_manifest.json",
+        "axquant_runtime.json",
+        "axquant_compatibility.json",
+        "axquant_runtime_export.json",
+        "ax_engine_manifest.json",
+        "ax_expert_stream.json",
+        "runtime_check.json",
+        "credentials.json",
+        "README.md",
+    }
+)
 
 _MAX_SAFETENSORS_HEADER_BYTES = 64 * 1024 * 1024
 _COPY_CHUNK_BYTES = 8 * 1024 * 1024
@@ -85,6 +101,55 @@ class _SafetensorsFile:
     payload_bytes: int
     metadata: dict[str, Any]
     tensors: dict[str, _TensorSlice]
+
+
+@dataclass(frozen=True)
+class _TensorPart:
+    source: Path
+    layout: _SafetensorsFile
+    tensor: _TensorSlice
+    payload: bytes | None = None
+
+
+def _serialize_tensor_parts(
+    metadata: dict[str, Any],
+    entries: list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]],
+    destination: Path,
+) -> None:
+    """Concatenate raw row ranges without materializing a table or shard."""
+    header: dict[str, Any] = {"__metadata__": metadata}
+    offset = 0
+    for name, dtype, shape, parts in entries:
+        size = sum(part.tensor.byte_count for part in parts)
+        header[name] = {
+            "dtype": dtype,
+            "shape": list(shape),
+            "data_offsets": [offset, offset + size],
+        }
+        offset += size
+    encoded = json.dumps(header, sort_keys=True, separators=(",", ":")).encode()
+    encoded += b" " * ((-len(encoded)) % 8)
+    with destination.open("wb") as output:
+        output.write(struct.pack("<Q", len(encoded)))
+        output.write(encoded)
+        for _, _, _, parts in entries:
+            for part in parts:
+                if part.payload is not None:
+                    if len(part.payload) != part.tensor.byte_count:
+                        raise ArtifactError("transformed tensor byte count mismatch")
+                    output.write(part.payload)
+                    continue
+                with part.source.open("rb") as source:
+                    source.seek(part.layout.data_base + part.tensor.start)
+                    remaining = part.tensor.byte_count
+                    while remaining:
+                        chunk = source.read(min(remaining, _COPY_CHUNK_BYTES))
+                        if not chunk:
+                            raise ArtifactError(f"truncated source tensor {part.tensor.name}")
+                        output.write(chunk)
+                        remaining -= len(chunk)
+        output.flush()
+        os.fsync(output.fileno())
 
 
 @dataclass(frozen=True)
@@ -212,62 +277,6 @@ def _parse_safetensors_file(path: Path) -> _SafetensorsFile:
     )
 
 
-def _read_tensor_payload(source: Path, layout: _SafetensorsFile, tensor: _TensorSlice) -> bytes:
-    try:
-        with source.open("rb") as stream:
-            stream.seek(layout.data_base + tensor.start)
-            payload = stream.read(tensor.byte_count)
-    except OSError as exc:
-        raise ArtifactError(f"cannot read tensor {tensor.name} from {source}: {exc}") from exc
-    if len(payload) != tensor.byte_count:
-        raise ArtifactError(f"unexpected end of payload for tensor {tensor.name} in {source}")
-    return payload
-
-
-def _serialize_safetensors(
-    metadata: dict[str, Any],
-    entries: list[tuple[str, str, tuple[int, ...], bytes]],
-    destination: Path,
-) -> None:
-    """Write one Safetensors file: 8-byte LE size, aligned JSON header, payloads."""
-
-    header: dict[str, Any] = {}
-    if metadata:
-        header["__metadata__"] = metadata
-    offset = 0
-    for name, dtype, shape, payload in entries:
-        header[name] = {
-            "dtype": dtype,
-            "shape": list(shape),
-            "data_offsets": [offset, offset + len(payload)],
-        }
-        offset += len(payload)
-    header_bytes = json.dumps(header, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    # Safetensors convention: pad the header with spaces so the payload region
-    # begins on an 8-byte boundary (mirrors the official writers).
-    header_bytes += b" " * ((-len(header_bytes)) % 8)
-    descriptor, temporary_name = tempfile.mkstemp(
-        prefix=f".{destination.name}.",
-        dir=destination.parent,
-    )
-    temporary = Path(temporary_name)
-    try:
-        with temporary.open("wb") as output:
-            output.write(struct.pack("<Q", len(header_bytes)))
-            output.write(header_bytes)
-            for _, _, _, payload in entries:
-                output.write(payload)
-            output.flush()
-            os.fsync(output.fileno())
-        os.replace(temporary, destination)
-    except BaseException:
-        with contextlib.suppress(OSError):
-            temporary.unlink()
-        raise
-    finally:
-        os.close(descriptor)
-
-
 def _copy_file_verified(source: Path, destination: Path) -> str:
     """Chunked byte copy; returns the verified sha256 of both sides."""
 
@@ -284,7 +293,10 @@ def _copy_file_verified(source: Path, destination: Path) -> str:
 
 
 def _iter_pack_files(pack: Path) -> Iterator[Path]:
-    yield from sorted(path for path in pack.rglob("*") if path.is_file())
+    try:
+        yield from artifact_tree_files(pack)
+    except ValueError as exc:
+        raise ArtifactError(str(exc)) from exc
 
 
 def _load_index(pack: Path) -> dict[str, Any]:
@@ -328,6 +340,105 @@ class _RelayoutPlan:
     total_size_after: int | None
     source_pack_files: tuple[str, ...]
     copied_file_count: int
+    table_groups: dict[str, tuple[str, ...]]
+    table_metadata: dict[str, str]
+
+
+def _table_contract(
+    source: Path, moved: dict[str, str], layouts: dict[str, _SafetensorsFile]
+) -> tuple[dict[str, tuple[str, ...]], dict[str, str]]:
+    config = _read_json_object(source / "config.json", "config.json")
+    text_config = config.get("text_config", config)
+    if not isinstance(text_config, dict):
+        raise ArtifactError("text_config must be an object")
+    quantization = config.get("quantization", config.get("quantization_config", {}))
+    if not isinstance(quantization, dict):
+        raise ArtifactError("quantization must be an object")
+    groups: dict[str, dict[int, str]] = {}
+    prefixes: set[str] = set()
+    recipes: set[tuple[int, int]] = set()
+    pattern = re.compile(
+        r"^(.*\.ngram_embedding)\.(?:shards\.(\d+)|shard_(\d+))\.(weight|scales|biases)$"
+    )
+    for name, shard in moved.items():
+        match = pattern.fullmatch(name)
+        if match is None:
+            raise ArtifactError(f"unsupported n-gram tensor name: {name}")
+        prefix, number, alias_number, component = match.groups()
+        index = int(number if number is not None else alias_number)
+        prefixes.add(prefix)
+        members = groups.setdefault(component, {})
+        if index in members:
+            raise ArtifactError(f"duplicate n-gram shard index {index} for {component}")
+        members[index] = name
+        if component != "weight":
+            continue
+        tensor = layouts[shard].tensors[name]
+        if tensor.dtype == "U32":
+            specs = [
+                quantization[key]
+                for key in mlx_module_aliases(name.removesuffix(".weight"))
+                if key in quantization
+            ]
+            if not specs:
+                specs = [quantization]
+            for spec in specs:
+                if not isinstance(spec, dict) or spec.get("mode", "affine") != "affine":
+                    raise ArtifactError("n-gram table requires explicit affine quantization")
+                bits, group = spec.get("bits"), spec.get("group_size")
+                if (
+                    type(bits) is not int
+                    or bits not in {2, 4, 6, 8}
+                    or type(group) is not int
+                    or group not in {32, 64, 128}
+                ):
+                    raise ArtifactError("n-gram table requires explicit bits and group_size")
+                recipes.add((bits, group))
+        elif tensor.dtype in {"F16", "BF16", "F32"}:
+            recipes.add((0, 32))
+        else:
+            raise ArtifactError(f"unsupported n-gram weight dtype {tensor.dtype}")
+    if len(prefixes) != 1 or len(recipes) != 1 or "weight" not in groups:
+        raise ArtifactError("n-gram table requires one embedding and a uniform quantization recipe")
+    bits, group_size = next(iter(recipes))
+    expected_components = {"weight", "scales", "biases"} if bits else {"weight"}
+    if set(groups) != expected_components:
+        raise ArtifactError("n-gram table component set does not match its quantization")
+    indices = set(groups["weight"])
+    count = text_config.get("split_ngram_parts")
+    if type(count) is not int or count <= 0 or indices != set(range(count)):
+        raise ArtifactError("n-gram shard indices must cover split_ngram_parts contiguously")
+    ordered: dict[str, tuple[str, ...]] = {}
+    row_counts: tuple[int, ...] | None = None
+    for component, members in groups.items():
+        if set(members) != indices:
+            raise ArtifactError(f"missing n-gram {component} shard")
+        names = tuple(members[i] for i in range(count))
+        tensors = [layouts[moved[name]].tensors[name] for name in names]
+        first = tensors[0]
+        if len(first.shape) != 2 or any(
+            len(t.shape) != 2 or t.dtype != first.dtype or t.shape[1:] != first.shape[1:]
+            for t in tensors
+        ):
+            raise ArtifactError(f"n-gram {component} shard dtype/width mismatch")
+        rows = tuple(t.shape[0] for t in tensors)
+        if row_counts is not None and rows != row_counts:
+            raise ArtifactError("n-gram component row counts differ")
+        row_counts = rows
+        ordered[component] = names
+    if bits:
+        w = layouts[moved[ordered["weight"][0]]].tensors[ordered["weight"][0]]
+        s = layouts[moved[ordered["scales"][0]]].tensors[ordered["scales"][0]]
+        b = layouts[moved[ordered["biases"][0]]].tensors[ordered["biases"][0]]
+        if (
+            w.dtype != "U32"
+            or s.dtype not in {"F16", "BF16", "F32"}
+            or s.dtype != b.dtype
+            or s.shape != b.shape
+            or w.shape[1] * 32 != s.shape[1] * group_size * bits
+        ):
+            raise ArtifactError("n-gram packed width, scales, or biases disagree with recipe")
+    return ordered, {"format": "mlx", "ngram_bits": str(bits), "ngram_group_size": str(group_size)}
 
 
 def _plan_relayout(source: Path) -> _RelayoutPlan:
@@ -358,7 +469,10 @@ def _plan_relayout(source: Path) -> _RelayoutPlan:
     shard_layouts: dict[str, _SafetensorsFile] = {}
     removed_shards: list[str] = []
     for shard, names in sorted(shards_of_moved.items()):
-        shard_path = source / shard
+        try:
+            shard_path = artifact_member_path(source, shard)
+        except ValueError as exc:
+            raise ArtifactError(str(exc)) from exc
         if not shard_path.is_file():
             raise ArtifactError(f"index references missing shard {shard} in {source}")
         layout = _parse_safetensors_file(shard_path)
@@ -392,11 +506,15 @@ def _plan_relayout(source: Path) -> _RelayoutPlan:
         str(path.relative_to(source).as_posix())
         for path in _iter_pack_files(source)
         if path.name != NGRAM_RELAYOUT_MANIFEST_FILENAME
+        and path.name not in _SOURCE_ONLY_EVIDENCE
+        and not any(
+            part.startswith(".") or part == "certifications"
+            for part in path.relative_to(source).parts
+        )
     )
     affected = tuple(sorted(shards_of_moved))
-    copied_file_count = (
-        len(source_pack_files) - len(affected) - 2
-    )  # index and runtime contract are rewritten, not copied
+    table_groups, table_metadata = _table_contract(source, moved, shard_layouts)
+    copied_file_count = len(source_pack_files) - len(affected) - 3
     return _RelayoutPlan(
         source=source,
         moved=moved,
@@ -407,6 +525,8 @@ def _plan_relayout(source: Path) -> _RelayoutPlan:
         total_size_after=total_size_after,
         source_pack_files=source_pack_files,
         copied_file_count=copied_file_count,
+        table_groups=table_groups,
+        table_metadata=table_metadata,
     )
 
 
@@ -431,34 +551,35 @@ def _rewritten_index(source: Path, plan: _RelayoutPlan) -> dict[str, Any]:
 
 def _rebuilt_shard_entries(
     shard: str, plan: _RelayoutPlan
-) -> list[tuple[str, str, tuple[int, ...], bytes]]:
+) -> list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]]:
     layout = plan.shard_layouts[shard]
     shard_path = plan.source / shard
     moved_names = {name for name, moved_shard in plan.moved.items() if moved_shard == shard}
-    entries: list[tuple[str, str, tuple[int, ...], bytes]] = []
+    entries: list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]] = []
     for name, tensor in layout.tensors.items():
         if name in moved_names:
             continue
         entries.append(
-            (name, tensor.dtype, tensor.shape, _read_tensor_payload(shard_path, layout, tensor))
+            (name, tensor.dtype, tensor.shape, (_TensorPart(shard_path, layout, tensor),))
         )
     return entries
 
 
-def _ngram_table_entries(plan: _RelayoutPlan) -> list[tuple[str, str, tuple[int, ...], bytes]]:
-    entries: list[tuple[str, str, tuple[int, ...], bytes]] = []
-    for name in sorted(plan.moved):
-        shard = plan.moved[name]
-        layout = plan.shard_layouts[shard]
-        tensor = layout.tensors[name]
-        entries.append(
-            (
-                name,
-                tensor.dtype,
-                tensor.shape,
-                _read_tensor_payload(plan.source / shard, layout, tensor),
+def _ngram_table_entries(
+    plan: _RelayoutPlan,
+) -> list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]]:
+    entries: list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]] = []
+    for component, names in sorted(plan.table_groups.items()):
+        parts = tuple(
+            _TensorPart(
+                plan.source / plan.moved[name],
+                plan.shard_layouts[plan.moved[name]],
+                plan.shard_layouts[plan.moved[name]].tensors[name],
             )
+            for name in names
         )
+        shape = (sum(part.tensor.shape[0] for part in parts), parts[0].tensor.shape[1])
+        entries.append((f"ngram.{component}", parts[0].tensor.dtype, shape, parts))
     return entries
 
 
@@ -513,6 +634,33 @@ def _verify_variant(source: Path, plan: _RelayoutPlan, staging: Path) -> None:
 
     expected_digests = _pack_tensor_digests(source)
     variant_digests = _pack_tensor_digests(staging)
+    table = _parse_safetensors_file(staging / NGRAM_TABLE_FILENAME)
+    for component, names in plan.table_groups.items():
+        canonical = f"ngram.{component}"
+        tensor = table.tensors.get(canonical)
+        if tensor is None:
+            raise ArtifactError(f"missing canonical table component {canonical}")
+        variant_digests.pop(canonical)
+        cursor = tensor.start
+        for name in names:
+            original = plan.shard_layouts[plan.moved[name]].tensors[name]
+            segment = _TensorSlice(
+                name, original.dtype, original.shape, cursor, cursor + original.byte_count
+            )
+            digest = hashlib.sha256()
+            with (staging / NGRAM_TABLE_FILENAME).open("rb") as stream:
+                stream.seek(table.data_base + segment.start)
+                remaining = segment.byte_count
+                while remaining:
+                    chunk = stream.read(min(remaining, _COPY_CHUNK_BYTES))
+                    if not chunk:
+                        raise ArtifactError(f"truncated variant tensor {name}")
+                    digest.update(chunk)
+                    remaining -= len(chunk)
+            variant_digests[name] = digest.hexdigest()
+            cursor = segment.end
+        if cursor != tensor.end:
+            raise ArtifactError(f"canonical table size mismatch for {canonical}")
 
     lost = sorted(set(expected_digests) - set(variant_digests))
     added = sorted(set(variant_digests) - set(expected_digests))
@@ -526,7 +674,7 @@ def _verify_variant(source: Path, plan: _RelayoutPlan, staging: Path) -> None:
             f"variant tensor accounting failed: lost={lost} added={added} payload_changed={changed}"
         )
     table_names = set(_parse_safetensors_file(staging / NGRAM_TABLE_FILENAME).tensors)
-    if table_names != set(plan.moved):
+    if table_names != {f"ngram.{part}" for part in plan.table_groups}:
         raise ArtifactError("n-gram table tensor set does not match the moved keys")
 
     variant_index = _read_json_object(staging / INDEX_FILENAME, INDEX_FILENAME)
@@ -578,7 +726,7 @@ def _write_manifest(plan: _RelayoutPlan, staging: Path, output: Path) -> dict[st
         # Directory name only: the manifest ships inside the pack and must not
         # carry absolute private paths.
         "variant_output": output.name,
-        "mtplx_target_version": MTPLX_RUNTIME_COMPATIBILITY_VERSION,
+        "mtplx_target_version": MTPLX_NGRAM_PROFILE_VERSION,
         "ngram_layout": {
             "source": NGRAM_LAYOUT_SHARDED,
             "variant": NGRAM_LAYOUT_STANDALONE,
@@ -590,6 +738,8 @@ def _write_manifest(plan: _RelayoutPlan, staging: Path, output: Path) -> dict[st
             "removed_shard_files": list(plan.removed_shards),
         },
         "moved_tensors": moved_tensors,
+        "table_metadata": plan.table_metadata,
+        "row_order": {component: list(names) for component, names in plan.table_groups.items()},
         "output_files": output_files,
         "exactness_baseline": {
             "status": "unverified",
@@ -638,19 +788,31 @@ def _build_variant(plan: _RelayoutPlan, output: Path) -> None:
                 contract = _load_runtime_contract(plan.source)
                 contract[NGRAM_LAYOUT_CONTRACT_KEY] = NGRAM_LAYOUT_STANDALONE
                 _write_json_atomic(destination, contract)
+            elif name == "config.json":
+                config = _read_json_object(source_path, "config.json")
+                text = config.get("text_config", config)
+                text["ngram_sidecar"] = True
+                for field in ("quantization", "quantization_config"):
+                    quantization = config.get(field)
+                    if isinstance(quantization, dict):
+                        config[field] = {
+                            key: value
+                            for key, value in quantization.items()
+                            if ".ngram_embedding." not in key
+                        }
+                _write_json_atomic(destination, config)
             elif name in plan.removed_shards:
                 continue  # every tensor in this shard moved; the file disappears
             elif name in plan.affected_shards:
-                _serialize_safetensors(
+                _serialize_tensor_parts(
                     plan.shard_layouts[name].metadata,
                     _rebuilt_shard_entries(name, plan),
                     destination,
                 )
             else:
                 _copy_file_verified(source_path, destination)
-        table_metadata = plan.shard_layouts[plan.affected_shards[0]].metadata
-        _serialize_safetensors(
-            table_metadata, _ngram_table_entries(plan), staging / NGRAM_TABLE_FILENAME
+        _serialize_tensor_parts(
+            plan.table_metadata, _ngram_table_entries(plan), staging / NGRAM_TABLE_FILENAME
         )
         _verify_variant(plan.source, plan, staging)
         _write_manifest(plan, staging, output)
@@ -670,8 +832,9 @@ def relayout_ngram_table(
 ) -> NgramRelayoutReport:
     """Build an MTPLX-targeted variant pack with a standalone n-gram table.
 
-    Moves exactly one variable - tensor location. The source pack is never
-    modified; the variant is staged and atomically renamed into ``output``.
+    Concatenates shard rows under canonical keys without changing payloads
+    or precision. Config and index change to describe the table; this alone
+    does not adapt the MTP head or norms. The source remains untouched.
     """
 
     source_dir = Path(source).expanduser().resolve()

@@ -27,6 +27,18 @@ def _snapshot(
     documents: dict[str, dict],
     headers: dict[str, SafetensorsHeader],
 ) -> MtpHubRepositorySnapshot:
+    if documents.get("config.json", {}).get("model_type") == "qwen4_exp":
+        runtime = documents.setdefault("mtplx_runtime.json", {})
+        runtime.setdefault("arch_id", "qwen4-exp-mtp")
+        runtime.setdefault("mtp_tensor_count", 1)
+        if "ngram-table.safetensors" in files:
+            headers.setdefault(
+                "ngram-table.safetensors",
+                SafetensorsHeader(
+                    tensor_names=("ngram.weight", "ngram.scales", "ngram.biases"),
+                    metadata={"ngram_bits": "8", "ngram_group_size": "32"},
+                ),
+            )
     return MtpHubRepositorySnapshot(
         repo_id=repo_id,
         revision="a" * 40,
@@ -251,7 +263,7 @@ def test_qwen_expert_stream_and_deepseek_use_distinct_contracts() -> None:
     qwen_result = audit_mtp_hub_snapshot(qwen)
     deepseek_result = audit_mtp_hub_snapshot(deepseek)
 
-    assert qwen_result.kind == MtpHubPackKind.QWEN_EXPERT_STREAM
+    assert qwen_result.kind == MtpHubPackKind.QWEN4_NATIVE
     assert qwen_result.passed
     assert deepseek_result.kind == MtpHubPackKind.DEEPSEEK_NEXTN
     assert deepseek_result.passed
@@ -288,7 +300,7 @@ def test_expert_stream_audit_flags_sharded_ngram_without_standalone_table() -> N
 
     result = audit_mtp_hub_snapshot(snapshot)
 
-    assert result.kind == MtpHubPackKind.QWEN_EXPERT_STREAM
+    assert result.kind == MtpHubPackKind.QWEN4_NATIVE
     assert not result.passed
     assert any("relayout-ngram-table" in issue for issue in result.issues)
 

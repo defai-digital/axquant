@@ -1,5 +1,5 @@
 {
-  "count": 146,
+  "count": 148,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -1064,6 +1064,22 @@
       "model": "axquant.schema.artifacts.RuntimeCheck",
       "schema_version": "axquant.runtime-check.v2",
       "sha256": "5ab2241bfe213bd34953de57236cfd61e1cf7ee2ca65e4c7dcc478cd667c16ce"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.runtime-compatibility.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.runtime_export.RuntimeCompatibilityReport",
+      "schema_version": "axquant.runtime-compatibility.v1",
+      "sha256": "e47ef11fde48ba205ef8f8b7b1a7052eac418004e08881fbba2a0168f66c64ff"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.runtime-export.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.runtime_export.RuntimeExportManifest",
+      "schema_version": "axquant.runtime-export.v1",
+      "sha256": "36f71290c61f1c821c086ab2f94ffb95c5520cd1da8e1eeb9a6a36e556e5f1fc"
     },
     {
       "compatibility_class": "evidence",

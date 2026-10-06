@@ -73,3 +73,28 @@ def test_remaining_does_not_swallow_signaled_convert() -> None:
     assert issubclass(driver.ConvertInterrupted, SystemExit)
     with pytest.raises(driver.ConvertInterrupted):
         raise driver.ConvertInterrupted("interrupted (-15)")
+
+
+@pytest.mark.parametrize("stage", ["convert", "publish"])
+def test_factory_rejects_unchecked_existing_pack_before_reuse_or_upload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stage: str
+) -> None:
+    from axquant.errors import ArtifactError
+
+    driver = _load_driver()
+    monkeypatch.setattr(driver, "require_factory_host", lambda hostname: None)
+    monkeypatch.setattr(driver, "refuse_inflight_convert", lambda: None)
+    monkeypatch.setattr(driver, "MODELS", tmp_path / "models")
+    monkeypatch.setattr(driver, "WORK", tmp_path / "work")
+    driver.WORK.mkdir()
+    (driver.WORK / "inventory.json").write_text("{}")
+    pack = driver.pack_dir("mxfp4")
+    pack.mkdir(parents=True)
+    (pack / "axquant_manifest.json").write_text("{}")
+    (pack / "preserved.txt").write_text("existing pack")
+    monkeypatch.setattr(
+        driver, "run", lambda *args, **kwargs: pytest.fail("must not run or upload")
+    )
+    with pytest.raises(ArtifactError, match="no runtime compatibility record"):
+        getattr(driver, "cmd_" + stage)("mxfp4")
+    assert (pack / "preserved.txt").read_text() == "existing pack"

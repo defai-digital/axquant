@@ -1,0 +1,102 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "additionalProperties": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "launch_environment": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "modality_constraints": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "model_settings": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "type": "object"
+    },
+    "quality_certified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "runtime_verified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.runtime-export.v1",
+      "default": "axquant.runtime-export.v1",
+      "type": "string"
+    },
+    "source_binding": {
+      "additionalProperties": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "source_manifest_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_trunk_norm_layout": {
+      "anyOf": [
+        {
+          "enum": [
+            "raw_hf_delta",
+            "mlx_multiplier"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "target": {
+      "enum": [
+        "omlx",
+        "mtplx"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "target",
+    "source_binding",
+    "source_manifest_sha256",
+    "files"
+  ],
+  "type": "object"
+}

@@ -514,6 +514,9 @@ def prepare_publication(
     except ValueError as exc:
         raise ValidationGateError(str(exc)) from exc
     manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    from axquant.runtime_compatibility import validate_declared_runtime_compatibility
+
+    validate_declared_runtime_compatibility(directory, manifest)
     plan = load_quantization_plan(directory / "axquant_plan.json")
     if plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY:
         raise ValidationGateError(

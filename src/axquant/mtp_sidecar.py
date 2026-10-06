@@ -71,12 +71,12 @@ QWEN36_MTP_PROJECTION_TENSORS = frozenset(
 QWEN36_MTP_TENSORS = QWEN36_MTP_NORM_TENSORS | QWEN36_MTP_PROJECTION_TENSORS
 QWEN36_MTP_LAYOUT = "ax-engine-qwen36-v1"
 QWEN_NEXT_MTP_ARCH_ID = "qwen3-next-mtp"
+QWEN4_MTP_ARCH_ID = "qwen4-exp-mtp"
 QWEN_NEXT_MTP_ADAPTER_IDS = frozenset(
     {
         "qwen35-dense-v1",
         "qwen36-v1",
         "qwen38-dense-v1",
-        "qwen4-exp-v1",
     }
 )
 OMLX_COMPAT_FILENAME = "axquant_omlx_compat.json"

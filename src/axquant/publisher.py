@@ -650,6 +650,12 @@ def publish_model(
     if not _REPO_ID.fullmatch(repo_id):
         raise PublishingError("Hub repository must use the owner/name form")
     _require_mtp_suffix_for_publication(directory, repo_id)
+    from axquant.runtime_compatibility import validate_declared_runtime_compatibility
+
+    try:
+        validate_declared_runtime_compatibility(directory)
+    except (AxquantError, ValidationError, OSError, ValueError) as exc:
+        raise PublishingError(f"runtime compatibility binding check failed: {exc}") from exc
     identity_issues = artifact_identity_issues(directory)
     if identity_issues:
         # Published artifacts must identify the checkpoint by name, not by where

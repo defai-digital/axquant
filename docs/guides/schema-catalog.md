@@ -149,6 +149,8 @@ Policy: [schema governance](schema-governance.md).
 | `axquant.reproduction.v3` | `evidence` | `immutable-envelope` | `axquant.schema.frozen_v1.ReproductionRecipeV3` | [`axquant.reproduction.v3.schema.json`](../../schemas/axquant.reproduction.v3.schema.json) |
 | `axquant.reproduction.v4` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ReproductionRecipe` | [`axquant.reproduction.v4.schema.json`](../../schemas/axquant.reproduction.v4.schema.json) |
 | `axquant.runtime-check.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.RuntimeCheck` | [`axquant.runtime-check.v2.schema.json`](../../schemas/axquant.runtime-check.v2.schema.json) |
+| `axquant.runtime-compatibility.v1` | `evidence` | `immutable-envelope` | `axquant.schema.runtime_export.RuntimeCompatibilityReport` | [`axquant.runtime-compatibility.v1.schema.json`](../../schemas/axquant.runtime-compatibility.v1.schema.json) |
+| `axquant.runtime-export.v1` | `evidence` | `immutable-envelope` | `axquant.schema.runtime_export.RuntimeExportManifest` | [`axquant.runtime-export.v1.schema.json`](../../schemas/axquant.runtime-export.v1.schema.json) |
 | `axquant.runtime.v1` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.RuntimeMetadata` | [`axquant.runtime.v1.schema.json`](../../schemas/axquant.runtime.v1.schema.json) |
 | `axquant.scoreboard.v1` | `evidence` | `immutable-envelope` | `axquant.schema.frozen_v1.ScoreboardReportV1` | [`axquant.scoreboard.v1.schema.json`](../../schemas/axquant.scoreboard.v1.schema.json) |
 | `axquant.scoreboard.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ScoreboardReport` | [`axquant.scoreboard.v2.schema.json`](../../schemas/axquant.scoreboard.v2.schema.json) |

@@ -16,7 +16,7 @@ In short: MLX encodes, AX Engine runs, and AXQuant decides the precision mix —
 then proves what the result may claim. It does not train the source model or
 add new capabilities.
 
-**Status:** toolkit `2.0.0`, packaging classifier **Alpha**. The certified PyPI
+**Status:** toolkit `2.1.0`, packaging classifier **Alpha**. The certified PyPI
 pin stays `axquant[mlx]==1.8.1`. The 2.0 line opens the experimental
 [native CUDA NVFP4 backend](docs/guides/cuda-nvfp4.md) — RTN NVFP4 W4A16 exports
 plus an opt-in calibrated W4A4 path — alongside the MLX planning line and its
@@ -25,6 +25,12 @@ evidence. CUDA runtime and quality certification remain open. All per-pack
 certificate records were withdrawn on 2026-10-03 pending re-certification, so
 there is currently **no** certified pack revision on the live catalog; the
 certification index is the source of truth for what is certified today.
+
+Version 2.1 adds [explicit oMLX/MTPLX runtime exports](docs/guides/runtime-exports.md)
+and manifest-bound compatibility checks for future MLX conversions. Unknown
+peer profiles fail closed; static format checks do not establish generation
+or certification. Install this development toolkit with
+`python -m pip install 'axquant[mlx]==2.1.0'` when using these commands.
 
 Install from PyPI, then convert. You do not need to clone this repository.
 

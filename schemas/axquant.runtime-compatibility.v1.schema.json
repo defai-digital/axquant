@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "RuntimeExportVerdict": {
+      "additionalProperties": false,
+      "properties": {
+        "blockers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "launch_environment": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "modality_constraints": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "model_settings": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "mtp_verified": {
+          "const": false,
+          "default": false,
+          "type": "boolean"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z0-9][a-z0-9-]*-v[1-9][0-9]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_actions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "runtime_verified": {
+          "const": false,
+          "default": false,
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "unsupported",
+            "requires-export",
+            "static-compatible"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "status",
+        "blockers",
+        "required_actions"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "binding": {
+      "additionalProperties": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "model_type": {
+      "type": "string"
+    },
+    "quality_certified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "axquant.runtime-compatibility.v1",
+      "default": "axquant.runtime-compatibility.v1",
+      "type": "string"
+    },
+    "targets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RuntimeExportVerdict"
+      },
+      "propertyNames": {
+        "enum": [
+          "omlx",
+          "mtplx"
+        ]
+      },
+      "type": "object"
+    }
+  },
+  "required": [
+    "model_type",
+    "binding",
+    "targets"
+  ],
+  "type": "object"
+}

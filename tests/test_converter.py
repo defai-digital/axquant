@@ -1670,36 +1670,14 @@ def test_qwen4_exp_byte_preserved_sidecar_gains_contract_without_dense_layout(
     converter._copy_external_mtp_bundle(sidecar, output, plan=plan)
 
     runtime = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
-    assert runtime["arch_id"] == "qwen3-next-mtp"
-    assert runtime["exactness_baseline"] == {
-        "notes": (
-            "No MTPLX Forge exactness baseline has been recorded for this development artifact."
-        ),
-        "public_release_blocker": True,
-        "scope": "compatibility-smoke-only",
-        "status": "unverified",
-    }
-    assert "layout" not in runtime
-    assert runtime["mtp_depth_max"] == 1
-    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["arch_id"] == "qwen4-exp-mtp"
     assert runtime["mtp_tensor_count"] == 5
-    assert runtime["mtplx_version"] == "2.5.2"
-    assert runtime["recommended_draft_sampler"] == {
-        "temperature": 0.7,
-        "top_k": 20,
-        "top_p": 0.95,
-    }
-    assert runtime["recommended_profile"] == "stable"
-    assert runtime["release_status"] == "development-only"
-    assert runtime["source_model"] == {
-        "model_id": plan.source_model.model_id,
-        "revision": plan.source_model.revision,
-    }
-    assert runtime["verified_on"] == {
-        "host_id": None,
-        "notes": "Compatibility smoke tests are not AXQuant Tier 1 or Tier 2 certification.",
-        "status": "not-certified",
-    }
+    assert runtime["mtp_layout"] == "native-qwen4-exp"
+    assert runtime["trunk_norm_layout"] == "raw_hf_delta"
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["runtime_verified"] is False
+    assert "mtplx_version" not in runtime
+    assert "layout" not in runtime
 
 
 def test_qwen4_exp_minimal_runtime_file_upgraded_in_place(
@@ -1747,9 +1725,13 @@ def test_qwen4_exp_minimal_runtime_file_upgraded_in_place(
     assert runtime["schema_version"] == "axquant.mtp-runtime.v1"
     assert runtime["mtp_depth_max"] == 1
     assert runtime["mtp_norm_layout"] == "raw_hf_delta"
-    assert runtime["arch_id"] == "qwen3-next-mtp"
+    assert runtime["arch_id"] == "qwen4-exp-mtp"
     assert runtime["mtp_tensor_count"] == 5
-    assert runtime["mtplx_version"] == "2.5.2"
+    assert runtime["mtp_layout"] == "native-qwen4-exp"
+    assert runtime["trunk_norm_layout"] == "raw_hf_delta"
+    assert runtime["mtp_norm_layout"] == "raw_hf_delta"
+    assert runtime["runtime_verified"] is False
+    assert "mtplx_version" not in runtime
     assert "layout" not in runtime
 
 

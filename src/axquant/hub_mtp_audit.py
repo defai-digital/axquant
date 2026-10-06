@@ -21,7 +21,7 @@ from axquant.gemma4_vlm import (
     normalize_gemma4_vision_tensor_names,
 )
 from axquant.module_paths import is_ngram_shard_key
-from axquant.mtp_sidecar import QWEN_NEXT_MTP_ARCH_ID
+from axquant.mtp_sidecar import QWEN4_MTP_ARCH_ID, QWEN_NEXT_MTP_ARCH_ID
 from axquant.ngram_layout import (
     INDEX_FILENAME,
     NGRAM_LAYOUT_CONTRACT_KEY,
@@ -53,6 +53,7 @@ class MtpHubPackKind(StrEnum):
     GEMMA_ASSISTANT = "gemma-assistant"
     QWEN_RESIDENT = "qwen-resident"
     QWEN_EXPERT_STREAM = "qwen-expert-stream"
+    QWEN4_NATIVE = "qwen4-native"
     DEEPSEEK_NEXTN = "deepseek-nextn"
     NEMOTRON_SIDECAR = "nemotron-sidecar"
     RESERVED = "reserved"
@@ -336,6 +337,8 @@ def audit_mtp_hub_snapshot(snapshot: MtpHubRepositorySnapshot) -> MtpHubAuditRes
             kind = _audit_gemma(snapshot, issues)
         elif isinstance(model_type, str) and model_type.startswith("deepseek_v4"):
             kind = _audit_deepseek(snapshot, issues)
+        elif model_type in {"qwen4_exp", "qwen4_exp_text"}:
+            kind = _audit_qwen4(snapshot, issues)
         elif isinstance(model_type, str) and model_type.startswith("qwen"):
             kind = _audit_qwen(snapshot, issues, expert_stream=expert_stream)
         elif model_type == "nemotron_h":
@@ -350,6 +353,40 @@ def audit_mtp_hub_snapshot(snapshot: MtpHubRepositorySnapshot) -> MtpHubAuditRes
         kind=kind,
         issues=tuple(dict.fromkeys(issues)),
     )
+
+
+def _audit_qwen4(snapshot: MtpHubRepositorySnapshot, issues: list[str]) -> MtpHubPackKind:
+    runtime = _document(snapshot, "mtplx_runtime.json", issues)
+    if runtime.get("arch_id") != QWEN4_MTP_ARCH_ID:
+        issues.append(f"Flash-Next native MTP arch_id must be {QWEN4_MTP_ARCH_ID}")
+    if not _positive_integer(runtime.get("mtp_depth_max")):
+        issues.append("Flash-Next mtp_depth_max must be a positive integer")
+    header = snapshot.safetensors_headers.get("mtp.safetensors")
+    if header is None or "mtp.safetensors" not in snapshot.files:
+        issues.append("Flash-Next pack is missing a readable native MTP sidecar")
+    elif not header.tensor_names or any(
+        not name.startswith("mtp.") for name in header.tensor_names
+    ):
+        issues.append("Flash-Next native sidecar must contain mtp.* tensors")
+    elif runtime.get("mtp_tensor_count") != len(header.tensor_names):
+        issues.append("Flash-Next MTP tensor count differs from the sidecar header")
+    _audit_qwen_ngram_index(runtime, snapshot, issues)
+    if NGRAM_TABLE_FILENAME in snapshot.files:
+        table = snapshot.safetensors_headers.get(NGRAM_TABLE_FILENAME)
+        if table is None:
+            issues.append("standalone n-gram table header was not audited")
+        else:
+            bits = table.metadata.get("ngram_bits")
+            names = (
+                {"ngram.weight"}
+                if bits == "0"
+                else {"ngram.weight", "ngram.scales", "ngram.biases"}
+            )
+            if bits not in {"0", "2", "4", "6", "8"} or set(table.tensor_names) != names:
+                issues.append(
+                    "standalone n-gram table lacks canonical names or actual bit metadata"
+                )
+    return MtpHubPackKind.QWEN4_NATIVE
 
 
 def _audit_nemotron(snapshot: MtpHubRepositorySnapshot, issues: list[str]) -> MtpHubPackKind:
@@ -483,7 +520,12 @@ def load_mtp_hub_snapshot(
         if name in files:
             documents[name] = _read_json_document(repo_id, info.sha, name)
     headers: dict[str, SafetensorsHeader] = {}
-    for name in ("vision.safetensors", "mtp.safetensors", "mtp_head.safetensors"):
+    for name in (
+        "vision.safetensors",
+        "mtp.safetensors",
+        "mtp_head.safetensors",
+        NGRAM_TABLE_FILENAME,
+    ):
         if name in files:
             headers[name] = read_remote_safetensors_header(repo_id, info.sha, name)
     return MtpHubRepositorySnapshot(

@@ -1116,6 +1116,34 @@ def _run(args: argparse.Namespace) -> int:
         log.info("omlx_mtp_compat_written", path=str(written))
         return 0
 
+    if args.command == "check-runtime-compatibility":
+        from axquant.runtime_compatibility import inspect_runtime_export
+
+        compatibility = inspect_runtime_export(args.directory)
+        write_data(args.output, compatibility)
+        log.info(
+            "runtime_compatibility_checked", output=args.output, targets=compatibility["targets"]
+        )
+        return 0
+
+    if args.command == "export-runtime":
+        from axquant.runtime_export import export_runtime_pack
+
+        compatibility = export_runtime_pack(
+            args.directory,
+            args.output,
+            target=args.target,
+            dry_run=args.dry_run,
+            source_trunk_norm_layout=args.source_trunk_norm_layout,
+        )
+        log.info(
+            "runtime_export_planned" if args.dry_run else "runtime_export_written",
+            output=args.output,
+            target=args.target,
+            targets=compatibility["targets"],
+        )
+        return 0
+
     if args.command == "relayout-ngram-table":
         from axquant.ngram_layout import relayout_ngram_table
 

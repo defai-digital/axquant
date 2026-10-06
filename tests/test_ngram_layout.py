@@ -78,7 +78,7 @@ def _build_pack(
         encoding="utf-8",
     )
     (directory / "config.json").write_text(
-        json.dumps({"model_type": "qwen4_exp"}), encoding="utf-8"
+        json.dumps({"model_type": "qwen4_exp", "split_ngram_parts": 3}), encoding="utf-8"
     )
     contract = (
         runtime_contract
@@ -107,20 +107,29 @@ def test_relayout_moves_ngram_keys_to_standalone_table(tmp_path: Path) -> None:
     assert report.moved_tensor_count == 3
     assert report.removed_shard_files == ("model-00002-of-00003.safetensors",)
     assert report.rebuilt_shard_files == ("model-00001-of-00003.safetensors",)
-    assert report.copied_file_count == 3  # config.json, model-00003, mtp.safetensors
+    assert report.copied_file_count == 2  # model-00003, mtp.safetensors
     assert report.total_size_before is not None
     assert report.total_size_after == report.total_size_before - 3 * (4 * 8 * 4)
 
     moved_names = {_ngram_name(index) for index in range(3)}
     table = load_file(output / NGRAM_TABLE_FILENAME)
-    assert set(table) == moved_names
-    for name in moved_names:
-        assert table[name].dtype == np.float32
-        assert table[name].shape == (4, 8)
+    assert set(table) == {"ngram.weight"}
+    assert table["ngram.weight"].dtype == np.float32
+    assert table["ngram.weight"].shape == (12, 8)
+    for shard in range(3):
+        filename = (
+            "model-00001-of-00003.safetensors" if shard < 2 else "model-00002-of-00003.safetensors"
+        )
+        np.testing.assert_array_equal(
+            table["ngram.weight"][shard * 4 : (shard + 1) * 4],
+            load_file(source / filename)[_ngram_name(shard)],
+        )
 
     digests = _pack_tensor_digests(source)
     variant_digests = _pack_tensor_digests(output)
-    assert variant_digests == digests
+    assert {k: v for k, v in variant_digests.items() if k != "ngram.weight"} == {
+        k: v for k, v in digests.items() if k not in moved_names
+    }
 
     index = json.loads((output / INDEX_FILENAME).read_text(encoding="utf-8"))
     assert set(index["weight_map"]) == set(digests) - moved_names
@@ -136,7 +145,7 @@ def test_relayout_moves_ngram_keys_to_standalone_table(tmp_path: Path) -> None:
         source / "model-00003-of-00003.safetensors"
     )
     assert _file_digest(output / "mtp.safetensors") == _file_digest(source / "mtp.safetensors")
-    assert _file_digest(output / "config.json") == _file_digest(source / "config.json")
+    assert json.loads((output / "config.json").read_text())["ngram_sidecar"] is True
 
     contract = json.loads((output / RUNTIME_CONTRACT_FILENAME).read_text(encoding="utf-8"))
     assert contract["ngram_layout"] == NGRAM_LAYOUT_STANDALONE

@@ -40,5 +40,7 @@ Other entry points:
 
 - Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
 - Compatibility: [guides/compatibility.md](guides/compatibility.md)
+- Runtime variants and future architecture checks: [guides/runtime-exports.md](guides/runtime-exports.md)
+- Runtime export schema upgrade: [migrations/runtime-exports.md](migrations/runtime-exports.md)
 
 Do not add PRDs, ADRs, or product-planning tech specs under `docs/`.

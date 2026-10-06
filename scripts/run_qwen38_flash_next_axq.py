@@ -34,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from axquant.factory import require_factory_host  # noqa: E402
+from axquant.runtime_compatibility import require_runtime_compatibility_record  # noqa: E402
 
 SOURCE_ID = "Qwen/Qwen3.8-Flash-Next"
 SOURCE_REV = "de4b8e4d43b917e7706784d8bb445c9af86a3540"
@@ -415,6 +416,11 @@ An **AXQuant (AXQ)** mixed-precision MLX checkpoint for Apple Silicon, converted
 | Runtime | MLX-VLM (`qwen4_exp`); AX Engine support is not claimed |
 
 Load with a mlx-vlm build that includes `models.qwen4_exp`.
+`axquant_compatibility.json` records separate oMLX/MTPLX export blockers.
+Use `axquant export-runtime --target omlx|mtplx` for a distinct runtime variant.
+The MTPLX Flash-Next profile supports affine/MXFP4 trunks and preserves precision.
+Honor its recorded launch settings. Static export checks do not establish successful generation,
+MTP exactness, or runtime certification. See the AXQuant runtime export guide.
 """
     (pack / "README.md").write_text(text, encoding="utf-8")
 
@@ -580,6 +586,7 @@ def cmd_convert(key: str) -> None:
         raise SystemExit("missing inventory.json; run inspect first")
     pack = pack_dir(key)
     if (pack / "axquant_manifest.json").is_file():
+        require_runtime_compatibility_record(pack)
         log(f"reuse pack {pack}")
         return
     if pack.exists():
@@ -623,6 +630,7 @@ def cmd_convert(key: str) -> None:
         "skip",
     ]
     run(cmd, WORK / "logs" / f"convert-{key}.log", extra_env=extra)
+    require_runtime_compatibility_record(pack)
     log(f"convert ok {pack}")
 
 
@@ -643,6 +651,7 @@ def cmd_publish(key: str) -> None:
     pack = pack_dir(key)
     if not (pack / "axquant_manifest.json").is_file():
         raise SystemExit(f"missing convert output {pack}")
+    require_runtime_compatibility_record(pack)
     license_src = SOURCE / "LICENSE"
     if license_src.is_file() and not (pack / "LICENSE").is_file():
         shutil.copy2(license_src, pack / "LICENSE")
@@ -663,6 +672,29 @@ print("uploaded", {repo!r})
     run([py, "-c", upload], WORK / "logs" / f"publish-{key}.log")
     marker.write_text(repo + "\n", encoding="utf-8")
     log(f"published {repo}")
+
+
+def cmd_export_runtime(key: str, target: str) -> None:
+    require_factory_host(socket.gethostname())
+    if key not in PACKS or target not in {"omlx", "mtplx"}:
+        raise SystemExit("export-runtime requires a known pack and target")
+    pack = pack_dir(key)
+    require_runtime_compatibility_record(pack)
+    output = pack.with_name(f"{pack.name}-{target}")
+    run(
+        [
+            *axquant_cmd(),
+            "export-runtime",
+            "--directory",
+            str(pack),
+            "--output",
+            str(output),
+            "--target",
+            target,
+        ],
+        WORK / "logs" / f"export-{key}-{target}.log",
+    )
+    log(f"runtime variant written {output}; load/generation verification remains required")
 
 
 def cmd_remaining() -> None:
@@ -699,9 +731,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "stage",
-        choices=("bootstrap", "download", "inspect", "convert", "publish", "remaining", "all"),
+        choices=(
+            "bootstrap",
+            "download",
+            "inspect",
+            "convert",
+            "export-runtime",
+            "publish",
+            "remaining",
+            "all",
+        ),
     )
     parser.add_argument("--pack", choices=tuple(PACKS), default=None)
+    parser.add_argument("--target", choices=("omlx", "mtplx"), default=None)
     args = parser.parse_args()
     WORK.mkdir(parents=True, exist_ok=True)
     (WORK / "logs").mkdir(parents=True, exist_ok=True)
@@ -715,6 +757,10 @@ def main() -> int:
         if args.pack is None:
             raise SystemExit("convert requires --pack")
         cmd_convert(args.pack)
+    elif args.stage == "export-runtime":
+        if args.pack is None or args.target is None:
+            raise SystemExit("export-runtime requires --pack and --target")
+        cmd_export_runtime(args.pack, args.target)
     elif args.stage == "publish":
         if args.pack is None:
             raise SystemExit("publish requires --pack")

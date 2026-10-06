@@ -69,6 +69,7 @@ def test_mlx_convert_hook_uses_streaming_when_env_set(
     def fake_stream(model_ref: str, **kwargs: object) -> None:
         called["model"] = model_ref
         called["path"] = kwargs["mlx_path"]
+        called["q_mode"] = kwargs["q_mode"]
         Path(str(kwargs["mlx_path"])).mkdir()
 
     def fake_convert(*args: object, **kwargs: object) -> None:
@@ -89,9 +90,40 @@ def test_mlx_convert_hook_uses_streaming_when_env_set(
         q_bits=4,
         quant_predicate=lambda path, module: False,
         revision=None,
+        q_mode="mxfp8",
     )
     assert called["model"] == str(src)
     assert called["path"] == str(dest)
+    assert called["q_mode"] == "mxfp8"
+
+
+def test_stock_mlx_convert_forwards_q_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import axquant.converter as converter
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "config.json").write_text("{}", encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def fake_convert(model_ref: str, **kwargs: object) -> None:
+        del model_ref
+        seen.update(kwargs)
+        Path(str(kwargs["mlx_path"])).mkdir()
+
+    monkeypatch.delenv(STREAMING_CONVERT_ENV, raising=False)
+    monkeypatch.setitem(sys.modules, "mlx_lm.utils", ModuleType("mlx_lm.utils"))
+    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, None))
+    converter._mlx_convert_with_optional_dequant(
+        str(src),
+        mlx_path=str(tmp_path / "out"),
+        quantize=True,
+        q_group_size=32,
+        q_bits=8,
+        quant_predicate=None,
+        revision=None,
+        q_mode="mxfp8",
+    )
+    assert seen["q_mode"] == "mxfp8"
 
 
 def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:

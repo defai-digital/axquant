@@ -1288,10 +1288,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="pack directory that already contains mtp.safetensors",
     )
 
+    compatibility_parser = subparsers.add_parser(
+        "check-runtime-compatibility",
+        help="check current pack headers for oMLX/MTPLX export blockers (no generation claim)",
+    )
+    compatibility_parser.add_argument("--directory", required=True)
+    compatibility_parser.add_argument("--output", required=True)
+
+    runtime_export_parser = subparsers.add_parser(
+        "export-runtime",
+        help="build a distinct runtime variant with an audited architecture profile",
+    )
+    runtime_export_parser.add_argument("--directory", required=True)
+    runtime_export_parser.add_argument("--output", required=True)
+    runtime_export_parser.add_argument("--target", choices=["omlx", "mtplx"], required=True)
+    runtime_export_parser.add_argument("--dry-run", action="store_true")
+    runtime_export_parser.add_argument(
+        "--source-trunk-norm-layout",
+        choices=["raw_hf_delta", "mlx_multiplier"],
+        help="explicit norm convention for legacy packs that lack this declaration; "
+        "recorded in the variant manifest and never applied to the source",
+    )
+
     relayout_parser = subparsers.add_parser(
         "relayout-ngram-table",
         help="build an MTPLX-compatible variant pack with a standalone "
-        "ngram-table.safetensors (byte-preserving; writes to a new directory)",
+        "ngram-table.safetensors (numeric row concatenation; writes to a new directory)",
     )
     relayout_parser.add_argument(
         "--directory",

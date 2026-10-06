@@ -108,15 +108,18 @@ not be assigned `qwen3-next-mtp` or sent through the oMLX/MTPLX Qwen importer.
 
 These four preview checkpoints carry `mtp.safetensors` together with `ax_expert_stream.json`.
 They use the MLX-VLM `qwen4_exp` text/vision path; AX Engine MTP acceleration is not claimed.
-Their sidecars pass the expert-stream packaging audit but are not resident
-`qwen3-next-mtp` oMLX/MTPLX import targets.
+Their historical sidecars are not resident `qwen3-next-mtp` import targets.
+New Flash-Next conversions use the dedicated native `qwen4-exp-mtp` contract.
 
 MTPLX additionally rejects the language-model load itself: these packs keep the hashed n-gram
 PLE table as `ngram_embedding.shards.*` keys inside `model.safetensors.index.json`, while MTPLX
-expects a standalone `ngram-table.safetensors`. Build a byte-preserving MTPLX variant with
-`axquant relayout-ngram-table --directory <pack> --output <variant>` (`--dry-run` previews the
-plan; tensor payloads are hash-verified, the source pack stays untouched). Layout compatibility
-is not exactness: the MTPLX Forge baseline of any relaid-out variant remains unverified.
+expects a standalone table with canonical concatenated keys and actual bit/group metadata.
+Table location alone is insufficient. Use `axquant export-runtime --directory SOURCE
+--output NEW_DIRECTORY --target mtplx` for an affine or MXFP4 trunk, or `--target omlx` for
+the native indexed oMLX variant. The measured MTPLX profile preserves MXFP4 and rejects
+unverified MXFP8. `relayout-ngram-table` performs only table relayout and does not
+adapt norms or the MTP head. See [runtime exports](runtime-exports.md) for checks, migration
+limits, and the required load/generation evidence. Variants remain unverified until measured.
 
 | Hugging Face model | Status |
 | --- | --- |

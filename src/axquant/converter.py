@@ -44,6 +44,7 @@ from axquant.mtp_sidecar import (
     is_qwen_next_omlx_runtime,
     prepare_qwen36_mtp_sidecar,
 )
+from axquant.mtplx_compat import write_mtplx_load_contract
 from axquant.multimodal_backend import (
     conversion_backend,
     convert_multimodal,
@@ -164,12 +165,16 @@ def _mlx_convert_with_optional_dequant(
     q_bits: int,
     quant_predicate: Any,
     revision: str | None,
+    q_mode: str = "affine",
 ) -> None:
     """Convert via MLX-LM, dequantizing mixed-precision sources first when needed.
 
     DeepSeek V4 Flash ships FP4/FP8 experts that load as already-quantized MLX
-    modules without ``to_quantized``. Re-packing requires dequant then affine
-    quant under the plan predicate (lazy load keeps peak memory manageable).
+    modules without ``to_quantized``. Re-packing requires dequant then quant
+    under the plan predicate (lazy load keeps peak memory manageable). ``q_mode``
+    is the container mode written into ``config.json``. Leaving it at the MLX
+    default while the predicate emits ``mxfp8`` makes other engines look for
+    affine biases the MXFP8 tensors do not store.
     """
     convert, load = _mlx_api()
     try:
@@ -181,6 +186,7 @@ def _mlx_convert_with_optional_dequant(
             quantize=quantize,
             q_group_size=q_group_size,
             q_bits=q_bits,
+            q_mode=q_mode,
             quant_predicate=quant_predicate,
             revision=revision,
         )
@@ -213,6 +219,7 @@ def _mlx_convert_with_optional_dequant(
                     q_bits=q_bits,
                     quant_predicate=quant_predicate,
                     revision=revision,
+                    q_mode=q_mode,
                 )
                 return
         convert(
@@ -221,6 +228,7 @@ def _mlx_convert_with_optional_dequant(
             quantize=quantize,
             q_group_size=q_group_size,
             q_bits=q_bits,
+            q_mode=q_mode,
             quant_predicate=quant_predicate,
             revision=revision,
         )
@@ -241,7 +249,7 @@ def _mlx_convert_with_optional_dequant(
         config,
         q_group_size,
         q_bits,
-        mode="affine",
+        mode=q_mode,
         quant_predicate=quant_predicate,
     )
     utils.save(mlx_path, model_ref, model, tokenizer, config)
@@ -687,6 +695,30 @@ def _declare_raw_mtp_runtime_contract(
     if "mtp_norm_layout" not in contract:
         contract["mtp_norm_layout"] = "raw_hf_delta"
         changed = True
+    if plan is not None and plan.architecture_profile.adapter_id == "qwen4-exp-v1":
+        from axquant.mtp_sidecar import QWEN4_MTP_ARCH_ID
+
+        _, header = _safetensor_header(output_dir / "mtp.safetensors")
+        names = sorted(name for name in header if name != "__metadata__")
+        if not names or not all(name.startswith("mtp.") for name in names):
+            raise ArtifactError("Flash-Next sidecar must contain native mtp.* tensors")
+        # Historical AXQuant exports incorrectly reused the dense Qwen importer
+        # identity. Correct new outputs; never mutate the source bundle.
+        if contract.get("arch_id") not in (None, "", QWEN_NEXT_MTP_ARCH_ID, QWEN4_MTP_ARCH_ID):
+            raise ArtifactError("Flash-Next sidecar declares a foreign MTP architecture")
+        contract.update(
+            arch_id=QWEN4_MTP_ARCH_ID,
+            mtp_tensor_count=len(names),
+            mtp_layout="native-qwen4-exp",
+            trunk_norm_layout="raw_hf_delta",
+            runtime_verified=False,
+            release_status="development-only",
+        )
+        # A generic sidecar label cannot establish a tested peer version.
+        contract.pop("mtplx_version", None)
+        contract.pop("layout", None)
+        write_data(runtime_path, contract)
+        return
     if plan is not None and plan.architecture_profile.adapter_id in QWEN_NEXT_MTP_ADAPTER_IDS:
         sidecar_path = output_dir / "mtp.safetensors"
         _, header = _safetensor_header(sidecar_path)
@@ -2230,6 +2262,7 @@ def convert_model(
                     q_bits=default_quantized_bits,
                     quant_predicate=predicate,
                     revision=convert_revision,
+                    q_mode=q_mode,
                 )
             else:
                 convert_multimodal(
@@ -2333,6 +2366,9 @@ def convert_model(
             # in-shard MTP tensors, so byte-copy them into the canonical
             # external sidecar before the parameter-coverage check runs.
             _extract_protected_integrated_mtp(source_model_dir, plan, staging_dir)
+        mtplx_notes = write_mtplx_load_contract(staging_dir)
+        if mtplx_notes:
+            _LOG.info("conversion_mtplx_contract_aligned", notes=mtplx_notes)
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
         if bound_capture is not None:
@@ -2385,6 +2421,9 @@ def convert_model(
             source_tensors=source_tensors,
             q_mode=q_mode,
         )
+        from axquant.runtime_compatibility import write_runtime_compatibility
+
+        write_runtime_compatibility(staging_dir)
         manifest = ArtifactManifest(
             axquant_version=plan.software_versions.axquant,
             source_model=plan.source_model,
