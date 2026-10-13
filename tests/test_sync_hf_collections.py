@@ -31,7 +31,7 @@ def test_runtime_catalogs_cover_models_without_overlap() -> None:
     assert all("-CUDA-" in repo for repo in cuda)
     assert all_models == mlx | cuda
     embedding_cuda = {item.repo for item in titles["Embeddings"].items if "-CUDA-" in item.repo}
-    assert len(embedding_cuda) == 5
+    assert len(embedding_cuda) == 6
     assert embedding_cuda <= cuda
     assert embedding_cuda <= {item.repo for item in titles["NVFP4"].items}
 
