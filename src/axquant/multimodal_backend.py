@@ -24,7 +24,14 @@ ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm"]
 _QWEN3_VL_ADAPTERS = frozenset({"qwen3-vl-v1", "qwen3-vl-moe-v1"})
 # OCR / document VL families that share the public MLX-VLM convert entrypoint.
 _MLX_VLM_ADAPTERS = _QWEN3_VL_ADAPTERS | frozenset(
-    {"deepseek-ocr2-v1", "muse-glimmer-v1", "qwen4-exp-v1", "unlimited-ocr-v1"}
+    {
+        "deepseek-ocr2-v1",
+        "embedding-gemma2-v1",
+        "muse-glimmer-v1",
+        "qwen3-omni-moe-v1",
+        "qwen4-exp-v1",
+        "unlimited-ocr-v1",
+    }
 )
 
 
@@ -500,6 +507,59 @@ def _convert_qwen4_exp(
         del model
 
 
+def _convert_embedding_gemma2(
+    source: Path,
+    destination: Path,
+    plan: QuantizationPlan,
+    predicate: PlanPredicate,
+    default_bits: int,
+    q_mode: str = "affine",
+) -> None:
+    """Quantize EmbeddingGemma 2 with the plan predicate and keep every tower.
+
+    The public MLX-VLM convert entrypoint applies one group size. This path
+    uses the same per-module predicate as the other MLX-VLM families and
+    requires an mlx-vlm build that can load ``embedding_gemma2``.
+    """
+    import glob
+    import shutil
+
+    _force_cpu_if_requested()
+    vlm_utils = _import("mlx_vlm.utils", extra="mlx-vlm")
+    try:
+        model = vlm_utils.load_model(source, lazy=True)
+        config = vlm_utils.load_config(source)
+    except Exception as exc:
+        raise ArtifactError(
+            "cannot load EmbeddingGemma 2; install an mlx-vlm build that provides "
+            f"models.embedding_gemma2: {exc}"
+        ) from exc
+    try:
+        model, config = _quantize_with_plan_predicate(
+            model,
+            config,
+            plan,
+            predicate,
+            default_bits,
+            q_mode,
+        )
+        _require_quantized_plan_coverage(predicate, backend="MLX-VLM")
+        destination.mkdir(parents=True, exist_ok=False)
+        vlm_utils.save_weights(destination, model, donate_weights=True)
+        for pattern in ("*.py", "*.json", "*.jinja", "*.txt", "*.md"):
+            for file in glob.glob(str(source / pattern)):
+                name = Path(file).name
+                if name in {"model.safetensors.index.json", "config.json"}:
+                    continue
+                shutil.copy(file, destination / name)
+        license_src = source / "LICENSE"
+        if license_src.is_file():
+            shutil.copy(license_src, destination / "LICENSE")
+        vlm_utils.save_config(config, config_path=destination / "config.json")
+    finally:
+        del model
+
+
 def _convert_vlm(
     source: Path,
     destination: Path,
@@ -519,6 +579,11 @@ def _convert_vlm(
         return
     if plan.architecture_profile.adapter_id == "qwen4-exp-v1":
         _convert_qwen4_exp(source, destination, plan, predicate, default_bits, q_mode=q_mode)
+        return
+    if plan.architecture_profile.adapter_id == "embedding-gemma2-v1":
+        _convert_embedding_gemma2(
+            source, destination, plan, predicate, default_bits, q_mode=q_mode
+        )
         return
     vlm_convert = _import("mlx_vlm.convert", extra="mlx-vlm")
     vlm_convert.convert(

@@ -714,6 +714,22 @@ def build_runtime_metadata(
             notes=["MLX-Audio loads the protected modality tower and AXQ language decoder."],
         )
         compatible_runtimes = []
+    elif adapter_id == "qwen3-omni-moe-v1":
+        primary_runtime = RuntimeProfile(
+            name=RuntimeName.MLX_VLM,
+            compatibility_level="B",
+            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+            standard_inference=True,
+            mtp_support="none",
+            manifest="config.json",
+            notes=[
+                "MLX-VLM loads the Qwen3-Omni thinker. Text generation is not the product output.",
+                "Clef-Omni scores a joint schema head. That BF16 head is not measured here.",
+                "Talker trunk weights may be quantized. code2wav and the audio encoder stay BF16.",
+                "Speech output, audio quality, and Decision Index scores are not claimed.",
+            ],
+        )
+        compatible_runtimes = []
     elif adapter_id in {"qwen3-vl-v1", "qwen4-exp-v1"}:
         primary_runtime = RuntimeProfile(
             name=RuntimeName.MLX_VLM,

@@ -255,6 +255,61 @@ def test_emit_manifest_accepts_nested_gemma4_top_k_experts(
     assert emitted.experts_per_tok == 2
 
 
+def test_emit_reads_omni_thinker_experts_per_token(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "config.json").write_text(
+        '{"model_type":"qwen3_omni_moe","thinker_config":{"text_config":'
+        '{"num_experts":4,"num_experts_per_tok":2}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(expert_stream, "inspect_model", lambda *args, **kwargs: _packed_inventory())
+    plan = SimpleNamespace(
+        source_model=ModelIdentity(model_id="Cloudflare/clef-omni"),
+        architecture_profile=SimpleNamespace(
+            adapter_id="qwen3-omni-moe-v1",
+            optimization_scope=OptimizationScope.TEXT_PATH,
+        ),
+        group_size=32,
+        kv_cache=None,
+        assignments=[SimpleNamespace(role=TensorRole.EXPERT)],
+    )
+
+    emitted = expert_stream.emit_expert_stream_manifest(tmp_path, plan, setting="auto")
+
+    assert emitted is not None
+    assert emitted.experts_per_tok == 2
+
+
+def test_emit_skips_omni_when_thinker_and_talker_routing_differ(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "config.json").write_text(
+        '{"model_type":"qwen3_omni_moe",'
+        '"thinker_config":{"text_config":{"num_experts":128,"num_experts_per_tok":8}},'
+        '"talker_config":{"text_config":{"num_experts":128,"num_experts_per_tok":6}}}',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(expert_stream, "inspect_model", lambda *args, **kwargs: _packed_inventory())
+    plan = SimpleNamespace(
+        source_model=ModelIdentity(model_id="Cloudflare/clef-omni"),
+        architecture_profile=SimpleNamespace(
+            adapter_id="qwen3-omni-moe-v1",
+            optimization_scope=OptimizationScope.TEXT_PATH,
+        ),
+        group_size=32,
+        kv_cache=None,
+        assignments=[SimpleNamespace(role=TensorRole.EXPERT)],
+    )
+
+    emitted = expert_stream.emit_expert_stream_manifest(tmp_path, plan, setting="auto")
+
+    assert emitted is None
+    assert not (tmp_path / "ax_expert_stream.json").is_file()
+
+
 def test_expert_stream_flags_default_auto_and_super_off_fails_closed() -> None:
     parser = _build_parser()
     staged = parser.parse_args(

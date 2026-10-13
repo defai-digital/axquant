@@ -4,6 +4,7 @@ from typing import Any
 
 from axquant import __version__
 from axquant.architectures.dense_family import DENSE_FAMILY_SPECS, DenseFamilyAdapter
+from axquant.architectures.hy_v3 import HyV3Adapter
 from axquant.architectures.nemotron3 import Nemotron3Adapter
 from axquant.architectures.qwen36 import Qwen35MoeAdapter, Qwen36Adapter
 from axquant.architectures.qwen38 import Qwen38Adapter
@@ -24,6 +25,7 @@ _ADAPTERS: tuple[ArchitectureAdapter, ...] = (
     Qwen38Adapter(),
     Nemotron3Adapter(),
     *(DenseFamilyAdapter(spec) for spec in DENSE_FAMILY_SPECS),
+    HyV3Adapter(),
 )
 
 
@@ -49,6 +51,8 @@ def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:
         notes.extend(f"do-not: {item}" for item in policy.do_not[:2])
     if isinstance(adapter, DenseFamilyAdapter):
         notes.extend(adapter.spec.notes)
+    elif isinstance(adapter, HyV3Adapter):
+        notes.extend(adapter.notes)
     elif isinstance(adapter, Nemotron3Adapter):
         notes.append(
             "Exact Nano, 3.5 Lightning-30B-A3B, and 3 Super-120B-A12B catalog signatures "

@@ -2139,6 +2139,9 @@ def test_expected_converted_shapes_conserve_qwen_packed_gate_up_parameters() -> 
         (256, 512, 2048),
     )
     assert converter._expected_converted_shapes(down, (256, 2048, 512), 6) == ((256, 2048, 96),)
+    assert converter._expected_converted_shapes(
+        "audio_tower.layers.0.feed_forward1.ffw_layer_1.input_max", (), 16
+    ) == ((),)
 
 
 def test_expected_converted_shapes_qwen3_vl_moe_sanitize_layout() -> None:
@@ -2418,6 +2421,46 @@ def test_qwen4_exp_protected_sanitize_covers_factory_conv_and_vision(
         "model.language_model.layers.0.linear_attn.in_proj_qkv.weight",
         conv1d,
         conv1d_mlx,
+    )
+
+
+def test_qwen3_omni_protected_conv_permutes(qwen36_model_dir: Path) -> None:
+    plan = _plan(qwen36_model_dir).model_copy(
+        update={
+            "architecture_profile": _plan(qwen36_model_dir).architecture_profile.model_copy(
+                update={"config_model_type": "qwen3_omni_moe"}
+            )
+        }
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "thinker.audio_tower.conv2d1.weight",
+        (1280, 128, 3, 3),
+        (1280, 3, 3, 128),
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "thinker.visual.patch_embed.proj.weight",
+        (1152, 3, 2, 16, 16),
+        (1152, 2, 16, 16, 3),
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "code2wav.upsample.0.conv.weight",
+        (8, 16, 4),
+        (16, 4, 8),
+    )
+    assert converter._protected_shape_matches(
+        plan,
+        "code2wav.decoder.dwconv.conv.weight",
+        (8, 16, 4),
+        (8, 4, 16),
+    )
+    assert not converter._protected_shape_matches(
+        plan,
+        "code2wav.upsample.0.conv.weight",
+        (8, 16, 4),
+        (8, 4, 16),
     )
 
 
@@ -2796,14 +2839,21 @@ def test_support_file_completion_copies_sentence_transformers_assets(tmp_path: P
     pooling = source / "1_Pooling"
     pooling.mkdir()
     (pooling / "config.json").write_text("{}", encoding="utf-8")
+    normalize = source / "2_Normalize"
+    normalize.mkdir()
+    (normalize / "config.json").write_text("{}", encoding="utf-8")
 
     completed = converter._complete_runtime_support_files(source, staging)
 
     assert sorted(completed) == [
         "1_Pooling",
+        "2_Normalize",
         "config_sentence_transformers.json",
         "modules.json",
     ]
+    assert (staging / "2_Normalize" / "config.json").read_bytes() == (
+        normalize / "config.json"
+    ).read_bytes()
     assert (staging / "1_Pooling" / "config.json").read_bytes() == (
         pooling / "config.json"
     ).read_bytes()

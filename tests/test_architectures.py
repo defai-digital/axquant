@@ -262,6 +262,43 @@ def test_registry_resolves_qwen38_dense_27b_as_convertible() -> None:
     assert qwen36.adapter_id == "qwen36-v1"
 
 
+def test_registry_resolves_clef_decision_models() -> None:
+    """Clef is a Qwen3.8-27B post-train; Clef-Flash is a Qwen3.5-9B post-train."""
+    clef_config = {
+        "model_type": "qwen3_5",
+        "architectures": ["Qwen3_5ForConditionalGeneration"],
+        "text_config": {
+            "num_hidden_layers": 64,
+            "hidden_size": 5120,
+            "intermediate_size": 17408,
+            "mtp_num_hidden_layers": 0,
+        },
+        "vision_config": {"depth": 27, "hidden_size": 1152},
+    }
+    clef = adapter_for("Cloudflare/clef", clef_config)
+    assert clef is not None
+    assert clef.adapter_id == "qwen38-dense-v1"
+    clef_profile = clef.profile("Cloudflare/clef", clef_config)
+    assert clef_profile.mtp_declared is False
+    assert clef_profile.vision_present is True
+
+    flash_config = {
+        "model_type": "qwen3_5",
+        "text_config": {
+            "num_hidden_layers": 32,
+            "hidden_size": 4096,
+            "mtp_num_hidden_layers": 0,
+        },
+        "vision_config": {"depth": 27, "hidden_size": 1152},
+    }
+    flash = adapter_for("Cloudflare/clef-flash", flash_config)
+    assert flash is not None
+    assert flash.adapter_id == "qwen35-dense-v1"
+    # A bare clef reference must not steal the flash checkpoint via _name_or_path.
+    named = {**flash_config, "_name_or_path": "Cloudflare/clef-flash"}
+    assert adapter_for("/tmp/src", named).adapter_id == "qwen35-dense-v1"
+
+
 def _qwen4_exp_config() -> dict[str, object]:
     return {
         "model_type": "qwen4_exp",
@@ -276,6 +313,56 @@ def _qwen4_exp_config() -> dict[str, object]:
         },
         "vision_config": {"depth": 27, "hidden_size": 1152},
     }
+
+
+def test_registry_resolves_embedding_gemma2() -> None:
+    config = {
+        "model_type": "embedding_gemma2",
+        "architectures": ["EmbeddingGemma2Model"],
+        "text_config": {
+            "model_type": "embedding_gemma2_text",
+            "num_hidden_layers": 24,
+            "hidden_size": 512,
+            "embedding_dim": 768,
+        },
+        "vision_config": {"model_type": "gemma4_vision", "num_hidden_layers": 16},
+        "audio_config": {"model_type": "gemma4_audio", "num_hidden_layers": 12},
+    }
+    adapter = adapter_for("google/embeddinggemma-2", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "embedding-gemma2-v1"
+    profile = adapter.profile("google/embeddinggemma-2", config)
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is True
+    assert profile.mtp_declared is False
+    assert profile.vision_present is True
+    assert profile.audio_present is True
+    assert profile.text_layer_count == 24
+    assert adapter_for("google/gemma-4-12b", {**config, "model_type": "gemma4"}) is None or (
+        adapter_for("google/gemma-4-12b", {**config, "model_type": "gemma4"}).adapter_id
+        != "embedding-gemma2-v1"
+    )
+    roles = {
+        "language_model.layers.0.self_attn.q_proj.weight": TensorRole.ATTENTION,
+        "language_model.layers.0.self_attn.q_norm.weight": TensorRole.NORM,
+        "language_model.layers.0.mlp.down_proj.weight": TensorRole.MLP,
+        "language_model.layers.0.layer_scalar": TensorRole.NORM,
+        "language_model.embed_tokens.weight": TensorRole.EMBEDDING,
+        "language_model.embedding_projection.weight": TensorRole.LM_HEAD,
+        "embed_vision.embedding_projection.weight": TensorRole.VISION,
+        "embed_audio.embedding_projection.weight": TensorRole.VISION,
+        "language_model.ple.per_layer_model_projection.weight": TensorRole.EMBEDDING,
+        "language_model.ple.per_layer_projection_norm.weight": TensorRole.NORM,
+        "language_model.layers.0.ple_block.per_layer_projection.weight": TensorRole.EMBEDDING,
+        "language_model.layers.0.ple_block.per_layer_input_gate.weight": TensorRole.EMBEDDING,
+        "language_model.layers.0.ple_block.post_per_layer_input_norm.weight": TensorRole.NORM,
+        "vision_tower.encoder.layers.0.mlp.fc1.weight": TensorRole.VISION,
+        "embed_vision.proj.weight": TensorRole.VISION,
+        "embed_audio.proj.weight": TensorRole.VISION,
+        "audio_tower.subsample_conv_projection.weight": TensorRole.AUDIO,
+    }
+    for name, role in roles.items():
+        assert adapter.classify_tensor(name, "model.safetensors") is role, name
 
 
 def test_registry_resolves_qwen38_flash_next_as_qwen4_exp() -> None:
@@ -432,6 +519,107 @@ def test_registry_resolves_qwen3_vl_32b_thinking() -> None:
         assert profile.text_layer_count == 64
         assert profile.vision_present is True
         assert profile.dense is True
+
+
+def test_registry_resolves_clef_omni() -> None:
+    config = {
+        "model_type": "qwen3_omni_moe",
+        "thinker_config": {
+            "text_config": {
+                "num_hidden_layers": 48,
+                "num_experts": 128,
+                "num_experts_per_tok": 8,
+                "hidden_size": 2048,
+            },
+            "vision_config": {"depth": 27, "hidden_size": 1152},
+            "audio_config": {"d_model": 1280, "encoder_layers": 32},
+        },
+        "talker_config": {"text_config": {"num_hidden_layers": 20, "num_experts": 128}},
+    }
+    adapter = adapter_for("Cloudflare/clef-omni", config)
+    assert adapter is not None
+    assert adapter.adapter_id == "qwen3-omni-moe-v1"
+    profile = adapter.profile("Cloudflare/clef-omni", config)
+    assert profile.product_family == "qwen3-omni"
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.dense is False
+    assert profile.text_layer_count == 48
+    assert profile.vision_present is True
+    assert profile.audio_present is True
+    assert profile.mtp_declared is False
+    assert (
+        adapter.classify_tensor("thinker.visual.blocks.0.attn.qkv.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("thinker.audio_tower.conv2d1.weight", "model.safetensors")
+        is TensorRole.AUDIO
+    )
+    assert (
+        adapter.classify_tensor("code2wav.decoder.0.conv.weight", "model.safetensors")
+        is TensorRole.AUDIO
+    )
+    assert (
+        adapter.classify_tensor(
+            "thinker.model.layers.0.mlp.experts.3.gate_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+    assert (
+        adapter.classify_tensor(
+            "talker.model.layers.0.mlp.experts.3.down_proj.weight",
+            "model.safetensors",
+        )
+        is TensorRole.EXPERT
+    )
+    assert (
+        adapter.classify_tensor("thinker.model.layers.0.mlp.gate.weight", "model.safetensors")
+        is TensorRole.ROUTER
+    )
+    assert (
+        adapter.classify_tensor("talker.codec_head.weight", "model.safetensors")
+        is TensorRole.LM_HEAD
+    )
+    assert (
+        adapter.classify_tensor("talker.model.codec_embedding.weight", "model.safetensors")
+        is TensorRole.EMBEDDING
+    )
+    assert (
+        adapter.classify_tensor("talker.text_projection.linear_fc1.weight", "model.safetensors")
+        is TensorRole.MLP
+    )
+    base = adapter_for("Qwen/Qwen3-Omni-30B-A3B-Instruct", config)
+    assert base is not None and base.adapter_id == "qwen3-omni-moe-v1"
+    clef = adapter_for(
+        "Cloudflare/clef",
+        {"model_type": "qwen3_5", "num_hidden_layers": 64},
+    )
+    assert clef is None or clef.adapter_id != "qwen3-omni-moe-v1"
+
+
+def test_qwen3_omni_sanitize_aliases_compose_with_expert_fusion() -> None:
+    from axquant.module_paths import mlx_module_aliases, mlx_tensor_aliases
+
+    expert = "thinker.model.layers.0.mlp.experts.3.gate_proj"
+    assert "thinker.language_model.model.layers.0.mlp.switch_mlp.gate_proj" in mlx_module_aliases(
+        expert
+    )
+    weight = "thinker.model.layers.0.mlp.experts.3.gate_proj.weight"
+    assert (
+        "thinker.language_model.model.layers.0.mlp.switch_mlp.gate_proj.weight"
+        in mlx_tensor_aliases(weight)
+    )
+    assert "thinker.vision_tower.merger.norm.weight" in mlx_tensor_aliases(
+        "thinker.visual.merger.ln_q.weight"
+    )
+    assert "thinker.vision_tower.deepstack_merger_list.0.linear_fc1.weight" in mlx_tensor_aliases(
+        "thinker.visual.merger_list.0.mlp.0.weight"
+    )
+    assert "thinker.language_model.lm_head.weight" in mlx_tensor_aliases("thinker.lm_head.weight")
+    talker = mlx_tensor_aliases("talker.model.layers.1.mlp.experts.2.up_proj.weight")
+    assert "talker.model.layers.1.mlp.switch_mlp.up_proj.weight" in talker
+    assert not any(alias.startswith("thinker.") for alias in talker)
 
 
 def test_registry_resolves_qwen3_vl_moe_30b_instruct() -> None:
@@ -857,16 +1045,19 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen3-asr-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-v1": SupportTier.CONVERTIBLE,
         "qwen3-vl-moe-v1": SupportTier.CONVERTIBLE,
+        "qwen3-omni-moe-v1": SupportTier.CONVERTIBLE,
         "deepseek-ocr2-v1": SupportTier.CONVERTIBLE,
         "unlimited-ocr-v1": SupportTier.CONVERTIBLE,
         "muse-glimmer-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
+        "embedding-gemma2-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
         "mistral-devstral-dense-v1": SupportTier.CONVERTIBLE,
         "mistral3-dense-v1": SupportTier.CONVERTIBLE,
         "deepseek-v4-v1": SupportTier.CONVERTIBLE,
         "gpt-oss-v1": SupportTier.CONVERTIBLE,
+        "hy-v3-v1": SupportTier.CONVERTIBLE,
     }
     families = [entry.product_family for entry in matrix.entries]
     assert families[0] == "qwen3.6"

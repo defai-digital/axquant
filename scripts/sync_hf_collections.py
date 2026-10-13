@@ -23,6 +23,7 @@ CATALOG_TITLE = "MLX"
 # Pinned collection identities. A missing slug is rediscovered or recreated.
 KNOWN_SLUGS: dict[str, str] = {
     "CUDA": "AutomatosX/cuda-6ac1b59d9199d121c6c7e2e3",
+    "Clef": "AutomatosX/clef-6acba4d240d3356db83975cb",
     "Certified AXQ": "AutomatosX/certified-axq-6ab432f02d50e1d27eaeb250",
     "MXFP4": "AutomatosX/mxfp4-6ac15f9e6eda0bc49dee0a32",
     "MXFP8": "AutomatosX/mxfp8-6ac15fa0b73470ecf715faec",
@@ -35,6 +36,7 @@ KNOWN_SLUGS: dict[str, str] = {
     "Qwen3-VL": "AutomatosX/qwen3-vl-6ac1af94ba7bf169f75c1ab5",
     "DeepSeek": "AutomatosX/deepseek-6ac15fa3aeb86a300e188fdf",
     "Embeddings": "AutomatosX/embeddings-6ac1ba767eb43e9e3efff04e",
+    "Hy-MT2": "AutomatosX/hy-mt2-6acbd2e8b0d942380fb02fc2",
     "OCR": "AutomatosX/ocr-6ab432f8bed2124120a3b782",
     "Unlimited-OCR": "AutomatosX/unlimited-ocr-6ac15fa87eb43e9e3ef61c97",
     CATALOG_TITLE: "AutomatosX/mlx-6ab432f9724c4d8a1037df1c",
@@ -60,8 +62,35 @@ NOTE_AXQ_DEV = "AXQ development artifact. Not certified; see the model card."
 NOTE_AXQ_ASR = "AXQ language-decoder PTQ with a protected BF16 audio tower. Not certified."
 NOTE_AXQ_VL = "AXQ language-path PTQ with a protected BF16 vision tower. Not certified."
 NOTE_AXQ_EMBED = "AXQ retrieval pack (feature-extraction only). Not certified."
+NOTE_EGEMMA = (
+    "AXQ EmbeddingGemma 2 retrieval pack. Vision and audio towers stay BF16. Not certified."
+)
+NOTE_EGEMMA_CUDA = (
+    "Native AXQuant CUDA NVFP4 W4A16 EmbeddingGemma 2 pack. Activations stay BF16. Not certified."
+)
 NOTE_DWQ = "Uniform MLX 4-bit with DWQ."
 NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
+NOTE_SWIFT = (
+    "AXQ Swift-1.5 Qwen3.8-27B finetune. Vision and MTP stay BF16. "
+    "Swift Open License v1.0; commercial use above US$1M revenue is not licensed. "
+    "Not certified."
+)
+NOTE_HY = (
+    "AXQ Hy-MT2 pack. Norms and expert_bias stay BF16. "
+    "Translation quality was not measured. Not certified."
+)
+NOTE_CLEF = "AXQ Clef decision pack. Vision and the joint schema head stay BF16. Not certified."
+NOTE_CLEF_OMNI = (
+    "AXQ Clef-Omni decision pack. Vision, the audio encoder, code2wav, and the joint head stay BF16. "
+    "Not certified."
+)
+NOTE_CLEF_CUDA = (
+    "Native AXQuant CUDA NVFP4 W4A16 Clef pack. Joint schema head stays BF16. Not certified."
+)
+NOTE_CLEF_OMNI_CUDA = (
+    "Native AXQuant CUDA NVFP4 W4A16 Clef-Omni pack. Vision, the audio encoder, "
+    "code2wav, and the joint head stay BF16. Not certified."
+)
 NOTE_CUDA_W4A4 = (
     "Native AXQuant CUDA NVFP4 W4A4. Two-GPU development smoke; no MTP or quality certification."
 )
@@ -117,6 +146,7 @@ COLLECTIONS: tuple[Spec, ...] = (
         description="Every AXQ MXFP4 development pack, MTP and no-MTP.",
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
@@ -124,13 +154,19 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP4", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP4", NOTE_CLEF_OMNI),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP4", NOTE_EGEMMA),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP4", NOTE_HY),
         ),
     ),
     Spec(
@@ -141,7 +177,11 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP8", NOTE_CLEF_OMNI),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
@@ -150,8 +190,11 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP8", NOTE_EGEMMA),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP8", NOTE_HY),
         ),
     ),
     Spec(
@@ -163,10 +206,17 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-EmbeddingGemma-2-CUDA-AXQ-NVFP4-W4A16", NOTE_EGEMMA_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Clef-Flash-9B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Clef-27B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_SWIFT),
+            _ax("AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_HY),
+            _ax("AX-Clef-Omni-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_OMNI_CUDA),
+            _ax("AX-Qwen3.5-0.8B-decision-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
@@ -178,12 +228,16 @@ COLLECTIONS: tuple[Spec, ...] = (
         description="AXQ packs with packaged MTP sidecars. -MTP ships assets; speed needs Tier 2.",
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
@@ -202,6 +256,7 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-1B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
+            _ax("AX-EmbeddingGemma-2-CUDA-AXQ-NVFP4-W4A16", NOTE_EGEMMA_CUDA),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-Nemotron-3-Super-120B-A12B-CUDA-AXQ-NVFP4-MTP", NOTE_CUDA),
@@ -210,6 +265,12 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
+            _ax("AX-Clef-Flash-9B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Clef-27B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_SWIFT),
+            _ax("AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_HY),
+            _ax("AX-Clef-Omni-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_OMNI_CUDA),
+            _ax("AX-Qwen3.5-0.8B-decision-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
             _ax("AX-DeepSeek-OCR-2-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
             _ax("AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-FP8-6bit", NOTE_CUDA_MIXED6),
         ),
@@ -218,14 +279,17 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="Qwen",
         description="All public Qwen packs: Qwen3.8, VL, and embeddings.",
         items=(
+            _ax("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-Embedding-4B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-Embedding-8B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
             _ax("AX-Qwen3-VL-4B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3-VL-8B-Instruct-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_W4A4),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
@@ -237,13 +301,15 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA),
         ),
     ),
     Spec(
         title="Embeddings",
         description=(
-            "AXQ Qwen3-Embedding and Nemotron-3-Embed retrieval packs: "
-            "MLX MXFP4/MXFP8 and CUDA NVFP4."
+            "AXQ retrieval packs: Qwen3-Embedding, Nemotron-3-Embed, and EmbeddingGemma 2."
         ),
         items=(
             _ax("AX-Qwen3-Embedding-0.6B-CUDA-AXQ-NVFP4-W4A4", NOTE_CUDA_EMBED),
@@ -261,6 +327,9 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Embed-1B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Nemotron-3-Embed-8B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
+            _ax("AX-EmbeddingGemma-2-CUDA-AXQ-NVFP4-W4A16", NOTE_EGEMMA_CUDA),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP4", NOTE_EGEMMA),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP8", NOTE_EGEMMA),
         ),
     ),
     Spec(
@@ -286,11 +355,13 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="Qwen3.8",
-        description="Qwen3.8 MLX: 27B and Flash-Next MXFP4/MXFP8 with packaged MTP.",
+        description="Qwen3.8 MLX: 27B, Flash-Next, and Swift-1.5 MXFP4/MXFP8 with MTP.",
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
         ),
     ),
@@ -314,6 +385,23 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+        ),
+    ),
+    Spec(
+        title="Clef",
+        description=(
+            "Cloudflare Clef, Clef-Flash, and Clef-Omni: MLX MXFP4/MXFP8 and CUDA NVFP4 W4A16."
+        ),
+        items=(
+            _ax("AX-Clef-Flash-9B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Clef-27B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_CUDA),
+            _ax("AX-Clef-Omni-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_CLEF_OMNI_CUDA),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP4", NOTE_CLEF_OMNI),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP8", NOTE_CLEF_OMNI),
         ),
     ),
     Spec(
@@ -357,14 +445,25 @@ COLLECTIONS: tuple[Spec, ...] = (
         ),
     ),
     Spec(
+        title="Hy-MT2",
+        description="Hy-MT2 MLX MXFP4/MXFP8 and CUDA NVFP4 W4A16. Not certified.",
+        items=(
+            _ax("AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16", NOTE_HY),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP4", NOTE_HY),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP8", NOTE_HY),
+        ),
+    ),
+    Spec(
         title=CATALOG_TITLE,
         description=(
             "MLX packs only. Native NVIDIA checkpoints are listed in the CUDA collection."
         ),
         items=(
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
@@ -378,6 +477,14 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP4", NOTE_AXQ_VL),
             _ax("AX-Qwen3-VL-8B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-Flash-9B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP4", NOTE_CLEF),
+            _ax("AX-Clef-27B-MLX-AXQ-MXFP8", NOTE_CLEF),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP4", NOTE_CLEF_OMNI),
+            _ax("AX-Clef-Omni-30B-A3B-MLX-AXQ-MXFP8", NOTE_CLEF_OMNI),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP4", NOTE_EGEMMA),
+            _ax("AX-EmbeddingGemma-2-MLX-AXQ-MXFP8", NOTE_EGEMMA),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-0.6B-MLX-AXQ-MXFP8", NOTE_AXQ_EMBED),
             _ax("AX-Qwen3-Embedding-4B-MLX-AXQ-MXFP4", NOTE_AXQ_EMBED),
@@ -392,6 +499,10 @@ COLLECTIONS: tuple[Spec, ...] = (
             _ax("AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP4", NOTE_HY),
+            _ax("AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP8", NOTE_HY),
         ),
     ),
 )

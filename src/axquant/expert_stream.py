@@ -205,6 +205,28 @@ def _positive_config_int(config: dict[str, Any], names: tuple[str, ...]) -> int 
     return None
 
 
+def _nested_positive_ints(config: dict[str, Any], names: tuple[str, ...]) -> list[int]:
+    """Distinct positive ints under thinker/talker blocks, text config first."""
+
+    values: list[int] = []
+    for key in ("thinker_config", "talker_config"):
+        block = config.get(key)
+        if not isinstance(block, dict):
+            continue
+        scopes = [block]
+        text = block.get("text_config")
+        if isinstance(text, dict):
+            scopes.insert(0, text)
+        for scope in scopes:
+            for name in names:
+                value = scope.get(name)
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    if value not in values:
+                        values.append(value)
+                    break
+    return values
+
+
 def emit_expert_stream_manifest(
     output_dir: str | Path,
     plan: QuantizationPlan,
@@ -237,16 +259,30 @@ def emit_expert_stream_manifest(
     config_value = read_data(directory / "config.json")
     if not isinstance(config_value, dict):
         raise ArtifactError("converted config.json must contain an object")
-    experts_per_tok = _positive_config_int(
-        config_value,
-        (
-            "num_experts_per_tok",
-            "num_experts_per_token",
-            "experts_per_token",
-            "top_k_experts",
-            "top_k",
-        ),
+    routing_names = (
+        "num_experts_per_tok",
+        "num_experts_per_token",
+        "experts_per_token",
+        "top_k_experts",
+        "top_k",
     )
+    experts_per_tok = _positive_config_int(config_value, routing_names)
+    if experts_per_tok is None:
+        nested_routing = _nested_positive_ints(config_value, routing_names)
+        if len(nested_routing) == 1:
+            experts_per_tok = nested_routing[0]
+        elif len(nested_routing) > 1 and (
+            setting == "auto" and adapter_id not in STREAM_CAPABLE_ADAPTERS
+        ):
+            # Clef-Omni routes the thinker and talker with different top-k.
+            # One stream manifest cannot describe both, and this adapter is
+            # not a paging target.
+            return None
+        elif len(nested_routing) > 1:
+            raise ArtifactError(
+                "converted config declares more than one experts-per-token value: "
+                + ", ".join(str(value) for value in nested_routing)
+            )
     if experts_per_tok is None:
         raise ArtifactError("converted config does not declare experts per token")
     manifest = build_expert_stream_manifest(
@@ -255,10 +291,12 @@ def emit_expert_stream_manifest(
         requirement=setting,
         default_group_size=plan.group_size,
     )
-    configured_experts = _positive_config_int(
-        config_value,
-        ("num_experts", "num_local_experts", "n_routed_experts"),
-    )
+    expert_count_names = ("num_experts", "num_local_experts", "n_routed_experts")
+    configured_experts = _positive_config_int(config_value, expert_count_names)
+    if configured_experts is None:
+        nested_counts = _nested_positive_ints(config_value, expert_count_names)
+        if len(set(nested_counts)) == 1:
+            configured_experts = nested_counts[0]
     if configured_experts is not None and configured_experts != manifest.num_experts:
         raise ArtifactError(
             "converted config expert count does not match packed expert tensors: "

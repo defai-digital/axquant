@@ -111,6 +111,9 @@ def _mlx_api() -> tuple[Any, Any]:
         raise BackendUnavailableError(
             "the MLX backend is not installed; install axquant[mlx]"
         ) from exc
+    from axquant.mlx_models.hy_v3 import register_hy_v3_model
+
+    register_hy_v3_model()
     _maybe_force_mlx_cpu()
     return mlx_lm.convert, mlx_lm.load
 
@@ -323,7 +326,7 @@ _RUNTIME_SUPPORT_GLOBS = ("*.model",)
 # Sentence-transformers pooling directories (embedding packs only). Copied
 # whole, copy-if-absent like the files above, so retrieval runtimes can
 # resolve the pooling module without the BF16 source.
-_RUNTIME_SUPPORT_DIRS = ("1_Pooling",)
+_RUNTIME_SUPPORT_DIRS = ("1_Pooling", "2_Normalize")
 
 
 def _complete_runtime_support_files(source_dir: Path, staging_dir: Path) -> list[str]:
@@ -1654,6 +1657,14 @@ def _expected_converted_shapes(
         if vl_moe is not None:
             return vl_moe
 
+    # Gemma audio quantization bounds are rank-0 BF16 scalars. They stay dense.
+    if not source_shape:
+        if bits < 16:
+            raise ArtifactError(
+                f"source tensor {tensor_name} cannot be packed exactly at {bits} bits"
+            )
+        return ((),)
+
     component_count = len(mlx_tensor_binding_groups(tensor_name))
     if bits < 16:
         if not source_shape or source_shape[-1] * bits % 32:
@@ -1757,6 +1768,7 @@ _QWEN_VL_PATCH_EMBED_TYPES = frozenset(
         "qwen3_5",
         "qwen3_5_moe",
         "qwen3_next",
+        "qwen3_omni_moe",
         "qwen4_exp",
     }
 )
@@ -1793,6 +1805,35 @@ def _protected_shape_matches(
             transform="mlx-lm-deepseek-v4-wo_a-multilinear-reshape",
         )
         return True
+    # mlx-vlm embedding_gemma2.Model.sanitize: PyTorch audio conv layouts.
+    if model_type == "embedding_gemma2":
+        if (
+            "subsample_conv_projection" in tensor_name
+            and tensor_name.endswith("conv.weight")
+            and len(source_shape) == 4
+            and actual_shape == _permute_shape(source_shape, (0, 2, 3, 1))
+        ):
+            _LOG.info(
+                "converted_shape_transform_verified",
+                tensor=tensor_name,
+                source_shape=source_shape,
+                actual_shape=actual_shape,
+                transform="mlx-vlm-embedding-gemma2-audio-conv2d",
+            )
+            return True
+        if (
+            tensor_name.endswith("depthwise_conv1d.weight")
+            and len(source_shape) == 3
+            and actual_shape == _permute_shape(source_shape, (0, 2, 1))
+        ):
+            _LOG.info(
+                "converted_shape_transform_verified",
+                tensor=tensor_name,
+                source_shape=source_shape,
+                actual_shape=actual_shape,
+                transform="mlx-vlm-embedding-gemma2-depthwise-conv1d",
+            )
+            return True
     qwen_hybrid_conv1d = model_type in _QWEN_HYBRID_CONV1D_TYPES and tensor_name.endswith(
         ".conv1d.weight"
     )
@@ -1827,6 +1868,55 @@ def _protected_shape_matches(
             transform="mlx-vlm-qwen3-vl-conv3d-out-dhw-in",
         )
         return True
+    # mlx-vlm qwen3_omni_moe audio and code2wav sanitizers permute conv weights.
+    if model_type == "qwen3_omni_moe":
+        if (
+            "audio_tower" in tensor_name
+            and "conv2d" in tensor_name
+            and tensor_name.endswith(".weight")
+            and len(source_shape) == 4
+            and actual_shape == _permute_shape(source_shape, (0, 2, 3, 1))
+        ):
+            _LOG.info(
+                "converted_shape_transform_verified",
+                tensor=tensor_name,
+                source_shape=source_shape,
+                actual_shape=actual_shape,
+                transform="mlx-vlm-qwen3-omni-audio-conv2d",
+            )
+            return True
+        if tensor_name.startswith("code2wav.") and tensor_name.endswith("conv.weight"):
+            local = tensor_name.removeprefix("code2wav.")
+            upsample_conv = (
+                "upsample" in local and "conv.weight" in local and "dwconv" not in local
+            ) or (
+                "decoder" in local
+                and "block" in local
+                and "conv.weight" in local
+                and "conv1" not in local
+                and "conv2" not in local
+            )
+            depthwise_conv = ("dwconv.conv.weight" in local) or (
+                "decoder" in local and "conv.weight" in local and "block" not in local
+            ) or (
+                "decoder" in local
+                and "block" in local
+                and ("conv1.conv.weight" in local or "conv2.conv.weight" in local)
+            )
+            axes = (1, 2, 0) if upsample_conv else (0, 2, 1) if depthwise_conv else None
+            if (
+                axes is not None
+                and len(source_shape) == len(axes)
+                and actual_shape == _permute_shape(source_shape, axes)
+            ):
+                _LOG.info(
+                    "converted_shape_transform_verified",
+                    tensor=tensor_name,
+                    source_shape=source_shape,
+                    actual_shape=actual_shape,
+                    transform="mlx-vlm-qwen3-omni-code2wav-conv",
+                )
+                return True
     return False
 
 

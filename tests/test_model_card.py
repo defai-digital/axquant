@@ -18,6 +18,7 @@ from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.model_card import (
     prepare_development_model_card,
+    public_license_sections,
     render_development_model_card,
     resolve_public_certification_claim,
 )
@@ -390,6 +391,52 @@ def test_development_model_card_accepts_mxfp8_product_class(
     assert "| Hub budget class | `MXFP8` |" in readme
 
 
+def test_hy_mt2_and_swift_cards_link_mx_and_cuda_siblings(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    (directory / "model-manifest.json").unlink()
+    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    execution = load_model(
+        directory / "axquant_quantizer_execution.json",
+        QuantizerExecutionManifest,
+    )
+    cases = (
+        (
+            "AutomatosX/AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP4",
+            "MXFP4",
+            "AX-Hy-MT2-30B-A3B-MLX-AXQ-MXFP8",
+            "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
+        ),
+        (
+            "AutomatosX/AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP",
+            "MXFP8",
+            "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+            "AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP",
+        ),
+    )
+    for repo_id, product_class, sibling, cuda in cases:
+        card = render_development_model_card(
+            directory=directory,
+            repo_id=repo_id,
+            product_class=product_class,
+            manifest=manifest,
+            plan=plan,
+            execution=execution,
+            mtp_sidecar=None,
+            vision_sidecar=None,
+        )
+        assert sibling in card
+        assert cuda in card
+        assert "-MLX-AXQ-4bit" not in card
+        assert "-MLX-AXQ-6bit" not in card
+        assert "misleading `4bit` sibling" not in card
+        assert "Not established" not in card
+        assert "writes `model-manifest.json` from this checkpoint" in card
+
+
 def test_development_model_card_marks_v2_at_stable_repository_name(
     qwen36_model_dir: Path,
     tmp_path: Path,
@@ -574,6 +621,45 @@ def test_multimodal_model_cards_use_executable_runtime_commands(
     assert "pipeline_tag: image-text-to-text" in vlm_card
     assert "--temperature 0.0" in vlm_card
     assert "--temp 0.0" not in vlm_card
+
+    save_file(
+        {"joint.weight": np.zeros((1,), dtype=np.float32)},
+        directory / "joint_head.safetensors",
+    )
+    decision_plan = plan.model_copy(
+        update={
+            "source_model": plan.source_model.model_copy(
+                update={"model_id": "mlx-community/Qwen3.5-0.8B-decision"}
+            ),
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={
+                    "adapter_id": "qwen35-dense-v1",
+                    "product_family": "qwen3.5",
+                    "config_model_type": "qwen3_5",
+                    "vision_present": True,
+                }
+            ),
+        }
+    )
+    decision_card = render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4",
+        product_class="MXFP4",
+        manifest=manifest.model_copy(
+            update={"source_model": decision_plan.source_model}
+        ),
+        plan=decision_plan,
+        execution=execution,
+        mtp_sidecar=None,
+        vision_sidecar=None,
+    )
+    assert "## Decision model" in decision_card
+    assert "rank-16 LoRA" in decision_card
+    assert "mlx_lm.generate` loads the" in decision_card
+    assert "mlx_lm.generate \\\n" not in decision_card
+    assert "0.772" not in decision_card
+    assert "AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP8" in decision_card
+    assert "decision-model" in decision_card
 
 
 def test_prepare_accepts_gemma_assistant_mtp_without_native_sidecar(
@@ -874,3 +960,25 @@ def test_prepare_stays_development_without_public_certificate(
         )
         is None
     )
+
+
+def test_swift_open_license_is_not_labeled_apache(tmp_path: Path) -> None:
+    (tmp_path / "LICENSE").write_text("Swift Open License v1.0\n", encoding="utf-8")
+    front, section = public_license_sections(
+        tmp_path,
+        "",
+        "ukisai/Swift-1.5-Qwen3.8-27b",
+        "https://huggingface.co/ukisai/Swift-1.5-Qwen3.8-27b",
+    )
+    assert front.startswith("license: other\n")
+    assert "license_name: swift-open-license-1.0" in front
+    assert "US$1,000,000" in section
+    assert "LICENSE-APACHE-2.0" in section
+    plain_front, plain_section = public_license_sections(
+        tmp_path / "missing",
+        "[`LICENSE`](LICENSE) and ",
+        "Qwen/Qwen3.8-27B",
+        "https://huggingface.co/Qwen/Qwen3.8-27B",
+    )
+    assert plain_front == "license: apache-2.0"
+    assert "often Apache License 2.0" in plain_section

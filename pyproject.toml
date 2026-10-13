@@ -112,6 +112,14 @@ module = [
 ]
 ignore_missing_imports = true
 
+# Model shims that subclass MLX types cannot typecheck without the backend
+# (the base becomes Any), and mlx.nn re-exports stay invisible to mypy even
+# with MLX installed. These files mirror mlx_lm model modules and are covered
+# by Metal-gated integration tests instead.
+[[tool.mypy.overrides]]
+module = ["axquant.mlx_models.*"]
+ignore_errors = true
+
 [tool.coverage.run]
 source = ["axquant"]
 branch = true

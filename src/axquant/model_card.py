@@ -72,6 +72,21 @@ _REFRESHABLE_FILES = frozenset(
 # collapse the 4.8 and 6.0 BPW budgets to the same (or near-identical) artifact, so only
 # the higher budget class remains in the public catalog. Values are short, base-specific
 # reasons rendered into the development model card.
+# MXFP4/MXFP8 families that publish that pair plus one CUDA NVFP4 pack.
+# The card must link those repos. The affine 4bit/6bit ladder does not exist.
+_MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
+    "AX-Hy-MT2-30B-A3B-MLX-AXQ": (
+        "Norms and expert_bias stay BF16. This checkpoint has no MTP tensors."
+    ),
+    "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": "Vision, MTP, and norms stay BF16.",
+}
+_MX_BLOCK_CUDA_REPOS: dict[str, str] = {
+    "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
+    "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": (
+        "AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP"
+    ),
+}
+
 _NO_DISTINCT_4BIT_SIBLING_REASONS: dict[str, str] = {
     "AX-Qwen3.5-9B-MLX-AXQ": (
         "MTP and vision stay BF16 under protection floors, so both the ~4.8 and ~6.0 BPW "
@@ -350,6 +365,44 @@ def _verified_certification(
     return certification
 
 
+def public_license_sections(
+    directory: Path,
+    license_link: str,
+    source_model_id: str,
+    source_url: str,
+) -> tuple[str, str]:
+    """Hub front matter and license section for a development card.
+
+    The default card stays Apache-2.0. A pack that ships the Swift Open License
+    must not be labeled Apache-2.0: that license allows a quantized derivative
+    and keeps a revenue threshold on commercial use of the Swift contribution.
+    """
+
+    license_text = ""
+    license_path = directory / "LICENSE"
+    if license_path.is_file():
+        license_text = license_path.read_text(encoding="utf-8", errors="replace")
+    if "Swift Open License v1.0" in license_text:
+        front = "license: other\nlicense_name: swift-open-license-1.0\nlicense_link: LICENSE"
+        section = f"""## License
+
+The Swift contribution in this checkpoint is licensed under the Swift Open License v1.0
+([`LICENSE`](LICENSE)). Quantized weights are an Object-form derivative of
+[{source_model_id}]({source_url}). Commercial use by a legal entity with gross revenue of
+US$1,000,000 or more in its most recent fiscal year is not licensed under that text. The
+Qwen3.8-27B base remains Apache License 2.0 ([`LICENSE-APACHE-2.0`](LICENSE-APACHE-2.0)).
+The names UkisAI and Swift identify the upstream work.
+"""
+        return front, section
+    section = f"""## License
+
+The checkpoint follows the upstream model license where applicable (often Apache License 2.0). See
+{license_link}the [{source_model_id} model card]({source_url}) for license terms, model
+limitations, and responsible-use guidance.
+"""
+    return "license: apache-2.0", section
+
+
 def _render_development_model_card(
     *,
     directory: Path,
@@ -421,6 +474,12 @@ def _render_development_model_card(
     higher_precision_repo = f"{owner}/{stem}-{higher_precision_class}{repo_edition}{suffix}"
     density = "dense" if plan.architecture_profile.dense else "mixture of experts (MoE)"
     product_family = plan.architecture_profile.product_family or "unknown"
+    is_omni = product_family == "qwen3-omni"
+    is_qwen35_decision = (
+        product_family == "qwen3.5"
+        and "decision" in source.model_id.lower()
+        and (directory / "joint_head.safetensors").is_file()
+    )
     source_arch = source.architecture or plan.architecture_profile.config_model_type or "unrecorded"
     gemma_assistant_mtp = (directory / "ax_gemma4_assistant_mtp.json").is_file() and (
         directory / "assistant" / "config.json"
@@ -475,7 +534,39 @@ def _render_development_model_card(
     )
     main_parameters = _format_parameters(manifest.main_logical_parameters)
     no_4bit_reason = _NO_DISTINCT_4BIT_SIBLING_REASONS.get(stem)
-    if no_4bit_reason is not None:
+    mx_block_family = product_class in {"MXFP4", "MXFP8"} and stem in _MX_BLOCK_CUDA_REPOS
+    if (is_embedding_pack or is_omni or is_qwen35_decision) and product_class in {"MXFP4", "MXFP8"}:
+        other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
+        other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
+        if is_omni:
+            sibling_note = (
+                "Vision, the audio encoder, code2wav, norms, and the LM head stay BF16."
+            )
+        elif is_qwen35_decision:
+            sibling_note = "Vision, MTP, and norms stay BF16. The LoRA was merged first."
+        else:
+            sibling_note = "Vision and audio stay BF16."
+        sibling_rows = (
+            f"| [{other_class} sibling](https://huggingface.co/{other_repo}) | "
+            f"Same AXQ role policy at the other MLX block format. {sibling_note} |"
+        )
+        why_no_4bit_section = ""
+    elif mx_block_family:
+        other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
+        other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
+        cuda_repo = f"{owner}/{_MX_BLOCK_CUDA_REPOS[stem]}"
+        sibling_rows = "\n".join(
+            (
+                f"| [{other_class} sibling](https://huggingface.co/{other_repo}) | "
+                "Same AXQ role policy at the other MLX block format. "
+                f"{_MX_BLOCK_FAMILY_NOTES[stem]} |",
+                f"| [CUDA NVFP4 W4A16](https://huggingface.co/{cuda_repo}) | "
+                "Native NVIDIA checkpoint quantized from the same BF16 source. "
+                "Activations stay BF16. |",
+            )
+        )
+        why_no_4bit_section = ""
+    elif no_4bit_reason is not None:
         sibling_rows = (
             f"| *(no distinct 4bit pack)* | {no_4bit_reason} The public catalog publishes only "
             f"[`{stem}-{higher_precision_class}{repo_edition}{suffix}`]"
@@ -498,6 +589,33 @@ def _render_development_model_card(
             )
         )
         why_no_4bit_section = ""
+    if mx_block_family:
+        choosing_section = """## Choosing an AXQ pack
+
+This family publishes MXFP4, MXFP8, and one CUDA NVFP4 W4A16 pack. The two MLX packs use
+the same role policy at different block formats. Protected tensors stay at higher precision,
+so measured BPW is the figure to compare. The CUDA pack is quantized from the same BF16
+source and is not a requantization of the MLX weights. Activations stay BF16.
+
+"""
+    else:
+        why_link = (
+            "\nFor this base, see "
+            "[Why there is no AXQ-4bit pack](#why-there-is-no-axq-4bit-pack).\n"
+            if no_4bit_reason is not None
+            else ""
+        )
+        choosing_section = f"""## Choosing an AXQ pack
+
+AXQ names describe a **storage-budget product class**, not one uniform precision applied to
+every tensor. Protected tensors remain at higher precision, so the exact measured BPW is
+authoritative. In particular, a `6bit`-named mixed plan may retain `4bit` as its base
+precision while selecting 6-bit, 8-bit, or BF16 for other tensors to meet an approximately
+6-BPW total budget. Protection floors can also raise a `4bit`-named pack close to (or above)
+a `6bit` budget on small or heavily protected models. When that collapse happens, AutomatosX
+does **not** publish a separate misleading `4bit` sibling for that base.
+{why_link}
+"""
     catalog_url = "https://huggingface.co/AutomatosX/collections"
     complete_catalog_url = (
         "https://huggingface.co/collections/AutomatosX/automatosx-mlx-model-catalog"
@@ -517,17 +635,23 @@ def _render_development_model_card(
         else "text-generation"
     )
     library_name = "mlx-audio" if is_asr else "mlx"
-    optional_tags = [family_tag, product_class, precision_tag]
+    optional_tags = [family_tag, product_class]
+    if precision_tag != product_class:
+        optional_tags.append(precision_tag)
     if resolved_edition is not None:
         optional_tags.append(f"v{resolved_edition}")
     if is_embedding_pack:
         optional_tags.extend(("embedding", "sentence-similarity"))
+    if is_qwen35_decision:
+        optional_tags.append("decision-model")
     if has_mtp:
         optional_tags.append("mtp")
     if has_vision:
         optional_tags.append("vision")
-    if has_audio:
+    if has_audio and not is_embedding_pack and not is_omni:
         optional_tags.extend(("audio", "speech-to-text", "mlx-audio"))
+    elif has_audio:
+        optional_tags.append("audio")
     tag_block = "\n".join(
         f"- {tag}"
         for tag in (
@@ -615,6 +739,23 @@ runtime path above. The artifact records AX Engine version
             "- AX Engine execution is not established because this package has no validated "
             "native manifest.\n"
         )
+    if mx_block_family and not has_native_manifest:
+        ax_engine_runtime_status = (
+            "AX Engine writes model-manifest.json before serving; "
+            "this repo does not ship it, and no speed claim is made"
+        )
+        ax_engine_section = f"""## AX Engine status
+
+AX Engine writes `model-manifest.json` from this checkpoint before serving. This repository
+does not ship that file. No runtime speed is claimed. The AX Engine fields in
+`axquant_runtime.json` are the compatibility contract, not a measured run. The artifact
+records AX Engine version `{ax_engine_version}`.
+"""
+        ax_engine_limitation = (
+            "- This repository does not ship `model-manifest.json`. "
+            "No AX Engine speed claim is made.\n"
+        )
+        model_manifest_status = "not shipped; AX Engine writes it before serving"
     if qwen_mtp_interop:
         mtp_interop_section = f"""## Use the packaged Qwen MTP head with oMLX or MTPLX
 
@@ -747,12 +888,18 @@ publish a new immutable revision before claiming oMLX compatibility.
             "- [`axquant_mtp_sidecar_manifest.json`]"
             "(axquant_mtp_sidecar_manifest.json): MTP tensor provenance."
         )
-    audio_limitation = (
-        "- Audio weights are preserved at BF16, but this release does not claim measured "
-        "transcription quality versus the BF16 source.\n"
-        if has_audio
-        else ""
-    )
+    if has_audio and is_embedding_pack:
+        audio_limitation = (
+            "- Audio weights are preserved at BF16. This release does not claim retrieval quality "
+            "for text, image, or audio inputs.\n"
+        )
+    elif has_audio:
+        audio_limitation = (
+            "- Audio weights are preserved at BF16, but this release does not claim measured "
+            "transcription quality versus the BF16 source.\n"
+        )
+    else:
+        audio_limitation = ""
     if vision_sidecar is not None:
         provenance_sidecars.append(
             "- [`axquant_vision_sidecar_manifest.json`](axquant_vision_sidecar_manifest.json): "
@@ -789,6 +936,25 @@ python -m mlx_audio.stt.generate \\
 The protected audio tower and AXQ language decoder are loaded together by MLX-Audio. The artifact
 records MLX `{mlx_version}`; conversion used the Qwen3-ASR implementation supplied by MLX-Audio.
 """
+    elif is_embedding_pack:
+        runtime_label = "embedding runtime"
+        embedding_family_note = ""
+        if product_family == "embedding-gemma-2":
+            embedding_family_note = (
+                "\nText, image, video, and audio share one 768-d embedding. Supported "
+                "Matryoshka widths are 768, 512, 256, and 128; re-normalize after truncation. "
+                "Use the task prefixes in `config_sentence_transformers.json`. Do not cast "
+                "this model to float16. Load with an mlx-vlm build that provides "
+                "`embedding_gemma2` (`mlx_vlm.embedding_loader.load_embedding_model`). "
+                "This development pack is not an MTEB result.\n"
+            )
+        runtime_section = f"""## Run as an embedding model
+
+This checkpoint returns embeddings. `mlx_lm.generate` and text-generation scores do not apply.
+Load it with the embedding runtime that matches the source family. Keep activations in BF16
+or FP32. Rebuild retrieval indexes with this checkpoint; vectors from another precision are
+not interchangeable. The artifact records MLX `{mlx_version}`.
+{embedding_family_note}"""
     elif is_vlm:
         runtime_label = "MLX-VLM"
         runtime_section = f"""## Run with MLX-VLM
@@ -805,6 +971,40 @@ python -m mlx_vlm.generate \\
 
 The protected vision tower and AXQ language decoder are loaded together by MLX-VLM. The artifact
 records MLX `{mlx_version}`; runtime QA is reported separately from model-quality claims.
+"""
+    elif is_omni:
+        runtime_label = "MLX-VLM"
+        runtime_section = f"""## Decision model
+
+Clef-Omni scores a schema of typed options. It is not a chat model. `mlx_lm.generate` and
+`mlx_vlm.generate` load the backbone and produce text that is not the model's output. A request
+is a state plus questions (`noul`, `choice`, `score`). One prefill returns a probability for
+every allowed option.
+
+`joint_head.safetensors` is the original BF16 joint schema head, copied unchanged, with
+`joint_head_config.json` and `joint_schema_model.py`. Upstream `load_release_model` is a PyTorch
+loader for the BF16 thinker. It does not load this MLX checkpoint, and it does not load the
+talker or code2wav weights.
+
+The thinker and talker attention, MLP, and expert trunks use this pack's AXQ format. Vision, the
+audio encoder, code2wav, norms, and both LM heads stay BF16. Token embeddings are 8-bit affine.
+Routers are 8-bit affine. Speech output was not measured. This development pack does not claim
+Decision Index parity, audio or video quality, text-generation quality, or MTP. The artifact
+records MLX `{mlx_version}`.
+"""
+    elif is_qwen35_decision:
+        runtime_label = "MLX-LM"
+        runtime_section = f"""## Decision model
+
+This checkpoint scores a joint schema head. It is not a chat model. `mlx_lm.generate` loads the
+backbone and produces text that is not the model's output. The published rank-16 LoRA (scale 1.0)
+was merged into the BF16 language weights before quantization. The adapter file is not in this pack.
+
+`joint_head.safetensors` is the original BF16 joint schema head, copied unchanged, with
+`joint_head_config.json` and `decision_config.json`. Language attention and MLP use this pack's
+AXQ format. Token embeddings are 8-bit affine. Vision, MTP, and norms stay BF16. MTP acceleration
+was not measured. This development pack does not repeat the upstream OptiQ decision scores. The
+artifact records MLX `{mlx_version}` and MLX-LM `{mlx_lm_version}` from conversion.
 """
     else:
         runtime_label = "MLX-LM"
@@ -832,11 +1032,22 @@ does not establish MTP acceleration or vision-language quality. The artifact rec
             else "protected BF16 in main shards"
         )
         modality_layout_rows += f"- Vision weights: {vision_layout}.\n"
-    if has_audio:
+    if has_audio and is_omni:
+        modality_layout_rows += (
+            "- Audio encoder and code2wav: protected BF16. Talker attention, MLP, and experts "
+            "use the trunk quant. Speech output was not measured.\n"
+        )
+    elif has_audio:
         modality_layout_rows += "- Audio weights: protected BF16 in main shards.\n"
+    license_front, license_section = public_license_sections(
+        directory,
+        license_link,
+        source.model_id,
+        source_url,
+    )
 
     return f"""---
-license: apache-2.0
+{license_front}
 library_name: {library_name}
 base_model: {source.model_id}
 base_model_relation: quantized
@@ -879,21 +1090,7 @@ the BF16 source model. {sidecar_blurb}
 
 This repository contains MLX Safetensors. It does **not** contain PyTorch or GGUF weights.
 
-{why_no_4bit_section}## Choosing an AXQ pack
-
-AXQ names describe a **storage-budget product class**, not one uniform precision applied to every
-tensor. Protected tensors remain at higher precision, so the exact measured BPW is authoritative.
-In particular, a `6bit`-named mixed plan may retain `4bit` as its base precision while selecting
-6-bit, 8-bit, or BF16 for other tensors to meet an approximately 6-BPW total budget. Protection
-floors can also raise a `4bit`-named pack close to (or above) a `6bit` budget on small or heavily
-protected models. When that collapse happens, AutomatosX does **not** publish a separate
-misleading `4bit` sibling for that base.
-{
-        "For this base, see [Why there is no AXQ-4bit pack](#why-there-is-no-axq-4bit-pack)."
-        if no_4bit_reason is not None
-        else ""
-    }
-
+{why_no_4bit_section}{choosing_section}
 | Sibling | Intended trade-off |
 | --- | --- |
 {sibling_rows}
@@ -942,7 +1139,7 @@ establish MTP acceleration or vision-language quality.
 | MTP acceptance and speed | {mtp_evidence} |
 | AX Engine kernel evidence | `{manifest.runtime.ax_engine.kernel_evidence}` |
 | Vision-language quality | {vision_quality} |
-| Speech-recognition quality | {speech_quality} |
+| {"Audio tower" if is_embedding_pack and has_audio else "Speech-recognition quality"} | {speech_quality} |
 | Long-context quality | {long_context_status} |
 {release_certification_row}
 {modalities_section}
@@ -971,12 +1168,7 @@ publication. The checkpoint was converted from BF16 rather than re-quantized fro
 artifact. If an OptiQ repository is published separately, it uses a different quantizer and
 should not be assumed to have identical BPW or quality.
 
-## License
-
-The checkpoint follows the upstream model license where applicable (often Apache License 2.0). See
-{license_link}the [{source.model_id} model card]({source_url}) for license terms, model
-limitations, and responsible-use guidance.
-"""
+{license_section}"""
 
 
 def _sidecar_derived_mtp_filenames(

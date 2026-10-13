@@ -261,6 +261,26 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not claim native gemma4_unified MLX support without prep.",),
     ),
     FamilySupportPolicy(
+        product_family="embedding-gemma-2",
+        adapter_id="embedding-gemma2-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=21,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "EmbeddingGemma 2 (model_type=embedding_gemma2): bidirectional multimodal "
+            "embedding model. Language trunk converts; vision and audio towers stay BF16."
+        ),
+        do=(
+            "Label packs as feature-extraction. Keep activations in BF16 or FP32.",
+            "Quantize from the pinned BF16 snapshot. Do not requantize another quant.",
+        ),
+        do_not=(
+            "Do not claim generative quality, MTP, or MTEB scores from an unmeasured convert.",
+            "Do not match generative Gemma 4 checkpoints under this adapter.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="minicpm5",
         adapter_id="minicpm5-dense-v1",
         investment_posture=InvestmentPosture.SECONDARY,
@@ -290,6 +310,28 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Do not re-pack community 3bit/FP8 as AXQ.",
             "Do not promote Thinking or other VL MoE sizes by association.",
             "Do not claim MTP / Tier-2 acceleration for this VL path.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="qwen3-omni",
+        adapter_id="qwen3-omni-moe-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=32,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Thin convert: Qwen3-Omni MoE (Clef-Omni) via MLX-VLM. Thinker and talker "
+            "trunks quantize; vision, audio encoder, and code2wav stay BF16."
+        ),
+        do=(
+            "Convert from the pinned BF16 snapshot. Park joint_head.safetensors during inspect.",
+            "Keep routers at 8-bit and embeddings at the 8-bit floor.",
+            "Label Clef-Omni packs as decision models. Copy the joint head unchanged.",
+        ),
+        do_not=(
+            "Do not claim text generation, MTP, speech output, or Decision Index scores.",
+            "Do not requantize an MLX pack into NVFP4. Quantize CUDA from BF16.",
+            "Do not classify the talker trunk as protected audio; its experts must fuse.",
         ),
     ),
     FamilySupportPolicy(
@@ -426,6 +468,23 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Do not claim certified quality or MTP acceleration without a "
             "revision-bound certificate.",
             "Do not treat MXFP4 residency as an AXQ bit-width product claim.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="hy-v3",
+        adapter_id="hy-v3-v1",
+        investment_posture=InvestmentPosture.SECONDARY,
+        priority=40,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary="Tencent Hy-MT2-30B-A3B (hy_v3): development convert only; no certification.",
+        do=(
+            "Limit conversion to the validated 48-layer, 128-expert, top-8, hidden-2048 signature.",
+            "Keep expert_bias with the router and shared_mlp projections as dense MLP.",
+        ),
+        do_not=(
+            "Do not claim translation quality or certification from development conversion.",
+            "Do not claim MTP support; this checkpoint has no MTP tensors.",
         ),
     ),
 )

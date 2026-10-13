@@ -61,6 +61,84 @@ def _is_hc_learnable_scale_path(path: str) -> bool:
     )
 
 
+_OMNI_PREFIX_PAIRS = (
+    ("thinker.language_model.model", "thinker.model"),
+    ("thinker.language_model.lm_head", "thinker.lm_head"),
+    ("thinker.vision_tower", "thinker.visual"),
+)
+# mlx-vlm qwen3_omni_moe thinker.sanitize renames merger ``ln_q`` to ``norm``.
+# Match the component only, so ``norm1`` / ``norm2`` stay untouched.
+_OMNI_MERGER_NORM = re.compile(r"(^|\.)norm(?=$|\.)")
+
+
+def _swap_prefix(path: str, old: str, new: str) -> str | None:
+    if path == old or path.startswith(old + "."):
+        return new + path[len(old) :]
+    return None
+
+
+def _omni_merger_forward(path: str) -> str | None:
+    """Apply thinker.sanitize merger renames. Already-renamed keys are unchanged."""
+
+    if "merger" not in path:
+        return None
+    if not (path.startswith("thinker.visual") or path.startswith("thinker.vision_tower")):
+        return None
+    updated = (
+        path.replace("ln_q", "norm").replace("mlp.0", "linear_fc1").replace("mlp.2", "linear_fc2")
+    )
+    if "merger_list" in updated and "deepstack_merger_list" not in updated:
+        updated = updated.replace("merger_list", "deepstack_merger_list")
+    return None if updated == path else updated
+
+
+def _omni_merger_reverse(path: str) -> str | None:
+    if "merger" not in path:
+        return None
+    if not (path.startswith("thinker.visual") or path.startswith("thinker.vision_tower")):
+        return None
+    updated = path
+    if "deepstack_merger_list" in updated:
+        updated = updated.replace("deepstack_merger_list", "merger_list")
+    updated = updated.replace("linear_fc1", "mlp.0").replace("linear_fc2", "mlp.2")
+    updated = _OMNI_MERGER_NORM.sub(lambda match: f"{match.group(1)}ln_q", updated)
+    return None if updated == path else updated
+
+
+def _qwen3_omni_aliases(path: str) -> set[str]:
+    """Checkpoint ↔ mlx-vlm qwen3_omni_moe sanitize names.
+
+    Thinker language weights move from ``thinker.model`` to
+    ``thinker.language_model.model``. Vision weights move from
+    ``thinker.visual`` to ``thinker.vision_tower``, and merger layers are
+    renamed. Expert fusion is applied by the caller before this rewrite, so
+    the two maps compose.
+    """
+
+    aliases = {path}
+    changed = True
+    while changed:
+        changed = False
+        for candidate in list(aliases):
+            extras: list[str] = []
+            for left, right in _OMNI_PREFIX_PAIRS:
+                for old, new in ((left, right), (right, left)):
+                    swapped = _swap_prefix(candidate, old, new)
+                    if swapped is not None:
+                        extras.append(swapped)
+            forward = _omni_merger_forward(candidate)
+            if forward is not None:
+                extras.append(forward)
+            backward = _omni_merger_reverse(candidate)
+            if backward is not None:
+                extras.append(backward)
+            for extra in extras:
+                if extra not in aliases:
+                    aliases.add(extra)
+                    changed = True
+    return aliases
+
+
 def _is_mtp_path(path: str) -> bool:
     """Recognize preserved MTP heads through MLX language/model wrappers."""
     while path.startswith(("model.", "language_model.")):
@@ -307,6 +385,7 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
     mlx_prefix = "language_model.model."
     for candidate in base:
         aliases.add(candidate)
+        aliases.update(_qwen3_omni_aliases(candidate))
         if candidate.startswith(checkpoint_prefix):
             aliases.add(f"{mlx_prefix}{candidate.removeprefix(checkpoint_prefix)}")
         if candidate.startswith(mlx_prefix):
@@ -394,6 +473,7 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
         expanded = set(aliases)
         for candidate in list(aliases):
             expanded.update(_ngram_embedding_aliases(candidate))
+            expanded.update(_qwen3_omni_aliases(candidate))
             if candidate.startswith(checkpoint_prefix):
                 expanded.add(f"{mlx_prefix}{candidate.removeprefix(checkpoint_prefix)}")
             if candidate.startswith(mlx_prefix):

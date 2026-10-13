@@ -119,6 +119,7 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
     Qwen3-VL use their architecture runtimes on df-macbookpro-m5; the text families also
     remain in the macstudio-m2u coverage set. Qwen 3.8 is synthetic-contract coverage only
     until the native runtime loads a real streamed pack.
+    Hy-MT2 has metadata-only adapter coverage; no real conversion smoke is claimed.
     """
     matrix = support_matrix()
     convertible = {
@@ -139,16 +140,19 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
         "qwen3-asr-v1",
         "qwen3-vl-v1",
         "qwen3-vl-moe-v1",
+        "qwen3-omni-moe-v1",
         "deepseek-ocr2-v1",
         "unlimited-ocr-v1",
         "muse-glimmer-v1",
         "minicpm5-dense-v1",
         "gemma4-dense-v1",
+        "embedding-gemma2-v1",
         "mistral-devstral-dense-v1",
         "mistral3-dense-v1",
         "nemotron3-v1",
         "deepseek-v4-v1",
         "gpt-oss-v1",
+        "hy-v3-v1",
     }
     assert convertible == expected
 

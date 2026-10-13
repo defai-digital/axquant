@@ -187,6 +187,9 @@ class DenseFamilySpec:
     layer_count_keys: tuple[str, ...] = ("num_hidden_layers",)
     text_config_key: str | None = None
     audio_config_key: str | None = None
+    # When set, vision_present follows this nested dict instead of a top-level
+    # ``vision_config``. Qwen3-Omni nests it under ``thinker_config``.
+    vision_config_key: str | None = None
     exclude_reference_pattern: str | None = None
     extra_role_patterns: tuple[tuple[str, TensorRole], ...] = ()
     notes: tuple[str, ...] = ()
@@ -282,7 +285,11 @@ class DenseFamilyAdapter:
             dense=dense,
             text_layer_count=layer_count,
             mtp_declared=any(bool(scope.get(key)) for key in _MTP_CONFIG_KEYS),
-            vision_present=isinstance(config.get("vision_config"), dict),
+            vision_present=(
+                self._nested_scope(config, self.spec.vision_config_key) is not None
+                if self.spec.vision_config_key is not None
+                else isinstance(config.get("vision_config"), dict)
+            ),
             audio_present=(self._nested_scope(config, self.spec.audio_config_key) is not None),
             notes=notes,
         )
@@ -339,6 +346,30 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             "Thin convert: Qwen3-VL-30B-A3B-Instruct MoE via MLX-VLM convert path.",
             "Primary product runtime is AX Engine; MLX-VLM is the vision-compatible runtime.",
             "Vision tower remains protected at BF16; development evidence only; no MTP claim.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="qwen3-omni-moe-v1",
+        product_family="qwen3-omni",
+        model_types=("qwen3_omni_moe",),
+        reference_pattern=r"(?:clef[_-]?omni|qwen[._-]?3[._-]?omni)",
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="thinker_config.text_config",
+        vision_config_key="thinker_config.vision_config",
+        audio_config_key="thinker_config.audio_config",
+        allow_moe=True,
+        extra_role_patterns=(
+            ("code2wav", TensorRole.AUDIO),
+            ("codec_embedding", TensorRole.EMBEDDING),
+            ("codec_head", TensorRole.LM_HEAD),
+            ("text_projection", TensorRole.MLP),
+            ("hidden_projection", TensorRole.MLP),
+        ),
+        notes=(
+            "Qwen3-Omni MoE thinker and talker trunks convert through MLX-VLM.",
+            "Vision, the audio encoder, and code2wav stay BF16. Talker experts quantize.",
+            "Clef-Omni is a decision model: text generation is not the measured output.",
+            "Development evidence only. No MTP, speech-output, or Decision Index claim.",
         ),
     ),
     DenseFamilySpec(
@@ -455,8 +486,10 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         adapter_id="qwen35-dense-v1",
         product_family="qwen3.5",
         model_types=("qwen3_5",),
-        # Official Qwen 3.5 names plus Ornith 1.5 9B (same qwen3_5 dense shell).
-        reference_pattern=r"(qwen[._-]?3[._-]?5|ornith)",
+        # Official Qwen 3.5 names, Ornith 1.5 9B, and Clef-Flash (same shell).
+        # `clef-flash` must be listed here so it does not fall through to the
+        # Qwen 3.8 adapter, which matches a bare `clef` reference.
+        reference_pattern=r"(qwen[._-]?3[._-]?5|ornith|clef[._-]flash)",
         exclude_reference_pattern=_QWEN36_REFERENCE,
         # AXQ-017 promotion (2026-08-01): real-checkpoint evidence on
         # Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a — full 775-tensor classification
@@ -468,6 +501,7 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         notes=(
             "Qwen 3.5 dense checkpoints share the Qwen 3.6 tensor conventions.",
             "Ornith-1.5-9B is eligible as a qwen3_5 dense fine-tune (vision BF16-protected).",
+            "Cloudflare/clef-flash is eligible as a Qwen3.5-9B decision-model fine-tune.",
         ),
     ),
     DenseFamilySpec(
@@ -478,8 +512,10 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
         # model_type and is out of scope for this adapter.
         model_types=("qwen3_5",),
         # Require the decimal product form (Qwen3.8-27B). Do not match size
-        # tokens such as Qwen3-8B (model_type=qwen3).
-        reference_pattern=r"qwen[._-]?3\.8",
+        # tokens such as Qwen3-8B (model_type=qwen3). A bare `clef` reference
+        # is Cloudflare/clef (Qwen3.8-27B post-train). `clef-flash` is excluded
+        # by the end anchor and is claimed by qwen35-dense-v1 instead.
+        reference_pattern=r"qwen[._-]?3\.8|(?:^|[/_.-])clef$",
         support_tier=SupportTier.CONVERTIBLE,
         text_config_key="text_config",
         notes=(
@@ -489,6 +525,8 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             "scoped MTP acceleration certification (MTP-P evidence) on AX Engine 6.16.1. "
             "Not the Qwen 3.6 campaign track and not "
             "the Super-class 2.4T MoE stream path.",
+            "Cloudflare/clef is eligible as a Qwen3.8-27B decision-model fine-tune "
+            "(no MTP tensors; vision stays BF16-protected).",
         ),
     ),
     DenseFamilySpec(
@@ -548,6 +586,35 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             "(multimodal tensors protected as sidecars). Dense and MoE (A4B) IT "
             "checkpoints are convertible; MoE artifacts are development evidence "
             "until certified.",
+        ),
+    ),
+    DenseFamilySpec(
+        adapter_id="embedding-gemma2-v1",
+        product_family="embedding-gemma-2",
+        # google/embeddinggemma-2. Distinct from generative gemma4 / gemma4_unified.
+        model_types=("embedding_gemma2",),
+        reference_pattern=r"embedding[_-]?gemma[_-]?2",
+        support_tier=SupportTier.CONVERTIBLE,
+        text_config_key="text_config",
+        audio_config_key="audio_config",
+        extra_role_patterns=(
+            # Final 512→768 Matryoshka projection. Keep it on the LM-head floor.
+            # Modality projections also contain this token and stay on the vision floor.
+            ("language_model.embedding_projection", TensorRole.LM_HEAD),
+            # Per-layer embedder projections. Norms stay on the later norm rule
+            # because these tokens do not match ``per_layer_projection_norm``.
+            ("per_layer_model_projection", TensorRole.EMBEDDING),
+            ("per_layer_input_gate", TensorRole.EMBEDDING),
+            ("ple_block.per_layer_projection", TensorRole.EMBEDDING),
+            ("layer_scalar", TensorRole.NORM),
+        ),
+        notes=(
+            "EmbeddingGemma 2 is a bidirectional multimodal embedding model, not a generator.",
+            "Language attention and MLP quantize. Token embeddings and per-layer "
+            "embedder projections use the embedding floor.",
+            "Vision tower, audio tower, modality projections, the final embedding "
+            "projection, and norms stay BF16. No MTP tensors ship.",
+            "Do not cast activations to float16; the source requires BF16 or FP32.",
         ),
     ),
     DenseFamilySpec(
