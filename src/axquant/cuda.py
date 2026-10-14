@@ -75,6 +75,8 @@ def _fused_scale_group(name: str) -> str | None:
     for suffixes, group in (
         (("q_proj", "k_proj", "v_proj"), "qkv_proj"),
         (("gate_proj", "up_proj"), "gate_up_proj"),
+        (("in_proj_qkv", "in_proj_z"), "in_proj_qkvz"),
+        (("in_proj_b", "in_proj_a"), "in_proj_ba"),
         (("w1", "w3"), "w13"),
     ):
         for suffix in suffixes:
