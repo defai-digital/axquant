@@ -82,9 +82,7 @@ _MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
 }
 _MX_BLOCK_CUDA_REPOS: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
-    "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": (
-        "AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP"
-    ),
+    "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": ("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP"),
 }
 
 _NO_DISTINCT_4BIT_SIBLING_REASONS: dict[str, str] = {
@@ -539,9 +537,7 @@ def _render_development_model_card(
         other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
         other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
         if is_omni:
-            sibling_note = (
-                "Vision, the audio encoder, code2wav, norms, and the LM head stay BF16."
-            )
+            sibling_note = "Vision, the audio encoder, code2wav, norms, and the LM head stay BF16."
         elif is_qwen35_decision:
             sibling_note = "Vision, MTP, and norms stay BF16. The LoRA was merged first."
         else:
@@ -854,6 +850,9 @@ publish a new immutable revision before claiming oMLX compatibility.
             else "Not applicable"
         )
         modalities_section = ""
+    speech_quality_label = (
+        "Audio tower" if is_embedding_pack and has_audio else "Speech-recognition quality"
+    )
     if qwen_mtp_interop:
         mtp_limitation = (
             "- MTP requires a sidecar-aware runtime. oMLX/MTPLX discovery compatibility does "
@@ -1139,7 +1138,7 @@ establish MTP acceleration or vision-language quality.
 | MTP acceptance and speed | {mtp_evidence} |
 | AX Engine kernel evidence | `{manifest.runtime.ax_engine.kernel_evidence}` |
 | Vision-language quality | {vision_quality} |
-| {"Audio tower" if is_embedding_pack and has_audio else "Speech-recognition quality"} | {speech_quality} |
+| {speech_quality_label} | {speech_quality} |
 | Long-context quality | {long_context_status} |
 {release_certification_row}
 {modalities_section}

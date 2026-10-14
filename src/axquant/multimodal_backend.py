@@ -581,9 +581,7 @@ def _convert_vlm(
         _convert_qwen4_exp(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         return
     if plan.architecture_profile.adapter_id == "embedding-gemma2-v1":
-        _convert_embedding_gemma2(
-            source, destination, plan, predicate, default_bits, q_mode=q_mode
-        )
+        _convert_embedding_gemma2(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         return
     vlm_convert = _import("mlx_vlm.convert", extra="mlx-vlm")
     vlm_convert.convert(

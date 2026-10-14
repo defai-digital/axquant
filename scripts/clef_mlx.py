@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pathlib import Path
 from typing import Any
 
@@ -38,7 +39,8 @@ SYSTEM_PROMPT = (
 QUESTION_TYPES = {"noul": 0, "choice": 1, "score": 2}
 
 # This loader uses mlx-vlm internals (get_input_embeddings, inputs_embeds/position_ids on the
-# text model), which can change between minor releases. Tested: mlx 0.32.3, mlx-lm 0.32.0, mlx-vlm 0.7.4.
+# text model), which can change between minor releases.
+# Tested: mlx 0.32.3, mlx-lm 0.32.0, mlx-vlm 0.7.4.
 TESTED_VERSIONS = {"mlx-vlm": (0, 7), "mlx-lm": (0, 32)}
 
 
@@ -60,7 +62,8 @@ def _check_versions(packages: tuple[str, ...]) -> None:
         if major_minor != (major, minor):
             warnings.warn(
                 f"clef_mlx was tested with {name} {major}.{minor}.x but {version} is installed; "
-                f'if loading fails or results look wrong, run: pip install "{name}>={major}.{minor},<{major}.{minor + 1}"',
+                "if loading fails or results look wrong, run: pip install "
+                f'"{name}>={major}.{minor},<{major}.{minor + 1}"',
                 stacklevel=3,
             )
 
@@ -102,7 +105,7 @@ class EncodedQuestion:
 class EncodedRecord:
     input_ids: tuple[int, ...]
     questions: tuple[EncodedQuestion, ...]
-    media: dict[str, Any] | None = field(default=None, compare=False, repr=False)
+    media: dict[str, Any] | None = dataclass_field(default=None, compare=False, repr=False)
 
 
 def _tokens(tokenizer: Any, text: str) -> list[int]:
@@ -130,10 +133,15 @@ def _timestamps(indices: list[int], source_fps: float, temporal_patch: int) -> l
     if len(indices) % temporal_patch:
         indices.extend(indices[-1] for _ in range(temporal_patch - len(indices) % temporal_patch))
     seconds = [i / source_fps for i in indices]
-    return [(seconds[i] + seconds[i + temporal_patch - 1]) / 2 for i in range(0, len(seconds), temporal_patch)]
+    return [
+        (seconds[i] + seconds[i + temporal_patch - 1]) / 2
+        for i in range(0, len(seconds), temporal_patch)
+    ]
 
 
-def _encode_media(processor: Any, record: dict[str, Any]) -> tuple[list[int], dict[str, Any] | None]:
+def _encode_media(
+    processor: Any, record: dict[str, Any]
+) -> tuple[list[int], dict[str, Any] | None]:
     """Pixel preprocessing via the (torch-free) mlx-vlm processor; the token layout is
     built here to match the transformers Qwen3-VL processor the model was trained with."""
     import numpy as np
@@ -145,7 +153,9 @@ def _encode_media(processor: Any, record: dict[str, Any]) -> tuple[list[int], di
     if processor is None:
         raise ValueError("records with images or videos require a processor")
     kwargs = dict(record.get("media_kwargs") or {})
-    sample = {k: kwargs.pop(k) for k in ("fps", "source_fps", "min_frames", "max_frames") if k in kwargs}
+    sample = {
+        k: kwargs.pop(k) for k in ("fps", "source_fps", "min_frames", "max_frames") if k in kwargs
+    }
     source_fps = sample.get("source_fps", 24.0)
     do_sample = kwargs.pop("do_sample_frames", True)
 
@@ -158,24 +168,34 @@ def _encode_media(processor: Any, record: dict[str, Any]) -> tuple[list[int], di
         media["image_grid_thw"] = mx.array(grids)
         merge = processor.image_processor.merge_size**2
         for grid in grids:
-            text += "<|vision_start|>" + "<|image_pad|>" * (int(np.prod(grid)) // merge) + "<|vision_end|>"
+            text += (
+                "<|vision_start|>"
+                + "<|image_pad|>" * (int(np.prod(grid)) // merge)
+                + "<|vision_end|>"
+            )
     if videos:
         vp = processor.video_processor
         frames, frame_indices = [], []
         for v in videos:
-            f, idx = sample_frames(v, **sample) if do_sample else (np.asarray(v), list(range(len(v))))
+            f, idx = (
+                sample_frames(v, **sample) if do_sample else (np.asarray(v), list(range(len(v))))
+            )
             frames.append(f)
             frame_indices.append(idx)
         out = vp(videos=frames, **kwargs)
         media["pixel_values_videos"] = mx.array(np.asarray(out["pixel_values_videos"]))
         grids = np.asarray(out["video_grid_thw"])
         media["video_grid_thw"] = mx.array(grids)
-        for grid, idx in zip(grids, frame_indices):
+        for grid, idx in zip(grids, frame_indices, strict=False):
             per_frame = int(grid[1] * grid[2]) // vp.merge_size**2
             stamps = _timestamps(idx, source_fps, vp.temporal_patch_size)
             text += "<|vision_start|>"
             for t in range(int(grid[0])):
-                text += f"<{stamps[t]:.1f} seconds><|vision_start|>" + "<|video_pad|>" * per_frame + "<|vision_end|>"
+                text += (
+                    f"<{stamps[t]:.1f} seconds><|vision_start|>"
+                    + "<|video_pad|>" * per_frame
+                    + "<|vision_end|>"
+                )
             text += "<|vision_end|>"
     text += "\n"
     return _tokens(processor.tokenizer, text), media
@@ -241,9 +261,13 @@ def encode_record(
         state_ids = state_ids[:max_state_tokens]
     fixed = len(prefix_ids) + len(schema_ids) + len(suffix_ids)
     if fixed > max_length:
-        raise ContextTooLong(f"schema requires {fixed} tokens before state; maximum is {max_length}")
+        raise ContextTooLong(
+            f"schema requires {fixed} tokens before state; maximum is {max_length}"
+        )
     if not truncate and fixed + len(state_ids) > max_length:
-        raise ContextTooLong(f"request needs {fixed + len(state_ids)} tokens; maximum is {max_length}")
+        raise ContextTooLong(
+            f"request needs {fixed + len(state_ids)} tokens; maximum is {max_length}"
+        )
     state_ids = state_ids[: max_length - fixed]
     off = len(prefix_ids) + len(state_ids)
     shifted = tuple(
@@ -368,7 +392,9 @@ class JointSchemaHead(nn.Module):
         for k, v in weights.items():
             k = k.replace(".feedforward.0.", ".feedforward.fc1.")
             k = k.replace(".feedforward.3.", ".feedforward.fc2.")
-            k = k.replace("residual_scorer.0.", "scorer1.").replace("residual_scorer.3.", "scorer2.")
+            k = k.replace("residual_scorer.0.", "scorer1.").replace(
+                "residual_scorer.3.", "scorer2."
+            )
             out[k] = v
         return out
 
@@ -393,7 +419,7 @@ class JointSchemaHead(nn.Module):
             self.option_context_projection(c)
             + self.option_lexical_projection(lx)
             + self.option_question_projection(question_vectors[i])[None]
-            for i, (c, lx) in enumerate(zip(option_contexts, lexical_options))
+            for i, (c, lx) in enumerate(zip(option_contexts, lexical_options, strict=False))
         ]
         routed = mx.concatenate(option_queries, axis=0)[None]
         for layer in self.evidence_layers:
@@ -404,7 +430,7 @@ class JointSchemaHead(nn.Module):
 
         base_fields = self.question_projection(question_vectors)
         summaries = []
-        for field, options in zip(base_fields, split_options):
+        for field, options in zip(base_fields, split_options, strict=False):
             w = mx.softmax((options @ field) / math.sqrt(options.shape[-1]), axis=0)
             summaries.append((w[:, None] * options).sum(0))
         fields = (
@@ -421,7 +447,9 @@ class JointSchemaHead(nn.Module):
         joint_scale = mx.exp(mx.minimum(self.joint_logit_scale, math.log(100.0)))
         gate = mx.sigmoid(self.residual_gate)
         logits = []
-        for i, (field, lexical, routed_opts) in enumerate(zip(fields, lexical_options, split_options)):
+        for i, (field, lexical, routed_opts) in enumerate(
+            zip(fields, lexical_options, split_options, strict=False)
+        ):
             anchor = _l2norm(question_vectors[i] + global_vector)
             prior = prior_scale * (_l2norm(lexical) @ anchor)
             options = self.option_norm(routed_opts)
@@ -456,8 +484,12 @@ class ClefMLX:
         m = self._out
         if isinstance(m, (nn.QuantizedLinear, nn.QuantizedEmbedding)):
             return mx.dequantize(
-                m.weight[ids], m.scales[ids], m.get("biases")[ids] if "biases" in m else None,
-                group_size=m.group_size, bits=m.bits, mode=getattr(m, "mode", "affine"),
+                m.weight[ids],
+                m.scales[ids],
+                m.get("biases")[ids] if "biases" in m else None,
+                group_size=m.group_size,
+                bits=m.bits,
+                mode=getattr(m, "mode", "affine"),
             )
         return m.weight[ids]
 
@@ -480,7 +512,9 @@ class ClefMLX:
             ids[None], inputs_embeds=feats.inputs_embeds, position_ids=feats.position_ids
         )[0]
 
-    def logits(self, record: dict[str, Any], **encode_kwargs) -> tuple[EncodedRecord, list[mx.array]]:
+    def logits(
+        self, record: dict[str, Any], **encode_kwargs
+    ) -> tuple[EncodedRecord, list[mx.array]]:
         enc = encode_record(self.tokenizer, record, processor=self.processor, **encode_kwargs)
         ids = mx.array(enc.input_ids)
         hidden = self._hidden(ids, enc.media)
@@ -491,11 +525,15 @@ class ClefMLX:
     def predict(self, record: dict[str, Any], **kw) -> dict[str, dict[str, float]]:
         enc, logits = self.logits(record, **kw)
         return {
-            q.question_id: dict(zip(q.option_ids, mx.softmax(lg.astype(mx.float32)).tolist()))
-            for q, lg in zip(enc.questions, logits)
+            q.question_id: dict(
+                zip(q.option_ids, mx.softmax(lg.astype(mx.float32)).tolist(), strict=False)
+            )
+            for q, lg in zip(enc.questions, logits, strict=False)
         }
 
-    def systemone(self, request: dict[str, Any], max_length: int = 16384, truncate: bool = True) -> dict[str, Any]:
+    def systemone(
+        self, request: dict[str, Any], max_length: int = 16384, truncate: bool = True
+    ) -> dict[str, Any]:
         """Answer a Jev/SystemOne ``POST /v1/systemone`` request body (same response body)."""
         questions = request.get("questions")
         if not isinstance(request.get("model"), str) or "state" not in request:
@@ -511,9 +549,9 @@ class ClefMLX:
         answers = {
             q.question_id: systemone_answer(
                 questions[q.question_id],
-                dict(zip(q.option_ids, mx.softmax(lg.astype(mx.float32)).tolist())),
+                dict(zip(q.option_ids, mx.softmax(lg.astype(mx.float32)).tolist(), strict=False)),
             )
-            for q, lg in zip(enc.questions, logits)
+            for q, lg in zip(enc.questions, logits, strict=False)
         }
         return {
             "model": request["model"],
@@ -539,7 +577,7 @@ def systemone_answer(question: dict[str, Any], probabilities: dict[str, float]) 
         "type": "score",
         "score": round(sum(i * probabilities[lv] for i, lv in enumerate(levels)), 4),
         "confidence": round(max(probabilities[lv] for lv in levels), 4),
-        "legend": dict(zip(levels, question["criteria"])),
+        "legend": dict(zip(levels, question["criteria"], strict=False)),
         "probabilities": {lv: round(probabilities[lv], 4) for lv in levels},
     }
 
@@ -596,7 +634,7 @@ def _default_model() -> str | None:
 
 
 def _model_name(model: str) -> str:
-    """Short name for responses: 'clef-flash-4bit' for a repo id, a local dir, or a Hub cache snapshot."""
+    """Short response name for a repo id, local directory, or Hub cache snapshot."""
     path = Path(model)
     if path.parent.name == "snapshots" and path.parent.parent.name.startswith("models--"):
         return path.parent.parent.name.split("--")[-1]
@@ -646,7 +684,9 @@ def _decode_image(item: Any):
         try:
             data = base64.b64decode(item, validate=True)
         except ValueError:
-            raise ValueError("could not decode image: expected a data URL, base64, or http(s) URL") from None
+            raise ValueError(
+                "could not decode image: expected a data URL, base64, or http(s) URL"
+            ) from None
     return Image.open(io.BytesIO(data)).convert("RGB")
 
 
@@ -666,7 +706,9 @@ def _cmd_predict(args) -> None:
         request["images"] = [Image.open(Path(p).expanduser()).convert("RGB") for p in args.image]
     model = load(args.model)
     try:
-        response = model.systemone(request, max_length=args.max_length, truncate=not args.no_truncate)
+        response = model.systemone(
+            request, max_length=args.max_length, truncate=not args.no_truncate
+        )
     except ValueError as error:
         sys.exit(f"error: {error}")
     print(json.dumps(response, indent=2, ensure_ascii=False))
@@ -679,8 +721,13 @@ def _cmd_serve(args) -> None:
 
     model = load(args.model)
     served_name = args.name or _model_name(args.model)
-    model.systemone({"model": served_name, "state": "warmup",
-                     "questions": {"w": {"type": "noul", "instructions": "Is this a warmup?"}}})
+    model.systemone(
+        {
+            "model": served_name,
+            "state": "warmup",
+            "questions": {"w": {"type": "noul", "instructions": "Is this a warmup?"}},
+        }
+    )
     lock = threading.Lock()  # one GPU: run requests one at a time
     max_body = args.max_body_mb * 1024 * 1024
 
@@ -702,7 +749,9 @@ def _cmd_serve(args) -> None:
             if self.path == "/health":
                 self._send(200, {"status": "ok", "model": served_name})
             elif self.path == "/v1/models":
-                self._send(200, {"object": "list", "data": [{"id": served_name, "object": "model"}]})
+                self._send(
+                    200, {"object": "list", "data": [{"id": served_name, "object": "model"}]}
+                )
             else:
                 self._error(404, f"not found: {self.path}")
 
@@ -717,7 +766,9 @@ def _cmd_serve(args) -> None:
                 if not isinstance(request, dict):
                     raise ValueError("request body must be a JSON object")
                 if request.get("videos"):
-                    raise ValueError("videos are not supported over HTTP; use clef_mlx.py from Python")
+                    raise ValueError(
+                        "videos are not supported over HTTP; use clef_mlx.py from Python"
+                    )
                 request.setdefault("model", served_name)
                 if request.get("images"):
                     request["images"] = [_decode_image(i) for i in request["images"]]
@@ -727,12 +778,14 @@ def _cmd_serve(args) -> None:
             started = time.perf_counter()
             try:
                 with lock:
-                    response = model.systemone(request, max_length=args.max_length, truncate=bool(truncate))
+                    response = model.systemone(
+                        request, max_length=args.max_length, truncate=bool(truncate)
+                    )
             except ContextTooLong as error:
                 return self._error(413, f"maximum context length exceeded: {error}")
             except (ValueError, KeyError, TypeError) as error:
                 return self._error(400, str(error))
-            except Exception as error:  # noqa: BLE001 - report, keep serving
+            except Exception as error:
                 return self._error(500, f"{type(error).__name__}: {error}")
             response["usage"]["latency_ms"] = round((time.perf_counter() - started) * 1000, 1)
             self._send(200, response)
@@ -742,8 +795,11 @@ def _cmd_serve(args) -> None:
                 super().log_message(fmt, *fmt_args)
 
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"Serving {served_name} on http://{args.host}:{args.port}/v1/systemone "
-          f"(truncate={'off' if args.no_truncate else 'on'}, max_length={args.max_length})", flush=True)
+    print(
+        f"Serving {served_name} on http://{args.host}:{args.port}/v1/systemone "
+        f"(truncate={'off' if args.no_truncate else 'on'}, max_length={args.max_length})",
+        flush=True,
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -760,24 +816,39 @@ def main(argv: list[str] | None = None) -> None:
     sub = parser.add_subparsers(dest="command", required=True)
 
     def common(p):
-        p.add_argument("--model", default=default_model, required=default_model is None,
-                       help="Hub repo id or local dir (default: the repo this file is in)")
-        p.add_argument("--name", help="model name echoed in responses (default: the model dir/repo name)")
-        p.add_argument("--max-length", type=int, default=16384, help="prompt token limit (default 16384)")
-        p.add_argument("--no-truncate", action="store_true",
-                       help="refuse over-length inputs instead of truncating the state")
+        p.add_argument(
+            "--model",
+            default=default_model,
+            required=default_model is None,
+            help="Hub repo id or local dir (default: the repo this file is in)",
+        )
+        p.add_argument(
+            "--name", help="model name echoed in responses (default: the model dir/repo name)"
+        )
+        p.add_argument(
+            "--max-length", type=int, default=16384, help="prompt token limit (default 16384)"
+        )
+        p.add_argument(
+            "--no-truncate",
+            action="store_true",
+            help="refuse over-length inputs instead of truncating the state",
+        )
 
     p = sub.add_parser("predict", help="answer one request and print the SystemOne response")
     common(p)
     p.add_argument("--state", help="state text (JSON objects/arrays are parsed)")
     p.add_argument("--questions", help="questions as JSON, a .json file, or '-' for stdin")
-    p.add_argument("--request", help="a full /v1/systemone request body as JSON, a .json file, or '-'")
+    p.add_argument(
+        "--request", help="a full /v1/systemone request body as JSON, a .json file, or '-'"
+    )
     p.add_argument("--image", action="append", help="image file to attach (repeatable)")
     p.set_defaults(func=_cmd_predict)
 
     p = sub.add_parser("serve", help="serve POST /v1/systemone over HTTP")
     common(p)
-    p.add_argument("--host", default="127.0.0.1", help="bind address (default 127.0.0.1, local only)")
+    p.add_argument(
+        "--host", default="127.0.0.1", help="bind address (default 127.0.0.1, local only)"
+    )
     p.add_argument("--port", type=int, default=8000)
     p.add_argument("--max-body-mb", type=int, default=64)
     p.add_argument("--quiet", action="store_true", help="no per-request access log")

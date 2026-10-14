@@ -645,9 +645,7 @@ def test_multimodal_model_cards_use_executable_runtime_commands(
         directory=directory,
         repo_id="AutomatosX/AX-Qwen3.5-0.8B-decision-MLX-AXQ-MXFP4",
         product_class="MXFP4",
-        manifest=manifest.model_copy(
-            update={"source_model": decision_plan.source_model}
-        ),
+        manifest=manifest.model_copy(update={"source_model": decision_plan.source_model}),
         plan=decision_plan,
         execution=execution,
         mtp_sidecar=None,

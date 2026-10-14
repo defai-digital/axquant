@@ -1,0 +1,160 @@
+{
+  "$defs": {
+    "DocLayoutTensor": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "type": "string"
+        },
+        "global_scale": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_absolute_error": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "method": {
+          "enum": [
+            "preserved",
+            "nvfp4",
+            "mxfp4",
+            "mxfp8"
+          ],
+          "type": "string"
+        },
+        "padded_columns": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "shape",
+        "dtype",
+        "method"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "additionalProperties": {
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "type": "object"
+    },
+    "format": {
+      "enum": [
+        "nvfp4",
+        "mxfp4",
+        "mxfp8"
+      ],
+      "type": "string"
+    },
+    "max_absolute_weight_error": {
+      "minimum": 0,
+      "type": "number"
+    },
+    "native_runtime_verified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "quality_certified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "quantized_parameters": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "axq-doclayout.development/1",
+      "default": "axq-doclayout.development/1",
+      "type": "string"
+    },
+    "source_model": {
+      "const": "AutomatosX/AXDocLayout-M-v1.0",
+      "type": "string"
+    },
+    "source_revision": {
+      "const": "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+      "type": "string"
+    },
+    "source_weight_sha256": {
+      "const": "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
+      "type": "string"
+    },
+    "status": {
+      "const": "development",
+      "default": "development",
+      "type": "string"
+    },
+    "tensors": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DocLayoutTensor"
+      },
+      "type": "object"
+    },
+    "total_parameters_and_buffers": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "format",
+    "source_model",
+    "source_revision",
+    "source_weight_sha256",
+    "quantized_parameters",
+    "total_parameters_and_buffers",
+    "max_absolute_weight_error",
+    "files",
+    "tensors"
+  ],
+  "type": "object"
+}

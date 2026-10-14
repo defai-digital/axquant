@@ -16,6 +16,8 @@ Policy: [schema governance](schema-governance.md).
 
 | schema_version | class | freeze | model | snapshot |
 | --- | --- | --- | --- | --- |
+| `axq-doclayout.development/1` | `evidence` | `immutable-envelope` | `axquant.schema.doclayout.DocLayoutManifest` | [`axq-doclayout.development_1.schema.json`](../../schemas/axq-doclayout.development_1.schema.json) |
+| `axq-doclayout.runtime-compatibility/1` | `evidence` | `immutable-envelope` | `axquant.schema.doclayout.DocLayoutRuntimeCompatibility` | [`axq-doclayout.runtime-compatibility_1.schema.json`](../../schemas/axq-doclayout.runtime-compatibility_1.schema.json) |
 | `axquant.activation-capture-sentinel.v1` | `evidence` | `immutable-envelope` | `axquant.schema.flagship.ActivationCaptureSentinel` | [`axquant.activation-capture-sentinel.v1.schema.json`](../../schemas/axquant.activation-capture-sentinel.v1.schema.json) |
 | `axquant.activation-capture.v1` | `evidence` | `immutable-envelope` | `axquant.schema.sensitivity.ActivationCaptureManifest` | [`axquant.activation-capture.v1.schema.json`](../../schemas/axquant.activation-capture.v1.schema.json) |
 | `axquant.artifact-evidence-binding.v1` | `evidence` | `immutable-envelope` | `axquant.schema.evidence_binding.ArtifactEvidenceBinding` | [`axquant.artifact-evidence-binding.v1.schema.json`](../../schemas/axquant.artifact-evidence-binding.v1.schema.json) |

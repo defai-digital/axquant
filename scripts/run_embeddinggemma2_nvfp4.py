@@ -22,7 +22,13 @@ sys.path.insert(0, str(ROOT / "src"))
 from axquant.cuda import convert_cuda_nvfp4, plan_cuda_nvfp4  # noqa: E402
 from axquant.naming import cuda_pack_name  # noqa: E402
 from axquant.schema.cuda import CudaPackManifest  # noqa: E402
-from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data  # noqa: E402
+from axquant.serde import (  # noqa: E402
+    file_sha256,
+    load_model,
+    read_data,
+    stable_sha256,
+    write_data,
+)
 
 SOURCE_ID = "google/embeddinggemma-2"
 SOURCE_REV = "914f7f89142e33e77833254d9c9b90c3cef7303b"

@@ -75,9 +75,9 @@ def pack_dir(q_mode: str) -> Path:
 def hf_env() -> dict[str, str]:
     env = {
         **os.environ,
-        "PYTHONPATH": os.pathsep.join(
-            [str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]
-        ).strip(os.pathsep),
+        "PYTHONPATH": os.pathsep.join([str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]).strip(
+            os.pathsep
+        ),
         "HF_HOME": os.environ.get("HF_HOME", FACTORY_HF_HOME),
         "HF_HUB_CACHE": os.environ.get("HF_HUB_CACHE", f"{FACTORY_HF_HOME}/hub"),
         "HF_XET_CACHE": os.environ.get("HF_XET_CACHE", f"{FACTORY_HF_HOME}/xet"),
@@ -107,9 +107,7 @@ def run(cmd: list[str], log_path: Path | None = None) -> None:
     with log_path.open("w", encoding="utf-8") as handle:
         handle.write("$ " + " ".join(cmd) + "\n\n")
         handle.flush()
-        proc = subprocess.run(
-            cmd, stdout=handle, stderr=subprocess.STDOUT, cwd=str(ROOT), env=env
-        )
+        proc = subprocess.run(cmd, stdout=handle, stderr=subprocess.STDOUT, cwd=str(ROOT), env=env)
     if proc.returncode != 0:
         raise SystemExit(f"command failed ({proc.returncode}): see {log_path}")
 
@@ -294,7 +292,10 @@ def cmd_publish(q_mode: str) -> None:
     )
     if not (pack / "NOTICE").is_file():
         (pack / "NOTICE").write_text(NOTICE, encoding="utf-8")
-    run([hf_bin, "repo", "create", repo, "--exist-ok"], work_dir() / "logs" / f"hf-repo-{q_mode}.log")
+    run(
+        [hf_bin, "repo", "create", repo, "--exist-ok"],
+        work_dir() / "logs" / f"hf-repo-{q_mode}.log",
+    )
     run(
         [
             hf_bin,

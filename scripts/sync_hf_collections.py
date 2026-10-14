@@ -81,7 +81,8 @@ NOTE_HY = (
 )
 NOTE_CLEF = "AXQ Clef decision pack. Vision and the joint schema head stay BF16. Not certified."
 NOTE_CLEF_OMNI = (
-    "AXQ Clef-Omni decision pack. Vision, the audio encoder, code2wav, and the joint head stay BF16. "
+    "AXQ Clef-Omni decision pack. Vision, the audio encoder, code2wav, "
+    "and the joint head stay BF16. "
     "Not certified."
 )
 NOTE_CLEF_CUDA = (

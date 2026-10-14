@@ -202,6 +202,17 @@ def _run(args: argparse.Namespace) -> int:
         from axquant.cli._cuda import run_cuda_command
 
         return run_cuda_command(args)
+    if args.command == "quantize-doclayout":
+        from axquant.doclayout import convert_doclayout
+
+        convert_doclayout(
+            args.model,
+            args.output,
+            q_mode=args.q_mode,
+            revision=args.revision,
+            allow_unmeasured=args.allow_unmeasured,
+        )
+        return 0
     if args.command == "feasibility":
         output_paths = [
             Path(args.output).expanduser().resolve(),

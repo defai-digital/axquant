@@ -253,6 +253,16 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=False)
     add_cuda_commands(subparsers)
 
+    doclayout_parser = subparsers.add_parser(
+        "quantize-doclayout",
+        help="Development RT-DETRv2 storage pack; reference execution reconstructs FP32",
+    )
+    doclayout_parser.add_argument("--model", required=True, help="Local pinned source snapshot")
+    doclayout_parser.add_argument("--output", required=True)
+    doclayout_parser.add_argument("--revision", required=True)
+    doclayout_parser.add_argument("--q-mode", required=True, choices=("nvfp4", "mxfp4", "mxfp8"))
+    doclayout_parser.add_argument("--allow-unmeasured", action="store_true")
+
     feasibility_parser = subparsers.add_parser("feasibility")
     feasibility_parser.add_argument("--reference-4bit", required=True)
     feasibility_parser.add_argument("--reference-4bit-id")

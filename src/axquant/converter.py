@@ -1896,12 +1896,14 @@ def _protected_shape_matches(
                 and "conv1" not in local
                 and "conv2" not in local
             )
-            depthwise_conv = ("dwconv.conv.weight" in local) or (
-                "decoder" in local and "conv.weight" in local and "block" not in local
-            ) or (
-                "decoder" in local
-                and "block" in local
-                and ("conv1.conv.weight" in local or "conv2.conv.weight" in local)
+            depthwise_conv = (
+                ("dwconv.conv.weight" in local)
+                or ("decoder" in local and "conv.weight" in local and "block" not in local)
+                or (
+                    "decoder" in local
+                    and "block" in local
+                    and ("conv1.conv.weight" in local or "conv2.conv.weight" in local)
+                )
             )
             axes = (1, 2, 0) if upsample_conv else (0, 2, 1) if depthwise_conv else None
             if (

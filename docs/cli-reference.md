@@ -9,6 +9,7 @@ options of any command. The six entry points most users need are `quantize`,
 | `plan-cuda` | Allocate native NVFP4 W4A16 with protected source precision and exact content binding | Experimental, unmeasured RTN |
 | `convert-cuda` | Execute a reviewed CUDA plan with native NVFP4 packing; no AWQ | Experimental; requires explicit unmeasured acceptance |
 | `quantize-cuda` | Plan and export native NVFP4 W4A16 in one command | Experimental; CUDA default, explicit CPU reference available |
+| `quantize-doclayout` | Export the pinned RT-DETRv2 checkpoint into NVFP4/MXFP4/MXFP8 storage | Development; explicit unmeasured opt-in, FP32 CPU reference execution; [guide](guides/doclayout.md) |
 | `feasibility` | Audit source and comparison checkpoints before conversion | Implemented |
 | `source-checkpoint-manifest` | Derive and bind the immutable source revision, tokenizer, architecture, and file digests for exact-checkpoint certification | Implemented |
 | `certification-policy` | Emit the frozen Qwen3-Next non-MTP certification policy and policy digest | Implemented |

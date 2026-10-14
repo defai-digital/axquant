@@ -139,7 +139,7 @@ def attach(backend: str) -> None:
         origin = src / name
         if origin.is_file() and not (pack / name).is_file():
             shutil.copy2(origin, pack / name)
-    notice = f"""This directory is a quantized CUDA derivative of {SOURCE['id']}.
+    notice = f"""This directory is a quantized CUDA derivative of {SOURCE["id"]}.
 
 Changes from the upstream BF16 release:
 - Eligible thinker and talker attention, MLP, and expert weights were quantized

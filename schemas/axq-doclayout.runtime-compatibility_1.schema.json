@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "ax_engine": {
+      "const": "unsupported",
+      "default": "unsupported",
+      "type": "string"
+    },
+    "mlx_lm": {
+      "const": "unsupported",
+      "default": "unsupported",
+      "type": "string"
+    },
+    "mlx_vlm": {
+      "const": "unsupported",
+      "default": "unsupported",
+      "type": "string"
+    },
+    "mtplx": {
+      "const": "unsupported",
+      "default": "unsupported",
+      "type": "string"
+    },
+    "native_low_precision_verified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "omlx": {
+      "const": "unsupported",
+      "default": "unsupported",
+      "type": "string"
+    },
+    "reference_execution": {
+      "const": "dequantize-to-fp32-pytorch-cpu",
+      "default": "dequantize-to-fp32-pytorch-cpu",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axq-doclayout.runtime-compatibility/1",
+      "default": "axq-doclayout.runtime-compatibility/1",
+      "type": "string"
+    },
+    "source_from_pretrained": {
+      "const": "unsupported: accepts only pinned FP32 source",
+      "default": "unsupported: accepts only pinned FP32 source",
+      "type": "string"
+    }
+  },
+  "type": "object"
+}

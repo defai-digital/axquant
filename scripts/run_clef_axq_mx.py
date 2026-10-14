@@ -397,7 +397,7 @@ def cmd_smoke(key: str) -> None:
         return
     pack = pack_dir(key)
     py = ROOT / ".venv" / "bin" / "python"
-    script = r'''
+    script = r"""
 import json, sys, time
 from pathlib import Path
 pack = Path(sys.argv[1])
@@ -431,7 +431,7 @@ if not 0.0 <= answers["outage"]["noul"] <= 1.0:
 payload = {"status": "pass", "seconds": time.time() - t0, "answers": answers}
 out.write_text(json.dumps(payload, indent=2) + "\n")
 print(json.dumps(payload))
-'''
+"""
     run(
         [str(py) if py.is_file() else "python", "-c", script, str(pack), str(smoke)],
         work / "logs" / f"smoke-{key}.log",

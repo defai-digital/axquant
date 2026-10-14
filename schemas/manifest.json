@@ -1,6 +1,22 @@
 {
-  "count": 148,
+  "count": 150,
   "entries": [
+    {
+      "compatibility_class": "evidence",
+      "filename": "axq-doclayout.development_1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.doclayout.DocLayoutManifest",
+      "schema_version": "axq-doclayout.development/1",
+      "sha256": "9557769e908152c20ae5fb5908be3734589b7c57fd3f69ea805c073c876a5b56"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axq-doclayout.runtime-compatibility_1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.doclayout.DocLayoutRuntimeCompatibility",
+      "schema_version": "axq-doclayout.runtime-compatibility/1",
+      "sha256": "7d9f0ba19d91febaa3680aa97cbd7dd541b612f54463f849ba8c2d74c6cd8cb2"
+    },
     {
       "compatibility_class": "evidence",
       "filename": "axquant.activation-capture-sentinel.v1.schema.json",

@@ -286,7 +286,7 @@ def attach_sidecars(key: str) -> None:
     if not (pack / "LICENSE").is_file():
         raise SystemExit("pack is missing LICENSE")
     mode = str(PACKS[key]["q_mode"]).upper()
-    notice = f"""This directory is a quantized MLX derivative of {SOURCE['id']}.
+    notice = f"""This directory is a quantized MLX derivative of {SOURCE["id"]}.
 
 Changes from the upstream BF16 release:
 - Thinker and talker attention, MLP, and expert weights were quantized to {mode} by AXQuant.
@@ -336,8 +336,7 @@ def cmd_smoke(key: str) -> None:
         "joint_head_hidden_size": head_cfg.get("hidden_size"),
         "decision_forward": False,
         "note": (
-            "Joint-head probabilities were not executed. "
-            "mlx-lm generate is not a Clef-Omni check."
+            "Joint-head probabilities were not executed. mlx-lm generate is not a Clef-Omni check."
         ),
     }
     smoke.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")

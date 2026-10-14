@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axquant"
-version = "2.1.0"
+version = "2.2.0"
 description = "MLX-native mixed-precision PTQ for language and multimodal checkpoints on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+doclayout = [
+    "numpy>=2.0,<2.4",
+    "torch>=2.6",
+    "pillow>=10.1",
+]
 cuda = [
     "torch>=2.6",
     "numpy>=2.0,<2.4",
@@ -68,9 +73,25 @@ Changelog = "https://github.com/defai-digital/axquant/releases"
 packages = ["src/axquant"]
 
 [tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/tests",
+    "/scripts",
+    "/schemas",
+    "/docs",
+    "/examples",
+    "/data",
+    "/README.md",
+    "/LICENSE",
+    "/THIRD_PARTY_NOTICES.md",
+    "/CONTRIBUTING.md",
+    "/SECURITY.md",
+    "/pyproject.toml",
+    "/uv.lock",
+]
 # Defense in depth beyond .gitignore: local runtime evidence must never enter a
 # PyPI source archive merely because it exists beside pyproject.toml.
-exclude = ["/.internal", "/credentials.json", "/runtime_check.json"]
+exclude = ["/.internal", "/.venv*", "/credentials.json", "/runtime_check.json"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

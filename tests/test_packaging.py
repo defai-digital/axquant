@@ -73,4 +73,8 @@ def test_source_distribution_excludes_local_runtime_evidence() -> None:
     assert "/.internal" in excluded
     assert "/credentials.json" in excluded
     assert "/runtime_check.json" in excluded
+    assert "/.venv*" in excluded
+    included = set(project["tool"]["hatch"]["build"]["targets"]["sdist"]["include"])
+    assert "/src" in included
+    assert not any(path.startswith("/.") or path in {"*", "/", "/*"} for path in included)
     assert "runtime_check.json" in (_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
