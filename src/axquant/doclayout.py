@@ -21,9 +21,29 @@ from axquant.schema.doclayout import (
 )
 from axquant.serde import write_data
 
-SOURCE = "AutomatosX/AXDocLayout-M-v1.0"
-REVISION = "69ddc0da17a7fc35dfde29b06adbb83a75284ae1"
-SOURCE_DIGEST = "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2"
+SOURCES: dict[str, dict[str, str]] = {
+    "v1.0": {
+        "name": "AutomatosX/AXDocLayout-M-v1.0",
+        "revision": "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+        "weight_sha256": "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
+        "metadata_bound_sha256": "281ebfdf4cb0445beed016682485d2fe449252d28c66371c57bfb6adc95136f0",
+    },
+    "v1.1": {
+        "name": "AutomatosX/AXDocLayout-M-v1.1",
+        "revision": "2c419a0da355ee5e979cfeb0808f596aae6e896e",
+        "weight_sha256": "3b97ba1c0b1b0816f45e79a76bb2fd495e026d2394471b76ce1a442baa2989c4",
+        "metadata_bound_sha256": "ad2f432b1d947c03c1b9ca19e0eefa7828c7f6c8eaef59e60d49303ca14e2393",
+    },
+}
+
+# Backwards-compatible defaults: the v1.0 binding remains the admitted source for any
+# importer that still references these module-level names. New callers should pass
+# ``source_version`` to ``convert_doclayout`` instead.
+DEFAULT_SOURCE_VERSION = "v1.0"
+SOURCE = SOURCES[DEFAULT_SOURCE_VERSION]["name"]
+REVISION = SOURCES[DEFAULT_SOURCE_VERSION]["revision"]
+SOURCE_DIGEST = SOURCES[DEFAULT_SOURCE_VERSION]["weight_sha256"]
+SOURCE_METADATA_BOUND = SOURCES[DEFAULT_SOURCE_VERSION]["metadata_bound_sha256"]
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -51,13 +71,23 @@ def convert_doclayout(
     q_mode: DocLayoutFormat,
     revision: str,
     allow_unmeasured: bool = False,
+    source_version: str = DEFAULT_SOURCE_VERSION,
 ) -> Path:
+    if source_version not in SOURCES:
+        raise ArtifactError(
+            f"Unknown DocLayout source_version {source_version!r}; "
+            f"admitted versions: {sorted(SOURCES)}"
+        )
+    binding = SOURCES[source_version]
     if not allow_unmeasured:
         raise PlanningError("DocLayout development export requires --allow-unmeasured")
     if q_mode not in {"nvfp4", "mxfp4", "mxfp8"}:
         raise PlanningError("Unsupported DocLayout physical format")
-    if revision != REVISION:
-        raise ArtifactError("DocLayout requires the admitted immutable source revision")
+    if revision != binding["revision"]:
+        raise ArtifactError(
+            f"DocLayout source_version={source_version} requires the admitted immutable "
+            f"source revision {binding['revision']}; got {revision}"
+        )
     try:
         import numpy as np
     except ImportError as exc:
@@ -77,10 +107,10 @@ def convert_doclayout(
 
     require_factory_host(socket.gethostname())
     source = Path(model).expanduser().resolve()
-    verify_source(source)
-    if digest(source / "model.safetensors") != SOURCE_DIGEST:
+    verify_source(source, binding["metadata_bound_sha256"])
+    if digest(source / "model.safetensors") != binding["weight_sha256"]:
         raise ValueError("Pinned source weights mismatch")
-    name = f"AXDocLayout-M-v1.0-AXQ-{mode.upper()}"
+    name = f"AXDocLayout-M-{source_version}-AXQ-{mode.upper()}"
     target = Path(output).expanduser().resolve()
     if target == source or source.is_relative_to(target) or target.is_relative_to(source):
         raise ArtifactError("Output cannot overlap source")
@@ -161,8 +191,9 @@ def convert_doclayout(
             "format": mode,
             "loader": "axq_doclayout.load",
             "execution": "dequantize-to-fp32-pytorch-cpu",
-            "source_model": SOURCE,
-            "source_revision": REVISION,
+            "source_model": binding["name"],
+            "source_revision": binding["revision"],
+            "source_version": source_version,
         },
     )
     write_json(
@@ -171,11 +202,12 @@ def convert_doclayout(
     )
     files = {str(p.relative_to(stage)): digest(p) for p in sorted(stage.rglob("*")) if p.is_file()}
     manifest = {
-        "schema_version": "axq-doclayout.development/1",
+        "schema_version": "axq-doclayout.development/2",
         "format": mode,
-        "source_model": SOURCE,
-        "source_revision": REVISION,
-        "source_weight_sha256": SOURCE_DIGEST,
+        "source_model": binding["name"],
+        "source_revision": binding["revision"],
+        "source_version": source_version,
+        "source_weight_sha256": binding["weight_sha256"],
         "status": "development",
         "quality_certified": False,
         "native_runtime_verified": False,
@@ -204,8 +236,13 @@ def convert_doclayout(
     return target
 
 
-def verify_source(source: Path) -> None:
-    """Bind inference source and metadata to the admitted immutable Hub snapshot."""
+def verify_source(source: Path, expected_bound: str | None = None) -> None:
+    """Bind inference source and metadata to the admitted immutable Hub snapshot.
+
+    ``expected_bound`` defaults to the v1.0 binding; v1.1 callers pass the v1.1 bound.
+    """
+    if expected_bound is None:
+        expected_bound = SOURCES[DEFAULT_SOURCE_VERSION]["metadata_bound_sha256"]
     names = ["config.json", "taxonomy.json", "preprocessor_config.json", "LICENSE", "NOTICE"]
     names += [
         str(p.relative_to(source))
@@ -216,7 +253,7 @@ def verify_source(source: Path) -> None:
     ]
     files = {name: digest(source / name) for name in names}
     bound = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
-    if bound != "281ebfdf4cb0445beed016682485d2fe449252d28c66371c57bfb6adc95136f0":
+    if bound != expected_bound:
         raise ArtifactError(
             "DocLayout source metadata or inference code differs from admitted revision"
         )

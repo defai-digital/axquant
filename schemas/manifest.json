@@ -3,11 +3,11 @@
   "entries": [
     {
       "compatibility_class": "evidence",
-      "filename": "axq-doclayout.development_1.schema.json",
+      "filename": "axq-doclayout.development_2.schema.json",
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.doclayout.DocLayoutManifest",
-      "schema_version": "axq-doclayout.development/1",
-      "sha256": "9557769e908152c20ae5fb5908be3734589b7c57fd3f69ea805c073c876a5b56"
+      "schema_version": "axq-doclayout.development/2",
+      "sha256": "d5607058a01bfe4e716af165ba685f34908275ba319a311c74783ad43a717fdf"
     },
     {
       "compatibility_class": "evidence",

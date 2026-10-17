@@ -22,7 +22,10 @@ def read_state(directory: str | Path) -> dict[str, Any]:
 
     root = Path(directory).resolve()
     manifest = json.loads((root / "axq-manifest.json").read_text())
-    if manifest["schema_version"] != "axq-doclayout.development/1":
+    if manifest["schema_version"] not in {
+        "axq-doclayout.development/1",
+        "axq-doclayout.development/2",
+    }:
         raise ValueError("Unsupported AXQ DocLayout schema")
     mode = manifest["format"]
     if mode not in {"nvfp4", "mxfp4", "mxfp8"}:
@@ -33,7 +36,8 @@ def read_state(directory: str | Path) -> dict[str, Any]:
         and re.fullmatch(r"[0-9a-f]{40}", root.name) is not None
         and cache.name
         in {
-            f"models--AutomatosX--AXDocLayout-M-v1.0-AXQ-{fmt}"
+            f"models--AutomatosX--AXDocLayout-M-v{ver}-AXQ-{fmt}"
+            for ver in ["1.0", "1.1"]
             for fmt in ["NVFP4", "MXFP4", "MXFP8"]
         }
     )

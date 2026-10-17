@@ -274,6 +274,7 @@ def _build_parser() -> argparse.ArgumentParser:
     doclayout_parser.add_argument("--output", required=True)
     doclayout_parser.add_argument("--revision", required=True)
     doclayout_parser.add_argument("--q-mode", required=True, choices=("nvfp4", "mxfp4", "mxfp8"))
+    doclayout_parser.add_argument("--source-version", default="v1.0", choices=("v1.0", "v1.1"))
     doclayout_parser.add_argument("--allow-unmeasured", action="store_true")
 
     feasibility_parser = subparsers.add_parser("feasibility")

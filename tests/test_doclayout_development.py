@@ -40,7 +40,7 @@ def test_storage_roundtrip_and_digest_rejection(tmp_path, mode):
     }
     save_file(storage, str(file))
     manifest = {
-        "schema_version": "axq-doclayout.development/1",
+        "schema_version": "axq-doclayout.development/2",
         "format": mode,
         "files": {file.name: hashlib.sha256(file.read_bytes()).hexdigest()},
         "tensors": {
@@ -53,6 +53,7 @@ def test_storage_roundtrip_and_digest_rejection(tmp_path, mode):
         },
         "source_model": "AutomatosX/AXDocLayout-M-v1.0",
         "source_revision": "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+        "source_version": "v1.0",
         "source_weight_sha256": "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
         "quantized_parameters": 58,
         "total_parameters_and_buffers": 59,

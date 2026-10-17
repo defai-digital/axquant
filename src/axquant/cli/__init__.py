@@ -211,6 +211,7 @@ def _run(args: argparse.Namespace) -> int:
             q_mode=args.q_mode,
             revision=args.revision,
             allow_unmeasured=args.allow_unmeasured,
+            source_version=args.source_version,
         )
         return 0
     if args.command == "feasibility":

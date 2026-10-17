@@ -113,20 +113,44 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "axq-doclayout.development/1",
-      "default": "axq-doclayout.development/1",
+      "const": "axq-doclayout.development/2",
+      "default": "axq-doclayout.development/2",
       "type": "string"
     },
     "source_model": {
-      "const": "AutomatosX/AXDocLayout-M-v1.0",
+      "enum": [
+        "AutomatosX/AXDocLayout-M-v1.0",
+        "AutomatosX/AXDocLayout-M-v1.1"
+      ],
       "type": "string"
     },
     "source_revision": {
-      "const": "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+      "enum": [
+        "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+        "2c419a0da355ee5e979cfeb0808f596aae6e896e"
+      ],
       "type": "string"
     },
+    "source_version": {
+      "anyOf": [
+        {
+          "enum": [
+            "v1.0",
+            "v1.1"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "source_weight_sha256": {
-      "const": "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
+      "enum": [
+        "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
+        "3b97ba1c0b1b0816f45e79a76bb2fd495e026d2394471b76ce1a442baa2989c4"
+      ],
       "type": "string"
     },
     "status": {

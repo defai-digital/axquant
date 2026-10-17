@@ -73,13 +73,18 @@ class DocLayoutTensor(StrictModel):
 
 
 class DocLayoutManifest(StrictModel):
-    schema_version: Literal["axq-doclayout.development/1"] = "axq-doclayout.development/1"
+    schema_version: Literal["axq-doclayout.development/2"] = "axq-doclayout.development/2"
     format: DocLayoutFormat
-    source_model: Literal["AutomatosX/AXDocLayout-M-v1.0"]
-    source_revision: Literal["69ddc0da17a7fc35dfde29b06adbb83a75284ae1"]
-    source_weight_sha256: Literal[
-        "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2"
+    source_model: Literal["AutomatosX/AXDocLayout-M-v1.0", "AutomatosX/AXDocLayout-M-v1.1"]
+    source_revision: Literal[
+        "69ddc0da17a7fc35dfde29b06adbb83a75284ae1",
+        "2c419a0da355ee5e979cfeb0808f596aae6e896e",
     ]
+    source_weight_sha256: Literal[
+        "4d9ee36db616f3f4ef293588e4258b5f6f42d7a84097a5afb520779076045bf2",
+        "3b97ba1c0b1b0816f45e79a76bb2fd495e026d2394471b76ce1a442baa2989c4",
+    ]
+    source_version: Literal["v1.0", "v1.1"] | None = None
     status: Literal["development"] = "development"
     quality_certified: Literal[False] = False
     native_runtime_verified: Literal[False] = False

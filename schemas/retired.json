@@ -7,6 +7,14 @@
       "retired_at": "2026-10-03",
       "schema_version": "axquant.mxfp6-pack.v1",
       "sha256": "3c437d13ad922f840ba64045150dd0a243a16b2d7eb09a83137031ffa0548b7c"
+    },
+    {
+      "decision": "AXQ-062",
+      "filename": "axq-doclayout.development_1.schema.json",
+      "note": "Bumped to /2 to admit AutomatosX/AXDocLayout-M-v1.1 as a second source: source_model/source_revision/source_weight_sha256 Literals extended and an optional source_version field added.",
+      "retired_at": "2026-10-16",
+      "schema_version": "axq-doclayout.development/1",
+      "sha256": "9557769e908152c20ae5fb5908be3734589b7c57fd3f69ea805c073c876a5b56"
     }
   ]
 }
