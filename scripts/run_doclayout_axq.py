@@ -6,9 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from axquant.doclayout import REVISION, convert_doclayout
+from axquant.doclayout import REVISION, SOURCE, convert_doclayout
 from axquant.naming import cuda_pack_name, model_name
-from axquant.doclayout import SOURCE
 
 BASE = Path("/Volumes/Ext16TR0/models/axdoclayout-axq-20261014")
 
