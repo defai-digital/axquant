@@ -39,12 +39,11 @@ import re
 from pathlib import Path
 from typing import Literal
 
-from axquant.conversion_formats import format_ladder, validate_format_options
-from axquant.errors import PlanningError
+from axquant.conversion_formats import format_ladder
+from axquant.errors import ArtifactError, PlanningError
 from axquant.expert_stream import ExpertStreamSetting
-from axquant.ladders import get_ladder
 from axquant.naming import model_name, target_class_for_bpw
-from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke
+from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke, validate_quick_options
 from axquant.recipes import load_recipe_bundle
 from axquant.schema import (
     ConvertLadderName,
@@ -164,15 +163,14 @@ def simple_convert(
     from axquant.inspector import resolve_model_dir
     from axquant.quantize import quick_convert as _quick
 
-    validate_format_options(
-        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
+    resolved_ladder = validate_quick_options(
+        format=format,
+        ladder=ladder,
+        recipe=recipe,
+        target_bpw=target_bpw,
+        kv_cache=kv_cache,
+        allow_legacy_4bit=allow_legacy_4bit,
     )
-    resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
-    if recipe is not None and target_bpw is not None:
-        raise PlanningError(
-            "simple convert --target-bpw cannot be combined with --recipe; "
-            "the recipe bundle already fixes its target BPW"
-        )
     if recipe is not None and kv_cache is not None:
         raise PlanningError(
             "simple convert --kv-cache cannot be combined with --recipe; "
@@ -199,9 +197,6 @@ def simple_convert(
     if not math.isfinite(effective_bpw) or effective_bpw <= 0 or effective_bpw > 16:
         raise PlanningError("target_bpw must be finite and in (0, 16]")
 
-    download, download_notes = resolve_download_policy(model, allow_download=allow_download)
-    # Resolve early so Hub cache / download failures are clear before planning.
-    model_dir = resolve_model_dir(model, revision=revision, allow_download=download)
     resolved_model_id = infer_model_id(model, model_id)
 
     if output is None:
@@ -214,6 +209,22 @@ def simple_convert(
     else:
         output_path = Path(output).expanduser()
     resolved_output = output_path.resolve()
+    local_source = Path(model).expanduser()
+    if local_source.is_dir():
+        source_path = local_source.resolve()
+        if (
+            resolved_output == source_path
+            or resolved_output.is_relative_to(source_path)
+            or source_path.is_relative_to(resolved_output)
+        ):
+            raise PlanningError("simple convert output must not overlap the source checkpoint")
+    if output_path.exists() or output_path.is_symlink():
+        raise ArtifactError(f"conversion output already exists: {output_path}")
+
+    download, download_notes = resolve_download_policy(model, allow_download=allow_download)
+    # Resolve early so Hub cache / download failures are clear before planning.
+    model_dir = resolve_model_dir(model, revision=revision, allow_download=download)
+
     if (
         resolved_output == model_dir
         or resolved_output.is_relative_to(model_dir)
@@ -284,6 +295,20 @@ python3 -m venv .venv && source .venv/bin/activate
 python -m pip install 'axquant[mlx]'
 axquant quantize /path/to/model-bf16
 ```
+
+## Choose a format
+
+Run `axquant --version` to identify the installed toolkit, then `axquant formats`
+for MLX and CUDA commands and limitations. Use `--backend mlx` or `--backend cuda`
+to filter the catalog. This is offline help, not a host capability check.
+
+```bash
+axquant quantize /path/to/model-bf16 --format mxfp4
+```
+
+Presets preserve higher protection floors and produce development evidence.
+Invalid option combinations and existing output paths are rejected before
+model resolution or downloads.
 
 ## Two doors
 

@@ -34,6 +34,7 @@ options of any command. The six entry points most users need are `quantize`,
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
 | `plan-experimental-mix` | Measured mixed 2/3/4-bit on the robust trunk; fused switch modules upgrade as one unit | Development only; not plan-joint; not mlx-optiq |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
+| `formats` | List MLX/CUDA conversion choices and limitations without loading a runtime | Implemented |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
 | `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
 | `probe-capacity` | Recommend sensitivity probe mode under host memory (bf16-full / measured-lite / streaming / prior-only) | Implemented |
@@ -100,3 +101,11 @@ options of any command. The six entry points most users need are `quantize`,
 | `verify-reproduction` | Verify regenerated weight bytes and bound provenance | Implemented |
 | `verify-cert` | Offline-check a public certificate and optional artifact bundle with a machine-readable verdict | Implemented; exits nonzero on any inconsistent binding |
 | `name` | Generate the recommended AXQuant model name | Implemented |
+
+## Discover conversion options
+
+`axquant --version` prints the installed toolkit version. `axquant formats`
+lists the primary MLX presets and CUDA NVFP4 workflow; use `--backend mlx` or
+`--backend cuda` to narrow the list. These are offline help commands, not host
+capability checks or runtime qualification. They are available on this branch
+and await the next PyPI release, alongside `quantize --format`.

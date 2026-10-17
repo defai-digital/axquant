@@ -4,7 +4,9 @@ import argparse
 import sys
 from datetime import datetime
 
+from axquant import __version__
 from axquant.cli._cuda import add_cuda_commands
+from axquant.conversion_formats import MLX_FORMATS
 from axquant.optimizer import parse_memory_bytes
 from axquant.profiles import implemented_profiles
 from axquant.schema import (
@@ -239,6 +241,7 @@ MLX runtime targets: MLX-LM, MTPLX, oMLX and AX Engine.
 Experimental CUDA exports target vLLM. Runtime/model/format support needs
 separate validation; conversion alone does not certify a pack.
 
+Run `axquant formats` to compare conversion choices.
 Most users only need `quantize`. `axquant quantize --help` lists convert flags.
 """
 
@@ -254,8 +257,13 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=_PRODUCT_USAGE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("--verbose", action="store_true")
     subparsers = parser.add_subparsers(dest="command", required=False)
+    formats_parser = subparsers.add_parser(
+        "formats", help="List conversion formats, commands and evidence limitations"
+    )
+    formats_parser.add_argument("--backend", choices=("all", "mlx", "cuda"), default="all")
     add_cuda_commands(subparsers)
 
     doclayout_parser = subparsers.add_parser(
@@ -937,7 +945,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     quantize_parser.add_argument(
         "--format",
-        choices=["2bit", "3bit", "6bit", "mxfp4", "mxfp8"],
+        choices=MLX_FORMATS,
         help="MLX base format with protected higher-precision tensors (development evidence)",
     )
     quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default=None)

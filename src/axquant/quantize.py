@@ -22,7 +22,7 @@ from axquant.converter import convert_model
 from axquant.errors import PlanningError
 from axquant.expert_stream import ExpertStreamSetting
 from axquant.inspector import inspect_model
-from axquant.ladders import get_ladder, plan_request_for_ladder
+from axquant.ladders import ConvertLadder, get_ladder, plan_request_for_ladder
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.planner import allocate_kv_cache, plan_quantization
 from axquant.recipes import resolve_recipe_plan
@@ -163,6 +163,47 @@ def _runtime_smoke_check(
     return check_mlx_lm_generation(str(output), executable=mlx_lm, model_identity=identity)
 
 
+def validate_quick_options(
+    *,
+    format: str | None,
+    ladder: ConvertLadderName | str,
+    recipe: str | Path | None,
+    target_bpw: float | None,
+    kv_cache: str | None,
+    allow_legacy_4bit: bool,
+) -> ConvertLadder:
+    """Reject incompatible options before model resolution, downloads or inspection."""
+    validate_format_options(
+        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
+    )
+    resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
+    if recipe is not None and ladder not in {
+        ConvertLadderName.PRIOR,
+        ConvertLadderName.PRIOR.value,
+        "prior",
+    }:
+        raise PlanningError(
+            "quantize --recipe cannot be combined with a non-prior --ladder; "
+            "recipe bundles already encode planning evidence"
+        )
+    if resolved_ladder.requires_measured_sensitivity and recipe is None:
+        raise PlanningError(
+            f"ladder {resolved_ladder.name.value} requires measured sensitivity; "
+            "use the staged analyze → plan → convert pipeline (or a measured recipe bundle)"
+        )
+    if target_bpw is not None:
+        if not math.isfinite(target_bpw) or not 0 < target_bpw <= 16:
+            raise PlanningError("target_bpw must be finite and in (0, 16]")
+        if recipe is not None:
+            raise PlanningError(
+                "quantize --target-bpw cannot be combined with --recipe; "
+                "the recipe bundle already fixes its target BPW"
+            )
+    if kv_cache not in {None, "off", "prior"}:
+        raise PlanningError("simple convert supports --kv-cache off|prior only")
+    return resolved_ladder
+
+
 def quick_convert(
     *,
     model: str,
@@ -190,6 +231,14 @@ def quick_convert(
     allow_quantized: bool = False,
     allow_legacy_4bit: bool = False,
 ) -> QuickConversionSummary:
+    resolved_ladder = validate_quick_options(
+        format=format,
+        ladder=ladder,
+        recipe=recipe,
+        target_bpw=target_bpw,
+        kv_cache=kv_cache,
+        allow_legacy_4bit=allow_legacy_4bit,
+    )
     inventory = inspect_model(
         model,
         model_id=model_id,
@@ -209,24 +258,6 @@ def quick_convert(
         audio_input=audio_input,
         image_input=image_input,
     )
-    validate_format_options(
-        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
-    )
-    resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
-    if recipe is not None and ladder not in {
-        ConvertLadderName.PRIOR,
-        ConvertLadderName.PRIOR.value,
-        "prior",
-    }:
-        raise PlanningError(
-            "quantize --recipe cannot be combined with a non-prior --ladder; "
-            "recipe bundles already encode planning evidence"
-        )
-    if resolved_ladder.requires_measured_sensitivity and recipe is None:
-        raise PlanningError(
-            f"ladder {resolved_ladder.name.value} requires measured sensitivity; "
-            "use the staged analyze → plan → convert pipeline (or a measured recipe bundle)"
-        )
     bundle_id: str | None = None
     resolved_binding: SourcePlanBinding | None = None
     ladder_name = resolved_ladder.name.value

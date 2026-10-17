@@ -68,6 +68,16 @@ The local CI mirror is the preferred full check (non-MLX venv + host MLX when pr
 ./scripts/ci-local.sh
 ```
 
+CI also installs a built wheel in a fresh environment outside the checkout.
+Run that distribution check locally with:
+
+```bash
+python scripts/check_wheel_install.py
+```
+
+It downloads build/base dependencies, needs no accelerator or model weights,
+and checks the installed console entry point and packaged resources.
+
 You can also run the checks individually:
 
 ```bash

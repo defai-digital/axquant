@@ -135,10 +135,13 @@ axquant quantize /path/to/model-bf16
 ### Choose an MLX format
 
 **Available on this branch, pending the next PyPI release:** the new `--format`
-option is not in the published `2.2.1` wheel. After that release, the same pip
+option, `axquant formats` and `axquant --version` are not in the published
+`2.2.1` wheel. After that release, the same pip
 installation above provides these commands:
 
 ```bash
+axquant --version
+axquant formats --backend mlx
 axquant quantize /path/to/model-bf16 --format mxfp4
 axquant quantize /path/to/model-bf16 --format 2bit
 axquant quantize /path/to/model-bf16 --format 3bit

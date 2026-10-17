@@ -1033,6 +1033,12 @@ def _run(args: argparse.Namespace) -> int:
             log.warning("development_evidence", note=DEVELOPMENT_NOTE)
         return 0 if summary.runtime_smoke_passed is not False else 1
 
+    if args.command == "formats":
+        from axquant.conversion_formats import formats_markdown
+
+        print(formats_markdown(args.backend))
+        return 0
+
     if args.command == "simple-convert-help":
         from axquant.simple_convert import simple_convert_help_markdown
 

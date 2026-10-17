@@ -132,3 +132,17 @@ jobs:
           else
             echo "No tracked real-hardware integration tests yet"
           fi
+
+  wheel-install:
+    name: pip wheel installation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Build and test installed wheel outside checkout
+        run: python scripts/check_wheel_install.py
