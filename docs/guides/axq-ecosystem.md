@@ -12,8 +12,8 @@ Silicon, then `axquant quantize /path/to/model-bf16`. No repository clone is
 needed for released commands. CUDA users install `axquant[cuda]` and use
 [quantize-cuda](cuda-nvfp4.md) with a compatible CUDA-enabled PyTorch build.
 
-The `quantize --format` presets below are implemented on this branch and await
-the next PyPI release; published 2.2.1 does not expose this option.
+The `quantize --format` presets below are available starting with toolkit 2.3.0.
+Upgrade older installations with `python -m pip install --upgrade 'axquant[mlx]'`.
 
 | MLX preset | Base representation | Default target BPW | Qualification limits |
 | --- | --- | --- | --- |

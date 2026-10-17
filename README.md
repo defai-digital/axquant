@@ -27,7 +27,7 @@ not require AX Engine; its additional optimizations and performance claims
 need their own evidence. Runtime targets are a product commitment, not a claim
 that every model works in every runtime today.
 
-**Status:** toolkit `2.2.1`, packaging classifier **Alpha**. The
+**Status:** official toolkit release `2.3.0` (not a prerelease). The
 historical validated-toolkit pin is `axquant[mlx]==1.8.1`; new installations
 should use the current package. Neither install choice certifies a model.
 The 2.0 line opens the experimental
@@ -45,8 +45,8 @@ for NVFP4, MXFP4 and MXFP8, with FP32 reference execution.
 Version 2.1 adds [explicit oMLX/MTPLX runtime exports](docs/guides/runtime-exports.md)
 and manifest-bound compatibility checks for future MLX conversions. Unknown
 peer profiles fail closed; static format checks do not establish generation
-or certification. Install this development toolkit with
-`python -m pip install 'axquant[mlx]==2.2.1'` when using these commands.
+or certification. Install the toolkit with
+`python -m pip install 'axquant[mlx]==2.3.0'` when using these commands.
 
 Install from PyPI, then convert. You do not need to clone this repository.
 
@@ -134,10 +134,8 @@ axquant quantize /path/to/model-bf16
 
 ### Choose an MLX format
 
-**Available on this branch, pending the next PyPI release:** the new `--format`
-option, `axquant formats` and `axquant --version` are not in the published
-`2.2.1` wheel. After that release, the same pip
-installation above provides these commands:
+**Available in 2.3.0:** `--format`, `axquant formats` and `axquant --version`.
+Upgrade with `python -m pip install --upgrade 'axquant[mlx]'` to use these commands.
 
 ```bash
 axquant --version

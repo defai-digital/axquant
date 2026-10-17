@@ -107,5 +107,4 @@ options of any command. The six entry points most users need are `quantize`,
 `axquant --version` prints the installed toolkit version. `axquant formats`
 lists the primary MLX presets and CUDA NVFP4 workflow; use `--backend mlx` or
 `--backend cuda` to narrow the list. These are offline help commands, not host
-capability checks or runtime qualification. They are available on this branch
-and await the next PyPI release, alongside `quantize --format`.
+capability checks or runtime qualification. They are available starting with toolkit 2.3.0, alongside `quantize --format`.

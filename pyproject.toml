@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "axquant"
-version = "2.2.1"
+version = "2.3.0"
 description = "Reproducible quantization and verifiable AXQ model packs for MLX and CUDA"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,10 +12,6 @@ license = { text = "MIT" }
 authors = [{ name = "AutomatosX" }]
 keywords = ["mlx", "quantization", "apple-silicon", "multimodal", "mtp", "ptq"]
 classifiers = [
-    # 2.0 opens the experimental CUDA/NVFP4 track; the MLX toolkit is tested but
-    # formal host/candidate Hub certification stays evidence-gated, so the
-    # packaging status is Alpha rather than Beta or Production/Stable.
-    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
