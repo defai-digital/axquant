@@ -31,15 +31,25 @@ def read_state(directory: str | Path) -> dict[str, Any]:
     if mode not in {"nvfp4", "mxfp4", "mxfp8"}:
         raise ValueError("Unsupported physical format")
     cache = root.parent.parent
+    legacy_cuda_names = {
+        f"models--AutomatosX--AX-AXDocLayout-M-v{ver}-CUDA-AXQ-NVFP4-W4A16"
+        for ver in ["1.0", "1.1"]
+    }
+    legacy_mlx_names = {
+        f"models--AutomatosX--AX-AXDocLayout-M-v{ver}-MLX-AXQ-{fmt}"
+        for ver in ["1.0", "1.1"]
+        for fmt in ["MXFP4", "MXFP8"]
+    }
+    pre_2_3_names = {
+        # Legacy (pre-2.3) naming without AX- prefix or CUDA/MLX lane tag
+        f"models--AutomatosX--AXDocLayout-M-v{ver}-AXQ-{fmt}"
+        for ver in ["1.0", "1.1"]
+        for fmt in ["NVFP4", "MXFP4", "MXFP8"]
+    }
     hub_snapshot = (
         root.parent.name == "snapshots"
         and re.fullmatch(r"[0-9a-f]{40}", root.name) is not None
-        and cache.name
-        in {
-            f"models--AutomatosX--AXDocLayout-M-v{ver}-AXQ-{fmt}"
-            for ver in ["1.0", "1.1"]
-            for fmt in ["NVFP4", "MXFP4", "MXFP8"]
-        }
+        and cache.name in (legacy_cuda_names | legacy_mlx_names | pre_2_3_names)
     )
     for name, digest in manifest["files"].items():
         if PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
