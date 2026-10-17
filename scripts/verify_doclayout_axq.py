@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from PIL import Image, ImageDraw
-from run_doclayout_axq import BASE
+from run_doclayout_axq import BASE, _pack_dir
 from safetensors.numpy import load_file
 
 from axquant import __version__
@@ -67,7 +67,7 @@ def smoke() -> None:
         baseline_outputs[name] = tuple(t.numpy() for t in output)
         baseline_counts[name] = len(predict(baseline, rgb))
     for mode in ["nvfp4", "mxfp4", "mxfp8"]:
-        pack = BASE / f"AXDocLayout-M-v1.0-AXQ-{mode.upper()}"
+        pack = _pack_dir(mode)
         manifest = json.loads((pack / "axq-manifest.json").read_text())
         state = read_state(pack)
         if set(source) != set(state):
@@ -138,8 +138,8 @@ def publish() -> None:
     api = HfApi(token=True)
     receipts = []
     for mode in ["nvfp4", "mxfp4", "mxfp8"]:
-        name = f"AXDocLayout-M-v1.0-AXQ-{mode.upper()}"
-        pack = BASE / name
+        name = _pack_dir(mode).name
+        pack = _pack_dir(mode)
         manifest = json.loads((pack / "axq-manifest.json").read_text())
         smoke_record = json.loads((pack / "reference-smoke.json").read_text())
         assert len(smoke_record["cases"]) == 3
