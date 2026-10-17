@@ -148,7 +148,7 @@ def publish() -> None:
         weight_bytes = (pack / "model.safetensors").stat().st_size
         (pack / "README.md").write_text(
             f"""---
-license: apache-2.0
+license: agpl-3.0
 library_name: ax-doclayout
 pipeline_tag: object-detection
 tags:
@@ -236,7 +236,7 @@ FP32 model memory. This model detects regions; it does not perform OCR or parse 
 
 ## License and attribution
 
-Weights and bundled AXDocLayout inference source retain Apache-2.0, LICENSE and NOTICE.
+Weights and bundled AXDocLayout inference source retain AGPL-3.0-only, LICENSE and NOTICE.
 The RT-DETRv2 architecture attribution and pinned upstream reference remain in the
 bundled inference source NOTICE. AXQuant helper code is MIT; see AXQUANT_LICENSE.
 No training data or training code is included. Full tensor layout and file bindings
