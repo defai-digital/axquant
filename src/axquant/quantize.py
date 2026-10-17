@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Literal
 
 from axquant.analyzer import architecture_prior_report
+from axquant.conversion_formats import format_ladder, format_q_mode, validate_format_options
 from axquant.converter import convert_model
 from axquant.errors import PlanningError
 from axquant.expert_stream import ExpertStreamSetting
@@ -170,6 +171,7 @@ def quick_convert(
     revision: str | None = None,
     profile: ProfileName = ProfileName.GENERAL,
     target_bpw: float | None = None,
+    format: str | None = None,
     ladder: ConvertLadderName | str = ConvertLadderName.PRIOR,
     kv_cache: Literal["off", "prior"] = "off",
     recipe: str | Path | None = None,
@@ -207,7 +209,10 @@ def quick_convert(
         audio_input=audio_input,
         image_input=image_input,
     )
-    resolved_ladder = get_ladder(ladder)
+    validate_format_options(
+        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
+    )
+    resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
     if recipe is not None and ladder not in {
         ConvertLadderName.PRIOR,
         ConvertLadderName.PRIOR.value,
@@ -247,7 +252,12 @@ def quick_convert(
             candidate_group_sizes=request.candidate_group_sizes,
         )
         try:
-            plan = plan_quantization(report, request, allow_legacy_4bit=allow_legacy_4bit)
+            plan = plan_quantization(
+                report,
+                request,
+                allow_legacy_4bit=allow_legacy_4bit,
+                allocation_units="fused-module" if format is not None else "tensor",
+            )
         except PlanningError as exc:
             # Simple-convert UX: protected floors can push the policy minimum
             # above the user's target (seen on Gemma-4 ~4.89 vs default 4.8).
@@ -260,7 +270,12 @@ def quick_convert(
             if raised <= request.target_bpw + 1e-9:
                 raise
             request = request.model_copy(update={"target_bpw": raised})
-            plan = plan_quantization(report, request, allow_legacy_4bit=allow_legacy_4bit)
+            plan = plan_quantization(
+                report,
+                request,
+                allow_legacy_4bit=allow_legacy_4bit,
+                allocation_units="fused-module" if format is not None else "tensor",
+            )
             plan.warnings.append(
                 f"target BPW raised from {float(match.group('requested')):.4f} to "
                 f"{raised:.4f} to satisfy protection floors (policy minimum "
@@ -270,6 +285,13 @@ def quick_convert(
         effective_target = request.target_bpw
         plan.warnings.append(f"convert ladder: {ladder_name}")
     plan = _keep_moegate_routers_bf16(plan)
+    if format is not None:
+        base_bits = min(resolved_ladder.candidate_bits)
+        if not any(a.bits == base_bits for a in plan.assignments):
+            raise PlanningError(
+                f"--format {format} produced no {base_bits}-bit allocations; "
+                "choose another format or lower --target-bpw"
+            )
     if kv_cache == "prior" and plan.kv_cache is None:
         layer_count = architecture.text_layer_count
         if layer_count is None:
@@ -315,6 +337,7 @@ def quick_convert(
         expert_stream=expert_stream,
         allow_legacy_4bit=allow_legacy_4bit,
         source_binding=source_binding,
+        q_mode=format_q_mode(format),
     )
     output_dir = Path(output).expanduser().resolve()
     smoke_result = _runtime_smoke_check(
@@ -333,6 +356,8 @@ def quick_convert(
         f"Convert ladder: {ladder_name}.",
         f"Requested target BPW: {effective_target}.",
     ]
+    if format is not None:
+        notes.append(f"MLX format preset: {format}; higher protection floors remain enabled.")
     notes.extend(
         warning
         for warning in plan.warnings

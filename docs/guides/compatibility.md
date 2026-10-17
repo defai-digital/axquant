@@ -9,7 +9,7 @@ This matrix covers **runtime environments**. For the model-family support matrix
 | --- | --- | --- |
 | macOS on Apple Silicon (arm64) | Full support | All stages, including MLX capture/probe/convert/runtime |
 | macOS on Intel | Partial | Inspection, planning, reporting only (no MLX backend) |
-| Linux / Windows | Partial | Inspection, planning, reporting only (MLX is Apple-Silicon-only) |
+| Linux / Windows | Partial | Inspection, planning and reporting; experimental CUDA conversion with a compatible PyTorch/CUDA environment (see the [CUDA guide](cuda-nvfp4.md)); MLX execution requires Apple Silicon |
 
 ## Python
 
@@ -23,10 +23,10 @@ This matrix covers **runtime environments**. For the model-family support matrix
 
 | Component | Requirement | Used by |
 | --- | --- | --- |
-| `mlx` | `>= 0.29` | capture-activations, analyze (measured), analyze-kv, convert, evaluate-quality, runtime paths |
+| `mlx` | `>= 0.32.2` | capture-activations, analyze (measured), analyze-kv, convert, evaluate-quality, runtime paths |
 | `mlx-lm` | `>= 0.31` | same as above; DeepSeek V4 (`model_type=deepseek_v4`) requires a build that ships `mlx_lm.models.deepseek_v4` (not all PyPI 0.31.x releases) |
 | `mlx-audio` | `>= 0.4.7` | Qwen3-ASR BF16 normalization, conversion, and transcription smoke |
-| `mlx-vlm` | `>= 0.6.10` | Qwen3-VL conversion and image-to-text smoke |
+| `mlx-vlm` | `>= 0.6.17` | Qwen3-VL conversion and image-to-text smoke |
 
 Without the `mlx` extra these commands fail closed with `BackendUnavailableError`; everything
 else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, reporting, release audit) runs anywhere.
@@ -45,7 +45,7 @@ else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, rep
 
 ## Tested configuration
 
-The current certified release is **v1.8.1** and the development line is **v2.0.0**. CI (`.github/workflows/ci.yml`) runs the full
+The toolkit line is **v2.2.1 (Alpha)**; **v1.8.1** is a historical validated-toolkit pin, not a model certificate. CI (`.github/workflows/ci.yml`) runs the full
 suite on `macos-14` (Apple Silicon) with Python 3.13 and the `mlx` extra. A historical
 v1.2.0 development environment was macOS arm64, Python 3.13, `mlx 0.32.0`,
 `mlx-lm 0.31.3`, `mlx-audio 0.4.7`, and `mlx-vlm 0.6.10`.

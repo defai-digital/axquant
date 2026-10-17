@@ -1,5 +1,9 @@
 # Native CUDA NVFP4 conversion
 
+**vLLM is the primary CUDA runtime target.** Each model, format, GPU and runtime
+version needs its own load and generation evidence; conversion alone is not
+runtime qualification.
+
 This experimental backend adds AXQuant-owned round-to-nearest (RTN) NVFP4
 weight quantization. It does not use AWQ. It is separate from the existing
 MLX conversion path and requires a build containing the CUDA commands.

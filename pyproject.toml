@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "axquant"
 version = "2.2.1"
-description = "MLX-native mixed-precision PTQ for language and multimodal checkpoints on Apple Silicon"
+description = "Reproducible quantization and verifiable AXQ model packs for MLX and CUDA"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

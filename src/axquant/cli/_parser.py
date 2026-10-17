@@ -232,8 +232,12 @@ Getting started (Apple Silicon Mac):
   axquant quantize /path/to/model-bf16
 
 `--target-bpw` defaults to 4.8. Hugging Face ids need `--allow-download`.
-The result is a development checkpoint. Certified packs live on
-https://huggingface.co/AutomatosX
+The result is a development checkpoint. Model packs and their individual
+evidence status are listed at https://huggingface.co/AutomatosX
+
+MLX runtime targets: MLX-LM, MTPLX, oMLX and AX Engine.
+Experimental CUDA exports target vLLM. Runtime/model/format support needs
+separate validation; conversion alone does not certify a pack.
 
 Most users only need `quantize`. `axquant quantize --help` lists convert flags.
 """
@@ -243,8 +247,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="axquant",
         description=(
-            "Convert a supported BF16 Safetensors checkpoint into a mixed-precision "
-            "MLX model for Apple Silicon. Most users only need `axquant quantize`."
+            "AXQuant by AutomatosX / DEFAI Digital: reproducible quantization and "
+            "verifiable AXQ model packs for MLX and CUDA. Start with `axquant quantize` "
+            "for MLX or `axquant quantize-cuda` for experimental vLLM exports."
         ),
         epilog=_PRODUCT_USAGE,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -890,6 +895,7 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog=(
             "examples:\n"
             "  axquant quantize /path/to/model-bf16\n"
+            "  axquant quantize /path/to/model-bf16 --format mxfp4\n"
             "  axquant quantize /path/to/model-bf16 --target-bpw 4.8 --output ./AXQuant-output\n"
             "  axquant quantize Qwen/Qwen3.6-27B --allow-download --revision <sha>\n"
         ),
@@ -928,6 +934,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=None,
         help="target average BPW (prior default 4.8)",
+    )
+    quantize_parser.add_argument(
+        "--format",
+        choices=["2bit", "3bit", "6bit", "mxfp4", "mxfp8"],
+        help="MLX base format with protected higher-precision tensors (development evidence)",
     )
     quantize_parser.add_argument("--kv-cache", choices=["off", "prior"], default=None)
     quantize_parser.add_argument(

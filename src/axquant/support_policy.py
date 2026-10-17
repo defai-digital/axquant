@@ -428,8 +428,9 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         cert_track=True,
         summary=(
             "Thin support: DeepSeek V4 Flash MoE convert via MLX-LM deepseek_v4. "
-            "Flash AXQ 2/3-bit experimental packs have checkpoint Tier 1 generation "
-            "viability certificates on df-macstudio-m2; convert emits the AX Engine "
+            "Historical Flash AXQ 2/3-bit generation-viability certificates were withdrawn; "
+            "consult the current certification index before making a claim. "
+            "Convert emits the AX Engine "
             "layer-stack expert stream contract so 2/3-bit packs can page experts."
         ),
         do=(

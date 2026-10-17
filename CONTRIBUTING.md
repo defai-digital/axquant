@@ -1,9 +1,16 @@
 # Contributing to AXQuant
 
-Contributions are warmly welcome. AXQuant exists to help Mac users get more reliable, efficient
-local inference and a better overall experience on Apple Silicon. Bug fixes, documentation,
-tests, usability improvements, runtime compatibility work, architecture adapters, and
-reproducible quantization research can all move that goal forward.
+AXQuant is an independent MIT-licensed AutomatosX / DEFAI Digital product.
+We welcome developers, forks, independent AXQ integrations and pull requests.
+Our priorities are easy pip installation and CLI conversion, MLX 2/3/6-bit,
+MXFP4 and MXFP8, and CUDA NVFP4. MLX-LM, MTPLX, oMLX and AX Engine are MLX
+compatibility targets; vLLM is the primary CUDA target. Support claims need
+model-, format- and runtime-specific evidence.
+
+You can start with documentation, CLI usability, synthetic tests, schemas or
+bug reproduction without Apple Silicon, a GPU or model downloads. Runtime
+adapters, conformance fixtures and reproducible quantization research are also
+welcome. AX Engine is not required to contribute or to use portable AXQ packs.
 
 First-time contributors are welcome too. If you are unsure where a change belongs, open a
 [GitHub issue](https://github.com/defai-digital/axquant/issues) and describe what you want to
@@ -25,6 +32,10 @@ and the evidence needed for promotion.
 ## Development setup
 
 ```bash
+# Clone your own fork; end users install the released package with pip.
+git clone https://github.com/YOUR_USERNAME/axquant.git
+cd axquant
+git switch -c improve-cli-format-help
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
@@ -72,7 +83,26 @@ Real-hardware tests require Apple Silicon and the MLX dependencies:
 .venv/bin/pytest -m integration
 ```
 
+## Project layout and style
+
+Source and CLI code live in `src/axquant/`; Pydantic models in `src/axquant/schema/`
+are the source of truth for frozen `schemas/` contracts. Tests live in `tests/`,
+operator guides in `docs/`, and recipes in `examples/`. Keep optional MLX imports
+lazy so portable commands work without Metal.
+
+Use four-space Python indentation, snake_case functions/modules and PascalCase
+classes. Follow Ruff formatting and mypy checks configured in `pyproject.toml`.
+Name regression tests `test_*.py`; use tiny Safetensors fixtures and `tmp_path`.
+Run a focused test with `.venv/bin/pytest tests/test_conversion_formats.py`.
+There is no fixed coverage percentage gate; cover meaningful changed behavior.
+
 ## Pull request guidance
+
+Draft PRs and first contributions are welcome. Target `main` and link a related
+issue when there is one. Recent commit subjects use short imperative descriptions
+such as `Fix fused Qwen GDN NVFP4 scales`; use that style for focused commits.
+Screenshots are optional for visual changes; CLI changes benefit from before/after
+commands and output. Forks and downstream integrations need not become upstream PRs.
 
 A helpful pull request:
 

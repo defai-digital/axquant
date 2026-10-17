@@ -5,19 +5,32 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-AXQuant is the offline precision and evidence control plane for Apple Silicon.
-It allocates per-tensor precision under explicit policy, materializes
-checkpoints through public MLX backends, and binds source identity, plan,
-output bytes, runtime evidence, and — when certified — permitted claims into a
-checksum-verifiable artifact graph. AX Engine is the primary inference
-runtime; performance claims require bound measurements.
+**Reproducible quantization and verifiable model packs for MLX and CUDA.**
 
-In short: MLX encodes, AX Engine runs, and AXQuant decides the precision mix —
-then proves what the result may claim. It does not train the source model or
-add new capabilities.
+AXQuant is an independent, [MIT-licensed](LICENSE) product from **AutomatosX /
+DEFAI Digital**. It allocates per-tensor precision, preserves sensitive model
+components, and binds the source, plan and output bytes to reproducible
+validation evidence. It does not train the source model or add capabilities.
 
-**Status:** toolkit `2.2.1`, packaging classifier **Alpha**. The certified PyPI
-pin stays `axquant[mlx]==1.8.1`. The 2.0 line opens the experimental
+We want **AXQ** model packs to be easy to produce, inspect and adopt across
+inference tools. Independent producers, runtime integrations and community
+forks are welcome. See [AXQ formats and runtime targets](docs/guides/axq-ecosystem.md)
+for existing contracts, integration guidance and current limitations.
+
+| Product line | Runtime targets | Support policy |
+| --- | --- | --- |
+| MLX AXQ: **2-bit, 3-bit, 6-bit, MXFP4, MXFP8** | **MLX-LM, MTPLX, oMLX, AX Engine** | First-class compatibility targets where the runtime supports the model, physical format and requested features; each combination needs validation |
+| CUDA AXQ: **NVFP4** | **vLLM** as the primary target | Experimental NVFP4 and mixed NVFP4/FP8 exports; qualification depends on the model, GPU, kernel and vLLM version |
+
+AX Engine is optimized for AXQ on Apple Silicon. Portable model loading does
+not require AX Engine; its additional optimizations and performance claims
+need their own evidence. Runtime targets are a product commitment, not a claim
+that every model works in every runtime today.
+
+**Status:** toolkit `2.2.1`, packaging classifier **Alpha**. The
+historical validated-toolkit pin is `axquant[mlx]==1.8.1`; new installations
+should use the current package. Neither install choice certifies a model.
+The 2.0 line opens the experimental
 [native CUDA NVFP4 backend](docs/guides/cuda-nvfp4.md) — RTN NVFP4 W4A16 exports
 plus an opt-in calibrated W4A4 path — alongside the MLX planning line and its
 joint weight/KV diagnostics (`diagnose-joint`, `plan-joint`) as development
@@ -39,15 +52,16 @@ Install from PyPI, then convert. You do not need to clone this repository.
 
 ## Who it is for
 
-- You ship or evaluate quantized models on Apple Silicon and want mixed
-  precision with protection floors, not blind uniform quantization.
+- You ship or evaluate MLX models on Apple Silicon, or experimental CUDA
+  models for vLLM, and need controlled precision allocation.
 - You need reproducible artifacts: pinned source, exact plan, measured BPW,
   checksums, and runtime metadata in every output.
 - You publish packs and want fail-closed gates between a development
   checkpoint and a public quality or speed claim.
 
-Not for: training or fine-tuning, non-Apple platforms, GGUF workflows, or
-any model family below the `convertible` support tier.
+The conversion workflow expects a supported checkpoint at the `convertible`
+tier or above. Training, GGUF export and arbitrary model-family conversion
+are outside this workflow. Inspection, planning and reporting work without MLX.
 
 ## How it compares
 
@@ -60,8 +74,10 @@ any model family below the `convertible` support tier.
 
 ## Design beliefs
 
-1. **Precision allocation, not codec invention.** AXQuant chooses which
-   tensors deserve which precision; public MLX backends do the encoding.
+1. **Open formats and independent adoption.** MLX exports use public MLX
+   packing; the CUDA exporter writes documented NVFP4 layouts for vLLM's
+   compressed-tensors interface. AXQ adds precision policy and verifiable
+   provenance. Format conformance and runtime execution are separate checks.
 2. **Floors are constraints, not suggestions.** Sensitive components are
    never sacrificed to hit a pretty BPW number; infeasible budgets adjust
    or refuse, with a record.
@@ -80,8 +96,9 @@ any model family below the `convertible` support tier.
 
 ## Install
 
-Apple Silicon Mac and **Python 3.11+**. Conversion needs the MLX extra; that
-stack only runs on arm64 macOS.
+**Python 3.11+**. The MLX quick start below needs an Apple Silicon Mac and the
+`mlx` extra. For experimental CUDA conversion targeting vLLM, use the separate
+[CUDA installation and conversion guide](docs/guides/cuda-nvfp4.md).
 
 **Always install into a virtual environment.** A bare system-wide install
 fails with `externally-managed-environment`; do **not** pass
@@ -92,15 +109,15 @@ single-quote the extra so zsh does not treat `[mlx]` as a glob):
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -U pip
-python -m pip install 'axquant[mlx]==1.8.1'
+python -m pip install 'axquant[mlx]'
 axquant --help
 ```
 
 | Goal | Command |
 | --- | --- |
-| Convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]==1.8.1'` inside a venv |
-| Inspect / plan / report only (no Metal) | `python -m pip install 'axquant==1.8.1'` inside a venv |
-| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]==1.8.1'` |
+| Convert / analyze / evaluate (typical) | `python -m pip install 'axquant[mlx]'` inside a venv |
+| Inspect / plan / report only (no Metal) | `python -m pip install axquant` inside a venv |
+| Global CLI via Homebrew tooling | `brew install pipx && pipx install 'axquant[mlx]'` |
 
 Wheels and checksums also ship on
 [GitHub Releases](https://github.com/defai-digital/axquant/releases).
@@ -115,6 +132,26 @@ trying the model locally, not a public quality or speed claim.
 axquant quantize /path/to/model-bf16
 ```
 
+### Choose an MLX format
+
+**Available on this branch, pending the next PyPI release:** the new `--format`
+option is not in the published `2.2.1` wheel. After that release, the same pip
+installation above provides these commands:
+
+```bash
+axquant quantize /path/to/model-bf16 --format mxfp4
+axquant quantize /path/to/model-bf16 --format 2bit
+axquant quantize /path/to/model-bf16 --format 3bit
+axquant quantize /path/to/model-bf16 --format 6bit
+axquant quantize /path/to/model-bf16 --format mxfp8
+```
+
+These are base-format presets with higher precision for protected tensors,
+not uniform whole-model bit widths. Omitting `--format` retains the existing mixed 4.8-BPW
+planner. Presets use architecture priors and remain development evidence;
+2/3-bit runtime admission gates and MXFP8's unmeasured status still apply.
+See [format behavior and runtime coverage](docs/guides/axq-ecosystem.md).
+
 ```bash
 # Choose the bit budget and output folder
 axquant quantize /path/to/model-bf16 --target-bpw 4.8 --output ./AXQuant-output
@@ -126,12 +163,17 @@ axquant quantize Qwen/Qwen3.6-27B --allow-download --revision COMMIT_SHA
 axquant inspect --model /path/to/model-bf16 --output inventory.json
 ```
 
-Load the output with MLX-LM:
+For a model and physical format supported by MLX-LM, load the output with:
 
 ```bash
 python -m pip install -U mlx-lm
 mlx_lm.generate --model ./AXQuant-output --prompt "Hello" --max-tokens 64 --temp 0.0
 ```
+
+For MTPLX, oMLX and AX Engine, check the exact pack's runtime requirements in
+the [runtime guide](docs/guides/axq-ecosystem.md#runtime-coverage).
+Some models need a distinct [runtime export](docs/guides/runtime-exports.md).
+Text generation does not establish vision, audio or MTP support.
 
 Prefer a ready-made pack? The live catalog is on
 [AutomatosX on Hugging Face](https://huggingface.co/AutomatosX) — packs,
@@ -164,7 +206,7 @@ measured releases and public claims; see the
 
 ## Input and output
 
-**Input:** an unquantized Safetensors checkpoint of a family at the
+For the MLX workflow above, **input** is an unquantized Safetensors checkpoint of a family at the
 `convertible` tier or above, converted through the promoted public backend
 (MLX-LM for text, MLX-VLM / MLX-Audio with BF16-protected modality towers
 for vision and audio). A pinned source revision is mandatory for measured
@@ -178,6 +220,11 @@ supported runtimes, and byte-preserved MTP / modality sidecars unless an
 explicit validated transform is selected. The language-model output stays
 usable as a standard MLX checkpoint; AX Engine reads the extra metadata.
 
+CUDA exports have separate versioned plans and manifests targeting vLLM;
+see [CUDA NVFP4](docs/guides/cuda-nvfp4.md). MLX and CUDA packs have distinct
+physical layouts and are not interchangeable just because both use four-bit
+values. AXDocLayout uses a separate custom development storage format.
+
 ## CLI workflow
 
 Run `axquant COMMAND --help` for the full options of any command. The main
@@ -188,7 +235,9 @@ check). The complete command table lives in the
 
 ## Certification
 
-AXQuant separates checkpoint claims from acceleration claims:
+The existing certification workflow is AX Engine-bound and separates
+checkpoint claims from acceleration claims. Making other runtimes first-class
+compatibility targets does not extend this frozen certification contract:
 
 - **Tier 1 (checkpoint):** size, matched quality, conversion integrity,
   and standard-runtime compatibility for one exact revision.
@@ -196,7 +245,7 @@ AXQuant separates checkpoint claims from acceleration claims:
   and prompt-median ≥1.10× decode speedup on named authorizing workloads —
   measured evidence for that pack, engine build, and host only.
 
-Conversion, Tier 1, and Tier 2 evidence are all produced on one factory
+Official MLX conversion, Tier 1, and Tier 2 evidence are produced on one factory
 host class: **Mac Studio, M2 Ultra, 192 GB unified memory**. Records name
 the hardware spec, never a machine identity.
 
@@ -213,7 +262,8 @@ Index: [docs/README.md](docs/README.md).
 | I want to … | Start with |
 | --- | --- |
 | Quantize a model | [Convert](#convert), then the [CLI reference](docs/cli-reference.md) |
-| Understand or verify an artifact | [Pack interchange contract](docs/contracts/axq-pack-interchange-v1.md), [certified checkpoints](docs/certifications/README.md) |
+| Adopt AXQ or integrate a runtime | [AXQ formats and runtime targets](docs/guides/axq-ecosystem.md), [environment compatibility](docs/guides/compatibility.md) |
+| Understand or verify an artifact | [Affine-U32 v1 contract](docs/contracts/axq-pack-interchange-v1.md), [certification status](docs/certifications/README.md) |
 | Operate certification | [Certification operator guide](docs/guides/flagship-certification.md), [Certification Spec v1.0](docs/contracts/certification-spec-v1.0.md) |
 | Contribute code | [Development](#development), [CONTRIBUTING.md](CONTRIBUTING.md), [CI root causes](docs/guides/ci-root-causes.md) |
 
@@ -242,11 +292,21 @@ model weights. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contributing
 
-Contributions are warmly welcome: bug fixes, documentation, tests,
-usability improvements, runtime compatibility, architecture adapters, or
-reproducible quantization research. Fork the repository and send a pull
-request; for a substantial design change or new model family, open a
-[GitHub issue](https://github.com/defai-digital/axquant/issues) first.
+**Developers are welcome to help build AXQuant and grow the AXQ ecosystem.**
+[Fork AXQuant](https://github.com/defai-digital/axquant/fork), try a focused
+change, and open a pull request against `main`. First-time contributors and
+independent runtime or model-tool authors are welcome.
+
+Useful starting points include documentation, reproducible bug reports,
+synthetic tests, CLI usability, MLX-LM / MTPLX / oMLX / AX Engine integrations,
+and vLLM compatibility. Many contributions need no Apple hardware, GPU or
+model downloads. Share the checks you can run; maintainers can help identify
+the additional evidence needed for hardware-specific work.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup and the fork-to-PR workflow.
+Small fixes can go straight to a PR. For a new architecture, format or major
+API change, start a [GitHub issue](https://github.com/defai-digital/axquant/issues/new/choose)
+to agree on scope and validation. Draft PRs are welcome for early feedback.
 
 ## License
 

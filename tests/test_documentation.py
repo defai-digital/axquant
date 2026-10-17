@@ -96,7 +96,7 @@ def test_readme_product_path_is_install_then_convert() -> None:
     readme = _read("README.md")
     install = readme.index("## Install\n")
     convert = readme.index("## Convert\n")
-    pip = readme.index("python -m pip install 'axquant[mlx]==1.8.1'")
+    pip = readme.index("python -m pip install 'axquant[mlx]'")
     quantize = readme.index("axquant quantize /path/to/model-bf16")
     clone = readme.find("git clone https://github.com/defai-digital/axquant.git")
 

@@ -44,3 +44,8 @@ Other entry points:
 - Runtime export schema upgrade: [migrations/runtime-exports.md](migrations/runtime-exports.md)
 
 Do not add PRDs, ADRs, or product-planning tech specs under `docs/`.
+
+## AXQ ecosystem and contributions
+
+- [Formats, runtime targets and independent integrations](guides/axq-ecosystem.md)
+- [Fork AXQuant and contribute](../CONTRIBUTING.md)

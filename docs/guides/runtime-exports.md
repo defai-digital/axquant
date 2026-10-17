@@ -1,5 +1,11 @@
 # Runtime exports and future architecture checks
 
+MLX-LM, MTPLX, oMLX and AX Engine are first-class AXQ compatibility targets,
+conditional on model and physical-format support. This guide documents the
+implemented export profiles; it does not establish universal runtime support.
+See [the ecosystem guide](axq-ecosystem.md) for the broader product direction.
+
+
 Every new MLX `convert` / `quantize` output includes
 `axquant_compatibility.json`, checksum-bound by `axquant_manifest.json`.
 It checks current config, tensor headers, index membership, quantization modes,

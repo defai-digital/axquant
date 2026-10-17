@@ -997,6 +997,7 @@ def _run(args: argparse.Namespace) -> int:
             profile=(ProfileName(args.profile) if args.profile is not None else None),
             target_bpw=args.target_bpw,
             ladder=args.ladder,
+            format=args.format,
             kv_cache=args.kv_cache,
             recipe=args.recipe,
             allow_download=args.allow_download,

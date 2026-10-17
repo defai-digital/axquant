@@ -39,6 +39,7 @@ import re
 from pathlib import Path
 from typing import Literal
 
+from axquant.conversion_formats import format_ladder, validate_format_options
 from axquant.errors import PlanningError
 from axquant.expert_stream import ExpertStreamSetting
 from axquant.ladders import get_ladder
@@ -78,13 +79,17 @@ def default_output_dir(
     model_id: str | None = None,
     target_bpw: float = 4.8,
     mtp: bool = False,
+    format: str | None = None,
     parent: str | Path = ".",
 ) -> Path:
     """Derive ``./AX-<base>-MLX-AXQ-<class>`` under *parent*."""
     if not math.isfinite(target_bpw) or target_bpw <= 0 or target_bpw > 16:
         raise PlanningError("target_bpw must be finite and in (0, 16]")
     base = model_id or model
-    name = model_name(base, target_class=target_class_for_bpw(target_bpw), mtp=mtp)
+    if format is not None:
+        format_ladder(format)
+    target_class = format.upper() if format and format.startswith("mxfp") else format
+    name = model_name(base, target_class=target_class or target_class_for_bpw(target_bpw), mtp=mtp)
     if not _SAFE_DIR.fullmatch(name):
         raise PlanningError(f"refusing unsafe default output name: {name}")
     return Path(parent).expanduser().resolve() / name
@@ -132,6 +137,7 @@ def simple_convert(
     revision: str | None = None,
     profile: ProfileName | None = None,
     target_bpw: float | None = None,
+    format: str | None = None,
     ladder: ConvertLadderName | str = ConvertLadderName.PRIOR,
     kv_cache: str | None = None,
     recipe: str | Path | None = None,
@@ -158,7 +164,10 @@ def simple_convert(
     from axquant.inspector import resolve_model_dir
     from axquant.quantize import quick_convert as _quick
 
-    resolved_ladder = get_ladder(ladder)
+    validate_format_options(
+        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
+    )
+    resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
     if recipe is not None and target_bpw is not None:
         raise PlanningError(
             "simple convert --target-bpw cannot be combined with --recipe; "
@@ -200,6 +209,7 @@ def simple_convert(
             model,
             model_id=resolved_model_id,
             target_bpw=effective_bpw,
+            format=format,
         )
     else:
         output_path = Path(output).expanduser()
@@ -226,6 +236,7 @@ def simple_convert(
         profile=effective_profile,
         target_bpw=None if recipe is not None else effective_bpw,
         ladder=ladder,
+        format=format,
         kv_cache=kv_mode,
         recipe=recipe,
         calibration_manifest=calibration_manifest,
