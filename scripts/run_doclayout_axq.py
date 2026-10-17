@@ -6,18 +6,18 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from axquant.doclayout import REVISION, SOURCE, convert_doclayout
-from axquant.naming import cuda_pack_name, model_name
+from axquant.doclayout import REVISION, convert_doclayout
 
 BASE = Path("/Volumes/Ext16TR0/models/axdoclayout-axq-20261014")
 
+# DocLayout packs follow the operator-guide naming, not the language-model CUDA/MLX
+# lanes: no AX- prefix (the base name already carries AX), no CUDA/MLX tag, no
+# activation suffix. This matches sync_hf_collections.py and docs/guides/doclayout.md.
+SOURCE_VERSION = "v1.0"
+
 
 def _pack_dir(mode: str) -> Path:
-    if mode == "nvfp4":
-        name = cuda_pack_name(SOURCE, lane="NVFP4-W4A16")
-    else:
-        name = model_name(SOURCE, target_class=mode.upper(), include_mlx=True)
-    return BASE / name
+    return BASE / f"AXDocLayout-M-{SOURCE_VERSION}-AXQ-{mode.upper()}"
 
 
 def main() -> None:

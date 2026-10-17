@@ -13,7 +13,6 @@ from typing import Any
 
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.factory import require_factory_host
-from axquant.naming import cuda_pack_name, model_name
 from axquant.nvfp4 import quantize_nvfp4_reference
 from axquant.schema.doclayout import (
     DocLayoutFormat,
@@ -111,12 +110,13 @@ def convert_doclayout(
     verify_source(source, binding["metadata_bound_sha256"])
     if digest(source / "model.safetensors") != binding["weight_sha256"]:
         raise ValueError("Pinned source weights mismatch")
-    # CUDA lane is the only CUDA-targeted q_mode the doclayout flow admits; MLX lanes
-    # keep the AX-/MLX-AXQ- target-class form via certified_quantization_name.
-    if mode == "nvfp4":
-        name = cuda_pack_name(binding["name"], lane="NVFP4-W4A16")
-    else:
-        name = model_name(binding["name"], target_class=mode.upper(), include_mlx=True)
+    # DocLayout packs are a custom storage schema, not language-model packs: they
+    # run no native low-precision runtime and decode to FP32 on CPU. They therefore
+    # use the AXDocLayout naming convention from the operator guide
+    # (docs/guides/doclayout.md) and sync_hf_collections.py -- no AX- prefix
+    # (the base name already carries AX), no CUDA/MLX lane tag, no activation
+    # suffix. See "AXDocLayout-M-v1.0-AXQ-NVFP4" in sync_hf_collections.py.
+    name = f"AXDocLayout-M-{source_version}-AXQ-{mode.upper()}"
     target = Path(output).expanduser().resolve()
     if target == source or source.is_relative_to(target) or target.is_relative_to(source):
         raise ArtifactError("Output cannot overlap source")
