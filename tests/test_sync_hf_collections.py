@@ -51,9 +51,24 @@ def test_reference_storage_stays_out_of_native_runtime_and_method_catalogs() -> 
     titles = {spec.title: spec for spec in collections.COLLECTIONS}
     reference = {item.repo for item in titles["AXQ Reference Storage"].items}
     assert "AutomatosX/AX-Image-2.1-Turbo-AXQ-NVFP4" in reference
-    assert len(reference) == 5
+    assert len(reference) == 1
     for title in ("MLX", "CUDA", "NVFP4", "MXFP4", "MXFP8"):
         assert reference.isdisjoint(item.repo for item in titles[title].items)
+
+
+def test_doclayout_collection_tracks_source_and_native_mlx_bundles() -> None:
+    titles = {spec.title: spec for spec in collections.COLLECTIONS}
+    doclayout = {item.repo for item in titles["AX DocLayout"].items}
+    expected = {
+        "AutomatosX/AXDocLayout-M-v1.2-CUDA-TF32",
+        "AutomatosX/AXDocLayout-M-v1.2-MLX-AXQ-MXFP8",
+        "AutomatosX/AXDocLayout-M-v1.3-CUDA-TF32",
+        "AutomatosX/AXDocLayout-M-v1.3-MLX-AXQ-MXFP8",
+    }
+    assert doclayout == expected
+    runtime_catalogs = {item.repo for title in ("CUDA", "MLX") for item in titles[title].items}
+    assert expected <= runtime_catalogs
+    assert all("-v1.0" not in repo for repo in doclayout)
 
 
 def test_reference_runtime_overlap_aborts_sync(monkeypatch: pytest.MonkeyPatch) -> None:

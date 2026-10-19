@@ -1,9 +1,11 @@
-# AXDocLayout development storage exports
+# AXDocLayout exports and inference bundles
 
-`quantize-doclayout` is a source-bound exporter for the exact
-`AutomatosX/AXDocLayout-M-v1.0` RT-DETRv2 checkpoint. It supports NVFP4,
-MXFP4 and MXFP8 storage, with explicit unmeasured opt-in. It does not promote
-RT-DETR into the language-model architecture registry.
+`quantize-doclayout` is a source-bound exporter for admitted RT-DETRv2 v1.0
+and v1.1 checkpoints. It writes custom NVFP4, MXFP4 or MXFP8 storage, with
+explicit unmeasured opt-in; those packs reconstruct FP32 for reference CPU
+inference. This command does not create the separate native MLX bundles
+described below or promote RT-DETR into the language-model architecture
+registry.
 
 Run conversion on the designated factory with the pinned local Hub snapshot:
 
@@ -71,10 +73,29 @@ is claimed.
 outputs for deterministic blank, text and table pages. These are functional
 checks, not a labeled quality evaluation. Initial 4-bit exports produce a
 detection on the blank page where FP32 returns none, and all formats change
-some detection counts. Treat these as development storage experiments until
-representative labeled evaluation and a native runtime are available.
+some detection counts. Treat these reference-storage packs as development
+artifacts. The newer native MLX bundles below have separate validation and
+limitations.
 
-The published source and three development packs are grouped in the
-[AXDocLayout collection](https://huggingface.co/collections/AutomatosX/axdoclayout-6acf4438c7708d288bf141d4).
+Current source models and model-specific MLX bundles are grouped in the
+[AX DocLayout collection](https://huggingface.co/collections/AutomatosX/ax-doclayout-6acf4438c7708d288bf141d4).
 See the [2.2 schema migration](../migrations/doclayout-development-storage.md)
 before integrating the custom storage format.
+
+## Published native MLX bundles
+
+The v1.2 and v1.3 MLX models use a separate model-specific inference package.
+They execute MXFP8 linear weights with MLX Metal, store convolution weights in
+FP16, and preserve normalization and sensitive projections in FP32. Install
+the included `ax-doclayout-mlx` source from the immutable revision given in
+each model card. MLX 0.32.4 on Apple Silicon is required.
+
+The v1.3 bundle is
+[`AutomatosX/AXDocLayout-M-v1.3-MLX-AXQ-MXFP8`](https://huggingface.co/AutomatosX/AXDocLayout-M-v1.3-MLX-AXQ-MXFP8),
+derived from the pinned
+[`v1.3 CUDA/TF32 source`](https://huggingface.co/AutomatosX/AXDocLayout-M-v1.3-CUDA-TF32).
+It passed a local MLX load and synthetic blank/text/table smoke on the factory
+Mac Studio. The same text smoke produced a different detection count from the
+FP32 CPU source; this is not a labeled quality evaluation and does not establish
+accuracy parity, latency improvement, or certification. AX Engine support is
+not provided for this model-specific bundle.

@@ -22,7 +22,9 @@ NAMESPACE = "AutomatosX"
 CATALOG_TITLE = "MLX"
 # Pinned collection identities. A missing slug is rediscovered or recreated.
 KNOWN_SLUGS: dict[str, str] = {
-    "AXDocLayout": "AutomatosX/axdoclayout-6acf4438c7708d288bf141d4",
+    "AX BI": "AutomatosX/ax-bi-6ad54be40f8f1d5415a8d15a",
+    "AX Work": "AutomatosX/ax-work-6ad54c25c37f597f21344945",
+    "AX DocLayout": "AutomatosX/ax-doclayout-6acf4438c7708d288bf141d4",
     "AXQ Reference Storage": "AutomatosX/axq-reference-storage-6acf62f074ea7a8736b52eb2",
     "CUDA": "AutomatosX/cuda-6ac1b59d9199d121c6c7e2e3",
     "Clef": "AutomatosX/clef-6acba4d240d3356db83975cb",
@@ -79,7 +81,14 @@ NOTE_CUDA_BOUND = (
     "NVFP4 W4A16 development artifact. See manifest-bound runtime evidence; "
     "MTP and quality are not certified."
 )
-NOTE_SOURCE = "Original FP32 AXDocLayout source baseline; not a reduced-precision checkpoint."
+NOTE_DOCLAYOUT_CUDA = (
+    "FP32 AXDocLayout source weights with CUDA TF32 inference. "
+    "See the model card for runtime requirements and measurements."
+)
+NOTE_DOCLAYOUT_MLX = (
+    "Native MLX Metal mixed-MXFP8 detector. Development bundle; "
+    "see the model card for validation limits."
+)
 NOTE_CUDA = "Native AXQuant CUDA NVFP4 W4A16. Development artifact; not certified."
 NOTE_SWIFT = (
     "AXQ Swift-1.5 Qwen3.8-27B finetune. Vision and MTP stay BF16. "
@@ -159,6 +168,8 @@ COLLECTIONS: tuple[Spec, ...] = (
             "MLX AXQ MXFP4 development checkpoints; reference-only storage is listed separately."
         ),
         items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
@@ -183,8 +194,13 @@ COLLECTIONS: tuple[Spec, ...] = (
     ),
     Spec(
         title="MXFP8",
-        description="MLX MXFP8 checkpoints: OCR, Qwen3-VL, Qwen3.8 MTP, and embeddings.",
+        description=(
+            "MLX AXQ MXFP8 development checkpoints; "
+            "protected tensors keep their declared precision."
+        ),
         items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-DeepSeek-OCR-2-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Unlimited-OCR-3B-MoE-MLX-AXQ-MXFP8", NOTE_AXQ_DEV),
             _ax("AX-Qwen3-VL-4B-Instruct-MLX-AXQ-MXFP8", NOTE_AXQ_VL),
@@ -244,6 +260,10 @@ COLLECTIONS: tuple[Spec, ...] = (
         title="MTP",
         description="AXQ packs with packaged MTP sidecars. -MTP ships assets; speed needs Tier 2.",
         items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
             _ax("AX-Qwen3.5-9B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
@@ -267,9 +287,12 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="CUDA",
         description=(
-            "CUDA NVFP4 text, OCR, vision-language, and retrieval development checkpoints."
+            "CUDA catalog: AXQuant NVFP4 development packs and AXDocLayout FP32 TF32 sources. "
+            "Runtime evidence is model-specific."
         ),
         items=(
+            _ax("AXDocLayout-M-v1.3-CUDA-TF32", NOTE_DOCLAYOUT_CUDA),
+            _ax("AXDocLayout-M-v1.2-CUDA-TF32", NOTE_DOCLAYOUT_CUDA),
             _ax("AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
             _ax("AX-Qwen3.5-9B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
             _ax("AX-Muse-Glimmer-30B-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA_BOUND),
@@ -297,29 +320,22 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title="AXQ Reference Storage",
         description=(
-            "Source baselines and custom low-precision storage "
-            "with explicit BF16/FP32 reconstruction. "
+            "Custom low-precision storage with explicit BF16/FP32 reconstruction. "
             "No native low-precision or quality certification."
         ),
-        items=(
-            _ax("AXDocLayout-M-v1.0", NOTE_SOURCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-NVFP4", NOTE_REFERENCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-MXFP4", NOTE_REFERENCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-MXFP8", NOTE_REFERENCE),
-            _ax("AX-Image-2.1-Turbo-AXQ-NVFP4", NOTE_REFERENCE),
-        ),
+        items=(_ax("AX-Image-2.1-Turbo-AXQ-NVFP4", NOTE_REFERENCE),),
     ),
     Spec(
-        title="AXDocLayout",
+        title="AX DocLayout",
         description=(
-            "Original AXDocLayout source and reference NVFP4/MXFP4/MXFP8 storage. "
-            "Reference inference reconstructs FP32 PyTorch CPU weights."
+            "AXDocLayout v1.2/v1.3 FP32 CUDA TF32 sources and native MLX MXFP8 bundles. "
+            "See model cards for runtime and validation scope."
         ),
         items=(
-            _ax("AXDocLayout-M-v1.0", NOTE_SOURCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-NVFP4", NOTE_REFERENCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-MXFP4", NOTE_REFERENCE),
-            _ax("AXDocLayout-M-v1.0-AXQ-MXFP8", NOTE_REFERENCE),
+            _ax("AXDocLayout-M-v1.3-CUDA-TF32", NOTE_DOCLAYOUT_CUDA),
+            _ax("AXDocLayout-M-v1.3-MLX-AXQ-MXFP8", NOTE_DOCLAYOUT_MLX),
+            _ax("AXDocLayout-M-v1.2-CUDA-TF32", NOTE_DOCLAYOUT_CUDA),
+            _ax("AXDocLayout-M-v1.2-MLX-AXQ-MXFP8", NOTE_DOCLAYOUT_MLX),
         ),
     ),
     Spec(
@@ -331,9 +347,47 @@ COLLECTIONS: tuple[Spec, ...] = (
         items=(_ax("AX-Muse-Glimmer-30B-CUDA-AXQ-NVFP4-W4A16", NOTE_CUDA_BOUND),),
     ),
     Spec(
-        title="Qwen",
-        description="Qwen3.8, Qwen3.5, VL, embeddings, and image reference storage.",
+        title="AX BI",
+        description=(
+            "AX BI selected AXQ Qwen and Nemotron MLX MXFP4/MXFP8 packs with protected MTP. "
+            "Development artifacts; see individual model cards."
+        ),
         items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
+        title="AX Work",
+        description=(
+            "AX Work selected AXQ Qwen and Nemotron MLX MXFP4/MXFP8 packs with protected MTP. "
+            "Development artifacts; see individual model cards."
+        ),
+        items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+        ),
+    ),
+    Spec(
+        title="Qwen",
+        description="Qwen3.8, Qwen3.6, Qwen3.5, VL, embeddings, and image reference storage.",
+        items=(
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Image-2.1-Turbo-AXQ-NVFP4", NOTE_REFERENCE),
             _ax("AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
             _ax("AX-Qwen3.5-9B-CUDA-AXQ-NVFP4-W4A16-MTP", NOTE_CUDA_BOUND),
@@ -505,9 +559,16 @@ COLLECTIONS: tuple[Spec, ...] = (
     Spec(
         title=CATALOG_TITLE,
         description=(
-            "MLX packs only. Native NVIDIA checkpoints are listed in the CUDA collection."
+            "MLX packs only, including model-specific detectors. "
+            "Native NVIDIA checkpoints are listed in the CUDA collection."
         ),
         items=(
+            _ax("AXDocLayout-M-v1.3-MLX-AXQ-MXFP8", NOTE_DOCLAYOUT_MLX),
+            _ax("AXDocLayout-M-v1.2-MLX-AXQ-MXFP8", NOTE_DOCLAYOUT_MLX),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
+            _ax("AX-Qwen3.5-9B-MLX-AXQ-MXFP8-MTP", NOTE_AXQ_DEV),
             _ax("AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),
             _ax("AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP", NOTE_SWIFT),
             _ax("AX-Qwen3.8-Flash-Next-MLX-AXQ-MXFP4-MTP", NOTE_AXQ_DEV),

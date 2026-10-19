@@ -40,6 +40,8 @@ Other entry points:
 
 - Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
 - Compatibility: [guides/compatibility.md](guides/compatibility.md)
+- D3 runtime support:
+  [guides/d3-runtime-compatibility.md](guides/d3-runtime-compatibility.md)
 - Runtime variants and future architecture checks: [guides/runtime-exports.md](guides/runtime-exports.md)
 - Runtime export schema upgrade: [migrations/runtime-exports.md](migrations/runtime-exports.md)
 
