@@ -29,6 +29,8 @@ from axquant.ngram_layout import (
     relayout_ngram_table,
 )
 from axquant.runtime_compatibility import (
+    QWEN35_MTPLX_PROFILE,
+    QWEN35_OMLX_PROFILE,
     inspect_runtime_export,
     write_runtime_compatibility,
 )
@@ -92,6 +94,141 @@ def _shift_norm(part: _TensorPart) -> _TensorPart:
             shifted_value = struct.unpack("<f", struct.pack("<f", value + 1.0))[0]
             payload.extend(struct.pack("<" + code, shifted_value))
     return replace(part, payload=bytes(payload))
+
+
+# RMSNorm gains of a Qwen-Next MTP head (Qwen 3.5, 3.6, 3.8; dense and MoE).
+_QWEN35_HEAD_NORM_SUFFIXES = (
+    ".input_layernorm.weight",
+    ".post_attention_layernorm.weight",
+    ".q_norm.weight",
+    ".k_norm.weight",
+    ".pre_fc_norm_embedding.weight",
+    ".pre_fc_norm_hidden.weight",
+)
+_QWEN35_HEAD_FINAL_NORM = "mtp.norm.weight"
+QWEN35_HEAD_SHARD = "model-mtp.safetensors"
+# A trunk stored as MLX multipliers has input norms near 1.0; a zero-centered
+# (raw HF delta) trunk has them near 0. The head is only shifted onto a trunk
+# that already uses multipliers.
+_TRUNK_MULTIPLIER_MEAN_MIN = 0.3
+
+
+def _is_qwen35_head_norm(name: str) -> bool:
+    return name == _QWEN35_HEAD_FINAL_NORM or name.endswith(_QWEN35_HEAD_NORM_SUFFIXES)
+
+
+def _vector_mean(part: _TensorPart) -> float:
+    """Mean of a floating RMSNorm vector, read straight from the shard."""
+    tensor = part.tensor
+    if len(tensor.shape) != 1 or tensor.dtype not in {"F32", "F16", "BF16"}:
+        raise ArtifactError(f"RMSNorm requires a floating vector: {tensor.name}")
+    with part.source.open("rb") as source:
+        source.seek(part.layout.data_base + tensor.start)
+        raw = source.read(tensor.byte_count)
+    if len(raw) != tensor.byte_count:
+        raise ArtifactError(f"truncated norm {tensor.name}")
+    if tensor.dtype == "BF16":
+        values = [
+            struct.unpack("<f", struct.pack("<I", bits << 16))[0]
+            for (bits,) in struct.iter_unpack("<H", raw)
+        ]
+    else:
+        values = [
+            value
+            for (value,) in struct.iter_unpack("<" + ("f" if tensor.dtype == "F32" else "e"), raw)
+        ]
+    return sum(values) / len(values)
+
+
+def _check_qwen35_trunk_uses_multipliers(pack: Path, index: dict[str, Any]) -> None:
+    """Refuse to shift a head onto a trunk that is not stored as multipliers."""
+    sample = next(
+        (
+            (name, filename)
+            for name, filename in sorted(index["weight_map"].items())
+            if name.endswith("layers.0.input_layernorm.weight") and "mtp" not in name
+        ),
+        None,
+    )
+    if sample is None:
+        raise ArtifactError("cannot sample a trunk RMSNorm to confirm its representation")
+    name, filename = sample
+    layout = _parse_safetensors_file(pack / filename)
+    mean = _vector_mean(_TensorPart(pack / filename, layout, layout.tensors[name]))
+    if mean < _TRUNK_MULTIPLIER_MEAN_MIN:
+        raise ArtifactError(
+            f"trunk RMSNorm {name} has mean {mean:.3f}: it looks zero-centered, "
+            "not stored as MLX multipliers, so the head is not shifted"
+        )
+
+
+def _normalize_qwen35_omlx(pack: Path, runtime: dict[str, Any]) -> None:
+    """Turn the raw-delta MTP sidecar into an oMLX-loadable, indexed head.
+
+    Only the head's RMSNorm gains change (+1 in float32, rounded back to the
+    stored dtype); every other tensor keeps its bytes. The head moves into
+    ``model-mtp.safetensors`` under the trunk's key prefix and into the weight
+    index, where oMLX finds MTP weights; this variant is separate from the
+    stock pack, which must not index ``mtp.*`` (stock mlx-lm would shift the
+    trunk norms a second time).
+    """
+    config_path = pack / "config.json"
+    config = _read_json_object(config_path, "config.json")
+    text = config.get("text_config", config)
+    if not isinstance(text, dict):
+        raise ArtifactError("text_config must be an object")
+    sidecar_path = pack / "mtp.safetensors"
+    if not sidecar_path.is_file():
+        raise ArtifactError("Qwen MTP export needs mtp.safetensors")
+    if runtime.get("mtp_norm_layout") != "raw_hf_delta":
+        raise ArtifactError("Qwen MTP export needs declared raw_hf_delta head RMSNorms")
+    index = _read_json_object(pack / INDEX_FILENAME, INDEX_FILENAME)
+    _check_qwen35_trunk_uses_multipliers(pack, index)
+    prefix = (
+        "language_model."
+        if any(name.startswith("language_model.") for name in index["weight_map"])
+        else ""
+    )
+    layout = _parse_safetensors_file(sidecar_path)
+    if any(not name.startswith("mtp.") for name in layout.tensors):
+        raise ArtifactError("MTP sidecar contains tensors outside the native mtp.* namespace")
+    entries: list[tuple[str, str, tuple[int, ...], tuple[_TensorPart, ...]]] = []
+    shifted = 0
+    for name, tensor in layout.tensors.items():
+        part = _TensorPart(sidecar_path, layout, tensor)
+        if _is_qwen35_head_norm(name):
+            part = _shift_norm(part)
+            shifted += 1
+        elif len(tensor.shape) == 1:
+            raise ArtifactError(f"unexpected 1-D tensor in the MTP head: {name}")
+        entries.append((prefix + name, tensor.dtype, tensor.shape, (part,)))
+    if shifted < 7:
+        raise ArtifactError(f"expected 7 MTP-head RMSNorm gains, found {shifted}")
+    shard = pack / QWEN35_HEAD_SHARD
+    for target_name, *_ in entries:
+        if target_name in index["weight_map"]:
+            raise ArtifactError(f"MTP tensor overlaps the trunk: {target_name}")
+    _serialize_tensor_parts(layout.metadata, entries, shard)
+    sidecar_path.unlink()
+    for target_name, *_ in entries:
+        index["weight_map"][target_name] = QWEN35_HEAD_SHARD
+    text["mtp_num_hidden_layers"] = max(int(text.get("mtp_num_hidden_layers", 0) or 0), 1)
+    layouts = {
+        filename: _parse_safetensors_file(pack / filename)
+        for filename in set(index["weight_map"].values())
+    }
+    index.setdefault("metadata", {})["total_size"] = sum(
+        layouts[filename].tensors[name].byte_count for name, filename in index["weight_map"].items()
+    )
+    runtime["mtp_norm_layout"] = "mlx_multiplier"
+    runtime["mtp_layout"] = "native-qwen35-indexed"
+    runtime["mtp_tensor_count"] = len(entries)
+    runtime["runtime_verified"] = False
+    runtime.pop("mtplx_version", None)
+    runtime.pop("layout", None)
+    write_data(config_path, config)
+    write_data(pack / INDEX_FILENAME, index)
+    write_data(pack / "mtplx_runtime.json", runtime)
 
 
 def _adapt_mtplx_weights(pack: Path, config: dict[str, Any]) -> list[str]:
@@ -302,6 +439,13 @@ def export_runtime_pack(
     verdict = report["targets"][target]
     if verdict["blockers"]:
         raise ArtifactError("; ".join(verdict["blockers"]))
+    profile = verdict["profile"]
+    qwen35_omlx = profile == QWEN35_OMLX_PROFILE
+    if target == "mtplx" and profile == QWEN35_MTPLX_PROFILE:
+        raise ArtifactError(
+            "MTPLX loads this Qwen MTP layout as shipped (declared raw_hf_delta head "
+            "norms, sidecar outside the index); no export is needed"
+        )
     if not (source_dir / INDEX_FILENAME).is_file():
         raise ArtifactError("runtime variant export requires a weight index")
     # Validate tree membership before making staging directories.
@@ -321,7 +465,12 @@ def export_runtime_pack(
     if (source_dir / "mtp.safetensors").is_file() and runtime.get(
         "mtp_norm_layout"
     ) != "raw_hf_delta":
-        raise ArtifactError("native Flash-Next export requires declared raw_hf_delta MTP norms")
+        raise ArtifactError("MTP export requires declared raw_hf_delta MTP norms")
+    if qwen35_omlx and runtime.get("trunk_norm_layout") != "mlx_multiplier":
+        raise ArtifactError(
+            "the Qwen oMLX export shifts the head onto an MLX-multiplier trunk; declare it "
+            "with --source-trunk-norm-layout mlx_multiplier (a raw_hf_delta trunk is refused)"
+        )
     if target == "mtplx":
         _plan_relayout(source_dir)
         if runtime.get("trunk_norm_layout") != "raw_hf_delta":
@@ -345,6 +494,8 @@ def export_runtime_pack(
         else:
             staging.mkdir()
             for path in files:
+                if qwen35_omlx and path.name == "vision.safetensors":
+                    continue  # recorded as a modality constraint below
                 if path.parent == source_dir and (
                     path.name in _SUPPORT_FILES or path.suffix == ".safetensors"
                 ):
@@ -360,7 +511,13 @@ def export_runtime_pack(
             contract = _read_json_object(contract_path, "mtplx_runtime.json")
             contract["trunk_norm_layout"] = source_trunk_norm_layout
             write_data(contract_path, contract)
-        _normalize_contract(staging, target)
+        if qwen35_omlx:
+            staged_contract = _read_json_object(
+                staging / "mtplx_runtime.json", "mtplx_runtime.json"
+            )
+            _normalize_qwen35_omlx(staging, staged_contract)
+        else:
+            _normalize_contract(staging, target)
         result = write_runtime_compatibility(staging)
         verdict = result["targets"][target]
         if verdict["status"] != "static-compatible":
@@ -378,7 +535,12 @@ def export_runtime_pack(
             "quality_certified": False,
             "launch_environment": verdict["launch_environment"],
             "model_settings": verdict["model_settings"],
-            "modality_constraints": verdict["modality_constraints"],
+            "modality_constraints": sorted(
+                {
+                    *verdict["modality_constraints"],
+                    *report["targets"][target]["modality_constraints"],
+                }
+            ),
         }
         write_data(
             staging / EXPORT_MANIFEST_FILENAME, RuntimeExportManifest.model_validate(manifest)
