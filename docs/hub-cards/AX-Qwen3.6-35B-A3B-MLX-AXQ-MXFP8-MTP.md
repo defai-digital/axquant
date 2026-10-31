@@ -65,7 +65,9 @@ from mlx_lm import load, generate
 model, tokenizer = load("AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP")
 prompt = tokenizer.apply_chat_template(
     [{"role": "user", "content": "What is 6 times 7?"}],
-    tokenize=False, add_generation_prompt=True, enable_thinking=False,
+    tokenize=False,
+    add_generation_prompt=True,
+    enable_thinking=False,
 )
 print(generate(model, tokenizer, prompt=prompt, max_tokens=64))
 ```

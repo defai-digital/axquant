@@ -147,3 +147,65 @@ def test_missing_declared_ngram_file_fails(tmp_path: Path) -> None:
 
     with pytest.raises(ArtifactError, match="absent"):
         apply_mtplx_load_contract(config, tmp_path)
+
+
+def _norm_pack(tmp_path: Path, layout: str | None) -> Path:
+    _write_safetensors(
+        tmp_path / "mtp.safetensors",
+        {"mtp.norm.weight": {"dtype": "BF16", "shape": [1], "data_offsets": [0, 2]}},
+    )
+    if layout is not None:
+        (tmp_path / "mtplx_runtime.json").write_text(
+            json.dumps({"mtp_norm_layout": layout}), encoding="utf-8"
+        )
+    return tmp_path
+
+
+@pytest.mark.parametrize(
+    "model_type", ["qwen3_5", "qwen3_5_text", "qwen3_5_moe", "qwen3_5_moe_text"]
+)
+def test_raw_delta_mtp_head_declares_delta_norm_encoding(tmp_path: Path, model_type: str) -> None:
+    config = {"model_type": model_type}
+
+    notes = apply_mtplx_load_contract(config, _norm_pack(tmp_path, "raw_hf_delta"))
+
+    assert config["mtp_norm_encoding"] == "delta"
+    assert "MTP head norm encoding declared delta" in notes
+    # A second pass finds nothing to declare.
+    assert "MTP head norm encoding declared delta" not in apply_mtplx_load_contract(
+        config, tmp_path
+    )
+
+
+@pytest.mark.parametrize("layout", ["mlx_multiplier", None])
+def test_non_delta_or_undeclared_head_gets_no_encoding(tmp_path: Path, layout: str | None) -> None:
+    config = {"model_type": "qwen3_5_text"}
+
+    apply_mtplx_load_contract(config, _norm_pack(tmp_path, layout))
+
+    assert "mtp_norm_encoding" not in config
+
+
+def test_flash_next_heads_are_out_of_scope(tmp_path: Path) -> None:
+    config = {"model_type": "qwen4_exp", "text_config": {"model_type": "qwen4_exp_text"}}
+
+    apply_mtplx_load_contract(config, _norm_pack(tmp_path, "raw_hf_delta"))
+
+    assert "mtp_norm_encoding" not in config
+
+
+@pytest.mark.parametrize(
+    ("layout", "declared"),
+    [
+        ("mlx_multiplier", {"mtp_norm_encoding": "delta"}),
+        ("mlx_multiplier", {"mtplx_mtp_norm_encoding": "delta_plus_one"}),
+        ("raw_hf_delta", {"mtp_norm_encoding": "multiplier"}),
+    ],
+)
+def test_encoding_that_contradicts_the_runtime_contract_fails(
+    tmp_path: Path, layout: str, declared: dict
+) -> None:
+    config = {"model_type": "qwen3_5_text", **declared}
+
+    with pytest.raises(ArtifactError, match="contradicts"):
+        apply_mtplx_load_contract(config, _norm_pack(tmp_path, layout))

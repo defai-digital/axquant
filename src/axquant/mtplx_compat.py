@@ -13,6 +13,12 @@ library default ``affine`` while per-module entries said ``mxfp8``. Loaders
 that trust the container then ask for affine biases that MXFP8 does not store.
 This module rewrites that contract in place. It does not invent an n-gram
 table and it does not relabel MXFP8 weights as affine.
+
+Byte-preserved Qwen MTP heads keep the Hugging Face zero-centered RMSNorm
+gains (``mtp_norm_layout: raw_hf_delta`` in ``mtplx_runtime.json``). AX Engine
+reads that file; MTPLX and oMLX read ``mtp_norm_encoding`` from ``config.json``
+instead, so the same fact is declared there too. Without it oMLX shifts only
+part of the head and drafts are rejected.
 """
 
 from __future__ import annotations
@@ -28,6 +34,14 @@ _PHYSICAL_MODES = frozenset({"affine", "mxfp4", "mxfp8"})
 _NGRAM_TABLE = "ngram-table.safetensors"
 _MTP_FILE = "mtp.safetensors"
 _QWEN35_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_5_text"})
+# Qwen 3.5/3.6/3.8 dense and MoE share the zero-centered MTP head convention.
+_QWEN_MTP_NORM_MODEL_TYPES = frozenset(
+    {"qwen3_5", "qwen3_5_text", "qwen3_5_moe", "qwen3_5_moe_text"}
+)
+_RUNTIME_FILE = "mtplx_runtime.json"
+# Keys MTPLX (`_mtp_norms_are_delta_encoded`) and oMLX's side-car import read.
+NORM_ENCODING_KEYS = ("mtp_norm_encoding", "mtplx_mtp_norm_encoding")
+_DELTA_NORM_ENCODINGS = frozenset({"delta", "delta_plus_one", "mlx_delta"})
 _QWEN4_MODEL_TYPES = frozenset({"qwen4_exp", "qwen4_exp_text"})
 
 # Wiring published by Youssofal/Qwen3.8-27B-MTPLX-Optimized-Quality. Quant
@@ -70,6 +84,9 @@ def apply_mtplx_load_contract(config: dict[str, Any], directory: str | Path) -> 
     contract_note = _align_qwen35_mtp_contract(config, pack)
     if contract_note:
         notes.append(contract_note)
+    norm_note = _align_mtp_norm_encoding(config, pack)
+    if norm_note:
+        notes.append(norm_note)
     return notes
 
 
@@ -177,6 +194,38 @@ def _align_qwen35_mtp_contract(config: dict[str, Any], pack: Path) -> str | None
         return None
     config["mtplx_mtp_contract"] = dict(_QWEN35_BF16_MTP_CONTRACT)
     return "qwen3_5 BF16 MTP contract"
+
+
+def _align_mtp_norm_encoding(config: dict[str, Any], pack: Path) -> str | None:
+    """Mirror a raw-delta MTP head declaration into ``config.json``.
+
+    Only the byte-preserved Qwen heads qualify, and only when the runtime
+    contract says ``raw_hf_delta``; a declaration that contradicts the contract
+    fails closed rather than being rewritten.
+    """
+    if not _model_types(config) & _QWEN_MTP_NORM_MODEL_TYPES:
+        return None
+    if not (pack / _MTP_FILE).is_file() or not (pack / _RUNTIME_FILE).is_file():
+        return None
+    try:
+        runtime = json.loads((pack / _RUNTIME_FILE).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"cannot read {_RUNTIME_FILE} for MTP norm encoding: {exc}") from exc
+    if not isinstance(runtime, dict):
+        raise ArtifactError(f"{_RUNTIME_FILE} must be a JSON object")
+    raw_delta = runtime.get("mtp_norm_layout") == "raw_hf_delta"
+    declared = {
+        key: str(config[key]).strip().lower() for key in NORM_ENCODING_KEYS if key in config
+    }
+    if any((value in _DELTA_NORM_ENCODINGS) != raw_delta for value in declared.values()):
+        raise ArtifactError(
+            f"config.json MTP norm encoding {declared} contradicts "
+            f"{_RUNTIME_FILE} mtp_norm_layout {runtime.get('mtp_norm_layout')!r}"
+        )
+    if not raw_delta or "mtp_norm_encoding" in config:
+        return None
+    config["mtp_norm_encoding"] = "delta"
+    return "MTP head norm encoding declared delta"
 
 
 def _model_types(config: dict[str, Any]) -> set[str]:

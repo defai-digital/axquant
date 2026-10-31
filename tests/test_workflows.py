@@ -81,7 +81,7 @@ def test_ci_workflow_runs_non_mlx_and_mlx_jobs() -> None:
     # macOS job must install mlx and run on Apple Silicon runners.
     mlx_block = text.split("test:")[1]
     assert '".[dev,mlx]"' in mlx_block
-    assert "runs-on: macos-14" in mlx_block
+    assert "runs-on: macos-15" in mlx_block
 
 
 def test_ci_workflow_asserts_install_surfaces() -> None:
