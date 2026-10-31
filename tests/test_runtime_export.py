@@ -185,6 +185,21 @@ def test_mtplx_variant_rebases_norms_and_splits_head_experts_without_requantizat
     assert all(file_sha256(output / name) == digest for name, digest in receipt["files"].items())
 
 
+def test_mtplx_variant_drops_a_delta_declaration_after_shifting_norms(tmp_path: Path) -> None:
+    source = _pack(tmp_path / "source")
+    config_path = source / "config.json"
+    config = json.loads(config_path.read_text())
+    config["mtp_norm_encoding"] = "delta"
+    config["mtplx_mtp_norm_encoding"] = "delta"
+    config_path.write_text(json.dumps(config))
+
+    export_runtime_pack(source, tmp_path / "mtplx", target="mtplx")
+
+    exported = json.loads((tmp_path / "mtplx" / "config.json").read_text())
+    assert "mtp_norm_encoding" not in exported
+    assert "mtplx_mtp_norm_encoding" not in exported
+
+
 @pytest.mark.parametrize("model_type", ["unregistered_future_family", "nemotron_h"])
 def test_future_architectures_fail_closed_without_explicit_profile(
     tmp_path: Path, model_type: str

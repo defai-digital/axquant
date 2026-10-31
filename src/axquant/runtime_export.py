@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from axquant.errors import ArtifactError
 from axquant.mtp_sidecar import QWEN4_MTP_ARCH_ID
+from axquant.mtplx_compat import NORM_ENCODING_KEYS
 from axquant.ngram_layout import (
     INDEX_FILENAME,
     NGRAM_RELAYOUT_MANIFEST_FILENAME,
@@ -263,6 +264,10 @@ def _normalize_contract(pack: Path, target: RuntimeExportTarget) -> None:
         runtime["trunk_norm_layout"] = "mlx_multiplier"
         runtime["mtp_layout"] = "mtplx-qwen4-v1"
         runtime["mtp_norm_layout"] = "mtplx_qwen4_mixed"
+        # The norms were just shifted; a carried-over delta declaration would
+        # make MTPLX shift them a second time.
+        for key in NORM_ENCODING_KEYS:
+            config.pop(key, None)
     runtime.update(arch_id=QWEN4_MTP_ARCH_ID, runtime_verified=False)
     runtime.pop("mtplx_version", None)
     runtime.pop("layout", None)
