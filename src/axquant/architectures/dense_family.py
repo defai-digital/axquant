@@ -64,13 +64,19 @@ _AUDIO_TOKENS = (
 )
 _LM_HEAD_TOKENS = ("lm_head", "output.weight", "output_layer", "head.weight")
 _EMBEDDING_TOKENS = ("embed_tokens", "token_embedding", "embed.weight")
-_ATTENTION_TOKENS = (
+# Role words for the quantizable roles. A word must stand alone: it may not start inside
+# another identifier (``conv_proj`` is not ``v_proj``; ``seq_proj`` is not ``q_proj``), and a
+# trailing letter run is rejected so ``mlp1`` matches but ``mlpx`` does not. Spellings that
+# embed a word in a longer identifier are listed explicitly (``wq_a``, ``qkv_proj``).
+_ATTENTION_WORDS = (
     "self_attn",
     "attention",
     "q_proj",
     "k_proj",
     "v_proj",
     "o_proj",
+    "qkv_proj",
+    "kv_proj",
     "linear_attn",
     "in_proj_qkv",
     "in_proj_z",
@@ -79,7 +85,7 @@ _ATTENTION_TOKENS = (
     "conv1d",
     "a_log",
     "dt_bias",
-    # DeepSeek V4 hybrid attention / compressed sparse attention (CSA/HCA).
+    # DeepSeek V4 hybrid attention / compressed sparse attention.
     "indexer",
     "compressor",
     "wo_a",
@@ -90,13 +96,29 @@ _ATTENTION_TOKENS = (
     "kv_b",
     "q_a",
     "q_b",
+    "wq_a",
+    "wq_b",
     "q_lora",
     "kv_lora",
-    "mqa",
-    "csa",
-    "hca",
 )
-_MLP_TOKENS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj", "ffn", "w1", "w2", "w3")
+_MLP_WORDS = ("mlp", "feed_forward", "gate_proj", "up_proj", "down_proj", "ffn")
+# Bare identifiers of three characters or fewer are too generic to match inside a longer name
+# (``shortcut_w1_scale``); they count only as a whole path segment.
+_ATTENTION_SEGMENTS = ("csa", "hca", "mqa")
+_MLP_SEGMENTS = ("w1", "w2", "w3")
+
+
+def _role_matcher(words: tuple[str, ...], segments: tuple[str, ...]) -> re.Pattern[str]:
+    parts = [rf"(?<![a-z0-9]){re.escape(word)}(?![a-z])" for word in words]
+    parts.append(rf"(?<![^./])(?:{'|'.join(map(re.escape, segments))})(?![^./])")
+    return re.compile("|".join(parts))
+
+
+_ATTENTION_MATCH = _role_matcher(_ATTENTION_WORDS, _ATTENTION_SEGMENTS)
+_MLP_MATCH = _role_matcher(_MLP_WORDS, _MLP_SEGMENTS)
+# Nemotron-H hybrid mixer blocks sit directly under a numbered layer; ``gr.mixer`` or
+# ``shortcut.mixer`` elsewhere in a name is not one.
+_LAYER_MIXER = re.compile(r"(?:^|\.)layers\.\d+\.mixer(?:\.|$)")
 _EXPERT_TOKENS = ("expert", "switch_mlp", "switch_glu")
 _MTP_SIDECAR_FILENAMES = frozenset({"mtp.safetensors", "mtp_head.safetensors"})
 _VISION_SIDECAR_FILENAME = "vision.safetensors"
@@ -109,12 +131,47 @@ def valid_layer_count(value: object) -> int | None:
     return None
 
 
+@dataclass(frozen=True)
+class SegmentRule:
+    """One closed container of a family's tensor-name grammar.
+
+    ``container`` fully matches a single dotted path segment. ``members`` fully match the dotted
+    path below it, ignoring a trailing parameter suffix such as ``.weight``. A name inside a
+    known container whose members are not listed is not classified.
+    """
+
+    container: str
+    role: TensorRole
+    members: tuple[str, ...]
+
+
+_PARAMETER_SUFFIX = r"(?:\.[a-z_]+)?"
+
+
+def classify_by_grammar(name_value: str, rules: tuple[SegmentRule, ...]) -> TensorRole | None:
+    """Classify with a closed grammar: the innermost known container decides, else ``None``."""
+    segments = name_value.split(".")
+    for index in range(len(segments) - 1, -1, -1):
+        for rule in rules:
+            if re.fullmatch(rule.container, segments[index]):
+                below = ".".join(segments[index + 1 :])
+                if any(re.fullmatch(member + _PARAMETER_SUFFIX, below) for member in rule.members):
+                    return rule.role
+                return None
+    return None
+
+
 def classify_dense_tensor(
     name: str,
     source_file: str,
     extra_patterns: tuple[tuple[str, TensorRole], ...] = (),
+    grammar: tuple[SegmentRule, ...] = (),
 ) -> TensorRole | None:
-    """Shared fail-closed role classification for dense transformer tensors."""
+    """Shared fail-closed role classification for dense transformer tensors.
+
+    A family with a ``grammar`` classifies its quantizable tensors only through that closed
+    grammar; the protective stages above it are unchanged.
+    """
     name_value = name.lower()
     source_name = source_file.rsplit("/", 1)[-1].lower()
     protected_path_value = f"{source_file}/{name}".lower()
@@ -167,12 +224,14 @@ def classify_dense_tensor(
     # their 3-D weights are incorrectly treated as non-quantizable dense MLPs.
     if any(token in name_value for token in _EXPERT_TOKENS):
         return TensorRole.EXPERT
+    if grammar:
+        return classify_by_grammar(name_value, grammar)
     # Mamba / hybrid mixer blocks (Nemotron-H) quantize like attention trunks.
-    if ".mixer." in name_value or name_value.endswith(".mixer"):
+    if _LAYER_MIXER.search(name_value):
         return TensorRole.ATTENTION
-    if any(token in name_value for token in _ATTENTION_TOKENS):
+    if _ATTENTION_MATCH.search(name_value):
         return TensorRole.ATTENTION
-    if any(token in name_value for token in _MLP_TOKENS):
+    if _MLP_MATCH.search(name_value):
         return TensorRole.MLP
     return None
 
@@ -192,6 +251,9 @@ class DenseFamilySpec:
     vision_config_key: str | None = None
     exclude_reference_pattern: str | None = None
     extra_role_patterns: tuple[tuple[str, TensorRole], ...] = ()
+    # Closed grammar for the quantizable roles. Opt-in per family: unknown members of a known
+    # container fail closed instead of matching a role word anywhere in the name.
+    role_grammar: tuple[SegmentRule, ...] = ()
     notes: tuple[str, ...] = ()
     # When False (default), any truthy MoE config key forces inspect-only.
     # Set True only for families with an explicit MoE convert path (e.g. Qwen3-Next).
@@ -295,10 +357,38 @@ class DenseFamilyAdapter:
         )
 
     def classify_tensor(self, name: str, source_file: str) -> TensorRole | None:
-        return classify_dense_tensor(name, source_file, self.spec.extra_role_patterns)
+        return classify_dense_tensor(
+            name, source_file, self.spec.extra_role_patterns, self.spec.role_grammar
+        )
 
 
 _QWEN36_REFERENCE = r"qwen[._-]?3[._-]?6"
+
+# Qwen3.8-Flash-Next (qwen4_exp). Norms, routers, experts, the PLE and gated-residual families
+# are classified by the protective stages and family extras before this grammar is consulted.
+_QWEN4_EXP_GRAMMAR = (
+    SegmentRule(
+        container=r"linear_attn",
+        role=TensorRole.ATTENTION,
+        members=(
+            r"in_proj_(?:qkv|z|a|b)",
+            r"out_proj",
+            r"conv1d",
+            r"a_log",
+            r"dt_bias",
+        ),
+    ),
+    SegmentRule(
+        container=r"self_attn",
+        role=TensorRole.ATTENTION,
+        members=(r"[qkvo]_proj", r"indexer\.index_qk_proj"),
+    ),
+    SegmentRule(
+        container=r"mlp",
+        role=TensorRole.MLP,
+        members=(r"gate_proj", r"up_proj", r"down_proj", r"gate_up_proj"),
+    ),
+)
 
 DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
     DenseFamilySpec(
@@ -548,6 +638,7 @@ DENSE_FAMILY_SPECS: tuple[DenseFamilySpec, ...] = (
             ("shared_expert", TensorRole.MLP),
             ("pos_embed", TensorRole.VISION),
         ),
+        role_grammar=_QWEN4_EXP_GRAMMAR,
         notes=(
             "Qwen3.8-Flash-Next (model_type=qwen4_exp) converts through MLX-VLM.",
             "Vision stays BF16-protected; PLE/n-gram embeddings use the embedding floor.",
