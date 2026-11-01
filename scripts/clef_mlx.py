@@ -22,8 +22,12 @@ Command line (from a downloaded repo, --model defaults to that repo):
 
 from __future__ import annotations
 
+import http.client
+import ipaddress
 import json
 import math
+import socket
+import ssl
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
 from pathlib import Path
@@ -665,19 +669,129 @@ def _state_arg(value: str) -> Any:
     return value
 
 
+_REMOTE_IMAGE_MAX_BYTES = 32 * 1024 * 1024
+_REMOTE_IMAGE_MAX_REDIRECTS = 3
+_REMOTE_IMAGE_TIMEOUT_S = 30.0
+_REDIRECT_STATUSES = (301, 302, 303, 307, 308)
+
+
+def _is_public_address(address: str) -> bool:
+    """True for a globally routable address; IPv4 embedded in IPv6 is judged as IPv4."""
+    ip = ipaddress.ip_address(address.split("%", 1)[0])
+    if isinstance(ip, ipaddress.IPv6Address):
+        embedded = ip.ipv4_mapped or ip.sixtofour
+        if embedded is None and ip in ipaddress.ip_network("64:ff9b::/96"):
+            embedded = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+        if embedded is not None:
+            return _is_public_address(str(embedded))
+    return ip.is_global and not ip.is_multicast
+
+
+def _resolve_public_host(host: str, port: int) -> str:
+    """Resolve a host and return an address to connect to; any non-public answer is refused."""
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError:
+        raise ValueError("could not fetch image URL") from None
+    addresses = [str(info[4][0]) for info in infos]
+    if not addresses or not all(_is_public_address(address) for address in addresses):
+        raise ValueError("image URL must point to a public host")
+    return addresses[0]
+
+
+class _PinnedHTTPConnection(http.client.HTTPConnection):
+    """Connects to a pre-validated address so a later DNS answer cannot change the target."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: float) -> None:
+        super().__init__(host, port, timeout=timeout)
+        self._address = address
+
+    def connect(self) -> None:
+        self.sock = socket.create_connection((self._address, self.port), self.timeout)
+
+
+class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+    """Pinned TLS connection; the certificate is still verified against the URL host."""
+
+    def __init__(self, host: str, port: int, address: str, timeout: float) -> None:
+        self._tls_context = ssl.create_default_context()
+        super().__init__(host, port, timeout=timeout, context=self._tls_context)
+        self._address = address
+
+    def connect(self) -> None:
+        sock = socket.create_connection((self._address, self.port), self.timeout)
+        self.sock = self._tls_context.wrap_socket(sock, server_hostname=self.host)
+
+
+def _fetch_remote_image(url: str) -> bytes:
+    """Fetch an image URL for the HTTP server without reaching private networks.
+
+    The request body is untrusted, so an unrestricted fetch would let a client probe loopback
+    services, link-local metadata endpoints and the private network (SSRF). The first URL and
+    every redirect hop must be http(s) without credentials and resolve only to public
+    addresses; the connection is pinned to the validated address. Size and time are bounded.
+    """
+    import time
+    import urllib.parse
+
+    deadline = time.monotonic() + _REMOTE_IMAGE_TIMEOUT_S
+    for _ in range(_REMOTE_IMAGE_MAX_REDIRECTS + 1):
+        parts = urllib.parse.urlsplit(url)
+        host = parts.hostname
+        if parts.scheme not in ("http", "https") or not host or parts.username or parts.password:
+            raise ValueError("image URL must be http(s) without credentials")
+        port = parts.port or (443 if parts.scheme == "https" else 80)
+        address = _resolve_public_host(host, port)
+        connection_class = (
+            _PinnedHTTPSConnection if parts.scheme == "https" else _PinnedHTTPConnection
+        )
+        connection = connection_class(host, port, address, _REMOTE_IMAGE_TIMEOUT_S)
+        try:
+            target = urllib.parse.urlunsplit(("", "", parts.path or "/", parts.query, ""))
+            connection.request("GET", target, headers={"Accept": "image/*"})
+            response = connection.getresponse()
+            if response.status in _REDIRECT_STATUSES:
+                location = response.getheader("Location")
+                if not location:
+                    raise ValueError("image URL redirected without a location")
+                url = urllib.parse.urljoin(url, location)
+                continue
+            if response.status != 200:
+                raise ValueError(f"image URL returned HTTP {response.status}")
+            declared = response.getheader("Content-Length") or ""
+            if declared.isdigit() and int(declared) > _REMOTE_IMAGE_MAX_BYTES:
+                raise ValueError("image URL response is too large")
+            chunks: list[bytes] = []
+            total = 0
+            while chunk := response.read(65536):
+                total += len(chunk)
+                if total > _REMOTE_IMAGE_MAX_BYTES:
+                    raise ValueError("image URL response is too large")
+                if time.monotonic() > deadline:
+                    raise ValueError("image URL fetch timed out")
+                chunks.append(chunk)
+            return b"".join(chunks)
+        except (OSError, http.client.HTTPException):
+            raise ValueError("could not fetch image URL") from None
+        finally:
+            connection.close()
+    raise ValueError("image URL redirected too many times")
+
+
 def _decode_image(item: Any):
-    """An image from a data URL, raw base64 or an http(s) URL (no local paths over HTTP)."""
+    """An image from a data URL, raw base64 or an http(s) URL (no local paths over HTTP).
+
+    Remote URLs must point to public hosts; see ``_fetch_remote_image``.
+    """
     import base64
     import io
-    import urllib.request
 
     from PIL import Image
 
     if not isinstance(item, str) or not item:
         raise ValueError("images must be strings: data URLs, base64, or http(s) URLs")
     if item.startswith(("http://", "https://")):
-        with urllib.request.urlopen(item, timeout=30) as response:
-            data = response.read()
+        data = _fetch_remote_image(item)
     else:
         if item.startswith("data:"):
             item = item.split(",", 1)[-1]
