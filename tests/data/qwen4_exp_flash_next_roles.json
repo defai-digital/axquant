@@ -1,0 +1,511 @@
+{
+ "source": {
+  "repo": "Qwen/Qwen3.8-Flash-Next",
+  "revision": "de4b8e4d43b917e7706784d8bb445c9af86a3540",
+  "model_type": "qwen4_exp",
+  "adapter_id": "qwen4-exp-v1",
+  "tensor_count": 1658,
+  "index_sha256": "99e815241ef03325536b0aaa4441deea45174c17fae31e10f0bb456410c590de",
+  "contents": "tensor names and the roles AXQuant assigns; no weights or shapes"
+ },
+ "entries": [
+  {
+   "pattern": "lm_head.weight",
+   "role": "lm_head"
+  },
+  {
+   "pattern": "model.language_model.embed_tokens.weight",
+   "role": "embedding"
+  },
+  {
+   "pattern": "model.language_model.hyper_connection_mixer.hc_norm.weight",
+   "role": "norm",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.hyper_connection_mixer.input_mix_weight_down.weight",
+   "role": "norm",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.hyper_connection_mixer.input_mix_weight_up.weight",
+   "role": "norm",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.attn_hyper_connection.block_inject_weight.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.attn_hyper_connection.hc_norm.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.attn_hyper_connection.input_mix_weight_down.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.attn_hyper_connection.input_mix_weight_up.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.A_log",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.conv1d.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.dt_bias",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.in_proj_a.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.in_proj_b.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.in_proj_qkv.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.in_proj_z.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.norm.weight",
+   "role": "norm",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.linear_attn.out_proj.weight",
+   "role": "attention",
+   "layers": "0-2,4-6,8-10,12-14,16-18,20-22,24-26,28-30,32-34,36-38,40-42,44-46"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.experts.down_proj",
+   "role": "expert",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.experts.gate_up_proj",
+   "role": "expert",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.gate.weight",
+   "role": "router",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.shared_expert.down_proj.weight",
+   "role": "mlp",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.shared_expert.gate_proj.weight",
+   "role": "mlp",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.shared_expert.up_proj.weight",
+   "role": "mlp",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp.shared_expert_gate.weight",
+   "role": "router",
+   "layers": "0-47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp_hyper_connection.block_inject_weight.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp_hyper_connection.hc_norm.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp_hyper_connection.input_mix_weight_down.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.mlp_hyper_connection.input_mix_weight_up.weight",
+   "role": "norm",
+   "layers": "0-47",
+   "note": "gated-residual tensor labeled norm by design (kept at BF16)"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.conv1d.weight",
+   "role": "embedding",
+   "layers": "1"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.key_proj.weight",
+   "role": "embedding",
+   "layers": "1"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.norm_conv.weight",
+   "role": "embedding",
+   "layers": "1",
+   "note": "named as a norm but labeled embedding by the .ple. family extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.norm_key.weight",
+   "role": "embedding",
+   "layers": "1",
+   "note": "named as a norm but labeled embedding by the .ple. family extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.norm_query.weight",
+   "role": "embedding",
+   "layers": "1",
+   "note": "named as a norm but labeled embedding by the .ple. family extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.ple_embedding.layer_multipliers",
+   "role": "embedding",
+   "layers": "1",
+   "note": "labeled embedding by the .ple. family extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.ple_embedding.ngram_embedding.shard_{S}.weight",
+   "role": "embedding",
+   "layers": "1",
+   "shards": "0-127"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.ple_embedding.ngram_heads_offsets",
+   "role": "embedding",
+   "layers": "1",
+   "note": "name suggests n-gram head metadata; labeled embedding by extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.ple_embedding.ngram_heads_vocab_sizes",
+   "role": "embedding",
+   "layers": "1",
+   "note": "name suggests n-gram head metadata; labeled embedding by extra"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.ple.value_proj.weight",
+   "role": "embedding",
+   "layers": "1"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.indexer.index_qk_proj.weight",
+   "role": "attention",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47",
+   "note": "QSA block-indexer projection; sensitivity unmeasured"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.indexer.k_layernorm.weight",
+   "role": "norm",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.indexer.q_layernorm.weight",
+   "role": "norm",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.k_norm.weight",
+   "role": "norm",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.k_proj.weight",
+   "role": "attention",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.o_proj.weight",
+   "role": "attention",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.q_norm.weight",
+   "role": "norm",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.q_proj.weight",
+   "role": "attention",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.language_model.layers.{L}.self_attn.v_proj.weight",
+   "role": "attention",
+   "layers": "3,7,11,15,19,23,27,31,35,39,43,47"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.attn.proj.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.attn.proj.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.attn.qkv.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.attn.qkv.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.mlp.linear_fc1.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.mlp.linear_fc1.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.mlp.linear_fc2.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.mlp.linear_fc2.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.norm1.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.norm1.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.norm2.bias",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.blocks.{L}.norm2.weight",
+   "role": "vision",
+   "layers": "0-26"
+  },
+  {
+   "pattern": "model.visual.merger.linear_fc1.bias",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.merger.linear_fc1.weight",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.merger.linear_fc2.bias",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.merger.linear_fc2.weight",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.merger.norm.bias",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.merger.norm.weight",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.patch_embed.proj.bias",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.patch_embed.proj.weight",
+   "role": "vision"
+  },
+  {
+   "pattern": "model.visual.pos_embed.weight",
+   "role": "vision"
+  },
+  {
+   "pattern": "mtp.fc_embedding.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.fc_hidden.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.hyper_connection_mixer.hc_norm.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.hyper_connection_mixer.input_mix_weight_down.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.hyper_connection_mixer.input_mix_weight_up.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.layers.{L}.attn_hyper_connection.block_inject_weight.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.attn_hyper_connection.hc_norm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.attn_hyper_connection.input_mix_weight_down.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.attn_hyper_connection.input_mix_weight_up.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.experts.down_proj",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.experts.gate_up_proj",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.gate.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.shared_expert.down_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.shared_expert.gate_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.shared_expert.up_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp.shared_expert_gate.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp_hyper_connection.block_inject_weight.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp_hyper_connection.hc_norm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp_hyper_connection.input_mix_weight_down.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.mlp_hyper_connection.input_mix_weight_up.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.indexer.index_qk_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.indexer.k_layernorm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.indexer.q_layernorm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.k_norm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.k_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.o_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.q_norm.weight",
+   "role": "mtp_block",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.q_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.layers.{L}.self_attn.v_proj.weight",
+   "role": "mtp_projection",
+   "layers": "0"
+  },
+  {
+   "pattern": "mtp.pre_fc_norm_embedding.weight",
+   "role": "mtp_block"
+  },
+  {
+   "pattern": "mtp.pre_fc_norm_hidden.weight",
+   "role": "mtp_block"
+  }
+ ]
+}
