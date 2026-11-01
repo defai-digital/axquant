@@ -12,7 +12,11 @@ from typing import Any
 from axquant.artifact_paths import artifact_member_path
 from axquant.errors import ArtifactError
 from axquant.module_paths import is_ngram_shard_key
-from axquant.mtp_sidecar import QWEN4_MTP_ARCH_ID
+from axquant.mtp_sidecar import (
+    QWEN4_MTP_ARCH_ID,
+    QWEN_NEXT_MTP_ARCH_ID,
+    QWEN_NEXT_MTP_LEGACY_ARCH_IDS,
+)
 from axquant.ngram_layout import (
     INDEX_FILENAME,
     NGRAM_TABLE_FILENAME,
@@ -24,6 +28,13 @@ from axquant.schema.artifacts import ArtifactManifest
 from axquant.schema.runtime_export import RuntimeCompatibilityReport
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
+QWEN35_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_5_moe", "qwen3_5_text", "qwen3_5_moe_text"})
+QWEN35_OMLX_PROFILE = "qwen35-mtp-v1"
+QWEN35_MTPLX_PROFILE = "qwen35-mtp-native-v1"
+QWEN35_VISION_CONSTRAINT = (
+    "text only: the AXQ vision sidecar is left out of the oMLX variant "
+    "(oMLX's VLM loader rejects its key layout)"
+)
 COMPATIBILITY_FILENAME = "axquant_compatibility.json"
 COMPATIBILITY_SCHEMA = "axquant.runtime-compatibility.v1"
 MTPLX_QWEN4_BASE_ENV = {
@@ -87,6 +98,56 @@ def _canonical_ngram_issues(table: _SafetensorsFile) -> list[str]:
     ):
         return ["Standalone n-gram dtype/shape disagrees with actual bits/group metadata"]
     return []
+
+
+def _qwen35_verdict(
+    target: str,
+    *,
+    blockers: list[str],
+    actions: list[str],
+    constraints: list[str],
+    modes: list[str],
+    runtime: dict[str, Any],
+    sidecar_names: tuple[str, ...],
+    indexed_mtp: list[str],
+    has_vision: bool,
+) -> None:
+    """Static verdict for Qwen 3.5/3.6/3.8 packs with a Qwen-Next MTP head.
+
+    MTPLX reads the packaged head as shipped (raw HF-delta RMSNorms declared in
+    ``mtplx_runtime.json``). oMLX expects the head in the weight index with MLX
+    multiplier RMSNorms: it repairs only four of the seven head norms itself,
+    so an unshifted head drafts almost nothing (about 4% acceptance).
+    """
+    arch = runtime.get("arch_id")
+    if arch != QWEN_NEXT_MTP_ARCH_ID and arch not in QWEN_NEXT_MTP_LEGACY_ARCH_IDS:
+        blockers.append("mtplx_runtime.json does not declare a Qwen-Next MTP arch_id")
+    if any(mode not in {"affine", "mxfp4", "mxfp8"} for mode in modes):
+        blockers.append(f"{target} profile requires a public MLX quantization mode")
+    if sidecar_names and not all(name.startswith("mtp.") for name in sidecar_names):
+        blockers.append("MTP sidecar contains tensors outside the native mtp.* namespace")
+    head_present = bool(sidecar_names) or bool(indexed_mtp)
+    if not head_present:
+        blockers.append("Qwen MTP profile needs the native MTP head (mtp.safetensors)")
+        return
+    norm_layout = runtime.get("mtp_norm_layout")
+    if target == "mtplx":
+        if indexed_mtp:
+            blockers.append(
+                "MTPLX attaches the head itself; MTP tensors must stay out of the index"
+            )
+        if norm_layout != "raw_hf_delta":
+            blockers.append("MTPLX Qwen profile needs declared raw_hf_delta head RMSNorms")
+        return
+    # oMLX
+    if sidecar_names and not indexed_mtp:
+        actions.append("Include native MTP tensors in the target runtime weight index")
+    if norm_layout == "raw_hf_delta":
+        actions.append("Shift all MTP-head RMSNorm gammas to MLX multipliers (+1)")
+    elif norm_layout != "mlx_multiplier":
+        blockers.append("oMLX Qwen profile needs a declared mtp_norm_layout")
+    if has_vision:
+        constraints.append(QWEN35_VISION_CONSTRAINT)
 
 
 def inspect_runtime_export(directory: str | Path) -> dict[str, Any]:
@@ -174,11 +235,31 @@ def inspect_runtime_export(directory: str | Path) -> dict[str, Any]:
         modes.append("non-mlx:" + str(foreign_quantization["quant_method"]))
     ngram_shards = any(is_ngram_shard_key(name) for name in weight_map)
     mtp_names = tuple(sidecar.tensors) if sidecar is not None else ()
+    qwen35 = model_type in QWEN35_MODEL_TYPES
+    indexed_mtp = sorted(name for name in weight_map if name.startswith("mtp.") or ".mtp." in name)
     for target in ("omlx", "mtplx"):
         blockers: list[str] = []
         actions: list[str] = []
-        if not qwen4:
+        constraints: list[str] = []
+        profile: str | None = None
+        if qwen4:
+            profile = "qwen4-exp-v2" if target == "mtplx" else "qwen4-exp-v1"
+        elif qwen35:
+            profile = QWEN35_OMLX_PROFILE if target == "omlx" else QWEN35_MTPLX_PROFILE
+        if not qwen4 and not qwen35:
             blockers.append(f"No audited {target} export profile for model_type {model_type!r}")
+        elif qwen35:
+            _qwen35_verdict(
+                target,
+                blockers=blockers,
+                actions=actions,
+                constraints=constraints,
+                modes=modes,
+                runtime=runtime,
+                sidecar_names=mtp_names,
+                indexed_mtp=indexed_mtp,
+                has_vision=(pack / "vision.safetensors").is_file(),
+            )
         else:
             if not isinstance(text, dict):
                 blockers.append("text_config must be an object")
@@ -220,8 +301,10 @@ def inspect_runtime_export(directory: str | Path) -> dict[str, Any]:
                     actions.append(
                         "Normalize native MTP expert paths and head RMSNorm representation"
                     )
+        if qwen4 and target == "mtplx":
+            constraints.append("MTPLX image input requires MTP generation mode")
         targets[target] = {
-            "profile": ("qwen4-exp-v2" if target == "mtplx" else "qwen4-exp-v1") if qwen4 else None,
+            "profile": profile,
             "status": "unsupported"
             if blockers
             else "requires-export"
@@ -233,9 +316,7 @@ def inspect_runtime_export(directory: str | Path) -> dict[str, Any]:
             "mtp_verified": False,
             "launch_environment": MTPLX_QWEN4_BASE_ENV if qwen4 and target == "mtplx" else {},
             "model_settings": {"qwen4_ple_ssd_offload": True} if qwen4 and target == "omlx" else {},
-            "modality_constraints": ["MTPLX image input requires MTP generation mode"]
-            if qwen4 and target == "mtplx"
-            else [],
+            "modality_constraints": constraints,
         }
     report = {
         "schema_version": COMPATIBILITY_SCHEMA,
