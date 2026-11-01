@@ -128,6 +128,7 @@ def _vector_mean(part: _TensorPart) -> float:
         raw = source.read(tensor.byte_count)
     if len(raw) != tensor.byte_count:
         raise ArtifactError(f"truncated norm {tensor.name}")
+    values: list[float]
     if tensor.dtype == "BF16":
         values = [
             struct.unpack("<f", struct.pack("<I", bits << 16))[0]
