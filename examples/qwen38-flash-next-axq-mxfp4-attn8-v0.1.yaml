@@ -1,5 +1,6 @@
 # Development candidate: AXQ-MXFP4 Qwen3.8-Flash-Next with 8-bit affine language attention.
 # Experts and MLP use native MXFP4 (group 32); attention and QSA indexer stay 8-bit affine.
+# Group 32 matches the other 8-bit floors; AX Engine's MXFP4 qwen4_exp lane admits 8/32 only.
 # Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ... Unmeasured; not a certificate.
 # Development evidence only — not a certificate.
 schema_version: axquant.manual-recipe.v2
@@ -52,7 +53,7 @@ rules:
     roles: [attention]
     bits: 8
     method: affine
-    group_size: 64
+    group_size: 32
     reason: Candidate - language attention and QSA indexer projections at 8-bit affine
   - rule_id: mlp-mxfp4
     roles: [mlp, expert]

@@ -90,6 +90,14 @@ between published versions.
   repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
   Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
   current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
+- **New Qwen 3.8 Flash-Next conversions do not load in AX Engine 8.0.6.** AX Engine admits a
+  `qwen4_exp` pack only when `axquant_manifest.json` matches the audited AXQuant 1.9.0 exporter
+  or declares `runtime.ax_engine.weight_sanitize` and `runtime.ax_engine.weight_layout` under
+  `schema_version` `axquant.artifact.v2`. That schema version is frozen and has no such fields, so
+  Flash-Next packs converted with any other AXQuant release fail with
+  `qwen4_exp_weight_layout_unknown`. Resolving this needs a coordinated schema version and
+  AX Engine contract change. The published 1.9.0 Flash-Next packs are unaffected. Beside MXFP4
+  experts, AX Engine also accepts 8-bit protected projections only at affine group size 32.
 - **MTPLX rejects sharded n-gram tables in the language index.** Qwen 3.8 Flash-Next packs carry
   the hashed n-gram PLE table as `ngram_embedding.shards.*` keys inside
   `model.safetensors.index.json`; MTPLX expects a standalone `ngram-table.safetensors` and treats

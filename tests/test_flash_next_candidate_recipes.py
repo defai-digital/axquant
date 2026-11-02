@@ -9,9 +9,12 @@ from axquant.schema import ManualPlanRecipe
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# candidate -> (baseline, attention group size). AX Engine admits 8-bit
+# protected projections at group 32 or 64 beside affine 6-bit/group64 experts,
+# but only at group 32 beside MXFP4 experts.
 CANDIDATES = {
-    "qwen38-flash-next-axq6-attn8-v0.1.yaml": "qwen38-flash-next-axq6-v0.1.yaml",
-    "qwen38-flash-next-axq-mxfp4-attn8-v0.1.yaml": "qwen38-flash-next-axq-mxfp4-v0.1.yaml",
+    "qwen38-flash-next-axq6-attn8-v0.1.yaml": ("qwen38-flash-next-axq6-v0.1.yaml", 64),
+    "qwen38-flash-next-axq-mxfp4-attn8-v0.1.yaml": ("qwen38-flash-next-axq-mxfp4-v0.1.yaml", 32),
 }
 
 
@@ -20,9 +23,12 @@ def _load(name: str) -> ManualPlanRecipe:
     return ManualPlanRecipe.model_validate(yaml.safe_load(text))
 
 
-@pytest.mark.parametrize(("candidate", "baseline"), sorted(CANDIDATES.items()))
+@pytest.mark.parametrize(
+    ("candidate", "baseline", "group_size"),
+    [(name, base, group) for name, (base, group) in sorted(CANDIDATES.items())],
+)
 def test_candidate_only_raises_language_attention_to_8bit_affine(
-    candidate: str, baseline: str
+    candidate: str, baseline: str, group_size: int
 ) -> None:
     recipe = _load(candidate)
     base = _load(baseline)
@@ -31,7 +37,7 @@ def test_candidate_only_raises_language_attention_to_8bit_affine(
     assert len(attention) == 1
     assert attention[0].bits == 8
     assert attention[0].method.value == "affine"
-    assert attention[0].group_size == 64
+    assert attention[0].group_size == group_size
 
     def without_attention(value: ManualPlanRecipe) -> list[tuple[object, ...]]:
         return [
