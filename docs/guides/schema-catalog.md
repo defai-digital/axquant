@@ -25,6 +25,7 @@ Policy: [schema governance](schema-governance.md).
 | `axquant.artifact-lifecycle-registry.v1` | `release` | `immutable-envelope` | `axquant.schema.lifecycle.ArtifactLifecycleRegistry` | [`axquant.artifact-lifecycle-registry.v1.schema.json`](../../schemas/axquant.artifact-lifecycle-registry.v1.schema.json) |
 | `axquant.artifact-size-evidence.v1` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ArtifactSizeEvidence` | [`axquant.artifact-size-evidence.v1.schema.json`](../../schemas/axquant.artifact-size-evidence.v1.schema.json) |
 | `axquant.artifact.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ArtifactManifest` | [`axquant.artifact.v2.schema.json`](../../schemas/axquant.artifact.v2.schema.json) |
+| `axquant.artifact.v3` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ArtifactManifestV3` | [`axquant.artifact.v3.schema.json`](../../schemas/axquant.artifact.v3.schema.json) |
 | `axquant.benchmark-config.v1` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.BenchmarkConfig` | [`axquant.benchmark-config.v1.schema.json`](../../schemas/axquant.benchmark-config.v1.schema.json) |
 | `axquant.benchmark-config.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.BenchmarkConfigV2` | [`axquant.benchmark-config.v2.schema.json`](../../schemas/axquant.benchmark-config.v2.schema.json) |
 | `axquant.benchmark-evidence-index.v1` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.BenchmarkEvidenceIndex` | [`axquant.benchmark-evidence-index.v1.schema.json`](../../schemas/axquant.benchmark-evidence-index.v1.schema.json) |
@@ -154,6 +155,7 @@ Policy: [schema governance](schema-governance.md).
 | `axquant.runtime-compatibility.v1` | `evidence` | `immutable-envelope` | `axquant.schema.runtime_export.RuntimeCompatibilityReport` | [`axquant.runtime-compatibility.v1.schema.json`](../../schemas/axquant.runtime-compatibility.v1.schema.json) |
 | `axquant.runtime-export.v1` | `evidence` | `immutable-envelope` | `axquant.schema.runtime_export.RuntimeExportManifest` | [`axquant.runtime-export.v1.schema.json`](../../schemas/axquant.runtime-export.v1.schema.json) |
 | `axquant.runtime.v1` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.RuntimeMetadata` | [`axquant.runtime.v1.schema.json`](../../schemas/axquant.runtime.v1.schema.json) |
+| `axquant.runtime.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.RuntimeMetadataV2` | [`axquant.runtime.v2.schema.json`](../../schemas/axquant.runtime.v2.schema.json) |
 | `axquant.scoreboard.v1` | `evidence` | `immutable-envelope` | `axquant.schema.frozen_v1.ScoreboardReportV1` | [`axquant.scoreboard.v1.schema.json`](../../schemas/axquant.scoreboard.v1.schema.json) |
 | `axquant.scoreboard.v2` | `evidence` | `immutable-envelope` | `axquant.schema.artifacts.ScoreboardReport` | [`axquant.scoreboard.v2.schema.json`](../../schemas/axquant.scoreboard.v2.schema.json) |
 | `axquant.semantic-impact-scan.v1` | `evidence` | `immutable-envelope` | `axquant.schema.lifecycle.SemanticImpactScan` | [`axquant.semantic-impact-scan.v1.schema.json`](../../schemas/axquant.semantic-impact-scan.v1.schema.json) |

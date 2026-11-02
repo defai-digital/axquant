@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 from axquant.errors import ArtifactError, PlanningError
 from axquant.inspector import inspect_model
+from axquant.model_support import require_model_supported
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.nvfp4 import _global_scale, quantize_nvfp4_cuda, quantize_nvfp4_reference
 from axquant.schema.cuda import (
@@ -57,6 +58,7 @@ class SourceBoundPlan(Protocol):
     """Any CUDA plan whose source members are bound by exact content digests."""
 
     source_files: list[CudaFileDigest]
+    model_id: str
 
 
 def _digest(root: Path, relative: str) -> CudaFileDigest:
@@ -111,6 +113,7 @@ def plan_cuda_nvfp4(
     allow_unmeasured: bool = False,
 ) -> CudaQuantizationPlan:
     """Allocate eligible text matrices to NVFP4 and preserve every other tensor."""
+    require_model_supported(model_id, model_dir)
     _require_unmeasured(allow_unmeasured)
     source = Path(model_dir).expanduser().resolve()
     if not source.is_dir():
@@ -254,6 +257,12 @@ def plan_cuda_nvfp4(
 
 
 def _verify_source(source: Path, plan: SourceBoundPlan) -> None:
+    require_model_supported(source, plan.model_id)
+    config_path = source / "config.json"
+    if config_path.is_file():
+        config_identity = read_data(config_path)
+        if isinstance(config_identity, dict):
+            require_model_supported(plan.model_id, config=config_identity)
     for member in plan.source_files:
         if _digest(source, member.path) != member:
             raise ArtifactError(f"CUDA source content changed: {member.path}")

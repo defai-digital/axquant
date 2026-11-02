@@ -10,6 +10,7 @@ from axquant.architectures.dense_family import (
     DenseFamilyAdapter,
     DenseFamilySpec,
 )
+from axquant.architectures.minicpmv47 import MiniCPMV47Adapter
 from axquant.architectures.qwen36 import Qwen35MoeAdapter, Qwen36Adapter
 from axquant.architectures.qwen38 import Qwen38Adapter
 from axquant.architectures.registry import adapter_for
@@ -34,6 +35,98 @@ def _qwen36_config() -> dict[str, object]:
             "mtp_num_hidden_layers": 1,
         },
     }
+
+
+def _minicpmv47_config() -> dict[str, object]:
+    return {
+        "model_type": "minicpmv4_7",
+        "architectures": ["MiniCPMV4_7ForConditionalGeneration"],
+        "text_config": {
+            "model_type": "qwen3_5_moe_text",
+            "num_hidden_layers": 40,
+            "hidden_size": 2048,
+            "num_attention_heads": 16,
+            "num_key_value_heads": 2,
+            "head_dim": 256,
+            "moe_intermediate_size": 512,
+            "shared_expert_intermediate_size": 512,
+            "num_experts": 256,
+            "num_experts_per_tok": 8,
+            "mtp_num_hidden_layers": 1,
+        },
+        "vision_config": {
+            "model_type": "minicpmv4_7_vision",
+            "num_hidden_layers": 27,
+            "hidden_size": 1152,
+            "num_attention_heads": 16,
+            "patch_size": 14,
+        },
+    }
+
+
+def test_minicpmv47_adapter_is_scoped_to_official_35b_a3b_signature() -> None:
+    adapter = MiniCPMV47Adapter()
+    reference = "openbmb/MiniCPM-V-4.7-35B-A3B"
+    config = _minicpmv47_config()
+
+    assert adapter.matches(reference, config)
+    registered = adapter_for(reference, config)
+    assert registered is not None
+    assert registered.adapter_id == adapter.adapter_id
+    profile = adapter.profile(reference, config)
+    assert profile.adapter_id == "minicpm-v47-v1"
+    assert profile.support_tier is SupportTier.CONVERTIBLE
+    assert profile.optimization_scope is OptimizationScope.TEXT_PATH
+    assert profile.dense is False
+    assert profile.text_layer_count == 40
+    assert profile.mtp_declared is True
+    assert profile.vision_present is True
+    assert not adapter.matches("openbmb/MiniCPM-V-4.7-1B", config)
+
+
+def test_minicpmv47_adapter_fails_closed_on_signature_drift() -> None:
+    adapter = MiniCPMV47Adapter()
+    config = _minicpmv47_config()
+    text = config["text_config"]
+    assert isinstance(text, dict)
+    text["num_experts"] = 64
+
+    profile = adapter.profile("openbmb/MiniCPM-V-4.7-35B-A3B", config)
+
+    assert profile.support_tier is SupportTier.INSPECT_ONLY
+    assert profile.support_level is ArchitectureSupportLevel.INVENTORY_ONLY
+
+
+def test_minicpmv47_tensor_roles_protect_modalities_and_router() -> None:
+    adapter = MiniCPMV47Adapter()
+
+    assert (
+        adapter.classify_tensor(
+            "model.vision_tower.encoder.layers.0.mlp.fc1.weight", "model.safetensors"
+        )
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("model.merger.mlp.0.linear_1.weight", "model.safetensors")
+        is TensorRole.VISION
+    )
+    assert (
+        adapter.classify_tensor("model.language_model.embed_tokens.weight", "model.safetensors")
+        is TensorRole.EMBEDDING
+    )
+    assert adapter.classify_tensor("lm_head.weight", "model.safetensors") is TensorRole.LM_HEAD
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.mlp.gate.weight", "model.safetensors"
+        )
+        is TensorRole.ROUTER
+    )
+    assert (
+        adapter.classify_tensor(
+            "model.language_model.layers.0.mlp.experts.gate_up_proj", "model.safetensors"
+        )
+        is TensorRole.EXPERT
+    )
 
 
 def test_qwen36_adapter_requires_explicit_product_identity() -> None:
@@ -1048,11 +1141,13 @@ def test_support_matrix_lists_every_registered_family(tmp_path: Path) -> None:
         "qwen3-omni-moe-v1": SupportTier.CONVERTIBLE,
         "deepseek-ocr2-v1": SupportTier.CONVERTIBLE,
         "unlimited-ocr-v1": SupportTier.CONVERTIBLE,
+        "unlimited-ocr2-v1": SupportTier.CONVERTIBLE,
         "muse-glimmer-v1": SupportTier.CONVERTIBLE,
         # gemma4_unified converts via prepared gemma4 text-path (source_prep).
         "gemma4-dense-v1": SupportTier.CONVERTIBLE,
         "embedding-gemma2-v1": SupportTier.CONVERTIBLE,
         "minicpm5-dense-v1": SupportTier.CONVERTIBLE,
+        "minicpm-v47-v1": SupportTier.CONVERTIBLE,
         "mistral-devstral-dense-v1": SupportTier.CONVERTIBLE,
         "mistral3-dense-v1": SupportTier.CONVERTIBLE,
         "deepseek-v4-v1": SupportTier.CONVERTIBLE,
@@ -1566,28 +1661,30 @@ def _moe_397b_config(*, name_or_path: str) -> dict:
     }
 
 
-def test_ornith_15_397b_is_convertible() -> None:
-    """Ornith-1.5-397B matches the validated 397B qwen3_5_moe signature."""
+def test_ornith_397b_is_inspect_only_without_removing_other_qwen397b_support() -> None:
     for reference in (
         "ornith-ai/Ornith-1.5-397B",
-        "Qwen/Qwen3.5-397B-A17B",
+        "AutomatosX/AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP",
+        "/models/ornith-15-397b/src",
+        "local-checkpoint",
     ):
-        config = _moe_397b_config(name_or_path=reference)
+        config = _moe_397b_config(name_or_path="ornith-ai/Ornith-1.5-397B")
         adapter = adapter_for(reference, config)
         assert adapter is not None
-        assert adapter.adapter_id == "qwen35-moe-v1"
         profile = adapter.profile(reference, config)
-        assert profile.support_tier is SupportTier.CONVERTIBLE
-        assert profile.dense is False
-        assert profile.text_layer_count == 60
-        assert profile.vision_present is True
+        assert profile.support_tier is SupportTier.INSPECT_ONLY
+        assert profile.support_level is ArchitectureSupportLevel.INVENTORY_ONLY
+        assert profile.optimization_scope is OptimizationScope.INVENTORY_ONLY
+        assert any("withdrawn" in note for note in profile.notes)
 
-    wrong = _moe_397b_config(name_or_path="ornith-ai/Ornith-1.5-397B")
+    reference = "Qwen/Qwen3.5-397B-A17B"
+    config = _moe_397b_config(name_or_path=reference)
+    adapter = adapter_for(reference, config)
+    assert adapter is not None
+    assert adapter.profile(reference, config).support_tier is SupportTier.CONVERTIBLE
+    wrong = _moe_397b_config(name_or_path=reference)
     wrong["text_config"] = {**wrong["text_config"], "num_experts": 256}
-    assert (
-        Qwen35MoeAdapter().profile("ornith-ai/Ornith-1.5-397B", wrong).support_tier
-        is SupportTier.INSPECT_ONLY
-    )
+    assert Qwen35MoeAdapter().profile(reference, wrong).support_tier is SupportTier.INSPECT_ONLY
 
 
 def test_ornith_15_9b_dense_is_convertible() -> None:

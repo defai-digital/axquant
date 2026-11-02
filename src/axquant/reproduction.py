@@ -12,6 +12,7 @@ from axquant.schema import (
     ReproductionVerification,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_quantization_plan,
     load_reproduction_recipe,
 )
@@ -193,7 +194,7 @@ def verify_reproduction(
 
     if conversion_manifest_path is not None and conversion_manifest_path.is_file():
         try:
-            conversion_manifest = load_model(conversion_manifest_path, ArtifactManifest)
+            conversion_manifest = load_artifact_manifest(conversion_manifest_path)
         except (ArtifactError, ValueError) as exc:
             issues.append(f"immutable conversion manifest cannot be validated: {exc}")
         else:
@@ -225,7 +226,7 @@ def verify_reproduction(
         issues.append("reproduced artifact has no axquant_manifest.json")
     else:
         try:
-            manifest = load_model(artifact_manifest_path, ArtifactManifest)
+            manifest = load_artifact_manifest(artifact_manifest_path)
         except (ArtifactError, ValueError) as exc:
             issues.append(f"reproduced artifact manifest cannot be validated: {exc}")
         else:

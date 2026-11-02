@@ -110,6 +110,24 @@ native head execution was witnessed; MTPLX health confirmed native MTP
 engagement. These are scoped load/generation checks, not quality or speed
 certificates or a claim about all runtime versions.
 
+On 2026-11-02, the same checks passed for local oMLX and MTPLX variants
+exported from the affine six-bit pack
+(`AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP`) on the factory host, using
+the same runtime builds. The six-bit pack predates the trunk norm declaration.
+Its 181 trunk RMSNorm tensors were checked byte-identical to the BF16 source,
+so the MTPLX export used `--source-trunk-norm-layout raw_hf_delta`. oMLX passed
+text and image input with MTP disabled and enabled, and native head execution
+was witnessed. MTPLX passed AR text, refused AR image input as documented, and
+passed text and image input in MTP mode. Without
+`AGX_RELAX_CDM_CTXSTORE_TIMEOUT=1`, the MTPLX MTP-mode prefill on the M2 Ultra
+failed with a Metal command-buffer timeout. The smoke runner now sets that
+driver scheduling flag when it is unset and records it. With the same flag,
+MLX-VLM 0.7.9 (MLX 0.32.4) generated the expected text from the unmodified
+six-bit pack on the GPU (about 155 GB, close to the recommended working-set
+limit on the 192 GB host); vision and MTP were not checked. These variants are
+local and unpublished. These are scoped load/generation checks, not quality,
+speed or MTP-acceptance evidence.
+
 ## Launch requirements and measured smoke checks
 
 The report and variant manifest carry `launch_environment`, `model_settings`,

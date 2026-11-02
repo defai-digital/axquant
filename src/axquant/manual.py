@@ -5,6 +5,7 @@ from fnmatch import fnmatchcase
 from axquant.errors import PlanningError
 from axquant.experimental_bits import annotate_experimental_low_bit_plan
 from axquant.identity import semantic_model_identity
+from axquant.model_support import require_model_supported
 from axquant.module_paths import (
     fused_expert_module,
     packed_expert_runtime_modules,
@@ -249,6 +250,7 @@ def manual_quantization_plan(
     sensitivity: SensitivityReport | None = None,
     allow_mtp_unmeasured: bool = False,
 ) -> QuantizationPlan:
+    require_model_supported(inventory.model.model_id, inventory.model.local_path)
     # Mixed-precision exports (e.g. DeepSeek V4 Flash FP4+FP8) may still be
     # re-packed when inventory was produced with --allow-quantized and the
     # expert/MLP/attention weights are marked quantizable for dequant+affine.

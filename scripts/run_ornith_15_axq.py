@@ -5,7 +5,6 @@ Development evidence. Not the Qwen 3.6 cert track. One pack at a time:
 
   PYTHONPATH=src .venv/bin/python scripts/run_ornith_15_axq.py --model 9b --pack mxfp4 all
   PYTHONPATH=src .venv/bin/python scripts/run_ornith_15_axq.py --model 35b --pack axq6 all
-  PYTHONPATH=src .venv/bin/python scripts/run_ornith_15_axq.py --model 397b --pack mxfp4 all
 """
 
 from __future__ import annotations
@@ -69,28 +68,6 @@ MODELS: dict[str, dict[str, Any]] = {
             "axq6": {
                 "hub_name": "AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
                 "recipe": ROOT / "examples" / "ornith-15-35b-axq6-v0.1.yaml",
-                "q_mode": "affine",
-                "product_class": "6bit",
-            },
-        },
-    },
-    "397b": {
-        "source_id": "ornith-ai/Ornith-1.5-397B",
-        "source_rev": "8f6cc8a7aea505364523f84ccf37706e8aea0ee7",
-        "adapter_id": "qwen35-moe-v1",
-        "src_name": "src-ornith-15-397b",
-        "work_name": "ornith-15-397b",
-        "expected_shards": 122,
-        "packs": {
-            "mxfp4": {
-                "hub_name": "AX-Ornith-1.5-397B-MLX-AXQ-MXFP4-MTP",
-                "recipe": ROOT / "examples" / "ornith-15-397b-axq-mxfp4-v0.1.yaml",
-                "q_mode": "mxfp4",
-                "product_class": "MXFP4",
-            },
-            "axq6": {
-                "hub_name": "AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP",
-                "recipe": ROOT / "examples" / "ornith-15-397b-axq6-v0.1.yaml",
                 "q_mode": "affine",
                 "product_class": "6bit",
             },
@@ -327,7 +304,6 @@ def cmd_convert(model: str, pack: str) -> None:
         ],
         work / "logs" / f"convert-{pack}.log",
         force_cpu=True,
-        streaming_convert=model == "397b",
     )
     if not (out / "axquant_manifest.json").is_file():
         raise SystemExit(f"convert produced no manifest in {out}")
@@ -362,10 +338,6 @@ def cmd_smoke(model: str, pack: str) -> None:
             env=env,
         )
     if proc.returncode != 0:
-        if model == "397b":
-            log(f"397B smoke failed (likely memory); see {log_path}")
-            log("Continuing without a runtime claim. 192 GB cannot resident-load 397B.")
-            return
         raise SystemExit(f"smoke failed: see {log_path}")
     log(f"smoke ok {pack}")
 

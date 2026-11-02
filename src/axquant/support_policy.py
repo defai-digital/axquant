@@ -164,17 +164,18 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         summary=(
             "Qwen3.5-class MoE and fine-tunes: 35B-A3B (Ornith-1.0-35B, "
             "Ornith-1.5-35B-A3B, Holo3-35B-A3B, Holo-3.1-35B-A3B, Qwen3.5-35B-A3B) "
-            "and 397B (Ornith-1.5-397B). Fused-expert convert via the same MLX "
+            "and Qwen3.5-397B-A17B. Fused-expert convert via the same MLX "
             "layout as Qwen 3.6 MoE. Holo3 and Ornith-1.0 historical AXQ 4/6-bit direct-decode "
             "packs are checkpoint Tier 1."
         ),
         do=(
             "Allow architecture-prior AXQ MXFP4/6-bit packs for signature-matched "
-            "35B-A3B and 397B MoE fine-tunes.",
+            "35B-A3B and Qwen3.5-397B-A17B checkpoints.",
             "Bind Holo3 and Ornith-1.0 public Tier 1 only to the certified Hub revisions. "
             "Vision stays BF16-protected. Ornith 1.5 packs start as development evidence.",
         ),
         do_not=(
+            "Do not convert or publish Ornith 397B; support was withdrawn on 2026-10-24.",
             "Do not claim Qwen 3.6 Tier 1/Tier 2 certification for Ornith or other fine-tunes.",
             "Do not convert qwen3_5_moe sizes other than the validated 35B-A3B and "
             "397B signatures by association.",
@@ -292,6 +293,27 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
         do_not=("Do not expand MiniCPM scope into unrelated Llama models.",),
     ),
     FamilySupportPolicy(
+        product_family="minicpm-v-4.7",
+        adapter_id="minicpm-v47-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=26,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary=(
+            "Exact MiniCPM-V 4.7 35B-A3B development convert through MLX-VLM; "
+            "vision, merger, and hybrid linear-attention tensors stay at source precision."
+        ),
+        do=(
+            "Use the pinned official 35B-A3B BF16 source and matching MLX-VLM implementation.",
+            "Verify modality and runtime behavior per immutable pack before making support claims.",
+        ),
+        do_not=(
+            "Do not include the separate 1B model or other MiniCPM checkpoints by association.",
+            "Do not claim MTP, video, quality, AX Engine, oMLX, or MTPLX support without "
+            "pack-specific evidence.",
+        ),
+    ),
+    FamilySupportPolicy(
         product_family="qwen3-vl",
         adapter_id="qwen3-vl-moe-v1",
         investment_posture=InvestmentPosture.THIN,
@@ -374,6 +396,24 @@ FAMILY_POLICIES: tuple[FamilySupportPolicy, ...] = (
             "Do not claim OCR accuracy parity without measured document evals.",
             "Do not re-pack community 4/6/8-bit as AXQ without a full convert.",
             "Do not treat Unlimited-OCR v1 (deepseekocr) remasters as v2 by association.",
+        ),
+    ),
+    FamilySupportPolicy(
+        product_family="unlimited-ocr2",
+        adapter_id="unlimited-ocr2-v1",
+        investment_posture=InvestmentPosture.THIN,
+        priority=31,
+        declared_tier=SupportTier.CONVERTIBLE,
+        cert_track=False,
+        summary="Unlimited-OCR-2 NVFP4 and source-layout MLX MXFP4/MXFP8 storage exports only.",
+        do=(
+            "Preserve SR-SWA routers/indexers, vision and all other protected source tensors.",
+            "Label CPU export numpy-reference with runtime_verified=false.",
+            "Keep source-layout MLX exports storage-only with unsupported peer profiles.",
+        ),
+        do_not=(
+            "Do not use the Unlimited-OCR v1 MLX conversion or inference path.",
+            "Do not claim CUDA execution or OCR quality without exact-pack measurements.",
         ),
     ),
     FamilySupportPolicy(

@@ -282,6 +282,13 @@ class DenseFamilyAdapter:
         if config.get("model_type") not in self.spec.model_types:
             return False
         references = self._references(model_reference, config)
+        if self.adapter_id == "unlimited-ocr-v1" and (
+            isinstance(config.get("sparse_attention_config"), dict)
+            or any(
+                re.search(r"unlimited[._-]?ocr[._-]?2", ref, re.IGNORECASE) for ref in references
+            )
+        ):
+            return False
         if self._exclude is not None and any(
             self._exclude.search(reference) for reference in references
         ):

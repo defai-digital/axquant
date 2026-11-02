@@ -471,12 +471,15 @@ class JointSchemaHead(nn.Module):
 
 
 class ClefMLX:
-    def __init__(self, backbone, tokenizer, head: JointSchemaHead, processor=None):
+    def __init__(
+        self, backbone, tokenizer, head: JointSchemaHead, processor=None, *, omni_text=False
+    ):
         self.backbone = backbone
         if type(tokenizer).__name__ == "TokenizerWrapper":  # mlx-lm wrapper
             tokenizer = tokenizer._tokenizer
         self.tokenizer = tokenizer
         self.processor = processor
+        self._omni_text = omni_text
         self.head = head
         self.vision = hasattr(backbone, "vision_tower")
         lm = backbone.language_model
@@ -501,6 +504,11 @@ class ClefMLX:
         if not self.vision:
             if media:
                 raise ValueError("this checkpoint has no vision tower; convert with mlx_vlm")
+            if self._omni_text:
+                # Omni's public language model requires explicit multimodal
+                # RoPE positions when called without a generation cache.
+                positions, _ = self.backbone.language_model.get_rope_index(ids[None])
+                return self._text_model(ids[None], position_ids=positions)[0]
             return self._text_model(ids[None])[0]
         media = media or {}
         if "pixel_values" in media and "pixel_values_videos" in media:
@@ -605,8 +613,12 @@ def load(path: str | Path, head_dtype=mx.bfloat16, backend: str = "auto") -> Cle
         from huggingface_hub import snapshot_download
 
         path = Path(snapshot_download(str(path)))
+    config = json.loads((path / "config.json").read_text())
     if backend == "auto":
-        backend = "vlm" if _has_vision_weights(path) else "lm"
+        # Omni's thinker language model is implemented by MLX-VLM even for a
+        # text-only decision request. Its vision keys may be in a sidecar.
+        needs_thinker = config.get("model_type") == "qwen3_omni_moe"
+        backend = "vlm" if needs_thinker or _has_vision_weights(path) else "lm"
     processor = None
     _check_versions(("mlx-vlm",) if backend == "vlm" else ("mlx-lm",))
     if backend == "vlm":
@@ -624,7 +636,13 @@ def load(path: str | Path, head_dtype=mx.bfloat16, backend: str = "auto") -> Cle
     head.load_weights(list(weights.items()), strict=True)
     head.set_dtype(head_dtype)
     mx.eval(head.parameters())
-    return ClefMLX(backbone, tokenizer, head, processor)
+    return ClefMLX(
+        backbone,
+        tokenizer,
+        head,
+        processor,
+        omni_text=config.get("model_type") == "qwen3_omni_moe",
+    )
 
 
 # --------------------------------------------------------------------------- CLI and server

@@ -74,6 +74,11 @@ execution. This does not establish GPU inference compatibility or speed.
 
 ## Allocation and output
 
+Unlimited-OCR-2 has a separate CUDA storage adapter. Its SR-SWA DASH-router
+and indexer tensors retain source precision. The development NVFP4 export is
+not runtime-verified; the v1 inference recipes do not establish v2 support.
+MLX conversion of this second-generation graph is not implemented.
+
 Eligible attention, MLP and individual expert `.weight` matrices use NVFP4.
 They must be BF16, FP16 or FP32, two-dimensional, nonempty and aligned to
 16 columns. Router, embedding, norm, LM head, MTP, vision, audio, tied and
@@ -138,14 +143,20 @@ an existing output is rejected.
 
 ## Mixed six-bit budget class (`--q-mode mix6`)
 
-A CUDA "six-bit" lane is a budget class, not a datatype. NVIDIA defines FP8
-E4M3/E5M2, MXFP8 and NVFP4 but no six-bit float, and the only six-bit float
-standard was retired because no runtime loads it. `--q-mode mix6` therefore
-realizes the project's `6bit` class by mixing 4-bit NVFP4 matrices with 8-bit
+A CUDA "six-bit" lane is a budget class. NVIDIA does provide FP6 E2M3/E3M2
+types and Blackwell MXFP6 kernels, but AXQuant's `mix6` lane does not use them.
+AXQ-051 retired AXQuant's reference-only MXFP6 exporter, not the OCP standard.
+`--q-mode mix6` realizes the project's `6bit` class by mixing 4-bit NVFP4 matrices with 8-bit
 FP8 E4M3 matrices in one checkpoint, exactly as
 [`target_class_for_bpw`](../../src/axquant/naming.py) already labels a mixed
 6.0-BPW plan. The standalone FP8 product remains withdrawn and is not
 published.
+
+NVIDIA's [CUDA FP6 API](https://docs.nvidia.com/cuda/cuda-math-api/cuda_math_api/group__CUDA__MATH__INTRINSIC__FP6.html)
+and [SM120 MXFP8/MXFP6 GEMM example](https://github.com/NVIDIA/cutlass/blob/main/examples/79_blackwell_geforce_gemm/79c_blackwell_geforce_mixed_mxfp8_mxfp6_bf16_gemm.cu)
+establish datatype and kernel availability. They do not establish an AXQ model loader,
+checkpoint interchange, or end-to-end inference support. No separate NVFP6 format is
+defined by those references.
 
 ```bash
 axquant plan-cuda /path/to/source-bf16 --q-mode mix6 --target-bpw 6.0 \

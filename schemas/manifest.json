@@ -1,5 +1,5 @@
 {
-  "count": 150,
+  "count": 152,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -72,6 +72,14 @@
       "model": "axquant.schema.artifacts.ArtifactManifest",
       "schema_version": "axquant.artifact.v2",
       "sha256": "028b62b8d3f45245b5e0243fa4d4027a6fee34479d91234660a2ed9f37d0097e"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.artifact.v3.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.ArtifactManifestV3",
+      "schema_version": "axquant.artifact.v3",
+      "sha256": "d2688e0d05dc58d88d9fd157c0c94821fffadd6acc7bd7a6657801bc4e14a9cf"
     },
     {
       "compatibility_class": "evidence",
@@ -1104,6 +1112,14 @@
       "model": "axquant.schema.artifacts.RuntimeMetadata",
       "schema_version": "axquant.runtime.v1",
       "sha256": "20df29caa503dd18fe4dc704fdbe4753ecac2633493ba990872b23fd0790aee5"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.runtime.v2.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.artifacts.RuntimeMetadataV2",
+      "schema_version": "axquant.runtime.v2",
+      "sha256": "8c5f7fec79cfab0d96793f9fe72630c0fe115d62e48ff4bc517af780a36c44b8"
     },
     {
       "compatibility_class": "evidence",

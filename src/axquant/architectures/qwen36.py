@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from axquant.architectures.dense_family import classify_dense_tensor, valid_layer_count
+from axquant.model_support import model_support_withdrawal_reason
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -169,7 +170,8 @@ class Qwen35MoeAdapter:
     Official Qwen 3.6 catalog MoE stays on ``qwen36-v1``. This adapter covers the
     same fused-expert MLX layout when the checkpoint is *not* named as Qwen 3.6
     but still matches a validated signature: 35B-A3B (Ornith-1.0-35B,
-    Ornith-1.5-35B-A3B, Qwen3.5-35B-A3B, Holo3) or 397B (Ornith-1.5-397B).
+    Ornith-1.5-35B-A3B, Qwen3.5-35B-A3B, Holo3) or Qwen3.5-397B-A17B.
+    Ornith 397B is withdrawn and remains inventory-only.
     Artifacts are development evidence only — not the Qwen 3.6 certification track.
     """
 
@@ -189,9 +191,11 @@ class Qwen35MoeAdapter:
         layer_count = valid_layer_count(text_config.get("num_hidden_layers"))
         signature_is_35b_a3b = _signature_is_35b_a3b(text_config)
         signature_is_397b = _signature_is_397b(text_config)
+        withdrawal = model_support_withdrawal_reason(model_reference, config=config)
         model_type = config.get("model_type")
         supported = (
-            not dense
+            withdrawal is None
+            and not dense
             and model_type == "qwen3_5_moe"
             and (
                 (signature_is_35b_a3b and layer_count == 40)
@@ -204,14 +208,16 @@ class Qwen35MoeAdapter:
             + "(development convert; not the Qwen 3.6 certification track).",
             "Vision tensors are preserved at BF16 and VLM quality is not claimed.",
             "Validated sizes: 35B-A3B (Ornith-1.0-35B, Ornith-1.5-35B-A3B, "
-            + "Holo3-35B-A3B, Holo-3.1-35B-A3B) and 397B (Ornith-1.5-397B).",
+            + "Holo3-35B-A3B, Holo-3.1-35B-A3B) and Qwen3.5-397B-A17B.",
         ]
+        if withdrawal is not None:
+            notes.append(withdrawal)
         if supported:
             notes.append(
                 "MoE experts quantize as fused switch modules with uniform per-group "
                 "precision; label packs as development evidence until certified."
             )
-        else:
+        elif withdrawal is None:
             notes.append(
                 "This qwen3_5_moe checkpoint is inventory-only until it matches a "
                 "validated 35B-A3B or 397B MoE signature."

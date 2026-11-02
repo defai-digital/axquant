@@ -67,6 +67,25 @@ class AxEngineOptimizationMetadata(StrictModel):
     kernel_evidence: Literal["unmeasured", "measured"] = "unmeasured"
 
 
+class AxEngineWeightLayout(StrictModel):
+    """On-disk weight layout an exporter declares to AX Engine (AXQ-066).
+
+    The declaration is the exporter's claim about tensors it wrote, verified
+    against the staged pack before it is emitted. It is not numerical parity
+    evidence.
+    """
+
+    norm_weights: Literal["raw_delta"]
+    conv1d_axes: Literal["mlx"]
+
+
+class AxEngineOptimizationMetadataV2(AxEngineOptimizationMetadata):
+    """``axquant.runtime.v2`` AX Engine block with the weight-layout declaration."""
+
+    weight_sanitize: Literal["hf_norm_only"]
+    weight_layout: AxEngineWeightLayout
+
+
 class KvCacheRuntimeMetadata(StrictModel):
     """Per-layer KV-cache precision table consumed by AX Engine (AXQ-021).
 
@@ -118,6 +137,18 @@ class RuntimeMetadata(StrictModel):
     kv_cache: KvCacheRuntimeMetadata | None = None
     memory_policy: dict[str, str | int | float | bool | None] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class RuntimeMetadataV2(RuntimeMetadata):
+    """Runtime metadata that carries an AX Engine weight-layout declaration (AXQ-066).
+
+    ``axquant.runtime.v1`` stays frozen (AXQ-042). This subclass adds only the
+    declaration, so a v2 instance remains a valid ``RuntimeMetadata`` for
+    read-only consumers. Writers emit v2 only when a declaration is verified.
+    """
+
+    schema_version: Literal["axquant.runtime.v2"] = "axquant.runtime.v2"  # type: ignore[assignment]
+    ax_engine: AxEngineOptimizationMetadataV2
 
 
 class RuntimeCheck(StrictModel):
@@ -490,6 +521,27 @@ class ArtifactManifest(StrictModel):
         if abs(self.measured_main_bpw - expected_main_bpw) > 1e-9:
             raise ValueError("measured main BPW does not match weight-byte accounting")
         return self
+
+    @model_validator(mode="after")
+    def runtime_envelope_matches_artifact_version(self) -> ArtifactManifest:
+        # AX Engine reads artifact.v2 with runtime.v1 and artifact.v3 with runtime.v2 only.
+        if isinstance(self.runtime, RuntimeMetadataV2) != isinstance(self, ArtifactManifestV3):
+            raise ValueError(
+                "artifact.v2 requires runtime.v1 and artifact.v3 requires runtime.v2 metadata"
+            )
+        return self
+
+
+class ArtifactManifestV3(ArtifactManifest):
+    """Converted-pack manifest whose runtime block declares the AX Engine layout (AXQ-066).
+
+    ``axquant.artifact.v2`` stays frozen (AXQ-042) and remains the envelope for
+    every pack without a declaration. v3 always pairs with
+    ``axquant.runtime.v2``, matching the AX Engine reader.
+    """
+
+    schema_version: Literal["axquant.artifact.v3"] = "axquant.artifact.v3"  # type: ignore[assignment]
+    runtime: RuntimeMetadataV2
 
 
 class ReproductionCommand(StrictModel):

@@ -51,7 +51,11 @@ def test_reference_storage_stays_out_of_native_runtime_and_method_catalogs() -> 
     titles = {spec.title: spec for spec in collections.COLLECTIONS}
     reference = {item.repo for item in titles["AXQ Reference Storage"].items}
     assert "AutomatosX/AX-Image-2.1-Turbo-AXQ-NVFP4" in reference
-    assert len(reference) == 1
+    assert reference == {
+        "AutomatosX/AX-Image-2.1-Turbo-AXQ-NVFP4",
+        "AutomatosX/AX-Unlimited-OCR-2-AXQ-MXFP4",
+        "AutomatosX/AX-Unlimited-OCR-2-AXQ-MXFP8",
+    }
     for title in ("MLX", "CUDA", "NVFP4", "MXFP4", "MXFP8"):
         assert reference.isdisjoint(item.repo for item in titles[title].items)
 
@@ -82,3 +86,23 @@ def test_reference_runtime_overlap_aborts_sync(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(collections, "COLLECTIONS", specs)
     with pytest.raises(SystemExit, match="must not overlap"):
         collections.sync(apply=False)
+
+
+def test_withdrawn_model_cannot_be_readded_to_collections(monkeypatch) -> None:
+    from axquant.errors import ArtifactError
+
+    mlx = collections.COLLECTIONS[-1]
+    blocked = collections.Item("AutomatosX/AX-Ornith-1.5-397B-MLX-AXQ-6bit-MTP")
+    monkeypatch.setattr(
+        collections,
+        "COLLECTIONS",
+        (*collections.COLLECTIONS[:-1], replace(mlx, items=(*mlx.items, blocked))),
+    )
+    with pytest.raises(ArtifactError, match="withdrawn"):
+        collections._validate()
+
+
+def test_ornith_family_description_keeps_withdrawal_for_generated_collection() -> None:
+    ornith = next(spec for spec in collections.COLLECTIONS if spec.title == "Ornith")
+    assert "397B is withdrawn" in ornith.description
+    assert all("397" not in item.repo for item in ornith.items)

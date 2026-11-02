@@ -90,6 +90,16 @@ between published versions.
   repository and use AX Engine, MTPLX, or oMLX `0.6.3rc2` or newer with **Import MTP side-car**.
   Older pinned Hub commits may predate the canonical `qwen3-next-mtp` runtime identity; use a
   current `main` revision unless reproducibility requires the older, AX Engine-only metadata.
+- **New Qwen 3.8 Flash-Next conversions need an AX Engine build that reads `axquant.artifact.v3`.**
+  AX Engine 8.0.6 admits a `qwen4_exp` pack only when `axquant_manifest.json` matches the audited
+  AXQuant 1.9.0 exporter or declares its weight layout. Starting with this branch, AXQuant writes
+  Flash-Next packs as `axquant.artifact.v3` with `axquant.runtime.v2`, which declare
+  `runtime.ax_engine.weight_sanitize` and `runtime.ax_engine.weight_layout` after the converter
+  checks raw-delta trunk norms and MLX-order conv1d kernels. AX Engine 8.0.6 does not read v3 and
+  fails these packs with `qwen4_exp_weight_layout_unknown`; use an AX Engine build that includes the
+  v3 reader. Other families keep `axquant.artifact.v2`. The published 1.9.0 Flash-Next packs are
+  unaffected. Beside MXFP4 experts, AX Engine also accepts 8-bit protected projections only at
+  affine group size 32.
 - **MTPLX rejects sharded n-gram tables in the language index.** Qwen 3.8 Flash-Next packs carry
   the hashed n-gram PLE table as `ngram_embedding.shards.*` keys inside
   `model.safetensors.index.json`; MTPLX expects a standalone `ngram-table.safetensors` and treats
@@ -133,6 +143,12 @@ between published versions.
   (MiniCPM5, Qwen3 dense, Mistral, …) must pass `analyze --capture-points output`; the default
   `("output", "hidden")` fails closed with a hint, and reports produced this way carry no
   hidden-state metrics.
+- **Local sources need a Hub model ID.** `inspect` and `quantize` record
+  `source_model.model_id` in the pack manifest. For a Hugging Face cache snapshot path
+  (`.../models--ORG--NAME/snapshots/COMMIT`) AXQuant records `ORG/NAME` and the commit. For
+  any other local directory it records the path and emits a warning; pass
+  `--model-id ORG/NAME` (and `--revision`) instead. Runtimes that select companion artifacts by
+  the recorded model ID, such as AX Engine DFlash2 drafters, do not match a path-shaped ID.
 - **Release attestations begin with the first tag containing the release workflow.** The workflow
   verifies tag/package version equality, creates the GitHub Release when needed, uploads the wheel,
   sdist, and checksums, and emits keyless GitHub build provenance. Verify with

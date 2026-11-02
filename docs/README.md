@@ -40,6 +40,8 @@ Other entry points:
 
 - Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
 - Compatibility: [guides/compatibility.md](guides/compatibility.md)
+- MLX affine6 catalog publication: [guides/mlx-affine6-catalog.md](guides/mlx-affine6-catalog.md)
+- MLX affine6 catalog evidence: [reports/mlx-affine6-catalog-2026-10-24.md](reports/mlx-affine6-catalog-2026-10-24.md)
 - D3 runtime support:
   [guides/d3-runtime-compatibility.md](guides/d3-runtime-compatibility.md)
 - Runtime variants and future architecture checks: [guides/runtime-exports.md](guides/runtime-exports.md)

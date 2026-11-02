@@ -2,8 +2,8 @@
 
 Stock ``mlx_lm.convert`` lazy-loads, then ``quantize_model`` builds the full
 quantized graph and ``save_model`` flattens every parameter before writing.
-Ornith-1.5-397B MXFP4 is ~216 GiB resident — above a 192 GB Studio — so convert
-SIGKILLs while writing shard 2.
+A quantized large-model graph can exceed unified memory and be terminated
+while writing shards.
 
 This path quantizes one leaf module, ``mx.eval``s it, appends it to the current
 shard, donates the module weights, and flushes the shard at 5 GiB. After the

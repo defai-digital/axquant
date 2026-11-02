@@ -11,6 +11,15 @@ pack. The `export-mxfp6` command, the `axquant[mxfp6]` extra, and the
 reference packs published 2026-10-03 were deleted from the Hub the same day
 with the MXFP6 collection; no new ones will be produced.
 
+As checked on 2026-10-21, MXFP6 itself remains an OCP format. NVIDIA provides
+[FP6 E2M3/E3M2 types](https://docs.nvidia.com/cuda/cuda-math-api/cuda_math_api/group__CUDA__MATH__INTRINSIC__FP6.html)
+and [SM120 MXFP6 GEMM kernels](https://github.com/NVIDIA/cutlass/blob/main/examples/79_blackwell_geforce_gemm/79c_blackwell_geforce_mixed_mxfp8_mxfp6_bf16_gemm.cu).
+[vLLM's Quark integration](https://docs.vllm.ai/en/latest/features/quantization/quark/)
+also documents MXFP6 model loading. These are separate execution surfaces;
+they do not add MXFP6 support to MLX or AX Engine, or validate every AXQ model family.
+There is no verified AXQ MXFP6 publication path at present. A new path requires an explicit
+runtime contract and exact-checkpoint load, generation, and modality checks.
+
 | Format | Elements | Shared scale | AXQuant surface | Runtime status |
 | --- | --- | --- | --- | --- |
 | MXFP4 | E2M1, 4 bits | E8M0 per 32 values | Existing measured planner method and MLX conversion | Existing family-specific runtime gates |
@@ -22,6 +31,16 @@ For aligned tensors, the element payload plus scales occupy 4.25 and 8.25
 bits per value respectively; headers and protected tensors add overhead.
 
 ## MXFP4 and MXFP8 conversion
+
+Unlimited-OCR-2 has separate source-layout reference exports:
+`AX-Unlimited-OCR-2-AXQ-MXFP4` and `AX-Unlimited-OCR-2-AXQ-MXFP8`.
+The development converter packs original matrix names using public MLX APIs;
+SR-SWA routing, vision and other protected state retain source values/dtypes.
+Full-model inference is unsupported. These packs belong to AXQ Reference
+Storage and their peer compatibility reports say `unsupported`.
+This source-layout path requires an explicit MX mode, `--allow-unmeasured`,
+`--ax-engine-manifest skip` and `--expert-stream off`. It is part of the
+development workspace; it does not claim the released PyPI wheel contains it.
 
 Use the existing staged workflow with a source-bound plan. MXFP4 is selected
 by the measured planner or explicitly with `--q-mode mxfp4`. MXFP8 uses an

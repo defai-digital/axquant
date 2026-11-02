@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from axquant.errors import ArtifactError
+from axquant.model_support import require_model_supported
 from axquant.mtp_sidecar import QWEN4_MTP_ARCH_ID
 from axquant.mtplx_compat import NORM_ENCODING_KEYS
 from axquant.ngram_layout import (
@@ -437,6 +438,12 @@ def export_runtime_pack(
         Path(source).expanduser().resolve(),
         Path(output).expanduser().resolve(),
     )
+    require_model_supported(source_dir, output_dir)
+    for name in ("config.json", "axquant_manifest.json"):
+        identity_path = source_dir / name
+        if identity_path.is_file():
+            identity = _read_json_object(identity_path, name)
+            require_model_supported(source_dir, config=identity)
     if target not in {"omlx", "mtplx"}:
         raise ArtifactError(f"unsupported runtime export target {target!r}")
     if output_dir == source_dir or source_dir in output_dir.parents or output_dir.exists():

@@ -39,6 +39,26 @@ from axquant.schema import (
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
 
 
+def test_development_card_preserves_legacy_execution_version(
+    qwen36_model_dir: Path, tmp_path: Path
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    execution_path = directory / "axquant_quantizer_execution.json"
+    execution = read_data(execution_path)
+    execution["schema_version"] = "axquant.quantizer-execution.v1"
+    write_data(execution_path, execution)
+
+    _prepare_card(
+        artifact_dir=directory,
+        repo_id="AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+    )
+
+    assert read_data(execution_path)["schema_version"] == "axquant.quantizer-execution.v1"
+    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    record = next(item for item in manifest.files if item.path == execution_path.name)
+    assert record.sha256 == file_sha256(execution_path)
+
+
 def _prepare_card(**kwargs: object) -> list[Path]:
     """Fixture helper: skip the live public cert index unless a test opts in."""
 
@@ -980,3 +1000,36 @@ def test_swift_open_license_is_not_labeled_apache(tmp_path: Path) -> None:
     )
     assert plain_front == "license: apache-2.0"
     assert "often Apache License 2.0" in plain_section
+
+
+def test_qwen_community_license_is_not_labeled_apache(tmp_path: Path) -> None:
+    (tmp_path / "LICENSE").write_text("Qwen Community License 1.0\n", encoding="utf-8")
+    front, section = public_license_sections(
+        tmp_path,
+        "",
+        "Qwen/Qwen3.8-Flash-Next",
+        "https://huggingface.co/Qwen/Qwen3.8-Flash-Next",
+    )
+    assert "license_name: qwen-community-1.0" in front
+    assert "license: apache-2.0" not in front
+    assert "Qwen Community License 1.0" in section
+
+
+def test_flash_next_card_uses_mlx_vlm(qwen36_model_dir: Path, tmp_path: Path) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    plan = load_model(directory / "axquant_plan.json", QuantizationPlan)
+    plan.architecture_profile.product_family = "qwen4-exp"
+    card = render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP",
+        product_class="6bit",
+        manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
+        plan=plan,
+        execution=load_model(
+            directory / "axquant_quantizer_execution.json", QuantizerExecutionManifest
+        ),
+        mtp_sidecar=None,
+        vision_sidecar=None,
+    )
+    assert "## Run with MLX-VLM" in card
+    assert "## Run with MLX-LM" not in card

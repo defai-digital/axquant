@@ -15,6 +15,7 @@ from typing import Any, Literal
 import structlog
 
 from axquant.artifact_paths import artifact_tree_files
+from axquant.ax_engine_layout import declare_weight_layout, verified_weight_layout
 from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import (
     LoadedActivationCapture,
@@ -32,6 +33,7 @@ from axquant.gemma4_vlm import (
     normalize_gemma4_vision_tensor_names,
 )
 from axquant.inspector import inspect_model, resolve_model_dir
+from axquant.model_support import require_model_supported
 from axquant.module_paths import fused_expert_tensor_target, mlx_tensor_binding_groups
 from axquant.mtp_sidecar import (
     EXTERNAL_MTP_SIDECAR_FILENAMES,
@@ -64,6 +66,7 @@ from axquant.runtime import (
 from axquant.schema import (
     ArtifactFile,
     ArtifactManifest,
+    ArtifactManifestV3,
     CalibrationManifest,
     MtpSidecarLayout,
     NemotronMtpSidecarManifest,
@@ -72,6 +75,7 @@ from axquant.schema import (
     QuantizerExecutionManifest,
     QuantizerExecutionRecord,
     QuantMethod,
+    RuntimeMetadataV2,
     SourcePlanBinding,
     TensorRole,
 )
@@ -1462,6 +1466,8 @@ def _validated_plan_source_tensors(
 def _bind_converted_tensors(
     expected: Mapping[str, Any],
     actual: Mapping[str, Any],
+    *,
+    adapter_id: str | None = None,
 ) -> dict[str, tuple[Any, ...]]:
     """Bind plan tensors to every strictly declared converted output component."""
 
@@ -1470,14 +1476,19 @@ def _bind_converted_tensors(
     missing: list[str] = []
     ambiguous: dict[str, list[str]] = {}
     actual_names = set(actual)
-    fused_groups = _fused_expected_groups(expected)
+    source_layout = adapter_id == "unlimited-ocr2-v1"
+    fused_groups = {} if source_layout else _fused_expected_groups(expected)
     fused_members = {member for members in fused_groups.values() for member in members}
     for expected_name in expected:
         if expected_name in fused_members:
             continue
         component_names: list[str] = []
         invalid_matches: list[str] = []
-        binding_groups = mlx_tensor_binding_groups(expected_name)
+        binding_groups = (
+            ((expected_name,),)
+            if source_layout
+            else mlx_tensor_binding_groups(expected_name, adapter_id=adapter_id)
+        )
         for aliases in binding_groups:
             matches = sorted(set(aliases) & actual_names)
             if len(matches) != 1:
@@ -1498,7 +1509,7 @@ def _bind_converted_tensors(
         bound[expected_name] = tuple(actual[name] for name in component_names)
 
     for target, members in fused_groups.items():
-        aliases = mlx_tensor_binding_groups(members[0])[0]
+        aliases = mlx_tensor_binding_groups(members[0], adapter_id=adapter_id)[0]
         matches = sorted(set(aliases) & actual_names)
         if len(matches) == 0 and target.endswith(".switch_mlp.up_proj.weight"):
             # Older FusedSwitchGLU stacked w3 into gate_proj; 0731 keeps up_proj.
@@ -1542,7 +1553,9 @@ def _bind_converted_tensors(
     return bound
 
 
-def _fused_expected_groups(expected: Mapping[str, Any]) -> dict[str, tuple[str, ...]]:
+def _fused_expected_groups(
+    expected: Mapping[str, Any],
+) -> dict[str, tuple[str, ...]]:
     """Group a complete contiguous set of indexed source experts by MLX stack target."""
 
     indexed: dict[str, list[tuple[int, str]]] = {}
@@ -1757,8 +1770,11 @@ def _shape_element_count(shape: tuple[int, ...]) -> int:
 
 
 # Families whose public sanitizer moveaxis(2, 1) every ``conv1d.weight`` with
-# last dim != 1 (GDN linear_attn and, for qwen4_exp, PLE conv1d).
-_QWEN_HYBRID_CONV1D_TYPES = frozenset({"qwen3_5", "qwen3_5_moe", "qwen3_next", "qwen4_exp"})
+# last dim != 1 (GDN linear_attn and, for qwen4_exp, PLE conv1d; MiniCPM-V 4.7
+# inherits the Qwen3.5 MoE transformation through MLX-VLM).
+_HYBRID_CONV1D_TYPES = frozenset(
+    {"qwen3_5", "qwen3_5_moe", "qwen3_next", "qwen4_exp", "minicpmv4_7"}
+)
 # Families that inherit mlx-vlm ``qwen3_vl.VisionModel.sanitize``:
 # PyTorch Conv3d ``(O, I, D, H, W)`` → MLX ``(O, D, H, W, I)``.
 _QWEN_VL_PATCH_EMBED_TYPES = frozenset(
@@ -1834,12 +1850,10 @@ def _protected_shape_matches(
                 transform="mlx-vlm-embedding-gemma2-depthwise-conv1d",
             )
             return True
-    qwen_hybrid_conv1d = model_type in _QWEN_HYBRID_CONV1D_TYPES and tensor_name.endswith(
-        ".conv1d.weight"
-    )
+    hybrid_conv1d = model_type in _HYBRID_CONV1D_TYPES and tensor_name.endswith(".conv1d.weight")
     nemotron_conv1d = model_type == "nemotron_h" and tensor_name.endswith(".mixer.conv1d.weight")
     if (
-        (qwen_hybrid_conv1d or nemotron_conv1d)
+        (hybrid_conv1d or nemotron_conv1d)
         and len(source_shape) == 3
         and source_shape[-1] != 1
         and actual_shape == _permute_shape(source_shape, (0, 2, 1))
@@ -1849,7 +1863,57 @@ def _protected_shape_matches(
             tensor=tensor_name,
             source_shape=source_shape,
             actual_shape=actual_shape,
-            transform=f"mlx-lm-{model_type}-conv1d-moveaxis-2-1",
+            transform=(
+                "mlx-vlm-minicpm-v47-conv1d-moveaxis-2-1"
+                if model_type == "minicpmv4_7"
+                else f"mlx-lm-{model_type}-conv1d-moveaxis-2-1"
+            ),
+        )
+        return True
+    # Public mlx-vlm deepseekocr / deepseekocr_2 VisionModel.sanitize converts
+    # only these Conv2d kernels from OIHW to OHWI. Other equal-size reshapes
+    # remain forbidden, and unrelated adapters cannot inherit this exception.
+    if (
+        plan.architecture_profile.adapter_id in {"unlimited-ocr-v1", "deepseek-ocr2-v1"}
+        and tensor_name.endswith(
+            (
+                "neck.0.weight",
+                "neck.2.weight",
+                "neck_hd.0.weight",
+                "neck_hd.2.weight",
+                "sam_model.net_2.weight",
+                "sam_model.net_3.weight",
+                "downsamples.0.weight",
+                "downsamples.1.weight",
+                "patch_embed.proj.weight",
+                "embeddings.patch_embedding.weight",
+            )
+        )
+        and len(source_shape) == 4
+        and actual_shape == _permute_shape(source_shape, (0, 2, 3, 1))
+    ):
+        _LOG.info(
+            "converted_shape_transform_verified",
+            tensor=tensor_name,
+            source_shape=source_shape,
+            actual_shape=actual_shape,
+            transform="mlx-vlm-deepseekocr-conv2d-ohwi",
+        )
+        return True
+    # mlx-vlm MiniCPM-V 4.6 VisionModel.sanitize (inherited by 4.7) converts
+    # PyTorch Conv2d patch embeddings from OIHW to MLX OHWI.
+    if (
+        model_type == "minicpmv4_7"
+        and tensor_name.endswith("patch_embedding.weight")
+        and len(source_shape) == 4
+        and actual_shape == _permute_shape(source_shape, (0, 2, 3, 1))
+    ):
+        _LOG.info(
+            "converted_shape_transform_verified",
+            tensor=tensor_name,
+            source_shape=source_shape,
+            actual_shape=actual_shape,
+            transform="mlx-vlm-minicpm-v47-patch-embedding-ohwi",
         )
         return True
     # mlx-vlm qwen3_vl VisionModel.sanitize (qwen4_exp subclasses it):
@@ -1994,8 +2058,15 @@ def _verify_converted_weights(
         for tensor in inventory.tensors
         if not tensor.quantization_metadata and not _is_converted_quant_sidecar_name(tensor.name)
     }
-    actual_tensors = _bind_converted_tensors(expected_tensors, output_tensors)
-    fused_groups = _fused_expected_groups(expected_tensors)
+    adapter_id = plan.architecture_profile.adapter_id
+    actual_tensors = _bind_converted_tensors(
+        expected_tensors,
+        output_tensors,
+        adapter_id=adapter_id,
+    )
+    fused_groups = (
+        {} if adapter_id == "unlimited-ocr2-v1" else _fused_expected_groups(expected_tensors)
+    )
     fused_by_member = {
         member: (target, members) for target, members in fused_groups.items() for member in members
     }
@@ -2245,6 +2316,14 @@ def convert_model(
     allow_legacy_4bit: bool = False,
     source_binding: SourcePlanBinding | None = None,
 ) -> ArtifactManifest:
+    require_model_supported(model, plan.source_model.model_id, plan.source_model.local_path)
+    if plan.architecture_profile.adapter_id == "unlimited-ocr2-v1" and (
+        q_mode not in {"mxfp4", "mxfp8"} or ax_engine_manifest != "skip" or expert_stream != "off"
+    ):
+        raise ArtifactError(
+            "Unlimited-OCR-2 MLX storage export requires explicit mxfp4/mxfp8 and "
+            "ax_engine_manifest=skip, expert_stream=off; SR-SWA inference is unsupported"
+        )
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
     if (
         str(q_mode or "affine").lower() == "mxfp8"
@@ -2281,6 +2360,11 @@ def convert_model(
     # Resolve the physical source early so architecture prep (e.g. gemma4_unified
     # → gemma4 text path) can stage beside the output rather than on /tmp.
     original_source_dir = _resolve_bound_conversion_source(model, plan, revision, source_binding)
+    config_path = original_source_dir / "config.json"
+    if config_path.is_file():
+        config_identity = json.loads(config_path.read_text(encoding="utf-8"))
+        if isinstance(config_identity, dict):
+            require_model_supported(plan.source_model.model_id, config=config_identity)
     source_tensors = _validated_plan_source_tensors(original_source_dir, plan)
     if (
         plan.mtp.preserve_external_sidecar
@@ -2303,6 +2387,7 @@ def convert_model(
                 model_id=plan.source_model.model_id,
             )
             if original_source_dir.is_dir()
+            and plan.architecture_profile.adapter_id != "unlimited-ocr2-v1"
             else None
         )
         if prepared is not None:
@@ -2392,7 +2477,10 @@ def convert_model(
                                 "group-preserving act-order GPTQ Hessian error compensation "
                                 "followed by portable affine packing"
                                 if allocation.method.value == "gptq-act"
-                                else f"{backend} affine packing"
+                                else (
+                                    f"{backend} "
+                                    f"{allocation_physical_mode(allocation, q_mode)} packing"
+                                )
                             )
                         )
                     )
@@ -2497,6 +2585,11 @@ def convert_model(
             if not result.available:
                 _LOG.warning("ax_engine_manifest_skipped", reason=result.stderr)
         runtime = build_runtime_metadata(plan, staging_dir)
+        weight_layout = verified_weight_layout(
+            staging_dir, plan.architecture_profile.config_model_type
+        )
+        if weight_layout is not None:
+            runtime = declare_weight_layout(runtime, weight_layout)
         write_data(staging_dir / "axquant_runtime.json", runtime)
         (
             logical_parameters,
@@ -2516,7 +2609,10 @@ def convert_model(
         from axquant.runtime_compatibility import write_runtime_compatibility
 
         write_runtime_compatibility(staging_dir)
-        manifest = ArtifactManifest(
+        manifest_type = (
+            ArtifactManifestV3 if isinstance(runtime, RuntimeMetadataV2) else ArtifactManifest
+        )
+        manifest = manifest_type(
             axquant_version=plan.software_versions.axquant,
             source_model=plan.source_model,
             plan_sha256=stable_sha256(plan),

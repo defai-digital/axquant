@@ -80,6 +80,7 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_inventory,
     load_kernel_latency_table,
     load_kv_sensitivity_report,
@@ -1574,7 +1575,6 @@ def _run(args: argparse.Namespace) -> int:
 
     if args.command == "size-evidence":
         from axquant.schema import (
-            ArtifactManifest,
             ArtifactSizeEvidence,
             FeasibilityReport,
         )
@@ -1593,7 +1593,7 @@ def _run(args: argparse.Namespace) -> int:
                 raise ValueError(
                     "candidate size evidence requires --model-id and immutable --revision"
                 )
-            artifact = load_model(args.artifact_manifest, ArtifactManifest)
+            artifact = load_artifact_manifest(args.artifact_manifest)
             evidence = ArtifactSizeEvidence(
                 kind="candidate",
                 model=ModelIdentity(
@@ -2417,7 +2417,6 @@ def _run(args: argparse.Namespace) -> int:
             build_complete_candidate_measurement,
         )
         from axquant.schema import (
-            ArtifactManifest,
             QualityComparisonReport,
             RefinementMeasurementSet,
         )
@@ -2426,7 +2425,7 @@ def _run(args: argparse.Namespace) -> int:
         refine_measure_plan = refinement.candidate_plans.get(args.candidate_id)
         if refine_measure_plan is None:
             raise ValueError(f"unknown refinement candidate {args.candidate_id!r}")
-        artifact = load_model(args.artifact_manifest, ArtifactManifest)
+        artifact = load_artifact_manifest(args.artifact_manifest)
         quality = load_model(args.quality_comparison, QualityComparisonReport)
         validation = load_model(args.validation, ValidationReport)
         measurement = build_complete_candidate_measurement(

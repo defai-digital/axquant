@@ -62,6 +62,25 @@ def _request(url: str, payload: dict[str, Any] | None, timeout: float) -> Any:
         return json.load(response)
 
 
+def served_model_id(models_reply: Any, expected: str) -> str | None:
+    """Return the served ID for ``expected`` from an OpenAI ``/models`` reply.
+
+    Some peers normalize the directory name (MTPLX lowercases it), so the match
+    ignores case. An ambiguous case-insensitive match returns ``None``.
+    """
+    if not isinstance(models_reply, dict):
+        return None
+    ids = [
+        item.get("id")
+        for item in models_reply.get("data", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    ]
+    if expected in ids:
+        return expected
+    folded = [served for served in ids if served.casefold() == expected.casefold()]
+    return folded[0] if len(folded) == 1 else None
+
+
 def _image_content() -> list[dict[str, Any]]:
     from PIL import Image, ImageDraw
 
@@ -87,6 +106,10 @@ def run_case(args: argparse.Namespace, enabled: bool) -> dict[str, Any]:
         port = sock.getsockname()[1]
     model = args.directory.name
     env = {**os.environ, "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
+    # Pre-M5 GPUs can end long Flash-Next prefill command buffers with a Metal
+    # context-store timeout. The driver flag relaxes preemption scheduling only;
+    # an explicit operator value, including 0, is kept and recorded.
+    env.setdefault("AGX_RELAX_CDM_CTXSTORE_TIMEOUT", "1")
     if args.runtime == "omlx":
         env["OMLX_QWEN4_PLE_MODE"] = args.ple_mode
         models = work / "models"
@@ -161,6 +184,7 @@ def run_case(args: argparse.Namespace, enabled: bool) -> dict[str, Any]:
         "environment": {
             key: env[key]
             for key in (
+                "AGX_RELAX_CDM_CTXSTORE_TIMEOUT",
                 "OMLX_QWEN4_PLE_MODE",
                 "MTPLX_NGRAM_RESIDENT",
                 "MTPLX_FUSED_GATE_UP",
@@ -192,8 +216,9 @@ def run_case(args: argparse.Namespace, enabled: bool) -> dict[str, Any]:
                 if process.poll() is not None:
                     raise RuntimeError(f"server exited with code {process.returncode}")
                 try:
-                    models_reply = _request(url + "/models", None, 3)
-                    if any(item.get("id") == model for item in models_reply.get("data", [])):
+                    served = served_model_id(_request(url + "/models", None, 3), model)
+                    if served is not None:
+                        result["served_model_id"] = served
                         break
                 except (OSError, ValueError):
                     pass
@@ -205,7 +230,7 @@ def run_case(args: argparse.Namespace, enabled: bool) -> dict[str, Any]:
                 prompts.append(("vision", _image_content()))
             for kind, prompt in prompts:
                 payload = {
-                    "model": model,
+                    "model": result["served_model_id"],
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 64,
                     "temperature": 0,

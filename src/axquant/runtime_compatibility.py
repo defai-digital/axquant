@@ -25,8 +25,9 @@ from axquant.ngram_layout import (
     _SafetensorsFile,
 )
 from axquant.schema.artifacts import ArtifactManifest
+from axquant.schema.loading import load_artifact_manifest
 from axquant.schema.runtime_export import RuntimeCompatibilityReport
-from axquant.serde import file_sha256, load_model, stable_sha256, write_data
+from axquant.serde import file_sha256, stable_sha256, write_data
 
 QWEN35_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_5_moe", "qwen3_5_text", "qwen3_5_moe_text"})
 QWEN35_OMLX_PROFILE = "qwen35-mtp-v1"
@@ -385,7 +386,7 @@ def validate_declared_runtime_compatibility(
         )
         if not declares_report and not (directory / COMPATIBILITY_FILENAME).exists():
             return
-        manifest = load_model(path, ArtifactManifest)
+        manifest = load_artifact_manifest(path)
     if (directory / COMPATIBILITY_FILENAME).exists() or any(
         record.path == COMPATIBILITY_FILENAME for record in manifest.files
     ):

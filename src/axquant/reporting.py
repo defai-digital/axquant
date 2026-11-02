@@ -13,6 +13,7 @@ from axquant.calibration import calibration_manifest_matches
 from axquant.capture_binding import activation_capture_evidence_issues
 from axquant.errors import ArtifactError, ValidationGateError
 from axquant.identity import same_model_identity
+from axquant.model_support import require_model_supported
 from axquant.planner import allocate_kv_cache_measured
 from axquant.recipes import RECIPE_BUNDLE_FILE, export_recipe_bundle, load_recipe_bundle
 from axquant.release_exceptions import release_exception_allows_size
@@ -42,6 +43,7 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_hardware_profile_registry,
     load_kv_sensitivity_report,
     load_quantization_plan,
@@ -503,6 +505,7 @@ def prepare_publication(
     hardware_registry_path: str | Path,
     pareto_report_path: str | Path,
 ) -> list[Path]:
+    require_model_supported(repo_id, model_dir)
     supplied_directory = Path(model_dir).expanduser()
     if supplied_directory.is_symlink():
         raise ValidationGateError("artifact root is a symlink")
@@ -513,7 +516,8 @@ def prepare_publication(
         artifact_tree_files(directory)
     except ValueError as exc:
         raise ValidationGateError(str(exc)) from exc
-    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    manifest = load_artifact_manifest(directory / "axquant_manifest.json")
+    require_model_supported(repo_id, manifest.source_model.model_id)
     from axquant.runtime_compatibility import validate_declared_runtime_compatibility
 
     validate_declared_runtime_compatibility(directory, manifest)
@@ -604,7 +608,7 @@ def prepare_publication(
     )
     conversion_manifest_path = directory / "axquant_conversion_manifest.json"
     conversion_manifest = (
-        load_model(conversion_manifest_path, ArtifactManifest)
+        load_artifact_manifest(conversion_manifest_path)
         if conversion_manifest_path.is_file()
         else manifest
     )

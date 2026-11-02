@@ -13,7 +13,6 @@ from axquant.refinement import build_complete_candidate_measurement
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     Allocation,
-    ArtifactManifest,
     BenchmarkResult,
     CompleteCandidateHardware,
     CompleteCandidateMeasurement,
@@ -33,6 +32,7 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_quantization_plan,
     load_quantizer_execution_manifest,
     load_sensitivity_report,
@@ -585,7 +585,7 @@ def build_hardware_profile_registry(
             ),
         }
         plan = load_quantization_plan(paths["plan"])
-        artifact = load_model(paths["artifact"], ArtifactManifest)
+        artifact = load_artifact_manifest(paths["artifact"])
         sensitivity = load_sensitivity_report(paths["sensitivity"])
         quality = load_model(paths["quality"], QualityComparisonReport)
         validation = load_model(paths["validation"], ValidationReport)

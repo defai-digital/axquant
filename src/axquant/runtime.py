@@ -15,6 +15,7 @@ from typing import Any, Literal
 from safetensors import SafetensorError, safe_open
 
 from axquant.errors import ArtifactError, BackendUnavailableError
+from axquant.model_support import require_model_supported
 from axquant.mtp_sidecar import EXTERNAL_MTP_SIDECAR_FILENAMES
 from axquant.schema import (
     AX_ENGINE_EXECUTABLE_BITS,
@@ -33,6 +34,7 @@ from axquant.schema import (
     RuntimeSupportLevel,
     SupportTier,
 )
+from axquant.schema.loading import load_runtime_metadata
 from axquant.serde import load_model, read_data
 
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
@@ -70,6 +72,14 @@ def _model_identity(
     directory: Path,
     supplied: ModelIdentity | None,
 ) -> ModelIdentity:
+    require_model_supported(directory, supplied.model_id if supplied is not None else None)
+    for name in ("config.json", "axquant_manifest.json"):
+        try:
+            payload = json.loads((directory / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # Existing runtime validators report invalid or missing metadata.
+        if isinstance(payload, dict):
+            require_model_supported(directory, config=payload)
     return supplied or ModelIdentity(
         model_id=str(directory),
         local_path=str(directory),
@@ -564,7 +574,7 @@ def _advisory_kv_execution(directory: Path) -> tuple[int, int] | None:
                 )
             if raw_kv.get("advisory") is not True:
                 raise ArtifactError("kv_cache.advisory must be true")
-        metadata = load_model(runtime_path, RuntimeMetadata)
+        metadata = load_runtime_metadata(runtime_path)
     except (ArtifactError, ValueError, ValidationError, TypeError) as exc:
         raise ArtifactError(f"axquant_runtime.json is invalid: {exc}") from exc
     kv = metadata.kv_cache
@@ -675,7 +685,21 @@ def build_runtime_metadata(
     # Dense 8B VL and ASR remain modality-primary (MLX-VLM / MLX-Audio).
     # Thin MoE VL (30B-A3B Instruct) declares AX Engine as primary with MLX-VLM
     # as the multimodal compatibility runtime — convert still uses mlx-vlm.
-    if adapter_id == "qwen3-vl-moe-v1":
+    if adapter_id == "unlimited-ocr2-v1":
+        primary_runtime = RuntimeProfile(
+            name=RuntimeName.AX_ENGINE,
+            compatibility_level="B",
+            support_level=RuntimeSupportLevel.STANDARD_INFERENCE,
+            standard_inference=False,
+            mtp_support="none",
+            manifest=None,
+            notes=[
+                "Storage-only source-layout MLX export; AX Engine is an unimplemented target.",
+                "No MLX-LM, MLX-VLM, oMLX or MTPLX load/generation support is claimed.",
+            ],
+        )
+        compatible_runtimes = []
+    elif adapter_id == "qwen3-vl-moe-v1":
         primary_runtime = RuntimeProfile(
             name=RuntimeName.AX_ENGINE,
             compatibility_level="A",
@@ -730,7 +754,7 @@ def build_runtime_metadata(
             ],
         )
         compatible_runtimes = []
-    elif adapter_id in {"qwen3-vl-v1", "qwen4-exp-v1"}:
+    elif adapter_id in {"qwen3-vl-v1", "qwen4-exp-v1", "minicpm-v47-v1"}:
         primary_runtime = RuntimeProfile(
             name=RuntimeName.MLX_VLM,
             compatibility_level="A",
@@ -814,6 +838,7 @@ def assert_conversion_scope(plan: QuantizationPlan) -> None:
     so a hard-coded family allowlist would only duplicate — and drift from —
     the registry's declared tiers.
     """
+    require_model_supported(plan.source_model.model_id, plan.source_model.local_path)
     profile = plan.architecture_profile
     if profile.support_tier is SupportTier.INSPECT_ONLY:
         raise ArtifactError(

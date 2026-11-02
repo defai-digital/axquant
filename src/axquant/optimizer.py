@@ -14,7 +14,6 @@ from axquant.memory_budget import evaluate_budget
 from axquant.planner import allocate_kv_cache, allocate_kv_cache_measured, plan_quantization
 from axquant.profiles import objective_for_mode
 from axquant.schema import (
-    ArtifactManifest,
     DeploymentEvidenceKind,
     DeploymentPlan,
     EvidenceKind,
@@ -27,12 +26,13 @@ from axquant.schema import (
     SensitivityReport,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_inventory,
     load_kernel_latency_table,
     load_kv_sensitivity_report,
     load_sensitivity_report,
 )
-from axquant.serde import load_model, read_data, stable_sha256, write_data, write_text
+from axquant.serde import read_data, stable_sha256, write_data, write_text
 
 OptimizationMode = Literal["balanced", "quality", "low-memory", "speed"]
 KvCacheMode = Literal["off", "prior", "measured"]
@@ -319,7 +319,7 @@ def optimize_deployment(
     )
 
     manifest_path = model / "axquant_manifest.json"
-    manifest = load_model(manifest_path, ArtifactManifest) if manifest_path.is_file() else None
+    manifest = load_artifact_manifest(manifest_path) if manifest_path.is_file() else None
     if manifest is not None:
         if manifest.target_class != plan.target_class:
             raise PlanningError(

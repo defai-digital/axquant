@@ -33,6 +33,7 @@ from axquant.gemma4_assistant_compose import (
 )
 from axquant.identity import without_local_paths
 from axquant.lifecycle import require_active_certification
+from axquant.model_support import require_model_supported
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
     require_mtp_suffix_matches_packaging,
@@ -42,7 +43,6 @@ from axquant.reporting import prepare_publication
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
     ArtifactLifecycleRegistry,
-    ArtifactManifest,
     DirectQualityEvaluation,
     DirectReleaseValidationIndex,
     FlagshipReleaseAudit,
@@ -56,6 +56,7 @@ from axquant.schema import (
     ReleaseAuditRequest,
     ReleaseValidationIndex,
 )
+from axquant.schema.loading import load_artifact_manifest
 from axquant.serde import file_sha256, load_model, read_data, stable_sha256, write_data
 from axquant.source_binding import artifact_identity_issues, tree_identity_issues
 
@@ -598,7 +599,7 @@ def _require_artifact_evidence_binding(directory: Path) -> None:
             "artifact evidence binding requires axquant_manifest.json in the artifact directory"
         )
     try:
-        manifest = load_model(manifest_path, ArtifactManifest)
+        manifest = load_artifact_manifest(manifest_path)
     except (AxquantError, ValidationError, OSError, ValueError) as exc:
         raise PublishingError(f"artifact manifest is invalid: {exc}") from exc
     issues = artifact_evidence_binding_issues(directory, manifest)
@@ -640,6 +641,7 @@ def publish_model(
 ) -> list[str]:
     if type(execute) is not bool or type(private) is not bool:
         raise PublishingError("publication execute/private controls must be booleans")
+    require_model_supported(repo_id, model_dir)
     supplied_directory = Path(model_dir).expanduser()
     if supplied_directory.is_symlink():
         raise PublishingError("artifact root is a symlink")
@@ -647,6 +649,12 @@ def publish_model(
     if not directory.is_dir():
         raise PublishingError(f"model directory does not exist: {directory}")
     _publication_files(directory)
+    for name in ("axquant_manifest.json", "config.json"):
+        identity_path = directory / name
+        if identity_path.is_file():
+            identity = read_data(identity_path)
+            if isinstance(identity, dict):
+                require_model_supported(repo_id, directory, config=identity)
     if not _REPO_ID.fullmatch(repo_id):
         raise PublishingError("Hub repository must use the owner/name form")
     _require_mtp_suffix_for_publication(directory, repo_id)
@@ -768,7 +776,7 @@ def publish_model(
                 raise PublishingError(
                     "executed non-MTP publication requires --certification-registry"
                 )
-            manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+            manifest = load_artifact_manifest(directory / "axquant_manifest.json")
             registry = append_certified_checkpoint(
                 registry_path=certification_registry_path,
                 audit_path=release_audit_path,

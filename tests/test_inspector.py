@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -98,6 +99,67 @@ def test_inventory_consumes_immutable_bf16_source_provenance(tiny_model_dir: Pat
         inspect_model(tiny_model_dir, revision="b" * 40)
 
 
+def _hub_cache_snapshot(source: Path, root: Path, repo_dir: str, commit: str) -> Path:
+    snapshot = root / "hub" / repo_dir / "snapshots" / commit
+    shutil.copytree(source, snapshot)
+    return snapshot
+
+
+def test_inventory_records_hub_identity_for_local_cache_snapshot(
+    tiny_model_dir: Path, tmp_path: Path
+) -> None:
+    commit = "c" * 40
+    snapshot = _hub_cache_snapshot(tiny_model_dir, tmp_path, "models--Qwen--Qwen3.8-27B", commit)
+
+    inventory = inspect_model(snapshot)
+    assert inventory.model.model_id == "Qwen/Qwen3.8-27B"
+    assert inventory.model.revision == commit
+    assert inventory.model.local_path == str(snapshot.resolve())
+    assert not any("local path" in warning for warning in inventory.warnings)
+
+    explicit = inspect_model(snapshot, model_id="org/explicit", revision="main")
+    assert explicit.model.model_id == "org/explicit"
+    assert explicit.model.revision == "main"
+
+    with pytest.raises(ArtifactError, match="Hub cache snapshot commit"):
+        inspect_model(snapshot, revision="d" * 40)
+
+
+def test_inventory_hub_identity_follows_symlinked_cache_snapshot(
+    tiny_model_dir: Path, tmp_path: Path
+) -> None:
+    commit = "e" * 40
+    snapshot = _hub_cache_snapshot(
+        tiny_model_dir, tmp_path, "models--Qwen--Qwen3.6-35B-A3B", commit
+    )
+    link = tmp_path / "source-link"
+    link.symlink_to(snapshot, target_is_directory=True)
+
+    inventory = inspect_model(link)
+    assert inventory.model.model_id == "Qwen/Qwen3.6-35B-A3B"
+    assert inventory.model.revision == commit
+
+
+@pytest.mark.parametrize(
+    ("repo_dir", "commit"),
+    [
+        ("models--Qwen--Qwen3.8-27B", "not-a-commit"),
+        ("datasets--Qwen--Qwen3.8-27B", "f" * 40),
+        ("models--Qwen", "f" * 40),
+        ("models--Qwen--Qwen3.8--27B", "f" * 40),
+    ],
+)
+def test_inventory_warns_when_local_path_is_recorded_as_model_id(
+    tiny_model_dir: Path, tmp_path: Path, repo_dir: str, commit: str
+) -> None:
+    source = _hub_cache_snapshot(tiny_model_dir, tmp_path, repo_dir, commit)
+
+    inventory = inspect_model(source)
+    assert inventory.model.model_id == str(source)
+    assert inventory.model.revision is None
+    assert any("--model-id" in warning and "DFlash2" in warning for warning in inventory.warnings)
+
+
 def test_quantized_source_requires_explicit_inventory_permission(
     tiny_model_dir: Path,
 ) -> None:
@@ -133,6 +195,72 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert convolution.role == TensorRole.ATTENTION
     assert convolution.quantizable is False
     assert vision.protected_recommendation is True
+
+
+def test_minicpmv47_keeps_hybrid_linear_attention_at_source_precision(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "MiniCPM-V-4.7-35B-A3B"
+    source.mkdir()
+    write_data(
+        source / "config.json",
+        {
+            "model_type": "minicpmv4_7",
+            "architectures": ["MiniCPMV4_7ForConditionalGeneration"],
+            "text_config": {
+                "model_type": "qwen3_5_moe_text",
+                "num_hidden_layers": 40,
+                "hidden_size": 2048,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 256,
+                "moe_intermediate_size": 512,
+                "shared_expert_intermediate_size": 512,
+                "num_experts": 256,
+                "num_experts_per_tok": 8,
+                "mtp_num_hidden_layers": 1,
+            },
+            "vision_config": {
+                "model_type": "minicpmv4_7_vision",
+                "num_hidden_layers": 27,
+                "hidden_size": 1152,
+                "num_attention_heads": 16,
+                "patch_size": 14,
+            },
+        },
+    )
+    save_file(
+        {
+            "model.language_model.layers.0.linear_attn.in_proj_qkv.weight": np.zeros(
+                (16, 16), dtype=np.float32
+            ),
+            "model.language_model.layers.0.self_attn.q_proj.weight": np.zeros(
+                (16, 16), dtype=np.float32
+            ),
+        },
+        source / "model.safetensors",
+    )
+
+    inventory = inspect_model(
+        source,
+        model_id="openbmb/MiniCPM-V-4.7-35B-A3B",
+        revision="896c2d454672476a7b45dcc5e3f0c700a0218577",
+    )
+    linear_attention = next(
+        tensor for tensor in inventory.tensors if ".linear_attn." in tensor.name
+    )
+    full_attention = next(tensor for tensor in inventory.tensors if ".self_attn." in tensor.name)
+
+    assert linear_attention.role is TensorRole.ATTENTION
+    assert linear_attention.quantizable is False
+    assert linear_attention.protected_recommendation is True
+    assert (
+        linear_attention.protection_reason
+        == "MiniCPM-V 4.7 linear-attention tensors remain at source precision"
+    )
+    assert full_attention.role is TensorRole.ATTENTION
+    assert full_attention.quantizable is True
+    assert full_attention.protected_recommendation is False
 
 
 def test_qwen3_asr_upstream_layout_requires_normalized_bf16_source(tmp_path: Path) -> None:
