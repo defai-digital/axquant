@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -96,6 +97,67 @@ def test_inventory_consumes_immutable_bf16_source_provenance(tiny_model_dir: Pat
         inspect_model(tiny_model_dir, model_id="org/other-model")
     with pytest.raises(ArtifactError, match="revision differs"):
         inspect_model(tiny_model_dir, revision="b" * 40)
+
+
+def _hub_cache_snapshot(source: Path, root: Path, repo_dir: str, commit: str) -> Path:
+    snapshot = root / "hub" / repo_dir / "snapshots" / commit
+    shutil.copytree(source, snapshot)
+    return snapshot
+
+
+def test_inventory_records_hub_identity_for_local_cache_snapshot(
+    tiny_model_dir: Path, tmp_path: Path
+) -> None:
+    commit = "c" * 40
+    snapshot = _hub_cache_snapshot(tiny_model_dir, tmp_path, "models--Qwen--Qwen3.8-27B", commit)
+
+    inventory = inspect_model(snapshot)
+    assert inventory.model.model_id == "Qwen/Qwen3.8-27B"
+    assert inventory.model.revision == commit
+    assert inventory.model.local_path == str(snapshot.resolve())
+    assert not any("local path" in warning for warning in inventory.warnings)
+
+    explicit = inspect_model(snapshot, model_id="org/explicit", revision="main")
+    assert explicit.model.model_id == "org/explicit"
+    assert explicit.model.revision == "main"
+
+    with pytest.raises(ArtifactError, match="Hub cache snapshot commit"):
+        inspect_model(snapshot, revision="d" * 40)
+
+
+def test_inventory_hub_identity_follows_symlinked_cache_snapshot(
+    tiny_model_dir: Path, tmp_path: Path
+) -> None:
+    commit = "e" * 40
+    snapshot = _hub_cache_snapshot(
+        tiny_model_dir, tmp_path, "models--Qwen--Qwen3.6-35B-A3B", commit
+    )
+    link = tmp_path / "source-link"
+    link.symlink_to(snapshot, target_is_directory=True)
+
+    inventory = inspect_model(link)
+    assert inventory.model.model_id == "Qwen/Qwen3.6-35B-A3B"
+    assert inventory.model.revision == commit
+
+
+@pytest.mark.parametrize(
+    ("repo_dir", "commit"),
+    [
+        ("models--Qwen--Qwen3.8-27B", "not-a-commit"),
+        ("datasets--Qwen--Qwen3.8-27B", "f" * 40),
+        ("models--Qwen", "f" * 40),
+        ("models--Qwen--Qwen3.8--27B", "f" * 40),
+    ],
+)
+def test_inventory_warns_when_local_path_is_recorded_as_model_id(
+    tiny_model_dir: Path, tmp_path: Path, repo_dir: str, commit: str
+) -> None:
+    source = _hub_cache_snapshot(tiny_model_dir, tmp_path, repo_dir, commit)
+
+    inventory = inspect_model(source)
+    assert inventory.model.model_id == str(source)
+    assert inventory.model.revision is None
+    assert any("--model-id" in warning and "DFlash2" in warning for warning in inventory.warnings)
 
 
 def test_quantized_source_requires_explicit_inventory_permission(

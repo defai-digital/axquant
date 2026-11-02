@@ -48,6 +48,24 @@ _DTYPE_BYTES = {
 _MTP_TOKEN = re.compile(r"(^|[./_-])(mtp|multi[_-]?token)([./_-]|$)")
 _MTP_PRECISION = re.compile(r"INT(16|8|6|4)(?![0-9])", re.IGNORECASE)
 _FUSED_EXPERT_PATH_TOKENS = ("switch_mlp", "switch_glu", ".experts.")
+_HUB_CACHE_REPO_DIR = re.compile(r"^models--([A-Za-z0-9_.-]+?)--([A-Za-z0-9_.-]+)$")
+_HUB_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+
+def hub_cache_identity(path: Path) -> tuple[str, str] | None:
+    """Return ``(repo_id, commit)`` for a Hugging Face cache snapshot directory.
+
+    Runtimes select companion artifacts (for example AX Engine DFlash2 drafters)
+    by the recorded Hub model ID, so a local snapshot path must not be recorded
+    as the model ID when the cache layout states the repository and commit.
+    """
+    snapshots = path.parent
+    if snapshots.name != "snapshots" or not _HUB_COMMIT.fullmatch(path.name):
+        return None
+    match = _HUB_CACHE_REPO_DIR.fullmatch(snapshots.parent.name)
+    if match is None or "--" in match.group(2):
+        return None
+    return f"{match.group(1)}/{match.group(2)}", path.name
 
 
 def resolve_model_dir(
@@ -411,6 +429,22 @@ def inspect_model(
             raise ArtifactError("explicit revision differs from axquant_source.json")
         model_id = source_provenance.source_model
         revision = source_provenance.source_revision
+    local_input = Path(model).expanduser().is_dir()
+    if model_id is None and local_input:
+        cache_identity = hub_cache_identity(Path(model).expanduser()) or hub_cache_identity(
+            model_dir
+        )
+        if cache_identity is not None:
+            cache_model_id, cache_commit = cache_identity
+            if (
+                revision is not None
+                and revision.lower() != cache_commit
+                and _HUB_COMMIT.fullmatch(revision.lower())
+            ):
+                raise ArtifactError("explicit revision differs from the Hub cache snapshot commit")
+            model_id = cache_model_id
+            revision = revision or cache_commit
+    local_path_model_id = model_id is None and local_input
     model_reference = model_id or str(model)
     adapter = adapter_for(model_reference, config)
     architecture_profile = (
@@ -735,6 +769,12 @@ def inspect_model(
             head.tied_to = embedding.name
             tied_weight_groups.append([embedding.name, head.name])
     warnings: list[str] = []
+    if local_path_model_id:
+        warnings.append(
+            "source model ID is a local path; pass --model-id with the Hub repository ID so "
+            "runtimes that select companion artifacts by model ID (for example AX Engine "
+            "DFlash2 drafters) can match the pack"
+        )
     if unclassified_adapter_tensors:
         preview = unclassified_adapter_tensors[:10]
         warnings.append(

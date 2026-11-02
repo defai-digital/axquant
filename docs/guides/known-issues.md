@@ -133,6 +133,12 @@ between published versions.
   (MiniCPM5, Qwen3 dense, Mistral, …) must pass `analyze --capture-points output`; the default
   `("output", "hidden")` fails closed with a hint, and reports produced this way carry no
   hidden-state metrics.
+- **Local sources need a Hub model ID.** `inspect` and `quantize` record
+  `source_model.model_id` in the pack manifest. For a Hugging Face cache snapshot path
+  (`.../models--ORG--NAME/snapshots/COMMIT`) AXQuant records `ORG/NAME` and the commit. For
+  any other local directory it records the path and emits a warning; pass
+  `--model-id ORG/NAME` (and `--revision`) instead. Runtimes that select companion artifacts by
+  the recorded model ID, such as AX Engine DFlash2 drafters, do not match a path-shaped ID.
 - **Release attestations begin with the first tag containing the release workflow.** The workflow
   verifies tag/package version equality, creates the GitHub Release when needed, uploads the wheel,
   sdist, and checksums, and emits keyless GitHub build provenance. Verify with
