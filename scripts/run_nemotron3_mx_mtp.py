@@ -27,7 +27,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from axquant.factory import FACTORY_MODELS, require_factory_host  # noqa: E402
-from axquant.schema.artifacts import ArtifactManifest, NemotronMtpSidecarManifest  # noqa: E402
+from axquant.schema.artifacts import NemotronMtpSidecarManifest  # noqa: E402
+from axquant.schema.loading import load_artifact_manifest  # noqa: E402
 from axquant.schema.planning import QuantizationPlan  # noqa: E402
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data  # noqa: E402
 
@@ -291,7 +292,7 @@ def build(pack_key: str) -> None:
             member["size_bytes"] = file_path.stat().st_size
             member["sha256"] = file_sha256(file_path)
     write_data(manifest_path, manifest_payload)
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     mtp_manifest = load_model(mtp_manifest_path, NemotronMtpSidecarManifest)
     if (
         manifest.source_model.model_id != source_spec["id"]

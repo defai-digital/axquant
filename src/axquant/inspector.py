@@ -514,6 +514,12 @@ def inspect_model(
                         if adapter is not None
                         else classify_tensor(name, relative_file)
                     )
+                    preserve_source_precision = getattr(adapter, "preserve_source_precision", None)
+                    architecture_protected = (
+                        bool(preserve_source_precision(name, relative_file))
+                        if callable(preserve_source_precision)
+                        else False
+                    )
                     # Official DeepSeek V4 mixed-precision exports use singular
                     # ``.scale`` (and I8/F8 weight bodies) rather than MLX's
                     # ``.scales``/``.biases`` affine sidecar naming. HyperConnection
@@ -618,6 +624,7 @@ def inspect_model(
                         and role != TensorRole.NORM
                         and not quantization_metadata
                         and not unclassified_by_adapter
+                        and not architecture_protected
                         # Linear / SwitchLinear bias stays float under nn.quantize;
                         # never allocate a separate quantized plan module for biases.
                         # Native GPT-OSS spells its fused biases with an underscore;
@@ -661,7 +668,8 @@ def inspect_model(
                             current_group_size=current_group_size,
                             current_method=current_method,
                             quantization_metadata=quantization_metadata,
-                            protected_recommendation=role
+                            protected_recommendation=architecture_protected
+                            or role
                             in {
                                 TensorRole.EMBEDDING,
                                 TensorRole.NORM,
@@ -674,7 +682,9 @@ def inspect_model(
                                 TensorRole.AUDIO,
                             },
                             protection_reason=(
-                                f"default {role.value} protection policy"
+                                "MiniCPM-V 4.7 linear-attention tensors remain at source precision"
+                                if architecture_protected
+                                else f"default {role.value} protection policy"
                                 if role
                                 in {
                                     TensorRole.EMBEDDING,

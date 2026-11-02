@@ -14,6 +14,7 @@ from axquant.experimental_bits import (
 )
 from axquant.identity import semantic_model_identity
 from axquant.kernel_latency import decode_latency_provider
+from axquant.model_support import require_model_supported
 from axquant.module_paths import (
     fused_expert_module,
     packed_expert_runtime_modules,
@@ -889,6 +890,7 @@ def plan_quantization(
     allow_mtp_unmeasured: bool = False,
     allow_legacy_4bit: bool = False,
 ) -> QuantizationPlan:
+    require_model_supported(report.model.model_id, report.model.local_path)
     if allocation_units not in {"tensor", "fused-module"}:
         raise PlanningError(
             f"unsupported allocation unit {allocation_units!r}; use 'tensor' or 'fused-module'"

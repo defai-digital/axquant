@@ -117,6 +117,20 @@ def test_select_quality_backend_uses_mlx_vlm_for_muse_glimmer(tmp_path: Path) ->
         ),
         MlxVlmQualityBackend,
     )
+    minicpm = tmp_path / "minicpm-v47"
+    minicpm.mkdir()
+    (minicpm / "config.json").write_text(
+        json.dumps({"model_type": "minicpmv4_7"}), encoding="utf-8"
+    )
+    assert isinstance(
+        select_quality_backend(
+            ModelIdentity(
+                model_id="AutomatosX/AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ-MXFP4",
+                local_path=str(minicpm),
+            )
+        ),
+        MlxVlmQualityBackend,
+    )
 
 
 def test_mlx_vlm_backend_unwraps_logits_and_generation_text(

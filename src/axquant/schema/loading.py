@@ -145,3 +145,35 @@ def load_evidence_archive_index(path: str | Path) -> certification.EvidenceArchi
             frozen_v1.EvidenceArchiveIndexV1,
         ),
     )
+
+
+def load_artifact_manifest(path: str | Path) -> artifacts.ArtifactManifest:
+    """Load ``axquant_manifest.json`` as artifact v2 or v3 (AXQ-066).
+
+    v3 subclasses v2 and adds only the AX Engine weight-layout declaration, so
+    the returned instance is a valid ``ArtifactManifest`` either way.
+    """
+
+    return load_versioned(path, artifacts.ArtifactManifest, artifacts.ArtifactManifestV3)
+
+
+def validate_artifact_manifest(
+    payload: Any, *, source: str = "artifact manifest"
+) -> artifacts.ArtifactManifest:
+    """Validate an in-memory manifest payload by its ``schema_version`` (AXQ-066)."""
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("schema_version"), str):
+        raise ArtifactError(f"{source}: missing required 'schema_version' field")
+    for model_type in (artifacts.ArtifactManifest, artifacts.ArtifactManifestV3):
+        if payload["schema_version"] in _declared_versions(model_type):
+            return model_type.model_validate(payload)
+    raise ArtifactError(
+        f"{source}: unsupported schema_version {payload['schema_version']!r} "
+        "(expected one of: axquant.artifact.v2, axquant.artifact.v3)"
+    )
+
+
+def load_runtime_metadata(path: str | Path) -> artifacts.RuntimeMetadata:
+    """Load ``axquant_runtime.json`` as runtime v1 or v2 (AXQ-066)."""
+
+    return load_versioned(path, artifacts.RuntimeMetadata, artifacts.RuntimeMetadataV2)

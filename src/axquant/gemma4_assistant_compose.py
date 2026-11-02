@@ -29,7 +29,8 @@ from axquant.schema import (
     RuntimeProfile,
     RuntimeSupportLevel,
 )
-from axquant.serde import file_sha256, load_model, write_data
+from axquant.schema.loading import load_runtime_metadata
+from axquant.serde import file_sha256, write_data
 
 COMPOSITE_MANIFEST_NAME = "ax_composite_pack_manifest.json"
 ASSISTANT_CONTRACT_NAME = "ax_gemma4_assistant_mtp.json"
@@ -230,7 +231,7 @@ def bind_gemma4_assistant_runtime_metadata(
     runtime_path = root / "axquant_runtime.json"
     if not runtime_path.is_file():
         return None
-    runtime = load_model(runtime_path, RuntimeMetadata)
+    runtime = load_runtime_metadata(runtime_path)
     primary_notes = list(runtime.primary_runtime.notes)
     assistant_note = (
         "Gemma assistant MTP uses the checksum-bound external drafter under assistant/."

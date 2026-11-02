@@ -11,8 +11,6 @@ _RECIPES = (
     "examples/ornith-15-9b-axq6-v0.1.yaml",
     "examples/ornith-15-35b-axq-mxfp4-v0.1.yaml",
     "examples/ornith-15-35b-axq6-v0.1.yaml",
-    "examples/ornith-15-397b-axq-mxfp4-v0.1.yaml",
-    "examples/ornith-15-397b-axq6-v0.1.yaml",
 )
 
 
@@ -34,3 +32,10 @@ def test_ornith15_recipes_parse() -> None:
         else:
             assert recipe.default_bits == 6
             assert recipe.group_size == 64
+
+
+def test_factory_catalog_has_no_withdrawn_397b_recipe_or_entry() -> None:
+    from scripts.run_ornith_15_axq import MODELS
+
+    assert set(MODELS) == {"9b", "35b"}
+    assert not list((_ROOT / "examples").glob("ornith-15-397b-*.yaml"))

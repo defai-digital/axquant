@@ -73,6 +73,7 @@ from axquant.schema import (
     ValidationReport,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_hardware_profile_registry,
     load_quantization_plan,
     load_refinement_result,
@@ -736,7 +737,7 @@ def _complete_measurement_evidence_issues(
                 f"{entry.entry_id} validation",
             )
             plan = load_quantization_plan(plan_path)
-            artifact = load_model(artifact_path, ArtifactManifest)
+            artifact = load_artifact_manifest(artifact_path)
             quality = load_model(quality_path, QualityComparisonReport)
             validation = load_model(validation_path, ValidationReport)
             rebuilt = build_complete_candidate_measurement(
@@ -825,7 +826,7 @@ def _compatibility_request_issues(
                 candidate.validation_report,
                 "compatibility validation",
             )
-            manifest = load_model(manifest_path, ArtifactManifest)
+            manifest = load_artifact_manifest(manifest_path)
             plan = load_quantization_plan(plan_path)
             ax_engine = load_model(ax_engine_path, RuntimeCheck)
             mlx_lm = load_model(mlx_lm_path, RuntimeCheck)
@@ -1006,7 +1007,7 @@ def _packaged_release_issues(
             issues.append("packaged reproduction recipe differs from the audited recipe")
 
         conversion_manifest_path = artifact / "axquant_conversion_manifest.json"
-        load_model(conversion_manifest_path, ArtifactManifest)
+        load_artifact_manifest(conversion_manifest_path)
         if file_sha256(conversion_manifest_path) != recipe.conversion_manifest_sha256:
             issues.append("packaged immutable conversion manifest differs from the audited recipe")
 
@@ -1479,7 +1480,7 @@ def build_release_audit(request_path: str | Path) -> ReleaseAudit:
     }
     manifest_path = _required_file(artifact, "axquant_manifest.json", "artifact manifest")
     plan_path = _required_file(artifact, "axquant_plan.json", "artifact plan")
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     plan = load_quantization_plan(plan_path)
     feasibility = load_model(paths["feasibility"], FeasibilityReport)
     sensitivity = load_sensitivity_report(paths["sensitivity"])

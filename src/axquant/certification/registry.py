@@ -11,11 +11,11 @@ from axquant.errors import ArtifactError, PublishingError
 from axquant.identity import without_local_paths
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
-    ArtifactManifest,
     CertifiedCheckpointEntry,
     CertifiedCheckpointRegistry,
     Qwen3NextReleaseAudit,
 )
+from axquant.schema.loading import load_artifact_manifest
 from axquant.serde import file_sha256, load_model, write_data
 
 DIRECT_CERTIFICATION_ALLOWED_CLAIMS: Final[tuple[str, ...]] = (
@@ -79,7 +79,7 @@ def append_certified_checkpoint(
     manifest_path = artifact / "axquant_manifest.json"
     if not manifest_path.is_file():
         raise ArtifactError(f"artifact manifest does not exist: {manifest_path}")
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     manifest_sha256 = file_sha256(manifest_path)
     if manifest_sha256 != audit.certification_scope.artifact_manifest_sha256:
         raise PublishingError("audit and registry artifact manifest differ")

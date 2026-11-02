@@ -75,6 +75,7 @@ from axquant.schema import (
     TensorRole,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_inventory,
     load_quantization_plan,
     load_refinement_result,
@@ -904,7 +905,7 @@ def build_direct_release_validation_index(
         "general calibration-overlap report",
     )
     source = load_model(source_path, SourceCheckpointManifest)
-    candidate_manifest = load_model(candidate_manifest_path, ArtifactManifest)
+    candidate_manifest = load_artifact_manifest(candidate_manifest_path)
     coding = load_model(coding_path, CodingSuiteManifest)
 
     entries = [
@@ -1389,7 +1390,7 @@ def build_qwen3_next_release_audit(request_path: str | Path) -> Qwen3NextRelease
     ax_runtime = load_model(paths["ax_runtime"], RuntimeCheck)
     mlx_runtime = load_model(paths["mlx_runtime"], RuntimeCheck)
     archive = load_model(paths["archive"], EvidenceArchiveIndex)
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     plan = load_quantization_plan(plan_path)
 
     if inventory.model.local_path is None:

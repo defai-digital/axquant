@@ -18,6 +18,7 @@ from axquant.schema import (
     EvidenceKind,
     utc_now,
 )
+from axquant.schema.loading import load_artifact_manifest
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 
 ARTIFACT_MANIFEST_FILENAME = "axquant_manifest.json"
@@ -64,7 +65,7 @@ def write_artifact_evidence_binding(
     manifest_path = directory / ARTIFACT_MANIFEST_FILENAME
     if not manifest_path.is_file():
         raise ArtifactError(f"artifact manifest does not exist: {manifest_path}")
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     binding = ArtifactEvidenceBinding(
         artifact_manifest_sha256=stable_sha256(manifest),
         tier1_certificate_sha256=_certificate_sha256(tier1_certificate_path, "tier1"),

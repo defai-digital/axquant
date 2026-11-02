@@ -143,8 +143,10 @@ def test_convertible_adapters_match_conversion_host_smoke_coverage() -> None:
         "qwen3-omni-moe-v1",
         "deepseek-ocr2-v1",
         "unlimited-ocr-v1",
+        "unlimited-ocr2-v1",  # CUDA storage-only; no MLX smoke claim.
         "muse-glimmer-v1",
         "minicpm5-dense-v1",
+        "minicpm-v47-v1",
         "gemma4-dense-v1",
         "embedding-gemma2-v1",
         "mistral-devstral-dense-v1",

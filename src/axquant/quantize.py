@@ -37,9 +37,9 @@ from axquant.schema import (
     ModelIdentity,
     ProfileName,
     QuantizationPlan,
-    QuantMethod,
     QuickConversionSummary,
     RuntimeCheck,
+    SensitivityReport,
     SourcePlanBinding,
     SupportTier,
     TensorRole,
@@ -61,33 +61,40 @@ RuntimeSmoke = Literal["none", "mlx-lm", "mlx-audio", "mlx-vlm", "ax-engine"]
 _MOEGATE_ROUTER_BF16_ADAPTERS = frozenset({"deepseek-ocr2-v1", "unlimited-ocr-v1"})
 
 
-def _keep_moegate_routers_bf16(plan: QuantizationPlan) -> QuantizationPlan:
-    if plan.architecture_profile.adapter_id not in _MOEGATE_ROUTER_BF16_ADAPTERS:
-        return plan
-    updated = []
-    changed = 0
-    for allocation in plan.assignments:
-        if allocation.role is TensorRole.ROUTER and allocation.bits < 16:
-            updated.append(
-                allocation.model_copy(
-                    update={
-                        "bits": 16,
-                        "method": QuantMethod.BF16,
-                        "group_size": None,
-                    }
-                )
-            )
-            changed += 1
-        else:
-            updated.append(allocation)
-    if changed == 0:
-        return plan
-    warnings = list(plan.warnings)
-    warnings.append(
-        f"kept {changed} MoEGate router modules at BF16 (not nn.Linear; MLX-VLM "
-        "quantize_model cannot pack them)"
+def _moegate_router_candidates(report: SensitivityReport) -> SensitivityReport:
+    """Apply the runtime's floating-router requirement before budget allocation."""
+    if report.architecture_profile.adapter_id not in _MOEGATE_ROUTER_BF16_ADAPTERS:
+        return report
+    entries = []
+    for entry in report.entries:
+        if entry.tensor.role is TensorRole.ROUTER:
+            candidates = [candidate for candidate in entry.candidates if candidate.bits == 16]
+            if not candidates:
+                raise PlanningError("MoEGate routers require an explicit BF16 candidate")
+            entry = entry.model_copy(update={"candidates": candidates})
+        entries.append(entry)
+    return report.model_copy(
+        update={
+            "entries": entries,
+            "warnings": [
+                *report.warnings,
+                "MoEGate routers are planned at BF16 because "
+                "the MLX-VLM runtime cannot pack their non-Linear modules.",
+            ],
+        }
     )
-    return plan.model_copy(update={"assignments": updated, "warnings": warnings})
+
+
+def _keep_moegate_routers_bf16(plan: QuantizationPlan) -> QuantizationPlan:
+    if plan.architecture_profile.adapter_id in _MOEGATE_ROUTER_BF16_ADAPTERS and any(
+        allocation.role is TensorRole.ROUTER and allocation.bits < 16
+        for allocation in plan.assignments
+    ):
+        raise PlanningError(
+            "MoEGate routers must be planned at BF16 before allocation; "
+            "rebuild the plan or governed recipe instead of changing its assignments afterward"
+        )
+    return plan
 
 
 def _validate_runtime_smoke(
@@ -102,6 +109,7 @@ def _validate_runtime_smoke(
         "qwen3-asr-v1": "mlx-audio",
         "qwen3-vl-v1": "mlx-vlm",
         "qwen4-exp-v1": "mlx-vlm",
+        "minicpm-v47-v1": "mlx-vlm",
     }.get(adapter_id)
     # Dual-runtime MoE VL: AX Engine primary + MLX-VLM compatibility (convert is mlx-vlm).
     dual_vl_moe = adapter_id == "qwen3-vl-moe-v1"
@@ -282,6 +290,7 @@ def quick_convert(
             group_size=request.group_size,
             candidate_group_sizes=request.candidate_group_sizes,
         )
+        report = _moegate_router_candidates(report)
         try:
             plan = plan_quantization(
                 report,

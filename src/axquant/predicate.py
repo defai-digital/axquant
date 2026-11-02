@@ -7,6 +7,7 @@ from axquant.awq import apply_mlx_awq_scale as _apply_awq_scale
 from axquant.dwq import apply_mlx_dwq_clip as _apply_dwq_clip
 from axquant.errors import PlanningError
 from axquant.gptq import apply_mlx_gptq_refine as _apply_gptq_refine
+from axquant.model_support import require_model_supported
 from axquant.module_paths import (
     fused_expert_module,
     mlx_module_aliases,
@@ -112,6 +113,7 @@ class PlanPredicate:
         calibration_activations: Mapping[str, Any] | None = None,
         q_mode: str = "affine",
     ) -> None:
+        require_model_supported(plan.source_model.model_id, plan.source_model.local_path)
         self._q_mode = str(q_mode or "affine").lower()
         if self._q_mode not in _PHYSICAL_MODES:
             raise PlanningError(f"unsupported convert q-mode: {q_mode}")
@@ -167,7 +169,9 @@ class PlanPredicate:
                 )
         self._aliases: dict[str, Allocation] = {}
         for module_path, allocation in self._assignments.items():
-            aliases = set(mlx_module_aliases(module_path))
+            aliases = set(
+                mlx_module_aliases(module_path, adapter_id=plan.architecture_profile.adapter_id)
+            )
             fused = fused_expert_module(module_path)
             if fused is not None:
                 for fused_alias in mlx_module_aliases(fused):

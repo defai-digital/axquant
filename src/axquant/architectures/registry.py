@@ -5,10 +5,12 @@ from typing import Any
 from axquant import __version__
 from axquant.architectures.dense_family import DENSE_FAMILY_SPECS, DenseFamilyAdapter
 from axquant.architectures.hy_v3 import HyV3Adapter
+from axquant.architectures.minicpmv47 import MiniCPMV47Adapter
 from axquant.architectures.nemotron3 import Nemotron3Adapter
 from axquant.architectures.qwen36 import Qwen35MoeAdapter, Qwen36Adapter
 from axquant.architectures.qwen38 import Qwen38Adapter
 from axquant.architectures.types import ArchitectureAdapter
+from axquant.architectures.unlimited_ocr2 import UnlimitedOCR2Adapter
 from axquant.certification.registry import load_checkpoint_registry
 from axquant.errors import ArtifactError
 from axquant.schema import (
@@ -26,6 +28,8 @@ _ADAPTERS: tuple[ArchitectureAdapter, ...] = (
     Nemotron3Adapter(),
     *(DenseFamilyAdapter(spec) for spec in DENSE_FAMILY_SPECS),
     HyV3Adapter(),
+    MiniCPMV47Adapter(),
+    UnlimitedOCR2Adapter(),
 )
 
 
@@ -63,7 +67,8 @@ def _adapter_notes(adapter: ArchitectureAdapter) -> list[str]:
     elif isinstance(adapter, Qwen35MoeAdapter):
         notes.append(
             "Development convert for Qwen3.5-class 35B-A3B and 397B MoE / fine-tunes "
-            "(e.g. Ornith 1.0/1.5); not the Qwen 3.6 certification track."
+            "(Ornith 35B remains eligible; Ornith 397B is withdrawn); "
+            "not the Qwen 3.6 certification track."
         )
     elif isinstance(adapter, Qwen38Adapter):
         notes.append("Thin Super-class path: AX Engine layer-stack expert stream required.")

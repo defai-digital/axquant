@@ -19,14 +19,17 @@ from pydantic import Field, field_validator, model_validator
 from axquant.artifact_paths import artifact_tree_files
 from axquant.errors import PlanningError
 from axquant.schema import (
-    ArtifactManifest,
     QuantizationPlan,
     RecoveryTargetRanking,
     SensitivityReport,
 )
 from axquant.schema._base import StrictModel, utc_now
-from axquant.schema.loading import load_quantization_plan, load_sensitivity_report
-from axquant.serde import load_model, stable_sha256, write_data
+from axquant.schema.loading import (
+    load_artifact_manifest,
+    load_quantization_plan,
+    load_sensitivity_report,
+)
+from axquant.serde import stable_sha256, write_data
 
 
 class ParameterUpdateScope(StrEnum):
@@ -212,7 +215,7 @@ def validate_recovery_request(request: RecoveryRequest) -> None:
         if stable_sha256(bundled_plan) != plan_sha256:
             raise PlanningError("recovery plan does not match the source artifact plan")
     if manifest_path.is_file():
-        manifest = load_model(manifest_path, ArtifactManifest)
+        manifest = load_artifact_manifest(manifest_path)
         if manifest.plan_sha256 != plan_sha256:
             raise PlanningError("recovery plan does not match the source artifact manifest")
     if plan.calibration is not None and (

@@ -22,6 +22,7 @@ from axquant.schema import (
     PublicTier2Recertification,
     QuantizationPlan,
 )
+from axquant.schema.loading import validate_artifact_manifest
 from axquant.schema.public_certification import CHECKPOINT_SCHEMA_VERSION
 from axquant.serde import file_sha256, read_data, stable_sha256
 
@@ -437,8 +438,8 @@ def verify_certificate(
             try:
                 if manifest_raw is None:
                     raise ValueError("manifest root must be an object")
-                manifest = ArtifactManifest.model_validate(manifest_raw)
-            except (ValidationError, ValueError) as exc:
+                manifest = validate_artifact_manifest(manifest_raw, source=str(manifest_path))
+            except (ValidationError, ValueError, ArtifactError) as exc:
                 add(
                     "artifact.manifest-envelope",
                     False,

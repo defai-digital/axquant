@@ -7,13 +7,13 @@ from axquant.lifecycle import require_active_certification
 from axquant.naming import certified_mixed_precision_name, format_measured_bpw, model_name
 from axquant.schema import (
     ArtifactLifecycleRegistry,
-    ArtifactManifest,
     BoundFile,
     BoundMetricClaim,
     CandidateKey,
     PublicClaimManifest,
     PublicClaimRenderRequest,
 )
+from axquant.schema.loading import load_artifact_manifest
 from axquant.serde import file_sha256, load_model, stable_sha256, write_data, write_text
 
 _ALLOWED_METRIC_PREFIXES = (
@@ -252,7 +252,7 @@ def render_public_claim_request(
     if not audit.authorization_ready:
         raise ValidationGateError("public claims require a flagship authorization-ready audit")
     lifecycle = load_model(lifecycle_path, ArtifactLifecycleRegistry)
-    artifact = load_model(artifact_path, ArtifactManifest)
+    artifact = load_artifact_manifest(artifact_path)
     lifecycle_event = require_active_certification(lifecycle, audit.candidate)
     if artifact.source_model.model_id != audit.source_model.model_id or (
         artifact.source_model.revision != audit.source_model.revision

@@ -8,6 +8,7 @@ from axquant.certification.common import required_directory, required_file
 from axquant.certification.policy import direct_policy
 from axquant.errors import PublishingError
 from axquant.schema import ArtifactManifest, Qwen3NextReleaseAuditRequest
+from axquant.schema.loading import load_artifact_manifest
 from axquant.serde import file_sha256, load_model, write_data, write_text
 
 _PACKAGE_INPUTS = {
@@ -100,7 +101,7 @@ def prepare_direct_publication(
     except ValueError as exc:
         raise PublishingError(str(exc)) from exc
     manifest_path = required_file(artifact, "axquant_manifest.json", "artifact manifest")
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     if file_sha256(manifest_path) != request.certification_scope.artifact_manifest_sha256:
         raise PublishingError("direct certification scope binds another artifact manifest")
 

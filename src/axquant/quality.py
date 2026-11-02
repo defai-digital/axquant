@@ -150,7 +150,7 @@ class MlxQualityBackend:
 
 
 _MLX_VLM_QUALITY_MODEL_TYPES = frozenset(
-    {"muse_glimmer", "qwen3_vl", "minimax_m3_vl", "minimax_m3"}
+    {"muse_glimmer", "qwen3_vl", "minimax_m3_vl", "minimax_m3", "minicpmv4_7"}
 )
 
 

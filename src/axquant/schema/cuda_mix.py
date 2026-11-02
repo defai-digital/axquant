@@ -1,7 +1,7 @@
 """Contracts for the native CUDA mixed NVFP4/FP8 six-bit development lane (AXQ-058).
 
-A CUDA six-bit lane is a budget class: NVIDIA has no six-bit datatype and the
-only six-bit float standard was retired (AXQ-051). The class is realized by
+A CUDA six-bit lane is a budget class, distinct from NVIDIA FP6/OCP MXFP6.
+AXQuant's former MXFP6 reference exporter was retired (AXQ-051). This class is realized by
 mixing 4-bit NVFP4 matrices with 8-bit FP8 matrices while every protected
 tensor keeps its source precision.
 """

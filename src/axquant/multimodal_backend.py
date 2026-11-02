@@ -18,7 +18,7 @@ from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.predicate import PlanPredicate, allocation_quant_params
 from axquant.schema import QuantizationPlan
 
-ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm"]
+ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm", "mlx-source"]
 
 # Dense 8B Instruct + thin 30B-A3B Instruct MoE both convert through MLX-VLM.
 _QWEN3_VL_ADAPTERS = frozenset({"qwen3-vl-v1", "qwen3-vl-moe-v1"})
@@ -28,6 +28,7 @@ _MLX_VLM_ADAPTERS = _QWEN3_VL_ADAPTERS | frozenset(
         "deepseek-ocr2-v1",
         "embedding-gemma2-v1",
         "muse-glimmer-v1",
+        "minicpm-v47-v1",
         "qwen3-omni-moe-v1",
         "qwen4-exp-v1",
         "unlimited-ocr-v1",
@@ -47,6 +48,8 @@ def _force_cpu_if_requested(*, default: bool = False) -> None:
 
 def conversion_backend(plan: QuantizationPlan) -> ConversionBackend:
     adapter_id = plan.architecture_profile.adapter_id
+    if adapter_id == "unlimited-ocr2-v1":
+        return "mlx-source"
     if adapter_id == "qwen3-asr-v1":
         return "mlx-audio"
     if adapter_id in _MLX_VLM_ADAPTERS:
@@ -216,6 +219,11 @@ def preflight_multimodal(
     predicate: PlanPredicate,
 ) -> None:
     backend = conversion_backend(plan)
+    if backend == "mlx-source":
+        from axquant.source_mx import preflight_source_mx
+
+        preflight_source_mx(source, plan)
+        return
     if backend == "mlx-audio":
         model, _, _ = _audio_model(source)
         _visit_modules(model, predicate, backend="MLX-Audio")
@@ -611,6 +619,10 @@ def convert_multimodal(
             _convert_audio(source, destination, plan, predicate, default_bits)
         elif backend == "mlx-vlm":
             _convert_vlm(source, destination, plan, predicate, default_bits, q_mode=q_mode)
+        elif backend == "mlx-source":
+            from axquant.source_mx import convert_source_mx
+
+            convert_source_mx(source, destination, plan, predicate, q_mode=q_mode)
         else:
             raise PlanningError("multimodal conversion called for the MLX-LM backend")
     except (ArtifactError, BackendUnavailableError, PlanningError):

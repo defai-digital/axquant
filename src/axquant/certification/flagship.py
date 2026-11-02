@@ -21,7 +21,6 @@ from axquant.schema import (
     ActivationCaptureSentinel,
     ArtifactLifecycleRegistry,
     ArtifactLifecycleState,
-    ArtifactManifest,
     BenchmarkEvidenceIndex,
     BenchmarkEvidenceKind,
     CampaignDatasetRole,
@@ -51,6 +50,7 @@ from axquant.schema import (
     SourceCheckpointManifest,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_hardware_profile_registry,
     load_quantization_plan,
 )
@@ -622,7 +622,7 @@ def build_flagship_release_audit(
     plan_path = artifact / "axquant_plan.json"
     manifest_path = artifact / "axquant_manifest.json"
     plan = load_quantization_plan(plan_path)
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
     sensitivity_path = Path(legacy_request.sensitivity_report).expanduser()
     if not sensitivity_path.is_absolute():
         sensitivity_path = (legacy_request_path.parent / sensitivity_path).resolve()

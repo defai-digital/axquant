@@ -35,8 +35,8 @@ _ASSISTANT_CONTRACT = "ax_gemma4_assistant_mtp.json"
 
 # CUDA packs are format-qualified, unlike MLX packs which name the budget class.
 # The mixed lane must name both datatypes and the project 6bit budget class, so
-# ad hoc tokens such as MIX6 are rejected. NVIDIA has no six-bit datatype and
-# the only six-bit float standard (OCP MXFP6) was retired.
+# ad hoc tokens such as MIX6 are rejected. This lane is a mixed storage budget,
+# distinct from NVIDIA FP6/OCP MXFP6. AXQ's former MXFP6 exporter was retired.
 CUDA_LANES: frozenset[str] = frozenset({"NVFP4-W4A16", "NVFP4-W4A4", "FP8-E4M3-W8A8"})
 CUDA_MIXED_LANE = "NVFP4-FP8-6bit"
 

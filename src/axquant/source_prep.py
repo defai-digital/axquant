@@ -856,7 +856,10 @@ def needs_unlimited_ocr_prep(model_dir: str | Path, config: dict[str, Any] | Non
             return False
     if str(config.get("model_type", "")) != "unlimited-ocr":
         return False
-    # Only Unlimited-OCR v2 snapshots (not v1 deepseekocr remasters).
+    if isinstance(config.get("sparse_attention_config"), dict):
+        # The second-generation SR-SWA graph must never be rewritten as v1.
+        return False
+    # Official Unlimited-OCR snapshots, excluding deepseekocr remasters.
     architectures = config.get("architectures")
     arch_ok = isinstance(architectures, list) and any(
         "unlimitedocr" in str(item).lower() for item in architectures

@@ -22,7 +22,7 @@ from axquant.capture_binding import (
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
-from axquant.module_paths import fused_expert_module
+from axquant.module_paths import fused_expert_module, mlx_tensor_binding_groups
 from axquant.planner import plan_quantization
 from axquant.schema import (
     ActivationCaptureManifest,
@@ -46,6 +46,30 @@ from axquant.serde import file_sha256, load_model, stable_sha256, write_data
 from axquant.source_binding import build_source_plan_binding
 
 build_quant_predicate = predicate_module.build_quant_predicate
+
+
+@pytest.mark.parametrize("q_mode", ["affine", "mxfp4", "mxfp8"])
+def test_unlimited_ocr2_cannot_enter_v1_mlx_backend(
+    qwen36_model_dir: Path, tmp_path: Path, q_mode: str
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": "unlimited-ocr2-v1"}
+            )
+        }
+    )
+    output = tmp_path / "unsupported-mlx"
+    with pytest.raises(ArtifactError, match="MLX storage export requires explicit"):
+        converter.convert_model(
+            model=str(qwen36_model_dir),
+            plan=plan,
+            output=output,
+            q_mode=q_mode,
+            allow_unmeasured=True,
+        )
+    assert not output.exists()
 
 
 def test_qwen_requantization_preserves_exact_tokenizer_assets(
@@ -199,38 +223,56 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
 def test_moegate_routers_stay_bf16_for_ocr_adapters(
     qwen36_model_dir: Path, adapter_id: str
 ) -> None:
-    """MoEGate routers are not Linear; quantize keeps them dense BF16."""
-    from axquant.quantize import _keep_moegate_routers_bf16
+    from axquant.quantize import _keep_moegate_routers_bf16, _moegate_router_candidates
+    from axquant.schema import CandidateMeasurement, TensorSensitivity
 
-    plan = _plan(qwen36_model_dir)
-    router = Allocation(
-        tensor="language_model.model.layers.1.mlp.gate.weight",
-        module_path="language_model.model.layers.1.mlp.gate",
-        role=TensorRole.ROUTER,
-        parameters=128,
-        bits=8,
-        method=QuantMethod.AFFINE,
-        group_size=64,
-        predicted_loss=0.0,
-        metrics=MetricVector(),
-        reason="test router",
-    )
-    routed = plan.model_copy(
+    inventory = inspect_model(qwen36_model_dir)
+    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    tensor = report.entries[0].tensor.model_copy(
         update={
-            "architecture_profile": plan.architecture_profile.model_copy(
-                update={"adapter_id": adapter_id}
-            ),
-            "assignments": [*plan.assignments, router],
+            "name": "model.layers.1.mlp.gate.weight",
+            "module_path": "model.layers.1.mlp.gate",
+            "role": TensorRole.ROUTER,
         }
     )
-    kept = _keep_moegate_routers_bf16(routed)
-    updated = [a for a in kept.assignments if a.role is TensorRole.ROUTER]
-    assert len(updated) == 1
-    assert updated[0].bits == 16
-    assert updated[0].method is QuantMethod.BF16
-    assert updated[0].group_size is None
-    assert any("MoEGate" in warning for warning in kept.warnings)
-    # Other families are untouched.
+    router = TensorSensitivity(
+        tensor=tensor,
+        candidates=[
+            CandidateMeasurement(
+                bits=8, method=QuantMethod.AFFINE, group_size=64, metrics=MetricVector()
+            ),
+            CandidateMeasurement(
+                bits=16, method=QuantMethod.BF16, group_size=None, metrics=MetricVector()
+            ),
+        ],
+    )
+    routed = report.model_copy(
+        update={
+            "architecture_profile": report.architecture_profile.model_copy(
+                update={"adapter_id": adapter_id}
+            ),
+            "entries": [*report.entries, router],
+        }
+    )
+    restricted = _moegate_router_candidates(routed)
+    assert [candidate.bits for candidate in restricted.entries[-1].candidates] == [16]
+    assert len(routed.entries[-1].candidates) == 2
+    kept = plan_quantization(
+        restricted,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            target_bpw=16,
+            allow_unmeasured=True,
+        ),
+    )
+    # A serialized plan must validate as well as the in-memory allocation list.
+    assert QuantizationPlan.model_validate_json(kept.model_dump_json()) == kept
+    updated = next(a for a in kept.assignments if a.role is TensorRole.ROUTER)
+    assert updated.bits == 16 and updated.method is QuantMethod.BF16
+    assert _keep_moegate_routers_bf16(kept) is kept
+    legacy = kept.model_copy(update={"assignments": [updated.model_copy(update={"bits": 8})]})
+    with pytest.raises(PlanningError, match="before allocation"):
+        _keep_moegate_routers_bf16(legacy)
     dense = routed.model_copy(
         update={
             "architecture_profile": routed.architecture_profile.model_copy(
@@ -238,7 +280,7 @@ def test_moegate_routers_stay_bf16_for_ocr_adapters(
             )
         }
     )
-    assert _keep_moegate_routers_bf16(dense) is dense
+    assert _moegate_router_candidates(dense) is dense
 
 
 def test_audio_backend_uses_public_stt_model_and_mlx_quantization_contract(
@@ -1979,6 +2021,33 @@ def test_converted_tensor_binding_accepts_only_one_to_one_mlx_wrapper_aliases() 
         )
 
 
+@pytest.mark.parametrize(
+    ("source", "runtime"),
+    [
+        ("model.merger.mlp.0.linear_1.weight", "merger.mlp.0.linear_1.weight"),
+        (
+            "model.vision_tower.vit_merger.linear_1.weight",
+            "vit_merger.linear_1.weight",
+        ),
+    ],
+)
+def test_minicpm_v47_binding_scopes_merger_aliases_to_its_adapter(
+    source: str,
+    runtime: str,
+) -> None:
+    assert runtime not in mlx_tensor_binding_groups(source)[0]
+    assert runtime in mlx_tensor_binding_groups(source, adapter_id="minicpm-v47-v1")[0]
+
+    value = object()
+    assert converter._bind_converted_tensors(
+        {source: object()},
+        {runtime: value},
+        adapter_id="minicpm-v47-v1",
+    ) == {source: (value,)}
+    with pytest.raises(ArtifactError, match="tensor coverage mismatch"):
+        converter._bind_converted_tensors({source: object()}, {runtime: value})
+
+
 def test_converted_tensor_binding_proves_qwen_packed_gate_up_split() -> None:
     tensor = "model.language_model.layers.0.mlp.experts.gate_up_proj"
     gate = object()
@@ -2276,6 +2345,45 @@ def test_protected_shape_matching_allows_only_documented_conv1d_sanitize_transfo
         tensor,
         (8192, 1, 4),
         (8192, 4, 1),
+    )
+
+    minicpmv47_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "minicpmv4_7"}
+            )
+        }
+    )
+    assert converter._protected_shape_matches(
+        minicpmv47_plan,
+        tensor,
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+    unrelated_plan = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"config_model_type": "llama"}
+            )
+        }
+    )
+    assert not converter._protected_shape_matches(
+        unrelated_plan,
+        "model.language_model.layers.0.linear_attn.conv1d.weight",
+        (8192, 1, 4),
+        (8192, 4, 1),
+    )
+    assert converter._protected_shape_matches(
+        minicpmv47_plan,
+        "model.vision_tower.embeddings.patch_embedding.weight",
+        (1152, 3, 14, 14),
+        (1152, 14, 14, 3),
+    )
+    assert not converter._protected_shape_matches(
+        unrelated_plan,
+        "model.vision_tower.embeddings.patch_embedding.weight",
+        (1152, 3, 14, 14),
+        (1152, 14, 14, 3),
     )
 
     qwen4_exp_plan = plan.model_copy(
@@ -2957,3 +3065,104 @@ def test_publish_staging_dir_rejects_preexisting_output(tmp_path: Path) -> None:
 
     with pytest.raises(ArtifactError, match="appeared during conversion"):
         converter._publish_staging_dir(staging, output)
+
+
+@pytest.mark.parametrize("adapter_id", ["unlimited-ocr-v1", "deepseek-ocr2-v1"])
+@pytest.mark.parametrize(
+    "source,runtime",
+    [
+        (
+            "model.layers.0.self_attn.q_proj.weight",
+            "language_model.model.layers.0.self_attn.q_proj.weight",
+        ),
+        ("model.embed_tokens.weight", "language_model.model.embed_tokens.weight"),
+        ("lm_head.weight", "language_model.lm_head.weight"),
+        ("model.image_newline", "image_newline"),
+        ("model.view_seperator", "view_separator"),
+    ],
+)
+def test_ocr_sanitize_binding_is_scoped_and_rejects_ambiguity(
+    adapter_id: str,
+    source: str,
+    runtime: str,
+) -> None:
+    value = object()
+    assert converter._bind_converted_tensors(
+        {source: object()}, {runtime: value}, adapter_id=adapter_id
+    ) == {source: (value,)}
+    if source != "lm_head.weight":  # The output-head wrapper is already a generic alias.
+        with pytest.raises(ArtifactError, match="coverage mismatch"):
+            converter._bind_converted_tensors({source: object()}, {runtime: value})
+    with pytest.raises(ArtifactError, match="coverage mismatch"):
+        converter._bind_converted_tensors(
+            {source: object()}, {runtime: value, source: object()}, adapter_id=adapter_id
+        )
+
+
+@pytest.mark.parametrize("adapter_id", ["unlimited-ocr-v1", "deepseek-ocr2-v1"])
+def test_ocr_protected_conv_accepts_only_documented_layout(
+    qwen36_model_dir: Path, adapter_id: str
+) -> None:
+    plan = _plan(qwen36_model_dir)
+    scoped = plan.model_copy(
+        update={
+            "architecture_profile": plan.architecture_profile.model_copy(
+                update={"adapter_id": adapter_id, "config_model_type": "deepseek_vl_v2"}
+            )
+        }
+    )
+    name = "model.sam_model.neck.0.weight"
+    assert converter._protected_shape_matches(scoped, name, (256, 768, 1, 1), (256, 1, 1, 768))
+    assert not converter._protected_shape_matches(scoped, name, (256, 768, 1, 1), (1, 256, 768, 1))
+    assert not converter._protected_shape_matches(
+        scoped, "unknown.weight", (256, 768, 1, 1), (256, 1, 1, 768)
+    )
+    assert not converter._protected_shape_matches(plan, name, (256, 768, 1, 1), (256, 1, 1, 768))
+
+
+def test_ocr2_vision_encoder_mapping_does_not_apply_to_other_adapters() -> None:
+    source = "model.qwen2_model.model.model.layers.0.self_attn.q_proj.weight"
+    target = "vision_model.qwen2_encoder.layers.0.self_attn.q_proj.weight"
+    assert target in mlx_tensor_binding_groups(source, adapter_id="deepseek-ocr2-v1")[0]
+    assert target not in mlx_tensor_binding_groups(source, adapter_id="unlimited-ocr-v1")[0]
+    assert target not in mlx_tensor_binding_groups(source)[0]
+
+
+def test_ocr2_vision_module_does_not_alias_language_precision(qwen36_model_dir: Path) -> None:
+    from axquant.predicate import PlanPredicate
+
+    base = _plan(qwen36_model_dir)
+    text = Allocation(
+        tensor="model.layers.0.mlp.down_proj.weight",
+        module_path="model.layers.0.mlp.down_proj",
+        role=TensorRole.MLP,
+        parameters=128,
+        bits=6,
+        method=QuantMethod.AFFINE,
+        group_size=32,
+        predicted_loss=0,
+        metrics=MetricVector(),
+        reason="text fixture",
+    )
+    vision = text.model_copy(
+        update={
+            "tensor": "model.qwen2_model.model.model.layers.0.mlp.down_proj.weight",
+            "module_path": "model.qwen2_model.model.model.layers.0.mlp.down_proj",
+            "role": TensorRole.VISION,
+            "bits": 16,
+            "method": QuantMethod.BF16,
+            "group_size": None,
+        }
+    )
+    plan = base.model_copy(
+        update={
+            "architecture_profile": base.architecture_profile.model_copy(
+                update={"adapter_id": "deepseek-ocr2-v1"}
+            ),
+            "assignments": [text, vision],
+        }
+    )
+    predicate = PlanPredicate(plan, execute_refinement=False)
+    assert predicate.lookup("vision_model.qwen2_encoder.layers.0.mlp.down_proj") is vision
+    assert predicate("vision_model.qwen2_encoder.layers.0.mlp.down_proj", object()) is False
+    assert predicate.lookup("language_model.model.layers.0.mlp.down_proj") is text

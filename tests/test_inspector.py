@@ -197,6 +197,72 @@ def test_qwen36_adapter_sets_text_path_and_protects_vision(
     assert vision.protected_recommendation is True
 
 
+def test_minicpmv47_keeps_hybrid_linear_attention_at_source_precision(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "MiniCPM-V-4.7-35B-A3B"
+    source.mkdir()
+    write_data(
+        source / "config.json",
+        {
+            "model_type": "minicpmv4_7",
+            "architectures": ["MiniCPMV4_7ForConditionalGeneration"],
+            "text_config": {
+                "model_type": "qwen3_5_moe_text",
+                "num_hidden_layers": 40,
+                "hidden_size": 2048,
+                "num_attention_heads": 16,
+                "num_key_value_heads": 2,
+                "head_dim": 256,
+                "moe_intermediate_size": 512,
+                "shared_expert_intermediate_size": 512,
+                "num_experts": 256,
+                "num_experts_per_tok": 8,
+                "mtp_num_hidden_layers": 1,
+            },
+            "vision_config": {
+                "model_type": "minicpmv4_7_vision",
+                "num_hidden_layers": 27,
+                "hidden_size": 1152,
+                "num_attention_heads": 16,
+                "patch_size": 14,
+            },
+        },
+    )
+    save_file(
+        {
+            "model.language_model.layers.0.linear_attn.in_proj_qkv.weight": np.zeros(
+                (16, 16), dtype=np.float32
+            ),
+            "model.language_model.layers.0.self_attn.q_proj.weight": np.zeros(
+                (16, 16), dtype=np.float32
+            ),
+        },
+        source / "model.safetensors",
+    )
+
+    inventory = inspect_model(
+        source,
+        model_id="openbmb/MiniCPM-V-4.7-35B-A3B",
+        revision="896c2d454672476a7b45dcc5e3f0c700a0218577",
+    )
+    linear_attention = next(
+        tensor for tensor in inventory.tensors if ".linear_attn." in tensor.name
+    )
+    full_attention = next(tensor for tensor in inventory.tensors if ".self_attn." in tensor.name)
+
+    assert linear_attention.role is TensorRole.ATTENTION
+    assert linear_attention.quantizable is False
+    assert linear_attention.protected_recommendation is True
+    assert (
+        linear_attention.protection_reason
+        == "MiniCPM-V 4.7 linear-attention tensors remain at source precision"
+    )
+    assert full_attention.role is TensorRole.ATTENTION
+    assert full_attention.quantizable is True
+    assert full_attention.protected_recommendation is False
+
+
 def test_qwen3_asr_upstream_layout_requires_normalized_bf16_source(tmp_path: Path) -> None:
     config = {
         "architectures": ["Qwen3ASRForConditionalGeneration"],

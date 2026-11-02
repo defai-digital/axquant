@@ -337,7 +337,7 @@ def packed_expert_runtime_modules(module_path: str) -> tuple[str, ...]:
     return ()
 
 
-def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
+def mlx_module_aliases(module_path: str, *, adapter_id: str | None = None) -> tuple[str, ...]:
     """Return public MLX-LM module-path aliases for a checkpoint tensor path.
 
     Qwen 3.6 source checkpoints store the language backbone below
@@ -398,6 +398,7 @@ def mlx_module_aliases(module_path: str) -> tuple[str, ...]:
         aliases.add("language_model.lm_head")
     elif module_path == "language_model.lm_head":
         aliases.add("lm_head")
+    aliases.update(_adapter_tensor_aliases(module_path, adapter_id))
     return tuple(sorted(aliases))
 
 
@@ -528,7 +529,50 @@ def _mlx_wrapper_tensor_aliases(tensor_path: str) -> tuple[str, ...]:
     return tuple(sorted(aliases))
 
 
-def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
+def _adapter_tensor_aliases(tensor_path: str, adapter_id: str | None) -> set[str]:
+    """Return exact architecture-adapter rewrites outside generic MLX wrappers."""
+
+    aliases: set[str] = set()
+    if adapter_id == "minicpm-v47-v1":
+        if tensor_path.startswith("model.merger."):
+            aliases.add(tensor_path.removeprefix("model."))
+        if tensor_path.startswith("model.vision_tower.vit_merger."):
+            aliases.add(tensor_path.removeprefix("model.vision_tower."))
+    if adapter_id in {"unlimited-ocr-v1", "deepseek-ocr2-v1"}:
+        # Public mlx-vlm deepseekocr.Model.sanitize wraps the language trunk
+        # and exposes the image modules at the root. Keep these aliases scoped
+        # to the exact OCR adapters; arbitrary VLMs must not inherit them.
+        for source, runtime in (
+            ("model.layers.", "language_model.model.layers."),
+            ("model.embed_tokens.", "language_model.model.embed_tokens."),
+            ("model.norm.", "language_model.model.norm."),
+            ("lm_head.", "language_model.lm_head."),
+            ("model.vision_model.", "vision_model."),
+            ("model.sam_model.", "sam_model."),
+            ("model.projector.", "projector."),
+            ("model.view_seperator", "view_separator"),
+            ("model.image_newline", "image_newline"),
+        ):
+            if tensor_path.startswith(source):
+                aliases.add(runtime + tensor_path.removeprefix(source))
+    if adapter_id == "deepseek-ocr2-v1":
+        for source, runtime in (
+            ("model.qwen2_model.model.model.layers.", "vision_model.qwen2_encoder.layers."),
+            ("model.qwen2_model.model.model.norm.", "vision_model.qwen2_encoder.norm."),
+        ):
+            if tensor_path.startswith(source):
+                aliases.add(runtime + tensor_path.removeprefix(source))
+        for query in ("query_1024", "query_768"):
+            if tensor_path in {f"model.qwen2_model.{query}", f"model.qwen2_model.{query}.weight"}:
+                aliases.add(f"vision_model.qwen2_encoder.{query}")
+    return aliases
+
+
+def mlx_tensor_binding_groups(
+    tensor_path: str,
+    *,
+    adapter_id: str | None = None,
+) -> tuple[tuple[str, ...], ...]:
     """Return every required output component and its accepted path aliases.
 
     Most tensors bind one-to-one after MLX-LM's Qwen wrapper rename. Indexed
@@ -541,7 +585,9 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
 
     fused = fused_expert_tensor_target(tensor_path)
     if fused is not None:
-        return (_mlx_wrapper_tensor_aliases(fused[0]),)
+        fused_aliases = set(_mlx_wrapper_tensor_aliases(fused[0]))
+        fused_aliases.update(_adapter_tensor_aliases(fused[0], adapter_id))
+        return (tuple(sorted(fused_aliases)),)
 
     # Packed expert tensors must use the same alias rule as preflight and the
     # quantization predicate (`_packed_expert_aliases`): a prefix-restricted
@@ -571,24 +617,39 @@ def mlx_tensor_binding_groups(tensor_path: str) -> tuple[tuple[str, ...], ...]:
         mtp_aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))
         mtp_aliases.update(_mlx_wrapper_tensor_aliases(packed_module))
         mtp_aliases.update(_mlx_wrapper_tensor_aliases(f"{packed_module}.weight"))
+        mtp_aliases.update(_adapter_tensor_aliases(tensor_path, adapter_id))
+        mtp_aliases.update(_adapter_tensor_aliases(packed_module, adapter_id))
+        mtp_aliases.update(_adapter_tensor_aliases(f"{packed_module}.weight", adapter_id))
         return (tuple(sorted(mtp_aliases)),)
     # Multi-module packs (gate_up → gate + up) require every component.
     # Single-output renames expose alternative names as one alias set (OR).
     runtime_modules = packed_expert_runtime_modules(packed_module)
     if runtime_modules:
         return tuple(
-            _mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}") for alias in runtime_modules
+            tuple(
+                sorted(
+                    set(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}"))
+                    | _adapter_tensor_aliases(f"{alias}{packed_suffix}", adapter_id)
+                )
+            )
+            for alias in runtime_modules
         )
     packed_aliases = _packed_expert_aliases(packed_module)
     if packed_aliases:
         # One required output, many accepted names (Qwen switch_mlp vs GPT-OSS experts).
-        aliases: set[str] = set()
+        packed_aliases_set: set[str] = set()
         for alias in packed_aliases:
-            aliases.update(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}"))
+            packed_aliases_set.update(_mlx_wrapper_tensor_aliases(f"{alias}{packed_suffix}"))
+            packed_aliases_set.update(
+                _adapter_tensor_aliases(f"{alias}{packed_suffix}", adapter_id)
+            )
         # Include the original tensor path aliases as well.
-        aliases.update(_mlx_wrapper_tensor_aliases(tensor_path))
-        return (tuple(sorted(aliases)),)
-    return (_mlx_wrapper_tensor_aliases(tensor_path),)
+        packed_aliases_set.update(_mlx_wrapper_tensor_aliases(tensor_path))
+        packed_aliases_set.update(_adapter_tensor_aliases(tensor_path, adapter_id))
+        return (tuple(sorted(packed_aliases_set)),)
+    single_aliases = set(_mlx_wrapper_tensor_aliases(tensor_path))
+    single_aliases.update(_adapter_tensor_aliases(tensor_path, adapter_id))
+    return (tuple(sorted(single_aliases)),)
 
 
 def mlx_tensor_aliases(tensor_path: str) -> tuple[str, ...]:

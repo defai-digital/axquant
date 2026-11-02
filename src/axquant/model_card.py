@@ -18,6 +18,7 @@ from axquant.modality_certification import (
     claim_allows_public_quality,
     format_modalities_card_section,
 )
+from axquant.model_support import require_model_supported
 from axquant.mtp_sidecar import QWEN_NEXT_MTP_ADAPTER_IDS
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
@@ -35,6 +36,7 @@ from axquant.schema import (
     QuantizerExecutionManifest,
 )
 from axquant.schema.loading import (
+    load_artifact_manifest,
     load_quantization_plan,
     load_quantizer_execution_manifest,
 )
@@ -79,11 +81,29 @@ _MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
         "Norms and expert_bias stay BF16. This checkpoint has no MTP tensors."
     ),
     "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": "Vision, MTP, and norms stay BF16.",
+    "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ": (
+        "Vision, merger, and hybrid linear-attention tensors stay at source precision. "
+        "No MTP tensors were detected."
+    ),
 }
 _MX_BLOCK_CUDA_REPOS: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
     "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": ("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP"),
+    "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ": ("AX-MiniCPM-V-4.7-35B-A3B-CUDA-AXQ-NVFP4-W4A16"),
 }
+_MX_BLOCK_CUDA_NOTES: dict[str, str] = {
+    "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ": (
+        "CPU reference backend encodes eligible 2D weights as NVFP4; fused 3D experts, "
+        "vision, and protected tensors stay at source precision. CUDA runtime and quality "
+        "are unverified."
+    ),
+}
+_MX_BLOCK_AUTO_MANIFEST_STEMS = frozenset(
+    {
+        "AX-Hy-MT2-30B-A3B-MLX-AXQ",
+        "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ",
+    }
+)
 
 _NO_DISTINCT_4BIT_SIBLING_REASONS: dict[str, str] = {
     "AX-Qwen3.5-9B-MLX-AXQ": (
@@ -371,9 +391,8 @@ def public_license_sections(
 ) -> tuple[str, str]:
     """Hub front matter and license section for a development card.
 
-    The default card stays Apache-2.0. A pack that ships the Swift Open License
-    must not be labeled Apache-2.0: that license allows a quantized derivative
-    and keeps a revenue threshold on commercial use of the Swift contribution.
+    Preserve recognized Swift and Qwen Community license identities instead of
+    labeling them Apache-2.0. Swift keeps its commercial-use revenue threshold.
     """
 
     license_text = ""
@@ -390,6 +409,16 @@ The Swift contribution in this checkpoint is licensed under the Swift Open Licen
 US$1,000,000 or more in its most recent fiscal year is not licensed under that text. The
 Qwen3.8-27B base remains Apache License 2.0 ([`LICENSE-APACHE-2.0`](LICENSE-APACHE-2.0)).
 The names UkisAI and Swift identify the upstream work.
+"""
+        return front, section
+    if "Qwen Community License 1.0" in license_text:
+        front = "license: other\nlicense_name: qwen-community-1.0\nlicense_link: LICENSE"
+        section = f"""## License
+
+This checkpoint follows the upstream Qwen Community License 1.0
+([`LICENSE`](LICENSE)). Retain that license and its notices when redistributing
+[{source_model_id}]({source_url}) derivatives. This pack is not Apache-2.0 licensed.
+Read the included license for its terms and conditions.
 """
         return front, section
     section = f"""## License
@@ -431,6 +460,7 @@ def _render_development_model_card(
             f"(repo={name!r}, product_class={product_class!r})"
         )
     source = manifest.source_model
+    require_model_supported(repo_id, source.model_id, plan.source_model.model_id)
     if not _REPO_ID.fullmatch(source.model_id):
         raise ArtifactError("development model cards require a Hub owner/name source identity")
     if (
@@ -494,7 +524,16 @@ def _render_development_model_card(
     has_vision = vision_sidecar is not None or bool(plan.architecture_profile.vision_present)
     has_audio = bool(plan.architecture_profile.audio_present)
     is_asr = product_family == "qwen3-asr"
-    is_vlm = product_family in {"gemma-4", "qwen3-vl"} or gemma_assistant_mtp
+    is_vlm = (
+        product_family
+        in {
+            "gemma-4",
+            "qwen3-vl",
+            "qwen4-exp",
+            "minicpm-v-4.7",
+        }
+        or gemma_assistant_mtp
+    )
     context_length = _context_length(directory)
     group_sizes = sorted(
         {assignment.group_size for assignment in plan.assignments if assignment.group_size}
@@ -551,14 +590,16 @@ def _render_development_model_card(
         other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
         other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
         cuda_repo = f"{owner}/{_MX_BLOCK_CUDA_REPOS[stem]}"
+        cuda_description = _MX_BLOCK_CUDA_NOTES.get(
+            stem,
+            "Native NVIDIA checkpoint quantized from the same BF16 source. Activations stay BF16.",
+        )
         sibling_rows = "\n".join(
             (
                 f"| [{other_class} sibling](https://huggingface.co/{other_repo}) | "
                 "Same AXQ role policy at the other MLX block format. "
                 f"{_MX_BLOCK_FAMILY_NOTES[stem]} |",
-                f"| [CUDA NVFP4 W4A16](https://huggingface.co/{cuda_repo}) | "
-                "Native NVIDIA checkpoint quantized from the same BF16 source. "
-                "Activations stay BF16. |",
+                f"| [CUDA NVFP4 W4A16](https://huggingface.co/{cuda_repo}) | {cuda_description} |",
             )
         )
         why_no_4bit_section = ""
@@ -586,12 +627,21 @@ def _render_development_model_card(
         )
         why_no_4bit_section = ""
     if mx_block_family:
-        choosing_section = """## Choosing an AXQ pack
+        if stem == "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ":
+            cuda_family_note = (
+                "The NVFP4 format reference uses a CPU backend and is not a CUDA inference "
+                "checkpoint validation."
+            )
+        else:
+            cuda_family_note = (
+                "The CUDA pack is quantized from the same BF16 source and is not a "
+                "requantization of the MLX weights. Activations stay BF16."
+            )
+        choosing_section = f"""## Choosing an AXQ pack
 
 This family publishes MXFP4, MXFP8, and one CUDA NVFP4 W4A16 pack. The two MLX packs use
 the same role policy at different block formats. Protected tensors stay at higher precision,
-so measured BPW is the figure to compare. The CUDA pack is quantized from the same BF16
-source and is not a requantization of the MLX weights. Activations stay BF16.
+so measured BPW is the figure to compare. {cuda_family_note}
 
 """
     else:
@@ -735,7 +785,7 @@ runtime path above. The artifact records AX Engine version
             "- AX Engine execution is not established because this package has no validated "
             "native manifest.\n"
         )
-    if mx_block_family and not has_native_manifest:
+    if mx_block_family and not has_native_manifest and stem in _MX_BLOCK_AUTO_MANIFEST_STEMS:
         ax_engine_runtime_status = (
             "AX Engine writes model-manifest.json before serving; "
             "this repo does not ship it, and no speed claim is made"
@@ -752,6 +802,22 @@ records AX Engine version `{ax_engine_version}`.
             "No AX Engine speed claim is made.\n"
         )
         model_manifest_status = "not shipped; AX Engine writes it before serving"
+    elif stem == "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ" and not has_native_manifest:
+        ax_engine_runtime_status = (
+            f"Unsupported by the tested AX Engine {ax_engine_version} manifest generator"
+        )
+        ax_engine_section = f"""## AX Engine status
+
+The tested AX Engine `{ax_engine_version}` manifest generator rejects the source model type
+`minicpmv4_7`. This package does not include `model-manifest.json`; AX Engine inference is not
+supported or validated for this artifact. The AX Engine fields in `axquant_runtime.json` record
+the attempted compatibility check, not a successful runtime check.
+"""
+        ax_engine_limitation = (
+            "- The tested AX Engine manifest generator rejects `minicpmv4_7`; no AX Engine "
+            "inference support is claimed.\n"
+        )
+        model_manifest_status = "not generated; tested AX Engine rejects minicpmv4_7"
     if qwen_mtp_interop:
         mtp_interop_section = f"""## Use the packaged Qwen MTP head with oMLX or MTPLX
 
@@ -1283,12 +1349,9 @@ def _serialized_manifest_sha256(manifest: ArtifactManifest) -> str:
 
 
 def _assert_public_consistency(directory: Path) -> None:
-    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+    manifest = load_artifact_manifest(directory / "axquant_manifest.json")
     plan = load_quantization_plan(directory / "axquant_plan.json")
-    execution = load_model(
-        directory / "axquant_quantizer_execution.json",
-        QuantizerExecutionManifest,
-    )
+    execution = load_quantizer_execution_manifest(directory / "axquant_quantizer_execution.json")
     expected_plan_sha256 = stable_sha256(plan)
     if manifest.plan_sha256 != expected_plan_sha256:
         raise ArtifactError("public artifact manifest does not bind the sanitized plan")
@@ -1369,6 +1432,7 @@ def prepare_development_model_card(
     does not bind fails closed. Uncertified or missing records keep the development banner.
     """
 
+    require_model_supported(repo_id, artifact_dir)
     directory_input = Path(artifact_dir).expanduser()
     if directory_input.is_symlink():
         raise ArtifactError(f"artifact directory must not be a symlink: {directory_input}")
@@ -1397,7 +1461,13 @@ def prepare_development_model_card(
     manifest_path = directory / "axquant_manifest.json"
     plan_path = directory / "axquant_plan.json"
     execution_path = directory / "axquant_quantizer_execution.json"
-    manifest = load_model(manifest_path, ArtifactManifest)
+    manifest = load_artifact_manifest(manifest_path)
+    require_model_supported(repo_id, manifest.source_model.model_id)
+    config_path = directory / "config.json"
+    if config_path.is_file():
+        config_identity = read_data(config_path)
+        if isinstance(config_identity, dict):
+            require_model_supported(repo_id, manifest.source_model.model_id, config=config_identity)
     plan = load_quantization_plan(plan_path)
     execution = load_quantizer_execution_manifest(execution_path)
     packaged_names = [
