@@ -1266,6 +1266,7 @@ def _measure_candidate(
     long_context_min_tokens: int,
     mtp_forward: MtpForwardBackend | None = None,
     mtp_reference_drafts: list[Any] | None = None,
+    use_candidate_mtp_hidden_states: bool = False,
 ) -> MetricVector:
     import numpy as np
 
@@ -1325,12 +1326,15 @@ def _measure_candidate(
             # Any forward uncertainty fails closed to the unmeasured marker
             # for this whole candidate.
             try:
-                if reference.hidden_states is None:
+                mtp_hidden = (
+                    candidate.hidden_states
+                    if use_candidate_mtp_hidden_states
+                    else reference.hidden_states
+                )
+                if mtp_hidden is None:
                     raise ProbeError("probe backend did not return trunk hidden states")
                 reference_draft = mtp_reference_drafts[batch_index]
-                candidate_draft = mtp_forward.forward_mtp(
-                    input_ids, reference.hidden_states
-                ).draft_logits
+                candidate_draft = mtp_forward.forward_mtp(input_ids, mtp_hidden).draft_logits
                 mtp_disagreement.append(
                     (
                         compute_token_disagreement(
@@ -1478,6 +1482,7 @@ def probe_tensor_sensitivity(
     base_report: SensitivityReport | None = None,
     calibration_activations: Mapping[str, Any] | None = None,
     allow_legacy_4bit: bool = False,
+    measure_trunk_mtp: bool = False,
 ) -> SensitivityReport:
     """Probe per-tensor sensitivity using forward passes.
 
@@ -1492,6 +1497,9 @@ def probe_tensor_sensitivity(
     Supports deterministic replay, early termination, and in-process resume.
     AXQ-047: a 4-bit candidate grid yields MXFP4 candidates only unless
     ``allow_legacy_4bit`` is set (affine 4-bit is a retired product line).
+    ``measure_trunk_mtp`` also measures the unchanged MTP head conditioned on
+    candidate trunk states. This is draft-token disagreement, not live acceptance
+    or DFlash2 evidence. The default preserves historical probe semantics.
     """
     if inventory.quantized_source:
         raise ProbeError("measured sensitivity requires an unquantized BF16 source inventory")
@@ -1540,16 +1548,17 @@ def probe_tensor_sensitivity(
         base_report,
     )
     base_sha256 = stable_sha256(base_report) if base_report is not None else None
-    config_sha256 = stable_sha256(
-        {
-            "config": config.model_dump(mode="json"),
-            "probe_backend_version": _PROBE_BACKEND_VERSION,
-            "base_sensitivity_sha256": base_sha256,
-            "activation_capture_manifest_sha256": (
-                bound_capture.manifest_sha256 if bound_capture is not None else None
-            ),
-        }
-    )
+    config_identity: dict[str, Any] = {
+        "config": config.model_dump(mode="json"),
+        "probe_backend_version": _PROBE_BACKEND_VERSION,
+        "base_sensitivity_sha256": base_sha256,
+        "activation_capture_manifest_sha256": (
+            bound_capture.manifest_sha256 if bound_capture is not None else None
+        ),
+    }
+    if measure_trunk_mtp:
+        config_identity["measure_trunk_mtp"] = True
+    config_sha256 = stable_sha256(config_identity)
     progress_path = Path(state_path).expanduser().resolve() if state_path is not None else None
     if state is None and progress_path is not None and progress_path.is_file():
         progress = load_probe_progress(progress_path)
@@ -1604,6 +1613,8 @@ def probe_tensor_sensitivity(
         if base_report.calibration is None:
             raise ProbeError("base sensitivity report has no calibration provenance")
         base_calibration = base_report.calibration
+        if bool(base_calibration.metadata.get("measure_trunk_mtp", False)) != measure_trunk_mtp:
+            raise ProbeError("base sensitivity uses a different trunk MTP probe protocol")
         compatible_dataset_ids = {calibration_dataset_id, str(cache_path)}
         if (
             base_calibration.dataset_id not in compatible_dataset_ids
@@ -1648,8 +1659,10 @@ def probe_tensor_sensitivity(
         # loaded module tree, so resolve it here: a fresh backend reports False
         # until then, which would silently skip every MTP acceptance
         # measurement and misreport the provenance as capability-less.
-        if mtp_target_tensors:
+        if mtp_target_tensors or measure_trunk_mtp:
             mtp_forward = _mtp_forward_capability(backend)
+        if measure_trunk_mtp and mtp_forward is None:
+            raise ProbeError("trunk MTP sensitivity requires a backend with MTP forward capability")
         for _ in range(config.warmup_replays):
             backend.forward(calibration_inputs[0])
         references = [backend.forward(input_ids) for input_ids in calibration_inputs]
@@ -1685,6 +1698,10 @@ def probe_tensor_sensitivity(
                         "mtp_reference_forward_missing_hidden_states",
                         batches=len(references) - len(drafts),
                     )
+        if measure_trunk_mtp and mtp_reference_drafts is None:
+            raise ProbeError(
+                "trunk MTP sensitivity requires reference hidden states and MTP drafts"
+            )
     else:
         log.info(
             "probe_resume_complete",
@@ -1792,7 +1809,9 @@ def probe_tensor_sensitivity(
                 if bf16_key not in existing_keys:
                     bf16_metrics = reference_metrics
                     bf16_note = "reference precision"
-                    if tensor.role.is_mtp and mtp_reference_drafts is not None:
+                    if (
+                        tensor.role.is_mtp or measure_trunk_mtp
+                    ) and mtp_reference_drafts is not None:
                         # MH6: reference draft agreement floors at epsilon so
                         # every MTP-scoped candidate stays strictly positive.
                         bf16_metrics = bf16_metrics.model_copy(
@@ -1859,11 +1878,22 @@ def probe_tensor_sensitivity(
                             references,
                             require_hidden_states="hidden" in config.capture_points,
                             long_context_min_tokens=config.long_context_min_tokens,
-                            mtp_forward=mtp_forward if tensor.role.is_mtp else None,
+                            mtp_forward=(
+                                mtp_forward if tensor.role.is_mtp or measure_trunk_mtp else None
+                            ),
                             mtp_reference_drafts=(
-                                mtp_reference_drafts if tensor.role.is_mtp else None
+                                mtp_reference_drafts
+                                if tensor.role.is_mtp or measure_trunk_mtp
+                                else None
+                            ),
+                            use_candidate_mtp_hidden_states=(
+                                measure_trunk_mtp and not tensor.role.is_mtp
                             ),
                         )
+                        if measure_trunk_mtp and metrics.mtp_acceptance_loss <= 0:
+                            raise ProbeError(
+                                "candidate MTP draft disagreement could not be measured"
+                            )
                         packing_control = next(
                             (
                                 candidate
@@ -1921,6 +1951,12 @@ def probe_tensor_sensitivity(
                                     "MTP acceptance loss unmeasured "
                                     "(backend has no MTP forward capability)"
                                 )
+                            )
+                        elif measure_trunk_mtp:
+                            note_parts.append(
+                                "MTP draft disagreement measured with candidate "
+                                "trunk hidden states; "
+                                "not live acceptance or DFlash2 evidence"
                             )
                         probe_candidates.append(
                             CandidateMeasurement(
@@ -2014,6 +2050,9 @@ def probe_tensor_sensitivity(
     }
     if bound_capture is not None:
         calibration_metadata.update(activation_capture_metadata(bound_capture))
+    if measure_trunk_mtp:
+        calibration_metadata["measure_trunk_mtp"] = True
+        calibration_metadata["trunk_mtp_metric"] = "teacher-forced-draft-token-disagreement"
     if mtp_target_tensors:
         # MH6: report-level provenance of the MTP acceptance loss source,
         # derived from the recorded candidates so resumed runs report what

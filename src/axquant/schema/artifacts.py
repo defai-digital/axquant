@@ -1051,6 +1051,7 @@ class ValidationReport(StrictModel):
 # must not be supplied by the caller.
 ALLOWED_BENCHMARK_RUNTIME_ENV_KEYS: frozenset[str] = frozenset(
     {
+        "AX_MLX_DFLASH2",
         "AX_MLX_QWEN_LINEAR_ATTENTION_DECODE_POST_INPUT_METAL",
         "AX_MLX_QWEN_GATED_DELTA_DECODE_METAL",
         "AX_MLX_QWEN_DIRECT_CPP_LINEAR_ATTENTION_INPUTS",

@@ -541,6 +541,8 @@ def _run(args: argparse.Namespace) -> int:
         return 0
 
     if args.command == "analyze":
+        if args.measure_trunk_mtp and not args.calibration:
+            raise ValueError("--measure-trunk-mtp requires measured --calibration probing")
         if (args.base_sensitivity or args.target_tensor) and not args.calibration:
             raise ValueError(
                 "--base-sensitivity/--target-tensor require measured --calibration probing"
@@ -596,6 +598,7 @@ def _run(args: argparse.Namespace) -> int:
                 ),
                 calibration_activations=calibration_activations,
                 allow_legacy_4bit=args.allow_legacy_4bit,
+                measure_trunk_mtp=args.measure_trunk_mtp,
             )
         else:
             analysis_report = architecture_prior_report(

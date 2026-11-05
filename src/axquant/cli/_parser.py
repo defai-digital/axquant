@@ -472,6 +472,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "expose logits only and need '--capture-points output'",
     )
     analyze_parser.add_argument("--token-budget", type=int, default=2048)
+    analyze_parser.add_argument(
+        "--measure-trunk-mtp",
+        action="store_true",
+        help="Measure MTP draft disagreement using quantized trunk hidden states; "
+        "requires MTP forward capability, does not measure DFlash2 or live acceptance",
+    )
     analyze_parser.add_argument("--replay-batch-size", type=int, default=1)
     analyze_parser.add_argument("--metric-positions", type=int, default=32)
     analyze_parser.add_argument("--long-context-min-tokens", type=int, default=1024)

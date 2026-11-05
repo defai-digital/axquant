@@ -26,6 +26,7 @@ from axquant.probe import (
     MlxProbeBackend,
     MtpForwardResult,
     _canonical_mtp_entries,
+    _measure_candidate,
     _mtp_forward_capability,
     probe_tensor_sensitivity,
 )
@@ -192,6 +193,9 @@ def _run_probe(
     backend: object,
     *,
     candidate_bits: tuple[int, ...] = (4, 8, 16),
+    measure_trunk_mtp: bool = False,
+    state_path: Path | None = None,
+    base_report: SensitivityReport | None = None,
 ) -> SensitivityReport:
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
@@ -225,7 +229,7 @@ def _run_probe(
         random_seed=11,
         calibration_evaluation_separation_attested=True,
     )
-    cache.mkdir()
+    cache.mkdir(exist_ok=True)
     write_data(cache / "calibration_manifest.json", calibration)
     tokenize_calibration(
         model=identity,
@@ -252,6 +256,9 @@ def _run_probe(
         inventory,
         config=config,
         backend=backend,  # type: ignore[arg-type]
+        measure_trunk_mtp=measure_trunk_mtp,
+        state_path=state_path,
+        base_report=base_report,
     )
 
 
@@ -259,6 +266,114 @@ def _mtp_entries(report: SensitivityReport) -> list[Any]:
     entries = [entry for entry in report.entries if entry.tensor.role.is_mtp]
     assert entries, "probe report must contain MTP-role entries"
     return entries
+
+
+class _HiddenSensitiveBackend(_MtpCapableFakeBackend):
+    """The head stays unchanged; only altered trunk states change its drafts."""
+
+    def forward(self, input_ids: object) -> ForwardResult:
+        result = super().forward(input_ids)
+        if self.bits is not None:
+            result.hidden_states = np.asarray(result.hidden_states) + 100
+        return result
+
+    def forward_mtp(self, input_ids: object, hidden_states: object) -> MtpForwardResult:
+        del input_ids
+        hidden = np.asarray(hidden_states)
+        draft = np.zeros((*hidden.shape[:2], 2), dtype=np.float32)
+        draft[..., 0] = 1
+        draft[..., 1] = np.where(hidden[..., 0] > 50, 2, 0)
+        return MtpForwardResult(draft_logits=draft)
+
+
+def test_trunk_probe_conditions_unchanged_head_on_candidate_hidden_states() -> None:
+    backend = _HiddenSensitiveBackend()
+    inputs = [np.array([1, 2, 3], dtype=np.int32)]
+    references = [backend.forward(inputs[0])]
+    drafts = [backend.forward_mtp(inputs[0], references[0].hidden_states).draft_logits]
+    backend.bits = 8
+    common = {
+        "require_hidden_states": True,
+        "long_context_min_tokens": 2,
+        "mtp_forward": backend,
+        "mtp_reference_drafts": drafts,
+    }
+    head_only = _measure_candidate(backend, inputs, references, **common)
+    trunk = _measure_candidate(
+        backend, inputs, references, **common, use_candidate_mtp_hidden_states=True
+    )
+    assert head_only.mtp_acceptance_loss == MTP_ACCEPTANCE_LOSS_EPSILON
+    assert trunk.mtp_acceptance_loss == 1.0
+
+
+def test_trunk_mtp_probe_records_non_mtp_sensitivity(
+    qwen36_integrated_mtp_model_dir: Path, tmp_path: Path
+) -> None:
+    report = _run_probe(
+        qwen36_integrated_mtp_model_dir,
+        tmp_path,
+        _HiddenSensitiveBackend(),
+        candidate_bits=(8, 16),
+        measure_trunk_mtp=True,
+    )
+    trunk = [
+        candidate
+        for entry in report.entries
+        if not entry.tensor.role.is_mtp
+        for candidate in entry.candidates
+        if candidate.supported and candidate.bits < 16
+    ]
+    assert trunk
+    assert all(candidate.metrics.mtp_acceptance_loss == 1.0 for candidate in trunk)
+    assert all("candidate trunk hidden states" in (candidate.note or "") for candidate in trunk)
+    assert report.calibration is not None
+    assert report.calibration.metadata["measure_trunk_mtp"] is True
+    assert report.calibration.metadata["trunk_mtp_metric"] == (
+        "teacher-forced-draft-token-disagreement"
+    )
+
+
+def test_trunk_mtp_requires_runtime_capability(
+    qwen36_integrated_mtp_model_dir: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(ProbeError, match="requires a backend with MTP forward capability"):
+        _run_probe(
+            qwen36_integrated_mtp_model_dir,
+            tmp_path,
+            _CapabilityLessFakeBackend(),
+            measure_trunk_mtp=True,
+        )
+
+
+def test_trunk_mtp_protocol_cannot_resume_a_head_only_probe(
+    qwen36_integrated_mtp_model_dir: Path, tmp_path: Path
+) -> None:
+    state_path = tmp_path / "progress.json"
+    _run_probe(
+        qwen36_integrated_mtp_model_dir, tmp_path, _HiddenSensitiveBackend(), state_path=state_path
+    )
+    with pytest.raises(ProbeError, match="progress configuration does not match"):
+        _run_probe(
+            qwen36_integrated_mtp_model_dir,
+            tmp_path,
+            _HiddenSensitiveBackend(),
+            state_path=state_path,
+            measure_trunk_mtp=True,
+        )
+
+
+def test_trunk_mtp_refinement_rejects_different_base_protocol(
+    qwen36_integrated_mtp_model_dir: Path, tmp_path: Path
+) -> None:
+    base = _run_probe(qwen36_integrated_mtp_model_dir, tmp_path, _HiddenSensitiveBackend())
+    with pytest.raises(ProbeError, match="different trunk MTP probe protocol"):
+        _run_probe(
+            qwen36_integrated_mtp_model_dir,
+            tmp_path,
+            _HiddenSensitiveBackend(),
+            base_report=base,
+            measure_trunk_mtp=True,
+        )
 
 
 def test_capability_helper_detects_only_fully_declared_backends() -> None:

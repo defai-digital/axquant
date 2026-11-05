@@ -27,6 +27,11 @@ not require AX Engine; its additional optimizations and performance claims
 need their own evidence. Runtime targets are a product commitment, not a claim
 that every model works in every runtime today.
 
+The current development flagship is **Qwen3.8-27B MXFP4 with default-on MTP**.
+Its [coding calibration study](docs/runbooks/qwen38-27b-mxfp4-flagship.md) uses
+measured sensitivity, a matched storage budget, protected BF16 MTP weights,
+and separate task-quality and runtime validation.
+
 **Status:** official toolkit release `2.3.0` (not a prerelease). The
 historical validated-toolkit pin is `axquant[mlx]==1.8.1`; new installations
 should use the current package. Neither install choice certifies a model.

@@ -1,5 +1,9 @@
 # Qwen 3.6 flagship certification
 
+The current development flagship is [Qwen3.8-27B MXFP4 with default-on MTP](../runbooks/qwen38-27b-mxfp4-flagship.md).
+The Qwen 3.6 policy below remains the frozen historical certification contract;
+the new development study does not inherit its certificates.
+
 AXQuant’s first flagship policy is `qwen36-mtp-v2`. It applies to one exact source:
 
 ```text
