@@ -1347,6 +1347,15 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     converted_config = json.loads((output / "config.json").read_text(encoding="utf-8"))
     source_config = json.loads((qwen36_model_dir / "config.json").read_text(encoding="utf-8"))
     assert converted_config["vision_config"] == source_config["vision_config"]
+    # Runtime layout: trunk and vision indexed, MTP only in the unindexed
+    # sidecar, and the raw-delta head norms declared for oMLX/MTPLX importers.
+    # The fake backend writes an unindexed single shard; the sidecars stay
+    # outside the model*.safetensors glob.
+    assert not (output / "model.safetensors.index.json").exists()
+    assert sorted(path.name for path in output.glob("model*.safetensors")) == ["model.safetensors"]
+    runtime_contract = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
+    if runtime_contract.get("mtp_norm_layout") == "raw_hf_delta":
+        assert converted_config["mtp_norm_encoding"] == "delta"
 
 
 @pytest.mark.parametrize(
@@ -1436,6 +1445,121 @@ def test_gemma4_protected_vision_uses_mlx_vlm_names_and_index(
     for output_name in output_names:
         assert index["weight_map"][output_name] == "vision.safetensors"
     assert manifest.tensor_names_sha256 == stable_sha256(sorted(output_names))
+
+
+@pytest.mark.parametrize(
+    ("model_type", "indexed"),
+    [("qwen3_5", True), ("qwen3_5_moe", True), ("qwen3_vl", False)],
+)
+def test_qwen35_protected_vision_is_indexed_for_mlx_vlm(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    model_type: str,
+    indexed: bool,
+) -> None:
+    source_names = (
+        "model.visual.blocks.0.attn.proj.weight",
+        "model.visual.patch_embed.proj.weight",
+    )
+    source = tmp_path / "qwen-source"
+    source.mkdir()
+    save_file(
+        {name: np.arange(4, dtype=np.float32).reshape(2, 2) for name in source_names},
+        source / "model.safetensors",
+    )
+    template_plan = _plan(qwen36_model_dir)
+    template_vision = next(
+        allocation
+        for allocation in template_plan.assignments
+        if allocation.role == TensorRole.VISION
+    )
+    plan = template_plan.model_copy(
+        update={
+            "architecture_profile": template_plan.architecture_profile.model_copy(
+                update={"config_model_type": model_type}
+            ),
+            "assignments": [
+                template_vision.model_copy(
+                    update={
+                        "tensor": name,
+                        "module_path": name.removesuffix(".weight"),
+                        "parameters": 4,
+                    }
+                )
+                for name in source_names
+            ],
+        }
+    )
+    output = tmp_path / "converted"
+    output.mkdir()
+    trunk_name = "language_model.model.embed_tokens.weight"
+    (output / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "metadata": {"total_parameters": 4, "total_size": 16},
+                "weight_map": {trunk_name: "model.safetensors"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert converter._extract_protected_vision(source, plan, output) is not None
+
+    with safe_open(output / "vision.safetensors", framework="numpy") as sidecar:
+        assert tuple(sidecar.keys()) == source_names  # byte-preserved names
+    index = json.loads((output / "model.safetensors.index.json").read_text(encoding="utf-8"))
+    if indexed:
+        assert index["weight_map"] == {
+            trunk_name: "model.safetensors",
+            **dict.fromkeys(source_names, "vision.safetensors"),
+        }
+        assert index["metadata"] == {"total_parameters": 12, "total_size": 48}
+        # Re-indexing the same sidecar is idempotent; a stale partial entry is not.
+        converter._index_vision_sidecar(
+            output, tensor_names=source_names, data_size=32, parameters=8, family="Qwen 3.5"
+        )
+        with pytest.raises(ArtifactError, match="partial or stale"):
+            converter._index_vision_sidecar(
+                output, tensor_names=source_names[:1], data_size=16, parameters=4, family="Qwen"
+            )
+    else:
+        assert index["weight_map"] == {trunk_name: "model.safetensors"}
+
+
+@pytest.mark.parametrize(
+    "weight_map",
+    [
+        {"model.norm.weight": "model.safetensors", "mtp.fc.weight": "model.safetensors"},
+        {"language_model.mtp.fc.weight": "model-00001.safetensors"},
+        {"model.norm.weight": "model-mtp.safetensors"},
+        {"model.norm.weight": "mtp.safetensors"},
+    ],
+)
+def test_converted_index_must_not_hold_mtp(tmp_path: Path, weight_map: dict[str, str]) -> None:
+    (tmp_path / "model.safetensors.index.json").write_text(
+        json.dumps({"weight_map": weight_map}), encoding="utf-8"
+    )
+    with pytest.raises(ArtifactError, match="out of the weight index"):
+        converter._require_mtp_outside_index(tmp_path)
+
+
+def test_converted_index_allows_trunk_and_vision(tmp_path: Path) -> None:
+    (tmp_path / "model.safetensors.index.json").write_text(
+        json.dumps(
+            {
+                "weight_map": {
+                    "model.norm.weight": "model.safetensors",
+                    "model.visual.patch_embed.proj.weight": "vision.safetensors",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    converter._require_mtp_outside_index(tmp_path)
+    (tmp_path / "model.safetensors.index.json").unlink()
+    (tmp_path / "model-mtp.safetensors").write_bytes(b"")
+    with pytest.raises(ArtifactError, match="not a model shard"):
+        converter._require_mtp_outside_index(tmp_path)
 
 
 def test_restore_protected_vision_config_rejects_conflicting_contract(

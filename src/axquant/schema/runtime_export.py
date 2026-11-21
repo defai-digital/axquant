@@ -63,3 +63,55 @@ class RuntimeExportManifest(StrictModel):
     launch_environment: dict[str, str] = Field(default_factory=dict)
     model_settings: dict[str, bool | int | str] = Field(default_factory=dict)
     modality_constraints: list[str] = Field(default_factory=list)
+
+
+PublicationSmokeCheckId = Literal[
+    "ax-engine:mlx-lm-agreement",
+    "mlx-lm:text",
+    "mlx-vlm:text",
+    "mlx-vlm:image",
+    "omlx:mtp-off",
+    "omlx:mtp-on",
+]
+
+
+class PublicationSmokeCheck(StrictModel):
+    check: PublicationSmokeCheckId
+    status: Literal["pass", "fail"]
+    runtime_version: str | None = None
+    expected: str
+    output: str = ""
+    detail: str = ""
+    seconds: float | None = None
+    # Agreement checks: prompts whose greedy tokens matched MLX-LM, out of total,
+    # for the prompt set identified by its digest.
+    agreed: int | None = Field(default=None, ge=0)
+    total: int | None = Field(default=None, ge=1)
+    prompt_set_sha256: Digest | None = None
+
+
+class PublicationSmokeReceipt(StrictModel):
+    """Real load-and-generate smoke runs bound to the runtime payload digest.
+
+    Evidence of loading and short greedy generation only. It does not certify
+    quality, speed, or MTP acceptance.
+    """
+
+    schema_version: Literal["axquant.publication-smoke.v1"] = "axquant.publication-smoke.v1"
+    payload_sha256: Digest
+    required_checks: list[PublicationSmokeCheckId]
+    checks: list[PublicationSmokeCheck]
+    # Chip description, never a hostname: the receipt ships with the pack.
+    hardware: str
+    created_at: str
+    quality_certified: Literal[False] = False
+    mtp_acceptance_measured: Literal[False] = False
+
+    @model_validator(mode="after")
+    def unique_checks(self) -> PublicationSmokeReceipt:
+        names = [check.check for check in self.checks]
+        if len(names) != len(set(names)):
+            raise ValueError("publication smoke receipt repeats a check")
+        if len(self.required_checks) != len(set(self.required_checks)):
+            raise ValueError("publication smoke receipt repeats a required check")
+        return self

@@ -664,6 +664,12 @@ def publish_model(
         validate_declared_runtime_compatibility(directory)
     except (AxquantError, ValidationError, OSError, ValueError) as exc:
         raise PublishingError(f"runtime compatibility binding check failed: {exc}") from exc
+    from axquant.publication_smoke import require_publication_smoke
+
+    try:
+        require_publication_smoke(directory)
+    except AxquantError as exc:
+        raise PublishingError(f"runtime smoke gate failed: {exc}") from exc
     identity_issues = artifact_identity_issues(directory)
     if identity_issues:
         # Published artifacts must identify the checkpoint by name, not by where

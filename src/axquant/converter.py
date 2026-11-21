@@ -1121,14 +1121,21 @@ def _extract_protected_vision(
     )
 
 
-def _index_gemma4_vision_sidecar(
+# MLX-VLM loads only indexed shards. Its Qwen 3.5 family sanitize accepts the
+# byte-preserved ``model.visual.*`` / ``vision_tower.*`` names, so these packs
+# index the protected sidecar; an unindexed tower is silently disabled.
+INDEXED_VISION_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_5_moe"})
+
+
+def _index_vision_sidecar(
     output_dir: Path,
     *,
     tensor_names: tuple[str, ...],
     data_size: int,
     parameters: int,
+    family: str,
 ) -> None:
-    """Add a normalized Gemma 4 vision sidecar to an existing MLX shard index."""
+    """Add a protected vision sidecar to an existing MLX shard index."""
 
     index_path = output_dir / "model.safetensors.index.json"
     if not index_path.is_file():
@@ -1137,17 +1144,17 @@ def _index_gemma4_vision_sidecar(
     try:
         index = json.loads(index_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ArtifactError(f"cannot index protected Gemma 4 vision tensors: {exc}") from exc
+        raise ArtifactError(f"cannot index protected {family} vision tensors: {exc}") from exc
     if not isinstance(index, dict):
-        raise ArtifactError("Gemma 4 Safetensors index must contain a JSON object")
+        raise ArtifactError(f"{family} Safetensors index must contain a JSON object")
     weight_map = index.get("weight_map")
     if not isinstance(weight_map, dict) or not weight_map:
-        raise ArtifactError("Gemma 4 Safetensors index has no non-empty weight_map")
+        raise ArtifactError(f"{family} Safetensors index has no non-empty weight_map")
     if any(
         not isinstance(name, str) or not isinstance(shard, str)
         for name, shard in weight_map.items()
     ):
-        raise ArtifactError("Gemma 4 Safetensors index entries must map strings to strings")
+        raise ArtifactError(f"{family} Safetensors index entries must map strings to strings")
 
     existing_sidecar_names = {
         name for name, shard in weight_map.items() if shard == "vision.safetensors"
@@ -1156,11 +1163,11 @@ def _index_gemma4_vision_sidecar(
     if existing_sidecar_names:
         if existing_sidecar_names == requested_names:
             return
-        raise ArtifactError("Gemma 4 Safetensors index contains partial or stale vision entries")
+        raise ArtifactError(f"{family} Safetensors index contains partial or stale vision entries")
     collisions = sorted(name for name in tensor_names if name in weight_map)
     if collisions:
         raise ArtifactError(
-            f"Gemma 4 vision tensor names collide with indexed model weights: {collisions[:10]}"
+            f"{family} vision tensor names collide with indexed model weights: {collisions[:10]}"
         )
     weight_map.update({name: "vision.safetensors" for name in tensor_names})
 
@@ -1169,14 +1176,14 @@ def _index_gemma4_vision_sidecar(
         metadata = {}
         index["metadata"] = metadata
     if not isinstance(metadata, dict):
-        raise ArtifactError("Gemma 4 Safetensors index metadata must be an object")
+        raise ArtifactError(f"{family} Safetensors index metadata must be an object")
     for field_name, increment in (("total_size", data_size), ("total_parameters", parameters)):
         current = metadata.get(field_name)
         if current is None:
             continue
         if isinstance(current, bool) or not isinstance(current, int) or current < 0:
             raise ArtifactError(
-                f"Gemma 4 Safetensors index {field_name} must be a non-negative integer"
+                f"{family} Safetensors index {field_name} must be a non-negative integer"
             )
         metadata[field_name] = current + increment
     write_data(index_path, index)
@@ -1209,6 +1216,47 @@ def _extract_protected_integrated_mtp(
     if manifest is not None:
         _declare_raw_mtp_runtime_contract(output_dir, plan=plan, source_dir=model_dir)
     return manifest
+
+
+_MTP_SHARD_NAMES = frozenset({"mtp.safetensors", "model-mtp.safetensors"})
+
+
+def _require_mtp_outside_index(output_dir: Path) -> None:
+    """Fail closed when a converted pack indexes MTP tensors.
+
+    The main pack keeps the trunk and vision in the index and MTP only in an
+    unindexed sidecar: MLX-VLM shifts every trunk RMSNorm when it sees an
+    ``mtp.*`` key, and AX Engine and MTPLX attach the sidecar themselves.
+    Runtime variants that index the head are separate exports.
+    """
+    index_path = output_dir / "model.safetensors.index.json"
+    if not index_path.is_file():
+        unindexed_mtp = sorted(
+            path.name for path in output_dir.glob("model*.safetensors") if "mtp" in path.name
+        )
+        if unindexed_mtp:
+            raise ArtifactError(
+                f"MTP weights must live in mtp.safetensors, not a model shard: {unindexed_mtp}"
+            )
+        return
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ArtifactError(f"cannot read the converted weight index: {exc}") from exc
+    weight_map = index.get("weight_map") if isinstance(index, dict) else None
+    if not isinstance(weight_map, dict):
+        raise ArtifactError("converted weight index has no weight_map object")
+    indexed_mtp = sorted(
+        str(name)
+        for name, shard in weight_map.items()
+        if str(name).startswith("mtp.") or ".mtp." in str(name) or shard in _MTP_SHARD_NAMES
+    )
+    if indexed_mtp:
+        raise ArtifactError(
+            "converted pack must keep MTP tensors out of the weight index "
+            f"(found {len(indexed_mtp)}, e.g. {indexed_mtp[:3]}); MTP belongs in the "
+            "unindexed mtp.safetensors sidecar"
+        )
 
 
 def _extract_protected_sidecar(
@@ -1335,11 +1383,23 @@ def _extract_protected_sidecar(
         raise ArtifactError(f"protected {role_label} sidecar tensor coverage mismatch")
     parameters = sum(allocation.parameters for allocation in allocations)
     if gemma4_vision_layout:
-        _index_gemma4_vision_sidecar(
+        _index_vision_sidecar(
             output_dir,
             tensor_names=tuple(expected_names),
             data_size=output_offset,
             parameters=parameters,
+            family="Gemma 4",
+        )
+    elif (
+        role_label == "vision"
+        and plan.architecture_profile.config_model_type in INDEXED_VISION_MODEL_TYPES
+    ):
+        _index_vision_sidecar(
+            output_dir,
+            tensor_names=tuple(expected_names),
+            data_size=output_offset,
+            parameters=parameters,
+            family="Qwen 3.5",
         )
     source_files = sorted({entry[1] for entry in selected})
     manifest = ProtectedTensorSidecarManifest(
@@ -2549,6 +2609,7 @@ def convert_model(
         mtplx_notes = write_mtplx_load_contract(staging_dir)
         if mtplx_notes:
             _LOG.info("conversion_mtplx_contract_aligned", notes=mtplx_notes)
+        _require_mtp_outside_index(staging_dir)
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
         if bound_capture is not None:

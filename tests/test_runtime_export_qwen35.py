@@ -32,6 +32,8 @@ def _pack(
     trunk_norm_mean: float = 1.0,
     declare_trunk: bool = False,
     head_layout: str = "raw_hf_delta",
+    index_vision: bool = False,
+    norm_encoding: str | None = None,
 ) -> Path:
     directory.mkdir()
     trunk = {
@@ -56,7 +58,10 @@ def _pack(
         json.dumps(
             {
                 "metadata": {"total_size": 0},
-                "weight_map": dict.fromkeys(trunk, "model-00001-of-00001.safetensors"),
+                "weight_map": {
+                    **dict.fromkeys(trunk, "model-00001-of-00001.safetensors"),
+                    **({"vision.patch.weight": "vision.safetensors"} if index_vision else {}),
+                },
             }
         )
     )
@@ -66,6 +71,7 @@ def _pack(
                 "model_type": "qwen3_5_moe",
                 "text_config": {"model_type": "qwen3_5_moe_text", "mtp_num_hidden_layers": 1},
                 "quantization": {"bits": 4, "group_size": 64},
+                **({"mtp_norm_encoding": norm_encoding} if norm_encoding else {}),
             }
         )
     )
@@ -166,3 +172,19 @@ def test_mtplx_needs_no_export_and_dry_run_writes_nothing(tmp_path: Path) -> Non
         export_runtime_pack(source, tmp_path / "mtplx", target="mtplx")
     export_runtime_pack(source, tmp_path / "dry", target="omlx", dry_run=True)
     assert not (tmp_path / "dry").exists()
+
+
+def test_export_drops_indexed_vision_and_the_delta_norm_declaration(tmp_path: Path) -> None:
+    source = _pack(tmp_path / "pack", declare_trunk=True, index_vision=True, norm_encoding="delta")
+    assert inspect_runtime_export(source)["targets"]["mtplx"]["status"] == "static-compatible"
+    output = tmp_path / "omlx"
+    export_runtime_pack(source, output, target="omlx")
+
+    assert not (output / "vision.safetensors").exists()
+    index = json.loads((output / "model.safetensors.index.json").read_text())
+    assert "vision.safetensors" not in set(index["weight_map"].values())
+    config = json.loads((output / "config.json").read_text())
+    # The exported head is already shifted; a delta key would shift it twice.
+    assert "mtp_norm_encoding" not in config
+    assert "mtplx_mtp_norm_encoding" not in config
+    assert inspect_runtime_export(output)["targets"]["omlx"]["status"] == "static-compatible"

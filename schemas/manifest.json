@@ -1,5 +1,5 @@
 {
-  "count": 152,
+  "count": 153,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -872,6 +872,14 @@
       "model": "axquant.schema.public_certification.PublicTier2Recertification",
       "schema_version": "axquant.public-tier2-recert.v1",
       "sha256": "604b4754ce46805be38aa0069343394bb533a8c9a51358985dec024325b87971"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.publication-smoke.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.runtime_export.PublicationSmokeReceipt",
+      "schema_version": "axquant.publication-smoke.v1",
+      "sha256": "d5b1a51fa0d427e3a17a1d319b75a73f00834afffb30a89203f88398c7bef757"
     },
     {
       "compatibility_class": "evidence",

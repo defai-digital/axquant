@@ -186,6 +186,15 @@ def _normalize_qwen35_omlx(pack: Path, runtime: dict[str, Any]) -> None:
     if runtime.get("mtp_norm_layout") != "raw_hf_delta":
         raise ArtifactError("Qwen MTP export needs declared raw_hf_delta head RMSNorms")
     index = _read_json_object(pack / INDEX_FILENAME, INDEX_FILENAME)
+    # The text-only variant leaves the vision sidecar behind; drop its entries.
+    if not (pack / "vision.safetensors").is_file():
+        vision_entries = [
+            name for name, file in index["weight_map"].items() if file == "vision.safetensors"
+        ]
+        for name in vision_entries:
+            del index["weight_map"][name]
+        if vision_entries:
+            index.get("metadata", {}).pop("total_parameters", None)
     _check_qwen35_trunk_uses_multipliers(pack, index)
     prefix = (
         "language_model."
@@ -225,6 +234,10 @@ def _normalize_qwen35_omlx(pack: Path, runtime: dict[str, Any]) -> None:
     )
     runtime["mtp_norm_layout"] = "mlx_multiplier"
     runtime["mtp_layout"] = "native-qwen35-indexed"
+    # The head norms were just shifted; a carried-over delta declaration would
+    # make an importer shift them a second time.
+    for key in NORM_ENCODING_KEYS:
+        config.pop(key, None)
     runtime["mtp_tensor_count"] = len(entries)
     runtime["runtime_verified"] = False
     runtime.pop("mtplx_version", None)

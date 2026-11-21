@@ -35,6 +35,7 @@ from axquant.gemma4_assistant_compose import (
 )
 from axquant.model_card import prepare_development_model_card
 from axquant.model_support import require_model_supported
+from axquant.publication_smoke import require_publication_smoke
 from axquant.runtime_compatibility import (
     require_runtime_compatibility_record,
     write_runtime_compatibility,
@@ -1124,6 +1125,7 @@ def publish(job: dict[str, Any], directory: Path, state: Path, smoke: dict[str, 
 
     manifest = validate_pack(job, directory)
     require_smoke(job, smoke, payload_digest(directory, manifest))
+    require_publication_smoke(directory)
     records = verify_files(directory, manifest)
     for name in records:
         if Path(name).suffix in {".json", ".md", ".jinja"}:

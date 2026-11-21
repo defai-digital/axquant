@@ -1,0 +1,158 @@
+{
+  "$defs": {
+    "PublicationSmokeCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "agreed": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "check": {
+          "enum": [
+            "ax-engine:mlx-lm-agreement",
+            "mlx-lm:text",
+            "mlx-vlm:text",
+            "mlx-vlm:image",
+            "omlx:mtp-off",
+            "omlx:mtp-on"
+          ],
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "type": "string"
+        },
+        "expected": {
+          "type": "string"
+        },
+        "output": {
+          "default": "",
+          "type": "string"
+        },
+        "prompt_set_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "runtime_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail"
+          ],
+          "type": "string"
+        },
+        "total": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "check",
+        "status",
+        "expected"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/PublicationSmokeCheck"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "hardware": {
+      "type": "string"
+    },
+    "mtp_acceptance_measured": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "payload_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "quality_certified": {
+      "const": false,
+      "default": false,
+      "type": "boolean"
+    },
+    "required_checks": {
+      "items": {
+        "enum": [
+          "ax-engine:mlx-lm-agreement",
+          "mlx-lm:text",
+          "mlx-vlm:text",
+          "mlx-vlm:image",
+          "omlx:mtp-off",
+          "omlx:mtp-on"
+        ],
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.publication-smoke.v1",
+      "default": "axquant.publication-smoke.v1",
+      "type": "string"
+    }
+  },
+  "required": [
+    "payload_sha256",
+    "required_checks",
+    "checks",
+    "hardware",
+    "created_at"
+  ],
+  "type": "object"
+}

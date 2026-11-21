@@ -162,6 +162,47 @@ shared SSD session-cache writes, checks MTP engagement, and retains failures.
 It does not publish or grant a certificate. Keep receipts private: they
 include host, commands, and local artifact bindings.
 
+## Main-pack layout and the publication smoke gate
+
+A converted MLX pack keeps one layout for every target runtime:
+
+- The weight index lists the trunk and, for Qwen 3.5-family and Gemma 4
+  packs, the protected `vision.safetensors` sidecar. MLX-VLM loads only
+  indexed shards; an unindexed tower is silently disabled and image input
+  fails.
+- MTP tensors live only in the unindexed `mtp.safetensors` sidecar. Conversion
+  fails closed if the index names an `mtp.*` tensor or an MTP shard: MLX-VLM
+  shifts every trunk RMSNorm when it sees MTP keys.
+- When `mtplx_runtime.json` declares `mtp_norm_layout: raw_hf_delta`,
+  `config.json` also declares `mtp_norm_encoding: delta`. oMLX's one-step
+  sidecar import and MTPLX read that key; AX Engine reads the runtime file.
+  Packs converted before this declaration landed (2026-10-31) lack the key
+  and need a reconversion or a documented metadata update before oMLX import.
+
+Publishing a generative MLX pack (a `...ForCausalLM` or
+`...ForConditionalGeneration` architecture) requires
+`axquant_publication_smoke.json`, a receipt bound to the digest of every
+runtime payload file. Required checks:
+
+| Check | When |
+| --- | --- |
+| MLX-LM text; AX Engine greedy-token agreement with MLX-LM on at least 9 of a fixed 10-prompt set | Always |
+| MLX-VLM text and image | The pack ships vision weights |
+| oMLX with MTP off and on, after `import_mtplx_sidecar` on a private copy | Qwen 3.5-family pack with `mtp.safetensors` |
+
+```bash
+python scripts/publication_smoke.py --directory /path/to/pack \
+  --omlx-python /path/to/omlx-venv/bin/python
+```
+
+`publish` and the catalog publisher refuse a missing, stale, or failing
+receipt; the gate recomputes the agreement ratio and prompt-set digest
+rather than trusting the recorded status. A single exact-answer prompt is not
+used for AX Engine: a small pack can sit on a near tie that ordinary
+kernel-order differences flip. Embedding and CUDA packs are outside this gate. A pass shows load and
+short greedy generation only; it is not quality, speed, or MTP acceptance
+evidence. The receipt records the chip, not the hostname.
+
 ## Adding profiles and claiming compatibility
 
 Define an explicit profile covering physical quantization modes, index
