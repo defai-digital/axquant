@@ -875,11 +875,11 @@
     },
     {
       "compatibility_class": "evidence",
-      "filename": "axquant.publication-smoke.v1.schema.json",
+      "filename": "axquant.publication-smoke.v2.schema.json",
       "freeze_policy": "immutable-envelope",
       "model": "axquant.schema.runtime_export.PublicationSmokeReceipt",
-      "schema_version": "axquant.publication-smoke.v1",
-      "sha256": "d5b1a51fa0d427e3a17a1d319b75a73f00834afffb30a89203f88398c7bef757"
+      "schema_version": "axquant.publication-smoke.v2",
+      "sha256": "8e34941ebc7aeeaa22ea375ce5f478ead5f462a6cf7239f6358cb532e3a93889"
     },
     {
       "compatibility_class": "evidence",

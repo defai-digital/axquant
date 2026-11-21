@@ -12,11 +12,12 @@ from axquant.publication_smoke import (
     AGREEMENT_PROMPT_SET_SHA256,
     AX_ENGINE_AGREEMENT_CHECK,
     SMOKE_RECEIPT_FILENAME,
+    agreed_prompts,
     agreement_passes,
-    greedy_tokens_agree,
     require_publication_smoke,
     required_smoke_checks,
     runtime_payload_sha256,
+    trim_at_stop,
 )
 from axquant.schema.runtime_export import PublicationSmokeCheck, PublicationSmokeReceipt
 from axquant.serde import write_data
@@ -52,9 +53,11 @@ def _receipt(
     directory: Path,
     *,
     failing: tuple[str, ...] = (),
-    agreed: int = 10,
+    deficits: list[float] | None = None,
+    agreed: int | None = None,
     prompt_set: str = AGREEMENT_PROMPT_SET_SHA256,
 ) -> None:
+    deficits = [0.0] * 10 if deficits is None else deficits
     required = required_smoke_checks(directory)
 
     def check(name: str) -> PublicationSmokeCheck:
@@ -64,8 +67,9 @@ def _receipt(
                 check=name,
                 status=status,
                 expected=">= 90% of 10",
-                agreed=agreed,
+                agreed=agreed_prompts(deficits) if agreed is None else agreed,
                 total=10,
+                logprob_deficits=deficits,
                 prompt_set_sha256=prompt_set,
             )
         return PublicationSmokeCheck(check=name, status=status, expected="42", output="42")
@@ -150,11 +154,11 @@ def test_gate_rejects_a_receipt_that_omits_a_required_check(tmp_path: Path) -> N
         require_publication_smoke(pack)
 
 
-def test_greedy_agreement_stops_at_stop_tokens_and_budget() -> None:
-    stop = {99}
-    assert greedy_tokens_agree([1, 2, 99, 5], [1, 2], stop_ids=stop, max_tokens=16)
-    assert greedy_tokens_agree([1, 2, 3], [1, 2, 4], stop_ids=stop, max_tokens=2)
-    assert not greedy_tokens_agree([4, 9], [6, 9], stop_ids=stop, max_tokens=16)
+def test_agreement_tolerates_ties_but_not_wrong_tokens() -> None:
+    assert trim_at_stop([1, 2, 99, 5], stop_ids={99}, max_tokens=16) == [1, 2]
+    assert trim_at_stop([1, 2, 3], stop_ids={99}, max_tokens=2) == [1, 2]
+    # Exact ties (0) and one BF16 logit step (0.125) agree; a 3-nat pick does not.
+    assert agreed_prompts([0.0, 0.125, 0.5, 3.0]) == 3
     assert agreement_passes(9, 10) and agreement_passes(10, 10)
     assert not agreement_passes(8, 10)
     assert not agreement_passes(5, 5)  # fewer prompts than the fixed set
@@ -162,15 +166,19 @@ def test_greedy_agreement_stops_at_stop_tokens_and_budget() -> None:
 
 
 @pytest.mark.parametrize(
-    ("agreed", "prompt_set"),
-    [(8, AGREEMENT_PROMPT_SET_SHA256), (10, "0" * 64)],
+    ("deficits", "agreed", "prompt_set"),
+    [
+        ([0.0] * 8 + [2.0, 3.0], None, AGREEMENT_PROMPT_SET_SHA256),  # 8/10
+        ([0.0] * 8 + [2.0, 3.0], 10, AGREEMENT_PROMPT_SET_SHA256),  # inflated count
+        ([0.0] * 10, None, "0" * 64),  # foreign prompt set
+    ],
 )
 def test_gate_recomputes_agreement_instead_of_trusting_the_label(
-    tmp_path: Path, agreed: int, prompt_set: str
+    tmp_path: Path, deficits: list[float], agreed: int | None, prompt_set: str
 ) -> None:
     pack = _pack(tmp_path / "pack")
-    _receipt(pack, agreed=agreed, prompt_set=prompt_set)  # labelled "pass"
+    _receipt(pack, deficits=deficits, agreed=agreed, prompt_set=prompt_set)  # "pass"
     with pytest.raises(ValidationGateError, match="ax-engine:mlx-lm-agreement"):
         require_publication_smoke(pack)
-    _receipt(pack, agreed=9)
+    _receipt(pack, deficits=[0.0] * 9 + [4.0])
     assert require_publication_smoke(pack) is not None

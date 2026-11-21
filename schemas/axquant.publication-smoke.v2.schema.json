@@ -33,6 +33,20 @@
         "expected": {
           "type": "string"
         },
+        "logprob_deficits": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "output": {
           "default": "",
           "type": "string"
@@ -142,8 +156,8 @@
       "type": "array"
     },
     "schema_version": {
-      "const": "axquant.publication-smoke.v1",
-      "default": "axquant.publication-smoke.v1",
+      "const": "axquant.publication-smoke.v2",
+      "default": "axquant.publication-smoke.v2",
       "type": "string"
     }
   },

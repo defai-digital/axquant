@@ -4,9 +4,11 @@ A static compatibility report does not prove that a pack loads. Before a
 generative MLX pack is published, every runtime the owner targets must load it
 and answer a short greedy prompt:
 
-* MLX-LM, text, and AX Engine greedy-token agreement with MLX-LM over a fixed
-  prompt set (an exact answer on one prompt is brittle: a small pack can sit
-  on a near tie that ordinary kernel-order differences flip);
+* MLX-LM, text, and AX Engine agreement with MLX-LM over a fixed prompt set:
+  AX Engine's greedy tokens are teacher-forced through MLX-LM, and every token
+  must be within a small log-probability deficit of MLX-LM's top choice. Exact
+  token equality is not used: engines break exact ties differently, and one
+  exact answer is brittle on a pack that sits on a near tie;
 * MLX-VLM, text and image, when the pack ships vision weights;
 * oMLX with MTP off and on, for Qwen 3.5-family packs with an MTP sidecar
   (the selected optional peer runtime).
@@ -46,8 +48,16 @@ AGREEMENT_PROMPTS = (
     "What is the boiling point of water in Celsius?",
     "Spell the word cat backwards.",
 )
+# Calibrated 2026-11-20 on four Qwen 3.5-family packs: healthy deficits were
+# 0 or 0.125 nat (one BF16 logit step). A wrong runtime picks tokens nats away.
+AGREEMENT_MAX_DEFICIT_NAT = 0.5
 AGREEMENT_PROMPT_SET_SHA256 = stable_sha256(
-    {"prompts": list(AGREEMENT_PROMPTS), "max_tokens": AGREEMENT_MAX_TOKENS}
+    {
+        "method": "teacher-forced-logprob-deficit",
+        "prompts": list(AGREEMENT_PROMPTS),
+        "max_tokens": AGREEMENT_MAX_TOKENS,
+        "max_deficit_nat": AGREEMENT_MAX_DEFICIT_NAT,
+    }
 )
 _GENERATIVE_SUFFIXES = ("ForCausalLM", "ForConditionalGeneration")
 _VISION_PREFIXES = ("model.visual.", "visual.", "vision_tower.", "model.vision_tower.")
@@ -120,20 +130,21 @@ def required_smoke_checks(directory: str | Path) -> list[PublicationSmokeCheckId
     return required
 
 
-def greedy_tokens_agree(
-    reference: list[int], candidate: list[int], *, stop_ids: set[int], max_tokens: int
-) -> bool:
-    """Compare greedy continuations up to the first stop token or the budget."""
+def trim_at_stop(tokens: list[int], *, stop_ids: set[int], max_tokens: int) -> list[int]:
+    """Generated tokens up to the first stop token, within the token budget."""
 
-    def trimmed(tokens: list[int]) -> list[int]:
-        kept: list[int] = []
-        for token in tokens[:max_tokens]:
-            if token in stop_ids:
-                break
-            kept.append(token)
-        return kept
+    kept: list[int] = []
+    for token in tokens[:max_tokens]:
+        if token in stop_ids:
+            break
+        kept.append(token)
+    return kept
 
-    return trimmed(reference) == trimmed(candidate)
+
+def agreed_prompts(deficits: list[float]) -> int:
+    """Prompts whose worst per-token deficit stays within the tolerance."""
+
+    return sum(1 for deficit in deficits if deficit <= AGREEMENT_MAX_DEFICIT_NAT)
 
 
 def agreement_passes(agreed: int | None, total: int | None) -> bool:
@@ -186,6 +197,7 @@ def require_publication_smoke(directory: str | Path) -> PublicationSmokeReceipt 
     results = {check.check: check for check in receipt.checks}
     failed = [name for name in required if name not in results or results[name].status != "pass"]
     agreement = results.get(AX_ENGINE_AGREEMENT_CHECK)
+    deficits = agreement.logprob_deficits if agreement is not None else None
     # Recompute from the recorded counts; a "pass" label alone is not trusted.
     if (
         AX_ENGINE_AGREEMENT_CHECK in required
@@ -193,6 +205,9 @@ def require_publication_smoke(directory: str | Path) -> PublicationSmokeReceipt 
         and agreement is not None
         and (
             agreement.prompt_set_sha256 != AGREEMENT_PROMPT_SET_SHA256
+            or deficits is None
+            or len(deficits) != agreement.total
+            or agreed_prompts(deficits) != agreement.agreed
             or not agreement_passes(agreement.agreed, agreement.total)
         )
     ):

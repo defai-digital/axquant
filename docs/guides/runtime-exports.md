@@ -176,8 +176,14 @@ A converted MLX pack keeps one layout for every target runtime:
 - When `mtplx_runtime.json` declares `mtp_norm_layout: raw_hf_delta`,
   `config.json` also declares `mtp_norm_encoding: delta`. oMLX's one-step
   sidecar import and MTPLX read that key; AX Engine reads the runtime file.
-  Packs converted before this declaration landed (2026-10-31) lack the key
-  and need a reconversion or a documented metadata update before oMLX import.
+  Packs converted before this declaration landed (2026-10-31) lack the key.
+
+`scripts/repair_pack_layout.py` brings an older pack to this layout without
+touching tensor bytes: it indexes a byte-preserved Qwen vision sidecar, applies
+the current MTPLX load contract to `config.json`, refreshes the manifest file
+records, compatibility record and AX Engine `model-manifest.json`, and backs up
+the original small files first. It refuses vision sidecars with other tensor
+layouts. Run it without `--apply` to see the planned changes.
 
 Publishing a generative MLX pack (a `...ForCausalLM` or
 `...ForConditionalGeneration` architecture) requires
@@ -186,7 +192,7 @@ runtime payload file. Required checks:
 
 | Check | When |
 | --- | --- |
-| MLX-LM text; AX Engine greedy-token agreement with MLX-LM on at least 9 of a fixed 10-prompt set | Always |
+| MLX-LM text; AX Engine agreement with MLX-LM on at least 9 of a fixed 10-prompt set | Always |
 | MLX-VLM text and image | The pack ships vision weights |
 | oMLX with MTP off and on, after `import_mtplx_sidecar` on a private copy | Qwen 3.5-family pack with `mtp.safetensors` |
 
@@ -196,12 +202,17 @@ python scripts/publication_smoke.py --directory /path/to/pack \
 ```
 
 `publish` and the catalog publisher refuse a missing, stale, or failing
-receipt; the gate recomputes the agreement ratio and prompt-set digest
-rather than trusting the recorded status. A single exact-answer prompt is not
-used for AX Engine: a small pack can sit on a near tie that ordinary
-kernel-order differences flip. Embedding and CUDA packs are outside this gate. A pass shows load and
-short greedy generation only; it is not quality, speed, or MTP acceptance
-evidence. The receipt records the chip, not the hostname.
+receipt. For AX Engine agreement, its greedy tokens (16-token budget) are
+teacher-forced through MLX-LM; a prompt agrees when every token is within
+0.5 nat of MLX-LM's top log-probability. Exact token equality and a single
+exact answer are not used: engines break exact ties differently, and a small
+pack can sit on a near tie. Healthy packs measured 0 or 0.125 nat (one BF16
+logit step); tokens from a different model measured up to 14 nat. The gate
+recomputes the count from the recorded deficits and checks the prompt-set
+digest rather than trusting the recorded status. Embedding and CUDA packs are
+outside this gate. A pass shows load and short greedy generation only; it is
+not quality, speed, or MTP acceptance evidence. The receipt records the chip,
+not the hostname.
 
 ## Adding profiles and claiming compatibility
 

@@ -34,16 +34,18 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from axquant.publication_smoke import (  # noqa: E402
+    AGREEMENT_MAX_DEFICIT_NAT,
     AGREEMENT_MAX_TOKENS,
     AGREEMENT_MIN_RATIO,
     AGREEMENT_PROMPT_SET_SHA256,
     AGREEMENT_PROMPTS,
     AX_ENGINE_AGREEMENT_CHECK,
     SMOKE_RECEIPT_FILENAME,
+    agreed_prompts,
     agreement_passes,
-    greedy_tokens_agree,
     required_smoke_checks,
     runtime_payload_sha256,
+    trim_at_stop,
 )
 from axquant.schema.runtime_export import (  # noqa: E402
     PublicationSmokeCheck,
@@ -83,26 +85,47 @@ result = generate(model, processor, prompt, images, max_tokens=16, verbose=False
 print("RESULT " + json.dumps(getattr(result, "text", result)))
 """
 
-_MLX_LM_GREEDY = """
+_MLX_LM_TOKENIZE = """
 import json, sys
 from mlx_lm import load
-from mlx_lm.generate import stream_generate
 model, tokenizer = load(sys.argv[1])
-max_tokens = int(sys.argv[2])
 rows = []
-for question in json.loads(sys.argv[3]):
+for question in json.loads(sys.argv[2]):
     text = tokenizer.apply_chat_template(
         [{"role": "user", "content": question}],
         add_generation_prompt=True, tokenize=False, enable_thinking=False,
     )
-    ids = tokenizer.encode(text, add_special_tokens=False)
-    tokens = [r.token for r in stream_generate(model, tokenizer, ids, max_tokens=max_tokens)]
-    rows.append({"ids": list(ids), "tokens": [int(t) for t in tokens]})
+    rows.append(list(tokenizer.encode(text, add_special_tokens=False)))
 stop = set(getattr(tokenizer, "eos_token_ids", None) or [])
 stop |= set(getattr(tokenizer, "all_special_ids", None) or [])
 if tokenizer.eos_token_id is not None:
     stop.add(tokenizer.eos_token_id)
-print("RESULT " + json.dumps({"rows": rows, "stop_ids": sorted(int(t) for t in stop)}))
+print("RESULT " + json.dumps({"ids": rows, "stop_ids": sorted(int(t) for t in stop)}))
+"""
+
+# Teacher-force each candidate continuation through MLX-LM in one forward pass
+# and report the worst gap between MLX-LM's top log-probability and the
+# candidate token's log-probability.
+_MLX_LM_SCORE = """
+import json, sys
+import mlx.core as mx
+from mlx_lm import load
+model, _ = load(sys.argv[1])
+deficits = []
+for row in json.load(open(sys.argv[2])):
+    ids, cont = row["ids"], row["tokens"]
+    if not cont:
+        deficits.append(0.0)
+        continue
+    logits = model(mx.array([ids + cont]))[0].astype(mx.float32)
+    logprobs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
+    start = len(ids) - 1
+    worst = 0.0
+    for offset, token in enumerate(cont):
+        step = logprobs[start + offset]
+        worst = max(worst, (step.max() - step[token]).item())
+    deficits.append(worst)
+print("RESULT " + json.dumps(deficits))
 """
 
 _OMLX_IMPORT = """
@@ -206,46 +229,69 @@ def _ax_engine_generate(args: argparse.Namespace, ids: list[int]) -> list[int]:
 
 
 def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> PublicationSmokeCheck:
-    """AX Engine greedy tokens must match MLX-LM on most of a fixed prompt set."""
+    """AX Engine's greedy tokens must be near-top choices of MLX-LM."""
 
     started = time.monotonic()
-    agreed, total, detail, mismatched = 0, len(AGREEMENT_PROMPTS), "", []
+    total = len(AGREEMENT_PROMPTS)
+    detail, deficits = "", []
     try:
         reference = _python_result(
             args.python,
-            _MLX_LM_GREEDY,
+            _MLX_LM_TOKENIZE,
             str(args.directory),
-            str(AGREEMENT_MAX_TOKENS),
             json.dumps(list(AGREEMENT_PROMPTS)),
             timeout=args.timeout,
         )
         stop_ids = set(reference["stop_ids"])
-        for index, row in enumerate(reference["rows"]):
-            candidate = _ax_engine_generate(args, row["ids"])
-            if greedy_tokens_agree(
-                row["tokens"], candidate, stop_ids=stop_ids, max_tokens=AGREEMENT_MAX_TOKENS
-            ):
-                agreed += 1
-            else:
-                mismatched.append(index)
+        rows = [
+            {
+                "ids": ids,
+                "tokens": trim_at_stop(
+                    _ax_engine_generate(args, ids),
+                    stop_ids=stop_ids,
+                    max_tokens=AGREEMENT_MAX_TOKENS,
+                ),
+            }
+            for ids in reference["ids"]
+        ]
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(rows, handle)
+        try:
+            deficits = [
+                round(float(value), 4)
+                for value in _python_result(
+                    args.python,
+                    _MLX_LM_SCORE,
+                    str(args.directory),
+                    handle.name,
+                    timeout=args.timeout,
+                )
+            ]
+        finally:
+            os.unlink(handle.name)
     except Exception as exc:  # recorded as a failing check, never swallowed
         detail = f"{type(exc).__name__}: {exc}"[:2000]
-        agreed = 0
+    agreed = agreed_prompts(deficits) if len(deficits) == total else 0
     passed = not detail and agreement_passes(agreed, total)
-    if not detail and mismatched:
-        detail = f"mismatched prompt indexes: {mismatched}"
-    output = f"{agreed}/{total} prompts match MLX-LM greedy tokens"
-    print(f"{AX_ENGINE_AGREEMENT_CHECK}: {'pass' if passed else 'FAIL'} {output} {detail}")
+    if not detail and agreed < total:
+        outliers = [i for i, d in enumerate(deficits) if d > AGREEMENT_MAX_DEFICIT_NAT]
+        detail = f"prompts beyond {AGREEMENT_MAX_DEFICIT_NAT} nat: {outliers}"
+    output = f"{agreed}/{total} prompts within {AGREEMENT_MAX_DEFICIT_NAT} nat of MLX-LM"
+    print(f"{AX_ENGINE_AGREEMENT_CHECK}: {'pass' if passed else 'FAIL'} {output} {deficits}")
     return PublicationSmokeCheck(
         check=AX_ENGINE_AGREEMENT_CHECK,
         status="pass" if passed else "fail",
         runtime_version=version,
-        expected=f">= {AGREEMENT_MIN_RATIO:.0%} of {total} identical greedy continuations",
+        expected=(
+            f">= {AGREEMENT_MIN_RATIO:.0%} of {total} prompts with every token within "
+            f"{AGREEMENT_MAX_DEFICIT_NAT} nat of MLX-LM's top choice"
+        ),
         output=output,
         detail=detail,
         seconds=round(time.monotonic() - started, 3),
         agreed=agreed,
         total=total,
+        logprob_deficits=deficits or None,
         prompt_set_sha256=AGREEMENT_PROMPT_SET_SHA256,
     )
 

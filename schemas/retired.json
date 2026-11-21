@@ -15,6 +15,14 @@
       "retired_at": "2026-10-16",
       "schema_version": "axq-doclayout.development/1",
       "sha256": "9557769e908152c20ae5fb5908be3734589b7c57fd3f69ea805c073c876a5b56"
+    },
+    {
+      "decision": "publication-smoke gate (2026-11-20)",
+      "filename": "axquant.publication-smoke.v1.schema.json",
+      "note": "Bumped to v2 the same day: the AX Engine agreement check records per-prompt teacher-forced log-probability deficits under MLX-LM instead of exact greedy-token equality, which engines fail on exact ties. No v1 receipt is accepted by the gate.",
+      "retired_at": "2026-11-20",
+      "schema_version": "axquant.publication-smoke.v1",
+      "sha256": "d5b1a51fa0d427e3a17a1d319b75a73f00834afffb30a89203f88398c7bef757"
     }
   ]
 }

@@ -83,10 +83,12 @@ class PublicationSmokeCheck(StrictModel):
     output: str = ""
     detail: str = ""
     seconds: float | None = None
-    # Agreement checks: prompts whose greedy tokens matched MLX-LM, out of total,
-    # for the prompt set identified by its digest.
+    # Agreement checks: per-prompt worst log-probability deficit (nat) of the
+    # candidate's tokens under MLX-LM, prompts within tolerance, and the digest
+    # of the prompt set, budget and tolerance.
     agreed: int | None = Field(default=None, ge=0)
     total: int | None = Field(default=None, ge=1)
+    logprob_deficits: list[float] | None = None
     prompt_set_sha256: Digest | None = None
 
 
@@ -97,7 +99,7 @@ class PublicationSmokeReceipt(StrictModel):
     quality, speed, or MTP acceptance.
     """
 
-    schema_version: Literal["axquant.publication-smoke.v1"] = "axquant.publication-smoke.v1"
+    schema_version: Literal["axquant.publication-smoke.v2"] = "axquant.publication-smoke.v2"
     payload_sha256: Digest
     required_checks: list[PublicationSmokeCheckId]
     checks: list[PublicationSmokeCheck]
