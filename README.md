@@ -44,7 +44,7 @@ Its [coding calibration study](docs/runbooks/qwen38-27b-mxfp4-flagship.md) uses
 measured sensitivity, a matched storage budget, protected BF16 MTP weights,
 and separate task-quality and runtime validation.
 
-**Status:** official toolkit release `3.0.0` (not a prerelease). The
+**Status:** official toolkit release `3.0.1` (not a prerelease). The
 historical validated-toolkit pin is `axquant[mlx]==1.8.1`; new installations
 should use the current package. Neither install choice certifies a model.
 The 2.0 line opens the experimental
@@ -63,7 +63,7 @@ Version 2.1 adds [explicit oMLX/MTPLX runtime exports](docs/guides/runtime-expor
 and manifest-bound compatibility checks for future MLX conversions. Unknown
 peer profiles fail closed; static format checks do not establish generation
 or certification. Install the toolkit with
-`python -m pip install 'axquant[mlx]==3.0.0'` when using these commands.
+`python -m pip install 'axquant[mlx]==3.0.1'` when using these commands.
 
 Install from PyPI, then convert. You do not need to clone this repository.
 
