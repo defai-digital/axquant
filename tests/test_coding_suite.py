@@ -995,3 +995,32 @@ def test_general_quality_rejects_raw_outputs_outside_evidence_root(tmp_path: Pat
             raw_log_dir=tmp_path / "outside",
             backend=_FakeCodingBackend(),
         )
+
+
+def _deny_killpg(_pid: int, _signal: int) -> None:
+    raise PermissionError(1, "Operation not permitted")
+
+
+def test_group_kill_tolerates_darwin_eperm_after_exit(monkeypatch: pytest.MonkeyPatch) -> None:
+    import axquant.coding_sandbox as sandbox
+
+    process = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
+    process.wait()
+    monkeypatch.setattr(sandbox.os, "killpg", _deny_killpg)
+    sandbox._kill_process_group(process)
+
+
+def test_group_kill_falls_back_to_the_leader_on_eperm(monkeypatch: pytest.MonkeyPatch) -> None:
+    import axquant.coding_sandbox as sandbox
+
+    process = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], start_new_session=True
+    )
+    try:
+        monkeypatch.setattr(sandbox.os, "killpg", _deny_killpg)
+        sandbox._kill_process_group(process)
+        assert process.wait(timeout=10) != 0
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()

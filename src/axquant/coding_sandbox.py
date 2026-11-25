@@ -154,6 +154,24 @@ def _process_group_usage(process_group: int) -> tuple[int, int] | None:
     return total_kib * 1024, processes
 
 
+def _kill_process_group(process: subprocess.Popen[bytes]) -> None:
+    """SIGKILL the scorer's session group.
+
+    Darwin answers EPERM for a group whose members have all exited but are not
+    yet reaped; that group needs no signal. If the leader is still running, it
+    is killed directly so the following wait cannot hang.
+    """
+
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        return
+    except PermissionError:
+        if process.poll() is None:
+            with suppress(ProcessLookupError):
+                process.kill()
+
+
 def _wait_with_limits(
     process: subprocess.Popen[bytes],
     *,
@@ -237,12 +255,10 @@ def _wait_with_limits(
         or output_limit_exceeded
         or monitor_error is not None
     ):
-        with suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGKILL)
+        _kill_process_group(process)
     exit_code = process.wait()
     # A compiler must not leave a background descendant holding either capture pipe open.
-    with suppress(ProcessLookupError):
-        os.killpg(process.pid, signal.SIGKILL)
+    _kill_process_group(process)
     drain_deadline = time.monotonic() + 1.0
     while selector.get_map() and time.monotonic() < drain_deadline:
         read_ready_streams(0.02)
@@ -307,8 +323,7 @@ def _run_command(
         )
     except (OSError, subprocess.SubprocessError) as exc:
         if process is not None and process.poll() is None:
-            with suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGKILL)
+            _kill_process_group(process)
             process.wait()
         return _CommandResult(
             exit_code=None,
