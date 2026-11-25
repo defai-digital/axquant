@@ -19,6 +19,7 @@ from axquant.planner import (
     strategy_for_measurement,
 )
 from axquant.predicate import fused_stack_method_allowed
+from axquant.product_formats import mlx_candidate_allowed
 from axquant.profiles import objective_for
 from axquant.revisions import is_immutable_revision
 from axquant.schema import (
@@ -121,6 +122,12 @@ def _precision(
         group_size = None
     else:
         group_size = group_size or recipe.group_size
+    if bits < 16 and not mlx_candidate_allowed(bits, method, group_size):
+        raise PlanningError(
+            f"AXQ-070: manual recipe assigns {bits}-bit {method.value} group {group_size} to "
+            f"{tensor.name}; MLX storage is 4-bit mxfp4 or 8-bit affine (stored as MXFP8) "
+            "at group 32, or bf16"
+        )
     if bits not in recipe.hardware.supported_bits:
         raise PlanningError(f"hardware profile does not support {bits}-bit for {tensor.name}")
     if method not in recipe.hardware.supported_methods:
@@ -142,7 +149,7 @@ def _precision(
     ):
         raise PlanningError(
             f"manual recipe assigns {method.value} to expert tensor {tensor.name}; "
-            "conversion can only execute affine, dwq, or mxfp4 packing for "
+            "conversion can only execute MXFP4 or MXFP8 packing for "
             "fused/packed expert modules"
         )
     if rule is not None:
@@ -189,13 +196,24 @@ def _harmonize_tied_weights(
             )
         )
         for allocation in tied:
-            allocation.bits = bits
-            allocation.method = method
-            allocation.group_size = group_size
-            allocation.reason = "tied-weight group harmonized at maximum selected precision"
-            allocation.scale_strategy = scale_strategy
-            allocation.outlier_strategy = outlier_strategy
-            allocation.strategy_metadata["storage_bpw"] = storage_bpw(bits, group_size)
+            # Replace the whole signature at once: assigning bits before method
+            # passes through invalid states (e.g. 8-bit mxfp4) under validation.
+            metadata = dict(allocation.strategy_metadata)
+            metadata["storage_bpw"] = storage_bpw(bits, group_size)
+            harmonized = Allocation.model_validate(
+                {
+                    **allocation.model_dump(),
+                    "bits": bits,
+                    "method": method,
+                    "group_size": group_size,
+                    "reason": "tied-weight group harmonized at maximum selected precision",
+                    "scale_strategy": scale_strategy,
+                    "outlier_strategy": outlier_strategy,
+                    "strategy_metadata": metadata,
+                }
+            )
+            allocations[allocations.index(allocation)] = harmonized
+            by_tensor[harmonized.tensor] = harmonized
 
 
 def _enforce_fused_expert_signatures(allocations: list[Allocation]) -> None:

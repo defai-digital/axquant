@@ -1,0 +1,64 @@
+{
+  "ax_engine_commit": "929e1f135",
+  "observed_at": "2026-11-24",
+  "schema_version": "axquant.dflash2_admitted_targets.v1",
+  "targets": [
+    {
+      "admitted_format_lanes": [
+        "mxfp4",
+        "mxfp8",
+        "affine6_g64"
+      ],
+      "drafter_config_sha256": "873e3556509b0da06e29654ba00d4944888d4b5e8a33afde25f7eb27d321e980",
+      "drafter_repo": "z-lab/Qwen3.8-27B-DFlash2",
+      "drafter_revision": "50307d4c4cde6860d4eee73e2547cd786fe8e8a4",
+      "drafter_weights_sha256": "67fc76d68dc5a9415511a4f394ef744d67510cd20e93b37cc2cc7d28e4bab65c",
+      "signature": {
+        "hidden_size": 5120,
+        "model_types": [
+          "qwen3_5",
+          "qwen3_5_text"
+        ],
+        "num_experts": null,
+        "num_hidden_layers": 64,
+        "vocab_size": 248320
+      },
+      "source_model_id": "Qwen/Qwen3.8-27B",
+      "tap_layer_ids": [
+        5,
+        19,
+        33,
+        47,
+        61
+      ]
+    },
+    {
+      "admitted_format_lanes": null,
+      "drafter_config_sha256": "86d2e8e57e7c70bb867240708d00c0535ae9ed3c828dbdcb21584471c7bbce59",
+      "drafter_repo": "incoai/Qwen3.6-35B-A3B-DFlash2",
+      "drafter_revision": "51ef7b6923ad6c14cb1bb41c37a9041446496ab6",
+      "drafter_weights_sha256": "d1f16c0ff85afbe6166fabfae998af3ec16fa11da87da4391b5e0e0a7c796a4d",
+      "signature": {
+        "hidden_size": 2048,
+        "model_types": [
+          "qwen3_5_moe",
+          "qwen3_5_moe_text"
+        ],
+        "num_experts": 256,
+        "num_hidden_layers": 40,
+        "vocab_size": 248320
+      },
+      "source_model_id": "Qwen/Qwen3.6-35B-A3B",
+      "tap_layer_ids": [
+        1,
+        6,
+        11,
+        16,
+        22,
+        27,
+        32,
+        37
+      ]
+    }
+  ]
+}

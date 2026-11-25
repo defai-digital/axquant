@@ -97,7 +97,9 @@ between published versions.
   `runtime.ax_engine.weight_sanitize` and `runtime.ax_engine.weight_layout` after the converter
   checks raw-delta trunk norms and MLX-order conv1d kernels. AX Engine 8.0.6 does not read v3 and
   fails these packs with `qwen4_exp_weight_layout_unknown`; use an AX Engine build that includes the
-  v3 reader. Other families keep `axquant.artifact.v2`. The published 1.9.0 Flash-Next packs are
+  v3 reader. Conversion also validates the pack with `ax-engine-bench generate-manifest`, so a
+  Flash-Next convert needs `--ax-engine-bench` pointing at such a build (or an explicit
+  `--ax-engine-manifest skip`). Other families keep `axquant.artifact.v2`. The published 1.9.0 Flash-Next packs are
   unaffected. Beside MXFP4 experts, AX Engine also accepts 8-bit protected projections only at
   affine group size 32.
 - **MTPLX rejects sharded n-gram tables in the language index.** Qwen 3.8 Flash-Next packs carry

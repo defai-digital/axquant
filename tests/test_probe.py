@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -464,7 +465,9 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         model=identity,
         calibration_cache=str(cache),
         profile=ProfileName.AGENT_CODING,
-        candidate_bits=(4, 16),
+        # AXQ-070: 4-bit probing is MXFP4-only, so the affine baseline and
+        # the DWQ / AWQ / GPTQ analysis candidates are measured at 8-bit.
+        candidate_bits=(8, 16),
         group_size=64,
         token_budget_per_candidate=32,
     )
@@ -473,8 +476,6 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         config=config,
         backend=backend,
         state_path=progress_path,
-        # The fixture intentionally probes retired affine 4-bit (AXQ-047).
-        allow_legacy_4bit=True,
     )
 
     assert report.evidence_kind == EvidenceKind.MEASURED_DEVELOPMENT
@@ -487,15 +488,15 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
     quantized_entry = next(
         entry
         for entry in report.entries
-        if any(candidate.bits == 4 for candidate in entry.candidates)
+        if any(candidate.bits == 8 for candidate in entry.candidates)
     )
-    four_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 4)
-    assert four_bit.measured_tokens > 0
-    assert four_bit.metrics.output_kl > 0
-    assert four_bit.metrics.hidden_state_error > 0
-    assert four_bit.metrics.task_loss_delta > 0
-    assert 1.0 <= four_bit.metrics.peak_memory_cost < 2.0
-    assert four_bit.metrics.prefill_latency_cost > 1.0
+    eight_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 8)
+    assert eight_bit.measured_tokens > 0
+    assert eight_bit.metrics.output_kl > 0
+    assert eight_bit.metrics.hidden_state_error > 0
+    assert eight_bit.metrics.task_loss_delta > 0
+    assert 1.0 <= eight_bit.metrics.peak_memory_cost < 2.0
+    assert eight_bit.metrics.prefill_latency_cost > 1.0
     bf16 = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 16)
     assert bf16.metrics.peak_memory_cost == 1.0
     assert bf16.metrics.prefill_latency_cost == 1.0
@@ -518,7 +519,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         inventory,
         config=config.model_copy(
             update={
-                "candidate_bits": (4,),
+                "candidate_bits": (8,),
                 "candidate_methods": (QuantMethod.DWQ,),
                 "target_tensors": (target_tensor,),
             }
@@ -526,7 +527,6 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=refined_backend,
         state_path=tmp_path / "dwq-progress.json",
         base_report=report,
-        allow_legacy_4bit=True,
     )
 
     # AXQ-048: the base report may record the checkpoint path it was measured
@@ -541,7 +541,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         inventory,
         config=config.model_copy(
             update={
-                "candidate_bits": (4,),
+                "candidate_bits": (8,),
                 "candidate_methods": (QuantMethod.DWQ,),
                 "target_tensors": (target_tensor,),
             }
@@ -549,18 +549,17 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "path-only-progress.json",
         base_report=path_only_report,
-        allow_legacy_4bit=True,
     )
     refined_entry = next(entry for entry in refined.entries if entry.tensor.name == target_tensor)
     dwq = next(
         candidate
         for candidate in refined_entry.candidates
-        if candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        if candidate.bits == 8 and candidate.method == QuantMethod.DWQ
     )
-    assert dwq.measured_tokens == four_bit.measured_tokens
-    assert dwq.metrics.output_kl < four_bit.metrics.output_kl
-    assert dwq.metrics.peak_memory_cost == four_bit.metrics.peak_memory_cost
-    assert dwq.metrics.prefill_latency_cost == four_bit.metrics.prefill_latency_cost
+    assert dwq.measured_tokens == eight_bit.measured_tokens
+    assert dwq.metrics.output_kl < eight_bit.metrics.output_kl
+    assert dwq.metrics.peak_memory_cost == eight_bit.metrics.peak_memory_cost
+    assert dwq.metrics.prefill_latency_cost == eight_bit.metrics.prefill_latency_cost
     assert refined.calibration is not None
     assert refined.calibration.metadata["base_sensitivity_sha256"] == stable_sha256(report)
     assert refined.calibration.metadata["candidate_methods"] == "dwq"
@@ -596,7 +595,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         inventory,
         config=config.model_copy(
             update={
-                "candidate_bits": (4,),
+                "candidate_bits": (8,),
                 "candidate_methods": (QuantMethod.DWQ,),
                 "target_tensors": (target_tensor,),
             }
@@ -604,11 +603,10 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "stale-tier-progress.json",
         base_report=stale_report,
-        allow_legacy_4bit=True,
     )
     promoted_entry = next(entry for entry in promoted.entries if entry.tensor.name == target_tensor)
     assert any(
-        candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        candidate.bits == 8 and candidate.method == QuantMethod.DWQ
         for candidate in promoted_entry.candidates
     )
 
@@ -621,7 +619,7 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         inventory,
         config=config.model_copy(
             update={
-                "candidate_bits": (4,),
+                "candidate_bits": (8,),
                 "candidate_methods": (QuantMethod.DWQ,),
                 "target_tensors": (target_tensor,),
             }
@@ -629,10 +627,9 @@ def test_probe_replays_verified_tokens_and_emits_measured_evidence(
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "legacy-hash-progress.json",
         base_report=legacy_report,
-        allow_legacy_4bit=True,
     )
     assert any(
-        candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        candidate.bits == 8 and candidate.method == QuantMethod.DWQ
         for entry in legacy.entries
         if entry.tensor.name == target_tensor
         for candidate in entry.candidates
@@ -695,7 +692,9 @@ def _base_probe_report(
         model=identity,
         calibration_cache=str(cache),
         profile=ProfileName.AGENT_CODING,
-        candidate_bits=(4, 16),
+        # AXQ-070: 4-bit probing is MXFP4-only, so the affine baseline and
+        # the DWQ / AWQ / GPTQ analysis candidates are measured at 8-bit.
+        candidate_bits=(8, 16),
         group_size=64,
         token_budget_per_candidate=32,
     )
@@ -704,8 +703,6 @@ def _base_probe_report(
         config=config,
         backend=_MeasuredFakeBackend(),
         state_path=tmp_path / "probe-progress.json",
-        # Base reports intentionally carry retired affine 4-bit candidates.
-        allow_legacy_4bit=True,
     )
     return inventory, config, report
 
@@ -829,13 +826,14 @@ def test_probe_measures_mxfp4_candidates_at_4bit_group32(
     assert measured_mxfp4 > 0
 
 
-def test_four_bit_probe_grid_defaults_to_mxfp4_only(
+def test_four_bit_probe_grid_is_mxfp4_only(
     qwen36_model_dir: Path,
     tmp_path: Path,
 ) -> None:
-    # AXQ-047 (ADR 0016): by default a 4-bit probe grid measures MXFP4 (group
-    # 32) only, even when the requested group size is coarser; the retired
-    # affine 4-bit candidates return only under the explicit opt-in.
+    # AXQ-047 / AXQ-070: a 4-bit probe grid measures MXFP4 (group 32) only,
+    # even when the requested group size is coarser and affine is requested;
+    # the legacy affine 4-bit opt-in no longer exists.
+    assert "allow_legacy_4bit" not in inspect.signature(probe_tensor_sensitivity).parameters
     identity = ModelIdentity(
         model_id="Qwen/Qwen3.6-27B",
         revision="a" * 40,
@@ -884,38 +882,35 @@ def test_four_bit_probe_grid_defaults_to_mxfp4_only(
         separation_attested=True,
     )
 
-    def _probe(*, allow_legacy_4bit: bool) -> None:
-        backend = _MeasuredFakeBackend()
-        config = ProbeConfig(
-            model=identity,
-            calibration_cache=str(cache),
-            profile=ProfileName.AGENT_CODING,
-            candidate_bits=(4, 16),
-            candidate_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4),
-            group_size=64,
-            token_budget_per_candidate=32,
-        )
-        report = probe_tensor_sensitivity(
-            inventory,
-            config=config,
-            backend=backend,
-            state_path=tmp_path / f"grid-{'legacy' if allow_legacy_4bit else 'default'}.json",
-            allow_legacy_4bit=allow_legacy_4bit,
-        )
-        for entry in report.entries:
-            four_bit = [candidate for candidate in entry.candidates if candidate.bits == 4]
-            if not four_bit:
-                # Protected / probe-non-quantizable tensors stay 16-bit only.
-                continue
-            if allow_legacy_4bit:
-                assert any(candidate.method == QuantMethod.AFFINE for candidate in four_bit)
-            else:
-                assert len(four_bit) == 1
-                assert four_bit[0].method == QuantMethod.MXFP4
-                assert four_bit[0].group_size == 32
-
-    _probe(allow_legacy_4bit=False)
-    _probe(allow_legacy_4bit=True)
+    backend = _MeasuredFakeBackend()
+    config = ProbeConfig(
+        model=identity,
+        calibration_cache=str(cache),
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 16),
+        candidate_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4),
+        group_size=64,
+        token_budget_per_candidate=32,
+    )
+    report = probe_tensor_sensitivity(
+        inventory,
+        config=config,
+        backend=backend,
+        state_path=tmp_path / "grid.json",
+    )
+    measured_four_bit = 0
+    for entry in report.entries:
+        four_bit = [candidate for candidate in entry.candidates if candidate.bits == 4]
+        if not four_bit:
+            # Protected / probe-non-quantizable tensors stay 16-bit only.
+            continue
+        measured_four_bit += 1
+        assert len(four_bit) == 1
+        assert four_bit[0].method == QuantMethod.MXFP4
+        assert four_bit[0].group_size == 32
+    assert measured_four_bit
+    # The backend was never asked to pack affine 4-bit.
+    assert set(backend.methods) == {QuantMethod.MXFP4}
 
 
 def test_probe_requires_calibration_activations_for_awq_gptq(
@@ -978,9 +973,9 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
     quantized_entry = next(
         entry
         for entry in report.entries
-        if any(candidate.bits == 4 for candidate in entry.candidates)
+        if any(candidate.bits == 8 for candidate in entry.candidates)
     )
-    four_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 4)
+    eight_bit = next(candidate for candidate in quantized_entry.candidates if candidate.bits == 8)
     target_tensor = quantized_entry.tensor.name
     activations = {target_tensor.removesuffix(".weight"): np.zeros((4, 8), dtype=np.float32)}
     bound_activations = _bound_probe_capture(tmp_path, config, report, activations)
@@ -990,7 +985,7 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             inventory,
             config=config.model_copy(
                 update={
-                    "candidate_bits": (4,),
+                    "candidate_bits": (8,),
                     "candidate_methods": (QuantMethod.AWQ,),
                     "target_tensors": (target_tensor,),
                 }
@@ -1008,7 +1003,7 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             inventory,
             config=config.model_copy(
                 update={
-                    "candidate_bits": (4,),
+                    "candidate_bits": (8,),
                     "candidate_methods": (method,),
                     "target_tensors": (target_tensor,),
                 }
@@ -1017,7 +1012,6 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
             state_path=tmp_path / f"{method.value}-progress.json",
             base_report=report,
             calibration_activations=bound_activations,
-            allow_legacy_4bit=True,
         )
         refined_entry = next(
             entry for entry in refined.entries if entry.tensor.name == target_tensor
@@ -1025,12 +1019,12 @@ def test_probe_awq_gptq_refinement_normalizes_hardware_costs(
         candidate = next(
             candidate
             for candidate in refined_entry.candidates
-            if candidate.bits == 4 and candidate.method == method
+            if candidate.bits == 8 and candidate.method == method
         )
         assert candidate.supported
-        assert candidate.measured_tokens == four_bit.measured_tokens
-        assert candidate.metrics.peak_memory_cost == four_bit.metrics.peak_memory_cost
-        assert candidate.metrics.prefill_latency_cost == four_bit.metrics.prefill_latency_cost
+        assert candidate.measured_tokens == eight_bit.measured_tokens
+        assert candidate.metrics.peak_memory_cost == eight_bit.metrics.peak_memory_cost
+        assert candidate.metrics.prefill_latency_cost == eight_bit.metrics.prefill_latency_cost
         assert candidate.note is not None
         assert note_text in candidate.note
         assert "hardware costs normalized" in candidate.note
@@ -1064,28 +1058,27 @@ def test_probe_refinement_skips_failed_affine_packing_control(
         inventory,
         config=config.model_copy(
             update={
-                "candidate_bits": (4,),
+                "candidate_bits": (8,),
                 "candidate_methods": (QuantMethod.AFFINE, QuantMethod.DWQ),
             }
         ),
         backend=_AffineFailingBackend(),
-        allow_legacy_4bit=True,
     )
     quantized_entry = next(
         entry
         for entry in report.entries
-        if any(candidate.bits == 4 for candidate in entry.candidates)
+        if any(candidate.bits == 8 for candidate in entry.candidates)
     )
     affine = next(
         candidate
         for candidate in quantized_entry.candidates
-        if candidate.bits == 4 and candidate.method == QuantMethod.AFFINE
+        if candidate.bits == 8 and candidate.method == QuantMethod.AFFINE
     )
     assert not affine.supported
     dwq = next(
         candidate
         for candidate in quantized_entry.candidates
-        if candidate.bits == 4 and candidate.method == QuantMethod.DWQ
+        if candidate.bits == 8 and candidate.method == QuantMethod.DWQ
     )
     assert dwq.supported
     assert dwq.metrics.peak_memory_cost > 0.0
@@ -1116,7 +1109,7 @@ def test_probe_rejects_capture_bound_to_another_cache(
             inventory,
             config=config.model_copy(
                 update={
-                    "candidate_bits": (4,),
+                    "candidate_bits": (8,),
                     "candidate_methods": (QuantMethod.AWQ,),
                     "target_tensors": (target.name,),
                 }

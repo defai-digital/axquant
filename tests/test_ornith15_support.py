@@ -8,9 +8,7 @@ from axquant.serde import load_model
 _ROOT = Path(__file__).resolve().parents[1]
 _RECIPES = (
     "examples/ornith-15-9b-axq-mxfp4-v0.1.yaml",
-    "examples/ornith-15-9b-axq6-v0.1.yaml",
     "examples/ornith-15-35b-axq-mxfp4-v0.1.yaml",
-    "examples/ornith-15-35b-axq6-v0.1.yaml",
 )
 
 
@@ -27,11 +25,15 @@ def test_ornith15_recipes_parse() -> None:
         else:
             assert TensorRole.EXPERT in roles
             assert TensorRole.ROUTER in roles
-        if "mxfp4" in relative:
-            assert recipe.group_size == 32
-        else:
-            assert recipe.default_bits == 6
-            assert recipe.group_size == 64
+        # AXQ-070: MXFP4 trunk, MXFP8 floors, BF16, all at group 32.
+        assert recipe.default_bits == 4
+        assert recipe.group_size == 32
+        for rule in recipe.rules:
+            assert (rule.bits, rule.method.value, rule.group_size) in {
+                (4, "mxfp4", 32),
+                (8, "affine", 32),
+                (16, "bf16", None),
+            }
 
 
 def test_factory_catalog_has_no_withdrawn_397b_recipe_or_entry() -> None:

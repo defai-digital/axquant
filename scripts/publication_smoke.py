@@ -9,7 +9,10 @@ quality, speed, or MTP acceptance.
 
 oMLX checks import the MTP sidecar into a private copy of the pack (the
 documented one-step ``import_mtplx_sidecar`` path) and serve it with MTP off
-and on. The source pack is never modified except for the receipt.
+and on. Decision-head files (Clef joint head, Decision 3.0 readout) are left
+out of that copy: oMLX would otherwise serve the pack only on its decision
+endpoint, while the MTP head belongs to the chat backbone. The source pack is
+never modified except for the receipt.
 """
 
 from __future__ import annotations
@@ -40,9 +43,11 @@ from axquant.publication_smoke import (  # noqa: E402
     AGREEMENT_PROMPT_SET_SHA256,
     AGREEMENT_PROMPTS,
     AX_ENGINE_AGREEMENT_CHECK,
+    DECISION_HEAD_NOTE,
     SMOKE_RECEIPT_FILENAME,
     agreed_prompts,
     agreement_passes,
+    decision_head_files,
     required_smoke_checks,
     runtime_payload_sha256,
     trim_at_stop,
@@ -225,7 +230,14 @@ def _ax_engine_generate(args: argparse.Namespace, ids: list[int]) -> list[int]:
     backend = reply.get("runtime", {}).get("selected_backend")
     if backend not in (None, "mlx"):
         raise RuntimeError(f"AX Engine selected backend {backend!r}, not MLX")
-    return [int(token) for token in reply.get("output_tokens", [])]
+    if not isinstance(reply.get("output_tokens"), list):
+        raise RuntimeError("AX Engine reply has no output_tokens list")
+    return [int(token) for token in reply["output_tokens"]]
+
+
+# Recorded for a prompt whose AX Engine continuation was empty (far above the
+# agreement tolerance, so the gate's recount treats it as disagreement).
+EMPTY_CONTINUATION_DEFICIT = 99.0
 
 
 def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> PublicationSmokeCheck:
@@ -269,6 +281,14 @@ def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> Publi
             ]
         finally:
             os.unlink(handle.name)
+        # An empty continuation scores a zero deficit trivially; it is not
+        # agreement. Record it as a disagreeing prompt.
+        empty = [index for index, row in enumerate(rows) if not row["tokens"]]
+        for index in empty:
+            deficits[index] = EMPTY_CONTINUATION_DEFICIT
+        if empty:
+            detail_note = f"AX Engine produced no tokens before a stop for prompts {empty}"
+            print(detail_note, flush=True)
     except Exception as exc:  # recorded as a failing check, never swallowed
         detail = f"{type(exc).__name__}: {exc}"[:2000]
     agreed = agreed_prompts(deficits) if len(deficits) == total else 0
@@ -320,14 +340,18 @@ def _synthetic_digit(path: Path) -> Path:
     return path
 
 
-def _private_import_copy(source: Path, destination: Path) -> Path:
+def _private_import_copy(source: Path, destination: Path, excluded: list[str]) -> Path:
     """Symlink weights, copy the small files the oMLX import rewrites."""
 
     destination.mkdir()
     for path in source.iterdir():
         target = destination / path.name
-        if path.is_dir():
+        if path.name in excluded:
             continue
+        if path.is_dir() and path.name in {"__pycache__", ".cache"}:
+            continue
+        if path.is_dir():
+            raise RuntimeError(f"oMLX private copy does not support subdirectories: {path.name}")
         if path.suffix == ".safetensors" and path.name != "mtp.safetensors":
             target.symlink_to(path)
         else:
@@ -339,7 +363,8 @@ def _omlx_checks(args: argparse.Namespace, work: Path) -> list[PublicationSmokeC
     from smoke_runtime_export import run_case
 
     version = _package_version(args.omlx_python, "omlx")
-    copy = _private_import_copy(args.directory, work / args.directory.name)
+    excluded = decision_head_files(args.directory)
+    copy = _private_import_copy(args.directory, work / args.directory.name, excluded)
     try:
         _python_result(args.omlx_python, _OMLX_IMPORT, str(copy), timeout=900)
     except Exception as exc:
@@ -366,6 +391,9 @@ def _omlx_checks(args: argparse.Namespace, work: Path) -> list[PublicationSmokeC
             timeout=args.timeout,
             vision=False,
             ple_mode="auto",
+            # Same prompt as the MLX-LM and MLX-VLM checks, so a wrong answer
+            # separates a runtime fault from the model's own answer.
+            text_prompt=TEXT_PROMPT,
         )
 
         def run(case_args: SimpleNamespace = case_args, enabled: bool = enabled) -> str:
@@ -375,8 +403,11 @@ def _omlx_checks(args: argparse.Namespace, work: Path) -> list[PublicationSmokeC
             message = case["requests"][0]["response"]["choices"][0]["message"]
             return str(message.get("content") or message.get("reasoning_content") or "")
 
-        # The oMLX prompt is "Calculate 17 + 25"; the expected answer is still 42.
-        checks.append(_check(name, TEXT_EXPECTED, run, version=version))
+        check = _check(name, TEXT_EXPECTED, run, version=version)
+        if excluded:
+            note = f"{DECISION_HEAD_NOTE}: {excluded}"
+            check = check.model_copy(update={"detail": (f"{check.detail} {note}").strip()})
+        checks.append(check)
     return checks
 
 

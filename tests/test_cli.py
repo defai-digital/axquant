@@ -23,7 +23,15 @@ main = cli_module.main
 def test_name_command_uses_product_naming(capsys) -> None:
     result = main(["name", "--base", "Qwen/Qwen3.6-27B"])
     assert result == 0
-    assert capsys.readouterr().out.strip() == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-4bit"
+    assert capsys.readouterr().out.strip() == "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-MXFP4"
+    for target_class in ("MXFP4-attn8", "MXFP8"):
+        assert main(["name", "--base", "Qwen/Qwen3.6-27B", "--target-class", target_class]) == 0
+        assert capsys.readouterr().out.strip() == (
+            f"AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-{target_class}"
+        )
+    # AXQ-070 retired the affine width classes.
+    with pytest.raises(SystemExit):
+        main(["name", "--base", "Qwen/Qwen3.6-27B", "--target-class", "6bit"])
 
 
 def test_command_failure_shows_traceback_only_when_verbose(

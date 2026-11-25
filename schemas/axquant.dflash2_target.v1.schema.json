@@ -1,0 +1,254 @@
+{
+  "$defs": {
+    "Dflash2DrafterPin": {
+      "additionalProperties": false,
+      "properties": {
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "repo": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "weights_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision",
+        "config_sha256",
+        "weights_sha256"
+      ],
+      "type": "object"
+    },
+    "Dflash2MirrorReference": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_engine_commit": {
+          "pattern": "^[0-9a-f]{7,40}$",
+          "type": "string"
+        },
+        "observed_at": {
+          "format": "date",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observed_at",
+        "ax_engine_commit"
+      ],
+      "type": "object"
+    },
+    "Dflash2SharedTensor": {
+      "additionalProperties": false,
+      "properties": {
+        "bits": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "group_size": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "module": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "parts": {
+          "items": {
+            "$ref": "#/$defs/Dflash2SharedTensorPart"
+          },
+          "type": "array"
+        },
+        "role": {
+          "enum": [
+            "token_embedding",
+            "lm_head"
+          ],
+          "type": "string"
+        },
+        "tied_to_embedding": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role",
+        "module"
+      ],
+      "type": "object"
+    },
+    "Dflash2SharedTensorPart": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "file": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*\\.safetensors$",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "shape": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "file",
+        "dtype",
+        "shape",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "admitted_source_model_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "drafter": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Dflash2DrafterPin"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "format_lane": {
+      "pattern": "^[a-z0-9_]+$",
+      "type": "string"
+    },
+    "mirror": {
+      "$ref": "#/$defs/Dflash2MirrorReference"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "schema_version": {
+      "const": "axquant.dflash2_target.v1",
+      "default": "axquant.dflash2_target.v1",
+      "type": "string"
+    },
+    "shared_tensors": {
+      "items": {
+        "$ref": "#/$defs/Dflash2SharedTensor"
+      },
+      "type": "array"
+    },
+    "source_model_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "source_revision": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "status": {
+      "enum": [
+        "target",
+        "non_target",
+        "declared_non_target"
+      ],
+      "type": "string"
+    },
+    "tap_layer_ids": {
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "target_num_hidden_layers": {
+      "exclusiveMinimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "status",
+    "admitted_source_model_id",
+    "mirror",
+    "tap_layer_ids",
+    "target_num_hidden_layers",
+    "format_lane"
+  ],
+  "type": "object"
+}

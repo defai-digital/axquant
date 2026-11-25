@@ -1481,7 +1481,6 @@ def probe_tensor_sensitivity(
     state_path: str | Path | None = None,
     base_report: SensitivityReport | None = None,
     calibration_activations: Mapping[str, Any] | None = None,
-    allow_legacy_4bit: bool = False,
     measure_trunk_mtp: bool = False,
 ) -> SensitivityReport:
     """Probe per-tensor sensitivity using forward passes.
@@ -1495,8 +1494,7 @@ def probe_tensor_sensitivity(
     6. Persist result with provenance
 
     Supports deterministic replay, early termination, and in-process resume.
-    AXQ-047: a 4-bit candidate grid yields MXFP4 candidates only unless
-    ``allow_legacy_4bit`` is set (affine 4-bit is a retired product line).
+    AXQ-047 / AXQ-070: a 4-bit candidate grid yields MXFP4 candidates only.
     ``measure_trunk_mtp`` also measures the unchanged MTP head conditioned on
     candidate trunk states. This is draft-token disagreement, not live acceptance
     or DFlash2 evidence. The default preserves historical probe semantics.
@@ -1839,7 +1837,6 @@ def probe_tensor_sensitivity(
             bits_group_sizes = effective_group_sizes
             if (
                 bits == 4
-                and not allow_legacy_4bit
                 and QuantMethod.MXFP4 in config.candidate_methods
                 and _MXFP4_CANDIDATE_GROUP_SIZE not in effective_group_sizes
             ):
@@ -1848,10 +1845,8 @@ def probe_tensor_sensitivity(
                 bits_group_sizes = (*effective_group_sizes, _MXFP4_CANDIDATE_GROUP_SIZE)
             for group_size in bits_group_sizes:
                 for method in config.candidate_methods:
-                    if bits == 4 and not allow_legacy_4bit and method != QuantMethod.MXFP4:
-                        # AXQ-047 (ADR 0016): the affine 4-bit product line is
-                        # retired; measured probing at 4-bit runs MXFP4 only
-                        # unless the explicit legacy opt-in is set.
+                    if bits == 4 and method != QuantMethod.MXFP4:
+                        # AXQ-047 / AXQ-070: measured probing at 4-bit runs MXFP4 only.
                         continue
                     if method == QuantMethod.MXFP4 and (
                         bits != _MXFP4_CANDIDATE_BITS or group_size != _MXFP4_CANDIDATE_GROUP_SIZE

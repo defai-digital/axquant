@@ -19,6 +19,7 @@ from axquant.errors import RefinementError, ValidationGateError
 from axquant.identity import same_model_identity
 from axquant.module_paths import fused_expert_module, packed_expert_runtime_modules
 from axquant.planner import plan_quantization, storage_bpw, strategy_for_measurement
+from axquant.product_formats import mlx_candidate_allowed
 from axquant.profiles import objective_for, thresholds_for
 from axquant.schema import (
     Allocation,
@@ -552,6 +553,8 @@ def coordinate_descent_swap(
             if (
                 candidate.bits > alloc.bits
                 and candidate.supported
+                # AXQ-070: upgrades stay inside MXFP4 / MXFP8 / BF16 storage.
+                and mlx_candidate_allowed(candidate.bits, candidate.method, candidate.group_size)
                 and candidate.bits in request.candidate_bits
                 and candidate.bits in request.hardware.supported_bits
                 and candidate.bits in plan.hardware.supported_bits

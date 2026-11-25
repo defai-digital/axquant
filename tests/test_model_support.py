@@ -67,9 +67,9 @@ def test_local_generic_path_does_not_hide_withdrawn_config_identity(metadata: di
         require_model_supported("local-model", config=metadata)
 
 
-@pytest.mark.parametrize("q_mode", ["affine", "mxfp4", "mxfp8"])
+@pytest.mark.parametrize("q_mode", [None, "mxfp4", "mxfp8"])
 def test_stale_convertible_plan_cannot_bypass_withdrawal(
-    qwen36_model_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, q_mode: str
+    qwen36_model_dir: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, q_mode: str | None
 ) -> None:
     inventory = inspect_model(qwen36_model_dir, model_id="Qwen/Qwen3.6-27B", revision="a" * 40)
     report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
@@ -99,7 +99,7 @@ def test_stale_convertible_plan_cannot_bypass_withdrawal(
     with pytest.raises(ArtifactError, match="withdrawn"):
         plan_quantization(report.model_copy(update={"model": identity}), request)
     recipe = load_model(
-        Path(__file__).resolve().parents[1] / "examples/ornith-15-9b-axq6-v0.1.yaml",
+        Path(__file__).resolve().parents[1] / "examples/ornith-15-9b-axq-mxfp4-v0.1.yaml",
         ManualPlanRecipe,
     )
     with pytest.raises(ArtifactError, match="withdrawn"):

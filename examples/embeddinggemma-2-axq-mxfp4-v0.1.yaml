@@ -1,17 +1,18 @@
 # EmbeddingGemma 2 AXQ-MXFP4 (no MTP).
 # Language attention and MLP are native MXFP4 (group 32).
-# Token embeddings and per-layer embedder projections are 8-bit affine.
+# Token embeddings and per-layer embedder projections are MXFP8.
 # Vision, audio, modality projections, the 512→768 embedding projection, and
 # norms stay BF16. Towers dominate the parameter count, so the recipe budget
 # is 16 BPW even though the trunk is MXFP4.
 # Do not cast activations to float16. Do not claim generative or MTEB scores.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 16.0
 default_bits: 4
-default_method: affine
-group_size: 64
+default_method: mxfp4
+group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
 target_mode: low-memory
@@ -56,8 +57,8 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

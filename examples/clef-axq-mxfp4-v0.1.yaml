@@ -3,12 +3,13 @@
 # Vision, norms, and the LM head stay BF16. The LM head is the joint schema
 # head's lexical table, so it is not quantized. The joint schema head itself
 # is a separate BF16 file and is copied after convert.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
@@ -49,8 +50,8 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

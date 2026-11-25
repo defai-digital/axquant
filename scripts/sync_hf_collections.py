@@ -825,6 +825,72 @@ def _with_affine6_models(specs: tuple[Spec, ...]) -> tuple[Spec, ...]:
 COLLECTIONS = _with_affine6_models(COLLECTIONS)
 # END VERIFIED AFFINE6 CATALOG
 
+# Uniform affine 6-bit packs deleted from the Hub on 2026-11-24 (AXQ-069, explicit
+# owner direction). Flash-Next 6-bit and Qwen3.6-35B-A3B 6-bit stay until their
+# MXFP4-attn8 replacements pass. Removed repos never return to a collection.
+REMOVED_FROM_HUB: frozenset[str] = frozenset(
+    (
+        "AutomatosX/AX-Clef-27B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Clef-Flash-9B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Clef-Omni-30B-A3B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Cyber-Tiel-Coder-35B-A3B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-DeepSeek-OCR-2-MLX-AXQ-6bit",
+        "AutomatosX/AX-EmbeddingGemma-2-MLX-AXQ-6bit",
+        "AutomatosX/AX-Hy-MT2-30B-A3B-MLX-AXQ-6bit",
+        "AutomatosX/AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Muse-Glimmer-30B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Nemotron-3-Embed-1B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Nemotron-3-Embed-8B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Nemotron-3-Super-120B-A12B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Nemotron-3.5-Lightning-30B-A3B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Ornith-1.5-35B-A3B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Ornith-1.5-9B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Qwen3-Coder-Next-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-Embedding-0.6B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-Embedding-4B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-Embedding-8B-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-VL-32B-Thinking-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-VL-4B-Instruct-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3-VL-8B-Instruct-MLX-AXQ-6bit",
+        "AutomatosX/AX-Qwen3.5-0.8B-decision-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Qwen3.5-9B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Qwen3.6-27B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Tiel-Coder-35B-A3B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Unlimited-OCR-3B-MoE-MLX-AXQ-6bit",
+        "AutomatosX/AX-gemma-4-12b-MLX-AXQ-6bit",
+        "AutomatosX/AX-gemma-4-26b-a4b-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-gemma-4-31b-MLX-AXQ-6bit-MTP",
+    )
+)
+
+
+def _without_removed(specs: tuple[Spec, ...]) -> tuple[Spec, ...]:
+    output = []
+    for spec in specs:
+        items = tuple(item for item in spec.items if item.repo not in REMOVED_FROM_HUB)
+        if spec.items and not items:
+            # Emptied by the removal; collections that were already empty stay.
+            continue
+        description = spec.description
+        if spec.title == "6-bit":
+            description = (
+                "Remaining MLX affine6 packs, kept until MXFP4-attn8 replacements pass "
+                "(AXQ-069). New 6-bit packs are not published. Not certified."
+            )
+        output.append(
+            Spec(
+                title=spec.title,
+                description=description,
+                items=items,
+                existing_slug=spec.existing_slug,
+            )
+        )
+    return tuple(output)
+
+
+COLLECTIONS = _without_removed(COLLECTIONS)
+
 
 def _validate() -> None:
     if not COLLECTIONS or COLLECTIONS[-1].title != CATALOG_TITLE:

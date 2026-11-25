@@ -1,18 +1,25 @@
 # Ornith-1.5-9B AXQ-MXFP4 (dense). Language attention+MLP → native MXFP4
-# (group 32). Floors stay affine 8 / BF16. Vision stays BF16.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# (group 32). Floors are MXFP8 / BF16. Vision stays BF16.
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 # Planner uses affine storage_bpw; BF16 vision + floors raise the mix above a 5.6 trunk.
 target_bpw: 8.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
 target_mode: low-memory
 primary_runtime: ax-engine
 random_seed: 20260818
+hardware:
+  name: ax-engine-apple-silicon-mxfp
+  runtime: ax-engine
+  supported_bits: [4, 8, 16]
+  supported_methods: [affine, mxfp4, bf16]
+  supported_group_sizes: [32]
 rules:
   - rule_id: protect-vision
     roles: [vision]
@@ -33,18 +40,18 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4
-    method: affine
+    method: mxfp4
     group_size: 32
     reason: AXQ-MXFP4 attention trunk
   - rule_id: mlp-mxfp4
     roles: [mlp]
     bits: 4
-    method: affine
+    method: mxfp4
     group_size: 32
     reason: AXQ-MXFP4 dense MLP trunk
 mtp:

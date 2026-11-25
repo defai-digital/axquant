@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-import yaml
 
 from axquant.dwq import (
     _MLX_FLAT_LIMIT,
@@ -78,28 +76,15 @@ def test_apply_mlx_dwq_clip_on_small_fused_shaped_stack() -> None:
     assert float(module.weight.max().item()) <= float(result["clip_upper"])
 
 
-def test_flash_dwq_recipe_clips_attention_not_fused_trunk() -> None:
-    recipe_path = (
-        Path(__file__).resolve().parents[1]
-        / "examples"
-        / "deepseek-v4-experimental-4bit-g128-dwq-v0.1.yaml"
-    )
-    recipe = yaml.safe_load(recipe_path.read_text(encoding="utf-8"))
-    by_id = {rule["rule_id"]: rule for rule in recipe["rules"]}
-    assert by_id["attention-6bit-dwq"]["method"] == "dwq"
-    assert by_id["attention-6bit-dwq"]["bits"] == 6
-    assert by_id["trunk-4bit-affine"]["method"] == "affine"
-    assert by_id["trunk-4bit-affine"]["bits"] == 4
-    assert set(by_id["trunk-4bit-affine"]["roles"]) == {"mlp", "expert"}
-
-
-def test_fused_switch_cannot_mix_bit_widths_and_dwq_stays_allowed() -> None:
-    assert fused_stack_method_allowed("dwq")
+def test_fused_switch_cannot_mix_bit_widths_and_refinement_is_retired() -> None:
+    # AXQ-070: refined packing (DWQ, AWQ, GPTQ) is no longer written; fused
+    # switch stacks take the affine (MXFP8 slot) or MXFP4 storage only.
     assert fused_stack_method_allowed("affine")
     assert fused_stack_method_allowed("mxfp4")
+    assert not fused_stack_method_allowed("dwq")
     assert not fused_stack_method_allowed("awq")
     assert not fused_stack_method_allowed("gptq")
-    assert frozenset({"affine", "dwq", "mxfp4"}) == FUSED_STACK_METHODS
+    assert frozenset({"affine", "mxfp4"}) == FUSED_STACK_METHODS
     gate0 = "model.layers.0.ffn.experts.0.w1"
     gate1 = "model.layers.0.ffn.experts.1.w1"
     assert fused_expert_module(gate0) == fused_expert_module(gate1)

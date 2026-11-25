@@ -1,13 +1,14 @@
 # Clef-Omni AXQ-MXFP4. Quantize thinker and talker attention, MLP, and experts.
 # Vision, the audio encoder, code2wav, norms, and LM heads stay BF16.
-# Embeddings and routers stay 8-bit affine. The joint schema head is copied
+# Embeddings and routers stay MXFP8. The joint schema head is copied
 # after convert and is not part of the language index.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
@@ -53,14 +54,14 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: router-8
     roles: [router]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Router floor 8-bit affine
+    group_size: 32
+    reason: Router floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

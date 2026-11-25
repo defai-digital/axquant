@@ -64,8 +64,8 @@ def architecture_prior_report(
     inventory: Inventory,
     *,
     profile: ProfileName,
-    candidate_bits: tuple[int, ...] = (4, 6, 8, 16),
-    group_size: int = 64,
+    candidate_bits: tuple[int, ...] = (4, 8, 16),
+    group_size: int = 32,
     candidate_group_sizes: tuple[int, ...] = (),
 ) -> SensitivityReport:
     """Build architecture-prior sensitivity with optional multi-group candidates (AXQ-028)."""

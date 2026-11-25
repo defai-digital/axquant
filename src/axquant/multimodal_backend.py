@@ -16,6 +16,7 @@ from typing import Any, Literal
 
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.predicate import PlanPredicate, allocation_quant_params
+from axquant.product_formats import MLX_GROUP_SIZE
 from axquant.schema import QuantizationPlan
 
 ConversionBackend = Literal["mlx-lm", "mlx-audio", "mlx-vlm", "mlx-source"]
@@ -176,10 +177,8 @@ def _quantize_with_plan_predicate(
 ) -> tuple[Any, dict[str, Any]]:
     mlx_nn = _import("mlx.nn", extra="mlx")
     quantized_config = copy.deepcopy(config)
-    default_mode = str(q_mode or "affine")
-    default_group_size = 32 if default_mode == "mxfp8" else plan.group_size
-    if default_mode == "mxfp8":
-        default_bits = 8
+    default_mode = str(q_mode or "mxfp4")
+    default_group_size = MLX_GROUP_SIZE
     quant_params = {
         "group_size": default_group_size,
         "bits": default_bits,
@@ -249,6 +248,7 @@ def _convert_audio(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
+    q_mode: str = "mxfp4",
 ) -> None:
     model, config, audio_convert = _audio_model(source)
     mlx = _import("mlx.core", extra="mlx")
@@ -268,9 +268,9 @@ def _convert_audio(
         _, converted_config = mlx_lm_utils.quantize_model(
             model,
             config,
-            plan.group_size,
+            MLX_GROUP_SIZE,
             default_bits,
-            mode="affine",
+            mode=q_mode,
             quant_predicate=predicate,
         )
         destination.mkdir(parents=True, exist_ok=False)
@@ -291,7 +291,7 @@ def _convert_deepseek_ocr2(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Convert DeepSeek-OCR-2 without Hugging Face AutoProcessor remote-code.
 
@@ -319,8 +319,8 @@ def _convert_deepseek_ocr2(
         model, config = quant_utils.quantize_model(
             model,
             config,
-            32 if q_mode == "mxfp8" else plan.group_size,
-            8 if q_mode == "mxfp8" else default_bits,
+            MLX_GROUP_SIZE,
+            default_bits,
             mode=q_mode,
             quant_predicate=predicate,
         )
@@ -351,7 +351,7 @@ def _convert_unlimited_ocr(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Convert Unlimited-OCR without Hugging Face AutoProcessor remote-code.
 
@@ -379,8 +379,8 @@ def _convert_unlimited_ocr(
         model, config = quant_utils.quantize_model(
             model,
             config,
-            32 if q_mode == "mxfp8" else plan.group_size,
-            8 if q_mode == "mxfp8" else default_bits,
+            MLX_GROUP_SIZE,
+            default_bits,
             mode=q_mode,
             quant_predicate=predicate,
         )
@@ -411,7 +411,7 @@ def _convert_muse_glimmer(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Convert Muse-Glimmer via MLX-VLM using MuseGlimmerProcessor directly."""
     import glob
@@ -434,8 +434,8 @@ def _convert_muse_glimmer(
         model, config = quant_utils.quantize_model(
             model,
             config,
-            32 if q_mode == "mxfp8" else plan.group_size,
-            8 if q_mode == "mxfp8" else default_bits,
+            MLX_GROUP_SIZE,
+            default_bits,
             mode=q_mode,
             quant_predicate=predicate,
         )
@@ -462,7 +462,7 @@ def _convert_qwen4_exp(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Convert Qwen3.8-Flash-Next via MLX-VLM + a plan-aware quant predicate.
 
@@ -521,7 +521,7 @@ def _convert_embedding_gemma2(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Quantize EmbeddingGemma 2 with the plan predicate and keep every tower.
 
@@ -574,7 +574,7 @@ def _convert_vlm(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     if plan.architecture_profile.adapter_id == "deepseek-ocr2-v1":
         _convert_deepseek_ocr2(source, destination, plan, predicate, default_bits, q_mode=q_mode)
@@ -596,8 +596,8 @@ def _convert_vlm(
         str(source),
         mlx_path=destination,
         quantize=True,
-        q_group_size=32 if q_mode == "mxfp8" else plan.group_size,
-        q_bits=8 if q_mode == "mxfp8" else default_bits,
+        q_group_size=MLX_GROUP_SIZE,
+        q_bits=default_bits,
         q_mode=q_mode,
         quant_method="rtn",
         quant_predicate=predicate,
@@ -610,13 +610,13 @@ def convert_multimodal(
     plan: QuantizationPlan,
     predicate: PlanPredicate,
     default_bits: int,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     backend = conversion_backend(plan)
     _force_cpu_if_requested()
     try:
         if backend == "mlx-audio":
-            _convert_audio(source, destination, plan, predicate, default_bits)
+            _convert_audio(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         elif backend == "mlx-vlm":
             _convert_vlm(source, destination, plan, predicate, default_bits, q_mode=q_mode)
         elif backend == "mlx-source":

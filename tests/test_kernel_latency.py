@@ -109,17 +109,18 @@ def _single_tensor_report() -> SensitivityReport:
     )
     candidates = [
         CandidateMeasurement(bits=16, method=QuantMethod.BF16, metrics=MetricVector()),
-        # g32 is marginally better on quality; g64 is within the 2% epsilon.
+        # AXQ-070 storage: the MXFP8 slot (8-bit g32) is marginally better on
+        # quality; MXFP4 is within the 2% epsilon and needs less storage.
         CandidateMeasurement(
-            bits=4,
+            bits=8,
             method=QuantMethod.AFFINE,
             group_size=32,
             metrics=MetricVector(output_kl=0.100),
         ),
         CandidateMeasurement(
             bits=4,
-            method=QuantMethod.AFFINE,
-            group_size=64,
+            method=QuantMethod.MXFP4,
+            group_size=32,
             metrics=MetricVector(output_kl=0.101),
         ),
     ]
@@ -142,37 +143,35 @@ def _single_tensor_report() -> SensitivityReport:
 def _request() -> PlanRequest:
     return PlanRequest(
         profile=ProfileName.GENERAL,
-        target_bpw=5.2,
-        candidate_bits=(4, 16),
-        candidate_group_sizes=(32, 64),
+        target_bpw=9.2,
+        candidate_bits=(4, 8, 16),
+        group_size=32,
         allow_unmeasured=True,
         hardware=HardwareProfile(),
     )
 
 
-def test_latency_polish_prefers_faster_group_within_quality_epsilon() -> None:
+def test_latency_polish_prefers_faster_option_within_quality_epsilon() -> None:
     report = _single_tensor_report()
 
-    baseline = plan_quantization(report, _request(), allow_legacy_4bit=True)
+    baseline = plan_quantization(report, _request())
     assert baseline.cost_model == "abstract-bpw"
     assert baseline.kernel_latency_sha256 is None
     baseline_mlp = baseline.assignments[0]
-    # Without a table the budget upgrade lands on the finer, higher-quality g32.
-    assert baseline_mlp.group_size == 32
+    # Without a table the budget upgrade lands on the higher-quality 8-bit slot.
+    assert (baseline_mlp.bits, baseline_mlp.method) == (8, QuantMethod.AFFINE)
 
     table = _table(
         [
-            _entry(bits=4, group_size=32, hidden_size=1024, decode_us=50.0),
-            _entry(bits=4, group_size=64, hidden_size=1024, decode_us=30.0),
+            _entry(bits=8, group_size=32, hidden_size=1024, decode_us=50.0),
+            _entry(bits=4, group_size=32, hidden_size=1024, decode_us=30.0),
         ]
     )
-    latency_plan = plan_quantization(
-        report, _request(), kernel_latency=table, allow_legacy_4bit=True
-    )
+    latency_plan = plan_quantization(report, _request(), kernel_latency=table)
     polished = latency_plan.assignments[0]
-    # g64 is within the quality window, needs no extra storage, and its kernel
-    # is measured faster — the plan flips and records why.
-    assert polished.group_size == 64
+    # MXFP4 is within the quality window, needs no extra storage, and its
+    # kernel is measured faster — the plan flips and records why.
+    assert (polished.bits, polished.method, polished.group_size) == (4, QuantMethod.MXFP4, 32)
     assert "kernel-latency" in polished.reason
     assert latency_plan.cost_model == "kernel-latency"
     assert latency_plan.kernel_latency_sha256 == stable_sha256(table)
@@ -183,20 +182,20 @@ def test_latency_table_never_overrides_quality_outside_epsilon() -> None:
     report = _single_tensor_report()
     entry = report.entries[0]
     for candidate in entry.candidates:
-        if candidate.group_size == 64:
-            # Push g64 far outside the epsilon window.
+        if candidate.bits == 4:
+            # Push MXFP4 far outside the epsilon window.
             entry.candidates[entry.candidates.index(candidate)] = candidate.model_copy(
                 update={"metrics": MetricVector(output_kl=0.150)}
             )
     table = _table(
         [
-            _entry(bits=4, group_size=32, hidden_size=1024, decode_us=50.0),
-            _entry(bits=4, group_size=64, hidden_size=1024, decode_us=1.0),
+            _entry(bits=8, group_size=32, hidden_size=1024, decode_us=50.0),
+            _entry(bits=4, group_size=32, hidden_size=1024, decode_us=1.0),
         ]
     )
-    plan = plan_quantization(report, _request(), kernel_latency=table, allow_legacy_4bit=True)
+    plan = plan_quantization(report, _request(), kernel_latency=table)
     # Even a 50x faster kernel cannot buy a quality regression beyond epsilon.
-    assert plan.assignments[0].group_size == 32
+    assert plan.assignments[0].bits == 8
     assert plan.cost_model == "kernel-latency"
 
 

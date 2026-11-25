@@ -47,6 +47,7 @@ select_complete_candidate = refinement_module.select_complete_candidate
 _ARTIFACT_SHA = "a" * 64
 _QUALITY_SHA = "b" * 64
 _VALIDATION_SHA = "c" * 64
+_PRODUCT_METHODS = {4: QuantMethod.MXFP4, 8: QuantMethod.AFFINE, 16: QuantMethod.BF16}
 
 
 def _make_tensor(name: str, role: TensorRole, params: int = 1024) -> TensorSpec:
@@ -74,11 +75,13 @@ def _make_sensitivity_report() -> SensitivityReport:
     entries = []
     for tensor in tensors:
         if tensor.quantizable:
+            # AXQ-070 product storage: MXFP4 at 4-bit, the MXFP8 slot (unrefined
+            # 8-bit, group 32) and BF16.
             candidates = [
                 CandidateMeasurement(
                     bits=b,
-                    method=QuantMethod.AFFINE if b < 16 else QuantMethod.BF16,
-                    group_size=64 if b < 16 else None,
+                    method=_PRODUCT_METHODS[b],
+                    group_size=32 if b < 16 else None,
                     metrics=MetricVector(
                         output_kl=(16 - b) * 0.1,
                         hidden_state_error=(16 - b) * 0.05,
@@ -87,7 +90,7 @@ def _make_sensitivity_report() -> SensitivityReport:
                         mtp_acceptance_loss=(16 - b) * 0.02,
                     ),
                 )
-                for b in (4, 6, 8, 16)
+                for b in (4, 8, 16)
             ]
         else:
             candidates = [
@@ -119,8 +122,8 @@ def _make_request(**kwargs) -> PlanRequest:
     defaults = {
         "profile": ProfileName.AGENT_CODING,
         "target_bpw": 8.0,
-        "candidate_bits": (4, 6, 8, 16),
-        "group_size": 64,
+        "candidate_bits": (4, 8, 16),
+        "group_size": 32,
         "allow_unmeasured": True,
         "candidate_count": 1,
         "random_seed": 0,
@@ -148,7 +151,13 @@ def test_ax_engine_attention_packing_requires_matching_qkv_formats() -> None:
         update={
             "assignments": [
                 assignments[0],
-                assignments[1].model_copy(update={"bits": 4 if q_proj.bits != 4 else 6}),
+                assignments[1].model_copy(
+                    update=(
+                        {"bits": 4, "method": QuantMethod.MXFP4, "group_size": 32}
+                        if q_proj.bits != 4
+                        else {"bits": 8, "method": QuantMethod.AFFINE, "group_size": 32}
+                    )
+                ),
                 assignments[2],
             ]
         }
@@ -185,16 +194,16 @@ def test_attention_pack_canonicalization_uses_measured_lower_precision() -> None
         assignment for assignment in plan.assignments if "self_attn.q_proj" in assignment.tensor
     )
     four_bit = next(candidate for candidate in q_entry.candidates if candidate.bits == 4)
-    six_bit = next(candidate for candidate in q_entry.candidates if candidate.bits == 6)
+    eight_bit = next(candidate for candidate in q_entry.candidates if candidate.bits == 8)
     prefix = "model.language_model.layers.0.self_attn"
     assignments = [
         q_assignment.model_copy(
             update={
                 "module_path": f"{prefix}.q_proj",
-                "bits": 6,
-                "method": six_bit.method,
-                "group_size": six_bit.group_size,
-                "metrics": six_bit.metrics,
+                "bits": 8,
+                "method": eight_bit.method,
+                "group_size": eight_bit.group_size,
+                "metrics": eight_bit.metrics,
             }
         ),
         q_assignment.model_copy(
@@ -211,10 +220,10 @@ def test_attention_pack_canonicalization_uses_measured_lower_precision() -> None
             update={
                 "tensor": v_entry.tensor.name,
                 "module_path": f"{prefix}.v_proj",
-                "bits": 6,
-                "method": six_bit.method,
-                "group_size": six_bit.group_size,
-                "metrics": six_bit.metrics,
+                "bits": 8,
+                "method": eight_bit.method,
+                "group_size": eight_bit.group_size,
+                "metrics": eight_bit.metrics,
             }
         ),
     ]
@@ -458,6 +467,52 @@ class TestRefineCandidates:
         )
 
         assert observed_targets == [variant.target_bpw]
+
+
+def test_coordinate_descent_never_upgrades_outside_axq070_storage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AXQ-070: a cheaper, better 6-bit or AWQ candidate is never a legal upgrade."""
+
+    report = _make_sensitivity_report()
+    retired = [
+        CandidateMeasurement(
+            bits=bits,
+            method=method,
+            group_size=32,
+            metrics=MetricVector(output_kl=1e-6),
+        )
+        for bits, method in ((6, QuantMethod.AFFINE), (8, QuantMethod.AWQ))
+    ]
+    widened = report.model_copy(
+        update={
+            "entries": [
+                entry.model_copy(update={"candidates": [*entry.candidates, *retired]})
+                if entry.tensor.quantizable
+                else entry
+                for entry in report.entries
+            ]
+        }
+    )
+    # 9.0 BPW leaves headroom for one 4-bit -> 6-bit upgrade; the planner
+    # itself already refuses the retired candidates.
+    widened_request = _make_request(target_bpw=9.0, candidate_bits=(4, 6, 8, 16))
+    plan = plan_quantization(widened, widened_request)
+
+    swapped = coordinate_descent_swap(plan, widened, widened_request, swap_radius=5)
+    for allocation in (swapped or plan).assignments:
+        assert refinement_module.mlx_candidate_allowed(
+            allocation.bits, allocation.method, allocation.group_size
+        )
+
+    # Control: without the AXQ-070 filter the same search does pick a retired format.
+    monkeypatch.setattr(refinement_module, "mlx_candidate_allowed", lambda *_args: True)
+    unfiltered = coordinate_descent_swap(plan, widened, widened_request, swap_radius=5)
+    assert unfiltered is not None
+    assert any(
+        allocation.bits == 6 or allocation.method is QuantMethod.AWQ
+        for allocation in unfiltered.assignments
+    )
 
 
 class TestPlannerTopN:

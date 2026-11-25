@@ -17,10 +17,14 @@ import structlog
 from axquant.artifact_paths import artifact_tree_files
 from axquant.ax_engine_layout import declare_weight_layout, verified_weight_layout
 from axquant.calibration import calibration_manifest_matches
-from axquant.capture_binding import (
-    LoadedActivationCapture,
-    activation_capture_evidence_issues,
+from axquant.dflash2_target import DECLARATION_NAME as DFLASH2_DECLARATION_NAME
+from axquant.dflash2_target import (
+    Dflash2Classification,
+    classify_source,
+    predicted_format_lane,
+    require_admitted_lane,
 )
+from axquant.dflash2_target import build_declaration as build_dflash2_declaration
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.expert_stream import (
     STREAM_CAPABLE_ADAPTERS,
@@ -56,6 +60,12 @@ from axquant.predicate import (
     PlanPredicate,
     allocation_physical_mode,
     build_quant_predicate,
+    normalize_q_mode,
+)
+from axquant.product_formats import (
+    MLX_GROUP_SIZE,
+    mlx_default_quantization,
+    require_mlx_product_storage,
 )
 from axquant.runtime import (
     assert_conversion_scope,
@@ -87,10 +97,6 @@ from axquant.source_binding import BINDING_NAME, source_binding_issues
 from axquant.source_prep import prepare_conversion_source
 
 _LOG = structlog.get_logger()
-_ACTIVATION_REFINEMENT_METHODS = frozenset(
-    {QuantMethod.AWQ, QuantMethod.GPTQ, QuantMethod.GPTQ_ACT}
-)
-_CAPTURE_MANIFEST_NAME = "activation_capture_manifest.json"
 MTPLX_RUNTIME_COMPATIBILITY_VERSION = "2.5.2"
 
 
@@ -172,7 +178,7 @@ def _mlx_convert_with_optional_dequant(
     q_bits: int,
     quant_predicate: Any,
     revision: str | None,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Convert via MLX-LM, dequantizing mixed-precision sources first when needed.
 
@@ -871,54 +877,6 @@ def _validated_calibration_source(
     return source
 
 
-def _validated_activation_capture(
-    plan: QuantizationPlan,
-    calibration_activations: Mapping[str, Any] | None,
-) -> LoadedActivationCapture | None:
-    """Bind AWQ/GPTQ conversion to the exact capture used by analysis.
-
-    Architecture-prior/manual development plans have no calibration evidence
-    to carry a digest, but still require a verified capture wrapper.  Every
-    measured plan must carry and match the full capture binding.
-    """
-    methods = {
-        allocation.method
-        for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.method in _ACTIVATION_REFINEMENT_METHODS
-    }
-    if not methods:
-        return None
-    if calibration_activations is None:
-        raise PlanningError(
-            "AWQ/GPTQ conversion requires calibration activations from capture-activations"
-        )
-    if not isinstance(calibration_activations, LoadedActivationCapture):
-        raise PlanningError(
-            "AWQ/GPTQ conversion requires a checksum-bound capture loaded with "
-            "load_capture_activations; an unbound activation mapping is not evidence"
-        )
-    capture = calibration_activations
-    evidence = plan.calibration
-    if evidence is not None:
-        issues = activation_capture_evidence_issues(
-            capture.manifest,
-            evidence.metadata,
-            model_id=plan.source_model.model_id,
-            revision=plan.source_model.revision,
-            dataset_id=evidence.dataset_id,
-        )
-        if issues:
-            raise PlanningError(f"activation capture does not match the plan: {issues}")
-    elif plan.evidence_kind.release_quality:
-        raise PlanningError("measured AWQ/GPTQ plan has no activation-capture provenance")
-    elif (
-        capture.manifest.model != plan.source_model.model_id
-        or capture.manifest.revision != plan.source_model.revision
-    ):
-        raise PlanningError("activation capture source model does not match the plan")
-    return capture
-
-
 def _validated_kv_sensitivity_source(
     plan: QuantizationPlan,
     kv_sensitivity: str | Path | None,
@@ -1425,6 +1383,24 @@ def _extract_protected_sidecar(
     )
     write_data(output_dir / manifest_name, manifest)
     return manifest
+
+
+def _generate_conversion_ax_engine_manifest(
+    staging_dir: Path,
+    *,
+    setting: str,
+    executable: str,
+) -> None:
+    if setting == "required":
+        require_ax_engine_manifest(staging_dir, executable=executable)
+    elif setting == "if-available":
+        result = generate_ax_engine_manifest(staging_dir, executable=executable)
+        if result.available and not result.passed:
+            raise ArtifactError(
+                f"AX Engine manifest generation failed: {result.stderr or result.report}"
+            )
+        if not result.available:
+            _LOG.warning("ax_engine_manifest_skipped", reason=result.stderr)
 
 
 def _artifact_files(output_dir: Path) -> list[ArtifactFile]:
@@ -2051,7 +2027,7 @@ def _verify_converted_weights(
     plan: QuantizationPlan,
     *,
     source_tensors: Mapping[str, Any] | None = None,
-    q_mode: str = "affine",
+    q_mode: str | None = None,
 ) -> tuple[int, int, int, int, int, int, float, float]:
     if source_tensors is None:
         if not plan.source_model.local_path:
@@ -2367,38 +2343,31 @@ def convert_model(
     mtp_layout: MtpSidecarLayout = MtpSidecarLayout.BYTE_PRESERVED,
     calibration_manifest: str | Path | None = None,
     kv_sensitivity: str | Path | None = None,
-    calibration_activations: Mapping[str, Any] | None = None,
     allow_unmeasured: bool = False,
     ax_engine_manifest: Literal["required", "if-available", "skip"] = "required",
     ax_engine_bench: str = "ax-engine-bench",
-    q_mode: Literal["affine", "mxfp4", "mxfp8"] = "affine",
+    q_mode: str | None = None,
     expert_stream: ExpertStreamSetting = "auto",
-    allow_legacy_4bit: bool = False,
     source_binding: SourcePlanBinding | None = None,
+    not_dflash2_target: str | None = None,
 ) -> ArtifactManifest:
     require_model_supported(model, plan.source_model.model_id, plan.source_model.local_path)
+    q_mode = normalize_q_mode(q_mode)
     if plan.architecture_profile.adapter_id == "unlimited-ocr2-v1" and (
-        q_mode not in {"mxfp4", "mxfp8"} or ax_engine_manifest != "skip" or expert_stream != "off"
+        ax_engine_manifest != "skip" or expert_stream != "off"
     ):
         raise ArtifactError(
-            "Unlimited-OCR-2 MLX storage export requires explicit mxfp4/mxfp8 and "
-            "ax_engine_manifest=skip, expert_stream=off; SR-SWA inference is unsupported"
+            "Unlimited-OCR-2 MLX storage export requires ax_engine_manifest=skip and "
+            "expert_stream=off; SR-SWA inference is unsupported"
         )
     validate_expert_stream_request(plan.architecture_profile.adapter_id, expert_stream)
-    if (
-        str(q_mode or "affine").lower() == "mxfp8"
-        or any(allocation_physical_mode(item, q_mode) == "mxfp8" for item in plan.assignments)
-    ) and not allow_unmeasured:
-        raise PlanningError(
-            "MXFP8 physical repacking requires --allow-unmeasured; affine sensitivity "
-            "does not measure MXFP8"
-        )
+    # AXQ-070: refuse non-product storage before any source resolution.
+    require_mlx_product_storage(plan.assignments)
     if not plan.evidence_kind.release_quality and not allow_unmeasured:
         raise PlanningError(
             "conversion requires measured evidence; pass --allow-unmeasured only for dry runs"
         )
     calibration_source = _validated_calibration_source(plan, calibration_manifest)
-    bound_capture = _validated_activation_capture(plan, calibration_activations)
     assert_conversion_scope(plan)
     kv_sensitivity_source = _validated_kv_sensitivity_source(plan, kv_sensitivity)
     if (
@@ -2421,10 +2390,34 @@ def convert_model(
     # → gemma4 text path) can stage beside the output rather than on /tmp.
     original_source_dir = _resolve_bound_conversion_source(model, plan, revision, source_binding)
     config_path = original_source_dir / "config.json"
+    dflash2: Dflash2Classification | None = None
+    dflash2_layers = 0
     if config_path.is_file():
         config_identity = json.loads(config_path.read_text(encoding="utf-8"))
         if isinstance(config_identity, dict):
             require_model_supported(plan.source_model.model_id, config=config_identity)
+            # AXQ-067 DF-1: admitted-signature sources need a Hub identity or an
+            # explicit decline before the expensive conversion runs.
+            dflash2 = classify_source(
+                config_identity,
+                model_id=plan.source_model.model_id,
+                # The manifest records the plan revision; a differing CLI
+                # revision was already rejected by source resolution.
+                revision=plan.source_model.revision,
+                local_path=plan.source_model.local_path,
+                source_argument=model,
+                not_target_reason=not_dflash2_target,
+            )
+            if dflash2 is not None:
+                text_config = config_identity.get("text_config")
+                layer_scope = text_config if isinstance(text_config, dict) else config_identity
+                dflash2_layers = int(layer_scope.get("num_hidden_layers") or 0)
+                require_admitted_lane(
+                    dflash2,
+                    predicted_format_lane(
+                        plan.assignments, q_mode=q_mode, group_size=plan.group_size
+                    ),
+                )
     source_tensors = _validated_plan_source_tensors(original_source_dir, plan)
     if (
         plan.mtp.preserve_external_sidecar
@@ -2470,36 +2463,31 @@ def convert_model(
                 "plan contains protected audio tensors the mlx-lm backend cannot "
                 "deliver; convert this checkpoint through its multimodal backend"
             )
-        predicate = build_quant_predicate(
-            plan,
-            execute_refinement=False,
-            calibration_activations=calibration_activations,
-            q_mode=q_mode,
-            allow_legacy_4bit=allow_legacy_4bit,
-        )
+        predicate = build_quant_predicate(plan, q_mode=q_mode)
         _LOG.info("conversion_preflight_started", model=convert_model_ref)
         if backend == "mlx-lm":
             _preflight_coverage(convert_model_ref, convert_revision, predicate)
         else:
             preflight_multimodal(Path(convert_model_ref), plan, predicate)
-        predicate = build_quant_predicate(
-            plan,
-            calibration_activations=calibration_activations,
-            q_mode=q_mode,
-            allow_legacy_4bit=allow_legacy_4bit,
-        )
-        default_quantized_bits = min(allocation.bits for allocation in quantized_allocations)
+        predicate = build_quant_predicate(plan, q_mode=q_mode)
+        # The top-level quantization default is the dominant quantized lane, so
+        # its bits always agree with its mode; every module also has an override.
+        default_quant = mlx_default_quantization(plan.assignments)
+        if default_quant is None:
+            raise PlanningError("conversion plan contains no quantized assignments")
+        default_quantized_bits = int(default_quant["bits"])
+        default_mode = str(default_quant["mode"])
         try:
             if backend == "mlx-lm":
                 _mlx_convert_with_optional_dequant(
                     convert_model_ref,
                     mlx_path=str(staging_dir),
                     quantize=True,
-                    q_group_size=plan.group_size,
+                    q_group_size=MLX_GROUP_SIZE,
                     q_bits=default_quantized_bits,
                     quant_predicate=predicate,
                     revision=convert_revision,
-                    q_mode=q_mode,
+                    q_mode=default_mode,
                 )
             else:
                 convert_multimodal(
@@ -2508,7 +2496,7 @@ def convert_model(
                     plan,
                     predicate,
                     default_quantized_bits,
-                    q_mode=q_mode,
+                    q_mode=default_mode,
                 )
         except Exception as exc:
             raise ArtifactError(f"{backend} conversion failed: {exc}") from exc
@@ -2524,32 +2512,8 @@ def convert_model(
                 bits=allocation.bits,
                 group_size=allocation.group_size,
                 success=allocation.module_path in predicate.matched,
-                note=(
-                    "DWQ percentile clipping followed by portable affine packing"
-                    if allocation.method.value == "dwq"
-                    else (
-                        "AWQ activation scaling followed by portable affine packing"
-                        if allocation.method.value == "awq"
-                        else (
-                            "GPTQ Hessian error compensation followed by portable affine packing"
-                            if allocation.method.value == "gptq"
-                            else (
-                                "group-preserving act-order GPTQ Hessian error compensation "
-                                "followed by portable affine packing"
-                                if allocation.method.value == "gptq-act"
-                                else (
-                                    f"{backend} "
-                                    f"{allocation_physical_mode(allocation, q_mode)} packing"
-                                )
-                            )
-                        )
-                    )
-                ),
-                metadata=(
-                    predicate.method_metadata.get(allocation.module_path, {})
-                    if allocation.method.value in ("awq", "gptq", "gptq-act")
-                    else predicate.dwq_metadata.get(allocation.module_path, {})
-                ),
+                note=f"{backend} {allocation_physical_mode(allocation, q_mode)} packing",
+                metadata={},
             )
             for allocation in quantized_allocations
         ]
@@ -2612,8 +2576,6 @@ def convert_model(
         _require_mtp_outside_index(staging_dir)
         if calibration_source is not None:
             _copy_verified(calibration_source, staging_dir / "calibration_manifest.json")
-        if bound_capture is not None:
-            write_data(staging_dir / _CAPTURE_MANIFEST_NAME, bound_capture.manifest)
         if kv_sensitivity_source is not None:
             _copy_verified(kv_sensitivity_source, staging_dir / "kv_sensitivity.json")
         write_data(staging_dir / "axquant_plan.json", plan)
@@ -2635,20 +2597,17 @@ def convert_model(
         if omlx_compat_path is not None:
             _LOG.info("conversion_omlx_compat_annotated", file=omlx_compat_path.name)
         emit_expert_stream_manifest(staging_dir, plan, setting=expert_stream)
-        if ax_engine_manifest == "required":
-            require_ax_engine_manifest(staging_dir, executable=ax_engine_bench)
-        elif ax_engine_manifest == "if-available":
-            result = generate_ax_engine_manifest(staging_dir, executable=ax_engine_bench)
-            if result.available and not result.passed:
-                raise ArtifactError(
-                    f"AX Engine manifest generation failed: {result.stderr or result.report}"
-                )
-            if not result.available:
-                _LOG.warning("ax_engine_manifest_skipped", reason=result.stderr)
-        runtime = build_runtime_metadata(plan, staging_dir)
         weight_layout = verified_weight_layout(
             staging_dir, plan.architecture_profile.config_model_type
         )
+        # AX Engine reads a declared layout from axquant_manifest.json, so a
+        # declaring pack generates model-manifest.json after a provisional
+        # manifest exists (AXQ-066). Other packs keep the original order.
+        if weight_layout is None:
+            _generate_conversion_ax_engine_manifest(
+                staging_dir, setting=ax_engine_manifest, executable=ax_engine_bench
+            )
+        runtime = build_runtime_metadata(plan, staging_dir)
         if weight_layout is not None:
             runtime = declare_weight_layout(runtime, weight_layout)
         write_data(staging_dir / "axquant_runtime.json", runtime)
@@ -2667,36 +2626,52 @@ def convert_model(
             source_tensors=source_tensors,
             q_mode=q_mode,
         )
+        if dflash2 is not None:
+            write_data(
+                staging_dir / DFLASH2_DECLARATION_NAME,
+                build_dflash2_declaration(
+                    staging_dir, dflash2, target_num_hidden_layers=dflash2_layers
+                ),
+            )
         from axquant.runtime_compatibility import write_runtime_compatibility
 
         write_runtime_compatibility(staging_dir)
         manifest_type = (
             ArtifactManifestV3 if isinstance(runtime, RuntimeMetadataV2) else ArtifactManifest
         )
-        manifest = manifest_type(
-            axquant_version=plan.software_versions.axquant,
-            source_model=plan.source_model,
-            plan_sha256=stable_sha256(plan),
-            calibration=plan.calibration,
-            profile=plan.profile,
-            target_class=plan.target_class,
-            effective_bpw=plan.effective_bpw,
-            logical_parameters=logical_parameters,
-            main_logical_parameters=main_logical_parameters,
-            weight_file_size_bytes=weight_file_size_bytes,
-            main_weight_file_size_bytes=main_weight_file_size_bytes,
-            mtp_weight_file_size_bytes=mtp_weight_file_size_bytes,
-            protected_weight_file_size_bytes=protected_weight_file_size_bytes,
-            measured_total_bpw=measured_total_bpw,
-            measured_main_bpw=measured_main_bpw,
-            weight_distribution=plan.weight_distribution,
-            mtp_distribution=plan.mtp_distribution,
-            mtp_present=bool(plan.mtp_distribution) or mtp_sidecar is not None,
-            mtp_policy=plan.mtp,
-            runtime=runtime,
-            software_versions=plan.software_versions,
-            files=_artifact_files(staging_dir),
-        )
+
+        def _conversion_manifest() -> ArtifactManifest:
+            return manifest_type(
+                axquant_version=plan.software_versions.axquant,
+                source_model=plan.source_model,
+                plan_sha256=stable_sha256(plan),
+                calibration=plan.calibration,
+                profile=plan.profile,
+                target_class=plan.target_class,
+                effective_bpw=plan.effective_bpw,
+                logical_parameters=logical_parameters,
+                main_logical_parameters=main_logical_parameters,
+                weight_file_size_bytes=weight_file_size_bytes,
+                main_weight_file_size_bytes=main_weight_file_size_bytes,
+                mtp_weight_file_size_bytes=mtp_weight_file_size_bytes,
+                protected_weight_file_size_bytes=protected_weight_file_size_bytes,
+                measured_total_bpw=measured_total_bpw,
+                measured_main_bpw=measured_main_bpw,
+                weight_distribution=plan.weight_distribution,
+                mtp_distribution=plan.mtp_distribution,
+                mtp_present=bool(plan.mtp_distribution) or mtp_sidecar is not None,
+                mtp_policy=plan.mtp,
+                runtime=runtime,
+                software_versions=plan.software_versions,
+                files=_artifact_files(staging_dir),
+            )
+
+        if weight_layout is not None:
+            write_data(staging_dir / "axquant_manifest.json", _conversion_manifest())
+            _generate_conversion_ax_engine_manifest(
+                staging_dir, setting=ax_engine_manifest, executable=ax_engine_bench
+            )
+        manifest = _conversion_manifest()
         write_data(staging_dir / "axquant_manifest.json", manifest)
         _publish_staging_dir(staging_dir, output_dir)
     finally:

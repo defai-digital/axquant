@@ -521,6 +521,9 @@ def prepare_publication(
     from axquant.runtime_compatibility import validate_declared_runtime_compatibility
 
     validate_declared_runtime_compatibility(directory, manifest)
+    from axquant.dflash2_target import require_publication_declaration
+
+    require_publication_declaration(directory)
     plan = load_quantization_plan(directory / "axquant_plan.json")
     if plan.architecture_profile.support_tier is SupportTier.INSPECT_ONLY:
         raise ValidationGateError(

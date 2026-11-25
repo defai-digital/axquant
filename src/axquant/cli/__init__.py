@@ -31,7 +31,6 @@ from axquant.certification.verify import verify_certificate
 from axquant.cli._parser import _build_parser
 from axquant.converter import convert_model
 from axquant.errors import ArtifactError, AxquantError, PlanningError
-from axquant.experimental_mix import plan_experimental_mix
 from axquant.feasibility import ArtifactTarget, assess_feasibility, feasibility_markdown
 from axquant.identity import same_model_identity
 from axquant.inspector import inspect_model, resolve_model_dir
@@ -597,7 +596,6 @@ def _run(args: argparse.Namespace) -> int:
                     else None
                 ),
                 calibration_activations=calibration_activations,
-                allow_legacy_4bit=args.allow_legacy_4bit,
                 measure_trunk_mtp=args.measure_trunk_mtp,
             )
         else:
@@ -669,8 +667,9 @@ def _run(args: argparse.Namespace) -> int:
             target_bpw = args.target_bpw if args.target_bpw is not None else base_request.target_bpw
             allow_unmeasured = args.allow_unmeasured or base_request.allow_unmeasured
         else:
-            candidate_bits = args.bits if args.bits is not None else (4, 6, 8, 16)
-            group_size = args.group_size if args.group_size is not None else 64
+            # AXQ-070 defaults: MXFP4 (4-bit), the MXFP8 slot (8-bit) and BF16 at group 32.
+            candidate_bits = args.bits if args.bits is not None else (4, 8, 16)
+            group_size = args.group_size if args.group_size is not None else 32
             candidate_group_sizes = (
                 args.candidate_group_sizes if args.candidate_group_sizes is not None else ()
             )
@@ -679,8 +678,7 @@ def _run(args: argparse.Namespace) -> int:
                 if args.methods is not None
                 else (
                     QuantMethod.AFFINE,
-                    QuantMethod.AWQ,
-                    QuantMethod.DWQ,
+                    QuantMethod.MXFP4,
                     QuantMethod.BF16,
                 )
             )
@@ -733,7 +731,6 @@ def _run(args: argparse.Namespace) -> int:
             request,
             kernel_latency=kernel_latency_table,
             allow_mtp_unmeasured=args.allow_mtp_unmeasured,
-            allow_legacy_4bit=args.allow_legacy_4bit,
         )
         if args.ladder is not None:
             plan.warnings.append(f"convert ladder: {args.ladder.value}")
@@ -793,35 +790,6 @@ def _run(args: argparse.Namespace) -> int:
             "unmeasured_manual_plan_created",
             output=str(args.output),
             effective_bpw=round(plan.effective_bpw, 6),
-        )
-        return 0
-
-    if args.command == "plan-experimental-mix":
-        analysis_report = load_sensitivity_report(args.sensitivity)
-        request = PlanRequest(
-            profile=analysis_report.profile,
-            target_bpw=args.target_bpw,
-            candidate_bits=args.bits,
-            group_size=args.group_size,
-            candidate_methods=(QuantMethod.AFFINE, QuantMethod.BF16),
-            allow_unmeasured=args.allow_unmeasured,
-            target_mode=args.mode,
-            random_seed=args.seed,
-        )
-        plan = plan_experimental_mix(
-            analysis_report,
-            request,
-            allow_mtp_unmeasured=args.allow_mtp_unmeasured,
-        )
-        write_data(args.output, plan)
-        _write_source_binding_beside(args.output, plan, analysis_report.model.local_path)
-        if args.markdown_output:
-            write_text(args.markdown_output, plan_markdown(plan))
-        log.warning(
-            "experimental_mix_plan_created",
-            output=str(args.output),
-            effective_bpw=round(plan.effective_bpw, 6),
-            evidence=plan.evidence_kind.value,
         )
         return 0
 
@@ -951,15 +919,6 @@ def _run(args: argparse.Namespace) -> int:
         binding_path = binding_path_beside(args.plan)
         if binding_path.is_file():
             source_binding = load_source_plan_binding(binding_path)
-        calibration_activations = None
-        if args.calibration_activations:
-            from axquant.capture import load_capture_activations
-
-            calibration_activations = load_capture_activations(
-                args.calibration_activations,
-                model=plan.source_model.model_id,
-                revision=args.revision or plan.source_model.revision,
-            )
         convert_model(
             model=args.model,
             plan=plan,
@@ -969,14 +928,13 @@ def _run(args: argparse.Namespace) -> int:
             mtp_layout=MtpSidecarLayout(args.mtp_layout),
             calibration_manifest=args.calibration_manifest,
             kv_sensitivity=args.kv_sensitivity,
-            calibration_activations=calibration_activations,
             allow_unmeasured=args.allow_unmeasured,
             ax_engine_manifest=args.ax_engine_manifest,
             ax_engine_bench=args.ax_engine_bench,
             q_mode=args.q_mode,
             expert_stream=args.expert_stream,
-            allow_legacy_4bit=args.allow_legacy_4bit,
             source_binding=source_binding,
+            not_dflash2_target=args.not_dflash2_target,
         )
         return 0
 
@@ -1018,7 +976,7 @@ def _run(args: argparse.Namespace) -> int:
             image_input=args.image_input,
             ax_engine_manifest=args.ax_engine_manifest,
             expert_stream=args.expert_stream,
-            allow_legacy_4bit=args.allow_legacy_4bit,
+            not_dflash2_target=args.not_dflash2_target,
         )
         if args.json_output:
             write_data(args.json_output, summary)
@@ -1182,46 +1140,6 @@ def _run(args: argparse.Namespace) -> int:
             copied_file_count=ngram_report.copied_file_count,
             total_size_before=ngram_report.total_size_before,
             total_size_after=ngram_report.total_size_after,
-        )
-        return 0
-
-    if args.command == "quantize-mtp-sidecar":
-        import shlex
-
-        from axquant.mtp_sidecar import (
-            probe_ax_engine_mtp_capability,
-            quantize_qwen36_mtp_sidecar,
-        )
-        from axquant.schema import AxEngineMtpCapabilityCheck
-
-        if bool(args.capability_command) == bool(args.capability_result):
-            raise ArtifactError(
-                "quantize-mtp-sidecar requires exactly one of --capability-command "
-                "(live AX Engine probe) or --capability-result (recorded check)"
-            )
-        if args.capability_command:
-            capability = probe_ax_engine_mtp_capability(shlex.split(args.capability_command))
-        else:
-            capability = load_model(args.capability_result, AxEngineMtpCapabilityCheck)
-        sidecar_manifest = quantize_qwen36_mtp_sidecar(
-            args.sidecar,
-            args.output,
-            bits=args.bits,
-            group_size=args.group_size,
-            capability=capability,
-        )
-        write_data(args.manifest_output, sidecar_manifest)
-        if args.runtime_json:
-            from axquant.mtp_sidecar import annotate_mtp_runtime_sidecar_bits
-
-            annotate_mtp_runtime_sidecar_bits(args.runtime_json, args.bits)
-        log.info(
-            "quantized_mtp_sidecar_written",
-            output=str(args.output),
-            manifest=str(args.manifest_output),
-            default_bits=sidecar_manifest.default_bits,
-            quantized_tensors=sum(1 for t in sidecar_manifest.tensors if t.quantized),
-            layout=sidecar_manifest.capability.layout,
         )
         return 0
 

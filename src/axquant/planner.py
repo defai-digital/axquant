@@ -8,9 +8,7 @@ from typing import Literal, TypeAlias
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
 from axquant.experimental_bits import (
-    EXPERIMENTAL_LOW_BITS,
     annotate_experimental_low_bit_plan,
-    robust_trunk_role,
 )
 from axquant.identity import semantic_model_identity
 from axquant.kernel_latency import decode_latency_provider
@@ -23,6 +21,7 @@ from axquant.module_paths import (
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
 from axquant.predicate import fused_stack_method_allowed
+from axquant.product_formats import mlx_candidate_allowed
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
@@ -681,7 +680,6 @@ def _options_for(
     *,
     evidence_kind: EvidenceKind,
     latency_lookup: Callable[[int, int | None, QuantMethod, int], float | None] | None = None,
-    allow_legacy_4bit: bool = False,
 ) -> tuple[list[_Option], str | None]:
     """Build a bits x group x method option ladder under hard floors (AXQ-028/QP1)."""
     minimum_bits, reason = _minimum_bits(entry, request)
@@ -710,13 +708,9 @@ def _options_for(
         and candidate.bits >= minimum_bits
         and candidate.bits in request.hardware.supported_bits
         and candidate.method in request.hardware.supported_methods
-        # RM-42: experimental 2/3-bit stays on the robust trunk; other roles
-        # keep their 4-bit-and-up candidates even when low bits are requested.
-        and (candidate.bits not in EXPERIMENTAL_LOW_BITS or robust_trunk_role(role))
-        # AXQ-047 (ADR 0016): the affine 4-bit product line is retired; a
-        # 4-bit storage rung yields MXFP4 candidates only unless the explicit
-        # legacy opt-in is set.
-        and (allow_legacy_4bit or candidate.bits != 4 or candidate.method == QuantMethod.MXFP4)
+        # AXQ-070: MXFP4 at 4-bit, the MXFP8 slot (unrefined 8-bit, group 32)
+        # and BF16 are the only MLX storage formats.
+        and mlx_candidate_allowed(candidate.bits, candidate.method, candidate.group_size)
         and (
             not (fused_expert or packed_expert)
             or candidate.bits == 16
@@ -888,7 +882,6 @@ def plan_quantization(
     objective_weights: ObjectiveWeights | None = None,
     allocation_units: Literal["tensor", "fused-module"] = "tensor",
     allow_mtp_unmeasured: bool = False,
-    allow_legacy_4bit: bool = False,
 ) -> QuantizationPlan:
     require_model_supported(report.model.model_id, report.model.local_path)
     if allocation_units not in {"tensor", "fused-module"}:
@@ -961,7 +954,6 @@ def plan_quantization(
             weights,
             evidence_kind=report.evidence_kind,
             latency_lookup=latency_lookup,
-            allow_legacy_4bit=allow_legacy_4bit,
         )
         choices.append(_Choice(entry=entry, options=options, policy_reason=reason))
     tensor_names = [choice.entry.tensor.name for choice in choices]
@@ -1197,13 +1189,6 @@ def plan_quantization(
         warnings.append(
             f"Plan uses non-release {report.evidence_kind.value} evidence and requires "
             "complete-model validation."
-        )
-    if allow_legacy_4bit and any(
-        allocation.bits == 4 and allocation.method != QuantMethod.MXFP4
-        for allocation in allocations
-    ):
-        warnings.append(
-            "affine 4-bit is a retired product line; this plan uses the --allow-legacy-4bit opt-in"
         )
     if allocation_units == "fused-module":
         warnings.append(

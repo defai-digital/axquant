@@ -1,5 +1,5 @@
 {
-  "count": 153,
+  "count": 155,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -336,6 +336,22 @@
       "model": "axquant.schema.deployment.DeploymentPlan",
       "schema_version": "axquant.deployment-plan.v1",
       "sha256": "3af10064be61886172e7872071aad61af4edf56b2808deb29272a26b91debfdf"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.dflash2_admitted_targets.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.dflash2.Dflash2AdmittedTargets",
+      "schema_version": "axquant.dflash2_admitted_targets.v1",
+      "sha256": "4b581209ddbdab8d86e2b4764ce9ec06ebd92692095e82e4f26752152c521790"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.dflash2_target.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.dflash2.Dflash2TargetDeclaration",
+      "schema_version": "axquant.dflash2_target.v1",
+      "sha256": "d6f683b41c6ccd2392b26ffee8cbc3bf06b40a0d725f6789042814113f37b3c3"
     },
     {
       "compatibility_class": "evidence",

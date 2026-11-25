@@ -21,6 +21,24 @@ from axquant.schema import (
 from axquant.serde import load_model
 
 
+def _block_align_trunk(model_dir: Path) -> None:
+    """Widen trunk weights so MXFP4 / MXFP8 packing has whole 32-wide blocks.
+
+    AXQ-070 stores 4-bit as MXFP4 and 8-bit as MXFP8, whose converted layout
+    carries one E8M0 scale per block of 32 input columns.
+    """
+
+    weight_file = model_dir / "model.safetensors"
+    with safe_open(weight_file, framework="numpy") as source:
+        tensors = {
+            name: np.repeat(source.get_tensor(name), 8, axis=-1)
+            if "model.layers." in name
+            else source.get_tensor(name)
+            for name in list(source.keys())
+        }
+    save_file(tensors, weight_file)
+
+
 def _install_fake_mlx(monkeypatch: pytest.MonkeyPatch, model_dir: Path) -> None:
     def _module_paths() -> list[str]:
         with safe_open(model_dir / "model.safetensors", framework="numpy") as source:
@@ -87,6 +105,7 @@ def test_quick_convert_produces_development_artifact(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _block_align_trunk(qwen36_model_dir)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     output = tmp_path / "quick-candidate"
     summary = quick_convert(
@@ -191,15 +210,7 @@ def test_quick_convert_raises_infeasible_target_bpw(
 ) -> None:
     """Protected floors can make a low target infeasible; simple convert raises once."""
     # The MXFP4 budget floor needs executable, block-aligned trunk weights.
-    weight_file = qwen36_model_dir / "model.safetensors"
-    with safe_open(weight_file, framework="numpy") as source:
-        tensors = {
-            name: np.repeat(source.get_tensor(name), 8, axis=-1)
-            if "model.layers." in name
-            else source.get_tensor(name)
-            for name in list(source.keys())
-        }
-    save_file(tensors, weight_file)
+    _block_align_trunk(qwen36_model_dir)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     output = tmp_path / "raised-bpw"
     # Extremely low target forces a raise to the policy minimum.
@@ -227,6 +238,7 @@ def test_quantize_cli_writes_summary_json(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _block_align_trunk(qwen36_model_dir)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     output = tmp_path / "cli-candidate"
     summary_path = tmp_path / "quantize-summary.json"
@@ -269,6 +281,7 @@ def test_quick_convert_binds_recipe_bundle(
     from axquant.serde import write_data
     from axquant.source_binding import write_source_plan_binding
 
+    _block_align_trunk(qwen36_model_dir)
     source_revision = "a" * 40
     inventory = inspect_model(
         qwen36_model_dir,

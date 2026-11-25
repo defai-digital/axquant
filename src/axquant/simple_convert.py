@@ -42,7 +42,7 @@ from typing import Literal
 from axquant.conversion_formats import format_ladder
 from axquant.errors import ArtifactError, PlanningError
 from axquant.expert_stream import ExpertStreamSetting
-from axquant.naming import model_name, target_class_for_bpw
+from axquant.naming import mlx_pack_format_for_bpw, model_name
 from axquant.quantize import DEVELOPMENT_NOTE, RuntimeSmoke, validate_quick_options
 from axquant.recipes import load_recipe_bundle
 from axquant.schema import (
@@ -81,14 +81,14 @@ def default_output_dir(
     format: str | None = None,
     parent: str | Path = ".",
 ) -> Path:
-    """Derive ``./AX-<base>-MLX-AXQ-<class>`` under *parent*."""
+    """Derive ``./AX-<base>-MLX-AXQ-<format>`` under *parent* (AXQ-070 format names)."""
     if not math.isfinite(target_bpw) or target_bpw <= 0 or target_bpw > 16:
         raise PlanningError("target_bpw must be finite and in (0, 16]")
     base = model_id or model
     if format is not None:
         format_ladder(format)
-    target_class = format.upper() if format and format.startswith("mxfp") else format
-    name = model_name(base, target_class=target_class or target_class_for_bpw(target_bpw), mtp=mtp)
+    target_class = format.upper() if format else mlx_pack_format_for_bpw(target_bpw)
+    name = model_name(base, target_class=target_class, mtp=mtp)
     if not _SAFE_DIR.fullmatch(name):
         raise PlanningError(f"refusing unsafe default output name: {name}")
     return Path(parent).expanduser().resolve() / name
@@ -153,7 +153,7 @@ def simple_convert(
     mtp_sidecar: str | Path | None = None,
     calibration_manifest: str | Path | None = None,
     kv_sensitivity: str | Path | None = None,
-    allow_legacy_4bit: bool = False,
+    not_dflash2_target: str | None = None,
 ) -> QuickConversionSummary:
     """One-command development convert with OptiQ-like defaults.
 
@@ -169,7 +169,6 @@ def simple_convert(
         recipe=recipe,
         target_bpw=target_bpw,
         kv_cache=kv_cache,
-        allow_legacy_4bit=allow_legacy_4bit,
     )
     if recipe is not None and kv_cache is not None:
         raise PlanningError(
@@ -263,7 +262,7 @@ def simple_convert(
         expert_stream=expert_stream,
         allow_download=False,  # already resolved above
         allow_quantized=allow_quantized,
-        allow_legacy_4bit=allow_legacy_4bit,
+        not_dflash2_target=not_dflash2_target,
     )
     extra_notes = [
         "Simple convert path: development evidence only (best practice: two doors).",

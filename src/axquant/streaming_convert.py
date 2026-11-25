@@ -110,13 +110,11 @@ def _logical_parameters(module: Any, tree_flatten: Callable[..., Any]) -> int:
 
 
 def _defaults_for_mode(mode: str, group_size: int | None, bits: int | None) -> tuple[int, int]:
-    mode_defaults = {
-        "affine": (64, 4),
-        "mxfp4": (32, 4),
-        "nvfp4": (16, 4),
-        "mxfp8": (32, 8),
-    }
-    default_group_size, default_bits = mode_defaults.get(mode, (64, 4))
+    # AXQ-070: streaming convert writes MXFP4 or MXFP8 only.
+    mode_defaults = {"mxfp4": (32, 4), "mxfp8": (32, 8)}
+    if mode not in mode_defaults:
+        raise ValueError(f"streaming convert supports mxfp4 and mxfp8 only, not {mode!r}")
+    default_group_size, default_bits = mode_defaults[mode]
     return group_size or default_group_size, bits or default_bits
 
 
@@ -136,7 +134,7 @@ def quantize_and_save_streaming(
     quant_predicate: Callable[..., Any] | None,
     q_group_size: int | None,
     q_bits: int | None,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
     hf_repo: str | None = None,
 ) -> None:
     """Quantize ``model`` one leaf at a time and write MLX shards under ``dst_path``."""
@@ -350,7 +348,7 @@ def streaming_mlx_convert(
     q_bits: int,
     quant_predicate: Any,
     revision: str | None,
-    q_mode: str = "affine",
+    q_mode: str = "mxfp4",
 ) -> None:
     """Drop-in for ``mlx_lm.convert`` that streams quantized shards to disk."""
 

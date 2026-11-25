@@ -2,15 +2,20 @@ import pytest
 
 from axquant.errors import ArtifactError, PlanningError
 from axquant.naming import (
+    CUDA_LANES,
+    MLX_PACK_FORMATS,
     RESERVED_EMPTY_MTP_LEAVES,
     assert_manifest_mtp_files_agree,
     cuda_pack_name,
     distinct_4bit_sibling_allowed,
+    mlx_pack_format,
+    mlx_pack_format_for_bpw,
     model_name,
     packaged_mtp_present,
     require_mtp_suffix_matches_packaging,
     target_class_for_bpw,
 )
+from axquant.schema import Allocation, MetricVector, QuantMethod, TensorRole
 
 
 def test_default_name_uses_mlx_and_manifest_mtp() -> None:
@@ -166,26 +171,123 @@ def test_distinct_4bit_sibling_requires_five_percent_complete_weight_savings() -
 
 
 def test_cuda_pack_name_matches_published_lanes() -> None:
+    assert frozenset({"NVFP4-W4A16", "NVFP4-W4A4"}) == CUDA_LANES
     assert cuda_pack_name("baidu/Unlimited-OCR", lane="NVFP4-W4A16") == (
         "AX-Unlimited-OCR-CUDA-AXQ-NVFP4-W4A16"
     )
-    assert cuda_pack_name("Unlimited-OCR-3B-MoE", lane="NVFP4-FP8-6bit") == (
-        "AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-FP8-6bit"
+    assert cuda_pack_name("Unlimited-OCR-3B-MoE", lane="NVFP4-W4A4") == (
+        "AX-Unlimited-OCR-3B-MoE-CUDA-AXQ-NVFP4-W4A4"
     )
-    assert cuda_pack_name("deepseek-ai/DeepSeek-OCR-2", lane="NVFP4-FP8-6bit", mtp=True).endswith(
-        "-CUDA-AXQ-NVFP4-FP8-6bit-MTP"
+    assert cuda_pack_name("deepseek-ai/DeepSeek-OCR-2", lane="NVFP4-W4A16", mtp=True).endswith(
+        "-CUDA-AXQ-NVFP4-W4A16-MTP"
     )
 
 
-def test_cuda_mixed_lane_names_both_formats_and_the_standard_class() -> None:
-    mixed = cuda_pack_name("Some-Base", lane="NVFP4-FP8-6bit")
-    assert mixed.endswith("-CUDA-AXQ-NVFP4-FP8-6bit")
-    assert "NVFP4" in mixed and "FP8" in mixed
-    # 6bit is the project budget class, so the mixed lane must use that token.
-    assert target_class_for_bpw(6.0) == "6bit"
+def test_cuda_pack_name_rejects_the_retired_fp8_mixed_lane() -> None:
+    # AXQ-070 retires FP8 and the NVFP4-FP8-6bit mixed budget lane.
+    with pytest.raises(ArtifactError, match="unsupported CUDA quantization lane"):
+        cuda_pack_name("Some-Base", lane="NVFP4-FP8-6bit")
 
 
-@pytest.mark.parametrize("lane", ["MIX6", "MIXED-6bit", "NVFP4-FP8", "6bit", "int6"])
+def _allocation(name: str, role: TensorRole, bits: int, parameters: int = 1024) -> Allocation:
+    if bits == 16:
+        method, group_size = QuantMethod.BF16, None
+    elif bits == 4:
+        method, group_size = QuantMethod.MXFP4, 32
+    else:
+        method, group_size = QuantMethod.AFFINE, 32
+    return Allocation(
+        tensor=f"{name}.weight",
+        module_path=name,
+        role=role,
+        parameters=parameters,
+        bits=bits,
+        method=method,
+        group_size=group_size,
+        predicted_loss=0.0,
+        metrics=MetricVector(),
+        reason="test",
+    )
+
+
+def test_mlx_pack_formats_are_the_axq070_names() -> None:
+    assert MLX_PACK_FORMATS == ("MXFP4", "MXFP4-attn8", "MXFP8")
+
+
+@pytest.mark.parametrize(
+    ("target_bpw", "expected"),
+    [
+        (2.0, "MXFP4"),
+        (4.8, "MXFP4"),
+        (6.0, "MXFP4"),
+        (7.6, "MXFP4"),
+        (7.65, "MXFP8"),
+        (8.8, "MXFP8"),
+        (16.0, "MXFP8"),
+    ],
+)
+def test_mlx_pack_format_for_bpw(target_bpw: float, expected: str) -> None:
+    assert mlx_pack_format_for_bpw(target_bpw) == expected
+
+
+@pytest.mark.parametrize("value", [0.0, -1.0, float("nan"), float("inf")])
+def test_mlx_pack_format_for_bpw_rejects_invalid_budgets(value: float) -> None:
+    with pytest.raises(PlanningError, match="positive and finite"):
+        mlx_pack_format_for_bpw(value)
+
+
+def test_mlx_pack_format_names_the_trunk_storage() -> None:
+    floors = [
+        _allocation("embed", TensorRole.EMBEDDING, 8, parameters=100_000),
+        _allocation("lm_head", TensorRole.LM_HEAD, 16, parameters=100_000),
+    ]
+    mxfp4 = [
+        _allocation("attn.q", TensorRole.ATTENTION, 4),
+        _allocation("mlp.up", TensorRole.MLP, 4, parameters=4096),
+        *floors,
+    ]
+    # Large 8-bit floors outside the trunk do not change the trunk format.
+    assert mlx_pack_format(mxfp4) == "MXFP4"
+
+    attn8 = [
+        _allocation("attn.q", TensorRole.ATTENTION, 8),
+        _allocation("attn.k", TensorRole.ATTENTION, 8),
+        _allocation("mlp.up", TensorRole.MLP, 4, parameters=4096),
+        _allocation("experts.up", TensorRole.EXPERT, 4, parameters=4096),
+        *floors,
+    ]
+    assert mlx_pack_format(attn8) == "MXFP4-attn8"
+
+    # A partial attention raise is not MXFP4-attn8.
+    partial = [
+        _allocation("attn.q", TensorRole.ATTENTION, 8),
+        _allocation("attn.k", TensorRole.ATTENTION, 4),
+        _allocation("mlp.up", TensorRole.MLP, 4, parameters=4096),
+    ]
+    assert mlx_pack_format(partial) == "MXFP4"
+
+    mxfp8 = [
+        _allocation("attn.q", TensorRole.ATTENTION, 8),
+        _allocation("mlp.up", TensorRole.MLP, 8, parameters=4096),
+        _allocation("experts.up", TensorRole.EXPERT, 4, parameters=1024),
+    ]
+    assert mlx_pack_format(mxfp8) == "MXFP8"
+
+
+def test_mlx_pack_format_refuses_retired_widths_and_empty_trunks() -> None:
+    six = [_allocation("attn.q", TensorRole.ATTENTION, 4)]
+    six[0] = six[0].model_copy(update={"bits": 6, "method": QuantMethod.AFFINE})
+    with pytest.raises(PlanningError, match="not 6-bit"):
+        mlx_pack_format(six)
+    with pytest.raises(PlanningError, match="no quantized trunk"):
+        mlx_pack_format([_allocation("embed", TensorRole.EMBEDDING, 8)])
+    with pytest.raises(PlanningError, match="no quantized trunk"):
+        mlx_pack_format([_allocation("lm_head", TensorRole.LM_HEAD, 16)])
+
+
+@pytest.mark.parametrize(
+    "lane", ["MIX6", "MIXED-6bit", "NVFP4-FP8", "NVFP4-FP8-6bit", "6bit", "int6", "FP8"]
+)
 def test_cuda_pack_name_rejects_ad_hoc_tokens(lane: str) -> None:
     with pytest.raises(ArtifactError, match="unsupported CUDA quantization lane"):
         cuda_pack_name("Some-Base", lane=lane)

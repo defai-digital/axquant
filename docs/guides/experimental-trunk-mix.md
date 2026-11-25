@@ -1,5 +1,9 @@
 # Experimental trunk mix (2/3/4-bit)
 
+> **Retired in AXQuant 3.0 (AXQ-070).** `plan-experimental-mix` and all 2/3-bit
+> affine storage were removed; AXQuant writes only MXFP4, MXFP8 and BF16 on MLX.
+> This page is kept as a record of the 2.x experiment.
+
 Development evidence only. Not a certificate. Not mlx-optiq. Not `plan-joint`.
 
 Heuristic Flash-0731 recipes (uniform 2-bit, then hand-raised shared/edge/down-proj)

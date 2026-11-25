@@ -6,6 +6,7 @@ from collections.abc import Collection
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 from axquant.errors import ArtifactError, PlanningError
+from axquant.schema import Allocation
 
 _VALID_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 _QUANT_SUFFIX = re.compile(
@@ -33,12 +34,50 @@ _NATIVE_MTP_ROOT_FILES = frozenset(
 )
 _ASSISTANT_CONTRACT = "ax_gemma4_assistant_mtp.json"
 
-# CUDA packs are format-qualified, unlike MLX packs which name the budget class.
-# The mixed lane must name both datatypes and the project 6bit budget class, so
-# ad hoc tokens such as MIX6 are rejected. This lane is a mixed storage budget,
-# distinct from NVIDIA FP6/OCP MXFP6. AXQ's former MXFP6 exporter was retired.
-CUDA_LANES: frozenset[str] = frozenset({"NVFP4-W4A16", "NVFP4-W4A4", "FP8-E4M3-W8A8"})
-CUDA_MIXED_LANE = "NVFP4-FP8-6bit"
+# AXQ-070: MLX packs name their storage format. ``MXFP4`` is an MXFP4 trunk with
+# MXFP8/BF16 floors, ``MXFP4-attn8`` additionally raises attention to MXFP8
+# (measured role raise, AXQ-069), ``MXFP8`` is an MXFP8 trunk.
+MLX_PACK_FORMATS: tuple[str, ...] = ("MXFP4", "MXFP4-attn8", "MXFP8")
+# CUDA packs are format-qualified: NVFP4 weights with BF16 (W4A16) or NVFP4
+# (calibrated W4A4) activations. FP8 and mixed budget lanes are retired.
+CUDA_LANES: frozenset[str] = frozenset({"NVFP4-W4A16", "NVFP4-W4A4"})
+
+
+def mlx_pack_format_for_bpw(target_bpw: float) -> str:
+    """Pack format of a prior plan at *target_bpw*: an 8-bit budget is MXFP8."""
+
+    if not math.isfinite(target_bpw) or target_bpw <= 0:
+        raise PlanningError("target_bpw must be positive and finite")
+    return "MXFP8" if target_bpw >= 7.65 else "MXFP4"
+
+
+def mlx_pack_format(allocations: Collection[Allocation]) -> str:
+    """Name the storage format of a plan's language trunk (AXQ-070).
+
+    The dominant quantized lane decides MXFP4 versus MXFP8. An MXFP4 trunk
+    whose quantized attention tensors are all 8-bit is ``MXFP4-attn8``.
+    """
+
+    weights: dict[int, int] = {}
+    attention_bits: set[int] = set()
+    for allocation in allocations:
+        bits = int(allocation.bits)
+        if bits >= 16:
+            continue
+        if bits not in (4, 8):
+            raise PlanningError(f"AXQ-070 pack formats cover 4- and 8-bit storage, not {bits}-bit")
+        role = allocation.role.value
+        if role == "attention":
+            attention_bits.add(bits)
+        if role in {"attention", "mlp", "expert"}:
+            weights[bits] = weights.get(bits, 0) + int(allocation.parameters)
+    if not weights:
+        raise PlanningError("plan has no quantized trunk allocations to name")
+    if weights.get(8, 0) > weights.get(4, 0):
+        return "MXFP8"
+    if attention_bits == {8}:
+        return "MXFP4-attn8"
+    return "MXFP4"
 
 
 def distinct_4bit_sibling_allowed(four_bit_bytes: int, six_bit_bytes: int) -> bool:
@@ -113,13 +152,11 @@ def cuda_pack_name(
 ) -> str:
     """Return the Hub name for a CUDA pack from its quantization lane.
 
-    CUDA packs stay format-qualified. ``lane`` must be a documented CUDA lane
-    (``NVFP4-W4A16``, ``NVFP4-W4A4``, ``FP8-E4M3-W8A8``) or the mixed lane
-    ``NVFP4-FP8-6bit``. The mixed lane names both datatypes and the project
-    6bit budget class, so invented tokens such as ``MIX6`` are refused.
+    CUDA packs stay format-qualified. ``lane`` must be ``NVFP4-W4A16`` or
+    ``NVFP4-W4A4`` (AXQ-070: FP8 and mixed budget lanes are retired).
     """
 
-    if lane not in CUDA_LANES and lane != CUDA_MIXED_LANE:
+    if lane not in CUDA_LANES:
         raise ArtifactError(f"unsupported CUDA quantization lane: {lane}")
     base = base_model.rstrip("/").split("/")[-1]
     base = _QUANT_SUFFIX.sub("", base)

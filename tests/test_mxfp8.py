@@ -14,7 +14,7 @@ from axquant.errors import ArtifactError, PlanningError
 from axquant.inspector import inspect_model
 from axquant.manual import manual_quantization_plan
 from axquant.predicate import allocation_quant_params, build_quant_predicate
-from axquant.schema import EvidenceKind, ManualPlanRecipe, QuantMethod, TensorRole
+from axquant.schema import ManualPlanRecipe, QuantMethod, TensorRole
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def test_native_modes_are_explicit_and_mxfp6_is_not_accepted_by_mlx_cli():
 
 def test_mxfp8_predicate_retains_bf16_and_rejects_invalid_geometry(mxfp8_source_and_plan):
     _, _, plan = mxfp8_source_and_plan
-    predicate = build_quant_predicate(plan, execute_refinement=False, q_mode="mxfp8")
+    predicate = build_quant_predicate(plan, q_mode="mxfp8")
     for allocation in plan.assignments:
         config = predicate(allocation.module_path, object())
         if allocation.bits == 16:
@@ -83,42 +83,43 @@ def test_mxfp8_predicate_retains_bf16_and_rejects_invalid_geometry(mxfp8_source_
             assert config == {"bits": 8, "group_size": 32, "mode": "mxfp8"}
     assert not predicate.unmatched_quantized_modules()
     allocation = next(item for item in plan.assignments if item.bits == 8)
-    with pytest.raises(PlanningError, match="group_size 32"):
+    with pytest.raises(PlanningError, match=r"AXQ-070.*8-bit group 64"):
         allocation_quant_params(allocation.model_copy(update={"group_size": 64}), "mxfp8")
-    with pytest.raises(PlanningError, match="unrefined"):
+    with pytest.raises(PlanningError, match=r"AXQ-070.*dwq refinement"):
         allocation_quant_params(allocation.model_copy(update={"method": QuantMethod.DWQ}), "mxfp8")
-    with pytest.raises(PlanningError, match="unsupported allocation"):
-        allocation_quant_params(
-            allocation.model_copy(update={"strategy_metadata": {"physical_mode": "mxfp6"}})
-        )
+    # Strategy metadata cannot select a storage format; bits decide it.
+    assert allocation_quant_params(
+        allocation.model_copy(update={"strategy_metadata": {"physical_mode": "mxfp6"}})
+    ) == {"bits": 8, "group_size": 32, "mode": "mxfp8"}
 
 
-def test_mxfp8_does_not_remap_six_bit_or_plan_selected_mxfp4(mxfp8_source_and_plan):
+def test_mxfp8_refuses_six_bit_and_keeps_plan_selected_mxfp4(mxfp8_source_and_plan):
     _, _, plan = mxfp8_source_and_plan
     allocation = next(item for item in plan.assignments if item.bits == 8)
     six = allocation.model_copy(update={"bits": 6})
-    assert allocation_quant_params(six, "mxfp8")["mode"] == "affine"
+    with pytest.raises(PlanningError, match=r"AXQ-070.*6-bit storage"):
+        allocation_quant_params(six, "mxfp8")
     four = allocation.model_copy(update={"bits": 4, "method": QuantMethod.MXFP4})
     assert allocation_quant_params(four, "mxfp8")["mode"] == "mxfp4"
-    with pytest.raises(PlanningError, match="8-bit allocation"):
+    with pytest.raises(PlanningError, match=r"AXQ-070.*6-bit storage"):
         allocation_quant_params(
             six.model_copy(update={"strategy_metadata": {"physical_mode": "mxfp8"}})
         )
 
 
-def test_mxfp8_repacking_requires_explicit_unmeasured_opt_in(mxfp8_source_and_plan, tmp_path):
+def test_convert_refuses_affine_q_mode_before_writing(mxfp8_source_and_plan, tmp_path):
     source, _, plan = mxfp8_source_and_plan
-    with pytest.raises(PlanningError, match="affine sensitivity does not measure MXFP8"):
-        convert_model(model=source, plan=plan, output=tmp_path / "output", q_mode="mxfp8")
+    with pytest.raises(PlanningError, match="AXQ-070 removed affine storage"):
+        convert_model(model=source, plan=plan, output=tmp_path / "output", q_mode="affine")
     assert not (tmp_path / "output").exists()
 
 
 def _write_quantized(source, plan, output, mode):
     mx = pytest.importorskip("mlx.core")
     nn = pytest.importorskip("mlx.nn")
-    predicate = build_quant_predicate(
-        plan, execute_refinement=False, q_mode=mode, allow_legacy_4bit=True
-    )
+    # "affine" writes a historical affine payload directly (verifier input only);
+    # AXQ-070 product storage goes through the plan predicate.
+    predicate = None if mode == "affine" else build_quant_predicate(plan, q_mode=mode)
     output.mkdir()
     arrays = {}
     default_bits = min(item.bits for item in plan.assignments if item.bits < 16)
@@ -134,7 +135,10 @@ def _write_quantized(source, plan, output, mode):
                 continue
             linear = nn.Linear(original.shape[1], original.shape[0], bias=False)
             linear.weight = mx.array(original)
-            params = predicate(allocation.module_path, linear)
+            if predicate is None:
+                params = {"group_size": 32, "bits": allocation.bits, "mode": "affine"}
+            else:
+                params = predicate(allocation.module_path, linear)
             assert isinstance(params, dict)
             quantized = linear.to_quantized(**params)
             mx.eval(quantized.weight, quantized.scales)
@@ -239,26 +243,7 @@ def test_forged_mxfp8_config_cannot_hide_affine_scales(mxfp8_source_and_plan, tm
         )
 
 
-@pytest.mark.parametrize("selection", ["global", "metadata"])
-def test_mxfp8_case_normalization_cannot_bypass_evidence_gate(
-    mxfp8_source_and_plan, tmp_path, selection
-):
-    source, _, plan = mxfp8_source_and_plan
-    plan = plan.model_copy(update={"evidence_kind": EvidenceKind.MEASURED})
-    mode = "MXFP8" if selection == "global" else "affine"
-    if selection == "metadata":
-        plan.assignments = [
-            item.model_copy(update={"strategy_metadata": {"physical_mode": "MXFP8"}})
-            if item.bits == 8
-            else item
-            for item in plan.assignments
-        ]
-    with pytest.raises(PlanningError, match="affine sensitivity does not measure MXFP8"):
-        convert_model(model=source, plan=plan, output=tmp_path / "output", q_mode=mode)
-    assert not (tmp_path / "output").exists()
-
-
-def test_selected_mxfp4_cannot_hide_unsupported_metadata(mxfp8_source_and_plan):
+def test_selected_mxfp4_storage_ignores_strategy_metadata(mxfp8_source_and_plan):
     _, _, plan = mxfp8_source_and_plan
     allocation = next(item for item in plan.assignments if item.bits == 8)
     four = allocation.model_copy(
@@ -268,8 +253,7 @@ def test_selected_mxfp4_cannot_hide_unsupported_metadata(mxfp8_source_and_plan):
             "strategy_metadata": {"physical_mode": "mxfp6"},
         }
     )
-    with pytest.raises(PlanningError, match="unsupported allocation physical mode"):
-        allocation_quant_params(four)
+    assert allocation_quant_params(four) == {"bits": 4, "group_size": 32, "mode": "mxfp4"}
 
 
 def _four_bit_plan(plan):

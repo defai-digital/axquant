@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Literal
 
 from axquant.analyzer import architecture_prior_report
-from axquant.conversion_formats import format_ladder, format_q_mode, validate_format_options
+from axquant.conversion_formats import format_ladder, validate_format_options
 from axquant.converter import convert_model
 from axquant.errors import PlanningError
 from axquant.expert_stream import ExpertStreamSetting
@@ -178,12 +178,9 @@ def validate_quick_options(
     recipe: str | Path | None,
     target_bpw: float | None,
     kv_cache: str | None,
-    allow_legacy_4bit: bool,
 ) -> ConvertLadder:
     """Reject incompatible options before model resolution, downloads or inspection."""
-    validate_format_options(
-        format, recipe=recipe, ladder=ladder, allow_legacy_4bit=allow_legacy_4bit
-    )
+    validate_format_options(format, recipe=recipe, ladder=ladder)
     resolved_ladder = format_ladder(format) if format is not None else get_ladder(ladder)
     if recipe is not None and ladder not in {
         ConvertLadderName.PRIOR,
@@ -237,7 +234,7 @@ def quick_convert(
     expert_stream: ExpertStreamSetting = "auto",
     allow_download: bool = False,
     allow_quantized: bool = False,
-    allow_legacy_4bit: bool = False,
+    not_dflash2_target: str | None = None,
 ) -> QuickConversionSummary:
     resolved_ladder = validate_quick_options(
         format=format,
@@ -245,7 +242,6 @@ def quick_convert(
         recipe=recipe,
         target_bpw=target_bpw,
         kv_cache=kv_cache,
-        allow_legacy_4bit=allow_legacy_4bit,
     )
     inventory = inspect_model(
         model,
@@ -295,7 +291,6 @@ def quick_convert(
             plan = plan_quantization(
                 report,
                 request,
-                allow_legacy_4bit=allow_legacy_4bit,
                 allocation_units="fused-module" if format is not None else "tensor",
             )
         except PlanningError as exc:
@@ -313,7 +308,6 @@ def quick_convert(
             plan = plan_quantization(
                 report,
                 request,
-                allow_legacy_4bit=allow_legacy_4bit,
                 allocation_units="fused-module" if format is not None else "tensor",
             )
             plan.warnings.append(
@@ -375,9 +369,8 @@ def quick_convert(
         allow_unmeasured=True,
         ax_engine_manifest=ax_engine_manifest,
         expert_stream=expert_stream,
-        allow_legacy_4bit=allow_legacy_4bit,
         source_binding=source_binding,
-        q_mode=format_q_mode(format),
+        not_dflash2_target=not_dflash2_target,
     )
     output_dir = Path(output).expanduser().resolve()
     smoke_result = _runtime_smoke_check(

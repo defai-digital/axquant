@@ -9,6 +9,7 @@ import pytest
 from axquant.cli import main
 from axquant.errors import RefinementError
 from axquant.planner import plan_quantization
+from axquant.product_formats import mlx_candidate_allowed
 from axquant.refinement import (
     _complete_objective_loss,
     refine_candidates,
@@ -34,6 +35,7 @@ from axquant.schema import (
     OptimizationScope,
     PlanRequest,
     ProfileName,
+    QuantizationPlan,
     QuantMethod,
     RefinementConfig,
     RefinementMeasurementSet,
@@ -185,32 +187,39 @@ def test_gptq_preference_rank_follows_awq() -> None:
     assert method_preference_rank(TensorRole.MLP, QuantMethod.GPTQ) == 4
 
 
-def test_measured_plan_prefers_awq_for_attention_when_within_margin() -> None:
+def _measured_plan_request(**overrides: object) -> PlanRequest:
+    values: dict[str, object] = {
+        "profile": ProfileName.AGENT_CODING,
+        "target_bpw": 5.5,
+        "candidate_bits": (4, 6, 8, 16),
+        "candidate_group_sizes": (32, 64, 128),
+        "hardware": HardwareProfile(),
+        "allow_unmeasured": False,
+    }
+    values.update(overrides)
+    return PlanRequest.model_validate(values)
+
+
+def _assert_product_storage(plan: QuantizationPlan) -> None:
+    for allocation in plan.assignments:
+        assert mlx_candidate_allowed(allocation.bits, allocation.method, allocation.group_size)
+
+
+def test_measured_plan_never_selects_awq_for_attention_within_margin() -> None:
+    # AXQ-070: the role preference for AWQ on attention no longer reaches the
+    # plan; AWQ is not written, so attention takes a product storage format.
     report = _measured_report()
-    plan = plan_quantization(
-        report,
-        PlanRequest(
-            profile=ProfileName.AGENT_CODING,
-            target_bpw=5.5,
-            candidate_bits=(4, 6, 8, 16),
-            candidate_group_sizes=(32, 64, 128),
-            hardware=HardwareProfile(),
-            allow_unmeasured=False,
-        ),
-        # Intent: affine-family refinement methods on the 4-bit rung (retired
-        # product line, explicit opt-in).
-        allow_legacy_4bit=True,
-    )
+    plan = plan_quantization(report, _measured_plan_request())
     attention = next(item for item in plan.assignments if item.role == TensorRole.ATTENTION)
-    # At equal storage key, measured attention should pick AWQ within margin.
-    assert attention.method == QuantMethod.AWQ
-    assert attention.scale_strategy.value == "channel-awq"
+    assert attention.method is not QuantMethod.AWQ
+    assert attention.scale_strategy.value != "channel-awq"
+    _assert_product_storage(plan)
     # Protection floor still holds for norms.
     norm = next(item for item in plan.assignments if item.role == TensorRole.NORM)
     assert norm.bits == 16
 
 
-def test_measured_plan_selects_gptq_when_clearly_better() -> None:
+def test_measured_plan_never_selects_gptq_even_when_clearly_better() -> None:
     report = _measured_report()
     mlp_entry = next(entry for entry in report.entries if entry.tensor.role == TensorRole.MLP)
     for candidate in list(mlp_entry.candidates):
@@ -230,73 +239,25 @@ def test_measured_plan_selects_gptq_when_clearly_better() -> None:
                 ),
             )
         )
-    plan = plan_quantization(
-        report,
-        PlanRequest(
-            profile=ProfileName.AGENT_CODING,
-            target_bpw=5.5,
-            candidate_bits=(4, 6, 8, 16),
-            candidate_group_sizes=(32, 64, 128),
-            hardware=HardwareProfile(),
-            allow_unmeasured=False,
-        ),
-        allow_legacy_4bit=True,
-    )
+    plan = plan_quantization(report, _measured_plan_request())
     mlp = next(item for item in plan.assignments if item.role == TensorRole.MLP)
-    # GPTQ loss is far outside the AFFINE preference margin, so it wins its key.
-    assert mlp.method == QuantMethod.GPTQ
-    assert mlp.scale_strategy.value == "gptq-hessian"
-    assert mlp.outlier_strategy.value == "none"
+    # AXQ-070: GPTQ is not written, however much better it measures.
+    assert mlp.method is not QuantMethod.GPTQ
+    assert mlp.scale_strategy.value != "gptq-hessian"
+    _assert_product_storage(plan)
 
 
-def test_method_near_ties_are_surfaced_and_capped_explicitly() -> None:
+@pytest.mark.parametrize("epsilon", [0.02, 0.0])
+def test_product_storage_leaves_no_retired_method_near_ties(epsilon: float) -> None:
+    # The fixture places DWQ 1% and AWQ 3% above AFFINE at every storage key.
+    # AXQ-070 leaves one writable method per (bits, group) key (MXFP4 at
+    # 4-bit, the MXFP8 slot at 8-bit), so retired methods never surface as
+    # near-tie runner-ups (RM-14).
     report = _measured_report()
-    plan = plan_quantization(
-        report,
-        PlanRequest(
-            profile=ProfileName.AGENT_CODING,
-            target_bpw=5.5,
-            candidate_bits=(4, 6, 8, 16),
-            candidate_group_sizes=(32, 64, 128),
-            hardware=HardwareProfile(),
-            allow_unmeasured=False,
-        ),
-        allow_legacy_4bit=True,
-    )
-    # The fixture places DWQ 1% above AFFINE — inside the default 2% epsilon —
-    # so quantized selections must carry surfaced near ties (RM-14).
-    assert plan.method_near_ties
-    epsilon = PlanRequest.model_fields["method_near_tie_epsilon"].default
-    for tie in plan.method_near_ties:
-        assert tie.selected_method != tie.runner_up_method
-        # The recorded runner-up satisfies the surfacing invariant: within
-        # epsilon of the winner, or strictly better but displaced by a role
-        # preference override.
-        assert tie.runner_up_loss <= tie.selected_loss * (1.0 + epsilon) + 1e-12
-    margins = [tie.relative_margin for tie in plan.method_near_ties]
-    assert margins == sorted(margins), "ties must be ordered most-fragile-first"
+    plan = plan_quantization(report, _measured_plan_request(method_near_tie_epsilon=epsilon))
+    _assert_product_storage(plan)
+    assert plan.method_near_ties == []
     assert plan.method_near_ties_omitted == 0
-
-
-def test_near_tie_epsilon_zero_only_surfaces_preference_overrides() -> None:
-    report = _measured_report()
-    plan = plan_quantization(
-        report,
-        PlanRequest(
-            profile=ProfileName.AGENT_CODING,
-            target_bpw=5.5,
-            candidate_bits=(4, 6, 8, 16),
-            candidate_group_sizes=(32, 64, 128),
-            method_near_tie_epsilon=0.0,
-            hardware=HardwareProfile(),
-            allow_unmeasured=False,
-        ),
-        allow_legacy_4bit=True,
-    )
-    # With epsilon 0 a tie survives only when the runner-up matched or beat
-    # the winner's raw loss (i.e. a preference override displaced it).
-    for tie in plan.method_near_ties:
-        assert tie.runner_up_loss <= tie.selected_loss + 1e-12
 
 
 def test_ranking_loss_discounts_preferred_group() -> None:

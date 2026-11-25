@@ -5,7 +5,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/axquant.svg)](https://pypi.org/project/axquant/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Reproducible quantization and verifiable model packs for MLX and CUDA.**
+**The MXFP / NVFP toolkit: reproducible MXFP4, MXFP8 and NVFP4 model packs for MLX and CUDA.**
 
 AXQuant is an independent, [MIT-licensed](LICENSE) product from **AutomatosX /
 DEFAI Digital**. It allocates per-tensor precision, preserves sensitive model
@@ -17,10 +17,17 @@ inference tools. Independent producers, runtime integrations and community
 forks are welcome. See [AXQ formats and runtime targets](docs/guides/axq-ecosystem.md)
 for existing contracts, integration guidance and current limitations.
 
-| Product line | Runtime targets | Support policy |
-| --- | --- | --- |
-| MLX AXQ: **2-bit, 3-bit, 6-bit, MXFP4, MXFP8** | **MLX-LM, MTPLX, oMLX, AX Engine** | First-class compatibility targets where the runtime supports the model, physical format and requested features; each combination needs validation |
-| CUDA AXQ: **NVFP4** | **vLLM** as the primary target | Experimental NVFP4 and mixed NVFP4/FP8 exports; qualification depends on the model, GPU, kernel and vLLM version |
+AXQuant writes exactly five storage formats and nothing else:
+
+| Backend | Storage formats | Runtime targets | Support policy |
+| --- | --- | --- | --- |
+| MLX (Apple Silicon) | **MXFP4, MXFP8, BF16** | **MLX-LM, MTPLX, oMLX, AX Engine** | First-class compatibility targets where the runtime supports the model, physical format and requested features; each combination needs validation |
+| CUDA (NVIDIA) | **NVFP4, BF16** | **vLLM** as the primary target | NVFP4 W4A16 and calibrated W4A4 development exports; qualification depends on the model, GPU, kernel and vLLM version |
+
+Affine integer storage (2/3/4/6/8-bit), AWQ/GPTQ/DWQ refined affine packing,
+FP8 and mixed budget lanes were removed in 3.0.0. Protection floors that used
+to be affine 8-bit are MXFP8. AXQuant still inspects and validates existing
+affine packs. See the [3.0 migration note](docs/migrations/migration-v3.0.md).
 
 AX Engine is optimized for AXQ on Apple Silicon. Portable model loading does
 not require AX Engine; its additional optimizations and performance claims
@@ -32,7 +39,7 @@ Its [coding calibration study](docs/runbooks/qwen38-27b-mxfp4-flagship.md) uses
 measured sensitivity, a matched storage budget, protected BF16 MTP weights,
 and separate task-quality and runtime validation.
 
-**Status:** official toolkit release `2.3.0` (not a prerelease). The
+**Status:** official toolkit release `3.0.0` (not a prerelease). The
 historical validated-toolkit pin is `axquant[mlx]==1.8.1`; new installations
 should use the current package. Neither install choice certifies a model.
 The 2.0 line opens the experimental
@@ -51,7 +58,7 @@ Version 2.1 adds [explicit oMLX/MTPLX runtime exports](docs/guides/runtime-expor
 and manifest-bound compatibility checks for future MLX conversions. Unknown
 peer profiles fail closed; static format checks do not establish generation
 or certification. Install the toolkit with
-`python -m pip install 'axquant[mlx]==2.3.0'` when using these commands.
+`python -m pip install 'axquant[mlx]==3.0.0'` when using these commands.
 
 Install from PyPI, then convert. You do not need to clone this repository.
 
@@ -73,7 +80,7 @@ are outside this workflow. Inspection, planning and reporting work without MLX.
 | Tool | Strength | What AXQuant adds |
 | --- | --- | --- |
 | `mlx_lm.convert` | Fast HF-to-MLX conversion, affine / MXFP recipes | Architecture roles, hard protection floors, budget allocation, coverage checks, provenance-bound artifacts |
-| MLX learned quants | Dynamic per-layer bit selection, DWQ / AWQ / GPTQ | Per-tensor planning under policy, replayable artifact graph, governed claim labels |
+| MLX learned quants | Dynamic per-layer bit selection, DWQ / AWQ / GPTQ | MXFP-only per-tensor planning under policy, replayable artifact graph, governed claim labels |
 | Community MLX scripts | Speed of experimentation, broad coverage | Reproducibility, completeness checks, refusal of ambiguous success |
 | llama.cpp quantize | GGUF breadth, cross-platform serving | Native Apple/MLX packs, AX Engine metadata, MTP and multimodal sidecar protection |
 
@@ -139,24 +146,20 @@ axquant quantize /path/to/model-bf16
 
 ### Choose an MLX format
 
-**Available in 2.3.0:** `--format`, `axquant formats` and `axquant --version`.
-Upgrade with `python -m pip install --upgrade 'axquant[mlx]'` to use these commands.
-
 ```bash
 axquant --version
 axquant formats --backend mlx
 axquant quantize /path/to/model-bf16 --format mxfp4
-axquant quantize /path/to/model-bf16 --format 2bit
-axquant quantize /path/to/model-bf16 --format 3bit
-axquant quantize /path/to/model-bf16 --format 6bit
 axquant quantize /path/to/model-bf16 --format mxfp8
 ```
 
-These are base-format presets with higher precision for protected tensors,
-not uniform whole-model bit widths. Omitting `--format` retains the existing mixed 4.8-BPW
-planner. Presets use architecture priors and remain development evidence;
-2/3-bit runtime admission gates and MXFP8's unmeasured status still apply.
-See [format behavior and runtime coverage](docs/guides/axq-ecosystem.md).
+`mxfp4` is an MXFP4 trunk with MXFP8 and BF16 protection floors; `mxfp8` is
+an MXFP8 trunk. Storage follows allocation bits: 4-bit is MXFP4, 8-bit is
+MXFP8 (both group 32), 16-bit is BF16. Omitting `--format` keeps the mixed
+4.8-BPW prior planner over the same three formats. Packs are named
+`AX-<model>-MLX-AXQ-MXFP4`, `-MXFP4-attn8` (attention raised to MXFP8 after a
+measured study) or `-MXFP8`. Presets use architecture priors and remain
+development evidence. See [format behavior and runtime coverage](docs/guides/axq-ecosystem.md).
 
 ```bash
 # Choose the bit budget and output folder

@@ -28,29 +28,37 @@ from axquant.serde import load_model, write_data
 from axquant.unified_sensitivity import bind_unified_sensitivity
 
 
-def test_ladders_progress_and_multi_group() -> None:
+def test_ladders_progress_over_axq070_storage() -> None:
     ladders = list_ladders()
     assert [item.name for item in ladders] == [
         ConvertLadderName.PRIOR,
         ConvertLadderName.MEASURED_LITE,
         ConvertLadderName.MEASURED_FULL,
-        ConvertLadderName.REFINE_AWQ_DWQ,
     ]
+    for ladder in ladders:
+        # AXQ-070: MXFP4 (4-bit), MXFP8 (8-bit) and BF16, group 32 only.
+        assert ladder.candidate_bits == (4, 8, 16)
+        assert ladder.candidate_group_sizes == (32,)
+        assert set(ladder.candidate_methods) == {
+            QuantMethod.AFFINE,
+            QuantMethod.MXFP4,
+            QuantMethod.BF16,
+        }
+        assert not ladder.requires_refinement
     prior = get_ladder("prior")
-    assert prior.candidate_group_sizes == (32, 64)
     assert prior.allow_unmeasured
     full = get_ladder(ConvertLadderName.MEASURED_FULL)
-    assert QuantMethod.DWQ in full.candidate_methods
-    assert 32 in full.candidate_group_sizes
-    refine = get_ladder("refine-awq-dwq")
-    assert QuantMethod.AWQ in refine.candidate_methods
-    assert QuantMethod.GPTQ in refine.candidate_methods
+    assert QuantMethod.DWQ not in full.candidate_methods
+    with pytest.raises(PlanningError):
+        get_ladder("refine-awq-dwq")
+    with pytest.raises(PlanningError):
+        get_ladder(ConvertLadderName.REFINE_AWQ_DWQ)
     request = plan_request_for_ladder(prior, profile=ProfileName.GENERAL)
-    assert request.candidate_group_sizes == (32, 64)
+    assert request.candidate_group_sizes == (32,)
     assert request.target_bpw == 4.8
 
 
-def test_prior_ladder_plans_multi_group(qwen36_model_dir: Path) -> None:
+def test_prior_ladder_plans_axq070_storage(qwen36_model_dir: Path) -> None:
     inventory = inspect_model(str(qwen36_model_dir), model_id="Qwen/Qwen3.6-27B")
     request = plan_request_for_ladder(
         ConvertLadderName.PRIOR,
@@ -64,17 +72,15 @@ def test_prior_ladder_plans_multi_group(qwen36_model_dir: Path) -> None:
         group_size=request.group_size,
         candidate_group_sizes=request.candidate_group_sizes,
     )
-    # At least one quantizable tensor should expose multi-group candidates.
-    multi = [
-        entry
-        for entry in report.entries
-        if entry.tensor.quantizable
-        and len({c.group_size for c in entry.candidates if c.group_size is not None}) > 1
-    ]
-    assert multi
     plan = plan_quantization(report, request)
-    assert plan.candidate_group_sizes == (32, 64)
+    assert plan.candidate_group_sizes == (32,)
     assert plan.evidence_kind is EvidenceKind.ARCHITECTURE_PRIOR
+    quantized = [item for item in plan.assignments if item.bits < 16]
+    assert quantized
+    assert {(item.bits, item.method, item.group_size) for item in quantized} <= {
+        (4, QuantMethod.MXFP4, 32),
+        (8, QuantMethod.AFFINE, 32),
+    }
 
 
 def test_probe_capacity_recommends_modes() -> None:
@@ -327,25 +333,3 @@ def test_cli_ladders_probe_scoreboard_deferred(
         )
         == 0
     )
-
-
-def test_expert_memory_recipe_loads(qwen36_model_dir: Path) -> None:
-    from axquant.manual import manual_quantization_plan
-    from axquant.schema import ManualPlanRecipe
-    from axquant.serde import load_model as load
-
-    recipe_path = Path("examples/expert-memory-tier-v0.1.yaml")
-    recipe = load(recipe_path, ManualPlanRecipe)
-    inventory = inspect_model(
-        str(qwen36_model_dir),
-        model_id="Qwen/Qwen3.6-27B",
-        revision="a" * 40,
-    )
-    plan = manual_quantization_plan(inventory, recipe)
-    experts = [a for a in plan.assignments if a.role.value == "expert"]
-    routers = [a for a in plan.assignments if a.role.value == "router"]
-    # Dense Qwen fixture may have no experts/routers; recipe still validates.
-    for assignment in experts:
-        assert assignment.bits == 2
-    for assignment in routers:
-        assert assignment.bits == 8

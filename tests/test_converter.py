@@ -6,7 +6,6 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-from _capture_helpers import load_test_activation_capture
 from safetensors import safe_open
 from safetensors.numpy import save_file
 
@@ -14,18 +13,13 @@ import axquant.converter as converter
 import axquant.multimodal_backend as multimodal_backend
 import axquant.predicate as predicate_module
 from axquant.analyzer import architecture_prior_report
-from axquant.capture_binding import (
-    CAPTURE_MANIFEST_SHA256_KEY,
-    LoadedActivationCapture,
-    activation_capture_metadata,
-)
 from axquant.errors import ArtifactError, BackendUnavailableError, PlanningError
 from axquant.gemma4_vlm import GEMMA4_MLX_VLM_VISION_LAYOUT
 from axquant.inspector import inspect_model
 from axquant.module_paths import fused_expert_module, mlx_tensor_binding_groups
 from axquant.planner import plan_quantization
+from axquant.product_formats import mlx_default_quantization
 from axquant.schema import (
-    ActivationCaptureManifest,
     Allocation,
     ArtifactManifest,
     CalibrationEvidence,
@@ -48,9 +42,9 @@ from axquant.source_binding import build_source_plan_binding
 build_quant_predicate = predicate_module.build_quant_predicate
 
 
-@pytest.mark.parametrize("q_mode", ["affine", "mxfp4", "mxfp8"])
+@pytest.mark.parametrize("q_mode", [None, "mxfp4", "mxfp8"])
 def test_unlimited_ocr2_cannot_enter_v1_mlx_backend(
-    qwen36_model_dir: Path, tmp_path: Path, q_mode: str
+    qwen36_model_dir: Path, tmp_path: Path, q_mode: str | None
 ) -> None:
     plan = _plan(qwen36_model_dir)
     plan = plan.model_copy(
@@ -61,7 +55,7 @@ def test_unlimited_ocr2_cannot_enter_v1_mlx_backend(
         }
     )
     output = tmp_path / "unsupported-mlx"
-    with pytest.raises(ArtifactError, match="MLX storage export requires explicit"):
+    with pytest.raises(ArtifactError, match="MLX storage export requires ax_engine_manifest=skip"):
         converter.convert_model(
             model=str(qwen36_model_dir),
             plan=plan,
@@ -177,7 +171,7 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
         }
     )
     assert multimodal_backend.conversion_backend(uocr_plan) == "mlx-vlm"
-    predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
+    predicate = build_quant_predicate(vlm_plan)
     observed: dict[str, object] = {}
 
     def fake_convert(source: str, **kwargs) -> None:
@@ -201,9 +195,10 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
     assert observed["source"] == str(qwen36_model_dir)
     assert observed["mlx_path"] == destination
     assert observed["quantize"] is True
-    assert observed["q_group_size"] == vlm_plan.group_size
     assert observed["q_bits"] == 4
-    assert observed["q_mode"] == "affine"
+    # AXQ-070: the backend default is MXFP4 at group 32, never affine.
+    assert observed["q_group_size"] == 32
+    assert observed["q_mode"] == "mxfp4"
     assert observed["quant_method"] == "rtn"
     assert observed["quant_predicate"] is predicate
 
@@ -213,10 +208,11 @@ def test_multimodal_backend_dispatch_and_vlm_public_convert_contract(
         tmp_path / "converted-mxfp4",
         vlm_plan,
         predicate,
-        4,
-        q_mode="mxfp4",
+        8,
+        q_mode="mxfp8",
     )
-    assert observed["q_mode"] == "mxfp4"
+    assert observed["q_bits"] == 8
+    assert observed["q_mode"] == "mxfp8"
 
 
 @pytest.mark.parametrize("adapter_id", ["deepseek-ocr2-v1", "unlimited-ocr-v1"])
@@ -382,25 +378,25 @@ def test_audio_backend_uses_public_stt_model_and_mlx_quantization_contract(
         }[module]
 
     monkeypatch.setattr(multimodal_backend, "_import", fake_import)
-    preflight = build_quant_predicate(plan, execute_refinement=False)
+    preflight = build_quant_predicate(plan)
     multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, preflight)
     assert preflight.unmatched_quantized_modules() == set()
 
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     destination = tmp_path / "converted-audio"
     multimodal_backend.convert_multimodal(
         qwen36_model_dir,
         destination,
         plan,
         predicate,
-        6,
+        4,
     )
 
     assert observed["model_path"] == qwen36_model_dir
     assert observed["sanitized"] is True
-    assert observed["group_size"] == plan.group_size
-    assert observed["bits"] == 6
-    assert observed["mode"] == "affine"
+    assert observed["group_size"] == 32
+    assert observed["bits"] == 4
+    assert observed["mode"] == "mxfp4"
     assert observed["loaded_dtypes"][-1] == [np.dtype(np.float16)]
     assert predicate.unmatched_quantized_modules() == set()
     assert (
@@ -437,12 +433,12 @@ def test_multimodal_preflight_visits_all_vlm_plan_modules_and_fails_closed(
             load_model=lambda source, *, lazy: FakeModel(loaded_paths)
         ),
     )
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
     assert predicate.unmatched_quantized_modules() == set()
 
     loaded_paths.pop()
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     with pytest.raises(PlanningError, match="plan modules do not match the MLX-VLM model"):
         multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
 
@@ -453,7 +449,7 @@ def test_multimodal_backend_rejects_wrong_calls_and_wraps_backend_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     plan = _plan(qwen36_model_dir)
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     with pytest.raises(PlanningError, match="multimodal preflight called for the MLX-LM"):
         multimodal_backend.preflight_multimodal(qwen36_model_dir, plan, predicate)
     with pytest.raises(PlanningError, match="multimodal conversion called for the MLX-LM"):
@@ -472,7 +468,7 @@ def test_multimodal_backend_rejects_wrong_calls_and_wraps_backend_failures(
             )
         }
     )
-    predicate = build_quant_predicate(vlm_plan, execute_refinement=False)
+    predicate = build_quant_predicate(vlm_plan)
     monkeypatch.setattr(
         multimodal_backend,
         "_import",
@@ -508,30 +504,30 @@ class _FakeDenseModule:
     """Router-like module: planned, but MLX has no to_quantized()."""
 
 
-def _qwen4_mixed_group_plan(model_dir: Path) -> tuple[QuantizationPlan, str]:
+def _qwen4_plan(model_dir: Path) -> tuple[QuantizationPlan, str]:
     plan = _plan(model_dir)
     target = next(
         allocation
         for allocation in plan.assignments
         if allocation.bits < 16 and fused_expert_module(allocation.module_path) is None
     )
+    assert target.group_size == 32
     plan = plan.model_copy(
         update={
             "architecture_profile": plan.architecture_profile.model_copy(
                 update={"adapter_id": "qwen4-exp-v1"}
             ),
-            "group_size": 64,
-            "assignments": [
-                (
-                    target.model_copy(update={"group_size": 32})
-                    if allocation.module_path == target.module_path
-                    else allocation
-                )
-                for allocation in plan.assignments
-            ],
         }
     )
     return plan, target.module_path
+
+
+def _expected_params(allocation: Allocation) -> dict[str, object]:
+    return {
+        "group_size": 32,
+        "bits": allocation.bits,
+        "mode": predicate_module.allocation_physical_mode(allocation),
+    }
 
 
 def test_qwen4_exp_ple_mlx_shards_path_keeps_embedding_group_size_32() -> None:
@@ -559,58 +555,49 @@ def test_qwen4_exp_ple_mlx_shards_path_keeps_embedding_group_size_32() -> None:
     report = architecture_prior_report(inventory, profile=ProfileName.GENERAL)
     plan = plan_quantization(
         report,
-        PlanRequest(profile=ProfileName.GENERAL, target_bpw=12.0, allow_unmeasured=True),
+        PlanRequest(profile=ProfileName.GENERAL, target_bpw=16.0, allow_unmeasured=True),
     )
-    assignment = plan.assignments[0]
-    assert assignment.bits < 16
+    # Embeddings sit on the 8-bit floor; force the MXFP8 slot for the shard.
+    assignment = plan.assignments[0].model_copy(
+        update={"bits": 8, "method": QuantMethod.AFFINE, "group_size": 32}
+    )
     plan = plan.model_copy(
         update={
             "architecture_profile": plan.architecture_profile.model_copy(
                 update={"adapter_id": "qwen4-exp-v1"}
             ),
-            "group_size": 64,
-            "assignments": [
-                allocation.model_copy(update={"group_size": 32}) for allocation in plan.assignments
-            ],
+            "assignments": [assignment],
         }
     )
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     mlx_path = "language_model.model.layers.1.ple.ple_embedding.ngram_embedding.shards.0"
     params = multimodal_backend._quant_params_for_runtime_module(
         mlx_path,
         _FakeQuantModule(160),
         predicate,
-        default_group_size=64,
+        default_group_size=32,
         default_bits=4,
-        default_mode="affine",
+        default_mode="mxfp4",
     )
-    assert params == {
-        "group_size": 32,
-        "bits": assignment.bits,
-        "mode": "affine",
-    }
+    assert params == {"group_size": 32, "bits": 8, "mode": "mxfp8"}
     assert predicate.unmatched_quantized_modules() == set()
 
 
 def test_qwen4_exp_quant_params_use_planned_group_size_for_ple_width(
     qwen36_model_dir: Path,
 ) -> None:
-    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    plan, module_path = _qwen4_plan(qwen36_model_dir)
     assignment = next(item for item in plan.assignments if item.module_path == module_path)
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     params = multimodal_backend._quant_params_for_runtime_module(
         module_path,
         _FakeQuantModule(160),
         predicate,
-        default_group_size=plan.group_size,
+        default_group_size=32,
         default_bits=4,
-        default_mode="affine",
+        default_mode="mxfp4",
     )
-    assert params == {
-        "group_size": 32,
-        "bits": assignment.bits,
-        "mode": "affine",
-    }
+    assert params == _expected_params(assignment)
     assert predicate.unmatched_quantized_modules() == {
         item.module_path
         for item in plan.assignments
@@ -621,31 +608,16 @@ def test_qwen4_exp_quant_params_use_planned_group_size_for_ple_width(
 def test_qwen4_exp_quant_params_fail_closed_when_group_size_does_not_divide(
     qwen36_model_dir: Path,
 ) -> None:
-    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
-    assignment = next(
-        allocation for allocation in plan.assignments if allocation.module_path == module_path
-    )
-    plan = plan.model_copy(
-        update={
-            "assignments": [
-                (
-                    assignment.model_copy(update={"group_size": 64})
-                    if allocation.module_path == module_path
-                    else allocation
-                )
-                for allocation in plan.assignments
-            ]
-        }
-    )
-    predicate = build_quant_predicate(plan, execute_refinement=False)
-    with pytest.raises(ArtifactError, match="last dimension 160 is not divisible"):
+    plan, module_path = _qwen4_plan(qwen36_model_dir)
+    predicate = build_quant_predicate(plan)
+    with pytest.raises(ArtifactError, match="last dimension 48 is not divisible"):
         multimodal_backend._quant_params_for_runtime_module(
             module_path,
-            _FakeQuantModule(160),
+            _FakeQuantModule(48),
             predicate,
-            default_group_size=64,
+            default_group_size=32,
             default_bits=4,
-            default_mode="affine",
+            default_mode="mxfp4",
         )
     assert module_path in predicate.unmatched_quantized_modules()
 
@@ -653,8 +625,8 @@ def test_qwen4_exp_quant_params_fail_closed_when_group_size_does_not_divide(
 def test_qwen4_exp_unmatched_quantizable_modules_fail_closed(
     qwen36_model_dir: Path,
 ) -> None:
-    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    plan, module_path = _qwen4_plan(qwen36_model_dir)
+    predicate = build_quant_predicate(plan)
     with pytest.raises(PlanningError, match="did not quantize planned modules"):
         multimodal_backend._require_quantized_plan_coverage(predicate, backend="MLX-VLM")
     assert module_path in predicate.unmatched_quantized_modules()
@@ -665,10 +637,10 @@ def test_qwen4_exp_convert_quantizes_ple_width_at_planned_group_size(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    plan, module_path = _qwen4_plan(qwen36_model_dir)
     assignment = next(item for item in plan.assignments if item.module_path == module_path)
     quantized_paths = [item.module_path for item in plan.assignments if item.bits < 16]
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
     observed: dict[str, object] = {}
 
     class FakeModel:
@@ -724,12 +696,8 @@ def test_qwen4_exp_convert_quantizes_ple_width_at_planned_group_size(
         4,
     )
     assert observed["device"] == "cpu"
-    assert observed["nn"] == {"group_size": 64, "bits": 4, "mode": "affine"}
-    assert observed["preds"][module_path] == {
-        "group_size": 32,
-        "bits": assignment.bits,
-        "mode": "affine",
-    }
+    assert observed["nn"] == {"group_size": 32, "bits": 4, "mode": "mxfp4"}
+    assert observed["preds"][module_path] == _expected_params(assignment)
     saved = json.loads((destination / "config.json").read_text(encoding="utf-8"))
     assert saved["quantization"][module_path]["group_size"] == 32
     assert (destination / "model.safetensors").is_file()
@@ -740,9 +708,9 @@ def test_qwen4_exp_convert_rejects_planned_modules_without_to_quantized(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plan, module_path = _qwen4_mixed_group_plan(qwen36_model_dir)
+    plan, module_path = _qwen4_plan(qwen36_model_dir)
     quantized_paths = [item.module_path for item in plan.assignments if item.bits < 16]
-    predicate = build_quant_predicate(plan, execute_refinement=False)
+    predicate = build_quant_predicate(plan)
 
     class FakeModel:
         def named_modules(self):
@@ -834,33 +802,30 @@ def _write_fake_converted_checkpoint(
                 continue
             value = source.get_tensor(name)
             allocation = allocations[name]
-            if not pack_weights or allocation.bits >= 16:
+            if allocation.bits >= 16:
                 tensors[name] = value
                 continue
-            assert allocation.group_size is not None
+            # AXQ-070: 4-bit is MXFP4 and 8-bit is MXFP8, group 32, one U8
+            # E8M0 scale per block and no affine biases.
+            quantization[allocation.module_path] = {
+                "bits": allocation.bits,
+                "group_size": allocation.group_size,
+                "mode": predicate_module.allocation_physical_mode(allocation),
+            }
+            if not pack_weights:
+                tensors[name] = value
+                continue
+            assert allocation.group_size == 32
             assert value.shape[-1] * allocation.bits % 32 == 0
             packed_shape = (
                 *value.shape[:-1],
                 value.shape[-1] * allocation.bits // 32,
             )
-            metadata_shape = (
-                *value.shape[:-1],
-                max(1, (value.shape[-1] + allocation.group_size - 1) // allocation.group_size),
-            )
+            metadata_shape = (*value.shape[:-1], value.shape[-1] // allocation.group_size)
             tensors[name] = np.zeros(packed_shape, dtype=np.uint32)
-            tensors[f"{allocation.module_path}.scales"] = np.ones(
-                metadata_shape,
-                dtype=np.float32,
+            tensors[f"{allocation.module_path}.scales"] = np.full(
+                metadata_shape, 127, dtype=np.uint8
             )
-            tensors[f"{allocation.module_path}.biases"] = np.zeros(
-                metadata_shape,
-                dtype=np.float32,
-            )
-            quantization[allocation.module_path] = {
-                "bits": allocation.bits,
-                "group_size": allocation.group_size,
-                "mode": "affine",
-            }
     if quantization:
         converted_config["quantization"] = quantization
     (output / "config.json").write_text(json.dumps(converted_config), encoding="utf-8")
@@ -898,297 +863,56 @@ def _measured_plan(
     return plan
 
 
-def _bound_capture(
-    plan: QuantizationPlan,
-    activations: dict[str, np.ndarray],
-    source_dir: Path,
-) -> LoadedActivationCapture:
-    manifest = ActivationCaptureManifest(
-        model=plan.source_model.model_id,
-        revision=plan.source_model.revision,
-        tokenized_cache_manifest_sha256="c" * 64,
-        cache_key_sha256="d" * 64,
-        calibration_dataset_id=(
-            plan.calibration.dataset_id if plan.calibration is not None else "development-cache"
-        ),
-        max_rows=max(rows.shape[0] for rows in activations.values()),
-    )
-    capture = load_test_activation_capture(
-        source_dir / "capture",
-        manifest=manifest,
-        activations=activations,
-    )
-    if plan.calibration is not None:
-        plan.calibration.metadata.update(activation_capture_metadata(capture))
-    return capture
-
-
-def test_awq_convert_preflight_and_predicate_are_executable(
+@pytest.mark.parametrize(
+    ("update", "reason"),
+    [
+        ({"method": QuantMethod.AWQ}, "awq refinement"),
+        ({"method": QuantMethod.GPTQ}, "gptq refinement"),
+        ({"method": QuantMethod.AFFINE, "bits": 6, "group_size": 64}, "6-bit storage"),
+        ({"method": QuantMethod.AFFINE, "bits": 8, "group_size": 64}, "8-bit group 64"),
+    ],
+)
+def test_convert_refuses_non_product_storage_before_touching_source(
     qwen36_model_dir: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
+    update: dict[str, object],
+    reason: str,
 ) -> None:
-    """Exercise the real convert preflight/predicate entry points with an AWQ plan."""
+    """AXQ-070: refined or non-MXFP storage is refused before source resolution."""
     plan = _plan(qwen36_model_dir)
-    awq_targets = [
+    target = next(
         allocation
         for allocation in plan.assignments
         if allocation.bits < 16 and allocation.role == TensorRole.MLP
-    ]
-    assert awq_targets
-    for allocation in awq_targets:
-        allocation.method = QuantMethod.AWQ
-    plan.hardware = plan.hardware.model_copy(
+    )
+    plan = plan.model_copy(
         update={
-            "supported_methods": (
-                *plan.hardware.supported_methods,
-                QuantMethod.AWQ,
-            )
+            "assignments": [
+                allocation.model_copy(update=update)
+                if allocation.module_path == target.module_path
+                else allocation
+                for allocation in plan.assignments
+            ]
         }
     )
 
-    # Preflight path must admit AWQ without activations (refinement disabled).
-    preflight = build_quant_predicate(plan, execute_refinement=False)
-    for allocation in plan.assignments:
-        if allocation.bits < 16:
-            config = preflight(allocation.module_path, object())
-            assert config == {
-                "group_size": allocation.group_size,
-                "bits": allocation.bits,
-                "mode": "affine",
-            }
-    assert preflight.unmatched_quantized_modules() == set()
+    def unexpected_backend() -> None:
+        raise AssertionError("convert must refuse the plan before loading MLX")
 
-    # Match the plan group size (64) so portable AWQ scale search can run.
-    activation_arrays = {
-        allocation.module_path: np.random.default_rng(i).standard_normal(
-            (16, 64),
-            dtype=np.float32,
-        )
-        for i, allocation in enumerate(awq_targets)
-    }
-    calibration_activations = _bound_capture(plan, activation_arrays, tmp_path)
-
-    class FakeModule:
-        def __init__(self) -> None:
-            self.weight = np.random.default_rng(1).standard_normal((8, 64), dtype=np.float32)
-
-    class FakeModel:
-        def named_modules(self):
-            return [
-                (allocation.module_path, FakeModule())
-                for allocation in plan.assignments
-                if allocation.bits < 16
-            ]
-
-    def fake_load(*args, **kwargs):
-        return FakeModel(), {}, {}
-
-    def fake_convert(model, *, mlx_path, quant_predicate, **kwargs):
-        del model, kwargs
-        for path, module in FakeModel().named_modules():
-            quant_predicate(path, module)
-        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
-
-    # Use the real portable refine path for AWQ modules (numpy weights; no MLX required).
-    from axquant.awq import refine_weight_with_awq
-
-    def _apply_numpy_awq(
-        module: FakeModule,
-        *,
-        activations: object,
-        bits: int,
-        group_size: int,
-        alpha_grid: tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
-    ) -> dict[str, float | int | list[float]]:
-        refined, metadata = refine_weight_with_awq(
-            module.weight,
-            activations,
-            bits=bits,
-            group_size=group_size,
-            alpha_grid=alpha_grid,
-        )
-        module.weight = refined
-        return metadata
-
-    monkeypatch.setattr(predicate_module, "_apply_awq_scale", _apply_numpy_awq)
-    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
-
-    output = tmp_path / "awq-candidate"
-    manifest = converter.convert_model(
-        source_binding=_source_binding(plan, qwen36_model_dir),
-        model=str(qwen36_model_dir),
-        plan=plan,
-        output=output,
-        mtp_sidecar=qwen36_model_dir,
-        calibration_activations=calibration_activations,
-        allow_unmeasured=True,
-        ax_engine_manifest="skip",
-    )
-    assert (output / "axquant_quantizer_execution.json").is_file()
-    assert (output / "activation_capture_manifest.json").is_file()
-    assert any(record.path == "axquant_quantizer_execution.json" for record in manifest.files)
-    execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
-    awq_records = [record for record in execution.records if record.method == QuantMethod.AWQ]
-    assert awq_records
-    assert all(record.success for record in awq_records)
-    assert all(
-        record.note == "AWQ activation scaling followed by portable affine packing"
-        for record in awq_records
-    )
-    assert all("awq_channel_scales" in record.metadata for record in awq_records)
-
-    with pytest.raises(PlanningError, match="unbound activation mapping"):
+    monkeypatch.setattr(converter, "_mlx_api", unexpected_backend)
+    output = tmp_path / "refused-candidate"
+    with pytest.raises(PlanningError, match="AXQ-070") as excinfo:
         converter.convert_model(
-            source_binding=_source_binding(plan, qwen36_model_dir),
-            model=str(qwen36_model_dir),
+            model=str(tmp_path / "missing-source"),
             plan=plan,
-            output=tmp_path / "awq-unbound-activations",
-            mtp_sidecar=qwen36_model_dir,
-            calibration_activations=activation_arrays,
+            output=output,
             allow_unmeasured=True,
             ax_engine_manifest="skip",
         )
-
-    with pytest.raises(PlanningError, match="requires calibration activations"):
-        converter.convert_model(
-            source_binding=_source_binding(plan, qwen36_model_dir),
-            model=str(qwen36_model_dir),
-            plan=plan,
-            output=tmp_path / "awq-missing-activations",
-            mtp_sidecar=qwen36_model_dir,
-            allow_unmeasured=True,
-            ax_engine_manifest="skip",
-        )
-
-
-def test_gptq_convert_preflight_and_predicate_are_executable(
-    qwen36_model_dir: Path,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Exercise the real convert preflight/predicate entry points with a GPTQ plan."""
-    plan = _plan(qwen36_model_dir)
-    gptq_targets = [
-        allocation
-        for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.role == TensorRole.MLP
-    ]
-    assert gptq_targets
-    for allocation in gptq_targets:
-        allocation.method = QuantMethod.GPTQ
-    plan.hardware = plan.hardware.model_copy(
-        update={
-            "supported_methods": (
-                *plan.hardware.supported_methods,
-                QuantMethod.GPTQ,
-            )
-        }
-    )
-
-    # Preflight path must admit GPTQ without activations (refinement disabled).
-    preflight = build_quant_predicate(plan, execute_refinement=False)
-    for allocation in plan.assignments:
-        if allocation.bits < 16:
-            config = preflight(allocation.module_path, object())
-            assert config == {
-                "group_size": allocation.group_size,
-                "bits": allocation.bits,
-                "mode": "affine",
-            }
-    assert preflight.unmatched_quantized_modules() == set()
-
-    # Match the plan group size (64) so portable GPTQ refinement can run.
-    activation_arrays = {
-        allocation.module_path: np.random.default_rng(i).standard_normal(
-            (16, 64),
-            dtype=np.float32,
-        )
-        for i, allocation in enumerate(gptq_targets)
-    }
-    calibration_activations = _bound_capture(plan, activation_arrays, tmp_path)
-
-    class FakeModule:
-        def __init__(self) -> None:
-            self.weight = np.random.default_rng(1).standard_normal((8, 64), dtype=np.float32)
-
-    class FakeModel:
-        def named_modules(self):
-            return [
-                (allocation.module_path, FakeModule())
-                for allocation in plan.assignments
-                if allocation.bits < 16
-            ]
-
-    def fake_load(*args, **kwargs):
-        return FakeModel(), {}, {}
-
-    def fake_convert(model, *, mlx_path, quant_predicate, **kwargs):
-        del model, kwargs
-        for path, module in FakeModel().named_modules():
-            quant_predicate(path, module)
-        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
-
-    # Use the real portable refine path for GPTQ modules (numpy weights; no MLX required).
-    from axquant.gptq import learn_gptq_refined_weight
-
-    def _apply_numpy_gptq(
-        module: FakeModule,
-        *,
-        activations: object,
-        bits: int,
-        group_size: int,
-        damping: float = 0.01,
-        act_order: bool = False,
-    ) -> dict[str, float | int]:
-        refined, metadata = learn_gptq_refined_weight(
-            module.weight,
-            activations,
-            bits=bits,
-            group_size=group_size,
-            damping=damping,
-            act_order=act_order,
-        )
-        module.weight = refined
-        return metadata
-
-    monkeypatch.setattr(predicate_module, "_apply_gptq_refine", _apply_numpy_gptq)
-    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
-
-    output = tmp_path / "gptq-candidate"
-    manifest = converter.convert_model(
-        source_binding=_source_binding(plan, qwen36_model_dir),
-        model=str(qwen36_model_dir),
-        plan=plan,
-        output=output,
-        mtp_sidecar=qwen36_model_dir,
-        calibration_activations=calibration_activations,
-        allow_unmeasured=True,
-        ax_engine_manifest="skip",
-    )
-    assert (output / "axquant_quantizer_execution.json").is_file()
-    assert (output / "activation_capture_manifest.json").is_file()
-    assert any(record.path == "axquant_quantizer_execution.json" for record in manifest.files)
-    execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
-    gptq_records = [record for record in execution.records if record.method == QuantMethod.GPTQ]
-    assert gptq_records
-    assert all(record.success for record in gptq_records)
-    assert all(
-        record.note == "GPTQ Hessian error compensation followed by portable affine packing"
-        for record in gptq_records
-    )
-    assert all("gptq_damping" in record.metadata for record in gptq_records)
-
-    with pytest.raises(PlanningError, match="requires calibration activations"):
-        converter.convert_model(
-            source_binding=_source_binding(plan, qwen36_model_dir),
-            model=str(qwen36_model_dir),
-            plan=plan,
-            output=tmp_path / "gptq-missing-activations",
-            mtp_sidecar=qwen36_model_dir,
-            allow_unmeasured=True,
-            ax_engine_manifest="skip",
-        )
+    assert reason in str(excinfo.value)
+    assert target.module_path in str(excinfo.value)
+    assert not output.exists()
 
 
 def test_measured_conversion_requires_bound_calibration_manifest(
@@ -1209,29 +933,6 @@ def test_measured_conversion_requires_bound_calibration_manifest(
     plan.calibration.metadata["calibration_manifest_sha256"] = "0" * 64
     with pytest.raises(PlanningError, match="checksum"):
         converter._validated_calibration_source(plan, calibration_path)
-
-
-def test_measured_awq_conversion_binds_exact_activation_capture(
-    qwen36_model_dir: Path,
-    tmp_path: Path,
-) -> None:
-    plan = _measured_plan(qwen36_model_dir, tmp_path / "calibration.json")
-    target = next(
-        allocation
-        for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.role == TensorRole.MLP
-    )
-    target.method = QuantMethod.AWQ
-    activations = {
-        target.module_path: np.zeros((4, 64), dtype=np.float32),
-    }
-    capture = _bound_capture(plan, activations, tmp_path)
-
-    assert converter._validated_activation_capture(plan, capture) is capture
-    assert plan.calibration is not None
-    plan.calibration.metadata[CAPTURE_MANIFEST_SHA256_KEY] = "0" * 64
-    with pytest.raises(PlanningError, match="does not match the plan"):
-        converter._validated_activation_capture(plan, capture)
 
 
 def test_measured_conversion_accepts_canonical_calibration_manifest_hash(
@@ -1356,6 +1057,74 @@ def test_conversion_preserves_mtp_bundle_and_runtime_contract(
     runtime_contract = json.loads((output / "mtplx_runtime.json").read_text(encoding="utf-8"))
     if runtime_contract.get("mtp_norm_layout") == "raw_hf_delta":
         assert converted_config["mtp_norm_encoding"] == "delta"
+
+
+@pytest.mark.parametrize(
+    ("dominant_bits", "expected_mode"),
+    [(4, "mxfp4"), (8, "mxfp8")],
+)
+def test_conversion_default_quantization_follows_dominant_lane(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    dominant_bits: int,
+    expected_mode: str,
+) -> None:
+    """AXQ-070: the backend default bits and mode always agree, at group 32."""
+    plan = _plan(qwen36_model_dir)
+    if dominant_bits == 8:
+        plan = plan.model_copy(
+            update={
+                "assignments": [
+                    allocation.model_copy(
+                        update={"bits": 8, "method": QuantMethod.AFFINE, "group_size": 32}
+                    )
+                    if allocation.bits < 16
+                    else allocation
+                    for allocation in plan.assignments
+                ]
+            }
+        )
+    quantized = [allocation for allocation in plan.assignments if allocation.bits < 16]
+    assert quantized
+    observed: dict[str, object] = {}
+
+    class FakeModel:
+        def named_modules(self):
+            return [(allocation.module_path, object()) for allocation in quantized]
+
+    def fake_load(*args, **kwargs):
+        return FakeModel(), {}, {}
+
+    def fake_convert(model, *, mlx_path, quant_predicate, **kwargs):
+        del model
+        observed.update(kwargs)
+        for path, module in FakeModel().named_modules():
+            quant_predicate(path, module)
+        _write_fake_converted_checkpoint(qwen36_model_dir, Path(mlx_path), plan)
+
+    monkeypatch.setattr(converter, "_mlx_api", lambda: (fake_convert, fake_load))
+    output = tmp_path / "candidate"
+    converter.convert_model(
+        source_binding=_source_binding(plan, qwen36_model_dir),
+        model=str(qwen36_model_dir),
+        plan=plan,
+        output=output,
+        mtp_sidecar=qwen36_model_dir,
+        allow_unmeasured=True,
+        ax_engine_manifest="skip",
+    )
+    assert {allocation.bits for allocation in quantized} == {dominant_bits}
+    expected = {"bits": dominant_bits, "group_size": 32, "mode": expected_mode}
+    assert mlx_default_quantization(plan.assignments) == expected
+    assert observed["q_bits"] == dominant_bits
+    assert observed["q_mode"] == expected_mode
+    assert observed["q_group_size"] == 32
+    execution = load_model(output / "axquant_quantizer_execution.json", QuantizerExecutionManifest)
+    assert len(execution.records) == len(quantized)
+    for record in execution.records:
+        assert record.note == f"mlx-lm {expected_mode} packing"
+        assert record.metadata == {}
 
 
 @pytest.mark.parametrize(
@@ -2079,10 +1848,16 @@ def test_conversion_rejects_plan_without_quantized_assignments(
     tmp_path: Path,
 ) -> None:
     plan = _plan(qwen36_model_dir)
-    for allocation in plan.assignments:
-        allocation.bits = 16
-        allocation.method = QuantMethod.BF16
-        allocation.group_size = None
+    plan = plan.model_copy(
+        update={
+            "assignments": [
+                allocation.model_copy(
+                    update={"bits": 16, "method": QuantMethod.BF16, "group_size": None}
+                )
+                for allocation in plan.assignments
+            ]
+        }
+    )
     with pytest.raises(PlanningError, match="no quantized assignments"):
         converter.convert_model(
             source_binding=_source_binding(plan, qwen36_model_dir),
@@ -3261,7 +3036,7 @@ def test_ocr2_vision_module_does_not_alias_language_precision(qwen36_model_dir: 
         module_path="model.layers.0.mlp.down_proj",
         role=TensorRole.MLP,
         parameters=128,
-        bits=6,
+        bits=8,
         method=QuantMethod.AFFINE,
         group_size=32,
         predicted_loss=0,
@@ -3286,7 +3061,7 @@ def test_ocr2_vision_module_does_not_alias_language_precision(qwen36_model_dir: 
             "assignments": [text, vision],
         }
     )
-    predicate = PlanPredicate(plan, execute_refinement=False)
+    predicate = PlanPredicate(plan)
     assert predicate.lookup("vision_model.qwen2_encoder.layers.0.mlp.down_proj") is vision
     assert predicate("vision_model.qwen2_encoder.layers.0.mlp.down_proj", object()) is False
     assert predicate.lookup("language_model.model.layers.0.mlp.down_proj") is text

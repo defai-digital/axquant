@@ -31,11 +31,11 @@ from axquant.simple_convert import (
     resolve_download_policy,
     simple_convert,
     simple_convert_help_markdown,
-    target_class_for_bpw,
 )
 from axquant.source_binding import write_source_plan_binding
 
 _install_fake_mlx = _tq._install_fake_mlx
+_block_align_trunk = _tq._block_align_trunk
 
 
 def test_looks_like_hub_id() -> None:
@@ -46,12 +46,15 @@ def test_looks_like_hub_id() -> None:
     assert not looks_like_hub_id("solo-name")
 
 
-def test_target_class_and_default_output() -> None:
-    assert target_class_for_bpw(4.8) == "4bit"
-    assert target_class_for_bpw(6.0) == "6bit"
-    assert target_class_for_bpw(5.5) == "5p5bpw"
+def test_default_output_names_the_axq070_pack_format() -> None:
     out = default_output_dir("Qwen/Qwen3.6-27B", target_bpw=4.8, parent="/tmp")
-    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-4bit"
+    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-MXFP4"
+    out = default_output_dir("Qwen/Qwen3.6-27B", target_bpw=6.0, parent="/tmp")
+    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-MXFP4"
+    out = default_output_dir("Qwen/Qwen3.6-27B", target_bpw=8.0, parent="/tmp")
+    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-MXFP8"
+    out = default_output_dir("Qwen/Qwen3.6-27B", format="mxfp8", parent="/tmp")
+    assert out.name == "AX-Qwen3.6-27B-MLX-AXQ-MXFP8"
     with pytest.raises(PlanningError, match="finite"):
         default_output_dir("Qwen/Qwen3.6-27B", target_bpw=math.nan)
 
@@ -69,6 +72,7 @@ def test_simple_convert_default_output(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _block_align_trunk(qwen36_model_dir)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     monkeypatch.chdir(tmp_path)
     summary = simple_convert(
@@ -92,6 +96,7 @@ def test_quantize_positional_minimal_cli(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _block_align_trunk(qwen36_model_dir)
     _install_fake_mlx(monkeypatch, qwen36_model_dir)
     monkeypatch.chdir(tmp_path)
     summary_path = tmp_path / "summary.json"
@@ -177,6 +182,7 @@ def test_simple_convert_recipe_uses_its_target_and_rejects_override(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    _block_align_trunk(qwen36_model_dir)
     revision = "a" * 40
     inventory = inspect_model(
         qwen36_model_dir,
@@ -214,7 +220,8 @@ def test_simple_convert_recipe_uses_its_target_and_rejects_override(
     )
 
     assert summary.target_bpw == 14.0
-    assert Path(summary.output_path).name.endswith("14p0bpw")
+    # The recipe's 14.0 BPW budget, not the 4.8 default, names the pack format.
+    assert Path(summary.output_path).name.endswith("-MLX-AXQ-MXFP8")
     with pytest.raises(PlanningError, match="cannot be combined with --recipe"):
         simple_convert(
             str(qwen36_model_dir),

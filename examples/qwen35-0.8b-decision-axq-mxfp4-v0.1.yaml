@@ -1,14 +1,15 @@
 # Qwen3.5-0.8B-decision AXQ-MXFP4.
 # Merge the published rank-16 LoRA into BF16 before planning.
 # Language attention and MLP use native MXFP4 (group 32).
-# Vision, MTP, and norms stay BF16. Embeddings stay 8-bit affine.
+# Vision, MTP, and norms stay BF16. Embeddings stay MXFP8.
 # The joint schema head is copied after convert. There is no separate lm_head.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
@@ -44,8 +45,8 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

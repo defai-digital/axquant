@@ -32,11 +32,10 @@ options of any command. The six entry points most users need are `quantize`,
 | `plan-joint` | I-gated WeightPlan x KVPlan search that writes a convert-ready development plan | 1.9.0; small I keeps 1.8 independent optimize; material I selects a coupled cell |
 | `plan-replay` | Replay a measured plan against its current sensitivity report with exact tensor/signature/metric checks | Implemented; fail-closed migration path |
 | `plan-manual` | Apply an explicit YAML precision recipe | Implemented for development |
-| `plan-experimental-mix` | Measured mixed 2/3/4-bit on the robust trunk; fused switch modules upgrade as one unit | Development only; not plan-joint; not mlx-optiq |
 | `quantize` | Simple development convert: positional `MODEL`, optional `--target-bpw` / `--output` / `--allow-download`; ladder `prior` multi-group default | Implemented; always development evidence (two-door) |
 | `formats` | List MLX/CUDA conversion choices and limitations without loading a runtime | Implemented |
 | `simple-convert-help` | Print simple-convert best practices (two-door model) | Implemented |
-| `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full` → `refine-awq-dwq`) with cost/evidence | Implemented |
+| `ladders` | List convert ladders (`prior` → `measured-lite` → `measured-full`) with cost/evidence | Implemented |
 | `probe-capacity` | Recommend sensitivity probe mode under host memory (bf16-full / measured-lite / streaming / prior-only) | Implemented |
 | `scoreboard` | Certification scoreboard from plan + optional size/quality/MTP evidence (MTP speed owned by AX Engine) | Implemented |
 | `bind-sensitivity` | Bind weight (+ optional KV) sensitivity digests into one lineage artifact | Implemented |
@@ -62,7 +61,6 @@ options of any command. The six entry points most users need are `quantize`,
 | `mtp-align-adapt-full` | Continue adaptation with all packed MTP tensors unfrozen | Implemented; development workflow |
 | `mtp-align-evaluate` | Score MTP probe or engine A/B evidence against the alignment ladder | Implemented; decision support |
 | `benchmark-kernels` | Measure host-scoped decode/prefill kernel latency per (bits, group size) for `plan --latency-table` | Implemented |
-| `quantize-mtp-sidecar` | Emit an opt-in quantized MTP sidecar next to the untouched byte-preserved default, gated on a live or recorded AX Engine capability check | Implemented |
 | `annotate-omlx-mtp` | Write `axquant_omlx_compat.json` for an existing Qwen MTP pack (`--directory`); does not requantize or merge `mtp.*` into the language index | Implemented |
 | `relayout-ngram-table` | Concatenate n-gram shard rows numerically into a canonical standalone table, preserving bits/group metadata; new directory and `--dry-run` supported | Implemented; table layout only |
 | `check-runtime-compatibility` | Check current config/index/tensor headers for per-runtime export blockers (`--directory`, `--output`) | Static development evidence; no generation claim |
@@ -107,4 +105,4 @@ options of any command. The six entry points most users need are `quantize`,
 `axquant --version` prints the installed toolkit version. `axquant formats`
 lists the primary MLX presets and CUDA NVFP4 workflow; use `--backend mlx` or
 `--backend cuda` to narrow the list. These are offline help commands, not host
-capability checks or runtime qualification. They are available starting with toolkit 2.3.0, alongside `quantize --format`.
+capability checks or runtime qualification. AXQuant 3.0 lists MLX `mxfp4` and `mxfp8` and CUDA NVFP4 only.

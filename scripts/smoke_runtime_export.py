@@ -225,7 +225,10 @@ def run_case(args: argparse.Namespace, enabled: bool) -> dict[str, Any]:
                 time.sleep(1)
             else:
                 raise TimeoutError("server readiness deadline")
-            prompts: list[tuple[str, Any]] = [("text", "Calculate 17 + 25. Answer briefly.")]
+            text_prompt = getattr(args, "text_prompt", None)
+            if text_prompt is None:
+                text_prompt = "Calculate 17 + 25. Answer briefly."
+            prompts: list[tuple[str, Any]] = [("text", text_prompt)]
             if args.vision:
                 prompts.append(("vision", _image_content()))
             for kind, prompt in prompts:

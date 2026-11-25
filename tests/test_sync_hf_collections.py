@@ -102,7 +102,16 @@ def test_withdrawn_model_cannot_be_readded_to_collections(monkeypatch) -> None:
         collections._validate()
 
 
-def test_ornith_family_description_keeps_withdrawal_for_generated_collection() -> None:
-    ornith = next(spec for spec in collections.COLLECTIONS if spec.title == "Ornith")
-    assert "397B is withdrawn" in ornith.description
-    assert all("397" not in item.repo for item in ornith.items)
+def test_removed_six_bit_repos_never_return_to_a_collection() -> None:
+    # AXQ-069: 31 uniform 6-bit repos were deleted from the Hub on 2026-11-24.
+    listed = {item.repo for spec in collections.COLLECTIONS for item in spec.items}
+    assert not listed & collections.REMOVED_FROM_HUB
+    assert len(collections.REMOVED_FROM_HUB) == 31
+    six_bit = next(spec for spec in collections.COLLECTIONS if spec.title == "6-bit")
+    assert {item.repo for item in six_bit.items} == {
+        "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-6bit-MTP",
+        "AutomatosX/AX-Qwen3.8-Flash-Next-MLX-AXQ-6bit-MTP",
+    }
+    # Ornith 9B/35B had only 6-bit packs; its family collection is no longer generated.
+    assert all(spec.title != "Ornith" for spec in collections.COLLECTIONS)
+    assert all("397" not in repo for repo in listed)

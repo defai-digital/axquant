@@ -66,18 +66,24 @@ def test_convert_ladders_loaded_from_yaml() -> None:
         ConvertLadderName.PRIOR,
         ConvertLadderName.MEASURED_LITE,
         ConvertLadderName.MEASURED_FULL,
-        ConvertLadderName.REFINE_AWQ_DWQ,
     ]
     prior = get_ladder("prior")
     assert prior.allow_unmeasured is True
-    assert prior.candidate_group_sizes == (32, 64)
+    assert prior.candidate_bits == (4, 8, 16)
+    assert prior.candidate_group_sizes == (32,)
     assert prior.default_target_bpw == 4.8
-    # AXQ-047: every ladder with a 4-bit rung carries the MXFP4 candidate.
-    assert QuantMethod.MXFP4 in prior.candidate_methods
-    refine = get_ladder(ConvertLadderName.REFINE_AWQ_DWQ)
-    assert QuantMethod.GPTQ in refine.candidate_methods
-    assert QuantMethod.MXFP4 in refine.candidate_methods
-    assert refine.requires_refinement is True
+    # AXQ-070: every packaged ladder plans over MXFP4, MXFP8 and BF16 only.
+    for ladder in ladders:
+        assert QuantMethod.MXFP4 in ladder.candidate_methods
+        assert set(ladder.candidate_methods) <= {
+            QuantMethod.AFFINE,
+            QuantMethod.MXFP4,
+            QuantMethod.BF16,
+        }
+        assert ladder.requires_refinement is False
+    # The refine-awq-dwq ladder is retired from the packaged YAML.
+    with pytest.raises(PlanningError):
+        get_ladder(ConvertLadderName.REFINE_AWQ_DWQ)
 
 
 def test_as_finite_float32_matrix_uses_component_label() -> None:

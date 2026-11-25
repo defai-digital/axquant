@@ -7,6 +7,7 @@ from datetime import datetime
 from axquant import __version__
 from axquant.cli._cuda import add_cuda_commands
 from axquant.conversion_formats import MLX_FORMATS
+from axquant.naming import MLX_PACK_FORMATS
 from axquant.optimizer import parse_memory_bytes
 from axquant.profiles import implemented_profiles
 from axquant.schema import (
@@ -441,7 +442,7 @@ def _build_parser() -> argparse.ArgumentParser:
         type=_profile,
         default=ProfileName.AGENT_CODING,
     )
-    analyze_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
+    analyze_parser.add_argument("--bits", type=_bits, default=(4, 8, 16))
     analyze_parser.add_argument(
         "--candidate-group-sizes",
         type=_group_sizes,
@@ -451,11 +452,11 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument(
         "--methods",
         type=_probe_methods,
-        # AXQ-047: MXFP4 is in the default probe grid because it is the only
-        # 4-bit candidate method; affine/DWQ/AWQ/GPTQ apply at 6 bits and up.
+        # AXQ-070: MXFP4 is the 4-bit method; unrefined affine at 8-bit measures
+        # the MXFP8 storage slot.
         default=(QuantMethod.AFFINE, QuantMethod.MXFP4),
     )
-    analyze_parser.add_argument("--group-size", type=int, default=64)
+    analyze_parser.add_argument("--group-size", type=int, default=32)
     analyze_parser.add_argument("--calibration")
     analyze_parser.add_argument(
         "--calibration-activations",
@@ -485,12 +486,6 @@ def _build_parser() -> argparse.ArgumentParser:
     analyze_parser.add_argument("--state")
     analyze_parser.add_argument("--output", default="sensitivity_map.json")
     analyze_parser.add_argument("--allow-download", action="store_true")
-    analyze_parser.add_argument(
-        "--allow-legacy-4bit",
-        action="store_true",
-        help="probe retired affine 4-bit candidates at the 4-bit rung "
-        "(historical campaign replay / recertification only, AXQ-047)",
-    )
 
     analyze_kv_parser = subparsers.add_parser(
         "analyze-kv",
@@ -568,13 +563,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "quality evidence",
     )
     plan_parser.add_argument("--allow-unmeasured", action="store_true")
-    plan_parser.add_argument(
-        "--allow-legacy-4bit",
-        action="store_true",
-        help="restore retired affine 4-bit candidates at the 4-bit rung "
-        "(historical campaign replay / recertification only, AXQ-047); the plan "
-        "records a retirement warning",
-    )
     plan_parser.add_argument(
         "--allow-mtp-unmeasured",
         action="store_true",
@@ -807,49 +795,6 @@ def _build_parser() -> argparse.ArgumentParser:
     manual_plan_parser.add_argument("--output", default="manual-plan.json")
     manual_plan_parser.add_argument("--markdown-output")
 
-    experimental_mix_parser = subparsers.add_parser(
-        "plan-experimental-mix",
-        help=(
-            "Experimental: measured mixed 2/3/4-bit on the robust trunk; "
-            "fused switch modules upgrade as one unit"
-        ),
-        description=(
-            "AXQ-owned 2/3/4 mix from a sensitivity report. Each fused MLX-LM "
-            "switch module is one allocation unit (one bit-width per projection "
-            "stack). Attention stays at least 4-bit. Not plan-joint, not "
-            "mlx-optiq, and not a certificate."
-        ),
-        epilog=(
-            "Requires measured sensitivity unless --allow-unmeasured is passed. "
-            "Convert still needs --allow-unmeasured for architecture-prior reports "
-            "and AX_ENGINE_2BIT_EXPERIMENTAL=1 / AX_ENGINE_3BIT_EXPERIMENTAL=1."
-        ),
-    )
-    experimental_mix_parser.add_argument("--sensitivity", required=True)
-    experimental_mix_parser.add_argument("--target-bpw", type=float, required=True)
-    experimental_mix_parser.add_argument(
-        "--bits",
-        type=_bits,
-        default=(2, 3, 4, 8, 16),
-        help="candidate grid; 2/3/4 trunk rungs and 8/16 floors are always added",
-    )
-    experimental_mix_parser.add_argument("--group-size", type=int, default=32)
-    experimental_mix_parser.add_argument("--allow-unmeasured", action="store_true")
-    experimental_mix_parser.add_argument(
-        "--allow-mtp-unmeasured",
-        action="store_true",
-        help="MH1 (AXQ-045): proceed when MTP acceptance sensitivity is the "
-        "probe's zero marker under an MTP-weighted profile; records a warning",
-    )
-    experimental_mix_parser.add_argument(
-        "--mode",
-        choices=["balanced", "quality", "low-memory", "speed"],
-        default="low-memory",
-    )
-    experimental_mix_parser.add_argument("--seed", type=int, default=0)
-    experimental_mix_parser.add_argument("--output", default="experimental-mix-plan.json")
-    experimental_mix_parser.add_argument("--markdown-output")
-
     convert_parser = subparsers.add_parser("convert")
     convert_parser.add_argument("--model", required=True)
     convert_parser.add_argument("--revision")
@@ -863,21 +808,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("--calibration-manifest")
     convert_parser.add_argument(
-        "--calibration-activations",
-        help="path to a capture-activations artifact directory "
-        "(required when the plan uses AWQ or GPTQ methods)",
-    )
-    convert_parser.add_argument(
         "--kv-sensitivity",
         help="KV sensitivity report bound by a measured KV-cache plan (AXQ-025)",
     )
     convert_parser.add_argument("--allow-unmeasured", action="store_true")
-    convert_parser.add_argument(
-        "--allow-legacy-4bit",
-        action="store_true",
-        help="convert a plan carrying retired 4-bit affine allocations "
-        "(historical campaign replay / recertification only, AXQ-047)",
-    )
     convert_parser.add_argument(
         "--ax-engine-manifest",
         choices=["required", "if-available", "skip"],
@@ -892,10 +826,16 @@ def _build_parser() -> argparse.ArgumentParser:
     convert_parser.add_argument("--ax-engine-bench", default="ax-engine-bench")
     convert_parser.add_argument(
         "--q-mode",
-        choices=("affine", "mxfp4", "mxfp8"),
-        default="affine",
-        help="Physical packing: mxfp4 remaps 4-bit; mxfp8 remaps unrefined 8-bit "
-        "allocations at group32 and requires --allow-unmeasured",
+        choices=("mxfp4", "mxfp8"),
+        default=None,
+        help="Deprecated and ignored (AXQ-070): storage follows allocation bits, "
+        "4-bit MXFP4 and 8-bit MXFP8 at group 32",
+    )
+    convert_parser.add_argument(
+        "--not-dflash2-target",
+        metavar="REASON",
+        help="convert a checkpoint shaped like an AX Engine DFlash2 target without a "
+        "DFlash2 identity; the reason is recorded in axquant_dflash2_target.json (AXQ-067)",
     )
     convert_parser.add_argument("--output", required=True)
 
@@ -927,6 +867,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Same as positional MODEL (either form is accepted)",
     )
     quantize_parser.add_argument("--model-id")
+    quantize_parser.add_argument(
+        "--not-dflash2-target",
+        metavar="REASON",
+        help="convert a checkpoint shaped like an AX Engine DFlash2 target without a "
+        "DFlash2 identity; the reason is recorded in axquant_dflash2_target.json (AXQ-067)",
+    )
     quantize_parser.add_argument("--revision")
     quantize_parser.add_argument(
         "--output",
@@ -1005,12 +951,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="emit the layer-stack SSD expert stream contract when applicable",
     )
     quantize_parser.add_argument("--json", dest="json_output")
-    quantize_parser.add_argument(
-        "--allow-legacy-4bit",
-        action="store_true",
-        help="plan/convert with retired 4-bit affine candidates "
-        "(historical campaign replay / recertification only, AXQ-047)",
-    )
 
     simple_help_parser = subparsers.add_parser(
         "simple-convert-help",
@@ -1281,7 +1221,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
     name_parser = subparsers.add_parser("name")
     name_parser.add_argument("--base", required=True)
-    name_parser.add_argument("--target-class", default="4bit")
+    name_parser.add_argument(
+        "--target-class",
+        choices=MLX_PACK_FORMATS,
+        default="MXFP4",
+        help="MLX pack format (AXQ-070)",
+    )
     name_parser.add_argument("--owner", default="AutomatosX")
     name_parser.add_argument("--mtp-suffix", action="store_true")
     name_parser.add_argument("--no-mlx", action="store_true")
@@ -1366,34 +1311,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="validate and report the relayout plan without writing anything",
-    )
-
-    quantize_mtp_parser = subparsers.add_parser("quantize-mtp-sidecar")
-    quantize_mtp_parser.add_argument(
-        "--sidecar",
-        required=True,
-        help="byte-preserved MTP sidecar Safetensors (stays untouched; ADR-0005)",
-    )
-    quantize_mtp_parser.add_argument("--output", required=True)
-    quantize_mtp_parser.add_argument("--bits", type=int, default=4)
-    quantize_mtp_parser.add_argument("--group-size", type=int, default=64)
-    quantize_mtp_parser.add_argument(
-        "--capability-command",
-        help="AX Engine capability probe command executed as a subprocess; its "
-        "JSON output must prove the runtime executes the quantized MTP layout",
-    )
-    quantize_mtp_parser.add_argument(
-        "--capability-result",
-        help="previously recorded AxEngineMtpCapabilityCheck JSON (alternative "
-        "to --capability-command for air-gapped evidence flows)",
-    )
-    quantize_mtp_parser.add_argument("--manifest-output", default="mtp_sidecar_quantized.json")
-    quantize_mtp_parser.add_argument(
-        "--runtime-json",
-        help="optional mtplx_runtime.json to stamp with mtp_sidecar_bits so "
-        "the engine dequantizes the packed sidecar at the right width; stamp "
-        "the packaging copy — rewriting a bound bundle's file invalidates its "
-        "recorded sha256 binding",
     )
 
     kv_quality_parser = subparsers.add_parser("kv-serving-quality")
@@ -1985,7 +1902,7 @@ def _build_parser() -> argparse.ArgumentParser:
     refine_parser.add_argument("--sensitivity", "--analysis", dest="analysis", required=True)
     refine_parser.add_argument("--target-bpw", type=float, default=4.5)
     refine_parser.add_argument("--bits", type=_bits, default=(4, 6, 8, 16))
-    refine_parser.add_argument("--group-size", type=int, default=64)
+    refine_parser.add_argument("--group-size", type=int, default=32)
     refine_parser.add_argument("--top-n", type=int, default=3)
     refine_parser.add_argument("--max-iterations", type=int, default=10)
     refine_parser.add_argument("--eval-budget", type=int, default=50)

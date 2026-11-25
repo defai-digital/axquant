@@ -20,14 +20,12 @@ from axquant.mtp_sidecar import (
     annotate_qwen_mtp_omlx_compat,
     prepare_qwen36_mtp_sidecar,
     probe_ax_engine_mtp_capability,
-    quantize_qwen36_mtp_sidecar,
 )
 from axquant.schema import (
     AxEngineMtpCapabilityCheck,
     ModelIdentity,
-    QuantizedMtpSidecarManifest,
 )
-from axquant.serde import file_sha256, load_model, write_data
+from axquant.serde import file_sha256, write_data
 
 
 def _float_to_bf16(value: float) -> int:
@@ -364,31 +362,6 @@ def test_copy_prepared_mtp_bundle_rejects_symlink_destination(
         )
 
 
-def _write_quantizable_sidecar(path: Path) -> None:
-    """Sidecar whose projections (4 x 64) admit group-64 affine quantization."""
-    header: dict[str, object] = {"__metadata__": {"format": "mlx"}}
-    payload_chunks: list[bytes] = []
-    cursor = 0
-    for name in sorted(QWEN36_MTP_TENSORS):
-        if name in QWEN36_MTP_NORM_TENSORS:
-            shape = [2]
-            values = (-0.5, 0.25)
-        else:
-            shape = [4, 64]
-            values = tuple(((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64))
-        payload = _bf16_payload(values)
-        header[name] = {
-            "dtype": "BF16",
-            "shape": shape,
-            "data_offsets": [cursor, cursor + len(payload)],
-        }
-        payload_chunks.append(payload)
-        cursor += len(payload)
-    rendered = json.dumps(header, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    rendered += b" " * ((-len(rendered)) % 8)
-    path.write_bytes(struct.pack("<Q", len(rendered)) + rendered + b"".join(payload_chunks))
-
-
 def _capability(*, ok: bool = True, mtp_enabled: bool = True) -> AxEngineMtpCapabilityCheck:
     return AxEngineMtpCapabilityCheck(
         ok=ok,
@@ -396,106 +369,6 @@ def _capability(*, ok: bool = True, mtp_enabled: bool = True) -> AxEngineMtpCapa
         layout="ax-engine-qwen36-v1",
         ax_engine_version="6.11.1",
     )
-
-
-def test_quantized_sidecar_is_a_separate_gated_artifact(tmp_path: Path) -> None:
-    np = pytest.importorskip("numpy")
-    mx = pytest.importorskip("mlx.core")
-    source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
-    source_digest = file_sha256(source)
-    output = tmp_path / "mtp.quantized.safetensors"
-
-    manifest = quantize_qwen36_mtp_sidecar(
-        source,
-        output,
-        bits=4,
-        group_size=64,
-        capability=_capability(),
-    )
-
-    # The byte-preserved default is untouched (ADR-0005).
-    assert file_sha256(source) == source_digest
-    assert manifest.byte_preserved_default_retained is True
-    assert manifest.packing == "mlx-affine-packed-u32"
-    assert manifest.output.sha256 == file_sha256(output)
-    assert manifest.source_sidecar.sha256 == source_digest
-
-    by_name = {record.name: record for record in manifest.tensors}
-    for name in QWEN36_MTP_NORM_TENSORS:
-        assert not by_name[name].quantized and by_name[name].bits == 16
-    for name in QWEN36_MTP_PROJECTION_TENSORS:
-        assert by_name[name].quantized
-        assert by_name[name].bits == 4 and by_name[name].group_size == 64
-
-    # Round-trip one projection exactly the way the engine's mtp_take_weight
-    # consumes it: `<name>` packed U32 codes plus `<base>.scales` /
-    # `<base>.biases` BF16 arrays fed to MLX dequantize.
-    blob = output.read_bytes()
-    header_len = struct.unpack("<Q", blob[:8])[0]
-    header = json.loads(blob[8 : 8 + header_len].decode("utf-8"))
-    data_base = 8 + header_len
-    name = sorted(QWEN36_MTP_PROJECTION_TENSORS)[0]
-    base = name.removesuffix(".weight")
-
-    def _payload(entry_name: str) -> tuple[bytes, list[int], str]:
-        entry = header[entry_name]
-        start, end = entry["data_offsets"]
-        return blob[data_base + start : data_base + end], entry["shape"], entry["dtype"]
-
-    codes_bytes, codes_shape, codes_dtype = _payload(name)
-    assert codes_dtype == "U32"
-    assert codes_shape == [4, 8]  # 64 columns * 4 bits / 32 bits per word
-    scales_bytes, scales_shape, scales_dtype = _payload(f"{base}.scales")
-    biases_bytes, _, biases_dtype = _payload(f"{base}.biases")
-    assert scales_dtype == "BF16" and biases_dtype == "BF16"
-    assert scales_shape == [4, 1]
-
-    def _bf16_to_f32(payload: bytes, shape: list[int]) -> object:
-        as_u32 = np.frombuffer(payload, dtype=np.uint16).astype(np.uint32) << 16
-        return as_u32.view(np.float32).reshape(shape)
-
-    codes = np.frombuffer(codes_bytes, dtype=np.uint32).reshape(codes_shape)
-    scales = _bf16_to_f32(scales_bytes, scales_shape)
-    biases = _bf16_to_f32(biases_bytes, scales_shape)
-    reconstructed = np.asarray(
-        mx.dequantize(
-            mx.array(codes),
-            mx.array(scales),
-            mx.array(biases),
-            group_size=64,
-            bits=4,
-        ).astype(mx.float32)
-    )
-    # Compare against the BF16-cast source — the quantizer's actual input —
-    # so the one-grid-step bound is exact.
-    original = _bf16_to_f32(
-        _bf16_payload(tuple(((index * 37) % 23 - 11) / 7.0 for index in range(4 * 64))),
-        [4, 64],
-    )
-    max_step = float(np.max(np.abs(scales)))
-    assert np.max(np.abs(reconstructed - original)) <= max_step + 1e-6
-
-
-def test_quantized_sidecar_respects_capability_bit_and_packing_limits(
-    tmp_path: Path,
-) -> None:
-    pytest.importorskip("mlx.core")
-    source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
-    output = tmp_path / "mtp.quantized.safetensors"
-
-    limited = _capability().model_copy(update={"supported_bits": [4, 8]})
-    with pytest.raises(ArtifactError, match="not executable"):
-        quantize_qwen36_mtp_sidecar(source, output, bits=6, capability=limited)
-    # 2-bit is out of AXQuant's own mtp_sidecar_bits runtime contract even
-    # though the engine loader would tolerate the hint.
-    with pytest.raises(ArtifactError, match="must be one of"):
-        quantize_qwen36_mtp_sidecar(source, output, bits=2, capability=_capability())
-    wrong_packing = _capability().model_copy(update={"packing": "some-other-packing"})
-    with pytest.raises(ArtifactError, match="packing"):
-        quantize_qwen36_mtp_sidecar(source, output, bits=4, capability=wrong_packing)
-    assert not output.exists()
 
 
 def test_annotate_mtp_runtime_sidecar_bits_updates_atomically(tmp_path: Path) -> None:
@@ -512,24 +385,6 @@ def test_annotate_mtp_runtime_sidecar_bits_updates_atomically(tmp_path: Path) ->
     assert payload["layout"] == "ax-engine-qwen36-v1"
     with pytest.raises(ArtifactError, match="must be one of"):
         annotate_mtp_runtime_sidecar_bits(runtime_path, 3)
-
-
-def test_quantized_sidecar_fails_closed_without_capability(tmp_path: Path) -> None:
-    source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
-    output = tmp_path / "mtp.quantized.safetensors"
-    with pytest.raises(ArtifactError, match="capability"):
-        quantize_qwen36_mtp_sidecar(source, output, capability=_capability(ok=False))
-    with pytest.raises(ArtifactError, match="capability"):
-        quantize_qwen36_mtp_sidecar(source, output, capability=_capability(mtp_enabled=False))
-    assert not output.exists()
-
-
-def test_quantized_sidecar_refuses_to_overwrite_the_default(tmp_path: Path) -> None:
-    source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
-    with pytest.raises(ArtifactError, match="must not overwrite"):
-        quantize_qwen36_mtp_sidecar(source, source, capability=_capability())
 
 
 def _capability_json_command(tmp_path: Path, name: str, **overrides: object) -> str:
@@ -578,76 +433,19 @@ def test_capability_probe_fails_closed_on_bad_output() -> None:
         probe_ax_engine_mtp_capability(["/nonexistent/ax-engine-doctor"])
 
 
-def test_quantize_mtp_sidecar_cli_runs_the_capability_probe(tmp_path: Path) -> None:
-    # End-to-end quantize path needs MLX (mx.quantize packing); skip on non-MLX
-    # install surfaces such as Ubuntu CI python-compatibility.
-    pytest.importorskip("mlx.core")
-    from axquant.cli import main
+def test_quantize_mtp_sidecar_cli_is_retired(tmp_path: Path) -> None:
+    # AXQ-070: affine MTP sidecar requantization is not a product path; the
+    # subcommand no longer exists and must not write output.
+    from axquant.cli._parser import _build_parser
 
     source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
+    _write_raw_sidecar(source)
     output = tmp_path / "mtp.quantized.safetensors"
-    manifest_path = tmp_path / "mtp_sidecar_quantized.json"
-
-    assert (
-        main(
-            [
-                "quantize-mtp-sidecar",
-                "--sidecar",
-                str(source),
-                "--output",
-                str(output),
-                "--capability-command",
-                _capability_json_command(tmp_path, "pass"),
-                "--manifest-output",
-                str(manifest_path),
-            ]
+    with pytest.raises(SystemExit):
+        _build_parser().parse_args(
+            ["quantize-mtp-sidecar", "--sidecar", str(source), "--output", str(output)]
         )
-        == 0
-    )
-    manifest = load_model(manifest_path, QuantizedMtpSidecarManifest)
-    assert manifest.capability.layout == "ax-engine-qwen36-v1"
-    assert manifest.packing == "mlx-affine-packed-u32"
-    assert output.exists()
-
-
-def test_quantize_mtp_sidecar_cli_rejects_failed_probe_and_ambiguous_inputs(
-    tmp_path: Path,
-) -> None:
-    from axquant.cli import main
-
-    source = tmp_path / "mtp.safetensors"
-    _write_quantizable_sidecar(source)
-    output = tmp_path / "mtp.quantized.safetensors"
-
-    assert (
-        main(
-            [
-                "quantize-mtp-sidecar",
-                "--sidecar",
-                str(source),
-                "--output",
-                str(output),
-                "--capability-command",
-                _capability_json_command(tmp_path, "fail", ok=False),
-            ]
-        )
-        == 2
-    )
     assert not output.exists()
-    # Exactly one capability source is allowed.
-    assert (
-        main(
-            [
-                "quantize-mtp-sidecar",
-                "--sidecar",
-                str(source),
-                "--output",
-                str(output),
-            ]
-        )
-        == 2
-    )
 
 
 def test_annotate_omlx_compat_records_sidecar_mtp_tensors_without_index_merge(

@@ -9,11 +9,9 @@ from axquant.schema import ManualPlanRecipe
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# candidate -> (baseline, attention group size). AX Engine admits 8-bit
-# protected projections at group 32 or 64 beside affine 6-bit/group64 experts,
-# but only at group 32 beside MXFP4 experts.
+# candidate -> (baseline, attention group size). AXQ-070: the only quality-tier
+# candidate is MXFP4 with attention raised to the MXFP8 slot (8-bit, group 32).
 CANDIDATES = {
-    "qwen38-flash-next-axq6-attn8-v0.1.yaml": ("qwen38-flash-next-axq6-v0.1.yaml", 64),
     "qwen38-flash-next-axq-mxfp4-attn8-v0.1.yaml": ("qwen38-flash-next-axq-mxfp4-v0.1.yaml", 32),
 }
 

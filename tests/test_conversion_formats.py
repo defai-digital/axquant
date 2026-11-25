@@ -35,6 +35,9 @@ def test_format_conversion(
             [
                 "quantize",
                 str(qwen36_model_dir),
+                # Same shapes as the admitted Qwen3.8-27B DFlash2 target (AXQ-067).
+                "--model-id",
+                "Qwen/Qwen3.6-27B",
                 "--format",
                 format,
                 "--output",
@@ -48,18 +51,24 @@ def test_format_conversion(
         == 0
     )
     summary = load_model(summary_path, QuickConversionSummary)
+    declaration = json.loads((output / "axquant_dflash2_target.json").read_text())
+    assert declaration["status"] == "non_target"
+    assert declaration["source_model_id"] == "Qwen/Qwen3.6-27B"
     config = json.loads((output / "config.json").read_text())
     entries = [v for v in config["quantization"].values() if isinstance(v, dict)]
-    bits = {"2bit": 2, "3bit": 3, "6bit": 6, "mxfp4": 4, "mxfp8": 8}[format]
-    assert any(e["bits"] == bits for e in entries)
-    if format.startswith("mxfp"):
-        assert any(e.get("mode") == format for e in entries)
+    bits = {"mxfp4": 4, "mxfp8": 8}[format]
+    assert any(e["bits"] == bits and e.get("mode") == format for e in entries)
+    # AXQ-070: every quantized entry is MXFP4 or MXFP8 at group 32.
+    assert all(
+        (e["bits"], e.get("mode"), e["group_size"]) in {(4, "mxfp4", 32), (8, "mxfp8", 32)}
+        for e in entries
+    )
     assert "language_model.lm_head" not in config["quantization"]
     attention = config["quantization"].get(
         "language_model.model.layers.0.linear_attn.in_proj_qkvz", {}
     )
-    if format in {"2bit", "3bit"}:
-        assert attention.get("bits", 16) >= 6
+    if format == "mxfp8":
+        assert attention.get("bits", 16) >= 8
     assert summary.development_evidence
     assert summary.runtime_smoke_passed is None
     assert (output / "mtp.safetensors").read_bytes() == (
@@ -72,7 +81,6 @@ def test_format_conversion(
     [
         {"recipe": "missing-recipe"},
         {"ladder": "measured-lite"},
-        {"allow_legacy_4bit": True},
     ],
 )
 def test_format_conflicts_before_source_resolution(options: dict) -> None:
@@ -88,20 +96,33 @@ def test_unknown_format_before_source_resolution() -> None:
 @pytest.mark.parametrize("format", MLX_FORMATS)
 def test_format_default_name(format: str, tmp_path: Path) -> None:
     name = default_output_dir("org/model", format=format, parent=tmp_path).name
-    suffix = format.upper() if format.startswith("mxfp") else format
-    assert name.endswith(f"-MLX-AXQ-{suffix}")
+    assert name.endswith(f"-MLX-AXQ-{format.upper()}")
 
 
-@pytest.mark.parametrize("format", ["2bit", "3bit"])
+def test_mlx_formats_are_the_axq070_presets() -> None:
+    assert MLX_FORMATS == ("mxfp4", "mxfp8")
+    for retired in ("2bit", "3bit", "4bit", "6bit", "8bit"):
+        with pytest.raises(PlanningError, match="unknown MLX format"):
+            simple_convert("missing/model", format=retired)
+
+
 def test_no_eligible_base_tensor_fails_before_conversion(
-    format: str,
     qwen36_model_dir: Path,
     tmp_path: Path,
 ) -> None:
     source = qwen36_model_dir / "model.safetensors"
     tensors = load_file(source)
-    save_file({k: v for k, v in tensors.items() if ".mlp." not in k}, source)
+    # Only protected or non-quantizable tensors remain: no MXFP4 base allocation.
+    save_file(
+        {k: v for k, v in tensors.items() if ".mlp." not in k and "in_proj_qkvz" not in k},
+        source,
+    )
     output = tmp_path / "no-output"
     with pytest.raises(PlanningError, match="produced no"):
-        simple_convert(str(qwen36_model_dir), output=output, format=format)
+        simple_convert(
+            str(qwen36_model_dir),
+            output=output,
+            model_id="Qwen/Qwen3.6-27B",
+            format="mxfp4",
+        )
     assert not output.exists()

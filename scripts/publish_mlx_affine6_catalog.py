@@ -26,6 +26,7 @@ import time
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from axquant.dflash2_target import require_publication_declaration
 from axquant.factory import FACTORY_MODELS, require_factory_host
 from axquant.gemma4_assistant_compose import (
     Gemma4AssistantComposeRequest,
@@ -1126,6 +1127,7 @@ def publish(job: dict[str, Any], directory: Path, state: Path, smoke: dict[str, 
     manifest = validate_pack(job, directory)
     require_smoke(job, smoke, payload_digest(directory, manifest))
     require_publication_smoke(directory)
+    require_publication_declaration(directory)
     records = verify_files(directory, manifest)
     for name in records:
         if Path(name).suffix in {".json", ".md", ".jinja"}:

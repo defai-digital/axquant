@@ -1,17 +1,24 @@
 # Experimental MXFP4 Super-class recipe for MiniMax-M3 (BF16 source).
 # Hobby / curiosity pack only. Will not be certified. Stream required.
 # Run after the 2-bit SKU has Hub-published and Ext16TR0 is cleaned.
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 16.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: true
 lm_head_min_bits: 16
 target_mode: low-memory
 primary_runtime: ax-engine
 random_seed: 0
+hardware:
+  name: ax-engine-apple-silicon-mxfp
+  runtime: ax-engine
+  supported_bits: [4, 8, 16]
+  supported_methods: [affine, mxfp4, bf16]
+  supported_group_sizes: [32]
 rules:
   - rule_id: protect-vision
     roles: [vision]
@@ -43,7 +50,7 @@ rules:
   - rule_id: trunk-mxfp4
     roles: [mlp, attention, expert]
     bits: 4
-    method: affine
+    method: mxfp4
     group_size: 32
     reason: MXFP4 product class; convert with --q-mode mxfp4
 mtp:

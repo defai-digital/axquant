@@ -62,7 +62,31 @@ AGREEMENT_PROMPT_SET_SHA256 = stable_sha256(
 _GENERATIVE_SUFFIXES = ("ForCausalLM", "ForConditionalGeneration")
 _VISION_PREFIXES = ("model.visual.", "visual.", "vision_tower.", "model.vision_tower.")
 # Files that may change after the smoke without changing what runtimes load.
-_UNBOUND_NAMES = frozenset({"README.md", ".gitattributes"})
+# AX Engine writes model-manifest.json on first load when it is absent; it is a
+# regenerable cache derived from the bound files, not an input.
+_UNBOUND_NAMES = frozenset({"README.md", ".gitattributes", "model-manifest.json"})
+
+# oMLX classifies a directory holding either complete pair as a decision model
+# and refuses chat requests (``omlx.model_discovery.decision_kind``). The MTP
+# head belongs to the chat backbone, so the oMLX checks serve a private copy
+# without the pair; the receipt must disclose that, and the gate enforces it.
+DECISION_HEAD_PAIRS: Final[tuple[tuple[str, str], ...]] = (
+    ("joint_head.safetensors", "joint_head_config.json"),
+    ("readout.safetensors", "decision_config.json"),
+)
+DECISION_HEAD_NOTE: Final = "decision head excluded so oMLX serves the chat backbone"
+
+
+def decision_head_files(directory: str | Path) -> list[str]:
+    """Return the files of every complete decision-head pair in ``directory``."""
+
+    pack = Path(directory)
+    return sorted(
+        name
+        for pair in DECISION_HEAD_PAIRS
+        if all((pack / member).is_file() for member in pair)
+        for name in pair
+    )
 
 
 def _read_object(path: Path) -> dict[str, Any]:
@@ -166,6 +190,10 @@ def runtime_payload_sha256(directory: str | Path) -> str:
         relative = path.relative_to(pack).as_posix()
         if relative in _UNBOUND_NAMES or path.name.startswith("axquant_"):
             continue
+        # ``.cache/`` holds Hugging Face upload state, a local tool cache that no
+        # runtime reads and the Hub never receives. Other hidden paths stay bound.
+        if relative.startswith(".cache/"):
+            continue
         entries.append({"path": relative, "sha256": file_sha256(path)})
     return stable_sha256(sorted(entries, key=lambda entry: entry["path"]))
 
@@ -212,6 +240,20 @@ def require_publication_smoke(directory: str | Path) -> PublicationSmokeReceipt 
         )
     ):
         failed.append(AX_ENGINE_AGREEMENT_CHECK)
+    excluded = decision_head_files(pack)
+    if excluded:
+        for name in required:
+            check = results.get(name)
+            if (
+                name.startswith("omlx:")
+                and name not in failed
+                and (
+                    check is None
+                    or DECISION_HEAD_NOTE not in check.detail
+                    or not all(f"'{member}'" in check.detail for member in excluded)
+                )
+            ):
+                failed.append(name)
     if failed:
         raise ValidationGateError(f"publication smoke checks did not pass: {failed}")
     return receipt

@@ -12,23 +12,20 @@ Silicon, then `axquant quantize /path/to/model-bf16`. No repository clone is
 needed for released commands. CUDA users install `axquant[cuda]` and use
 [quantize-cuda](cuda-nvfp4.md) with a compatible CUDA-enabled PyTorch build.
 
-The `quantize --format` presets below are available starting with toolkit 2.3.0.
-Upgrade older installations with `python -m pip install --upgrade 'axquant[mlx]'`.
+AXQuant 3.0 writes only MLX MXFP4, MXFP8 and BF16 (and CUDA NVFP4 and BF16).
+Storage follows allocation bits: 4-bit is MXFP4, 8-bit is MXFP8, both group 32.
 
 | MLX preset | Base representation | Default target BPW | Qualification limits |
 | --- | --- | --- | --- |
-| `2bit` | Affine 2-bit for eligible MLP/expert tensors | 2.8 | Attention uses at least 6-bit; existing experimental runtime gates remain |
-| `3bit` | Affine 3-bit for eligible MLP/expert tensors | 3.8 | Attention uses at least 6-bit; existing experimental runtime gates remain |
-| `6bit` | Affine 6-bit | 6.8 | Higher protection floors remain |
-| `mxfp4` | MXFP4 blocks | 4.8 | Higher precision protection tensors may use affine or BF16 |
-| `mxfp8` | MLX MXFP8 physical repacking | 8.8 | Unrefined affine8/group32 planning priors; not measured MXFP8 sensitivity |
+| `mxfp4` | MXFP4 blocks | 4.8 | Protection floors are MXFP8 or BF16 |
+| `mxfp8` | MXFP8 blocks | 8.8 | BF16 where policy requires; planning priors are not measured MXFP8 sensitivity |
 
 Presets use group size 32. Protected tensors retain their applicable higher
 floors, and the planner can raise the target to the policy minimum. Reported
 BPW includes metadata and protected tensors. `--target-bpw` can override the
 budget; an explicit preset fails if no base-bit allocation survives planning.
-`--format` cannot combine with a recipe, measured ladder or legacy affine4.
-Without it, the existing mixed prior planner remains unchanged. All presets
+`--format` cannot combine with a recipe or measured ladder. Without it, the
+prior planner targets 4.8 BPW over the same three formats. All presets
 produce development evidence. Conversion does not prove quality or speed.
 
 ## Runtime coverage

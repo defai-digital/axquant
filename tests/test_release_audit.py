@@ -7,6 +7,8 @@ import io
 import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
+from unittest.mock import patch
 
 import numpy as np
 from _capture_helpers import load_test_activation_capture
@@ -193,8 +195,18 @@ def _sensitivity(
     )
 
 
+def _historical_plan_quantization(*args: Any, **kwargs: Any) -> QuantizationPlan:
+    """Reproduce a 1.x/2.x DWQ plan: the frozen M0-M8 audit reads historical evidence.
+
+    AXQuant 3.0 (AXQ-070) no longer plans DWQ, 6-bit or group-64 storage; this
+    fixture lifts only that candidate filter so the audit contract stays tested.
+    """
+    with patch("axquant.planner.mlx_candidate_allowed", lambda *_args: True):
+        return plan_quantization(*args, **kwargs)
+
+
 def _plan(sensitivity: SensitivityReport):
-    plan = plan_quantization(
+    plan = _historical_plan_quantization(
         sensitivity,
         PlanRequest(
             profile=sensitivity.profile,
@@ -205,8 +217,6 @@ def _plan(sensitivity: SensitivityReport):
                 supported_methods=(QuantMethod.DWQ, QuantMethod.BF16),
             ),
         ),
-        # The fixture intentionally exercises the retired DWQ 4-bit rung.
-        allow_legacy_4bit=True,
     )
     versions = plan.software_versions.model_copy(update={"axquant": "1.0.0"})
     return plan.model_copy(update={"software_versions": versions})
@@ -596,7 +606,7 @@ def _inputs(
     write_data(validation_index_path, validation_index)
     write_data(artifact / "release_validation_index.json", validation_index)
 
-    parent_plan = plan_quantization(
+    parent_plan = _historical_plan_quantization(
         sensitivity,
         PlanRequest(
             profile=sensitivity.profile,
@@ -608,7 +618,6 @@ def _inputs(
             ),
             random_seed=plan.random_seed + 1,
         ),
-        allow_legacy_4bit=True,
     ).model_copy(update={"software_versions": plan.software_versions})
     parent_sha = stable_sha256(parent_plan)
     selected_sha = stable_sha256(plan)

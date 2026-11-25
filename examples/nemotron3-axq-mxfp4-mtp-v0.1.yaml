@@ -1,15 +1,22 @@
 # Development-only standard MLX export; preserve integrated Nemotron MTP at BF16.
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: general
 target_bpw: 5.8
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 16
 target_mode: low-memory
 primary_runtime: ax-engine
 random_seed: 20261004
+hardware:
+  name: ax-engine-apple-silicon-mxfp
+  runtime: ax-engine
+  supported_bits: [4, 8, 16]
+  supported_methods: [affine, mxfp4, bf16]
+  supported_group_sizes: [32]
 rules:
   - rule_id: preserve-nemotron-mtp
     module_glob: "mtp.*"

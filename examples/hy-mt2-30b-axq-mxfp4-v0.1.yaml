@@ -1,12 +1,13 @@
 # Hy-MT2-30B-A3B AXQ-MXFP4. Attention, MLP, shared MLP, and experts are MXFP4.
-# Norms stay BF16. Embeddings, the LM head, and router gates are 8-bit affine.
+# Norms stay BF16. Embeddings, the LM head, and router gates are MXFP8.
 # expert_bias is a 1-D router vector and stays BF16. No MTP tensors.
-# Convert with: axquant convert --q-mode mxfp4 --allow-unmeasured ...
+# Convert with: axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 8.0
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 lm_head_min_bits: 8
@@ -37,20 +38,20 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: lm-head-8
     roles: [lm_head]
     bits: 8
     method: affine
     group_size: 32
-    reason: LM head 8-bit affine floor
+    reason: LM head MXFP8 floor
   - rule_id: router-8
     roles: [router]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Router gate 8-bit affine; 1-D expert_bias stays BF16
+    group_size: 32
+    reason: Router gate MXFP8; 1-D expert_bias stays BF16
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

@@ -2,14 +2,15 @@
 # Trunk attention+experts -> native MXFP4 (group 32). Embedding/routers 8-bit
 # affine floors, LM head/norms/vision/MTP BF16.
 # v0.2 replaces the retired affine-4 trunk (AXQ-047) with the enforced MXFP4 rung;
-# physical output is identical to the v0.1 affine-4 plus --q-mode mxfp4 remap.
+# physical output is identical to the v0.1 affine-4 plus remap.
 # Convert from the pinned oQ6e repack source (no BF16 reference exists).
-#   axquant convert --q-mode mxfp4 --allow-unmeasured ...
+#   axquant convert --allow-unmeasured ...
+# AXQ-070 (3.0.0): 4-bit allocations are MXFP4 and 8-bit floors are MXFP8, group 32.
 schema_version: axquant.manual-recipe.v2
 profile: agent-coding
 target_bpw: 5.61
 default_bits: 4
-default_method: affine
+default_method: mxfp4
 group_size: 32
 allow_unmatched_rules: false
 target_mode: low-memory
@@ -54,14 +55,14 @@ rules:
     roles: [embedding]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Embedding floor 8-bit affine
+    group_size: 32
+    reason: Embedding floor MXFP8
   - rule_id: routers-8
     roles: [router]
     bits: 8
     method: affine
-    group_size: 64
-    reason: Router floor 8-bit affine
+    group_size: 32
+    reason: Router floor MXFP8
   - rule_id: attention-mxfp4
     roles: [attention]
     bits: 4

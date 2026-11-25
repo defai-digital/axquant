@@ -7,7 +7,7 @@ published here.
 | --- | --- |
 | [`contracts/`](contracts/axq-pack-interchange-v1.md) | Published freeze contracts (pack interchange, certification spec) |
 | [`guides/`](guides/known-issues.md) | How to operate the toolkit (known issues, compatibility, CI, experimental 1.9) |
-| [`migrations/`](migrations/migration-v1.8.md) | Toolkit version upgrades |
+| [`migrations/`](migrations/migration-v3.0.md) | Toolkit version upgrades (3.0: MXFP / NVFP only) |
 | [`runbooks/`](runbooks/holo3-35b-axq-dev-runbook.md) | Family convert / cert procedures |
 | [`reports/`](reports/ax-engine-72h-endurance.md) | Evidence write-ups. Not certificates. |
 | [`certifications/`](certifications/README.md) | Public checkpoint certificates (JSON + markdown) |
@@ -40,6 +40,7 @@ Other entry points:
 
 - Super-class SSD stream: [guides/expert-ssd-stream.md](guides/expert-ssd-stream.md)
 - Compatibility: [guides/compatibility.md](guides/compatibility.md)
+- DFlash2 target identity: [guides/dflash2-targets.md](guides/dflash2-targets.md)
 - MLX affine6 catalog publication: [guides/mlx-affine6-catalog.md](guides/mlx-affine6-catalog.md)
 - MLX affine6 catalog evidence: [reports/mlx-affine6-catalog-2026-10-24.md](reports/mlx-affine6-catalog-2026-10-24.md)
 - D3 runtime support:

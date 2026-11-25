@@ -11,9 +11,11 @@ from axquant.errors import ValidationGateError
 from axquant.publication_smoke import (
     AGREEMENT_PROMPT_SET_SHA256,
     AX_ENGINE_AGREEMENT_CHECK,
+    DECISION_HEAD_NOTE,
     SMOKE_RECEIPT_FILENAME,
     agreed_prompts,
     agreement_passes,
+    decision_head_files,
     require_publication_smoke,
     required_smoke_checks,
     runtime_payload_sha256,
@@ -56,6 +58,7 @@ def _receipt(
     deficits: list[float] | None = None,
     agreed: int | None = None,
     prompt_set: str = AGREEMENT_PROMPT_SET_SHA256,
+    omlx_detail: str = "",
 ) -> None:
     deficits = [0.0] * 10 if deficits is None else deficits
     required = required_smoke_checks(directory)
@@ -72,7 +75,10 @@ def _receipt(
                 logprob_deficits=deficits,
                 prompt_set_sha256=prompt_set,
             )
-        return PublicationSmokeCheck(check=name, status=status, expected="42", output="42")
+        detail = omlx_detail if name.startswith("omlx:") else ""
+        return PublicationSmokeCheck(
+            check=name, status=status, expected="42", output="42", detail=detail
+        )
 
     receipt = PublicationSmokeReceipt(
         payload_sha256=runtime_payload_sha256(directory),
@@ -136,6 +142,11 @@ def test_gate_requires_a_current_passing_receipt(tmp_path: Path) -> None:
     # README and AXQuant evidence files are not runtime payload.
     (pack / "README.md").write_text("card", encoding="utf-8")
     (pack / "axquant_manifest.json").write_text("{}", encoding="utf-8")
+    # AX Engine writes model-manifest.json on first load; it is a cache.
+    (pack / "model-manifest.json").write_text("{}", encoding="utf-8")
+    # Hugging Face upload state is a local tool cache.
+    (pack / ".cache" / "huggingface").mkdir(parents=True)
+    (pack / ".cache" / "huggingface" / "CACHEDIR.TAG").write_text("x", encoding="utf-8")
     assert require_publication_smoke(pack) is not None
 
     (pack / "vision.safetensors").write_bytes(b"changed")
@@ -181,4 +192,26 @@ def test_gate_recomputes_agreement_instead_of_trusting_the_label(
     with pytest.raises(ValidationGateError, match="ax-engine:mlx-lm-agreement"):
         require_publication_smoke(pack)
     _receipt(pack, deficits=[0.0] * 9 + [4.0])
+    assert require_publication_smoke(pack) is not None
+
+
+def test_decision_head_files_require_a_complete_pair(tmp_path: Path) -> None:
+    pack = _pack(tmp_path / "pack", mtp=True)
+    # A lone config is not a decision head; oMLX keeps serving chat.
+    (pack / "decision_config.json").write_text("{}", encoding="utf-8")
+    assert decision_head_files(pack) == []
+    (pack / "joint_head.safetensors").write_bytes(b"head")
+    (pack / "joint_head_config.json").write_text("{}", encoding="utf-8")
+    assert decision_head_files(pack) == ["joint_head.safetensors", "joint_head_config.json"]
+
+
+def test_gate_requires_disclosure_when_omlx_skipped_the_decision_head(tmp_path: Path) -> None:
+    pack = _pack(tmp_path / "pack", vision=True, mtp=True)
+    (pack / "joint_head.safetensors").write_bytes(b"head")
+    (pack / "joint_head_config.json").write_text("{}", encoding="utf-8")
+    _receipt(pack)
+    with pytest.raises(ValidationGateError, match="omlx:mtp-off"):
+        require_publication_smoke(pack)
+    files = ["joint_head.safetensors", "joint_head_config.json"]
+    _receipt(pack, omlx_detail=f"{DECISION_HEAD_NOTE}: {files}")
     assert require_publication_smoke(pack) is not None

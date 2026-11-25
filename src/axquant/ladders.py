@@ -117,10 +117,16 @@ def get_ladder(name: ConvertLadderName | str) -> ConvertLadder:
         try:
             key = ConvertLadderName(name)
         except ValueError as exc:
-            choices = ", ".join(item.value for item in ConvertLadderName)
+            choices = ", ".join(item.value for item in _LADDER_ORDER)
             raise PlanningError(
                 f"unknown convert ladder {name!r}; choose one of {choices}"
             ) from exc
+    if key not in _LADDERS:
+        choices = ", ".join(item.value for item in _LADDER_ORDER)
+        raise PlanningError(
+            f"convert ladder {key.value!r} is retired (AXQ-070: no AWQ/GPTQ/DWQ affine "
+            f"packing); choose one of {choices}"
+        )
     return _LADDERS[key]
 
 

@@ -8,6 +8,9 @@ Repairs packs converted before the layout rules landed:
   ``vision_tower.*`` names only; other layouts are refused).
 * Raw-delta MTP heads: declare ``mtp_norm_encoding: delta`` in ``config.json``
   (via the current MTPLX load contract) for oMLX's sidecar import and MTPLX.
+* Qwen MTP sidecars: declare the ``qwen3-next-mtp`` execution contract
+  (``arch_id`` and ``mtp_tensor_count``) in ``mtplx_runtime.json``, which oMLX
+  requires; older packs shipped the file without it.
 * Verify that no MTP tensor is indexed.
 
 Tensor bytes never change. The original small files are copied to a backup
@@ -38,6 +41,10 @@ from axquant.converter import (  # noqa: E402
     _require_mtp_outside_index,
 )
 from axquant.model_support import require_model_supported  # noqa: E402
+from axquant.mtp_sidecar import (  # noqa: E402
+    QWEN_NEXT_MTP_ARCH_ID,
+    QWEN_NEXT_MTP_LEGACY_ARCH_IDS,
+)
 from axquant.mtplx_compat import apply_mtplx_load_contract  # noqa: E402
 from axquant.runtime_compatibility import (  # noqa: E402
     COMPATIBILITY_FILENAME,
@@ -47,14 +54,42 @@ from axquant.schema.loading import load_artifact_manifest  # noqa: E402
 from axquant.serde import file_sha256, write_data  # noqa: E402
 
 INDEX = "model.safetensors.index.json"
+RUNTIME = "mtplx_runtime.json"
 _BACKED_UP = (
     "config.json",
+    RUNTIME,
     INDEX,
     "axquant_manifest.json",
     COMPATIBILITY_FILENAME,
     "model-manifest.json",
 )
 _VISION_PREFIXES = ("model.visual.", "visual.", "vision_tower.")
+_QWEN_MTP_MODEL_TYPES = frozenset({"qwen3_5", "qwen3_5_text", "qwen3_5_moe", "qwen3_5_moe_text"})
+
+
+def _runtime_contract_fix(pack: Path, model_type: object) -> dict[str, Any] | None:
+    """Return the corrected MTPLX runtime contract, or None when it is current."""
+    runtime = pack / RUNTIME
+    sidecar = pack / "mtp.safetensors"
+    if model_type not in _QWEN_MTP_MODEL_TYPES or not runtime.is_file():
+        return None
+    if not sidecar.is_file():
+        return None
+    contract = _read(runtime)
+    names = [name for name in _header(sidecar) if name != "__metadata__"]
+    # oMLX strips a VLM ``language_model.`` / ``model.`` prefix on import.
+    bare = [name.removeprefix("language_model.").removeprefix("model.") for name in names]
+    if not names or not all(name.startswith("mtp.") for name in bare):
+        raise ValueError("Qwen MTP sidecar must contain only mtp.* tensors")
+    arch = contract.get("arch_id")
+    if arch not in (None, "", QWEN_NEXT_MTP_ARCH_ID, *QWEN_NEXT_MTP_LEGACY_ARCH_IDS):
+        raise ValueError(f"mtplx_runtime.json declares a foreign arch_id {arch!r}")
+    count = contract.get("mtp_tensor_count")
+    if count is not None and count != len(names):
+        raise ValueError(f"mtp_tensor_count {count!r} != sidecar tensors {len(names)}")
+    if arch == QWEN_NEXT_MTP_ARCH_ID and count == len(names):
+        return None
+    return {**contract, "arch_id": QWEN_NEXT_MTP_ARCH_ID, "mtp_tensor_count": len(names)}
 
 
 def _header(path: Path) -> dict[str, Any]:
@@ -90,6 +125,11 @@ def plan_repair(pack: Path) -> dict[str, Any]:
                 refusals.append("vision sidecar uses an unrecognized tensor-name layout")
             else:
                 actions.append("index vision sidecar")
+    try:
+        if _runtime_contract_fix(pack, model_type) is not None:
+            actions.append("mtplx_runtime.json: declare qwen3-next-mtp arch_id")
+    except ValueError as exc:
+        refusals.append(f"mtplx_runtime.json: {exc}")
     preview = json.loads(json.dumps(config))
     notes = apply_mtplx_load_contract(preview, pack)
     actions.extend(f"config.json: {note}" for note in notes)
@@ -126,6 +166,7 @@ def _refresh_derived(pack: Path, ax_engine_bench: str) -> None:
     for record in records:
         if record.get("path") in {
             "config.json",
+            RUNTIME,
             INDEX,
             COMPATIBILITY_FILENAME,
             "model-manifest.json",
@@ -170,6 +211,9 @@ def repair(pack: Path, backup_root: Path, ax_engine_bench: str) -> dict[str, Any
             family="Qwen 3.5",
         )
     config = _read(pack / "config.json")
+    runtime_fix = _runtime_contract_fix(pack, config.get("model_type"))
+    if runtime_fix is not None:
+        write_data(pack / RUNTIME, runtime_fix)
     if apply_mtplx_load_contract(config, pack):
         write_data(pack / "config.json", config)
     _require_mtp_outside_index(pack)

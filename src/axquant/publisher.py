@@ -670,6 +670,12 @@ def publish_model(
         require_publication_smoke(directory)
     except AxquantError as exc:
         raise PublishingError(f"runtime smoke gate failed: {exc}") from exc
+    from axquant.dflash2_target import require_publication_declaration
+
+    try:
+        require_publication_declaration(directory)
+    except (AxquantError, OSError, ValueError) as exc:
+        raise PublishingError(f"DFlash2 target gate failed: {exc}") from exc
     identity_issues = artifact_identity_issues(directory)
     if identity_issues:
         # Published artifacts must identify the checkpoint by name, not by where

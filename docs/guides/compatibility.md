@@ -47,7 +47,7 @@ and hybrid linear-attention tensors at source precision. The runtime path is MLX
 Conversion artifacts remain development evidence, without video, quality, or MTP claims.
 
 Without the `mlx` extra these commands fail closed with `BackendUnavailableError`; everything
-else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, reporting, release audit) runs anywhere.
+else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) runs anywhere.
 
 | Stage | Needs MLX | Needs macOS arm64 |
 | --- | --- | --- |
@@ -56,14 +56,14 @@ else (inspect, calibrate/tokenize, plan, plan-manual, plan-experimental-mix, rep
 | capture-activations | Yes | Yes |
 | analyze (architecture priors) | No | No |
 | analyze (measured, incl. AWQ/GPTQ) / analyze-kv | Yes | Yes |
-| plan / plan-manual / plan-experimental-mix / refine | No | No |
+| plan / plan-manual / refine | No | No |
 | convert | Yes | Yes |
 | runtime / evaluate-quality / benchmark | Yes | Yes |
 | report / release-audit / publish-prepare | No | No |
 
 ## Tested configuration
 
-The toolkit line is **v2.3.0 (official release)**; **v1.8.1** is a historical validated-toolkit pin, not a model certificate. CI (`.github/workflows/ci.yml`) runs the full
+The toolkit line is **v3.0.0 (official release; MXFP / NVFP only)**; **v1.8.1** is a historical validated-toolkit pin, not a model certificate. CI (`.github/workflows/ci.yml`) runs the full
 suite on `macos-15` (Apple Silicon) with Python 3.13 and the `mlx` extra. A historical
 v1.2.0 development environment was macOS arm64, Python 3.13, `mlx 0.32.0`,
 `mlx-lm 0.31.3`, `mlx-audio 0.4.7`, and `mlx-vlm 0.6.10`.

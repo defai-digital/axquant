@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import inspect
 
 import pytest
 from pydantic import ValidationError
@@ -8,6 +9,7 @@ from pydantic import ValidationError
 import axquant.planner as planner_module
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
+from axquant.product_formats import mlx_candidate_allowed
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -87,6 +89,22 @@ def _request(**overrides: object) -> PlanRequest:
     }
     values.update(overrides)
     return PlanRequest.model_validate(values)
+
+
+def _product_prior(inventory: Inventory) -> SensitivityReport:
+    """Architecture prior on the AXQ-070 grid: MXFP4, the MXFP8 slot (g32) and BF16."""
+    return architecture_prior_report(
+        inventory,
+        profile=ProfileName.AGENT_CODING,
+        candidate_bits=(4, 8, 16),
+        group_size=32,
+    )
+
+
+def _product_request(**overrides: object) -> PlanRequest:
+    values: dict[str, object] = {"candidate_bits": (4, 8, 16), "group_size": 32}
+    values.update(overrides)
+    return _request(**values)
 
 
 def test_storage_cost_includes_affine_metadata() -> None:
@@ -200,17 +218,17 @@ def test_multi_group_prior_emits_group_grid_and_strategy_metadata() -> None:
     }
     assert kl_by_gs[32] < kl_by_gs[64] < kl_by_gs[128]
 
-    # Near the policy floor: cheapest storage options (largest group at 4-bit for trunk).
-    # Legacy opt-in: this test intentionally exercises the affine multi-group ladder.
+    # Near the policy floor. AXQ-070: the coarser affine 4-bit groups stay
+    # analysis candidates but are never planned; the 4-bit rung is MXFP4 g32.
     plan = plan_quantization(
         report,
-        _request(target_bpw=4.5, candidate_group_sizes=(32, 64, 128)),
-        allow_legacy_4bit=True,
+        _request(target_bpw=5.3, candidate_group_sizes=(32, 64, 128)),
     )
     assert plan.candidate_group_sizes == (32, 64, 128)
     mlp_alloc = next(item for item in plan.assignments if item.role == TensorRole.MLP)
     assert mlp_alloc.bits == 4
-    assert mlp_alloc.group_size == 128  # coarsest group = lowest storage BPW
+    assert mlp_alloc.method is QuantMethod.MXFP4
+    assert mlp_alloc.group_size == 32
     assert mlp_alloc.scale_strategy == ScaleStrategy.GROUP_AFFINE
     assert mlp_alloc.outlier_strategy == OutlierStrategy.NONE
     assert "storage_bpw" in mlp_alloc.strategy_metadata
@@ -219,8 +237,8 @@ def test_multi_group_prior_emits_group_grid_and_strategy_metadata() -> None:
     assert head.bits == 16
 
 
-def test_extra_budget_upgrades_toward_finer_group() -> None:
-    """Extra BPW budget upgrades trunk tensors off the coarsest 4-bit/gs128 option."""
+def test_extra_budget_upgrades_along_the_product_ladder() -> None:
+    """Extra BPW budget upgrades along MXFP4 -> MXFP8 -> BF16, never off-ladder (AXQ-070)."""
     report = architecture_prior_report(
         _inventory(),
         profile=ProfileName.AGENT_CODING,
@@ -228,22 +246,23 @@ def test_extra_budget_upgrades_toward_finer_group() -> None:
     )
     floor = plan_quantization(
         report,
-        _request(target_bpw=4.5, candidate_group_sizes=(32, 64, 128)),
-        allow_legacy_4bit=True,
+        _request(target_bpw=5.3, candidate_group_sizes=(32, 64, 128)),
     )
     richer = plan_quantization(
         report,
-        _request(target_bpw=6.0, candidate_group_sizes=(32, 64, 128)),
-        allow_legacy_4bit=True,
+        _request(target_bpw=6.5, candidate_group_sizes=(32, 64, 128)),
     )
-    assert richer.target_class == "6bit"
-    floor_mlp = next(item for item in floor.assignments if item.role == TensorRole.MLP)
-    rich_mlp = next(item for item in richer.assignments if item.role == TensorRole.MLP)
-    assert floor_mlp.group_size == 128
-    assert rich_mlp.predicted_loss <= floor_mlp.predicted_loss
-    assert (rich_mlp.bits, rich_mlp.group_size) != (floor_mlp.bits, floor_mlp.group_size) or (
-        rich_mlp.bits > floor_mlp.bits
-    )
+    floor_attention = next(item for item in floor.assignments if item.role == TensorRole.ATTENTION)
+    rich_attention = next(item for item in richer.assignments if item.role == TensorRole.ATTENTION)
+    assert (floor_attention.bits, floor_attention.method) == (4, QuantMethod.MXFP4)
+    assert rich_attention.bits > floor_attention.bits
+    assert rich_attention.predicted_loss <= floor_attention.predicted_loss
+    assert richer.effective_bpw > floor.effective_bpw
+    for plan in (floor, richer):
+        assert all(
+            mlx_candidate_allowed(item.bits, item.method, item.group_size)
+            for item in plan.assignments
+        )
 
 
 def test_planner_respects_budget_and_external_mtp_protection() -> None:
@@ -314,8 +333,8 @@ def test_planner_harmonizes_tied_weights_at_one_executable_signature() -> None:
         config_sha256="a" * 64,
         tied_weight_groups=[[embedding.name, head.name]],
     )
-    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
-    plan = plan_quantization(report, _request(target_bpw=5.0), allow_legacy_4bit=True)
+    report = _product_prior(inventory)
+    plan = plan_quantization(report, _product_request(target_bpw=5.3))
     tied = {
         allocation.tensor: (allocation.bits, allocation.method, allocation.group_size)
         for allocation in plan.assignments
@@ -346,9 +365,11 @@ def test_planner_rejects_tied_weight_precision_outside_budget() -> None:
         source_files=["model.safetensors"],
         config_sha256="a" * 64,
     )
-    report = architecture_prior_report(inventory, profile=ProfileName.AGENT_CODING)
+    report = _product_prior(inventory)
+    # 5.18 BPW clears the per-tensor policy minimum (8-bit embedding) but not
+    # the BF16 signature the tied LM head forces on the whole group.
     with pytest.raises(PlanningError, match=r"tied-weight group.*within the budget"):
-        plan_quantization(report, _request(target_bpw=4.7), allow_legacy_4bit=True)
+        plan_quantization(report, _product_request(target_bpw=5.18))
 
 
 def test_planner_rejects_dangling_tied_weight_reference() -> None:
@@ -539,25 +560,18 @@ def test_plan_refreshes_stale_tier_from_current_registry_policy() -> None:
 
 
 def test_axq026_lm_head_floor_default_stays_bf16_and_fails_closed() -> None:
-    report = architecture_prior_report(
-        _inventory(),
-        profile=ProfileName.AGENT_CODING,
-    )
-    # 4.70 BPW is below the BF16-LM-head policy minimum for this inventory
-    # (4.7054), so the default floor must fail closed rather than downgrade.
+    report = _product_prior(_inventory())
+    # 5.15 BPW is below the BF16-LM-head policy minimum for this inventory
+    # (5.1964), so the default floor must fail closed rather than downgrade.
     with pytest.raises(PlanningError, match="policy minimum"):
-        plan_quantization(report, _request(target_bpw=4.7))
+        plan_quantization(report, _product_request(target_bpw=5.15))
 
 
 def test_axq026_lowered_lm_head_floor_is_explicit_and_recorded() -> None:
-    report = architecture_prior_report(
-        _inventory(),
-        profile=ProfileName.AGENT_CODING,
-    )
+    report = _product_prior(_inventory())
     plan = plan_quantization(
         report,
-        _request(target_bpw=4.7, lm_head_min_bits=8),
-        allow_legacy_4bit=True,
+        _product_request(target_bpw=5.15, lm_head_min_bits=8),
     )
     head = next(
         allocation for allocation in plan.assignments if allocation.role == TensorRole.LM_HEAD
@@ -645,7 +659,7 @@ def test_plan_rejects_a_loaded_allocation_below_its_protection_floor() -> None:
         "model.layers.0.mlp.experts.gate_up_proj",
     ],
 )
-def test_planner_selects_dwq_but_not_awq_on_fused_experts(
+def test_planner_never_selects_refined_methods_on_fused_experts(
     module_path: str,
 ) -> None:
     tensor = _tensor(f"{module_path}.weight", 10_000, TensorRole.EXPERT)
@@ -666,33 +680,34 @@ def test_planner_selects_dwq_but_not_awq_on_fused_experts(
             CandidateMeasurement(
                 bits=4,
                 method=QuantMethod.DWQ,
-                group_size=64,
+                group_size=32,
                 metrics=MetricVector(output_kl=0.01),
                 note="executable fused-stack clip",
             ),
             CandidateMeasurement(
                 bits=4,
                 method=QuantMethod.AWQ,
-                group_size=64,
+                group_size=32,
                 metrics=MetricVector(output_kl=0.001),
                 note="not executable on fused switch stacks",
             ),
         ]
     )
 
+    # AXQ-070: DWQ and AWQ are no longer written, even when measured better
+    # and named in the request; the fused stack takes the MXFP4 rung.
     plan = plan_quantization(
         report,
         _request(
-            target_bpw=4.5,
+            target_bpw=5.0,
+            group_size=32,
             candidate_methods=(QuantMethod.AFFINE, QuantMethod.DWQ, QuantMethod.AWQ),
         ),
-        # Fused switch stacks cannot execute MXFP4; this test intentionally
-        # exercises the retired affine 4-bit fused-stack path (AXQ-047).
-        allow_legacy_4bit=True,
     )
 
     assert plan.assignments[0].bits == 4
-    assert plan.assignments[0].method is QuantMethod.DWQ
+    assert plan.assignments[0].method is QuantMethod.MXFP4
+    assert plan.assignments[0].group_size == 32
 
 
 def test_planner_rejects_fused_experts_without_a_common_budgeted_signature() -> None:
@@ -714,31 +729,20 @@ def test_planner_rejects_fused_experts_without_a_common_budgeted_signature() -> 
         source_files=["model.safetensors"],
         config_sha256="a" * 64,
     )
-    report = architecture_prior_report(
-        inventory,
-        profile=ProfileName.AGENT_CODING,
-        candidate_group_sizes=(64, 128),
-    )
+    report = _product_prior(inventory)
+    # One expert offers only MXFP4, the other only the MXFP8 slot; BF16 is the
+    # only shared signature and it does not fit the budget.
     report.entries[0].candidates = [
         candidate
         for candidate in report.entries[0].candidates
-        if candidate.bits == 16 or (candidate.bits == 4 and candidate.group_size == 64)
+        if candidate.bits == 16 or candidate.method is QuantMethod.MXFP4
     ]
     report.entries[1].candidates = [
-        candidate
-        for candidate in report.entries[1].candidates
-        if candidate.bits == 16 or (candidate.bits == 4 and candidate.group_size == 128)
+        candidate for candidate in report.entries[1].candidates if candidate.bits in {8, 16}
     ]
 
     with pytest.raises(PlanningError, match="no common precision within the budget"):
-        plan_quantization(
-            report,
-            _request(
-                target_bpw=4.5,
-                candidate_group_sizes=(64, 128),
-            ),
-            allow_legacy_4bit=True,
-        )
+        plan_quantization(report, _product_request(target_bpw=7.0))
 
 
 def test_hardware_profile_rejects_non_executable_precision_grid() -> None:
@@ -808,14 +812,14 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
         entry.candidates = [
             CandidateMeasurement(
                 bits=4,
-                method=QuantMethod.AFFINE,
-                group_size=64,
+                method=QuantMethod.MXFP4,
+                group_size=32,
                 metrics=MetricVector(output_kl=kl_4bit),
             ),
             CandidateMeasurement(
                 bits=8,
                 method=QuantMethod.AFFINE,
-                group_size=64,
+                group_size=32,
                 metrics=MetricVector(output_kl=kl_8bit),
             ),
             CandidateMeasurement(
@@ -826,11 +830,7 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
             ),
         ]
 
-    plan = plan_quantization(
-        report,
-        _request(target_bpw=6.0, candidate_bits=(4, 8, 16)),
-        allow_legacy_4bit=True,
-    )
+    plan = plan_quantization(report, _product_request(target_bpw=6.5))
 
     by_tensor = {allocation.tensor: allocation for allocation in plan.assignments}
     # Experts stay harmonized at the only budget-feasible common signature.
@@ -838,7 +838,7 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
     assert by_tensor["model.layers.0.mlp.experts.1.gate_proj.weight"].bits == 4
     # The freed budget funds the previously discarded ungrouped upgrade.
     assert by_tensor["model.layers.0.mlp.up_proj.weight"].bits == 8
-    assert plan.effective_bpw == pytest.approx((4.5 + 4.5 + 8.5) / 3)
+    assert plan.effective_bpw == pytest.approx((5.0 + 5.0 + 9.0) / 3)
 
 
 def _measured_report(
@@ -959,17 +959,52 @@ def test_four_bit_rung_defaults_to_mxfp4_only() -> None:
     assert not any("allow-legacy-4bit" in warning for warning in plan.warnings)
 
 
-def test_allow_legacy_4bit_restores_affine_rung_with_retirement_warning() -> None:
-    # The escape hatch preserves historical campaign replay: affine 4-bit
-    # candidates return, and the plan records the retirement warning.
-    report = architecture_prior_report(_inventory(), profile=ProfileName.AGENT_CODING)
+def test_planner_never_emits_retired_storage_even_when_measured_best() -> None:
+    # AXQ-070: the legacy 4-bit opt-in is gone, and affine 4-bit, 6-bit,
+    # group-64 8-bit and AWQ / GPTQ / DWQ candidates are never planned, even
+    # when they measure far better and the request names them.
+    assert "allow_legacy_4bit" not in inspect.signature(plan_quantization).parameters
+    report = architecture_prior_report(
+        _inventory(),
+        profile=ProfileName.AGENT_CODING,
+        candidate_group_sizes=(32, 64),
+    )
+    retired = [
+        CandidateMeasurement(
+            bits=bits,
+            method=method,
+            group_size=group_size,
+            metrics=MetricVector(output_kl=1e-6),
+        )
+        for bits, method, group_size in (
+            (4, QuantMethod.AFFINE, 32),
+            (4, QuantMethod.AWQ, 32),
+            (4, QuantMethod.GPTQ, 32),
+            (4, QuantMethod.DWQ, 32),
+            (6, QuantMethod.AFFINE, 32),
+            (8, QuantMethod.AFFINE, 64),
+            (8, QuantMethod.GPTQ, 32),
+        )
+    ]
+    for entry in report.entries:
+        if any(candidate.bits < 16 for candidate in entry.candidates):
+            entry.candidates.extend(retired)
+
     plan = plan_quantization(
         report,
-        _request(target_bpw=4.8),
-        allow_legacy_4bit=True,
+        _request(
+            target_bpw=6.0,
+            candidate_group_sizes=(32, 64),
+            candidate_methods=(
+                QuantMethod.AFFINE,
+                QuantMethod.AWQ,
+                QuantMethod.DWQ,
+                QuantMethod.GPTQ,
+            ),
+        ),
     )
-    four_bit = [allocation for allocation in plan.assignments if allocation.bits == 4]
-    assert four_bit
-    assert any(allocation.method is QuantMethod.AFFINE for allocation in four_bit)
-    assert any("retired product line" in warning for warning in plan.warnings)
-    assert any("--allow-legacy-4bit" in warning for warning in plan.warnings)
+
+    assert any(allocation.bits < 16 for allocation in plan.assignments)
+    for allocation in plan.assignments:
+        assert mlx_candidate_allowed(allocation.bits, allocation.method, allocation.group_size)
+    assert not any("legacy" in warning for warning in plan.warnings)

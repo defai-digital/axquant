@@ -2,8 +2,9 @@
 
 These tests run the full measured pipeline on a tiny real llama-family
 checkpoint with the actual MLX/MLX-LM backend: tokenized calibration cache →
-activation capture → measured AWQ/GPTQ sensitivity probe → planner → real
-``mlx_lm.convert`` conversion. They are gated to Apple Silicon macOS and carry
+activation capture → measured MXFP4 sensitivity probe → planner → real
+``mlx_lm.convert`` conversion into AXQ-070 product storage (MXFP4 / MXFP8 /
+BF16). They are gated to Apple Silicon macOS and carry
 the ``integration`` marker so ``-m "not integration"`` deselects them.
 """
 
@@ -139,7 +140,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
     assert set(loaded) == {entry.module_path for entry in capture_manifest.entries}
     assert "model.layers.0.self_attn.q_proj" in loaded
 
-    # --- inspect + measured probe over AFFINE/AWQ/GPTQ on real hardware ---
+    # --- inspect + measured MXFP4 probe on real hardware ---
     inventory = inspect_model(model_dir, model_id=_MODEL_ID, revision=_REVISION)
     assert inventory.architecture_profile.support_tier is SupportTier.CONVERTIBLE
 
@@ -149,7 +150,7 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
             model=inventory.model,
             calibration_cache=str(cache_dir),
             candidate_bits=_BITS,
-            candidate_methods=(QuantMethod.AFFINE, QuantMethod.AWQ, QuantMethod.GPTQ),
+            candidate_methods=(QuantMethod.MXFP4,),
             group_size=_GROUP_SIZE,
             token_budget_per_candidate=128,
             metric_positions_per_sample=8,
@@ -158,10 +159,6 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
             # backbone yields logits only, so probe the output capture point.
             capture_points=("output",),
         ),
-        calibration_activations=loaded,
-        # This test intentionally measures the retired affine-family 4-bit
-        # rung (AWQ/GPTQ refinement) on real hardware (AXQ-047).
-        allow_legacy_4bit=True,
     )
     assert report.evidence_kind.release_quality or report.calibration is not None
 
@@ -172,72 +169,44 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
     ]
     assert probed, "expected at least one tensor with quantized candidates"
     for tensor in probed:
-        affine = _candidate(report, tensor, QuantMethod.AFFINE)
-        for method in (QuantMethod.AWQ, QuantMethod.GPTQ):
-            refined = _candidate(report, tensor, method)
-            # Refinement methods share the identical affine packing, so the
-            # hardware-cost fields must reuse the AFFINE control exactly.
-            assert refined.metrics.peak_memory_cost == affine.metrics.peak_memory_cost
-            assert refined.metrics.prefill_latency_cost == affine.metrics.prefill_latency_cost
-            assert refined.metrics.decode_latency_cost == affine.metrics.decode_latency_cost
+        candidate = _candidate(report, tensor, QuantMethod.MXFP4)
+        # Loose, non-flaky sanity bound on the random tiny-weight fixture.
+        assert np.isfinite(candidate.metrics.output_kl)
+        assert np.isfinite(candidate.metrics.task_loss_delta)
 
-    # Quality gate (loose, non-flaky): hidden_state_error is unavailable here
-    # (the backend returns hidden states only for multimodal wrapper models),
-    # so the primary gate is the specified output_kl bound. On this random
-    # tiny-weight fixture output_kl saturates near zero for every method, so
-    # the discriminating check is task_loss_delta under the same loose bound:
-    # GPTQ refines each layer against its measured inputs and must stay within
-    # reach of the AFFINE control. This catches a catastrophically broken
-    # implementation; it cannot prove superiority on random weights.
-    for tensor in probed:
-        affine = _candidate(report, tensor, QuantMethod.AFFINE)
-        gptq = _candidate(report, tensor, QuantMethod.GPTQ)
-        kl_bound = max(
-            affine.metrics.output_kl * 1.5,
-            affine.metrics.output_kl + 1e-3,
-        )
-        assert gptq.metrics.output_kl <= kl_bound, (
-            f"{tensor}: GPTQ output_kl {gptq.metrics.output_kl} "
-            f"exceeds loose AFFINE bound {kl_bound}"
-        )
-        loss_bound = max(
-            affine.metrics.task_loss_delta * 1.5,
-            affine.metrics.task_loss_delta + 1e-3,
-        )
-        assert gptq.metrics.task_loss_delta <= loss_bound, (
-            f"{tensor}: GPTQ task_loss_delta {gptq.metrics.task_loss_delta} "
-            f"exceeds loose AFFINE bound {loss_bound}"
-        )
-
-    # --- plan: force the refinement method via the candidate-method filter ---
+    # --- plan: MXFP4 trunk from the measured report ---
     request = PlanRequest(
         profile=ProfileName.AGENT_CODING,
         target_bpw=8.0,
+        candidate_bits=(4, 8, 16),
         group_size=_GROUP_SIZE,
-        candidate_methods=(QuantMethod.GPTQ,),
+        candidate_methods=(QuantMethod.MXFP4,),
         allow_unmeasured=True,
-        hardware=HardwareProfile(),
+        # AXQ-070 product hardware: MXFP4 / MXFP8 slot / BF16 at group 32.
+        hardware=HardwareProfile(
+            supported_bits=(4, 8, 16),
+            supported_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4, QuantMethod.BF16),
+            supported_group_sizes=(_GROUP_SIZE,),
+        ),
     )
-    plan = plan_quantization(report, request, allow_legacy_4bit=True)
+    plan = plan_quantization(report, request)
     plan_path = tmp_path / "plan.json"
     write_data(plan_path, plan)
     plan = load_model(plan_path, QuantizationPlan)
     quantized = [allocation for allocation in plan.assignments if allocation.bits < 16]
     assert quantized, "expected quantized allocations at 4-bit"
-    assert all(allocation.method == QuantMethod.GPTQ for allocation in quantized)
+    assert all(allocation.method == QuantMethod.MXFP4 for allocation in quantized)
     assert all(allocation.bits == _BITS[0] for allocation in quantized)
 
-    # --- convert: real mlx_lm.convert with GPTQ refinement from the capture ---
+    # --- convert: real mlx_lm.convert into MXFP4 storage ---
     output_dir = tmp_path / "converted"
     artifact = convert_model(
         source_binding=_source_binding(plan, model_dir),
         model=str(model_dir),
         plan=plan,
         output=output_dir,
-        calibration_activations=loaded,
         allow_unmeasured=True,
         ax_engine_manifest="skip",
-        allow_legacy_4bit=True,
     )
     assert artifact.plan_sha256
     assert output_dir.is_dir()
@@ -250,36 +219,48 @@ def test_end_to_end_capture_probe_plan_convert(tmp_path: Path) -> None:
             keys.extend(handle.keys())
     quantized_scales = {key[: -len(".scales")] for key in keys if key.endswith(".scales")}
     assert "model.layers.0.self_attn.q_proj" in quantized_scales
+    # MXFP4 carries E8M0 scales only; affine bias metadata must not appear.
+    assert not any(key.endswith(".biases") for key in keys)
     # Protected embedding stays BF16: no quantized scales sidecar for it.
     assert "model.embed_tokens.weight" in keys
     assert "model.embed_tokens" not in quantized_scales
+    config = json.loads((output_dir / "config.json").read_text(encoding="utf-8"))
+    assert config["quantization"]["mode"] == "mxfp4"
+    assert config["quantization"]["bits"] == 4
+    assert config["quantization"]["group_size"] == _GROUP_SIZE
 
     execution = load_model(
         output_dir / "axquant_quantizer_execution.json",
         QuantizerExecutionManifest,
     )
-    gptq_records = [record for record in execution.records if record.method == QuantMethod.GPTQ]
-    assert len(gptq_records) == len(quantized)
-    for record in gptq_records:
+    assert len(execution.records) == len(quantized)
+    for record in execution.records:
         assert record.success
-        assert record.note is not None and "GPTQ" in record.note
-        assert "gptq_damping" in record.metadata
-        assert record.metadata["bits"] == _BITS[0]
-        assert record.metadata["group_size"] == _GROUP_SIZE
+        assert record.method == QuantMethod.MXFP4
+        assert record.note is not None and record.note.endswith("mxfp4 packing")
+        assert record.metadata == {}
 
-    # --- fail closed: refinement plan without calibration activations ---
-    # build_quant_predicate rejects the plan before any conversion work.
-    with pytest.raises(PlanningError, match="calibration activations"):
+    # --- fail closed: refined affine storage is outside AXQ-070 ---
+    gptq_plan = plan.model_copy(
+        update={
+            "assignments": [
+                allocation.model_copy(update={"method": QuantMethod.GPTQ})
+                if allocation.bits < 16
+                else allocation
+                for allocation in plan.assignments
+            ]
+        }
+    )
+    with pytest.raises(PlanningError, match="AXQ-070"):
         convert_model(
             source_binding=_source_binding(plan, model_dir),
             model=str(model_dir),
-            plan=plan,
-            output=tmp_path / "converted-no-calibration",
-            calibration_activations=None,
+            plan=gptq_plan,
+            output=tmp_path / "converted-gptq",
             allow_unmeasured=True,
             ax_engine_manifest="skip",
         )
-    assert not (tmp_path / "converted-no-calibration").exists()
+    assert not (tmp_path / "converted-gptq").exists()
 
 
 def test_capture_resume_matches_uninterrupted(

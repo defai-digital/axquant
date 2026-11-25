@@ -63,11 +63,9 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path]:
         report,
         PlanRequest(
             profile=ProfileName.GENERAL,
-            target_bpw=4.8,
+            target_bpw=5.0,
             allow_unmeasured=True,
         ),
-        # The bundle fixture artifact is affine-packed at 4-bit (retired line).
-        allow_legacy_4bit=True,
     )
 
     artifact = tmp_path / "artifact"
@@ -76,7 +74,7 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path]:
         json.dumps(
             {
                 "model_type": "tiny",
-                "quantization": {"bits": 4, "group_size": 64, "mode": "affine"},
+                "quantization": {"bits": 4, "group_size": 32, "mode": "mxfp4"},
             }
         ),
         encoding="utf-8",
@@ -84,8 +82,7 @@ def _bundle(tmp_path: Path) -> tuple[Path, Path]:
     save_file(
         {
             "model.layers.0.mlp.down_proj.weight": np.zeros((64, 8), dtype=np.uint32),
-            "model.layers.0.mlp.down_proj.scales": np.ones((64, 1), dtype=np.float32),
-            "model.layers.0.mlp.down_proj.biases": np.zeros((64, 1), dtype=np.float32),
+            "model.layers.0.mlp.down_proj.scales": np.full((64, 2), 127, dtype=np.uint8),
         },
         artifact / "model.safetensors",
     )

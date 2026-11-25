@@ -150,7 +150,7 @@ def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:
 
     def predicate(path: str, module: object) -> dict[str, int | str]:
         del path, module
-        return {"group_size": 32, "bits": 4, "mode": "affine"}
+        return {"group_size": 32, "bits": 4, "mode": "mxfp4"}
 
     class Tokenizer:
         def save_pretrained(self, path: str | Path) -> None:
@@ -171,7 +171,7 @@ def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:
         quant_predicate=predicate,
         q_group_size=32,
         q_bits=4,
-        q_mode="affine",
+        q_mode="mxfp4",
     )
 
     mx.random.seed(0)
@@ -180,7 +180,7 @@ def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:
     stock.b.weight = mx.arange(32 * 64, dtype=mx.float32).reshape(32, 64)
     mx.eval(stock.parameters())
     stock, stock_config = quantize_model(
-        stock, dict(config), 32, 4, mode="affine", quant_predicate=predicate
+        stock, dict(config), 32, 4, mode="mxfp4", quant_predicate=predicate
     )
     stock_dir.mkdir()
     save_model(stock_dir, stock, donate_model=True)
@@ -196,7 +196,7 @@ def test_quantize_and_save_streaming_matches_stock_keys(tmp_path: Path) -> None:
     stream_cfg = json.loads((stream_dir / "config.json").read_text(encoding="utf-8"))
     assert "quantization" in stream_cfg
     assert "a" in stream_cfg["quantization"]
-    assert stream_cfg["quantization"]["a"]["mode"] == "affine"
+    assert stream_cfg["quantization"]["a"]["mode"] == "mxfp4"
 
 
 @pytest.mark.parametrize(("mode", "bits"), [("mxfp4", 4), ("mxfp8", 8)])
@@ -292,7 +292,7 @@ def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) 
 
     def predicate(path: str, module: object) -> dict[str, int | str]:
         del path, module
-        return {"group_size": 32, "bits": 4, "mode": "affine"}
+        return {"group_size": 32, "bits": 4, "mode": "mxfp4"}
 
     class Tokenizer:
         def save_pretrained(self, path: str | Path) -> None:
@@ -312,7 +312,7 @@ def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) 
         quant_predicate=predicate,
         q_group_size=32,
         q_bits=4,
-        q_mode="affine",
+        q_mode="mxfp4",
     )
 
     mx.random.seed(2)
@@ -320,7 +320,7 @@ def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) 
     stock.proj.weight = mx.arange(32 * 32, dtype=mx.float32).reshape(32, 32)
     mx.eval(stock.parameters())
     stock, stock_config = quantize_model(
-        stock, dict(config), 32, 4, mode="affine", quant_predicate=predicate
+        stock, dict(config), 32, 4, mode="mxfp4", quant_predicate=predicate
     )
     stock_dir.mkdir()
     save_model(stock_dir, stock, donate_model=True)
@@ -333,3 +333,14 @@ def test_quantize_and_save_streaming_keeps_parent_module_arrays(tmp_path: Path) 
     assert set(stream_weights) == set(stock_weights)
     for key, value in stock_weights.items():
         assert mx.array_equal(stream_weights[key], value), key
+
+
+@pytest.mark.parametrize("mode", ["affine", "nvfp4", "mxfp6"])
+def test_streaming_defaults_refuse_non_product_modes(mode: str) -> None:
+    from axquant.streaming_convert import _defaults_for_mode
+
+    # AXQ-070: streaming convert writes MXFP4 or MXFP8 only.
+    with pytest.raises(ValueError, match="mxfp4 and mxfp8 only"):
+        _defaults_for_mode(mode, None, None)
+    assert _defaults_for_mode("mxfp4", None, None) == (32, 4)
+    assert _defaults_for_mode("mxfp8", None, None) == (32, 8)

@@ -1,7 +1,6 @@
 """User-facing MLX presets over the existing development planning pipeline."""
 
 from dataclasses import dataclass, replace
-from typing import Literal
 
 from axquant.errors import PlanningError
 from axquant.ladders import ConvertLadder, get_ladder
@@ -21,12 +20,10 @@ class MlxFormatPreset:
         return self.bits + 0.8
 
 
+# AXQ-070: AXQuant writes only MLX MXFP4, MXFP8 and BF16.
 _PRESETS = (
-    MlxFormatPreset("2bit", 2, "MLP/experts only; attention >=6-bit; runtime gates apply"),
-    MlxFormatPreset("3bit", 3, "MLP/experts only; attention >=6-bit; runtime gates apply"),
-    MlxFormatPreset("6bit", 6, "Affine packing with higher protection floors"),
-    MlxFormatPreset("mxfp4", 4, "MXFP4 blocks with higher protection floors"),
-    MlxFormatPreset("mxfp8", 8, "Unmeasured repacking of unrefined affine8/group32 priors"),
+    MlxFormatPreset("mxfp4", 4, "MXFP4 trunk; MXFP8 and BF16 protection floors"),
+    MlxFormatPreset("mxfp8", 8, "MXFP8 trunk and floors; BF16 where policy requires"),
 )
 MLX_FORMATS = tuple(preset.name for preset in _PRESETS)
 
@@ -37,7 +34,7 @@ def format_ladder(name: str) -> ConvertLadder:
     if preset is None:
         raise PlanningError(f"unknown MLX format {name!r}; choose {', '.join(MLX_FORMATS)}")
     bits = preset.bits
-    candidates = tuple(sorted({bits, 8, 16} | ({6} if bits < 4 else set())))
+    candidates = tuple(sorted({bits, 8, 16}))
     methods: tuple[QuantMethod, ...] = (QuantMethod.AFFINE, QuantMethod.BF16)
     if name == "mxfp4":
         methods += (QuantMethod.MXFP4,)
@@ -57,6 +54,9 @@ def formats_markdown(backend: str = "all") -> str:
     lines = [
         "# AXQuant conversion formats",
         "",
+        "AXQuant is the MXFP / NVFP toolkit. It writes only these storage formats:",
+        "MLX MXFP4, MXFP8 and BF16; CUDA NVFP4 and BF16. No affine integer storage.",
+        "",
         "Development conversion choices, not runtime compatibility certificates.",
         "",
     ]
@@ -72,10 +72,12 @@ def formats_markdown(backend: str = "all") -> str:
             "",
             "Example: axquant quantize /path/to/model-bf16 --format mxfp4",
             "",
-            "Presets use group32 and architecture priors. Protected tensors retain higher",
-            "precision; policy floors may raise the target BPW. Without --format, the",
-            "existing mixed prior planner targets 4.8 BPW. Recipes and measured ladders",
-            "cannot be combined with --format.",
+            "Storage follows allocation bits: 4-bit is MXFP4, 8-bit is MXFP8 (both",
+            "group 32), 16-bit is BF16. Protected tensors (embeddings, routers, LM head,",
+            "norms, MTP, vision and audio towers) stay MXFP8 or BF16; policy floors may",
+            "raise the target BPW. Without --format, the prior planner targets 4.8 BPW",
+            "over the same three formats. Recipes and measured ladders cannot be",
+            "combined with --format.",
             "",
             "Runtime targets: MLX-LM, MTPLX, oMLX and AX Engine; exact model, format",
             "and requested features need separate load/generation validation.",
@@ -93,7 +95,7 @@ def formats_markdown(backend: str = "all") -> str:
             "Example: axquant quantize-cuda /path/to/model-bf16 --q-mode nvfp4 "
             "--device cuda:0 --allow-unmeasured --output ./AXQ-NVFP4",
             "",
-            "Advanced calibrated W4A4 and mixed NVFP4/FP8 options: axquant quantize-cuda --help",
+            "Advanced calibrated W4A4 (NVFP4 activations): axquant quantize-cuda --help",
             "",
         ]
     lines += [
@@ -104,17 +106,11 @@ def formats_markdown(backend: str = "all") -> str:
     return "\n".join(lines)
 
 
-def format_q_mode(name: str | None) -> Literal["affine", "mxfp4", "mxfp8"]:
-    """MXFP8 repacks unrefined affine8/group32; it is not measured sensitivity."""
-    return "mxfp8" if name == "mxfp8" else "affine"
-
-
 def validate_format_options(
     name: str | None,
     *,
     recipe: object,
     ladder: ConvertLadderName | str,
-    allow_legacy_4bit: bool,
 ) -> None:
     if name is None:
         return
@@ -123,5 +119,3 @@ def validate_format_options(
         raise PlanningError(
             "--format requires the prior ladder and cannot be combined with --recipe"
         )
-    if allow_legacy_4bit:
-        raise PlanningError("--format cannot be combined with --allow-legacy-4bit")

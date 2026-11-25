@@ -1,30 +1,29 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from typing import Any
 
-from axquant.awq import apply_mlx_awq_scale as _apply_awq_scale
-from axquant.dwq import apply_mlx_dwq_clip as _apply_dwq_clip
 from axquant.errors import PlanningError
-from axquant.gptq import apply_mlx_gptq_refine as _apply_gptq_refine
 from axquant.model_support import require_model_supported
 from axquant.module_paths import (
     fused_expert_module,
     mlx_module_aliases,
     packed_expert_runtime_modules,
 )
-from axquant.schema import Allocation, QuantizationPlan, QuantMethod
+from axquant.product_formats import (
+    MLX_GROUP_SIZE,
+    mlx_storage_mode,
+    require_mlx_product_storage,
+)
+from axquant.schema import Allocation, QuantizationPlan
 
-_EXECUTABLE_METHODS = frozenset({"affine", "dwq", "awq", "gptq", "gptq-act", "mxfp4"})
-# Fused/packed SwitchLinear stacks run portable affine packing, DWQ (percentile
-# clip then that same affine pack), and native MXFP4. A plan-selected mxfp4
-# allocation emits the identical group-32 4-bit MXFP4 ``to_quantized`` dict as
-# the long-shipped affine allocation plus ``--q-mode mxfp4`` remap, validated
-# end to end (quantize_model -> save -> load -> forward) on SwitchLinear.
-# AWQ/GPTQ refinement cannot run on fused stacks and stays refused.
-FUSED_STACK_METHODS = frozenset({"affine", "dwq", "mxfp4"})
-MXFP4_GROUP_SIZE = 32
-_PHYSICAL_MODES = frozenset({"affine", "mxfp4", "mxfp8"})
+# AXQ-070: convert executes unrefined MXFP4 / MXFP8 packing only. Fused and
+# packed SwitchLinear stacks take the same packing (validated end to end:
+# quantize_model -> save -> load -> forward).
+FUSED_STACK_METHODS = frozenset({"affine", "mxfp4"})
+MXFP4_GROUP_SIZE = MLX_GROUP_SIZE
+# ``--q-mode`` no longer selects storage; it is accepted for compatibility.
+_Q_MODES = frozenset({"mxfp4", "mxfp8"})
 
 
 def fused_stack_method_allowed(method: str) -> bool:
@@ -33,75 +32,38 @@ def fused_stack_method_allowed(method: str) -> bool:
     return method in FUSED_STACK_METHODS
 
 
-def allocation_physical_mode(allocation: Allocation, q_mode: str = "affine") -> str:
-    """Return the MLX ``to_quantized`` mode for one allocation.
+def normalize_q_mode(q_mode: str | None) -> str:
+    """Validate a legacy ``--q-mode`` value; storage follows allocation bits."""
 
-    ``q_mode=mxfp4`` remaps 4-bit trunk tensors onto native MXFP4. 8-bit and
-    BF16 floors stay affine / unpacked. ``strategy_metadata['physical_mode']``
-    can request the same remap without a convert flag. A plan-selected mxfp4
-    allocation (ADR-0015 / AXQ-046 MH5) is honored under every q_mode:
-    ``q_mode=affine`` never overrides an explicit plan selection.
-    ``q_mode=mxfp8`` remaps unrefined 8-bit allocations. MXFP8 is a physical
-    repacking mode, not a measured planner method; affine sensitivity cannot
-    substantiate an MXFP8 quality claim.
+    requested = str(q_mode or "mxfp4").lower()
+    if requested not in _Q_MODES:
+        raise PlanningError(
+            f"unsupported convert q-mode {q_mode!r}: AXQ-070 removed affine storage; "
+            "MLX storage follows allocation bits (4-bit MXFP4, 8-bit MXFP8)"
+        )
+    return requested
+
+
+def allocation_physical_mode(allocation: Allocation, q_mode: str | None = None) -> str:
+    """Return the MLX ``to_quantized`` mode for one quantized allocation.
+
+    AXQ-070: 4-bit allocations are stored as MXFP4 and 8-bit allocations as
+    MXFP8, both at group 32. Every other width or method is refused. MXFP8 is
+    a physical packing of the 8-bit slot; affine sensitivity measured for that
+    slot does not substantiate an MXFP8 quality claim.
     """
 
-    requested = str(q_mode or "affine").lower()
-    if requested not in _PHYSICAL_MODES:
-        raise PlanningError(f"unsupported convert q-mode: {q_mode}")
-    meta = str(allocation.strategy_metadata.get("physical_mode") or "").lower()
-    if meta and meta not in _PHYSICAL_MODES:
-        raise PlanningError(f"unsupported allocation physical mode: {meta}")
-    if allocation.method == QuantMethod.MXFP4:
-        return "mxfp4"
-    if requested == "mxfp8" and allocation.bits == 8:
-        return "mxfp8"
-    if meta == "mxfp8":
-        return "mxfp8"
-    if requested == "mxfp4" and allocation.bits == 4:
-        return "mxfp4"
-    if meta == "mxfp4" and allocation.bits == 4:
-        return "mxfp4"
-    return "affine"
+    normalize_q_mode(q_mode)
+    return mlx_storage_mode(allocation)
 
 
-def allocation_quant_params(allocation: Allocation, q_mode: str = "affine") -> dict[str, Any]:
+def allocation_quant_params(allocation: Allocation, q_mode: str | None = None) -> dict[str, Any]:
     mode = allocation_physical_mode(allocation, q_mode)
-    group_size = allocation.group_size
-    if mode in {"mxfp4", "mxfp8"}:
-        bits = 4 if mode == "mxfp4" else 8
-        if allocation.bits != bits:
-            raise PlanningError(
-                f"{mode.upper()} physical mode requires {bits}-bit allocation: "
-                f"{allocation.module_path}"
-            )
-        if group_size != MXFP4_GROUP_SIZE:
-            raise PlanningError(
-                f"{mode.upper()} physical mode requires group_size {MXFP4_GROUP_SIZE}: "
-                f"{allocation.module_path} has {group_size}"
-            )
-        if mode == "mxfp8" and allocation.method is not QuantMethod.AFFINE:
-            raise PlanningError("MXFP8 physical packing requires an unrefined affine allocation")
-    return {"group_size": group_size, "bits": allocation.bits, "mode": mode}
+    return {"group_size": allocation.group_size, "bits": allocation.bits, "mode": mode}
 
 
 def _without_weight_suffix(path: str) -> str:
     return path[: -len(".weight")] if path.endswith(".weight") else path
-
-
-def _merge_visit_metadata(previous: dict[str, Any], current: dict[str, Any]) -> dict[str, Any]:
-    """Zip the metadata of two runtime-module visits of one packed allocation.
-
-    A packed gate/up tensor clips two separate SwitchLinear modules; both
-    visits' stats belong in the execution evidence.
-    """
-    merged: dict[str, Any] = {}
-    for key in previous.keys() | current.keys():
-        if key in previous and key in current:
-            merged[key] = [previous[key], current[key]]
-        else:
-            merged[key] = previous.get(key, current.get(key))
-    return merged
 
 
 class PlanPredicate:
@@ -109,21 +71,11 @@ class PlanPredicate:
         self,
         plan: QuantizationPlan,
         *,
-        execute_refinement: bool = True,
-        calibration_activations: Mapping[str, Any] | None = None,
-        q_mode: str = "affine",
+        q_mode: str | None = None,
     ) -> None:
         require_model_supported(plan.source_model.model_id, plan.source_model.local_path)
-        self._q_mode = str(q_mode or "affine").lower()
-        if self._q_mode not in _PHYSICAL_MODES:
-            raise PlanningError(f"unsupported convert q-mode: {q_mode}")
-        for allocation in plan.assignments:
-            if allocation_physical_mode(allocation, self._q_mode) == "mxfp8":
-                # MXFP8 on packed experts is validated end to end
-                # (quantize_model -> save -> load -> forward on SwitchLinear);
-                # the params check below still enforces group-32 8-bit
-                # unrefined-affine packing for every MXFP8 allocation.
-                allocation_quant_params(allocation, self._q_mode)
+        self._q_mode = normalize_q_mode(q_mode)
+        require_mlx_product_storage(plan.assignments)
         self._assignments = {
             _without_weight_suffix(allocation.module_path): allocation
             for allocation in plan.assignments
@@ -145,8 +97,8 @@ class PlanPredicate:
             if packed_modules:
                 if allocation.bits < 16 and not fused_stack_method_allowed(allocation.method.value):
                     raise PlanningError(
-                        f"packed expert tensor {module_path} requires affine, dwq, "
-                        f"or mxfp4 packing; got {allocation.method.value}"
+                        f"packed expert tensor {module_path} requires MXFP4 or MXFP8 "
+                        f"packing; got {allocation.method.value}"
                     )
                 self._packed_requirements[module_path] = tuple(
                     frozenset(mlx_module_aliases(runtime_module))
@@ -164,7 +116,7 @@ class PlanPredicate:
                 )
             if members[0].bits < 16 and not fused_stack_method_allowed(members[0].method.value):
                 raise PlanningError(
-                    f"fused expert module {fused} requires affine, dwq, or mxfp4 "
+                    f"fused expert module {fused} requires MXFP4 or MXFP8 "
                     f"packing; got {members[0].method.value}"
                 )
         self._aliases: dict[str, Allocation] = {}
@@ -187,35 +139,10 @@ class PlanPredicate:
                     raise PlanningError(f"plan module alias is ambiguous: {alias}")
                 self._aliases[alias] = allocation
         self.matched: set[str] = set()
-        self._execute_refinement = execute_refinement
-        self._calibration_activations = dict(calibration_activations or {})
+        # Refinement (AWQ / GPTQ / DWQ) is outside AXQ-070; the execution
+        # manifest still reads these per-allocation maps, which stay empty.
         self.dwq_metadata: dict[str, dict[str, Any]] = {}
         self.method_metadata: dict[str, dict[str, Any]] = {}
-
-    def _record_refinement_metadata(
-        self,
-        store: dict[str, dict[str, Any]],
-        allocation: Allocation,
-        metadata: dict[str, Any],
-    ) -> None:
-        """Record refinement metadata for an allocation and its fused siblings.
-
-        The fused switch module quantizes every member expert in one visit, but
-        the execution manifest reads metadata back per allocation; without
-        fan-out, sibling members would report success with empty metadata. A
-        packed allocation clips several runtime modules across separate visits;
-        keep every visit's stats instead of letting the last write win.
-        """
-        paths = {allocation.module_path}
-        fused = fused_expert_module(_without_weight_suffix(allocation.module_path))
-        if fused is not None:
-            paths.update(member.module_path for member in self._fused_members.get(fused, ()))
-        for path in paths:
-            previous = store.get(path)
-            if previous is None:
-                store[path] = dict(metadata)
-            elif path == allocation.module_path:
-                store[path] = _merge_visit_metadata(previous, metadata)
 
     def lookup(self, path: str) -> Allocation | None:
         normalized = _without_weight_suffix(path)
@@ -254,26 +181,6 @@ class PlanPredicate:
             raise PlanningError(f"ambiguous module path {path}")
         return prefix_matches[0] if prefix_matches else None
 
-    def _resolve_calibration(self, allocation: Allocation) -> Any:
-        candidates = [
-            allocation.module_path,
-            _without_weight_suffix(allocation.module_path),
-            allocation.tensor,
-            _without_weight_suffix(allocation.tensor),
-        ]
-        for key in candidates:
-            if key in self._calibration_activations:
-                return self._calibration_activations[key]
-        for alias in mlx_module_aliases(allocation.module_path):
-            if alias in self._calibration_activations:
-                return self._calibration_activations[alias]
-            if _without_weight_suffix(alias) in self._calibration_activations:
-                return self._calibration_activations[_without_weight_suffix(alias)]
-        raise PlanningError(
-            "AWQ/GPTQ conversion requires calibration activations for module "
-            f"{allocation.module_path}; run capture-activations to produce them"
-        )
-
     def __call__(self, path: str, module: Any, *args: Any) -> bool | dict[str, Any]:
         del args
         normalized_path = _without_weight_suffix(path)
@@ -301,43 +208,6 @@ class PlanPredicate:
                 self.matched.add(member.module_path)
         if allocation.bits == 16:
             return False
-        if allocation.method.value == "dwq" and self._execute_refinement:
-            self._record_refinement_metadata(self.dwq_metadata, allocation, _apply_dwq_clip(module))
-        if allocation.method.value == "awq" and self._execute_refinement:
-            group_size = allocation.group_size
-            if group_size is None:
-                raise PlanningError(
-                    f"AWQ allocation is missing group_size: {allocation.module_path}"
-                )
-            calibration = self._resolve_calibration(allocation)
-            self._record_refinement_metadata(
-                self.method_metadata,
-                allocation,
-                _apply_awq_scale(
-                    module,
-                    activations=calibration,
-                    bits=allocation.bits,
-                    group_size=group_size,
-                ),
-            )
-        if allocation.method.value in ("gptq", "gptq-act") and self._execute_refinement:
-            group_size = allocation.group_size
-            if group_size is None:
-                raise PlanningError(
-                    f"GPTQ allocation is missing group_size: {allocation.module_path}"
-                )
-            calibration = self._resolve_calibration(allocation)
-            self._record_refinement_metadata(
-                self.method_metadata,
-                allocation,
-                _apply_gptq_refine(
-                    module,
-                    activations=calibration,
-                    bits=allocation.bits,
-                    group_size=group_size,
-                    act_order=allocation.method.value == "gptq-act",
-                ),
-            )
         return allocation_quant_params(allocation, self._q_mode)
 
     def unmatched_quantized_modules(self) -> set[str]:
@@ -352,10 +222,7 @@ class PlanPredicate:
 def build_quant_predicate(
     plan: QuantizationPlan,
     *,
-    execute_refinement: bool = True,
-    calibration_activations: Mapping[str, Any] | None = None,
-    q_mode: str = "affine",
-    allow_legacy_4bit: bool = False,
+    q_mode: str | None = None,
 ) -> PlanPredicate:
     undeclared = {
         allocation.method.value
@@ -366,58 +233,7 @@ def build_quant_predicate(
         raise PlanningError(
             f"plan uses methods absent from its hardware profile: {sorted(undeclared)}"
         )
-    unsupported = {
-        allocation.method.value
-        for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.method.value not in _EXECUTABLE_METHODS
-    }
-    if unsupported:
-        raise PlanningError(
-            f"the MLX-LM predicate backend cannot execute methods {sorted(unsupported)}"
-        )
-    retired_4bit = [
-        allocation.module_path
-        for allocation in plan.assignments
-        if allocation.bits == 4
-        and allocation_physical_mode(allocation, q_mode) != "mxfp4"
-        and allocation.method != QuantMethod.MXFP4
-    ]
-    if retired_4bit and not allow_legacy_4bit:
-        raise PlanningError(
-            "affine 4-bit is a retired product line (AXQ-047 / ADR 0016) and this plan "
-            "carries 4-bit affine allocations; pass --allow-legacy-4bit only for "
-            "historical campaign replay and recertification of published 4-bit packs: "
-            f"{sorted(retired_4bit)[:10]}"
-        )
-    mxfp4_violations = [
-        allocation.module_path
-        for allocation in plan.assignments
-        if allocation.bits < 16
-        and allocation.method == QuantMethod.MXFP4
-        and (allocation.bits != 4 or allocation.group_size != MXFP4_GROUP_SIZE)
-    ]
-    if mxfp4_violations:
-        raise PlanningError(
-            f"mxfp4 plan allocations require 4-bit with group size "
-            f"{MXFP4_GROUP_SIZE}: {sorted(mxfp4_violations)[:10]}"
-        )
-    calibration_assignments = [
-        allocation
-        for allocation in plan.assignments
-        if allocation.bits < 16 and allocation.method.value in ("awq", "gptq", "gptq-act")
-    ]
-    if calibration_assignments and execute_refinement and not calibration_activations:
-        missing = sorted(allocation.module_path for allocation in calibration_assignments)
-        raise PlanningError(
-            "AWQ/GPTQ conversion requires calibration activations for modules: "
-            f"{missing[:10]}; run capture-activations to produce them"
-        )
-    return PlanPredicate(
-        plan,
-        execute_refinement=execute_refinement,
-        calibration_activations=calibration_activations,
-        q_mode=q_mode,
-    )
+    return PlanPredicate(plan, q_mode=q_mode)
 
 
 QuantPredicate = Callable[[str, Any], bool | dict[str, Any]]

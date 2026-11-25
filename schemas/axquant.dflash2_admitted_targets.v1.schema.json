@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "Dflash2AdmittedTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "admitted_format_lanes": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "drafter_config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "drafter_repo": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "drafter_revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "drafter_weights_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "signature": {
+          "$ref": "#/$defs/Dflash2ArchitectureSignature"
+        },
+        "source_model_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "tap_layer_ids": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "source_model_id",
+        "signature",
+        "drafter_repo",
+        "drafter_revision",
+        "drafter_config_sha256",
+        "drafter_weights_sha256",
+        "tap_layer_ids"
+      ],
+      "type": "object"
+    },
+    "Dflash2ArchitectureSignature": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "model_types": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "num_experts": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "num_hidden_layers": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        },
+        "vocab_size": {
+          "exclusiveMinimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "model_types",
+        "hidden_size",
+        "num_hidden_layers",
+        "vocab_size"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ax_engine_commit": {
+      "pattern": "^[0-9a-f]{7,40}$",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "axquant.dflash2_admitted_targets.v1",
+      "default": "axquant.dflash2_admitted_targets.v1",
+      "type": "string"
+    },
+    "targets": {
+      "items": {
+        "$ref": "#/$defs/Dflash2AdmittedTarget"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "observed_at",
+    "ax_engine_commit",
+    "targets"
+  ],
+  "type": "object"
+}
