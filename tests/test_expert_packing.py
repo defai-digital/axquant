@@ -58,7 +58,7 @@ def _allocation(method: QuantMethod, bits: int) -> Allocation:
 
 
 def _quantize_save_load_forward(
-    tmp_path: Path, label: str, allocation: Allocation, q_mode: str
+    tmp_path: Path, label: str, allocation: Allocation, q_mode: str | None
 ) -> None:
     params = allocation_quant_params(allocation, q_mode)
     assert set(params) == {"group_size", "bits", "mode"}
@@ -73,7 +73,7 @@ def _quantize_save_load_forward(
         {},
         _OUTER_GROUP_SIZE,
         allocation.bits,
-        mode="affine",
+        mode=params["mode"],
         quant_predicate=lambda path, module: params,
     )
     quantized = model.gate_proj
@@ -100,7 +100,7 @@ def _quantize_save_load_forward(
         {},
         _OUTER_GROUP_SIZE,
         allocation.bits,
-        mode="affine",
+        mode=params["mode"],
         quant_predicate=lambda path, module: params,
     )
     fresh_quantized = fresh.gate_proj
@@ -112,7 +112,7 @@ def _quantize_save_load_forward(
 
 
 def test_mxfp4_method_packed_expert_round_trip(tmp_path: Path) -> None:
-    _quantize_save_load_forward(tmp_path, "mxfp4", _allocation(QuantMethod.MXFP4, 4), "affine")
+    _quantize_save_load_forward(tmp_path, "mxfp4", _allocation(QuantMethod.MXFP4, 4), None)
 
 
 def test_mxfp8_remap_packed_expert_round_trip(tmp_path: Path) -> None:
