@@ -11,6 +11,7 @@ from axquant.errors import PlanningError
 from axquant.identity import same_model_identity
 from axquant.naming import target_class_for_bpw
 from axquant.planner import _current_policy_profile, storage_bpw, strategy_for_measurement
+from axquant.product_formats import legacy_affine_storage_bpw
 from axquant.profiles import objective_for
 from axquant.schema import (
     Allocation,
@@ -82,17 +83,19 @@ def _normalized_source_plan(payload: Any) -> QuantizationPlan:
         sum(assignment.bits * assignment.parameters for assignment in assignments)
         / total_parameters
     )
-    effective_bpw = (
-        sum(
-            storage_bpw(assignment.bits, assignment.group_size) * assignment.parameters
-            for assignment in assignments
-        )
-        / total_parameters
+    # Plans written before 3.0 recorded affine overhead for every group; plans
+    # from 3.0 on record MX block-scale overhead. Either must match exactly.
+    effective_candidates = tuple(
+        sum(accounting(a.bits, a.group_size) * a.parameters for a in assignments) / total_parameters
+        for accounting in (storage_bpw, legacy_affine_storage_bpw)
     )
-    for field, expected in (("nominal_bpw", nominal_bpw), ("effective_bpw", effective_bpw)):
+    for field, expected in (
+        ("nominal_bpw", (nominal_bpw,)),
+        ("effective_bpw", effective_candidates),
+    ):
         observed = normalized.get(field)
-        if not isinstance(observed, (int, float)) or not isclose(
-            float(observed), expected, rel_tol=0.0, abs_tol=1e-9
+        if not isinstance(observed, (int, float)) or not any(
+            isclose(float(observed), value, rel_tol=0.0, abs_tol=1e-9) for value in expected
         ):
             raise PlanningError(
                 f"measured plan replay source {field} does not match its assignments"

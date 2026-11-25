@@ -417,7 +417,7 @@ class TestRefineCandidates:
     def test_top_n_variants_form_a_monotonic_parent_chain(self) -> None:
         result = refine_candidates(
             _make_sensitivity_report(),
-            _make_request(target_bpw=8.0),
+            _make_request(target_bpw=7.25),
             RefinementConfig(
                 top_n=2,
                 max_iterations=1,
@@ -494,9 +494,10 @@ def test_coordinate_descent_never_upgrades_outside_axq070_storage(
             ]
         }
     )
-    # 9.0 BPW leaves headroom for one 4-bit -> 6-bit upgrade; the planner
-    # itself already refuses the retired candidates.
-    widened_request = _make_request(target_bpw=9.0, candidate_bits=(4, 6, 8, 16))
+    # 8.5 BPW leaves headroom for one MXFP4 -> 6-bit upgrade (4.25 -> 7.0 BPW
+    # under retired affine accounting); the planner itself refuses the retired
+    # candidates.
+    widened_request = _make_request(target_bpw=8.5, candidate_bits=(4, 6, 8, 16))
     plan = plan_quantization(widened, widened_request)
 
     swapped = coordinate_descent_swap(plan, widened, widened_request, swap_radius=5)
@@ -527,7 +528,7 @@ class TestPlannerTopN:
 
 def test_complete_model_selection_uses_only_passing_measurements() -> None:
     report = _make_sensitivity_report()
-    request = _make_request(target_bpw=8.0)
+    request = _make_request(target_bpw=7.25)
     refinement = refine_candidates(
         report,
         request,

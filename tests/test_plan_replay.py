@@ -10,17 +10,20 @@ from axquant.cli import main
 from axquant.errors import PlanningError
 from axquant.plan_replay import replay_measured_plan
 from axquant.planner import plan_quantization
+from axquant.product_formats import legacy_affine_storage_bpw
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
     CalibrationEvidence,
     EvidenceKind,
+    HardwareProfile,
     Inventory,
     ModelIdentity,
     OptimizationScope,
     PlanRequest,
     ProfileName,
     QuantizationPlan,
+    QuantMethod,
     SensitivityReport,
     SupportTier,
     TensorRole,
@@ -210,3 +213,61 @@ def test_replay_accepts_a_path_neutral_plan_against_a_local_report() -> None:
 
     assert replayed.source_model.local_path is None
     assert replayed.source_model.model_id == local_report.model.model_id
+
+
+def _product_report_and_plan() -> tuple[SensitivityReport, QuantizationPlan]:
+    report, _ = _report_and_plan()
+    plan = plan_quantization(
+        report,
+        PlanRequest(
+            profile=ProfileName.AGENT_CODING,
+            # BF16 LM head floor: 6.6 BPW minimum with an MXFP4 MLP.
+            target_bpw=7.0,
+            candidate_bits=(4, 8, 16),
+            group_size=32,
+            candidate_methods=(QuantMethod.AFFINE, QuantMethod.MXFP4, QuantMethod.BF16),
+            hardware=HardwareProfile(
+                supported_methods=(QuantMethod.AFFINE, QuantMethod.BF16, QuantMethod.MXFP4)
+            ),
+        ),
+    )
+    return report, plan
+
+
+def test_replay_accepts_pre_3_0_affine_accounting_for_mx_plans() -> None:
+    report, plan = _product_report_and_plan()
+    assert any(assignment.bits == 4 for assignment in plan.assignments)
+    total = sum(assignment.parameters for assignment in plan.assignments)
+    legacy = (
+        sum(
+            legacy_affine_storage_bpw(assignment.bits, assignment.group_size)
+            * assignment.parameters
+            for assignment in plan.assignments
+        )
+        / total
+    )
+    assert legacy > plan.effective_bpw
+
+    current = replay_measured_plan(
+        report, plan.model_dump(mode="json"), source_file_sha256="e" * 64
+    )
+    payload = plan.model_dump(mode="json")
+    # A pre-3.0 planner budgeted the same assignments at affine cost.
+    payload["effective_bpw"] = legacy
+    payload["target_bpw"] = max(plan.target_bpw, legacy)
+    constraints = payload["constraints"]
+    assert isinstance(constraints, dict)
+    constraints["effective_bpw_limit"] = payload["target_bpw"]
+    historical = replay_measured_plan(report, payload, source_file_sha256="e" * 64)
+
+    # The replayed plan always reports 3.0 MX accounting.
+    assert historical.effective_bpw == pytest.approx(current.effective_bpw)
+    assert historical.effective_bpw == pytest.approx(plan.effective_bpw)
+
+
+def test_replay_rejects_effective_bpw_matching_no_accounting() -> None:
+    report, plan = _product_report_and_plan()
+    payload = plan.model_dump(mode="json")
+    payload["effective_bpw"] = plan.effective_bpw + 0.1
+    with pytest.raises(PlanningError, match="effective_bpw does not match"):
+        replay_measured_plan(report, payload, source_file_sha256="e" * 64)

@@ -9,7 +9,7 @@ from pydantic import ValidationError
 import axquant.planner as planner_module
 from axquant.analyzer import architecture_prior_report
 from axquant.errors import PlanningError
-from axquant.product_formats import mlx_candidate_allowed
+from axquant.product_formats import legacy_affine_storage_bpw, mlx_candidate_allowed
 from axquant.schema import (
     ArchitectureProfile,
     ArchitectureSupportLevel,
@@ -107,12 +107,20 @@ def _product_request(**overrides: object) -> PlanRequest:
     return _request(**values)
 
 
-def test_storage_cost_includes_affine_metadata() -> None:
+def test_storage_cost_counts_mx_block_scales() -> None:
+    # AXQ-070: MXFP4 / MXFP8 store one E8M0 scale per 32 weights.
+    assert storage_bpw(4, 32) == 4.25
+    assert storage_bpw(8, 32) == 8.25
+    assert storage_bpw(16, None) == 16.0
+
+
+def test_storage_cost_keeps_affine_accounting_for_retired_signatures() -> None:
+    # Historical plans only: these signatures cannot be written any more.
     assert storage_bpw(4, 64) == 4.5
     assert storage_bpw(6, 64) == 6.5
-    assert storage_bpw(16, None) == 16.0
-    assert storage_bpw(4, 32) == 5.0
     assert storage_bpw(4, 128) == 4.25
+    assert legacy_affine_storage_bpw(4, 32) == 5.0
+    assert legacy_affine_storage_bpw(8, 32) == 9.0
 
 
 @pytest.mark.parametrize("target_bpw", [4.5, 5.0, 6.0, 8.0])
@@ -246,11 +254,11 @@ def test_extra_budget_upgrades_along_the_product_ladder() -> None:
     )
     floor = plan_quantization(
         report,
-        _request(target_bpw=5.3, candidate_group_sizes=(32, 64, 128)),
+        _request(target_bpw=4.55, candidate_group_sizes=(32, 64, 128)),
     )
     richer = plan_quantization(
         report,
-        _request(target_bpw=6.5, candidate_group_sizes=(32, 64, 128)),
+        _request(target_bpw=5.75, candidate_group_sizes=(32, 64, 128)),
     )
     floor_attention = next(item for item in floor.assignments if item.role == TensorRole.ATTENTION)
     rich_attention = next(item for item in richer.assignments if item.role == TensorRole.ATTENTION)
@@ -366,10 +374,10 @@ def test_planner_rejects_tied_weight_precision_outside_budget() -> None:
         config_sha256="a" * 64,
     )
     report = _product_prior(inventory)
-    # 5.18 BPW clears the per-tensor policy minimum (8-bit embedding) but not
+    # 4.43 BPW clears the per-tensor policy minimum (8-bit embedding) but not
     # the BF16 signature the tied LM head forces on the whole group.
     with pytest.raises(PlanningError, match=r"tied-weight group.*within the budget"):
-        plan_quantization(report, _product_request(target_bpw=5.18))
+        plan_quantization(report, _product_request(target_bpw=4.43))
 
 
 def test_planner_rejects_dangling_tied_weight_reference() -> None:
@@ -561,17 +569,17 @@ def test_plan_refreshes_stale_tier_from_current_registry_policy() -> None:
 
 def test_axq026_lm_head_floor_default_stays_bf16_and_fails_closed() -> None:
     report = _product_prior(_inventory())
-    # 5.15 BPW is below the BF16-LM-head policy minimum for this inventory
+    # 4.40 BPW is below the BF16-LM-head policy minimum for this inventory
     # (5.1964), so the default floor must fail closed rather than downgrade.
     with pytest.raises(PlanningError, match="policy minimum"):
-        plan_quantization(report, _product_request(target_bpw=5.15))
+        plan_quantization(report, _product_request(target_bpw=4.40))
 
 
 def test_axq026_lowered_lm_head_floor_is_explicit_and_recorded() -> None:
     report = _product_prior(_inventory())
     plan = plan_quantization(
         report,
-        _product_request(target_bpw=5.15, lm_head_min_bits=8),
+        _product_request(target_bpw=4.40, lm_head_min_bits=8),
     )
     head = next(
         allocation for allocation in plan.assignments if allocation.role == TensorRole.LM_HEAD
@@ -830,7 +838,7 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
             ),
         ]
 
-    plan = plan_quantization(report, _product_request(target_bpw=6.5))
+    plan = plan_quantization(report, _product_request(target_bpw=5.75))
 
     by_tensor = {allocation.tensor: allocation for allocation in plan.assignments}
     # Experts stay harmonized at the only budget-feasible common signature.
@@ -838,7 +846,7 @@ def test_budget_freed_by_harmonization_is_reoffered_to_ungrouped_tensors() -> No
     assert by_tensor["model.layers.0.mlp.experts.1.gate_proj.weight"].bits == 4
     # The freed budget funds the previously discarded ungrouped upgrade.
     assert by_tensor["model.layers.0.mlp.up_proj.weight"].bits == 8
-    assert plan.effective_bpw == pytest.approx((5.0 + 5.0 + 9.0) / 3)
+    assert plan.effective_bpw == pytest.approx((4.25 + 4.25 + 8.25) / 3)
 
 
 def _measured_report(

@@ -24,6 +24,48 @@ MLX_PRODUCT_METHODS = (QuantMethod.AFFINE, QuantMethod.MXFP4, QuantMethod.BF16)
 MLX_FORMATS_SUMMARY = "MLX MXFP4, MXFP8 and BF16; CUDA NVFP4 and BF16 (AXQ-070)"
 
 
+# One E8M0 (uint8) shared scale per MX block; no bias.
+MX_SCALE_BITS = 8
+# Retired affine layout: an fp16 scale and an fp16 bias per group.
+AFFINE_GROUP_OVERHEAD_BITS = 32
+
+
+def mx_storage_signature(bits: int, group_size: int | None) -> bool:
+    """True when AXQuant stores (bits, group_size) as an MX block format."""
+
+    return bits in MLX_STORAGE_MODES and group_size == MLX_GROUP_SIZE
+
+
+def legacy_affine_storage_bpw(bits: int, group_size: int | None) -> float:
+    """Pre-3.0 accounting: every quantized group paid an affine scale and bias.
+
+    Plans written before AXQ-070 recorded this value; replay checks accept it.
+    """
+
+    if bits >= 16:
+        return 16.0
+    if group_size is None:
+        raise PlanningError("quantized precision is missing a group size")
+    return bits + AFFINE_GROUP_OVERHEAD_BITS / group_size
+
+
+def product_storage_bpw(bits: int, group_size: int | None) -> float:
+    """Stored bits per weight of what AXQuant 3.0 writes for (bits, group_size).
+
+    MXFP4 and MXFP8 store one E8M0 scale per 32 weights (4.25 / 8.25 BPW).
+    Other signatures cannot be written any more and keep the affine formula so
+    historical plans still account consistently.
+    """
+
+    if bits >= 16:
+        return 16.0
+    if group_size is None:
+        raise PlanningError("quantized precision is missing a group size")
+    if mx_storage_signature(bits, group_size):
+        return bits + MX_SCALE_BITS / group_size
+    return legacy_affine_storage_bpw(bits, group_size)
+
+
 def mlx_storage_violation(bits: int, method: QuantMethod, group_size: int | None) -> str | None:
     """Why one MLX allocation is outside the product formats, or ``None``."""
 

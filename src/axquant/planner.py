@@ -21,7 +21,7 @@ from axquant.module_paths import (
 from axquant.naming import target_class_for_bpw
 from axquant.package_data import message_template
 from axquant.predicate import fused_stack_method_allowed
-from axquant.product_formats import mlx_candidate_allowed
+from axquant.product_formats import mlx_candidate_allowed, product_storage_bpw
 from axquant.profiles import objective_for
 from axquant.role_policy import prefer_method_on_tie, ranking_loss
 from axquant.schema import (
@@ -398,11 +398,8 @@ def _current_policy_profile(profile: ArchitectureProfile) -> ArchitectureProfile
 
 
 def storage_bpw(bits: int, group_size: int | None) -> float:
-    if bits == 16:
-        return 16.0
-    if group_size is None:
-        raise PlanningError("quantized precision is missing a group size")
-    return bits + 32.0 / group_size
+    """Stored bits per weight, including block scale overhead (AXQ-070)."""
+    return product_storage_bpw(bits, group_size)
 
 
 def _require_executable_kv_bits(*values: int) -> None:
