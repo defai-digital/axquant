@@ -7,6 +7,11 @@
 
 **The MXFP / NVFP toolkit: reproducible MXFP4, MXFP8 and NVFP4 model packs for MLX and CUDA.**
 
+AX Engine runtimes:
+
+- **MLX (Apple Silicon):** [AX Engine](https://github.com/defai-digital/ax-engine)
+- **CUDA (NVIDIA):** [AX Engine for SGLang](https://github.com/defai-digital/ax-engine-sglang)
+
 AXQuant is an independent, [MIT-licensed](LICENSE) product from **AutomatosX /
 DEFAI Digital**. It allocates per-tensor precision, preserves sensitive model
 components, and binds the source, plan and output bytes to reproducible
