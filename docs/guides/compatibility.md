@@ -27,8 +27,8 @@ runtime evidence are retained. See the [native runtime failure](../reports/mlx-a
 
 | Version | Status |
 | --- | --- |
-| 3.11 | Supported (`requires-python >= 3.11`) |
-| 3.12 | Supported |
+| 3.11 | Not supported after 3.0.1; install `axquant==3.0.1` if you must stay on 3.11 |
+| 3.12 | Supported (`requires-python >= 3.12`, the same floor as AX Engine) |
 | 3.13 | Supported; primary development target |
 
 ## MLX execution backend (optional `mlx` extra)
@@ -63,7 +63,8 @@ else (inspect, calibrate/tokenize, plan, plan-manual, reporting, release audit) 
 
 ## Tested configuration
 
-The toolkit line is **v3.0.0 (official release; MXFP / NVFP only)**; **v1.8.1** is a historical validated-toolkit pin, not a model certificate. CI (`.github/workflows/ci.yml`) runs the full
+The toolkit line is **v3.0.1 (official release; MXFP / NVFP only)**; **v1.8.1** is a historical validated-toolkit pin, not a model certificate. CI (`.github/workflows/ci.yml`) runs the
+non-MLX package-contract suite on Ubuntu with Python 3.12 and 3.13, and the full
 suite on `macos-15` (Apple Silicon) with Python 3.13 and the `mlx` extra. A historical
 v1.2.0 development environment was macOS arm64, Python 3.13, `mlx 0.32.0`,
 `mlx-lm 0.31.3`, `mlx-audio 0.4.7`, and `mlx-vlm 0.6.10`.

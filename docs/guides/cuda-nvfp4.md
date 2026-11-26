@@ -30,7 +30,9 @@ the frozen W4A16 contracts.
 
 ## Install and convert
 
-Use a venv and a CUDA-enabled PyTorch build matching your NVIDIA environment.
+Use a Python 3.12 or later venv and a CUDA-enabled PyTorch build matching your
+NVIDIA environment. Python 3.12 matches
+[AX Engine for SGLang](https://github.com/defai-digital/ax-engine-sglang).
 The normal AXQuant install remains unchanged; CUDA dependencies are optional.
 See [PyTorch installation](https://pytorch.org/get-started/locally/) for the
 appropriate PyTorch wheel. A CPU-only PyTorch build cannot execute CUDA.

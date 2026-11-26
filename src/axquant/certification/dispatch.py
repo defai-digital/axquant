@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TypeAlias
 
 from axquant.errors import ArtifactError
 from axquant.schema import (
@@ -14,10 +13,10 @@ from axquant.schema import (
 )
 from axquant.serde import load_model, read_data
 
-CertificationRequest: TypeAlias = (
+type CertificationRequest = (
     ReleaseAuditRequest | FlagshipReleaseAuditRequest | Qwen3NextReleaseAuditRequest
 )
-CertificationAudit: TypeAlias = ReleaseAudit | FlagshipReleaseAudit | Qwen3NextReleaseAudit
+type CertificationAudit = ReleaseAudit | FlagshipReleaseAudit | Qwen3NextReleaseAudit
 
 _MTP_REQUEST_VERSION = "axquant.release-audit-request.v4"
 _FLAGSHIP_REQUEST_VERSION = "axquant.flagship-release-audit-request.v1"

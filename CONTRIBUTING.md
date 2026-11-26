@@ -36,7 +36,7 @@ and the evidence needed for promotion.
 git clone https://github.com/YOUR_USERNAME/axquant.git
 cd axquant
 git switch -c improve-cli-format-help
-python3.13 -m venv .venv
+python3.13 -m venv .venv  # Python 3.12 or later
 source .venv/bin/activate
 python -m pip install -e ".[dev]"
 ```

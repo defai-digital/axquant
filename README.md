@@ -113,9 +113,16 @@ are outside this workflow. Inspection, planning and reporting work without MLX.
 
 ## Install
 
-**Python 3.11+**. The MLX quick start below needs an Apple Silicon Mac and the
-`mlx` extra. For experimental CUDA conversion targeting vLLM, use the separate
+**Python 3.12 or later**, the same floor as
+[AX Engine](https://github.com/defai-digital/ax-engine). The MLX quick start
+below needs an Apple Silicon Mac and the `mlx` extra. For experimental CUDA
+conversion targeting vLLM, use the separate
 [CUDA installation and conversion guide](docs/guides/cuda-nvfp4.md).
+
+Check `python3 --version` first. The macOS system `python3` is older than 3.12;
+install Python 3.12 or 3.13 from [python.org](https://www.python.org/downloads/macos/)
+or with `brew install python@3.13`, then create the venv with that interpreter
+(for example `python3.13 -m venv .venv`).
 
 **Always install into a virtual environment.** A bare system-wide install
 fails with `externally-managed-environment`; do **not** pass

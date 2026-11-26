@@ -43,7 +43,7 @@ def _declared_versions(model_type: type[BaseModel]) -> tuple[str, ...]:
     return (default,) if isinstance(default, str) else ()
 
 
-def load_versioned(path: str | Path, *model_types: type[ModelT]) -> ModelT:
+def load_versioned[ModelT: BaseModel](path: str | Path, *model_types: type[ModelT]) -> ModelT:
     """Load a persisted artifact whose ``schema_version`` may be any of ``model_types``.
 
     The payload's version selects the model class; a payload with any other

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import TypeVar
-
-_T = TypeVar("_T")
 
 _EXPERT_MEMBER = re.compile(
     r"^(?P<prefix>.*\.mlp)\.experts\.(?P<index>\d+)\.(?P<proj>gate_proj|up_proj|down_proj)$"
@@ -274,7 +271,7 @@ def _packed_expert_aliases(module_path: str) -> tuple[str, ...]:
     return ()
 
 
-def unique_module_planning_tensors(tensors: list[_T]) -> list[_T]:
+def unique_module_planning_tensors[T](tensors: list[T]) -> list[T]:
     """Keep one planning tensor per ``module_path`` for PlanPredicate uniqueness.
 
     OpenAI GPT-OSS native MXFP4 maps ``*_scales`` onto the ``*_blocks`` module path
@@ -284,7 +281,7 @@ def unique_module_planning_tensors(tensors: list[_T]) -> list[_T]:
     quantizable body when present; otherwise keep non-quantizable tensors as-is
     (norms, biases, etc.).
     """
-    by_path: dict[str, list[_T]] = {}
+    by_path: dict[str, list[T]] = {}
     order: list[str] = []
     for tensor in tensors:
         path = tensor.module_path  # type: ignore[attr-defined]
@@ -292,7 +289,7 @@ def unique_module_planning_tensors(tensors: list[_T]) -> list[_T]:
             order.append(path)
             by_path[path] = []
         by_path[path].append(tensor)
-    selected: list[_T] = []
+    selected: list[T] = []
     for path in order:
         group = by_path[path]
         quantizable = [item for item in group if getattr(item, "quantizable", False)]

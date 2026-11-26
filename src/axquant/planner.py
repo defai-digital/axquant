@@ -3,7 +3,7 @@ from __future__ import annotations
 import heapq
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from axquant.architectures.registry import declared_tier_for
 from axquant.errors import PlanningError
@@ -90,8 +90,8 @@ class _Choice:
         return self.options[self.index]
 
 
-_PrecisionSignature: TypeAlias = tuple[int, QuantMethod, int | None]
-_UnitFrontier: TypeAlias = list[tuple[_PrecisionSignature, list[int], float, float]]
+type _PrecisionSignature = tuple[int, QuantMethod, int | None]
+type _UnitFrontier = list[tuple[_PrecisionSignature, list[int], float, float]]
 _UpgradeCandidate = tuple[float, int, float, int]
 
 

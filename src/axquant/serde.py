@@ -33,13 +33,15 @@ def read_data(path: str | Path) -> Any:
     return payload
 
 
-def load_model(path: str | Path, model_type: type[ModelT]) -> ModelT:
+def load_model[ModelT: BaseModel](path: str | Path, model_type: type[ModelT]) -> ModelT:
     payload = read_data(path)
     _require_schema_version(path, model_type, payload)
     return model_type.model_validate(payload)
 
 
-def _require_schema_version(path: str | Path, model_type: type[ModelT], payload: Any) -> None:
+def _require_schema_version[ModelT: BaseModel](
+    path: str | Path, model_type: type[ModelT], payload: Any
+) -> None:
     """Fail closed when a persisted artifact omits its ``schema_version`` key.
 
     Every AXQuant model with a ``schema_version`` field declares it as

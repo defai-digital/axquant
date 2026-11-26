@@ -7,14 +7,13 @@ name = "axquant"
 version = "3.0.1"
 description = "Reproducible quantization and verifiable AXQ model packs for MLX and CUDA"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "AutomatosX" }]
 keywords = ["mlx", "quantization", "apple-silicon", "multimodal", "mtp", "ptq"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Intended Audience :: Developers",
@@ -99,7 +98,7 @@ markers = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -108,7 +107,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 "tests/**" = ["S101"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
 packages = ["axquant"]

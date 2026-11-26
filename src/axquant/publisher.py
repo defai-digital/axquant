@@ -5,7 +5,6 @@ import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
 
 import structlog
 from huggingface_hub import HfApi
@@ -62,7 +61,6 @@ from axquant.source_binding import artifact_identity_issues, tree_identity_issue
 
 _LOG = structlog.get_logger()
 _REPO_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
-_T = TypeVar("_T")
 _HUB_TRANSIENT_STATUSES = frozenset({408, 409, 429, 500, 502, 503, 504})
 _TEXT_PUBLICATION_SUFFIXES = {
     ".json",
@@ -146,7 +144,7 @@ def require_publication_privacy(directory: Path) -> None:
         raise PublishingError("publication privacy scan failed: " + "; ".join(issues))
 
 
-def retry_hub_call(label: str, operation: Callable[[], _T], *, retries: int = 4) -> _T:
+def retry_hub_call[T](label: str, operation: Callable[[], T], *, retries: int = 4) -> T:
     """Run one Hub call, retrying transient HTTP statuses with backoff."""
 
     delay = 1.0
