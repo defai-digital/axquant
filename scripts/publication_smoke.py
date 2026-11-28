@@ -136,12 +136,13 @@ print("RESULT " + json.dumps(deficits))
 """
 
 # MLX-VLM reference for model types MLX-LM cannot load. Tokenizing loads only
-# the processor, so AX Engine never shares memory with a resident MLX-VLM copy.
+# the pack's tokenizer (the one MLX-VLM's processor wraps), so AX Engine never
+# shares memory with a resident MLX-VLM copy. mlx_vlm.utils.load_processor alone
+# cannot resolve a custom image processor such as qwen4_exp's.
 _MLX_VLM_TOKENIZE = """
 import json, sys
-from mlx_vlm.utils import load_processor
-processor = load_processor(sys.argv[1])
-tokenizer = getattr(processor, "tokenizer", processor)
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(sys.argv[1])
 rows = []
 for question in json.loads(sys.argv[2]):
     text = tokenizer.apply_chat_template(
