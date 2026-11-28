@@ -1,0 +1,112 @@
+{
+  "$defs": {
+    "Dflash2CompanionFile": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "pattern": "^dflash2/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "Dflash2DrafterPin": {
+      "additionalProperties": false,
+      "properties": {
+        "config_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "repo": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "weights_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision",
+        "config_sha256",
+        "weights_sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "composer_version": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "type": "string"
+    },
+    "drafter": {
+      "$ref": "#/$defs/Dflash2DrafterPin"
+    },
+    "drafter_license": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/Dflash2CompanionFile"
+      },
+      "minItems": 2,
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "axquant.dflash2_companion.v1",
+      "default": "axquant.dflash2_companion.v1",
+      "type": "string"
+    },
+    "source_model_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$",
+      "type": "string"
+    },
+    "source_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "target_artifact_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "target_declaration_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "target_artifact_manifest_sha256",
+    "target_declaration_sha256",
+    "source_model_id",
+    "source_revision",
+    "drafter",
+    "drafter_license",
+    "files",
+    "composer_version"
+  ],
+  "type": "object"
+}

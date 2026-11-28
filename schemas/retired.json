@@ -23,6 +23,14 @@
       "retired_at": "2026-11-20",
       "schema_version": "axquant.publication-smoke.v1",
       "sha256": "d5b1a51fa0d427e3a17a1d319b75a73f00834afffb30a89203f88398c7bef757"
+    },
+    {
+      "decision": "publication-smoke gate (2026-11-28)",
+      "filename": "axquant.publication-smoke.v2.schema.json",
+      "note": "Bumped to v3: adds the ax-engine:mlx-vlm-agreement check, which scores AX Engine against MLX-VLM's language model for vision packs whose model type MLX-LM cannot load (qwen4_exp). Scoring and tolerance are unchanged. No v2 receipt is accepted by the gate.",
+      "retired_at": "2026-11-28",
+      "schema_version": "axquant.publication-smoke.v2",
+      "sha256": "8e34941ebc7aeeaa22ea375ce5f478ead5f462a6cf7239f6358cb532e3a93889"
     }
   ]
 }

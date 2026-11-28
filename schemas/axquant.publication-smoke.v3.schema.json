@@ -18,6 +18,7 @@
         "check": {
           "enum": [
             "ax-engine:mlx-lm-agreement",
+            "ax-engine:mlx-vlm-agreement",
             "mlx-lm:text",
             "mlx-vlm:text",
             "mlx-vlm:image",
@@ -145,6 +146,7 @@
       "items": {
         "enum": [
           "ax-engine:mlx-lm-agreement",
+          "ax-engine:mlx-vlm-agreement",
           "mlx-lm:text",
           "mlx-vlm:text",
           "mlx-vlm:image",
@@ -156,8 +158,8 @@
       "type": "array"
     },
     "schema_version": {
-      "const": "axquant.publication-smoke.v2",
-      "default": "axquant.publication-smoke.v2",
+      "const": "axquant.publication-smoke.v3",
+      "default": "axquant.publication-smoke.v3",
       "type": "string"
     }
   },

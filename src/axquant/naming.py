@@ -291,7 +291,8 @@ def require_mtp_suffix_matches_packaging(
     if type(allow_reserved_empty_mtp) is not bool:
         raise ArtifactError("allow_reserved_empty_mtp must be a boolean")
     packaged = packaged_mtp_present(filenames=filenames)
-    named_mtp = repo_leaf.endswith("-MTP")
+    # A DFlash2 composite keeps its target's name in front of the suffix.
+    named_mtp = repo_leaf.removesuffix(DFLASH2_COMPOSITE_SUFFIX).endswith("-MTP")
     if packaged == named_mtp:
         return
     if (
@@ -311,3 +312,37 @@ def require_mtp_suffix_matches_packaging(
         f"repository name {repo_leaf!r} ends with -MTP but the published tree "
         "has no usable MTP artifact"
     )
+
+
+# AXQ-067 DF-5: a composite target + drafter pack is a distinct identity named
+# ``<target leaf>-DFlash2``; the target repository never holds drafter files.
+DFLASH2_COMPOSITE_SUFFIX = "-DFlash2"
+DFLASH2_COMPANION_NAME = "axquant_dflash2_companion.json"
+
+
+def dflash2_composite_name(target_leaf: str) -> str:
+    """Name of the DFlash2 composite built from one MLX AXQ target pack."""
+
+    if "/" in target_leaf or "-MLX-AXQ-" not in target_leaf:
+        raise ArtifactError(f"DFlash2 composites are built from an MLX AXQ pack: {target_leaf!r}")
+    if target_leaf.endswith(DFLASH2_COMPOSITE_SUFFIX):
+        raise ArtifactError(f"{target_leaf!r} is already a DFlash2 composite name")
+    return target_leaf + DFLASH2_COMPOSITE_SUFFIX
+
+
+def require_dflash2_suffix_matches_packaging(repo_leaf: str, *, filenames: Collection[str]) -> None:
+    """Fail closed: the ``-DFlash2`` suffix iff the tree carries a bundled drafter."""
+
+    names = set(filenames)
+    bundled = DFLASH2_COMPANION_NAME in names or any(name.startswith("dflash2/") for name in names)
+    named = repo_leaf.endswith(DFLASH2_COMPOSITE_SUFFIX)
+    if bundled and not named:
+        raise ArtifactError(
+            f"repository name {repo_leaf!r} must end with {DFLASH2_COMPOSITE_SUFFIX} because "
+            "the tree bundles a DFlash2 drafter"
+        )
+    if named and not bundled:
+        raise ArtifactError(
+            f"repository name {repo_leaf!r} ends with {DFLASH2_COMPOSITE_SUFFIX} but the tree "
+            "bundles no DFlash2 drafter"
+        )

@@ -9,8 +9,8 @@ import pytest
 
 from axquant.errors import ValidationGateError
 from axquant.publication_smoke import (
+    AGREEMENT_CHECKS,
     AGREEMENT_PROMPT_SET_SHA256,
-    AX_ENGINE_AGREEMENT_CHECK,
     DECISION_HEAD_NOTE,
     SMOKE_RECEIPT_FILENAME,
     agreed_prompts,
@@ -65,7 +65,7 @@ def _receipt(
 
     def check(name: str) -> PublicationSmokeCheck:
         status = "fail" if name in failing else "pass"
-        if name == AX_ENGINE_AGREEMENT_CHECK:
+        if name in AGREEMENT_CHECKS:
             return PublicationSmokeCheck(
                 check=name,
                 status=status,
@@ -111,6 +111,35 @@ def test_required_checks_follow_vision_and_qwen_mtp(tmp_path: Path) -> None:
         mtp=True,
     )
     assert required_smoke_checks(nemotron) == ["ax-engine:mlx-lm-agreement", "mlx-lm:text"]
+
+
+def test_mlx_vlm_is_the_reference_when_mlx_lm_cannot_load_the_model_type(
+    tmp_path: Path,
+) -> None:
+    flash = _pack(
+        tmp_path / "flash",
+        model_type="qwen4_exp",
+        architectures=["Qwen4ExpForConditionalGeneration"],
+        vision=True,
+        mtp=True,
+    )
+    assert required_smoke_checks(flash) == [
+        "ax-engine:mlx-vlm-agreement",
+        "mlx-vlm:text",
+        "mlx-vlm:image",
+    ]
+    _receipt(flash, deficits=[0.0] * 8 + [2.0, 3.0], agreed=10)  # inflated "pass"
+    with pytest.raises(ValidationGateError, match="ax-engine:mlx-vlm-agreement"):
+        require_publication_smoke(flash)
+    _receipt(flash)
+    assert require_publication_smoke(flash) is not None
+    # Without vision weights there is no MLX-VLM reference; MLX-LM stays required.
+    text_only = _pack(
+        tmp_path / "text-only",
+        model_type="qwen4_exp",
+        architectures=["Qwen4ExpForConditionalGeneration"],
+    )
+    assert required_smoke_checks(text_only) == ["ax-engine:mlx-lm-agreement", "mlx-lm:text"]
 
 
 @pytest.mark.parametrize(

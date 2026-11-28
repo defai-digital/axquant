@@ -35,6 +35,7 @@ from axquant.schema import (
     QuantizationPlan,
     QuantizerExecutionManifest,
 )
+from axquant.schema.dflash2 import Dflash2TargetDeclaration
 from axquant.schema.loading import (
     load_artifact_manifest,
     load_quantization_plan,
@@ -80,14 +81,22 @@ _MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": (
         "Norms and expert_bias stay BF16. This checkpoint has no MTP tensors."
     ),
+    "AX-Qwen3.8-27B-MLX-AXQ": "Vision, MTP, and norms stay BF16.",
     "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": "Vision, MTP, and norms stay BF16.",
     "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ": (
         "Vision, merger, and hybrid linear-attention tensors stay at source precision. "
         "No MTP tensors were detected."
     ),
 }
+# MXFP4/MXFP8 families without a CUDA pack. A legacy 6-bit pack in the same
+# family is not linked: it stays only until its replacement passes (AXQ-070).
+_MX_PAIR_FAMILY_NOTES: dict[str, str] = {
+    "AX-Qwen3.6-35B-A3B-MLX-AXQ": "Vision, MTP, routers, norms, and the LM head stay BF16.",
+    "AX-Qwen3.8-Flash-Next-MLX-AXQ": "Vision, MTP, norms, and small PLE tensors stay BF16.",
+}
 _MX_BLOCK_CUDA_REPOS: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
+    "AX-Qwen3.8-27B-MLX-AXQ": "AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP",
     "AX-Swift-1.5-Qwen3.8-27B-MLX-AXQ": ("AX-Swift-1.5-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP"),
     "AX-MiniCPM-V-4.7-35B-A3B-MLX-AXQ": ("AX-MiniCPM-V-4.7-35B-A3B-CUDA-AXQ-NVFP4-W4A16"),
 }
@@ -209,18 +218,79 @@ def _format_parameters(parameters: int) -> str:
     return f"{parameters:,}"
 
 
-def _precision_rows(manifest: ArtifactManifest) -> str:
+def _precision_rows(
+    manifest: ArtifactManifest, storage_labels: dict[str, str] | None = None
+) -> str:
     order = {"2bit": 2, "3bit": 3, "4bit": 4, "6bit": 6, "8bit": 8, "bf16": 16}
+    labels = storage_labels or {}
     rows: list[str] = []
     for precision, share in sorted(
         manifest.weight_distribution.items(),
         key=lambda item: (order.get(item[0], 99), item[0]),
     ):
         rows.append(
-            f"| `{precision}` | {_format_parameters(share.parameters)} | "
+            f"| `{labels.get(precision, precision)}` | {_format_parameters(share.parameters)} | "
             f"{share.fraction * 100:.2f}% |"
         )
     return "\n".join(rows)
+
+
+_MX_STORAGE_LABELS = {(4, "mxfp4"): "MXFP4", (8, "mxfp8"): "MXFP8"}
+
+
+def _mx_storage_labels(directory: Path) -> dict[str, str] | None:
+    """Map plan bit widths to MX storage names when ``config.json`` stores only MX blocks.
+
+    Plan v2 records 8-bit slots as ``affine`` even when they are packed as MXFP8
+    (AXQ-070); the physical modes in ``config.json`` are the truth. Returns
+    ``None`` for packs with any affine or unknown storage, which keep the
+    bit-width labels.
+    """
+
+    config_path = directory / "config.json"
+    if not config_path.is_file():
+        return None
+    payload = read_data(config_path)
+    if not isinstance(payload, dict):
+        return None
+    quantization = payload.get("quantization")
+    if not isinstance(quantization, dict):
+        text_config = payload.get("text_config")
+        quantization = text_config.get("quantization") if isinstance(text_config, dict) else None
+    if not isinstance(quantization, dict):
+        return None
+    entries = [value for value in quantization.values() if isinstance(value, dict)]
+    if not entries:
+        entries = [quantization]
+    modes: dict[int, set[str]] = {}
+    for entry in entries:
+        bits, mode = entry.get("bits"), entry.get("mode", "affine")
+        if not isinstance(bits, int) or not isinstance(mode, str):
+            return None
+        modes.setdefault(bits, set()).add(mode)
+    labels = {"bf16": "BF16"}
+    for bits, found in modes.items():
+        label = _MX_STORAGE_LABELS.get((bits, next(iter(found)))) if len(found) == 1 else None
+        if label is None:
+            return None
+        labels[f"{bits}bit"] = label
+    return labels
+
+
+def _dflash2_row(directory: Path) -> str:
+    path = directory / "axquant_dflash2_target.json"
+    if not path.is_file():
+        return ""
+    declaration = load_model(path, Dflash2TargetDeclaration)
+    if declaration.status == "target" and declaration.drafter is not None:
+        value = (
+            f"Declared target for `{declaration.drafter.repo}` at "
+            f"`{declaration.drafter.revision[:12]}`; AX Engine selects the drafter. "
+            "Metadata, not route or speed evidence"
+        )
+    else:
+        value = "Not a DFlash2 target; AX Engine selects no drafter"
+    return f"| DFlash2 | {value} |\n"
 
 
 def _context_length(directory: Path) -> str:
@@ -539,6 +609,22 @@ def _render_development_model_card(
         {assignment.group_size for assignment in plan.assignments if assignment.group_size}
     )
     methods = sorted({assignment.method.value for assignment in plan.assignments})
+    storage_labels = _mx_storage_labels(directory)
+    dflash2_row = _dflash2_row(directory)
+    if storage_labels is not None:
+        storage_formats = ", ".join(
+            storage_labels[precision]
+            for precision in ("4bit", "8bit", "bf16")
+            if precision in storage_labels and precision in manifest.weight_distribution
+        )
+        precision_class_row = f"| Storage formats | `{storage_formats}` |\n"
+        methods_line = (
+            f"- Storage formats: `{storage_formats}`; MXFP4 and MXFP8 use 32-weight blocks "
+            "with one shared E8M0 scale."
+        )
+    else:
+        precision_class_row = f"| AXQuant base precision class | `{manifest.target_class}` |\n"
+        methods_line = f"- Quantization methods: `{', '.join(methods)}`."
     conversion, calibration, mtp_evidence = _evidence_summary(manifest, plan, execution)
     certified = _certification_for_repo(
         repo_id=repo_id,
@@ -572,13 +658,18 @@ def _render_development_model_card(
     main_parameters = _format_parameters(manifest.main_logical_parameters)
     no_4bit_reason = _NO_DISTINCT_4BIT_SIBLING_REASONS.get(stem)
     mx_block_family = product_class in {"MXFP4", "MXFP8"} and stem in _MX_BLOCK_CUDA_REPOS
-    if (is_embedding_pack or is_omni or is_qwen35_decision) and product_class in {"MXFP4", "MXFP8"}:
+    mx_pair_family = stem in _MX_PAIR_FAMILY_NOTES
+    if (is_embedding_pack or is_omni or is_qwen35_decision or mx_pair_family) and (
+        product_class in {"MXFP4", "MXFP8"}
+    ):
         other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
         other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
         if is_omni:
             sibling_note = "Vision, the audio encoder, code2wav, norms, and the LM head stay BF16."
         elif is_qwen35_decision:
             sibling_note = "Vision, MTP, and norms stay BF16. The LoRA was merged first."
+        elif mx_pair_family:
+            sibling_note = _MX_PAIR_FAMILY_NOTES[stem]
         else:
             sibling_note = "Vision and audio stay BF16."
         sibling_rows = (
@@ -642,6 +733,14 @@ def _render_development_model_card(
 This family publishes MXFP4, MXFP8, and one CUDA NVFP4 W4A16 pack. The two MLX packs use
 the same role policy at different block formats. Protected tensors stay at higher precision,
 so measured BPW is the figure to compare. {cuda_family_note}
+
+"""
+    elif product_class in {"MXFP4", "MXFP8"} and no_4bit_reason is None:
+        choosing_section = """## Choosing an AXQ pack
+
+This family publishes MXFP4 and MXFP8 packs. Both use the same role policy at different
+block formats. Protected tensors stay at higher precision, so measured BPW is the figure to
+compare.
 
 """
     else:
@@ -1140,8 +1239,7 @@ the BF16 source model. {sidecar_blurb}
 | Main-model parameters | {main_parameters} logical parameters |
 | Quantizer | AXQuant `{manifest.axquant_version}` |
 | Hub budget class | `{product_class}` |
-{edition_row}| AXQuant base precision class | `{manifest.target_class}` |
-| Planned storage-adjusted BPW | {manifest.effective_bpw:.4f} |
+{edition_row}{precision_class_row}| Planned storage-adjusted BPW | {manifest.effective_bpw:.4f} |
 | Measured main-model BPW | {manifest.measured_main_bpw:.4f} |
 | {total_bpw_label} | **{manifest.measured_total_bpw:.4f}** |
 | Safetensors weight size | {_format_decimal_size(manifest.weight_file_size_bytes)} |
@@ -1149,7 +1247,7 @@ the BF16 source model. {sidecar_blurb}
 | Configured maximum context | {context_length} tokens; practical limits depend on unified memory |
 | Primary MLX runtime | {runtime_label} |
 | AX Engine native execution | {ax_engine_runtime_status} |
-| MTP present | `{has_mtp}` |
+{dflash2_row}| MTP present | `{has_mtp}` |
 | Vision present | `{has_vision}` |
 | Audio present | `{has_audio}` |
 
@@ -1180,9 +1278,9 @@ deployments rather than relying indefinitely on `main`.
 
 | Main-weight precision | Parameters | Share |
 | --- | ---: | ---: |
-{_precision_rows(manifest)}
+{_precision_rows(manifest, storage_labels)}
 
-- Quantization methods: `{", ".join(methods)}`.
+{methods_line}
 - Group sizes used by quantized assignments: `{", ".join(map(str, group_sizes)) or "none"}`.
 - MTP sidecar: {mtp_detail}.
 - Vision sidecar: {vision_detail}.

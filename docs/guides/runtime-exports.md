@@ -194,6 +194,7 @@ runtime payload file. Required checks:
 | --- | --- |
 | MLX-LM text; AX Engine agreement with MLX-LM on at least 9 of a fixed 10-prompt set | Always |
 | MLX-VLM text and image | The pack ships vision weights |
+| AX Engine agreement with MLX-VLM's language model, replacing both MLX-LM checks | A vision pack whose model type MLX-LM cannot load (`qwen4_exp`) |
 | oMLX with MTP off and on, after `import_mtplx_sidecar` on a private copy | Qwen 3.5-family pack with `mtp.safetensors` |
 
 ```bash
@@ -203,8 +204,9 @@ python scripts/publication_smoke.py --directory /path/to/pack \
 
 `publish` and the catalog publisher refuse a missing, stale, or failing
 receipt. For AX Engine agreement, its greedy tokens (16-token budget) are
-teacher-forced through MLX-LM; a prompt agrees when every token is within
-0.5 nat of MLX-LM's top log-probability. Exact token equality and a single
+teacher-forced through MLX-LM (or MLX-VLM, where it replaces MLX-LM); a
+prompt agrees when every token is within 0.5 nat of the reference runtime's
+top log-probability. Exact token equality and a single
 exact answer are not used: engines break exact ties differently, and a small
 pack can sit on a near tie. Healthy packs measured 0 or 0.125 nat (one BF16
 logit step); tokens from a different model measured up to 14 nat. The gate

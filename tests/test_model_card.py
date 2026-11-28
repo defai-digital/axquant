@@ -457,6 +457,109 @@ def test_hy_mt2_and_swift_cards_link_mx_and_cuda_siblings(
         assert "writes `model-manifest.json` from this checkpoint" in card
 
 
+def test_qwen38_27b_card_links_mx_and_cuda_siblings_not_retired_ladder(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    card = render_development_model_card(
+        directory=directory,
+        repo_id="AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+        product_class="MXFP4",
+        manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
+        plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
+        execution=load_model(
+            directory / "axquant_quantizer_execution.json",
+            QuantizerExecutionManifest,
+        ),
+        mtp_sidecar=None,
+        vision_sidecar=None,
+    )
+
+    assert "AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP8-MTP" in card
+    assert "AutomatosX/AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP" in card
+    assert "-MLX-AXQ-4bit" not in card
+    assert "-MLX-AXQ-6bit" not in card
+
+
+@pytest.mark.parametrize(
+    "stem",
+    ["AX-Qwen3.6-35B-A3B-MLX-AXQ", "AX-Qwen3.8-Flash-Next-MLX-AXQ"],
+)
+def test_mx_pair_card_links_mxfp8_sibling_only(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+    stem: str,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    card = render_development_model_card(
+        directory=directory,
+        repo_id=f"AutomatosX/{stem}-MXFP4-MTP",
+        product_class="MXFP4",
+        manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
+        plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
+        execution=load_model(
+            directory / "axquant_quantizer_execution.json",
+            QuantizerExecutionManifest,
+        ),
+        mtp_sidecar=None,
+        vision_sidecar=None,
+    )
+
+    assert f"AutomatosX/{stem}-MXFP8-MTP" in card
+    assert "This family publishes MXFP4 and MXFP8 packs." in card
+    assert "-MLX-AXQ-4bit" not in card
+    assert "-MLX-AXQ-6bit" not in card
+    assert "6bit" not in card.split("## Choosing an AXQ pack", 1)[1].split("## ", 1)[0]
+
+
+def test_mx_only_pack_card_names_storage_formats(
+    qwen36_model_dir: Path,
+    tmp_path: Path,
+) -> None:
+    directory = _development_artifact(qwen36_model_dir, tmp_path)
+    config_path = directory / "config.json"
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    config["quantization"] = {
+        "bits": 4,
+        "group_size": 32,
+        "mode": "mxfp4",
+        "model.layers.0.mlp.up_proj": {"bits": 4, "group_size": 32, "mode": "mxfp4"},
+        "model.embed_tokens": {"bits": 8, "group_size": 32, "mode": "mxfp8"},
+    }
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    manifest = load_model(directory / "axquant_manifest.json", ArtifactManifest)
+
+    def render() -> str:
+        return render_development_model_card(
+            directory=directory,
+            repo_id="AutomatosX/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP",
+            product_class="MXFP4",
+            manifest=manifest,
+            plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
+            execution=load_model(
+                directory / "axquant_quantizer_execution.json",
+                QuantizerExecutionManifest,
+            ),
+            mtp_sidecar=None,
+            vision_sidecar=None,
+        )
+
+    card = render()
+    assert "| Storage formats |" in card
+    assert "AXQuant base precision class" not in card
+    assert "Quantization methods:" not in card
+    assert "| Storage formats | `MXFP4, BF16` |" in card
+    assert "| `MXFP4` |" in card
+    assert "| `BF16` |" in card
+
+    config["quantization"]["model.embed_tokens"] = {"bits": 8, "group_size": 64}
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    legacy = render()
+    assert "AXQuant base precision class" in legacy
+    assert "Quantization methods:" in legacy
+
+
 def test_development_model_card_marks_v2_at_stable_repository_name(
     qwen36_model_dir: Path,
     tmp_path: Path,

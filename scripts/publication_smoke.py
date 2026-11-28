@@ -43,6 +43,7 @@ from axquant.publication_smoke import (  # noqa: E402
     AGREEMENT_PROMPT_SET_SHA256,
     AGREEMENT_PROMPTS,
     AX_ENGINE_AGREEMENT_CHECK,
+    AX_ENGINE_VLM_AGREEMENT_CHECK,
     DECISION_HEAD_NOTE,
     SMOKE_RECEIPT_FILENAME,
     agreed_prompts,
@@ -54,6 +55,7 @@ from axquant.publication_smoke import (  # noqa: E402
 )
 from axquant.schema.runtime_export import (  # noqa: E402
     PublicationSmokeCheck,
+    PublicationSmokeCheckId,
     PublicationSmokeReceipt,
 )
 from axquant.serde import write_data  # noqa: E402
@@ -123,6 +125,50 @@ for row in json.load(open(sys.argv[2])):
         deficits.append(0.0)
         continue
     logits = model(mx.array([ids + cont]))[0].astype(mx.float32)
+    logprobs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
+    start = len(ids) - 1
+    worst = 0.0
+    for offset, token in enumerate(cont):
+        step = logprobs[start + offset]
+        worst = max(worst, (step.max() - step[token]).item())
+    deficits.append(worst)
+print("RESULT " + json.dumps(deficits))
+"""
+
+# MLX-VLM reference for model types MLX-LM cannot load. Tokenizing loads only
+# the pack's tokenizer (the one MLX-VLM's processor wraps), so AX Engine never
+# shares memory with a resident MLX-VLM copy. mlx_vlm.utils.load_processor alone
+# cannot resolve a custom image processor such as qwen4_exp's.
+_MLX_VLM_TOKENIZE = """
+import json, sys
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained(sys.argv[1])
+rows = []
+for question in json.loads(sys.argv[2]):
+    text = tokenizer.apply_chat_template(
+        [{"role": "user", "content": question}],
+        add_generation_prompt=True, tokenize=False, enable_thinking=False,
+    )
+    rows.append(list(tokenizer.encode(text, add_special_tokens=False)))
+stop = set(getattr(tokenizer, "all_special_ids", None) or [])
+if tokenizer.eos_token_id is not None:
+    stop.add(tokenizer.eos_token_id)
+print("RESULT " + json.dumps({"ids": rows, "stop_ids": sorted(int(t) for t in stop)}))
+"""
+
+_MLX_VLM_SCORE = """
+import json, sys
+import mlx.core as mx
+from mlx_vlm import load
+model, _ = load(sys.argv[1])
+deficits = []
+for row in json.load(open(sys.argv[2])):
+    ids, cont = row["ids"], row["tokens"]
+    if not cont:
+        deficits.append(0.0)
+        continue
+    result = model.language_model(mx.array([ids + cont]))
+    logits = getattr(result, "logits", result)[0].astype(mx.float32)
     logprobs = logits - mx.logsumexp(logits, axis=-1, keepdims=True)
     start = len(ids) - 1
     worst = 0.0
@@ -240,16 +286,24 @@ def _ax_engine_generate(args: argparse.Namespace, ids: list[int]) -> list[int]:
 EMPTY_CONTINUATION_DEFICIT = 99.0
 
 
-def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> PublicationSmokeCheck:
-    """AX Engine's greedy tokens must be near-top choices of MLX-LM."""
+def _ax_engine_agreement(
+    args: argparse.Namespace,
+    version: str | None,
+    name: PublicationSmokeCheckId = AX_ENGINE_AGREEMENT_CHECK,
+) -> PublicationSmokeCheck:
+    """AX Engine's greedy tokens must be near-top choices of the reference runtime."""
 
+    if name == AX_ENGINE_VLM_AGREEMENT_CHECK:
+        reference_name, tokenize, score = "MLX-VLM", _MLX_VLM_TOKENIZE, _MLX_VLM_SCORE
+    else:
+        reference_name, tokenize, score = "MLX-LM", _MLX_LM_TOKENIZE, _MLX_LM_SCORE
     started = time.monotonic()
     total = len(AGREEMENT_PROMPTS)
     detail, deficits = "", []
     try:
         reference = _python_result(
             args.python,
-            _MLX_LM_TOKENIZE,
+            tokenize,
             str(args.directory),
             json.dumps(list(AGREEMENT_PROMPTS)),
             timeout=args.timeout,
@@ -273,7 +327,7 @@ def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> Publi
                 round(float(value), 4)
                 for value in _python_result(
                     args.python,
-                    _MLX_LM_SCORE,
+                    score,
                     str(args.directory),
                     handle.name,
                     timeout=args.timeout,
@@ -296,15 +350,15 @@ def _ax_engine_agreement(args: argparse.Namespace, version: str | None) -> Publi
     if not detail and agreed < total:
         outliers = [i for i, d in enumerate(deficits) if d > AGREEMENT_MAX_DEFICIT_NAT]
         detail = f"prompts beyond {AGREEMENT_MAX_DEFICIT_NAT} nat: {outliers}"
-    output = f"{agreed}/{total} prompts within {AGREEMENT_MAX_DEFICIT_NAT} nat of MLX-LM"
-    print(f"{AX_ENGINE_AGREEMENT_CHECK}: {'pass' if passed else 'FAIL'} {output} {deficits}")
+    output = f"{agreed}/{total} prompts within {AGREEMENT_MAX_DEFICIT_NAT} nat of {reference_name}"
+    print(f"{name}: {'pass' if passed else 'FAIL'} {output} {deficits}")
     return PublicationSmokeCheck(
-        check=AX_ENGINE_AGREEMENT_CHECK,
+        check=name,
         status="pass" if passed else "fail",
         runtime_version=version,
         expected=(
             f">= {AGREEMENT_MIN_RATIO:.0%} of {total} prompts with every token within "
-            f"{AGREEMENT_MAX_DEFICIT_NAT} nat of MLX-LM's top choice"
+            f"{AGREEMENT_MAX_DEFICIT_NAT} nat of {reference_name}'s top choice"
         ),
         output=output,
         detail=detail,
@@ -438,8 +492,8 @@ def main() -> int:
         mlx_vlm_version = _package_version(args.python, "mlx-vlm")
         engine = _ax_engine_version(args.ax_engine_bench)
         for name in required:
-            if name == AX_ENGINE_AGREEMENT_CHECK:
-                checks.append(_ax_engine_agreement(args, engine))
+            if name in (AX_ENGINE_AGREEMENT_CHECK, AX_ENGINE_VLM_AGREEMENT_CHECK):
+                checks.append(_ax_engine_agreement(args, engine, name))
             elif name == "mlx-lm:text":
                 checks.append(
                     _check(
