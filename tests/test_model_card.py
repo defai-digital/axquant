@@ -482,14 +482,19 @@ def test_qwen38_27b_card_links_mx_and_cuda_siblings_not_retired_ladder(
     assert "-MLX-AXQ-6bit" not in card
 
 
-def test_qwen36_35b_card_links_mxfp8_sibling_only(
+@pytest.mark.parametrize(
+    "stem",
+    ["AX-Qwen3.6-35B-A3B-MLX-AXQ", "AX-Qwen3.8-Flash-Next-MLX-AXQ"],
+)
+def test_mx_pair_card_links_mxfp8_sibling_only(
     qwen36_model_dir: Path,
     tmp_path: Path,
+    stem: str,
 ) -> None:
     directory = _development_artifact(qwen36_model_dir, tmp_path)
     card = render_development_model_card(
         directory=directory,
-        repo_id="AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP4-MTP",
+        repo_id=f"AutomatosX/{stem}-MXFP4-MTP",
         product_class="MXFP4",
         manifest=load_model(directory / "axquant_manifest.json", ArtifactManifest),
         plan=load_model(directory / "axquant_plan.json", QuantizationPlan),
@@ -501,7 +506,7 @@ def test_qwen36_35b_card_links_mxfp8_sibling_only(
         vision_sidecar=None,
     )
 
-    assert "AutomatosX/AX-Qwen3.6-35B-A3B-MLX-AXQ-MXFP8-MTP" in card
+    assert f"AutomatosX/{stem}-MXFP8-MTP" in card
     assert "This family publishes MXFP4 and MXFP8 packs." in card
     assert "-MLX-AXQ-4bit" not in card
     assert "-MLX-AXQ-6bit" not in card

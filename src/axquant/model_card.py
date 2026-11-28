@@ -92,6 +92,7 @@ _MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
 # family is not linked: it stays only until its replacement passes (AXQ-070).
 _MX_PAIR_FAMILY_NOTES: dict[str, str] = {
     "AX-Qwen3.6-35B-A3B-MLX-AXQ": "Vision, MTP, routers, norms, and the LM head stay BF16.",
+    "AX-Qwen3.8-Flash-Next-MLX-AXQ": "Vision, MTP, norms, and small PLE tensors stay BF16.",
 }
 _MX_BLOCK_CUDA_REPOS: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
