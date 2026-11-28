@@ -2837,6 +2837,22 @@ def test_support_file_completion_copies_absent_runtime_assets(tmp_path: Path) ->
     assert not (staging / "tokenizer.json").exists()
 
 
+def test_support_file_completion_carries_license_and_video_processor(tmp_path: Path) -> None:
+    source, staging = tmp_path / "source", tmp_path / "staging"
+    source.mkdir()
+    staging.mkdir()
+    (source / "LICENSE").write_text("Apache License", encoding="utf-8")
+    (source / "NOTICE").write_text("upstream notice", encoding="utf-8")
+    (source / "video_preprocessor_config.json").write_text("{}", encoding="utf-8")
+    (source / "configuration.json").write_text("{}", encoding="utf-8")
+
+    completed = converter._complete_runtime_support_files(source, staging)
+
+    assert sorted(completed) == ["LICENSE", "NOTICE", "video_preprocessor_config.json"]
+    assert (staging / "LICENSE").read_text(encoding="utf-8") == "Apache License"
+    assert not (staging / "configuration.json").exists()
+
+
 def test_support_file_completion_copies_sentence_transformers_assets(tmp_path: Path) -> None:
     source, staging = tmp_path / "source", tmp_path / "staging"
     source.mkdir()

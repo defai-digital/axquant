@@ -323,6 +323,7 @@ _RUNTIME_SUPPORT_FILENAMES = (
     "processor_config.json",
     "image_processor_config.json",
     "video_processor_config.json",
+    "video_preprocessor_config.json",
     "special_tokens_map.json",
     "added_tokens.json",
     "vocab.txt",
@@ -331,6 +332,13 @@ _RUNTIME_SUPPORT_FILENAMES = (
     "modules.json",
     "config_sentence_transformers.json",
     "sentence_bert_config.json",
+    # Upstream license and notice files travel with every derivative pack.
+    "LICENSE",
+    "LICENSE.txt",
+    "LICENSE.md",
+    "NOTICE",
+    "NOTICE.txt",
+    "NOTICE.md",
 )
 _RUNTIME_SUPPORT_GLOBS = ("*.model",)
 # Sentence-transformers pooling directories (embedding packs only). Copied
