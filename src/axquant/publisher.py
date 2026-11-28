@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import structlog
-from huggingface_hub import HfApi
+from huggingface_hub import CommitOperationAdd, CommitOperationDelete, HfApi
 from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub.hf_api import RepoFile
 from pydantic import ValidationError
 
 from axquant.artifact_evidence_binding import artifact_evidence_binding_issues
@@ -639,54 +642,7 @@ def publish_model(
 ) -> list[str]:
     if type(execute) is not bool or type(private) is not bool:
         raise PublishingError("publication execute/private controls must be booleans")
-    require_model_supported(repo_id, model_dir)
-    supplied_directory = Path(model_dir).expanduser()
-    if supplied_directory.is_symlink():
-        raise PublishingError("artifact root is a symlink")
-    directory = supplied_directory.resolve()
-    if not directory.is_dir():
-        raise PublishingError(f"model directory does not exist: {directory}")
-    _publication_files(directory)
-    for name in ("axquant_manifest.json", "config.json"):
-        identity_path = directory / name
-        if identity_path.is_file():
-            identity = read_data(identity_path)
-            if isinstance(identity, dict):
-                require_model_supported(repo_id, directory, config=identity)
-    if not _REPO_ID.fullmatch(repo_id):
-        raise PublishingError("Hub repository must use the owner/name form")
-    _require_mtp_suffix_for_publication(directory, repo_id)
-    from axquant.runtime_compatibility import validate_declared_runtime_compatibility
-
-    try:
-        validate_declared_runtime_compatibility(directory)
-    except (AxquantError, ValidationError, OSError, ValueError) as exc:
-        raise PublishingError(f"runtime compatibility binding check failed: {exc}") from exc
-    from axquant.publication_smoke import require_publication_smoke
-
-    try:
-        require_publication_smoke(directory)
-    except AxquantError as exc:
-        raise PublishingError(f"runtime smoke gate failed: {exc}") from exc
-    from axquant.dflash2_target import require_publication_declaration
-
-    try:
-        require_publication_declaration(directory)
-    except (AxquantError, OSError, ValueError) as exc:
-        raise PublishingError(f"DFlash2 target gate failed: {exc}") from exc
-    identity_issues = artifact_identity_issues(directory)
-    if identity_issues:
-        # Published artifacts must identify the checkpoint by name, not by where
-        # it happened to live; a path here would be uploaded verbatim (AXQ-048).
-        raise PublishingError(
-            "publication identity is not publishable: " + "; ".join(identity_issues)
-        )
-    # Report, do not deny, the rest of the tree: other evidence files may still
-    # record a path-shaped identity, and this is the list a stricter gate would
-    # reject (AXQ-048, remaining evidence writers).
-    tree_identity = tree_identity_issues(directory)
-    if tree_identity:
-        _LOG.warning("publication_path_shaped_identity", files=tree_identity)
+    directory = require_publication_preconditions(model_dir=model_dir, repo_id=repo_id)
     request_schema: str | None = None
     if release_audit_request_path is not None:
         payload = read_data(release_audit_request_path)
@@ -860,3 +816,248 @@ def publish_model(
         raise PublishingError(f"Hub publication failed: {exc}") from exc
     _LOG.info("publication_completed", repo=repo_id, files=len(files), private=private)
     return files
+
+
+def require_publication_preconditions(*, model_dir: str | Path, repo_id: str) -> Path:
+    """Run the artifact gates every publication track shares; return the resolved directory.
+
+    Covers model support, tree safety, MTP naming, declared runtime compatibility,
+    the runtime smoke receipt, the DFlash2 target declaration and path-free
+    identity. Certification gates are the caller's responsibility.
+    """
+
+    require_model_supported(repo_id, model_dir)
+    supplied_directory = Path(model_dir).expanduser()
+    if supplied_directory.is_symlink():
+        raise PublishingError("artifact root is a symlink")
+    directory = supplied_directory.resolve()
+    if not directory.is_dir():
+        raise PublishingError(f"model directory does not exist: {directory}")
+    _publication_files(directory)
+    for name in ("axquant_manifest.json", "config.json"):
+        identity_path = directory / name
+        if identity_path.is_file():
+            identity = read_data(identity_path)
+            if isinstance(identity, dict):
+                require_model_supported(repo_id, directory, config=identity)
+    if not _REPO_ID.fullmatch(repo_id):
+        raise PublishingError("Hub repository must use the owner/name form")
+    _require_mtp_suffix_for_publication(directory, repo_id)
+    from axquant.runtime_compatibility import validate_declared_runtime_compatibility
+
+    try:
+        validate_declared_runtime_compatibility(directory)
+    except (AxquantError, ValidationError, OSError, ValueError) as exc:
+        raise PublishingError(f"runtime compatibility binding check failed: {exc}") from exc
+    from axquant.publication_smoke import require_publication_smoke
+
+    try:
+        require_publication_smoke(directory)
+    except AxquantError as exc:
+        raise PublishingError(f"runtime smoke gate failed: {exc}") from exc
+    from axquant.dflash2_target import require_publication_declaration
+
+    try:
+        require_publication_declaration(directory)
+    except (AxquantError, OSError, ValueError) as exc:
+        raise PublishingError(f"DFlash2 target gate failed: {exc}") from exc
+    identity_issues = artifact_identity_issues(directory)
+    if identity_issues:
+        # Published artifacts must identify the checkpoint by name, not by where
+        # it happened to live; a path here would be uploaded verbatim (AXQ-048).
+        raise PublishingError(
+            "publication identity is not publishable: " + "; ".join(identity_issues)
+        )
+    # Report, do not deny, the rest of the tree: other evidence files may still
+    # record a path-shaped identity, and this is the list a stricter gate would
+    # reject (AXQ-048, remaining evidence writers).
+    tree_identity = tree_identity_issues(directory)
+    if tree_identity:
+        _LOG.warning("publication_path_shaped_identity", files=tree_identity)
+    return directory
+
+
+# Files the manifest cannot list: the manifest itself and the smoke receipt,
+# which binds the payload digest after the manifest is final.
+_DEVELOPMENT_UNLISTED_FILES = frozenset({"axquant_manifest.json", "axquant_publication_smoke.json"})
+# Hub-managed attributes stay as the repository has them.
+_HUB_MANAGED_FILES = frozenset({".gitattributes"})
+
+
+@dataclass(frozen=True)
+class DevelopmentRepublication:
+    """What a development republish changes on the Hub, relative to one parent commit."""
+
+    repo_id: str
+    parent_revision: str
+    added: tuple[str, ...]
+    replaced: tuple[str, ...]
+    unchanged: tuple[str, ...]
+    deleted: tuple[str, ...]
+    commit: str | None = None
+
+
+def development_pack_file_issues(directory: Path) -> list[str]:
+    """Return issues unless every file is bound by the manifest with matching bytes."""
+
+    try:
+        manifest = load_artifact_manifest(directory / "axquant_manifest.json")
+    except (AxquantError, ValidationError, OSError, ValueError) as exc:
+        return [f"artifact manifest is invalid: {exc}"]
+    listed = {record.path: record for record in manifest.files}
+    tree = {path.relative_to(directory).as_posix(): path for path in _publication_files(directory)}
+    issues: list[str] = []
+    for name, record in sorted(listed.items()):
+        path = tree.get(name)
+        if path is None:
+            issues.append(f"manifest file is missing: {name}")
+        elif path.stat().st_size != record.size_bytes:
+            issues.append(f"manifest size mismatch: {name}")
+        elif file_sha256(path) != record.sha256:
+            issues.append(f"manifest digest mismatch: {name}")
+    for name in sorted(tree):
+        if name not in listed and name not in _DEVELOPMENT_UNLISTED_FILES | _HUB_MANAGED_FILES:
+            issues.append(f"file is not bound by axquant_manifest.json: {name}")
+    return issues
+
+
+def _git_blob_sha1(path: Path) -> str:
+    digest = hashlib.sha1(usedforsecurity=False)
+    digest.update(f"blob {path.stat().st_size}\0".encode())
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _remote_file_matches(remote: RepoFile, path: Path, sha256: str) -> bool:
+    if remote.size != path.stat().st_size:
+        return False
+    if remote.lfs is not None:
+        return bool(remote.lfs.sha256 == sha256)
+    return bool(remote.blob_id == _git_blob_sha1(path))
+
+
+def _remote_files(api: HfApi, repo_id: str, revision: str) -> dict[str, RepoFile]:
+    entries = retry_hub_call(
+        "list_repo_tree",
+        lambda: list(
+            api.list_repo_tree(
+                repo_id=repo_id, repo_type="model", revision=revision, recursive=True
+            )
+        ),
+    )
+    return {entry.path: entry for entry in entries if isinstance(entry, RepoFile)}
+
+
+def republish_development_pack(
+    *,
+    model_dir: str | Path,
+    repo_id: str,
+    expected_parent: str,
+    execute: bool = False,
+    api: HfApi | None = None,
+) -> DevelopmentRepublication:
+    """Replace a live repository's files with a rebuilt development pack in one commit.
+
+    Development evidence only: no certification gate runs and none is implied.
+    The shared publication preconditions, the privacy scan and a byte check of
+    every file against ``axquant_manifest.json`` must pass. The commit is made
+    on top of ``expected_parent`` (the Hub refuses it if ``main`` moved), files
+    the pack no longer has are deleted, and the result is verified against the
+    local digests. Without ``execute`` only the change set is returned.
+    """
+
+    if type(execute) is not bool:
+        raise PublishingError("republication execute control must be a boolean")
+    if not is_immutable_revision(expected_parent):
+        raise PublishingError("expected parent must be a 40-hex Hub commit")
+    directory = require_publication_preconditions(model_dir=model_dir, repo_id=repo_id)
+    require_publication_privacy(directory)
+    issues = development_pack_file_issues(directory)
+    if issues:
+        raise PublishingError("development pack is not manifest-bound: " + "; ".join(issues))
+    manifest = load_artifact_manifest(directory / "axquant_manifest.json")
+    digests = {record.path: record.sha256 for record in manifest.files}
+    local = {
+        path.relative_to(directory).as_posix(): path
+        for path in _publication_files(directory)
+        if path.relative_to(directory).as_posix() not in _HUB_MANAGED_FILES
+    }
+    for name in local:
+        if name not in digests:
+            digests[name] = file_sha256(local[name])
+    hub = api if api is not None else HfApi()
+    head = retry_hub_call("model_info", lambda: hub.model_info(repo_id=repo_id)).sha
+    if head != expected_parent:
+        raise PublishingError(
+            f"{repo_id} main is {head}, not the expected parent {expected_parent}"
+        )
+    remote = _remote_files(hub, repo_id, expected_parent)
+    added: list[str] = []
+    replaced: list[str] = []
+    unchanged: list[str] = []
+    for name, path in sorted(local.items()):
+        entry = remote.get(name)
+        if entry is None:
+            added.append(name)
+        elif _remote_file_matches(entry, path, digests[name]):
+            unchanged.append(name)
+        else:
+            replaced.append(name)
+    deleted = sorted(
+        name for name in remote if name not in local and name not in _HUB_MANAGED_FILES
+    )
+    plan = DevelopmentRepublication(
+        repo_id=repo_id,
+        parent_revision=expected_parent,
+        added=tuple(added),
+        replaced=tuple(replaced),
+        unchanged=tuple(unchanged),
+        deleted=tuple(deleted),
+    )
+    if not execute:
+        _LOG.info(
+            "republication_preview",
+            repo=repo_id,
+            added=len(added),
+            replaced=len(replaced),
+            unchanged=len(unchanged),
+            deleted=len(deleted),
+        )
+        return plan
+    if not added and not replaced and not deleted:
+        raise PublishingError(f"{repo_id} already holds this pack; nothing to republish")
+    operations: list[CommitOperationAdd | CommitOperationDelete] = [
+        CommitOperationAdd(path_in_repo=name, path_or_fileobj=str(local[name]))
+        for name in (*added, *replaced)
+    ]
+    operations += [CommitOperationDelete(path_in_repo=name) for name in deleted]
+    try:
+        info = hub.create_commit(
+            repo_id=repo_id,
+            repo_type="model",
+            operations=operations,
+            commit_message="Republish rebuilt AXQuant development pack",
+            parent_commit=expected_parent,
+        )
+    except Exception as exc:
+        raise PublishingError(f"Hub republication failed: {exc}") from exc
+    commit = info.oid
+    after = _remote_files(hub, repo_id, commit)
+    expected_names = set(local) | {name for name in remote if name in _HUB_MANAGED_FILES}
+    if set(after) != expected_names:
+        missing = sorted(expected_names - set(after))
+        extra = sorted(set(after) - expected_names)
+        raise PublishingError(
+            f"republished tree differs from the pack at {commit}: missing={missing} extra={extra}"
+        )
+    mismatched = [
+        name
+        for name, path in sorted(local.items())
+        if not _remote_file_matches(after[name], path, digests[name])
+    ]
+    if mismatched:
+        raise PublishingError(f"republished files differ from the pack at {commit}: {mismatched}")
+    _LOG.info("republication_completed", repo=repo_id, commit=commit, files=len(local))
+    return replace(plan, commit=commit)
