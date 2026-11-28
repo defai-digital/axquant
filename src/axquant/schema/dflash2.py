@@ -215,3 +215,46 @@ class Dflash2TargetDeclaration(StrictModel):
             raise ValueError("only a declared non-target records a reason")
         _check_tap_layers(self.tap_layer_ids, self.target_num_hidden_layers)
         return self
+
+
+# A composite member lives under ``dflash2/`` and is a plain relative path.
+_COMPANION_FILE = r"^dflash2/[A-Za-z0-9][A-Za-z0-9_.-]*$"
+
+
+class Dflash2CompanionFile(StrictModel):
+    path: str = Field(pattern=_COMPANION_FILE)
+    size_bytes: int = Field(ge=0)
+    sha256: str = Field(pattern=_SHA256)
+
+
+class Dflash2Companion(StrictModel):
+    """Composite target + drafter pack record (AXQ-067 DF-5, ``axquant_dflash2_companion.json``).
+
+    The target files are byte-identical to the bound target pack and the
+    drafter files byte-identical to the admitted upstream revision; nothing is
+    requantized. Development metadata only: the target's certificates, if any,
+    do not transfer, and no route, speed or quality claim follows.
+    """
+
+    schema_version: Literal["axquant.dflash2_companion.v1"] = "axquant.dflash2_companion.v1"
+    target_artifact_manifest_sha256: str = Field(pattern=_SHA256)
+    target_declaration_sha256: str = Field(pattern=_SHA256)
+    source_model_id: str = Field(pattern=_HUB_ID)
+    source_revision: str = Field(pattern=_REVISION)
+    drafter: Dflash2DrafterPin
+    drafter_license: str = Field(min_length=1)
+    files: list[Dflash2CompanionFile] = Field(min_length=2)
+    composer_version: str = Field(min_length=1)
+    created_at: datetime = Field(default_factory=utc_now)
+
+    @model_validator(mode="after")
+    def _drafter_files(self) -> Dflash2Companion:
+        paths = [item.path for item in self.files]
+        if len(paths) != len(set(paths)):
+            raise ValueError("companion files must be unique")
+        by_path = {item.path: item.sha256 for item in self.files}
+        if by_path.get("dflash2/config.json") != self.drafter.config_sha256:
+            raise ValueError("dflash2/config.json must match the drafter config pin")
+        if by_path.get("dflash2/model.safetensors") != self.drafter.weights_sha256:
+            raise ValueError("dflash2/model.safetensors must match the drafter weights pin")
+        return self

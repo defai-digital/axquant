@@ -38,6 +38,7 @@ from axquant.lifecycle import require_active_certification
 from axquant.model_support import require_model_supported
 from axquant.naming import (
     assert_manifest_mtp_files_agree,
+    require_dflash2_suffix_matches_packaging,
     require_mtp_suffix_matches_packaging,
 )
 from axquant.release_audit import build_release_audit
@@ -613,6 +614,7 @@ def _require_mtp_suffix_for_publication(directory: Path, repo_id: str) -> None:
     leaf = repo_id.split("/", 1)[1]
     try:
         require_mtp_suffix_matches_packaging(leaf, filenames=files)
+        require_dflash2_suffix_matches_packaging(leaf, filenames=files)
         manifest_path = directory / "axquant_manifest.json"
         if manifest_path.is_file():
             payload = read_data(manifest_path)

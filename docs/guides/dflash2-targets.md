@@ -58,3 +58,25 @@ packs are not checked; AX Engine does not load them.
 The declaration is development metadata. It is not evidence that DFlash2
 loads, accepts drafts or runs faster with the pack, and it is not a quality
 certificate.
+
+## Composite packs (local pilot)
+
+AX Engine looks for a drafter in `dflash2/` inside the model directory before
+the Hugging Face cache. `scripts/compose_dflash2_composite.py` builds a local
+composite from a declared target pack and the pinned drafter snapshot:
+
+```bash
+python scripts/compose_dflash2_composite.py compose \
+  --target /path/to/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP \
+  --drafter /path/to/z-lab/Qwen3.8-27B-DFlash2/snapshot \
+  --output-root /path/to/composites
+python scripts/compose_dflash2_composite.py verify \
+  --directory /path/to/composites/AX-Qwen3.8-27B-MLX-AXQ-MXFP4-MTP-DFlash2
+```
+
+The target files are kept unchanged and the drafter files must match the
+mirrored pin; nothing is requantized. `axquant_dflash2_companion.json`
+(schema `axquant.dflash2_companion.v1`) binds the target manifest, the target
+declaration and the drafter files. A composite is named `<target>-DFlash2`,
+and publication refuses a tree whose name and bundled drafter disagree.
+Composites are a local pilot; none is published.

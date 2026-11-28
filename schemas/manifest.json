@@ -1,5 +1,5 @@
 {
-  "count": 155,
+  "count": 156,
   "entries": [
     {
       "compatibility_class": "evidence",
@@ -344,6 +344,14 @@
       "model": "axquant.schema.dflash2.Dflash2AdmittedTargets",
       "schema_version": "axquant.dflash2_admitted_targets.v1",
       "sha256": "4b581209ddbdab8d86e2b4764ce9ec06ebd92692095e82e4f26752152c521790"
+    },
+    {
+      "compatibility_class": "evidence",
+      "filename": "axquant.dflash2_companion.v1.schema.json",
+      "freeze_policy": "immutable-envelope",
+      "model": "axquant.schema.dflash2.Dflash2Companion",
+      "schema_version": "axquant.dflash2_companion.v1",
+      "sha256": "2bd5ddd0e3513115f3c1fe92b87ed6005e9199c75d96cbbd7f89e90a560a7088"
     },
     {
       "compatibility_class": "evidence",
