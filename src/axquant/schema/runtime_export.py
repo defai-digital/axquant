@@ -67,6 +67,7 @@ class RuntimeExportManifest(StrictModel):
 
 PublicationSmokeCheckId = Literal[
     "ax-engine:mlx-lm-agreement",
+    "ax-engine:mlx-vlm-agreement",
     "mlx-lm:text",
     "mlx-vlm:text",
     "mlx-vlm:image",
@@ -84,7 +85,8 @@ class PublicationSmokeCheck(StrictModel):
     detail: str = ""
     seconds: float | None = None
     # Agreement checks: per-prompt worst log-probability deficit (nat) of the
-    # candidate's tokens under MLX-LM, prompts within tolerance, and the digest
+    # candidate's tokens under the reference runtime the check id names (MLX-LM
+    # or MLX-VLM), prompts within tolerance, and the digest
     # of the prompt set, budget and tolerance.
     agreed: int | None = Field(default=None, ge=0)
     total: int | None = Field(default=None, ge=1)
@@ -99,7 +101,7 @@ class PublicationSmokeReceipt(StrictModel):
     quality, speed, or MTP acceptance.
     """
 
-    schema_version: Literal["axquant.publication-smoke.v2"] = "axquant.publication-smoke.v2"
+    schema_version: Literal["axquant.publication-smoke.v3"] = "axquant.publication-smoke.v3"
     payload_sha256: Digest
     required_checks: list[PublicationSmokeCheckId]
     checks: list[PublicationSmokeCheck]

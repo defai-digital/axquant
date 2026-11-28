@@ -10,6 +10,9 @@ and answer a short greedy prompt:
   token equality is not used: engines break exact ties differently, and one
   exact answer is brittle on a pack that sits on a near tie;
 * MLX-VLM, text and image, when the pack ships vision weights;
+* for a vision pack whose model type MLX-LM cannot load, MLX-VLM replaces
+  MLX-LM: no MLX-LM text check, and AX Engine agreement is scored against
+  MLX-VLM's language model under its own check id;
 * oMLX with MTP off and on, for Qwen 3.5-family packs with an MTP sidecar
   (the selected optional peer runtime).
 
@@ -34,6 +37,13 @@ from axquant.serde import file_sha256, stable_sha256
 
 SMOKE_RECEIPT_FILENAME = "axquant_publication_smoke.json"
 AX_ENGINE_AGREEMENT_CHECK: Final[PublicationSmokeCheckId] = "ax-engine:mlx-lm-agreement"
+AX_ENGINE_VLM_AGREEMENT_CHECK: Final[PublicationSmokeCheckId] = "ax-engine:mlx-vlm-agreement"
+AGREEMENT_CHECKS: Final[frozenset[PublicationSmokeCheckId]] = frozenset(
+    {AX_ENGINE_AGREEMENT_CHECK, AX_ENGINE_VLM_AGREEMENT_CHECK}
+)
+# Model types MLX-LM has no model for (MLX-LM 0.32.2). MLX-VLM loads their text
+# path, so it is the reference runtime for vision packs of these types.
+MLX_LM_UNSUPPORTED_MODEL_TYPES: Final = frozenset({"qwen4_exp"})
 AGREEMENT_MAX_TOKENS = 16
 AGREEMENT_MIN_RATIO = 0.9
 AGREEMENT_PROMPTS = (
@@ -145,10 +155,15 @@ def required_smoke_checks(directory: str | Path) -> list[PublicationSmokeCheckId
     pack = Path(directory)
     if not smoke_gate_applies(pack):
         return []
-    required: list[PublicationSmokeCheckId] = [AX_ENGINE_AGREEMENT_CHECK, "mlx-lm:text"]
-    if pack_has_vision(pack):
-        required += ["mlx-vlm:text", "mlx-vlm:image"]
     config = _read_object(pack / "config.json")
+    vision = pack_has_vision(pack)
+    required: list[PublicationSmokeCheckId]
+    if vision and _model_types(config) & MLX_LM_UNSUPPORTED_MODEL_TYPES:
+        required = [AX_ENGINE_VLM_AGREEMENT_CHECK]
+    else:
+        required = [AX_ENGINE_AGREEMENT_CHECK, "mlx-lm:text"]
+    if vision:
+        required += ["mlx-vlm:text", "mlx-vlm:image"]
     if (pack / "mtp.safetensors").is_file() and _model_types(config) & QWEN35_MODEL_TYPES:
         required += ["omlx:mtp-off", "omlx:mtp-on"]
     return required
@@ -224,22 +239,20 @@ def require_publication_smoke(directory: str | Path) -> PublicationSmokeReceipt 
         raise ValidationGateError(f"publication smoke receipt omits required checks: {missing}")
     results = {check.check: check for check in receipt.checks}
     failed = [name for name in required if name not in results or results[name].status != "pass"]
-    agreement = results.get(AX_ENGINE_AGREEMENT_CHECK)
-    deficits = agreement.logprob_deficits if agreement is not None else None
     # Recompute from the recorded counts; a "pass" label alone is not trusted.
-    if (
-        AX_ENGINE_AGREEMENT_CHECK in required
-        and AX_ENGINE_AGREEMENT_CHECK not in failed
-        and agreement is not None
-        and (
+    for name in required:
+        agreement = results.get(name)
+        if name not in AGREEMENT_CHECKS or name in failed or agreement is None:
+            continue
+        deficits = agreement.logprob_deficits
+        if (
             agreement.prompt_set_sha256 != AGREEMENT_PROMPT_SET_SHA256
             or deficits is None
             or len(deficits) != agreement.total
             or agreed_prompts(deficits) != agreement.agreed
             or not agreement_passes(agreement.agreed, agreement.total)
-        )
-    ):
-        failed.append(AX_ENGINE_AGREEMENT_CHECK)
+        ):
+            failed.append(name)
     excluded = decision_head_files(pack)
     if excluded:
         for name in required:
