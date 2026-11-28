@@ -88,6 +88,11 @@ _MX_BLOCK_FAMILY_NOTES: dict[str, str] = {
         "No MTP tensors were detected."
     ),
 }
+# MXFP4/MXFP8 families without a CUDA pack. A legacy 6-bit pack in the same
+# family is not linked: it stays only until its replacement passes (AXQ-070).
+_MX_PAIR_FAMILY_NOTES: dict[str, str] = {
+    "AX-Qwen3.6-35B-A3B-MLX-AXQ": "Vision, MTP, routers, norms, and the LM head stay BF16.",
+}
 _MX_BLOCK_CUDA_REPOS: dict[str, str] = {
     "AX-Hy-MT2-30B-A3B-MLX-AXQ": "AX-Hy-MT2-30B-A3B-CUDA-AXQ-NVFP4-W4A16",
     "AX-Qwen3.8-27B-MLX-AXQ": "AX-Qwen3.8-27B-CUDA-AXQ-NVFP4-W4A16-MTP",
@@ -652,13 +657,18 @@ def _render_development_model_card(
     main_parameters = _format_parameters(manifest.main_logical_parameters)
     no_4bit_reason = _NO_DISTINCT_4BIT_SIBLING_REASONS.get(stem)
     mx_block_family = product_class in {"MXFP4", "MXFP8"} and stem in _MX_BLOCK_CUDA_REPOS
-    if (is_embedding_pack or is_omni or is_qwen35_decision) and product_class in {"MXFP4", "MXFP8"}:
+    mx_pair_family = stem in _MX_PAIR_FAMILY_NOTES
+    if (is_embedding_pack or is_omni or is_qwen35_decision or mx_pair_family) and (
+        product_class in {"MXFP4", "MXFP8"}
+    ):
         other_class = "MXFP8" if product_class == "MXFP4" else "MXFP4"
         other_repo = f"{owner}/{stem}-{other_class}{repo_edition}{suffix}"
         if is_omni:
             sibling_note = "Vision, the audio encoder, code2wav, norms, and the LM head stay BF16."
         elif is_qwen35_decision:
             sibling_note = "Vision, MTP, and norms stay BF16. The LoRA was merged first."
+        elif mx_pair_family:
+            sibling_note = _MX_PAIR_FAMILY_NOTES[stem]
         else:
             sibling_note = "Vision and audio stay BF16."
         sibling_rows = (
@@ -722,6 +732,14 @@ def _render_development_model_card(
 This family publishes MXFP4, MXFP8, and one CUDA NVFP4 W4A16 pack. The two MLX packs use
 the same role policy at different block formats. Protected tensors stay at higher precision,
 so measured BPW is the figure to compare. {cuda_family_note}
+
+"""
+    elif product_class in {"MXFP4", "MXFP8"} and no_4bit_reason is None:
+        choosing_section = """## Choosing an AXQ pack
+
+This family publishes MXFP4 and MXFP8 packs. Both use the same role policy at different
+block formats. Protected tensors stay at higher precision, so measured BPW is the figure to
+compare.
 
 """
     else:
